@@ -1,0 +1,386 @@
+Type,Region Name,Size,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_DRAM,gDmmDramRegion1,500000,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_DRAM,gDmmDramRegion2,25000,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_DRAM,gDmmDramRegion3,150000,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_DRAM,gDmmDramRegion4,4600,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_IRAM,gDmmIramRegion1,120000,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_IRAM,gDmmIramRegion2,8500,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_IRAM,gDmmIramRegion3,40000,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_IRAM,gDmmIramRegion4,0,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_SYSRAM,gDmmSysramRegion1,50000,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_SYSRAM,gDmmSysramRegion2,0,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_SYSRAM,gDmmSysramRegion3,0,,,,,,,,,,,,,,,
+ATTR_ZIDATA_IN_SYSRAM,gDmmSysramRegion4,0,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,
+TotalComponentType_t,,,,,,,,,,,,,,,,,
+A2DP,,,,,,,,,,,,,,,,,
+HFP,,,,,,,,,,,,,,,,,
+LE_AUDIO,,,,,,,,,,,,,,,,,
+LE_CALL,,,,,,,,,,,,,,,,,
+LINEIN,,,,,,,,,,,,,,,,,
+USB,,,,,,,,,,,,,,,,,
+ESA,,,,,,,,,,,,,,,,,
+MULTI_MIC,,,,,,,,,,,,,,,,,
+OPT,,,,,,,,,,,,,,,,,
+WIRED_AUDIO,,,,,,,,,,,,,,,,,
+WWE,,,,,,,,,,,,,,,,,
+RECORD,,,,,,,,,,,,,,,,,
+VP,,,,,,,,,,,,,,,,,
+TDM,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,
+Region No,Component Name,Group No,Attr,Sub-component Name,Feature Type,Feature Option,Header File Path,IRAM Region Name,IRAM Size,IRAM Size Macro,DRAM Region Name,DRAM Size,DRAM Size Macro,SYSRAM Region Name,SYSRAM Size,SYSRAM Size Macro,Note
+1,A2DP,0,Head,,,,,gDmmIramRegion1,0,,gDmmDramRegion1,128,,gDmmSysramRegion1,0,,
+1,A2DP,1,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,1,,A2DP_SBC,CODEC_DECODER_SBC,AIR_BT_A2DP_SBC_ENABLE = y && MTK_BT_A2DP_SBC_USE_PIC = y,dsp_predefine.h,gDmmIramRegion1,4397,DSP_PREDEFINE_A2DP_SBC_IRAM,gDmmDramRegion1,9520,DSP_PREDEFINE_A2DP_SBC_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_A2DP_SBC_SYSRAM,5376(PIC)+4144(working buffer)
+1,A2DP,1,,A2DP_SBC,CODEC_DECODER_SBC,AIR_BT_A2DP_SBC_ENABLE = y && MTK_BT_A2DP_SBC_USE_PIC = n,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,
+1,A2DP,1,,A2DP_AAC,CODEC_DECODER_AAC,AIR_BT_A2DP_AAC_ENABLE = y && MTK_BT_A2DP_AAC_USE_PIC = y,dsp_predefine.h,gDmmIramRegion1,15788,DSP_PREDEFINE_A2DP_AAC_IRAM,gDmmDramRegion1,64624,DSP_PREDEFINE_A2DP_AAC_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_A2DP_AAC_SYSRAM,23856(PIC)+40768(working buffer)
+1,A2DP,1,,A2DP_AAC,CODEC_DECODER_AAC,AIR_BT_A2DP_AAC_ENABLE = y && MTK_BT_A2DP_AAC_USE_PIC = n,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,
+1,A2DP,1,,A2DP_VENDOR,CODEC_DECODER_VENDOR,AIR_BT_A2DP_VENDOR_ENABLE = y && MTK_BT_A2DP_VENDOR_USE_PIC = y,dsp_predefine.h,gDmmIramRegion1,14685,DSP_PREDEFINE_A2DP_VENDOR_IRAM,gDmmDramRegion1,30768,DSP_PREDEFINE_A2DP_VENDOR_DRAM,gDmmSysramRegion1,0,,14168(PIC)+16600(working buffer)
+1,A2DP,1,,A2DP_VENDOR,CODEC_DECODER_VENDOR,AIR_BT_A2DP_VENDOR_ENABLE = y && MTK_BT_A2DP_VENDOR_USE_PIC = n,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,
+1,A2DP,1,,A2DP_CELT,CODEC_DECODER_CELT_HD,AIR_CELT_DEC_ENABLE = y && MTK_BT_CELT_USE_PIC = y,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,
+1,A2DP,1,,A2DP_CELT,CODEC_DECODER_CELT_HD,AIR_CELT_DEC_ENABLE = y && MTK_BT_CELT_USE_PIC = n,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,
+1,A2DP,1,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,2,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,2,,A2DP_PLC,FUNC_AUDIO_PLC,AIR_AUDIO_PLC_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,
+1,A2DP,2,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,3,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,3,,A2DP_PEQ,FUNC_PEQ,AIR_PEQ_ENABLE = y,,gDmmIramRegion1,1213,,gDmmDramRegion1,6536,,gDmmSysramRegion1,0,,840(PIC)+5696(working buffer)
+1,A2DP,3,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,4,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,4,,A2DP_PEQ2,FUNC_PEQ2,AIR_PEQ_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,6536,,gDmmSysramRegion1,0,,5696(working buffer)
+1,A2DP,4,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,5,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,5,,A2DP_DRC,FUNC_DRC,AIR_DRC_ENABLE = y,,gDmmIramRegion1,6989,,gDmmDramRegion1,9280,,gDmmSysramRegion1,0,,1872(PIC)+7408(working buffer)
+1,A2DP,5,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,6,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,6,,A2DP_CLK_SKEW,FUNC_CLK_SKEW_DL,,,gDmmIramRegion1,7673,,gDmmDramRegion1,10116,,gDmmSysramRegion1,0,,912(PIC)+9204(working buffer)
+1,A2DP,6,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,7,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,7,,A2DP_FW,,,,gDmmIramRegion1,0,,gDmmDramRegion1,80,,gDmmSysramRegion1,0,,Stream feature: 16(sizeof feature table)*5(Feature number)
+1,A2DP,7,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,8,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,8,,A2DP_STREAM_IN,,,,gDmmIramRegion1,0,,gDmmDramRegion1,1024,,gDmmSysramRegion1,0,,1024(callback in_malloc_size) *1( channel number)
+1,A2DP,8,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,9,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,9,,A2DP_STREAM_OUT,,,,gDmmIramRegion1,0,,gDmmDramRegion1,8192,,gDmmSysramRegion1,0,,callback stream buffer:1024(sample)* 4(byte/sample)* 2 channel
+1,A2DP,9,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,A2DP,,Tail,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,0,Head,,,,,gDmmIramRegion1,0,,gDmmDramRegion1,128,,gDmmSysramRegion1,0,,
+1,HFP,1,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,1,,HFP_MSBC_DEC,CODEC_DECODER_MSBC,AIR_BT_HFP_MSBC_ENABLE = y,,gDmmIramRegion1,8800,DSP_PREDEFINE_HFP_MSBC_DEC_IRAM,gDmmDramRegion1,9552,DSP_PREDEFINE_HFP_MSBC_DEC_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_MSBC_DEC_SYSRAM,"8665(PIC-code), 5136(PIC-data), 4264(working buffer)"
+1,HFP,1,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,2,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,2,,HFP_PLC,FUNC_PLC,AIR_VOICE_PLC_ENABLE = y,,gDmmIramRegion1,9800,DSP_PREDEFINE_HFP_PLC_IRAM,gDmmDramRegion1,6944,DSP_PREDEFINE_HFP_PLC_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_PLC_SYSRAM,"9613(PIC-code), 1124(PIC-data), 5648(working buffer)"
+1,HFP,2,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,3,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,3,,HFP_ECNR_LIB,FUNC_RX_NR,AIR_VOICE_NR_ENABLE = y,,gDmmIramRegion1,62000,DSP_PREDEFINE_HFP_ECNR_LIB_IRAM,gDmmDramRegion1,258000,DSP_PREDEFINE_HFP_ECNR_LIB_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_ECNR_LIB_SYSRAM,"Inhouse part: 40089(PIC-code), 12944(PIC-data)
+AINR part: 21521(PIC-code), 244428(PIC-data)"
+1,HFP,3,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,4,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,4,,HFP_VOICE_DRC_LIB,FUNC_RX_WB_DRC,AIR_VOICE_DRC_ENABLE = y,,gDmmIramRegion1,7200,DSP_PREDEFINE_HFP_DRC_LIB_IRAM,gDmmDramRegion1,2000,DSP_PREDEFINE_HFP_DRC_LIB_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_DRC_LIB_SYSRAM,"6989(PIC-code), 1872(PIC-data)"
+1,HFP,4,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,5,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,5,,HFP_CLK_SKEW_LIB,FUNC_CLK_SKEW_HFP_DL,,,gDmmIramRegion1,6700,DSP_PREDEFINE_HFP_CLKSKEW_LIB_IRAM,gDmmDramRegion1,1200,DSP_PREDEFINE_HFP_CLKSKEW_LIB_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_CLKSKEW_LIB_SYSRAM,"6393(PIC-code), 912(PIC-data)"
+1,HFP,5,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,6,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,6,,HFP_MSBC_ENC,CODEC_ENCODER_MSBC,AIR_BT_HFP_MSBC_ENABLE = y,,gDmmIramRegion1,5000,DSP_PREDEFINE_HFP_MSBC_ENC_IRAM,gDmmDramRegion1,3500,DSP_PREDEFINE_HFP_MSBC_ENC_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_MSBC_ENC_SYSRAM,"4853(PIC-code), 2048(PIC-data), 1256(working buffer)"
+1,HFP,6,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,7,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,7,,HFP_CLKSKEW_DL,FUNC_CLK_SKEW_HFP_DL,,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_CLKSKEW_DL_IRAM,gDmmDramRegion1,1300,DSP_PREDEFINE_HFP_CLKSKEW_DL_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_CLKSKEW_DL_SYSRAM,1192(working buffer)
+1,HFP,7,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,8,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,8,,HFP_CLKSKEW_UL,FUNC_CLK_SKEW_HFP_UL,,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_CLKSKEW_UL_IRAM,gDmmDramRegion1,1800,DSP_PREDEFINE_HFP_CLKSKEW_UL_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_CLKSKEW_UL_SYSRAM,1672(working buffer)
+1,HFP,8,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,9,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,9,,HFP_ECNR_DL,FUNC_TX_NR,AIR_VOICE_NR_ENABLE = y,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_ECNR_DL_IRAM,gDmmDramRegion1,88352,DSP_PREDEFINE_HFP_ECNR_DL_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_ECNR_DL_SYSRAM,"Inhouse part: 32872(working buffer)
+AINR part: 51464(working buffer)"
+1,HFP,9,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,10,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,10,,HFP_TX_EQ,FUNC_TX_EQ,AIR_3RD_PARTY_NR_ENABLE = y,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_TX_EQ_IRAM,gDmmDramRegion1,0,DSP_PREDEFINE_HFP_TX_EQ_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_TX_EQ_SYSRAM,Don't use for AINR
+1,HFP,10,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,11,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,11,,HFP_VOICE_DRC_DL,FUNC_TX_WB_DRC,AIR_VOICE_DRC_ENABLE = y,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_VOICE_DRC_DL_IRAM,gDmmDramRegion1,672,DSP_PREDEFINE_HFP_VOICE_DRC_DL_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_VOICE_DRC_DL_SYSRAM,624(working buffer)
+1,HFP,11,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,12,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,12,,HFP_VOICE_DRC_UL,,AIR_VOICE_DRC_ENABLE = y,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_VOICE_DRC_UL_IRAM,gDmmDramRegion1,672,DSP_PREDEFINE_HFP_VOICE_DRC_UL_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_VOICE_DRC_UL_SYSRAM,624(working buffer)
+1,HFP,12,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,13,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,13,,HFP_MIC_SW_GAIN,,,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_MIC_SW_GAIN_IRAM,gDmmDramRegion1,64,DSP_PREDEFINE_HFP_MIC_SW_GAIN_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_MIC_SW_GAIN_SYSRAM,32(working buffer)
+1,HFP,13,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,14,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,14,,HFP_RX_FW,,AIR_BT_HFP_ENABLE = y,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_RX_FW_IRAM,gDmmDramRegion1,160,DSP_PREDEFINE_HFP_RX_FW_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_RX_FW_SYSRAM,Stream feature: 16(sizeof feature table)*8(Feature number)
+1,HFP,14,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,15,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,15,,HFP_TX_FW,,AIR_BT_HFP_ENABLE = y,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_TX_FW_IRAM,gDmmDramRegion1,160,DSP_PREDEFINE_HFP_TX_FW_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_TX_FW_SYSRAM,"
+Stream feature: 16(sizeof feature table)*8(Feature number)"
+1,HFP,15,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,16,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,16,,HFP_RX_STREAM_IN,,AIR_BT_HFP_ENABLE = y,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_RX_STREAM_IN_IRAM,gDmmDramRegion1,1024,DSP_PREDEFINE_HFP_RX_STREAM_IN_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_RX_STREAM_IN_SYSRAM,240(callback in_malloc_size) * 1(channel number)
+1,HFP,16,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,17,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,17,,HFP_RX_STREAM_OUT,,AIR_BT_HFP_ENABLE = y,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_RX_STREAM_OUT_IRAM,gDmmDramRegion1,1024,DSP_PREDEFINE_HFP_RX_STREAM_OUT_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_RX_STREAM_OUT_SYSRAM,callback stream buffer:240(sample)* 2(byte/sample)* 2 channel
+1,HFP,17,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,18,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,18,,HFP_TX_STREAM_IN,,AIR_BT_HFP_ENABLE = y,,gDmmIramRegion1,0,DSP_PREDEFINE_HFP_TX_STREAM_IN_IRAM,gDmmDramRegion1,2112,DSP_PREDEFINE_HFP_TX_STREAM_IN_DRAM,gDmmSysramRegion1,0,DSP_PREDEFINE_HFP_TX_STREAM_IN_SYSRAM,callback stream buffer:240(sample)*2(byte/sample)* 4 channel
+1,HFP,18,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,HFP,,Tail,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,0,Head,,,,,gDmmIramRegion1,0,,gDmmDramRegion1,128,,gDmmSysramRegion1,0,,
+1,LE_AUDIO,1,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,1,,LEAUDIO_LC3_PLC_ADV,,,,gDmmIramRegion1,13024,,gDmmDramRegion1,4000,,gDmmSysramRegion1,0,,70416(PIC)+38072(working buffer)
+1,LE_AUDIO,1,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,2,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,2,,LEAUDIO_LC3_FFT,,,,gDmmIramRegion1,7869,,gDmmDramRegion1,2200,,gDmmSysramRegion1,0,,70416(PIC)+38072(working buffer)
+1,LE_AUDIO,2,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,3,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,3,,LEAUDIO_LC3_DEC,CODEC_DECODER_LC3,,,gDmmIramRegion1,46505,,gDmmDramRegion1,58290,,gDmmSysramRegion1,0,,70416(PIC)+38072(working buffer)
+1,LE_AUDIO,3,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,4,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,4,,LEAUDIO_CH_SEL,FUNC_CH_SEL,,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,70416(PIC)+38072(working buffer)
+1,LE_AUDIO,4,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,5,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,5,,LEAUDIO_DL_SKEW,FUNC_CLK_SKEW_BLE_MUSIC_DL,,,gDmmIramRegion1,7673,,gDmmDramRegion1,2564,,gDmmSysramRegion1,0,,912+1652(working buffer)
+1,LE_AUDIO,5,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,6,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,6,,LEAUDIO_DL_FW,,AIR_BT_CODEC_BLE_ENABLED = y,,gDmmIramRegion1,0,,gDmmDramRegion1,96,,gDmmSysramRegion1,0,,88(DSP_Callback_FeatureConfig)+504+7720(DSP_Callback_ParaSetup)
+1,LE_AUDIO,6,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,7,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,7,,LEAUDIO_DL_STREAM_IN,,AIR_BT_CODEC_BLE_ENABLED = y,,gDmmIramRegion1,0,,gDmmDramRegion1,504,,gDmmSysramRegion1,0,,480(callback in_malloc_size) * 1(channel number)
+1,LE_AUDIO,7,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,8,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,8,,LEAUDIO_DL_STREAM_OUT,,AIR_BT_CODEC_BLE_ENABLED = y,,gDmmIramRegion1,0,,gDmmDramRegion1,7720,,gDmmSysramRegion1,0,,callback stream buffer:240(sample)* 2(byte/sample)* 2 channel
+1,LE_AUDIO,8,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_AUDIO,,Tail,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,0,Head,,,,,gDmmIramRegion1,0,,gDmmDramRegion1,128,,gDmmSysramRegion1,0,,
+1,LE_CALL,1,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,1,,LECALL_LC3_PLC_STD,,,,gDmmIramRegion1,733,,gDmmDramRegion1,1820,,gDmmSysramRegion1,0,,70416(PIC)+20720(working buffer)
+1,LE_CALL,1,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,2,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,2,,LECALL_LC3_FFT,,,,gDmmIramRegion1,7869,,gDmmDramRegion1,2200,,gDmmSysramRegion1,0,,70416(PIC)+20720(working buffer)
+1,LE_CALL,2,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,3,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,3,,LECALL_LC3_DEC,,,,gDmmIramRegion1,0,,gDmmDramRegion1,58264,,gDmmSysramRegion1,46576,,70416(PIC)+20720(working buffer)
+1,LE_CALL,3,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,4,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,4,,LECALL_NR_LIB,FUNC_RX_NR,AIR_VOICE_NR_ENABLE = y,,gDmmIramRegion1,81856,,gDmmDramRegion1,259296,,gDmmSysramRegion1,0,,13284(PIC)+32864(working buffer)
+1,LE_CALL,4,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,5,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,5,,LECALL_RX_NR,FUNC_RX_NR,AIR_VOICE_NR_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,89024,,gDmmSysramRegion1,0,,13284(PIC)+32864(working buffer)
+1,LE_CALL,5,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,6,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,6,,LECALL_SWB_DRC_LIB,FUNC_RX_SWB_DRC,AIR_VOICE_DRC_ENABLE = y,,gDmmIramRegion1,6989,,gDmmDramRegion1,1872,,gDmmSysramRegion1,0,,1872(PIC)+624(working buffer)
+1,LE_CALL,6,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,7,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,7,,LECALL_RX_SWB_DRC,FUNC_RX_SWB_DRC,AIR_VOICE_DRC_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,624,,gDmmSysramRegion1,0,,1872(PIC)+624(working buffer)
+1,LE_CALL,7,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,8,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,8,,LECALL_CLK_SKEW_DL,FUNC_CLK_SKEW_BLE_CALL_DL,,,gDmmIramRegion1,7673,,gDmmDramRegion1,2564,,gDmmSysramRegion1,0,,912+1652(working buffer)
+1,LE_CALL,8,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,9,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,9,,LECALL_CLK_SKEW_UL,FUNC_CLK_SKEW_BLE_CALL_UL,,,gDmmIramRegion1,7673,,gDmmDramRegion1,2884,,gDmmSysramRegion1,0,,912+1972(working buffer)
+1,LE_CALL,9,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,10,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,10,,LECALL_MIC_SW_GAIN,FUNC_MIC_SW_GAIN,,,gDmmIramRegion1,0,,gDmmDramRegion1,32,,gDmmSysramRegion1,0,,(working buffer)
+1,LE_CALL,10,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,11,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,11,,LECALL_TX_NR,FUNC_TX_NR/,AIR_VOICE_NR_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,246008(PIC)+55384(working buffer)
+1,LE_CALL,11,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,12,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,12,,LECALL_TX_SWB_DRC,FUNC_TX_SWB_DRC,AIR_VOICE_DRC_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,624,,gDmmSysramRegion1,0,,(working buffer)
+1,LE_CALL,12,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,13,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,13,,LECALL_LC3_ENC,,,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,70416(PIC)+20720(working buffer)
+1,LE_CALL,13,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,14,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,14,,LECALL_DL_FW,,AIR_BT_CODEC_BLE_ENABLED = y,,gDmmIramRegion1,0,,gDmmDramRegion1,160,,gDmmSysramRegion1,0,,104(DSP_Callback_FeatureConfig)+344+7720(DSP_Callback_ParaSetup)
+1,LE_CALL,14,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,15,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,15,,LECALL_UL_FW,,AIR_BT_CODEC_BLE_ENABLED = y,,gDmmIramRegion1,0,,gDmmDramRegion1,160,,gDmmSysramRegion1,0,,136(DSP_Callback_FeatureConfig)+3880(DSP_Callback_ParaSetup)
+1,LE_CALL,15,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,16,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,16,,LECALL_DL_STREAM_IN,,AIR_BT_CODEC_BLE_ENABLED = y,,gDmmIramRegion1,0,,gDmmDramRegion1,960,,gDmmSysramRegion1,0,,480(callback in_malloc_size) * 1(channel number)
+1,LE_CALL,16,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,17,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,17,,LECALL_DL_STREAM_OUT,,AIR_BT_CODEC_BLE_ENABLED = y,,gDmmIramRegion1,0,,gDmmDramRegion1,7720,,gDmmSysramRegion1,0,,callback stream buffer:240(sample)* 2(byte/sample)* 2 channel
+1,LE_CALL,17,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,18,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,18,,LECALL_UL_STREAM_IN,,AIR_BT_CODEC_BLE_ENABLED = y,,gDmmIramRegion1,0,,gDmmDramRegion1,3880,,gDmmSysramRegion1,0,,callback stream buffer:240(sample)*2(byte/sample)* 4 channel
+1,LE_CALL,18,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LE_CALL,,Tail,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,0,Head,,,,,gDmmIramRegion1,0,,gDmmDramRegion1,128,,gDmmSysramRegion1,0,,
+1,LINEIN,1,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,1,,LINEIN_MIC_SW_GAIN,FUNC_MIC_SW_GAIN,,,gDmmIramRegion1,0,,gDmmDramRegion1,8,,gDmmSysramRegion1,0,,2304(working buffer)   
+1,LINEIN,1,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,2,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,2,,LINEIN_INS,FUNC_INS,AIR_LINEIN_INS_ENABLE,,gDmmIramRegion1,0,,gDmmDramRegion1,2304,,gDmmSysramRegion1,0,,2304(working buffer)   
+1,LINEIN,2,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,3,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,3,,LINEIN_PEQ,FUNC_PEQ3,AIR_LINEIN_PEQ_ENABLE,,gDmmIramRegion1,1213,,gDmmDramRegion1,6536,,gDmmSysramRegion1,0,,840(PIC)+5696(working buffer)
+1,LINEIN,3,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,4,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,4,,LINEIN_DRC,FUNC_DRC3,AIR_DRC_ENABLE,,gDmmIramRegion1,6989,,gDmmDramRegion1,9280,,gDmmSysramRegion1,0,,1872(PIC)+7408(working buffer)
+1,LINEIN,4,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,5,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,5,,LINEIN_FW,,,,gDmmIramRegion1,0,,gDmmDramRegion1,48,,gDmmSysramRegion1,0,,Stream feature: 16(sizeof feature table)*3(Feature number)
+1,LINEIN,5,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,6,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,6,,LINEIN_STREAM_IN,,,,gDmmIramRegion1,0,,gDmmDramRegion1,8192,,gDmmSysramRegion1,0,,callback stream buffer:512(sample)*4(byte/sample)* 2 channel
+1,LINEIN,6,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,LINEIN,,Tail,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,0,Head,,,,,gDmmIramRegion1,0,,gDmmDramRegion1,128,,gDmmSysramRegion1,0,,
+1,USB,1,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,1,,USB_PEQ,FUNC_PEQ_INSTANT,AIR_PEQ_ENABLE = y,,gDmmIramRegion1,1213,,gDmmDramRegion1,6536,,gDmmSysramRegion1,0,,
+1,USB,1,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,2,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,2,,USB_PEQ2,FUNC_PEQ2,AIR_PEQ_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,6536,,gDmmSysramRegion1,0,,
+1,USB,2,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,3,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,3,,USB_DRC,FUNC_DRC,AIR_DRC_ENABLE = y,,gDmmIramRegion1,6989,,gDmmDramRegion1,9280,,gDmmSysramRegion1,0,,
+1,USB,3,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,4,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,4,,USB_FW,,,,gDmmIramRegion1,0,,gDmmDramRegion1,48,,gDmmSysramRegion1,0,,Stream feature: 16(sizeof feature table)*3(Feature number)
+1,USB,4,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,5,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,5,,USB_FW_STREAM_IN,,,,gDmmIramRegion1,0,,gDmmDramRegion1,2048,,gDmmSysramRegion1,0,,callback stream buffer:512(sample)*2(byte/sample)* 2 channel
+1,USB,5,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,6,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,6,,USB_FW_STREAM_OUT,,,,gDmmIramRegion1,0,,gDmmDramRegion1,4096,,gDmmSysramRegion1,0,,callback stream buffer:512(sample)*4(byte/sample)* 2 channel
+1,USB,6,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,USB,,Tail,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,ESA,0,Head,,,,,gDmmIramRegion1,0,,gDmmDramRegion1,128,,gDmmSysramRegion1,0,,
+1,ESA,1,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,ESA,1,,ESA_FIXED_GAIN,FUNC_FIXED_SW_GAIN,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,
+1,ESA,1,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,ESA,2,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,ESA,2,,ESA_FUNC_F,FUNC_FUNCTION_F,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,0,,gDmmSysramRegion1,0,,
+1,ESA,2,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,ESA,3,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,ESA,3,,ESA_FW,,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,48,,gDmmSysramRegion1,0,,
+1,ESA,3,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,ESA,4,start,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,ESA,4,,ESA_STREAM_IN,,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion1,0,,gDmmDramRegion1,49152,,gDmmSysramRegion1,0,,
+1,ESA,4,end,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+1,MULTI_MIC,,Tail,,,,,gDmmIramRegion1,,,gDmmDramRegion1,,,gDmmSysramRegion1,,,
+2,MULTI_MIC,0,Head,,,,,gDmmIramRegion2,0,,gDmmDramRegion2,128,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,1,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,1,,MULTIMIC_GAIN,FUNC_MIC_SW_GAIN,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,8,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,1,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,2,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,2,,MULTIMIC_FIXED_GAIN,FUNC_FIXED_SW_GAIN,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,0,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,2,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,3,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,3,,MULTIMIC_FUNC_A,FUNC_FUNCTION_A,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,0,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,3,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,4,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,4,,MULTIMIC_FUNC_B,FUNC_FUNCTION_B,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,0,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,4,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,5,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,5,,MULTIMIC_FUNC_C,FUNC_FUNCTION_C,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,0,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,5,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,6,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,6,,MULTIMIC_FUNC_D,FUNC_FUNCTION_D,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,0,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,6,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,7,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,7,,MULTIMIC_FUNC_E,FUNC_FUNCTION_E,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,0,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,7,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,8,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,8,,MULTIMIC_FW1,,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,48,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,8,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,9,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,9,,MULTIMIC_FW1_STREAM_IN,,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,4096,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,9,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,10,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,10,,MULTIMIC_FW2,,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,48,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,10,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,11,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,11,,MULTIMIC_FW2_STREAM_IN,,AIR_MULTI_MIC_STREAM_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,4096,,gDmmSysramRegion2,0,,
+2,MULTI_MIC,11,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,MULTI_MIC,,Tail,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,OPT,0,Head,,,,,gDmmIramRegion2,0,,gDmmDramRegion2,128,,gDmmSysramRegion2,0,,
+2,OPT,1,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,OPT,1,,OPT_GAIN,FUNC_MIC_SW_GAIN,,,gDmmIramRegion2,0,,gDmmDramRegion2,8,,gDmmSysramRegion2,0,,
+2,OPT,1,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,OPT,2,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,OPT,2,,OPT_FUNC_F,FUNC_FUNCTION_F,MTK_SPECIAL_FUNCTIONS_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,,,gDmmSysramRegion2,0,,
+2,OPT,2,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,OPT,3,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,OPT,3,,OPT_FUNC_FW,,,,gDmmIramRegion2,0,,gDmmDramRegion2,48,,gDmmSysramRegion2,0,,
+2,OPT,3,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,OPT,4,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,OPT,4,,OPT_FUNC_FW_STREAM_IN,,MTK_SPECIAL_FUNCTIONS_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,4096,,gDmmSysramRegion2,0,,
+2,OPT,4,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,OPT,,Tail,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,WIRED_AUDIO,0,Head,,,,,gDmmIramRegion2,0,,gDmmDramRegion2,128,,gDmmSysramRegion2,0,,
+2,WIRED_AUDIO,1,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,WIRED_AUDIO,1,,WIREDAUDIO_PEQ,,,,gDmmIramRegion2,1213,,gDmmDramRegion2,6536,,gDmmSysramRegion2,0,,
+2,WIRED_AUDIO,1,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,WIRED_AUDIO,2,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,WIRED_AUDIO,2,,WIREDAUDIO_DRC,,,,gDmmIramRegion2,6989,,gDmmDramRegion2,9280,,gDmmSysramRegion2,0,,
+2,WIRED_AUDIO,2,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,WIRED_AUDIO,3,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,WIRED_AUDIO,3,,WIREDAUDIO_FW,,,,gDmmIramRegion2,0,,gDmmDramRegion2,48,,gDmmSysramRegion2,0,,
+2,WIRED_AUDIO,3,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,WIRED_AUDIO,4,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,WIRED_AUDIO,4,,WIREDAUDIO_STREAM_IN,,,,gDmmIramRegion2,0,,gDmmDramRegion2,4096,,gDmmSysramRegion2,0,,callback stream buffer:512(sample)*4(byte/sample)* 2 channel
+2,WIRED_AUDIO,4,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,WIRED_AUDIO,,Tail,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,TDM,0,Head,,,,,gDmmIramRegion2,0,,gDmmDramRegion2,128,,gDmmSysramRegion2,0,,
+2,TDM,1,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,TDM,1,,TDM_FW,,AIR_AUDIO_I2S_SLAVE_TDM_ENABLE = y && AIR_AUDIO_I2S_SLAVE_TDM_TASK_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,48,,gDmmSysramRegion2,0,,Stream feature: 16(sizeof feature table)*3(Feature number)
+2,TDM,1,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,TDM,2,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,TDM,2,,TDM_STREAM_IN,,AIR_AUDIO_I2S_SLAVE_TDM_ENABLE = y && AIR_AUDIO_I2S_SLAVE_TDM_TASK_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,8192,,gDmmSysramRegion2,0,,frame_size*frame_num*TDM channels*format = 64*4*8*4=8192
+2,TDM,2,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,TDM,3,start,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,TDM,3,,TDM_STREAM_OUT,,AIR_AUDIO_I2S_SLAVE_TDM_ENABLE = y && AIR_AUDIO_I2S_SLAVE_TDM_TASK_ENABLE = y,,gDmmIramRegion2,0,,gDmmDramRegion2,8192,,gDmmSysramRegion2,0,,frame_size*frame_num*TDM channels*format = 64*4*8*4=8192
+2,TDM,3,end,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+2,TDM,,Tail,,,,,gDmmIramRegion2,,,gDmmDramRegion2,,,gDmmSysramRegion2,,,
+3,WWE,0,Head,,,,,gDmmIramRegion3,0,,gDmmDramRegion3,128,,gDmmSysramRegion3,0,,
+3,WWE,1,start,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,WWE,1,,WWE_MIC_SW_GAIN,FUNC_MIC_SW_GAIN,,,gDmmIramRegion3,0,,gDmmDramRegion3,8,,gDmmSysramRegion3,0,,
+3,WWE,1,end,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,WWE,2,start,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,WWE,2,,WWE_PREPROC,FUNC_WWE_PREPROC,,,gDmmIramRegion3,0,,gDmmDramRegion3,2692,,gDmmSysramRegion3,0,,working buffer
+3,WWE,2,end,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,WWE,3,start,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,WWE,3,,WWE_PROC,FUNC_WWE_PROC,,,gDmmIramRegion3,35000,,gDmmDramRegion3,125012,,gDmmSysramRegion3,0,,"AMA:
+29528(working buffer)+
+32640pre-roll) +
+51400(LM)=11444(PIC DRAM)
+Gsound:
+47520(working buffer)+
+65280(pre-roll)
+
+IRAM : 34621"
+3,WWE,3,end,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,WWE,4,start,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,WWE,4,,WWE_FW,,,,gDmmIramRegion3,0,,gDmmDramRegion3,1152,,gDmmSysramRegion3,0,,104(DSP_Callback_FeatureConfig)+352+664+32
+3,WWE,4,end,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,WWE,5,start,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,WWE,5,,WWE_STREAM_IN,,,,gDmmIramRegion3,0,,gDmmDramRegion3,960,,gDmmSysramRegion3,0,,"AMA:
+callback stream buffer:240(sample)*2(byte/sample)* 2 channel
+Gsound:
+callback stream buffer:240(sample)*2(byte/sample)* 2 channel"
+3,WWE,5,end,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,WWE,,Tail,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,RECORD,0,Head,,,,,gDmmIramRegion3,0,,gDmmDramRegion3,128,,gDmmSysramRegion3,0,,
+3,RECORD,1,start,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,RECORD,1,,RECORD_CODEC_PCM_COPY,CODEC_PCM_COPY,,,gDmmIramRegion3,0,,gDmmDramRegion3,,,gDmmSysramRegion3,0,,
+3,RECORD,1,end,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,RECORD,2,start,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,RECORD,2,,RECORD_MIC_SW_GAIN,FUNC_MIC_SW_GAIN,,,gDmmIramRegion3,0,,gDmmDramRegion3,32,,gDmmSysramRegion3,0,,
+3,RECORD,2,end,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,RECORD,3,start,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,RECORD,3,,RECORD_FW,,,,gDmmIramRegion3,0,,gDmmDramRegion3,48,,gDmmSysramRegion3,0,,Stream feature: 16(sizeof feature table)*3(Feature number)
+3,RECORD,3,end,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,RECORD,4,start,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,RECORD,4,,RECORD_STREAM_IN,,,,gDmmIramRegion3,0,,gDmmDramRegion3,960,,gDmmSysramRegion3,0,,
+3,RECORD,4,end,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+3,RECORD,,Tail,,,,,gDmmIramRegion3,,,gDmmDramRegion3,,,gDmmSysramRegion3,,,
+4,VP,0,Head,,,,,gDmmIramRegion4,0,,gDmmDramRegion4,128,,gDmmSysramRegion4,0,,
+4,VP,1,start,,,,,gDmmIramRegion4,,,gDmmDramRegion4,,,gDmmSysramRegion4,,,
+4,VP,1,,VP_FW,,,,gDmmIramRegion4,0,,gDmmDramRegion4,48,,gDmmSysramRegion4,0,,Stream feature: 16(sizeof feature table)*3(Feature number)
+4,VP,1,end,,,,,gDmmIramRegion4,,,gDmmDramRegion4,,,gDmmSysramRegion4,,,
+4,VP,2,start,,,,,gDmmIramRegion4,,,gDmmDramRegion4,,,gDmmSysramRegion4,,,
+4,VP,2,,VP_STREAM_IN,FUNC_CH_SEL_VP,,,gDmmIramRegion4,0,,gDmmDramRegion4,4096,,gDmmSysramRegion4,0,,callback stream buffer:2048 (byte/channel)* 2 channel
+4,VP,2,end,,,,,gDmmIramRegion4,,,gDmmDramRegion4,,,gDmmSysramRegion4,,,
+4,VP,,Tail,,,,,gDmmIramRegion4,,,gDmmDramRegion4,,,gDmmSysramRegion4,,,

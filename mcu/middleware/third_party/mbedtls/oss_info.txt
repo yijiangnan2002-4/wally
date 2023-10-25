@@ -1,0 +1,9 @@
+Software name:                           Mbed TLS
+Brief:                                   An open source, portable, easy to use, readable and flexible TLS library, and reference implementation of the PSA Cryptography API.
+Path:                                    mcu\middleware\third_party\mbedtls
+Category:                                Open source software(OSS)
+Software maker:                          ARM
+OSS download link:                       https://github.com/Mbed-TLS/mbedtls
+License:                                 Apache License 2.0
+Evidence of license agreement:           https://github.com/Mbed-TLS/mbedtls/blob/development/LICENSE
+Version:                                 3.1.0

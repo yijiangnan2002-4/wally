@@ -1,0 +1,9 @@
+Software name:                          nanopb
+Brief:                                  A plain-C implementation of Google's Protocol Buffers data format.
+Path:                                   mcu\middleware\third_party\nanopb
+Category:                               Open source software(OSS)
+Software maker:                         Petteri Aimonen <jpa at nanopb.mail.kapsi.fi>
+OSS download link:                      https://jpa.kapsi.fi/nanopb/download/
+License:                                zlib License
+Evidence of license agreement:          https://jpa.kapsi.fi/nanopb/
+Version:                                0.4.5

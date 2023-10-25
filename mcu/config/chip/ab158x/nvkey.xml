@@ -1,0 +1,55 @@
+<!--Each attribute in this XML file has its own meaning.
+"KeyID" means the ID of the NVkey.
+"In_nvdm" shows whether the NVkey is contained within nvdm.bin file. This setting is optional. In_nvdm=FALSE is the only option to show that nvdm.bin file does not contain the NVkey.
+"Name" means the name of the NVkey.
+"Domain" is the label that we use to distinguish the different functions of the NVkeys.
+
+
+The following example is a NVkey which in the AUDIO_VOICE group, the ID is 0xEE01,
+the name is NVID_TOOL_DSP_VOICE_TX_WB_EQ and will not be built-in the nvdm.bin file.
+<NVKey KeyID = "0xEE01" In_nvdm= "False" Name= "NVID_TOOL_DSP_VOICE_TX_WB_EQ" Domain= "AUDIO_VOICE">
+-->
+<NvKeyTable Version="2.0">
+	<NVKey KeyID="0x3742" Name="NVID_RF_AWS_MISC" Domain="BT_CON_DATA">
+		<Value>0xAEC2</Value>
+	</NVKey>
+	<NVKey KeyID="0x3743" Name="NVID_RF_TX_GC_V12" Domain="BT_CON_DATA">
+		<Value>0x3C003A003C003C00</Value>
+	</NVKey>
+	<NVKey KeyID="0x3744" Name="NVID_RF_TX_GC_V14" Domain="BT_CON_DATA">
+		<Value>0x3D003A003D003D00</Value>
+	</NVKey>
+	<NVKey KeyID="0x3745" Name="NVID_RF_TX_GC_V16" Domain="BT_CON_DATA">
+		<Value>0x3D003A003D003D00</Value>
+	</NVKey>
+	<NVKey KeyID="0x3746" Name="NVID_RF_TX_GC_V18" Domain="BT_CON_DATA">
+		<Value>0x3D0039003D003D00</Value>
+	</NVKey>
+	<NVKey KeyID="0x3747" Name="NVID_RF_TX_GC_V22" Domain="BT_CON_DATA">
+		<Value>0x3D003A003D003D00</Value>
+	</NVKey>
+	<NVKey KeyID="0x3748" Name="NVID_RF_MISC_PWR_CTL_V12" Domain="BT_CON_DATA">
+		<Value>0x0800BAD3</Value>
+	</NVKey>
+	<NVKey KeyID="0x3749" Name="NVID_RF_MISC_PWR_CTL_V14" Domain="BT_CON_DATA">
+		<Value>0x0800BAD3</Value>
+	</NVKey>
+	<NVKey KeyID="0x374A" Name="NVID_RF_MISC_PWR_CTL_V16" Domain="BT_CON_DATA">
+		<Value>0x0800BAD3</Value>
+	</NVKey>
+	<NVKey KeyID="0x374B" Name="NVID_RF_MISC_PWR_CTL_V18" Domain="BT_CON_DATA">
+		<Value>0x0A00BAD3</Value>
+	</NVKey>
+	<NVKey KeyID="0x374C" Name="NVID_RF_MISC_PWR_CTL_V22" Domain="BT_CON_DATA">
+		<Value>0x0800BAD3</Value>
+	</NVKey>
+	<NVKey KeyID="0x374D" Name="NVID_RF_TX_GC_DPC_OFFSET" Domain="BT_CON_DATA">
+		<Value>0x000000000000000000000000000000000000000000000000</Value>
+	</NVKey>
+	<NVKey KeyID="0x374E" Name="NVID_RF_TX_GC_DPC_OFFSET_Enable" Domain="BT_CON_DATA">
+		<Value>0x00</Value>
+	</NVKey>
+	<NVKey KeyID="0x3824" Name="NVID_LM_CE_TEST_CFG" Domain="BT_CON_DATA">
+		<Value>0x0000</Value>
+	</NVKey>
+</NvKeyTable>

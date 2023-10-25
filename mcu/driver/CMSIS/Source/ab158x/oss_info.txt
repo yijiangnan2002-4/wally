@@ -1,0 +1,9 @@
+Software name:                           CMSIS
+Brief:                                   The CMSIS is a set of tools, APIs, frameworks, and work flows that help to simplify software re-use
+path:                                    mcu/driver/CMSIS/Source
+Category:                                Open source software(OSS)
+Software maker:                          ARM
+OSS download link:                       https://github.com/ARM-software/CMSIS_5
+License:                                 Apache 2.0
+Evidence of license agreement:           https://arm-software.github.io/CMSIS_5/General/html/index.html#License
+Version:                                 5.7.0

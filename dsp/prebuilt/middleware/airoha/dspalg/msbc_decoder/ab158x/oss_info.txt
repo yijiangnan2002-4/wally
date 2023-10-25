@@ -1,0 +1,9 @@
+Software name:                           mSBC encoder
+Brief:                                   The source code is from Android source tree located in a Git repository hosted by Google.
+Path:                                    dsp/prebuilt/middleware/airoha/dspalg/msbc_decoder
+Category:                                Open source software(OSS)
+Software maker:                          Broadcom Corporation
+OSS download link:                       https://android.googlesource.com/platform/system/bt/+/refs/tags/android-wear-5.1.0_r1/embdrv/sbc/encoder
+License:                                 Apache License 2.0
+Evidence of license agreement:           https://android.googlesource.com/platform/system/bt/+/refs/tags/android-wear-5.1.0_r1/embdrv/sbc/encoder
+Version:                                 5.1.0

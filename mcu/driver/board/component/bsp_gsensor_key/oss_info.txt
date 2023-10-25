@@ -1,0 +1,9 @@
+Software name:                           GSensor-Key
+Brief:                                   A key module which provides the function to report tap events to the upper layer.
+Path:                                    mcu\driver\board\component\bsp_gsensor_key
+Category:                                Open source software(OSS)
+Software maker:                          STMicroelectronics
+OSS download link:                       https://github.com/STMicroelectronics/STMems_Standard_C_drivers
+License:                                 BSD 3-Clause License
+Evidence of license agreement:           https://github.com/STMicroelectronics/STMems_Standard_C_drivers/blob/master/LICENSE
+Version:                                 1.0.0

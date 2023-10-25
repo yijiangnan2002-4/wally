@@ -1,0 +1,10 @@
+Software name:                           LC3 Library
+Brief:                                   The LC3 Library is used by LE Audio codec.
+Path:                                    dsp/prebuilt/middleware/third_party/dspalg/lc3_codec
+Category:                                Business software(BS)
+BS company:                              Fraunhofer
+Version:                                 V1.6.5BC, October 21 2021
+License:                                 Fraunhofer license
+Necessity of license agreement:          basically not required. Customer doesn't need to have an agreement with Fraunhofer and no need extra license fee with below conditions:
+                                         1. Customer need to pass LEA certification. 2. running on MTK/Airoha chip. 3. library release to customer.
+                                         If customer need the "Advanced PLC", customer need to have a license agreement with Fraunhofer directly.

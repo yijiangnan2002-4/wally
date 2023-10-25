@@ -1,0 +1,3 @@
+1. Copy the move_code.sh in your project folder(mcu/project/<chip_id>/apps/earbuds_ref_design or mcu/project/<chip_id>/apps/headset_ref_design)
+2. cd to your project folder
+3. Run the CMD "move_code.sh"

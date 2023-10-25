@@ -1,0 +1,111 @@
+;JTAG reset to set WDT reset, free run
+SYStem.RESet
+SYStem.CPU CORTEXM33F
+SYStem.CONFIG SWDP ON
+
+system.option enreset off
+system.option trst off
+SYStem.JtagClock 1MHz
+sys.o cflush on
+SYStem.Up
+
+;halting debug
+D.S SD:0xE000EDF0 %LE %LONG 0xA05F0003
+
+;SYS_ROM write while loop instruction
+D.S SD:0x04100000 %LE %LONG 0x00000000
+D.S SD:0x04100004 %LE %LONG 0x00000000
+D.S SD:0x04100008 %LE %LONG 0xE7FEE7FE
+D.S SD:0x0410000C %LE %LONG 0xE7FEE7FE
+
+;WDT reset
+MWriteS32 ezahb:0x420B0010 0x156789AB %LE
+MWriteS32 ezahb:0x520B0010 0x156789AB %LE
+
+;JTAG reset to latch PC, CVD debug
+SYStem.RESet
+SYStem.CPU CORTEXM33F
+SYStem.CONFIG SWDP ON
+
+system.option enreset off
+system.option trst off
+SYStem.JtagClock 1MHz
+sys.o cflush on
+SYStem.Up
+
+setup.IMASKHLL ON
+setup.IMASKASM ON
+
+Break.Select Program OnChip
+Break.Select Hll OnChip
+Break.Select Spot OnChip
+Break.Select Read OnChip
+Break.Select Write OnChip
+
+;PND all on
+;D.S SD:0xA2270320        %LE %LONG 0xFFFFFFFF
+;D.S SD:0xA2270350        %LE %LONG 0xFFFFFFFF
+;D.S SD:0xA2030B20        %LE %LONG 0xFFFFFFFF
+
+;disable watch dog
+D.S SD:0x420B0000 %LE %LONG 0x10
+;disable boot slave
+D.S SD:0xA2280008 %LE %LONG 0x0
+;disable cache
+D.S SD:0xE0180004 %LE %LONG 0x3
+D.S SD:0xE0180000 %LE %LONG 0x0
+;disable mpu
+D.S SD:0xE000ED94 %LE %LONG 0x0
+;set dsp daisy-chain
+D.S SD:0xA2010050 %LE %LONG 0x0
+Local &start &end
+&start=clock.seconds()
+
+&end=clock.seconds()
+Print "Elapsed time is " &end-&start    " seconds"
+
+;[TODO] memory change NS to load NS code
+D.S SD:0x422E0700 %LE %LONG 0xFF000000
+D.S SD:0x422E0704 %LE %LONG 0xFFFFFFFF
+D.S SD:0x422E0708 %LE %LONG 0xFFFFFFFF
+D.S SD:0x422E070C %LE %LONG 0xFFFFFFFF
+D.S SD:0x422E0710 %LE %LONG 0xFFFFFFFF
+D.S SD:0x422E0714 %LE %LONG 0xFFFFFFFF
+D.S SD:0x422E0718 %LE %LONG 0xFFFFFFFF
+D.S SD:0x422E071C %LE %LONG 0xFFFFFFFF
+
+;halting debug
+D.S SD:0xE000EDF0 %LE %LONG 0xA05F0003
+
+;Replaceable debug file
+;==> freertos_create_thread.elf
+;==> no_rtos_initialize_system.elf
+D.LOAD.ELF .\freertos_create_thread.elf
+
+; ===================================================================
+; Download the binary image to PSRAM directly
+; ===================================================================
+D.LOAD.ELF .\secure_no_rtos_demo.elf  /noclear
+
+R.S R13 0x04004000		; set stack pointer to the end of CM4 TCM
+R.S PC Reset_Handler	; real target bypass BROM effect
+
+; set the path for source level debugging
+y.spath.reset
+y.spath .\..\..\..\driver\chip\ab158x\src
+y.spath .\..\..\..\driver\board\ab158x\
+
+;display source listing around the current PC
+winclear
+D.L
+
+v.watch %Hex (SCB_Type *)0xE000ED00
+;v.watch %Hex (NVIC_Type *)0xE000E100
+;v.watch %Hex (MPU_Type *)0xE000ED90
+;v.watch %Hex (SAU_Type *)0xE000EDD0
+;Dump32 ezahb:0x520B0010 %HEX %LE
+
+
+;Breakpoint
+Break.Set 0x042080F0
+

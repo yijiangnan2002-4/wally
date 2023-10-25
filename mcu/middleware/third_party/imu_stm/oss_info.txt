@@ -1,0 +1,9 @@
+Software name:                           IMU Driver(STMicroelectronics)
+Brief:                                   STMicroelectronics IMU(Inertial Measurement Units) driver
+Path:                                    mcu/middleware/third_party/imu_stm
+Category:                                Open source software(OSS)
+Software maker:                          STMicroelectronics
+OSS download link:                       https://github.com/STMicroelectronics/STMems_Standard_C_drivers
+License:                                 BSD-3-Clause
+Evidence of license agreement:           https://github.com/STMicroelectronics/STMems_Standard_C_drivers/blob/master/LICENSE
+Version:                                 V1.0.0

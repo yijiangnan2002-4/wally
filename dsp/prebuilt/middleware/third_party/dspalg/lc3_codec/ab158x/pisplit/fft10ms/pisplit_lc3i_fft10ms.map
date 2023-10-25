@@ -1,0 +1,672 @@
+
+Discarded input sections
+
+ .note.GNU-stack
+                0x00000000        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ .note.GNU-stack
+                0x00000000        0x0 Build/source/piclib_fft10ms.picsl.o
+ .note.GNU-stack
+                0x00000000        0x0 Build/source/IRAM_fft_stage.picsl.o
+ .note.GNU-stack
+                0x00000000        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+
+Linker script and memory map
+
+LOAD C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+LOAD C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+LOAD Build/source/piclib_fft10ms.picsl.o
+LOAD Build/source/IRAM_fft_stage.picsl.o
+LOAD C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/\libgcc.a
+LOAD C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/\libgcc.a
+LOAD C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+LOAD C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtn.o
+
+.text           0x00000000     0x1cf5
+                0x00000000                _text_start = ABSOLUTE (.)
+ *(.got.plt* .plt*)
+ .got.plt       0x00000000        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+                0x00000000                _GLOBAL_OFFSET_TABLE_
+ .init.literal  0x00000000        0x4 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ .init.literal  0x00000004        0x4 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+ .literal       0x00000008       0x14 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+                                         0x20 (size before relaxing)
+ .literal       0x0000001c       0x40 Build/source/piclib_fft10ms.picsl.o
+ .literal       0x0000005c       0x40 Build/source/IRAM_fft_stage.picsl.o
+                                         0x64 (size before relaxing)
+ .literal       0x0000009c        0x4 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+ .fini.literal  0x000000a0        0x4 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ .plt           0x000000a4        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+ *(.init.literal)
+ *(.init)
+ .init          0x000000a4        0x3 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+                0x000000a4                _init
+ .init          0x000000a7        0x8 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ .init          0x000000af        0x8 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+ .init          0x000000b7        0x2 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtn.o
+ *(.literal .text .stub .literal.* .text.* .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+ *fill*         0x000000b9        0x3 00000000
+ .text          0x000000bc       0x4e C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ *fill*         0x0000010a        0x2 00000000
+ .text          0x0000010c       0x5a Build/source/piclib_fft10ms.picsl.o
+                0x0000010c                _start
+ *fill*         0x00000166        0xa 00000000
+ .text          0x00000170     0x1b53 Build/source/IRAM_fft_stage.picsl.o
+                0x00000170                fix_fft_Init
+                0x00000184                fix_fft2_stage
+                0x000001ec                fix_fft5_stage
+                0x00000304                fix_fft6
+                0x00000548                fix_fft12
+                0x0000084c                fix_fft15_stage
+                0x00000a80                fix_fft5_8K
+                0x00000b98                fix_fft10
+                0x00000d08                fix_fft15
+                0x00000e00                fix_fft20
+                0x00001154                fix_fft30
+                0x00001518                fix_fft40
+                0x0000177c                FFT4N
+                0x000018a0                FFT8N
+                0x00001b04                FFT12N
+ *fill*         0x00001cc3        0x1 00000000
+ .text          0x00001cc4       0x23 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+ .text          0x00001ce7        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+ *fill*         0x00001ce7        0x0 00000000
+ *fill*         0x00001ce7        0x0 00000000
+ *fill*         0x00001ce7        0x0 00000000
+ *fill*         0x00001ce7        0x0 00000000
+ .text          0x00001ce7        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtn.o
+ *(.clib.literal .clib.text)
+ *(.text.*personality*)
+ *(.gnu.warning)
+ *(.fini.literal)
+ *fill*         0x00001ce7        0x0 00000000
+ *(.fini)
+ *fill*         0x00001ce7        0x1 00000000
+ .fini          0x00001ce8        0x3 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+                0x00001ce8                _fini
+ .fini          0x00001ceb        0x8 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ .fini          0x00001cf3        0x2 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtn.o
+                [!provide]                        PROVIDE (__etext = .)
+                [!provide]                        PROVIDE (_etext = .)
+                [!provide]                        PROVIDE (etext = .)
+
+.dynamic        0x00001cf8       0xa8
+                0x00001cf8        0x4 LONG 0x70000002
+                0x00001cfc        0x4 LONG 0x0 _text_start
+ *(.dynamic)
+ .dynamic       0x00001d00       0xa0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+                0x00001d00                _DYNAMIC
+
+.hash           0x00001da0       0x10
+ *(.hash)
+ .hash          0x00001da0       0x10 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.dynsym         0x00001db0       0x10
+ *(.dynsym)
+ .dynsym        0x00001db0       0x10 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.dynstr         0x00001dc0        0x1
+ *(.dynstr)
+ .dynstr        0x00001dc0        0x1 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.gnu.version    0x00001dc2        0x0
+ *(.gnu.version)
+ .gnu.version   0x00001dc2        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.gnu.version_d  0x00001dc4        0x0
+ *(.gnu.version_d)
+ .gnu.version_d
+                0x00001dc4        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.gnu.version_r  0x00001dc4        0x0
+ *(.gnu.version_r)
+ .gnu.version_r
+                0x00001dc4        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.rel.init
+ *(.rel.init)
+
+.rela.init
+ *(.rela.init)
+
+.rel.text
+ *(.rel.text .rel.text.* .rel.gnu.linkonce.t.*)
+
+.rela.text
+ *(.rela.text .rela.text.* .rela.gnu.linkonce.t.*)
+
+.rel.fini
+ *(.rel.fini)
+
+.rela.fini
+ *(.rela.fini)
+
+.rel.rodata
+ *(.rel.rodata .rel.rodata.* .rel.gnu.linkonce.r.*)
+
+.rela.rodata
+ *(.rela.rodata .rela.rodata.* .rela.gnu.linkonce.r.*)
+
+.rel.data.rel.ro
+ *(.rel.data.rel.ro*)
+
+.rela.data.rel.ro
+ *(.rel.data.rel.ro*)
+
+.rel.data
+ *(.rel.data .rel.data.* .rel.gnu.linkonce.d.*)
+
+.rela.data
+ *(.rela.data .rela.data.* .rela.gnu.linkonce.d.*)
+
+.rel.tdata
+ *(.rel.tdata .rel.tdata.* .rel.gnu.linkonce.td.*)
+
+.rela.tdata
+ *(.rela.tdata .rela.tdata.* .rela.gnu.linkonce.td.*)
+
+.rel.tbss
+ *(.rel.tbss .rel.tbss.* .rel.gnu.linkonce.tb.*)
+
+.rela.tbss
+ *(.rela.tbss .rela.tbss.* .rela.gnu.linkonce.tb.*)
+
+.rel.ctors
+ *(.rel.ctors)
+
+.rela.ctors
+ *(.rela.ctors)
+
+.rel.dtors
+ *(.rel.dtors)
+
+.rela.dtors
+ *(.rela.dtors)
+
+.rel.got
+ *(.rel.got)
+
+.rela.got       0x00001dc4      0x1ec
+ *(.rela.got)
+ .rela.got      0x00001dc4      0x1ec C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.rel.bss
+ *(.rel.bss .rel.bss.* .rel.gnu.linkonce.b.*)
+
+.rela.bss
+ *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
+
+.rel.plt
+ *(.rel.plt)
+
+.rela.plt       0x00001fb0        0x0
+ *(.rela.plt)
+ .rela.plt      0x00001fb0        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.got            0x00001fb0        0x4
+ *(.got)
+ .got           0x00001fb0        0x4 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.got.loc        0x00001fb4       0x38
+ *(.got.loc)
+ .got.loc       0x00001fb4       0x38 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.clib.rodata
+ *(.clib.rodata)
+
+.rtos.rodata
+ *(.rtos.rodata)
+
+.clib.data
+ *(.clib.data)
+
+.rtos.data
+ *(.rtos.data)
+
+.clib.percpu.data
+ *(.clib.percpu.data)
+
+.rtos.percpu.data
+ *(.rtos.percpu.data)
+
+.rodata
+ *(.rodata .rodata.* .gnu.linkonce.r.*)
+
+.interp         0x00001fec        0xb
+ .interp        0x00001fec        0xb C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+
+.rodata1
+ *(.rodata1)
+
+.xt_except_table
+ *(.xt_except_table)
+
+.eh_frame       0x00001ff8        0x4
+ *(.eh_frame)
+ .eh_frame      0x00001ff8        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ .eh_frame      0x00001ff8        0x4 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+
+.gcc_except_table
+ *(.gcc_except_table)
+ *(.gcc_except_table.*)
+
+.eh_frame
+ *(.eh_frame)
+
+.gcc_except_table
+ *(.gcc_except_table)
+ *(.gcc_except_table.*)
+
+.tdata
+ *(.tdata .tdata.* .gnu.linkonce.td.*)
+
+.tbss
+ *(.tbss .tbss.* .gnu.linkonce.tb.*)
+ *(.tcommon)
+                0x00001ffc                . = ALIGN (0x4)
+                [!provide]                        PROVIDE (__preinit_array_start = .)
+
+.preinit_array
+ *(.preinit_array)
+                [!provide]                        PROVIDE (__preinit_array_end = .)
+                [!provide]                        PROVIDE (__init_array_start = .)
+
+.init_array
+ *(.init_array)
+                [!provide]                        PROVIDE (__init_array_end = .)
+                [!provide]                        PROVIDE (__fini_array_start = .)
+
+.fini_array
+ *(.fini_array)
+                [!provide]                        PROVIDE (__fini_array_end = .)
+
+.ctors          0x00001ffc        0x8
+ *crtbegin*.o(.ctors)
+ .ctors         0x00001ffc        0x4 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ *(EXCLUDE_FILE(*crtend*.o) .ctors)
+ *(SORT_BY_NAME(.ctors.*))
+ *(.ctors)
+ .ctors         0x00002000        0x4 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+
+.dtors          0x00002004        0x8
+ *crtbegin*.o(.dtors)
+ .dtors         0x00002004        0x4 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ *(EXCLUDE_FILE(*crtend*.o) .dtors)
+ *(SORT_BY_NAME(.dtors.*))
+ *(.dtors)
+ .dtors         0x00002008        0x4 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+
+.jcr
+ *(.jcr)
+
+.data.rel.ro
+ *(.data.rel.ro.local)
+ *(.data.rel.ro*)
+
+.data           0x00002010       0xbd
+ *(.data .data.* .gnu.linkonce.d.*)
+ .data          0x00002010        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+ .data          0x00002010       0x24 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+                0x00002010                __dso_handle
+ *fill*         0x00002034        0xc 
+ .data          0x00002040       0x8d Build/source/piclib_fft10ms.picsl.o
+                0x00002040                export_parameter_array
+ .data          0x000020cd        0x0 Build/source/IRAM_fft_stage.picsl.o
+ .data          0x000020cd        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+ .data          0x000020cd        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtn.o
+ *(.gnu.linkonce.d.*personality*)
+
+.data1
+ *(.data1)
+
+.xt_except_desc
+ *(.xt_except_desc .gnu.linkonce.h.*)
+ *(.xt_except_desc_end)
+                0x000020cd                _edata = .
+                [!provide]                        PROVIDE (edata = .)
+                0x000020cd                __bss_start = .
+
+.bss            0x000020d0      0x308
+ *(.dynbss)
+ *(.bss .bss.* .gnu.linkonce.b.*)
+ .bss           0x000020d0        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+ .bss           0x000020d0        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ .bss           0x000020d0      0x308 Build/source/piclib_fft10ms.picsl.o
+                0x000020d0                printf_ptr
+                0x000020d4                NN_thresh
+                0x000020d6                NN_thresh_exp
+                0x000020d8                BW_thresh_quiet_exp
+                0x000020dc                plc_preemph_fac
+                0x000020e0                LowDelayShapes_n960_N80
+                0x000020e4                LowDelayShapes_n960_N160
+                0x000020e8                LowDelayShapes_n960_N240
+                0x000020ec                LowDelayShapes_n960_N320
+                0x000020f0                LowDelayShapes_n960_N480
+                0x000020f4                LowDelayShapes_n960_N60_7_5ms
+                0x000020f8                LowDelayShapes_n960_N120_7_5ms
+                0x000020fc                LowDelayShapes_n960_N180_7_5ms
+                0x00002100                LowDelayShapes_n960_N240_7_5ms
+                0x00002104                LowDelayShapes_n960_N360_7_5ms
+                0x00002108                LowDelayShapes_n960_len
+                0x0000210c                LowDelayShapes_n960_la_zeroes
+                0x00002110                LowDelayShapes_n960
+                0x00002114                LowDelayShapes_n960_len_7_5ms
+                0x00002118                LowDelayShapes_n960_la_zeroes_7_5ms
+                0x0000211c                LowDelayShapes_n960_7_5ms
+                0x00002120                BW_cutoff_bits_all
+                0x00002124                BW_thresh_quiet
+                0x00002128                BW_thresh_brickwall
+                0x0000212c                BW_brickwall_dist
+                0x00002130                BW_warp_idx_start_16k
+                0x00002134                BW_warp_idx_stop_16k
+                0x00002138                BW_warp_idx_start_24k
+                0x0000213c                BW_warp_idx_stop_24k
+                0x00002140                BW_warp_idx_start_32k
+                0x00002144                BW_warp_idx_stop_32k
+                0x00002148                BW_warp_idx_start_48k
+                0x0000214c                BW_warp_idx_stop_48k
+                0x00002150                BW_warp_idx_start_all
+                0x00002154                BW_warp_idx_stop_all
+                0x00002158                BW_brickwall_dist_7_5ms
+                0x0000215c                BW_warp_idx_start_16k_7_5ms
+                0x00002160                BW_warp_idx_stop_16k_7_5ms
+                0x00002164                BW_warp_idx_start_24k_7_5ms
+                0x00002168                BW_warp_idx_stop_24k_7_5ms
+                0x0000216c                BW_warp_idx_start_32k_7_5ms
+                0x00002170                BW_warp_idx_stop_32k_7_5ms
+                0x00002174                BW_warp_idx_start_48k_7_5ms
+                0x00002178                BW_warp_idx_stop_48k_7_5ms
+                0x0000217c                BW_warp_idx_start_all_7_5ms
+                0x00002180                BW_warp_idx_stop_all_7_5ms
+                0x00002184                BW_cutoff_bin_all
+                0x00002188                tns_subdiv_startfreq_8k
+                0x0000218c                tns_subdiv_stopfreq_8k
+                0x00002190                tns_subdiv_startfreq_16k
+                0x00002194                tns_subdiv_stopfreq_16k
+                0x00002198                tns_subdiv_startfreq_24k
+                0x0000219c                tns_subdiv_stopfreq_24k
+                0x000021a0                tns_subdiv_startfreq_32k
+                0x000021a4                tns_subdiv_stopfreq_32k
+                0x000021a8                tns_subdiv_startfreq_48k
+                0x000021ac                tns_subdiv_stopfreq_48k
+                0x000021b0                tns_subdiv_startfreq
+                0x000021b4                tns_subdiv_stopfreq
+                0x000021b8                tns_subdiv_startfreq_8k_7_5ms
+                0x000021bc                tns_subdiv_stopfreq_8k_7_5ms
+                0x000021c0                tns_subdiv_startfreq_16k_7_5ms
+                0x000021c4                tns_subdiv_stopfreq_16k_7_5ms
+                0x000021c8                tns_subdiv_startfreq_24k_7_5ms
+                0x000021cc                tns_subdiv_stopfreq_24k_7_5ms
+                0x000021d0                tns_subdiv_startfreq_32k_7_5ms
+                0x000021d4                tns_subdiv_stopfreq_32k_7_5ms
+                0x000021d8                tns_subdiv_startfreq_48k_7_5ms
+                0x000021dc                tns_subdiv_stopfreq_48k_7_5ms
+                0x000021e0                tns_subdiv_startfreq_7_5ms
+                0x000021e4                tns_subdiv_stopfreq_7_5ms
+                0x000021e8                Tab_esc_nb
+                0x000021ec                ari_spec_lookup
+                0x000021f0                ari_spec_cumfreq
+                0x000021f4                ari_spec_freq
+                0x000021f8                ari_spec_bits
+                0x000021fc                tnsAcfWindow
+                0x00002200                tnsQuantPts
+                0x00002204                tnsQuantThr
+                0x00002208                ac_tns_order_bits
+                0x0000220c                ac_tns_order_freq
+                0x00002210                ac_tns_order_cumfreq
+                0x00002214                ac_tns_coef_bits
+                0x00002218                ac_tns_coef_freq
+                0x0000221c                ac_tns_coef_cumfreq
+                0x00002220                lpc_warp_pre_emphasis_64_8000
+                0x00002224                lpc_warp_pre_emphasis_64_e_8000
+                0x00002228                lpc_warp_pre_emphasis_64_16000
+                0x0000222c                lpc_warp_pre_emphasis_64_e_16000
+                0x00002230                lpc_warp_pre_emphasis_64_24000
+                0x00002234                lpc_warp_pre_emphasis_64_e_24000
+                0x00002238                lpc_warp_pre_emphasis_64_32000
+                0x0000223c                lpc_warp_pre_emphasis_64_e_32000
+                0x00002240                lpc_warp_pre_emphasis_64_48000
+                0x00002244                lpc_warp_pre_emphasis_64_e_48000
+                0x00002248                lpc_pre_emphasis
+                0x0000224c                lpc_pre_emphasis_e
+                0x00002250                bands_offset_8000_lpc_warp
+                0x00002254                bands_offset_16000_lpc_warp
+                0x00002258                bands_offset_24000_lpc_warp
+                0x0000225c                bands_offset_32000_lpc_warp
+                0x00002260                bands_offset_48000_lpc_warp
+                0x00002264                bands_offset_8000_lpc_warp_7_5ms
+                0x00002268                bands_offset_16000_lpc_warp_7_5ms
+                0x0000226c                bands_offset_24000_lpc_warp_7_5ms
+                0x00002270                bands_offset_32000_lpc_warp_7_5ms
+                0x00002274                bands_offset_48000_lpc_warp_7_5ms
+                0x00002278                bands_offset
+                0x0000227c                bands_number_7_5ms
+                0x00002280                bands_offset_with_one_max
+                0x00002284                bands_offset_with_two_max
+                0x00002288                bands_offset_with_one_max_7_5ms
+                0x0000228c                bands_offset_with_two_max_7_5ms
+                0x00002290                bands_offset_7_5ms
+                0x00002294                bands_nrg_scale
+                0x00002298                resamp_filt_8k
+                0x0000229c                resamp_filt_16k
+                0x000022a0                resamp_filt_24k
+                0x000022a4                resamp_filt_32k
+                0x000022a8                resamp_filt_48k
+                0x000022ac                resamp_filts
+                0x000022b0                resamp_params
+                0x000022b4                highpass50_filt_num
+                0x000022b8                highpass50_filt_den
+                0x000022bc                olpa_ac_weighting
+                0x000022c0                ltpf_ac_interp_filt
+                0x000022c4                inter_filter
+                0x000022c8                inter_filter_shift
+                0x000022cc                inter_filter_len
+                0x000022d0                tilt_filter_len_EO
+                0x000022d4                tilt_filter_EVEN
+                0x000022d8                tilt_filter_ODD
+                0x000022dc                tilt_filter_len
+                0x000022e0                gain_scale_fac
+                0x000022e4                pitch_scale
+                0x000022e8                ltpf_overlap_len
+                0x000022ec                sns_vq_reg_adj_scf
+                0x000022f0                sns_vq_reg_lf_adj_scf
+                0x000022f4                sns_vq_near_adj_scf
+                0x000022f8                sns_vq_far_adj_scf
+                0x000022fc                sns_gaintabPtr
+                0x00002300                sns_gainSz
+                0x00002304                sns_gainMSBbits
+                0x00002308                sns_gainLSBbits
+                0x0000230c                sns_Kval
+                0x00002310                sns_MPVQ_Sz
+                0x00002314                st1SCF0_7_base5_32x8_Q14
+                0x00002318                st1SCF8_15_base5_32x8_Q14
+                0x0000231c                h_memN16K12
+                0x00002320                h_memN10K22
+                0x00002324                h_memN6K2
+                0x00002328                MPVQ_offs_ptr
+                0x0000232c                tabledKMAX
+                0x00002330                isqrt_Q16tab
+                0x00002334                adjust_global_gain_tables
+                0x00002338                BitReverseTable256
+                0x0000233c                Tab_T
+                0x00002340                Bit_Shft
+                0x00002344                AB_Shft
+                0x00002348                Tab_esc_Dec
+                0x0000234c                ldCoeff
+                0x00002350                ldCoeff_Hifi5
+                0x00002354                exp2_tab_long
+                0x00002358                exp2w_tab_long
+                0x0000235c                exp2x_tab_long
+                0x00002360                SqrtTable
+                0x00002364                SqrtDiffTable
+                0x00002368                ISqrtTable
+                0x0000236c                ISqrtDiffTable
+                0x00002370                InvTable
+                0x00002374                InvDiffTable
+                0x00002378                InvIntTable
+                0x0000237c                SineTable480
+                0x00002380                SineTable360
+                0x00002384                SineTable320
+                0x00002388                SineWindow60
+                0x0000238c                SineWindow80
+                0x00002390                SineWindow120
+                0x00002394                SineWindow160
+                0x00002398                SineWindow180
+                0x0000239c                SineWindow240
+                0x000023a0                SineWindow320
+                0x000023a4                SineWindow360
+                0x000023a8                SineWindow480
+                0x000023ac                RealFFT80_twid
+                0x000023b0                RotVector_40_32
+                0x000023b4                RotVector_480
+                0x000023b8                RotVector_360
+                0x000023bc                RotVector_320
+                0x000023c0                RotVector_15_6
+                0x000023c4                isqrt_table
+                0x000023c8                Log2_16_table1
+                0x000023cc                Log2_16_table2
+                0x000023d0                InvLog2_16_table1
+                0x000023d4                InvLog2_16_table2
+ .bss           0x000023d8        0x0 Build/source/IRAM_fft_stage.picsl.o
+ .bss           0x000023d8        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+ .bss           0x000023d8        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtn.o
+ *(.clib.bss)
+ *(.clib.percpu.bss)
+ *(.rtos.bss)
+ *(.rtos.percpu.bss)
+ *(COMMON)
+                0x000023d8                . = ALIGN (0x4)
+                0x000023d8                . = ALIGN (0x4)
+                0x000023d8                _end = .
+                [!provide]                        PROVIDE (end = .)
+
+.stab
+ *(.stab)
+
+.stabstr
+ *(.stabstr)
+
+.stab.excl
+ *(.stab.excl)
+
+.stab.exclstr
+ *(.stab.exclstr)
+
+.stab.index
+ *(.stab.index)
+
+.stab.indexstr
+ *(.stab.indexstr)
+
+.comment        0x00000000       0x5f
+ *(.comment)
+ .comment       0x00000000       0x28 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+                                         0x29 (size before relaxing)
+ .comment       0x00000028       0x37 Build/source/piclib_fft10ms.picsl.o
+                                         0x38 (size before relaxing)
+ .comment       0x0000005f       0x38 Build/source/IRAM_fft_stage.picsl.o
+ .comment       0x0000005f       0x29 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+
+.xtensa.info    0x00000000      0x1f0
+ .xtensa.info   0x00000000      0x1f0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+ .xtensa.info   0x000001f0        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ .xtensa.info   0x000001f0        0x0 Build/source/piclib_fft10ms.picsl.o
+ .xtensa.info   0x000001f0        0x0 Build/source/IRAM_fft_stage.picsl.o
+ .xtensa.info   0x000001f0        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+ .xtensa.info   0x000001f0        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtn.o
+
+.debug
+ *(.debug)
+
+.line
+ *(.line)
+
+.debug_srcinfo
+ *(.debug_srcinfo)
+
+.debug_sfnames
+ *(.debug_sfnames)
+
+.debug_aranges
+ *(.debug_aranges)
+
+.debug_pubnames
+ *(.debug_pubnames)
+
+.debug_info     0x00000000     0x381c
+ *(.debug_info .gnu.linkonce.wi.*)
+ .debug_info    0x00000000      0xf5a Build/source/piclib_fft10ms.picsl.o
+ .debug_info    0x00000f5a     0x28c2 Build/source/IRAM_fft_stage.picsl.o
+
+.debug_abbrev   0x00000000      0x2cc
+ *(.debug_abbrev)
+ .debug_abbrev  0x00000000       0xe0 Build/source/piclib_fft10ms.picsl.o
+ .debug_abbrev  0x000000e0      0x1ec Build/source/IRAM_fft_stage.picsl.o
+
+.debug_line     0x00000000     0x164c
+ *(.debug_line)
+ .debug_line    0x00000000       0xe3 Build/source/piclib_fft10ms.picsl.o
+ .debug_line    0x000000e3     0x1569 Build/source/IRAM_fft_stage.picsl.o
+
+.debug_frame    0x00000000      0x168
+ *(.debug_frame)
+ .debug_frame   0x00000000       0x28 Build/source/piclib_fft10ms.picsl.o
+ .debug_frame   0x00000028      0x140 Build/source/IRAM_fft_stage.picsl.o
+
+.debug_str      0x00000000     0x1635
+ *(.debug_str)
+ .debug_str     0x00000000     0x1099 Build/source/piclib_fft10ms.picsl.o
+                                       0x10fe (size before relaxing)
+ .debug_str     0x00001099      0x59c Build/source/IRAM_fft_stage.picsl.o
+                                       0x169c (size before relaxing)
+
+.debug_loc      0x00000000      0xc4f
+ *(.debug_loc)
+ .debug_loc     0x00000000       0x13 Build/source/piclib_fft10ms.picsl.o
+ .debug_loc     0x00000013      0xc3c Build/source/IRAM_fft_stage.picsl.o
+
+.debug_macinfo
+ *(.debug_macinfo)
+
+.debug_weaknames
+ *(.debug_weaknames)
+
+.debug_funcnames
+ *(.debug_funcnames)
+
+.debug_typenames
+ *(.debug_typenames)
+
+.debug_varnames
+ *(.debug_varnames)
+
+.xt.lit         0x00000000       0x38
+ *(.xt.lit .xt.lit.* .gnu.linkonce.p.*)
+ .xt.lit.plt    0x00000000        0x0 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+ .xt.lit        0x00000000       0x18 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ .xt.lit        0x00000018        0x8 Build/source/piclib_fft10ms.picsl.o
+ .xt.lit        0x00000020        0x8 Build/source/IRAM_fft_stage.picsl.o
+ .xt.lit        0x00000028       0x10 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+
+.xt.insn
+ *(.xt.insn .gnu.linkonce.x.*)
+
+.xt.prop        0x00000000      0x468
+ *(.xt.prop .gnu.linkonce.prop.*)
+ .xt.prop       0x00000000       0x30 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crti.o
+ .xt.prop       0x00000030       0xd8 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtbegin.o
+ .xt.prop       0x00000108       0x30 Build/source/piclib_fft10ms.picsl.o
+ .xt.prop       0x00000138      0x2a0 Build/source/IRAM_fft_stage.picsl.o
+ .xt.prop       0x000003d8       0x60 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtend.o
+ .xt.prop       0x00000438       0x30 C:/usr/xtensa/XtDevTools/install/builds/RI-2021.8-win32/AIR_PREMIUM_G3_HIFI5/xtensa-elf/lib/xcc/crtn.o
+
+/DISCARD/
+ *(.note.GNU-stack)
+OUTPUT(Build/fft10ms/pisplit_lc3i_fft10ms_position_independent.splitload.lib elf32-xtensa-le)
+
+.debug_ranges   0x00000000       0x18
+ .debug_ranges  0x00000000       0x18 Build/source/IRAM_fft_stage.picsl.o
+
+Memory Configuration
+
+Name             Origin          Length          Used            Unused          Attributes
+*default*        0x00000000      0xffffffff      

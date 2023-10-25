@@ -1,0 +1,406 @@
+/* Copyright Statement:
+ *
+ * (C) 2022  Airoha Technology Corp. All rights reserved.
+ *
+ * This software/firmware and related documentation ("Airoha Software") are
+ * protected under relevant copyright laws. The information contained herein
+ * is confidential and proprietary to Airoha Technology Corp. ("Airoha") and/or its licensors.
+ * Without the prior written permission of Airoha and/or its licensors,
+ * any reproduction, modification, use or disclosure of Airoha Software,
+ * and information contained herein, in whole or in part, shall be strictly prohibited.
+ * You may only use, reproduce, modify, or distribute (as applicable) Airoha Software
+ * if you have agreed to and been bound by the applicable license agreement with
+ * Airoha ("License Agreement") and been granted explicit permission to do so within
+ * the License Agreement ("Permitted User").  If you are not a Permitted User,
+ * please cease any access or use of Airoha Software immediately.
+ * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
+ * THAT AIROHA SOFTWARE RECEIVED FROM AIROHA AND/OR ITS REPRESENTATIVES
+ * ARE PROVIDED TO RECEIVER ON AN "AS-IS" BASIS ONLY. AIROHA EXPRESSLY DISCLAIMS ANY AND ALL
+ * WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
+ * NEITHER DOES AIROHA PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
+ * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
+ * SUPPLIED WITH AIROHA SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
+ * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
+ * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
+ * CONTAINED IN AIROHA SOFTWARE. AIROHA SHALL ALSO NOT BE RESPONSIBLE FOR ANY AIROHA
+ * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
+ * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND AIROHA'S ENTIRE AND
+ * CUMULATIVE LIABILITY WITH RESPECT TO AIROHA SOFTWARE RELEASED HEREUNDER WILL BE,
+ * AT AIROHA'S OPTION, TO REVISE OR REPLACE AIROHA SOFTWARE AT ISSUE,
+ * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
+ * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
+ */
+
+#include "audio_set_driver.h"
+
+#ifndef UNUSED
+#define UNUSED(x)  ((void)(x))
+#endif
+
+#ifdef AIR_KEEP_I2S_ENABLE
+void audio_driver_set_device(hal_audio_device_t set_device, hal_audio_interface_t set_interface, bool set_enable)
+{
+    bt_sink_srv_am_feature_t am_feature;
+    memset(&am_feature, 0, sizeof(bt_sink_srv_am_feature_t));
+    am_feature.type_mask = AM_AUDIO_DEVICE;
+    am_feature.feature_param.audio_driver_param.enable = set_enable;
+    am_feature.feature_param.audio_driver_param.audio_device = set_device;
+    am_feature.feature_param.audio_driver_param.audio_interface= set_interface;
+    am_audio_set_feature(FEATURE_NO_NEED_ID, &am_feature);
+}
+
+void hal_audio_set_audio_device(hal_audio_device_t set_device, hal_audio_interface_t set_interface, bool set_enable) {
+    hal_audio_mclk_enable(true, AFE_MCLK_PIN_FROM_I2S0, AFE_APLL2, 0); //MCLK
+    mcu2dsp_open_param_t open_param;
+    void *p_param_share;
+    memset(&open_param, 0, sizeof(mcu2dsp_open_param_t));
+    //hal_audio_get_stream_in_setting_config(AU_DSP_AUDIO, &open_param.stream_in_param);
+    //open_param.stream_in_param.afe.audio_device = ami_feature->feature_param.audio_driver_param.audio_device;
+    //open_param.stream_in_param.afe.audio_interface = ami_feature->feature_param.audio_driver_param.audio_interface;
+    hal_audio_get_stream_out_setting_config(AU_DSP_AUDIO, &open_param.stream_out_param);
+    open_param.audio_scenario_type = AUDIO_SCENARIO_TYPE_DEVICE;
+    open_param.stream_out_param.afe.audio_device = set_device;
+    open_param.stream_out_param.afe.audio_interface = set_interface;
+    open_param.stream_out_param.afe.i2s_master_sampling_rate[0] = 48000; //default value
+
+    p_param_share = hal_audio_dsp_controller_put_paramter(&open_param, sizeof(mcu2dsp_open_param_t), AUDIO_MESSAGE_TYPE_COMMON);
+    if (set_enable) {
+        ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_DEVICE, &open_param, set_enable);
+    }
+    hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_SET_DRIVER_PARAM,
+                                          AUDIO_DRIVER_SET_DEVICE | (set_enable<<15),
+                                          (uint32_t)p_param_share,
+                                          true);
+    if (!set_enable) {
+        ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_DEVICE, &open_param, set_enable);
+    }
+}
+#endif
+
+#if defined(MTK_AMP_DC_COMPENSATION_ENABLE)
+
+
+static void sort(unsigned int *p, unsigned int entries)
+{
+    unsigned int i, j, swap;
+    unsigned int swapped = 0;
+
+    if (entries == 0) {
+        return;
+    }
+
+    for (i = 0; i < (entries - 1); i++) {
+        for (j = 0; j < (entries - 1) - i; j++) {
+            if (p[j] > p[j + 1]) {
+                swap = p[j];
+                p[j] = p[j + 1];
+                p[j + 1] = swap;
+                swapped = 1;
+            }
+        }
+        if (!swapped) {
+            break;
+        }
+    }
+}
+
+#define ReadREG(_addr)          (*(volatile uint32_t *)(_addr))
+#define AFE_READ(addr)          *((volatile uint32_t *)(addr))
+#define AFE_WRITE(addr, val)    *((volatile uint32_t *)(addr)) = val
+#define AFE_SET_REG(addr, val, msk)  AFE_WRITE((addr), ((AFE_READ(addr) & (~(msk))) | ((val) & (msk))))
+#define setting_count       (100)
+#define abandon_head_count  (5)
+#define abandon_tail_count  (5)
+#define shrinkvalue         (0.125893)
+
+static uint16_t get_dc_compensation_value()
+{
+    bool SignBitL = 0, SignBitR = 0;
+    uint8_t count = 0, loop = 4, TrimL = 0, TrimR = 0, FineTrimL = 0, FineTrimR = 0;
+    int channel_sel[4] = {0x00000071, 0x00000074, 0x00000072, 0x00000073}; //Trimming buffer mux selection with trimming buffer gain 18dB
+    int SUM_HPLP = 0, SUM_HPLN = 0, SUM_HPRP = 0, SUM_HPRN = 0;
+    uint16_t total = 0;
+#ifdef DC_COMPENSATION_PARA_ENABLE
+    double fAVG_HPLP = 0, fAVG_HPLN = 0, fAVG_HPRP = 0, fAVG_HPRN = 0, fValueL = 0, fValueR = 0, TrimStep = 0.18, FineTrimStep = 0.05, fcount = 0;
+#else
+    double fAVG_HPLP = 0, fAVG_HPLN = 0, fAVG_HPRP = 0, fAVG_HPRN = 0, fValueL = 0, fValueR = 0, TrimStep = 0.15, FineTrimStep = 0.04, fcount = 0;
+#endif
+    unsigned int **data = (unsigned int **)pvPortMalloc(2 * sizeof(unsigned int *));
+    if (data == NULL) {
+        AUDIO_ASSERT(0 && "DC compensation error, pvPortMalloc **data failed.");
+        return 1;
+    }
+    for (count = 0; count < 2; count++) {
+
+        data[count] = pvPortMalloc(setting_count * sizeof(unsigned int));
+
+        if (data[count] == NULL) {
+            vPortFree(data);
+            AUDIO_ASSERT(0 && "DC compensation error, pvPortMalloc data[count] failed.");
+            return 1;
+        }
+    }
+
+#if defined(AIR_BTA_IC_PREMIUM_G3)
+        //Here Set Analog - HPTRIM
+        AFE_WRITE(ABB_BASE + 0x17C, 0x00001461);
+        AFE_WRITE(ABB_BASE + 0x118, 0x00000040);
+        AFE_WRITE(ABB_BASE + 0x118, 0x00000070);
+        //Here Set Analog - AuxADC
+        AFE_WRITE(AUXADC_BASE + 0x78, 0x00000101);
+        hal_gpt_delay_us(5);
+        AFE_WRITE(AUXADC_BASE + 0x74, 0x00000001);
+        hal_gpt_delay_us(45);
+        AFE_WRITE(AUXADC_BASE + 0x8C, 0x00000001);
+        AFE_WRITE(AUXADC_BASE + 0x88, 0x00000001);
+        AFE_WRITE(AUXADC_BASE + 0x8, 0x00000100);
+        AFE_WRITE(AUXADC_BASE + 0x8, 0x00000000);
+#elif defined(AIR_BTA_IC_STEREO_HIGH_G3)
+    //Here Set Analog - HPTRIM
+    AFE_WRITE(ABB_BASE + 0x12C, 0x0000FFF4);
+    AFE_WRITE(ABB_BASE + 0x118, 0x00000040);
+    AFE_WRITE(ABB_BASE + 0x118, 0x00000070);
+    //Here Set Analog - AuxADC
+    AFE_WRITE(AUXADC_BASE + 0x78, 0x00000101);
+    hal_gpt_delay_us(5);
+    AFE_WRITE(AUXADC_BASE + 0x74, 0x00000001);
+    hal_gpt_delay_us(45);
+    AFE_WRITE(AUXADC_BASE + 0x8C, 0x00000001);
+    AFE_WRITE(AUXADC_BASE + 0x88, 0x00000001);
+    AFE_WRITE(AUXADC_BASE + 0x8, 0x00000100);
+    AFE_WRITE(AUXADC_BASE + 0x8, 0x00000000);
+#endif
+
+#ifndef FPGA_ENV
+    hal_adc_init();
+#endif
+    //Auxadc measure value, trimming buffer mux selection 0x71:LP, 0x74:LN, 0x72:RP, 0x73:RN
+    for (count = 0; count < setting_count; count++) {
+        for (loop = 0; loop < 2; loop++) {
+#ifdef DC_COMPENSATION_PARA_ENABLE
+            AFE_SET_REG(ABB_BASE + 0x118,  channel_sel[loop],  0xffffffff);
+#else
+            AFE_SET_REG(ABB_BASE + 0x218,  channel_sel[loop],  0xffffffff);
+#endif
+            ADC->AUXADC_CON1 = 0;
+            //hal_gpt_delay_us(10);
+            ADC->AUXADC_CON1 = (1 << 8);
+            // Wait until the module status is idle
+            while (ADC->AUXADC_CON3_UNION.AUXADC_CON3_CELLS.ADC_STAT & AUXADC_CON3_ADC_STA_MASK);
+#ifdef DC_COMPENSATION_PARA_ENABLE
+            //hal_gpt_delay_us(10);
+            data[loop][count] = ReadREG(AUXADC_BASE + 0x30);
+            //printf("Ldata[%d][%d]:0x%x RG(AUXADC_BASE+0x4):0x%x RG(ABB_BASE+0x12C):0x%x\r\n",loop,count,data[loop][count], ReadREG(AUXADC_BASE+0x4),ReadREG(ABB_BASE+0x12C));
+#else
+            data[loop][count] = ReadREG(0xA0170030);
+#endif
+
+        }
+    }
+
+    //Abandon critical value and calculate sum of ordered data to get average value
+    for (loop = 0; loop < 2; loop++) {
+        sort(&data[loop][0], setting_count);
+        if (loop == 0) {
+            for (count = 0 + abandon_head_count; count < setting_count - abandon_tail_count; count++) {
+                SUM_HPLP = SUM_HPLP + data[loop][count];
+            }
+            fAVG_HPLP = (float)SUM_HPLP / (float)(setting_count - abandon_head_count - abandon_tail_count);
+        }
+        if (loop == 1) {
+            for (count = 0 + abandon_head_count; count < setting_count - abandon_tail_count; count++) {
+                SUM_HPLN = SUM_HPLN + data[loop][count];
+            }
+            fAVG_HPLN = (float)SUM_HPLN / (float)(setting_count - abandon_head_count - abandon_tail_count);
+        }
+    }
+
+    //Auxadc measure value, trimming buffer mux selection 0x71:LP, 0x74:LN, 0x72:RP, 0x73:RN
+    for (count = 0; count < setting_count; count++) {
+        for (loop = 0; loop < 2; loop++) {
+#ifdef DC_COMPENSATION_PARA_ENABLE
+            AFE_SET_REG(ABB_BASE + 0x118,  channel_sel[loop + 2],  0xffffffff);
+#else
+            AFE_SET_REG(ABB_BASE + 0x218,  channel_sel[loop + 2],  0xffffffff);
+#endif
+            ADC->AUXADC_CON1 = 0;
+            //hal_gpt_delay_us(10);
+            ADC->AUXADC_CON1 = (1 << 8);
+            // Wait until the module status is idle
+            while (ADC->AUXADC_CON3_UNION.AUXADC_CON3_CELLS.ADC_STAT & AUXADC_CON3_ADC_STA_MASK);
+#ifdef DC_COMPENSATION_PARA_ENABLE
+            //hal_gpt_delay_us(10);
+            data[loop][count] = ReadREG(AUXADC_BASE + 0x30);
+            //printf("Rdata[%d][%d]:0x%x RG(AUXADC_BASE+0x4):0x%x RG(ABB_BASE+12C):0x%x\r\n",loop,count,data[loop][count], ReadREG(AUXADC_BASE+0x4),ReadREG(ABB_BASE+0x12C));
+#else
+            data[loop][count] = ReadREG(0xA0170030);
+#endif
+
+
+        }
+    }
+
+    //Abandon critical value and calculate sum of ordered data to get average value
+    for (loop = 0; loop < 2; loop++) {
+        sort(&data[loop][0], setting_count);
+        if (loop == 0) {
+            for (count = 0 + abandon_head_count; count < setting_count - abandon_tail_count; count++) {
+                SUM_HPRP = SUM_HPRP + data[loop][count];
+            }
+            fAVG_HPRP = (float)SUM_HPRP / (float)(setting_count - abandon_head_count - abandon_tail_count);
+        }
+        if (loop == 1) {
+            for (count = 0 + abandon_head_count; count < setting_count - abandon_tail_count; count++) {
+                SUM_HPRN = SUM_HPRN + data[loop][count];
+            }
+            fAVG_HPRN = (float)SUM_HPRN / (float)(setting_count - abandon_head_count - abandon_tail_count);
+        }
+    }
+#ifndef FPGA_ENV
+    hal_adc_deinit();
+#endif
+    for (count = 0; count < 2; count++) {
+        vPortFree(data[count]);
+    }
+    vPortFree(data);
+
+    fValueL = fAVG_HPLP - fAVG_HPLN;
+    fValueR = fAVG_HPRP - fAVG_HPRN;
+
+    //Auxadc reference voltage from 0~1.4V, express with 12bit
+    fValueL = 1400 * fValueL / 4096; // mV (w 18dB)
+    fValueR = 1400 * fValueR / 4096; // mV (w 18dB)
+
+    //Without trimming buffer gain 18dB
+    fValueL = fValueL * shrinkvalue; // mV (wo 18dB)
+    fValueR = fValueR * shrinkvalue; // mV (wo 18dB)
+
+    //printf("fValueL %f fValueR %f fAVG_HPLP %f fAVG_HPLN %f fAVG_HPRP %f fAVG_HPRN %f\r\n",fValueL,fValueR,fAVG_HPLP,fAVG_HPLN,fAVG_HPRP,fAVG_HPRN);
+    //printf("fValueL = LP - LN = %f - %f = %f\r\n",fAVG_HPLP,fAVG_HPLN,fValueL);
+    //printf("fValueR = RP - RN = %f - %f = %f\r\n",fAVG_HPRP,fAVG_HPRN,fValueR);
+    //audio_src_srv_report("fValueL = LP - LN = %f - %f = %f", 3,fAVG_HPLP,fAVG_HPLN,fValueL);
+    //audio_src_srv_report("fValueR = RP - RN = %f - %f = %f", 3,fAVG_HPRP,fAVG_HPRN,fValueR);
+
+    SignBitL = (fValueL > 0) ? 1 : 0;
+    SignBitR = (fValueR > 0) ? 1 : 0;
+
+    if (SignBitL == 1) {
+        for (fcount = fValueL; fcount >= TrimStep; fcount -= TrimStep) {
+            fValueL -= TrimStep;
+            TrimL += 1;
+        }
+        for (fcount = fValueL; fcount >= FineTrimStep; fcount -= FineTrimStep) {
+            fValueL -= FineTrimStep;
+            FineTrimL += 1;
+        }
+    } else {
+        for (fcount = fValueL; fcount <= (-TrimStep); fcount += TrimStep) {
+            fValueL += TrimStep;
+            TrimL += 1;
+        }
+        for (fcount = fValueL; fcount <= (-FineTrimStep); fcount += FineTrimStep) {
+            fValueL += FineTrimStep;
+            FineTrimL += 1;
+        }
+    }
+
+    if (SignBitR == 1) {
+        for (fcount = fValueR; fcount >= TrimStep; fcount -= TrimStep) {
+            fValueR -= TrimStep;
+            TrimR += 1;
+        }
+        for (fcount = fValueR; fcount >= FineTrimStep; fcount -= FineTrimStep) {
+            fValueR -= FineTrimStep;
+            FineTrimR += 1;
+        }
+    } else {
+        for (fcount = fValueR; fcount <= (-TrimStep); fcount += TrimStep) {
+            fValueR += TrimStep;
+            TrimR += 1;
+        }
+        for (fcount = fValueR; fcount <= (-FineTrimStep); fcount += FineTrimStep) {
+            fValueR += FineTrimStep;
+            FineTrimR += 1;
+        }
+    }
+
+    total = SignBitR << 15 | FineTrimR << 13 | SignBitR << 12 | TrimR << 8 | SignBitL << 7 | FineTrimL << 5 | SignBitL << 4 | TrimL << 0;
+    //printf("total 0x%x\r\n",total);
+
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3)
+    //Here Set Analog - AuxADC
+    AFE_WRITE(AUXADC_BASE + 0x8, 0x00000100);
+    AFE_WRITE(AUXADC_BASE + 0x8, 0x00000000);
+    AFE_WRITE(AUXADC_BASE + 0x8C, 0x00000000);
+    AFE_WRITE(AUXADC_BASE + 0x88, 0x00000000);
+    hal_gpt_delay_us(45);
+    AFE_WRITE(AUXADC_BASE + 0x74, 0x00000000);
+    hal_gpt_delay_us(5);
+    //Here Set Analog -HPTRIM & AuxADC
+    AFE_WRITE(AUXADC_BASE + 0x78, 0x00000000);
+    AFE_WRITE(ABB_BASE + 0x12C, 0x0000FFF0);
+    AFE_WRITE(ABB_BASE + 0x118, 0x00000000);
+#elif defined(AIR_BTA_IC_PREMIUM_G3)
+        //Here Set Analog - AuxADC
+        AFE_WRITE(AUXADC_BASE + 0x8, 0x00000100);
+        AFE_WRITE(AUXADC_BASE + 0x8, 0x00000000);
+        AFE_WRITE(AUXADC_BASE + 0x8C, 0x00000000);
+        AFE_WRITE(AUXADC_BASE + 0x88, 0x00000000);
+        AFE_WRITE(AUXADC_BASE + 0x74, 0x00000000);
+        hal_gpt_delay_us(45);
+        AFE_WRITE(AUXADC_BASE + 0x78, 0x00000100);
+        AFE_WRITE(ABB_BASE + 0x400, 0x00000000);
+        hal_gpt_delay_us(5);
+        //Here Set Analog -HPTRIM & AuxADC
+        AFE_WRITE(ABB_BASE + 0x118, 0x00000070);
+        AFE_WRITE(ABB_BASE + 0x17C, 0x00001460);
+        AFE_WRITE(ABB_BASE + 0x118, 0x00000000);
+#endif
+
+    return total;
+}
+
+void audio_driver_dc_compensation(void)
+{
+    bt_sink_srv_am_feature_t *feature_param = (bt_sink_srv_am_feature_t *)pvPortMalloc(sizeof(bt_sink_srv_am_feature_t));
+    feature_param->type_mask = DC_COMPENSATION;
+    am_audio_set_feature(FEATURE_NO_NEED_ID, feature_param);
+    vPortFree(feature_param);
+}
+
+
+void hal_audio_set_dc_compensation(void) {
+        audio_src_srv_report("[Sink][AM] Init: DC Compensation\n", 0);
+        uint16_t dc_compensation_value = 0xffff;
+        mcu2dsp_open_param_t open_param;
+        void *p_param_share;
+        memset(&open_param, 0, sizeof(mcu2dsp_open_param_t));
+        hal_audio_get_stream_out_setting_config(AU_DSP_AUDIO, &open_param.stream_out_param);
+        open_param.param.stream_out = STREAM_OUT_AFE;
+        open_param.stream_out_param.afe.audio_device = HAL_AUDIO_DEVICE_DAC_DUAL;
+        open_param.stream_out_param.afe.sampling_rate = 48000;
+        ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_DC_COMPENSATION, &open_param, true);
+        //get DAC Class G/Class AB type and send to DSP with start & stop msg
+        p_param_share = hal_audio_dsp_controller_put_paramter(&open_param, sizeof(mcu2dsp_open_param_t), AUDIO_MESSAGE_TYPE_COMMON);
+        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_DC_COMPENSATION_START, 0, (uint32_t)p_param_share, true);
+
+        // Calculate dc compensation value
+        dc_compensation_value = get_dc_compensation_value();
+        // Close Amp and send dc compensation value to DSP
+        memset(&open_param, 0, sizeof(mcu2dsp_open_param_t));
+        hal_audio_get_stream_out_setting_config(AU_DSP_AUDIO, &open_param.stream_out_param);
+#ifdef AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE
+        //no delay flag for dual chip slave side
+        open_param.stream_out_param.afe.misc_parms = true; // // just reuse this parameter to disable AMP Delay 2s
+#endif
+        p_param_share = hal_audio_dsp_controller_put_paramter(&open_param, sizeof(mcu2dsp_open_param_t), AUDIO_MESSAGE_TYPE_COMMON);
+        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_DC_COMPENSATION_STOP, dc_compensation_value, (uint32_t)p_param_share, true);
+        ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_DC_COMPENSATION, NULL, false);
+        audio_src_srv_report("[Sink][AM] Init Finish: DC Compensation, cal value 0x%x\n", 1, dc_compensation_value);
+        if (dc_compensation_value == 0) {
+            audio_src_srv_err("[Sink][AM] Error Attention : please check the DC Compensation flow!", 0);
+        }
+}
+#endif
+

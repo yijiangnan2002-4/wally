@@ -1,0 +1,5 @@
+This script is only for dongle_ref_design
+Before use the command, make sure the mcu/project/ab157x/apps/bt_audio_common is not exist.
+1. Copy the move_code_to_bt_audio_common.sh in your project folder(mcu/project/<chip_id>/apps/dongle_ref_design)
+2. cd to your project folder
+3. Run the CMD "move_code_to_bt_audio_common.sh"

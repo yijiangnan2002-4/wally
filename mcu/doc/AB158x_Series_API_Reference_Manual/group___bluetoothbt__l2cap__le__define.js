@@ -1,0 +1,27 @@
+var group___bluetoothbt__l2cap__le__define =
+[
+    [ "BT_L2CAP_CHANNEL_MODE_CBFCM", "group___bluetoothbt__l2cap__le__define.html#ga0595a94e489d75e3f6f7eb382fa28e7e", null ],
+    [ "BT_L2CAP_CHANNEL_MODE_ECBFCM", "group___bluetoothbt__l2cap__le__define.html#gaa0f6e9946705e5a6391290df529249ca", null ],
+    [ "BT_L2CAP_LE_CONNECTED_IND", "group___bluetoothbt__l2cap__le__define.html#gaa5573b7c6f30685d182d4a5a61511d65", null ],
+    [ "BT_L2CAP_LE_CONNECTION_REQUEST_FAILED_IND", "group___bluetoothbt__l2cap__le__define.html#gaed410d5678fbe968b035bb8b0809010b", null ],
+    [ "BT_L2CAP_LE_CONNECTION_RESULT_INVALID_RESPONSE_FROM_REMOTE", "group___bluetoothbt__l2cap__le__define.html#gaab52a07ee788d4ec3b71976c040bcaed", null ],
+    [ "BT_L2CAP_LE_CONNECTION_RESULT_REMOTE_INSUFFICIENT_AUTHENTICAIOTN", "group___bluetoothbt__l2cap__le__define.html#ga1a7b830351361710e315b816881f494b", null ],
+    [ "BT_L2CAP_LE_CONNECTION_RESULT_REMOTE_INSUFFICIENT_AUTHORIZATION", "group___bluetoothbt__l2cap__le__define.html#ga289cbe1d98994e155e0adc22e50c47a0", null ],
+    [ "BT_L2CAP_LE_CONNECTION_RESULT_REMOTE_INSUFFICIENT_ENC", "group___bluetoothbt__l2cap__le__define.html#ga1de7a0e3d14b1d91e9ad7e4276b92dbf", null ],
+    [ "BT_L2CAP_LE_CONNECTION_RESULT_REMOTE_INSUFFICIENT_ENC_KEY_SIZE", "group___bluetoothbt__l2cap__le__define.html#ga45c23af842ef700be4a9e43e1a6bf4b6", null ],
+    [ "BT_L2CAP_LE_CONNECTION_RESULT_REMOTE_PSM_NOT_SUPPORT", "group___bluetoothbt__l2cap__le__define.html#gae2322f477384540b96fc2744c65be154", null ],
+    [ "BT_L2CAP_LE_CONNECTION_RESULT_REMOTE_UNACCEPTABLE_PARAMETERS", "group___bluetoothbt__l2cap__le__define.html#ga0b0dde75c11474338a92f812e30984b2", null ],
+    [ "BT_L2CAP_LE_CONNECTION_RESULT_SUCCESS", "group___bluetoothbt__l2cap__le__define.html#gab486b119e644cc2af8e787e0977536c1", null ],
+    [ "BT_L2CAP_LE_DATA_IND", "group___bluetoothbt__l2cap__le__define.html#ga1da7e58c687493df1836b752f39e33dc", null ],
+    [ "BT_L2CAP_LE_DISCONNECTED_IND", "group___bluetoothbt__l2cap__le__define.html#gaf25d138b71eda9e2538c0099d3669fb8", null ],
+    [ "BT_L2CAP_LE_DISCONNECTED_REASON_CREDIT_OVERFLOW", "group___bluetoothbt__l2cap__le__define.html#gab29b3ad761c2d96ddd56aabbcc71bc40", null ],
+    [ "BT_L2CAP_LE_DISCONNECTED_REASON_CREDIT_UNDERFLOW", "group___bluetoothbt__l2cap__le__define.html#ga538fffb443fff588cd04f7c8dcb16c09", null ],
+    [ "BT_L2CAP_LE_DISCONNECTED_REASON_DUPLICATED_CID", "group___bluetoothbt__l2cap__le__define.html#ga068fa058d88f26ada022159796a2d0d3", null ],
+    [ "BT_L2CAP_LE_DISCONNECTED_REASON_INVALID_MTU_CONFIGURATION", "group___bluetoothbt__l2cap__le__define.html#ga061000bba6e26430b6832a28d498abce", null ],
+    [ "BT_L2CAP_LE_DISCONNECTED_REASON_LOCAL_REQUEST", "group___bluetoothbt__l2cap__le__define.html#ga0c6495f41f33edebbe8634837d1747c0", null ],
+    [ "BT_L2CAP_LE_DISCONNECTED_REASON_REMOTE_REQUEST", "group___bluetoothbt__l2cap__le__define.html#gad56f370d3884d7ce9a6877e6af343ecc", null ],
+    [ "bt_l2cap_le_channel_mode", "group___bluetoothbt__l2cap__le__define.html#gae73843ec2f0ada2eeac742d749c4ee15", null ],
+    [ "bt_l2cap_le_connection_result_t", "group___bluetoothbt__l2cap__le__define.html#ga85b8cfc7ea00f9bed72c9ea5f353d2ef", null ],
+    [ "bt_l2cap_le_disconnect_reason_t", "group___bluetoothbt__l2cap__le__define.html#gac9ae710e1021488449600c130a105a2e", null ],
+    [ "bt_l2cap_le_event_type_t", "group___bluetoothbt__l2cap__le__define.html#gafc9f101a16e57dcfa68c382bc823f295", null ]
+];

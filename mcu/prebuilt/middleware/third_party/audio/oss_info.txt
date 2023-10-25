@@ -1,0 +1,9 @@
+Software name:                           OPUS Codec
+Brief:                                   The audio codec library to support OGG file and opus file.
+Path:                                    mcu/prebuilt/middleware/third_party/audio, dsp/prebuilt/middleware/third_party/dspalg/celt_decoder, dsp/prebuilt/middleware/third_party/dspalg/celt_encoder
+Category:                                Open source software(OSS)
+Software maker:                          Xiph.Org Foundation
+OSS download link:                       http://opus-codec.org/
+License:                                 The 3-Clause BSD License
+Evidence of license agreement:           https://opus-codec.org/license/
+Version:                                 1.1.4

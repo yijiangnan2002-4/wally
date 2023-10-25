@@ -1,0 +1,8 @@
+Software name:                           AINR Library
+Brief:                                   The AINR is artificial intelligent noise reduction.
+Path:                                    dsp/prebuilt/middleware/third_party/dspalg/igo_nr
+Category:                                Business software(BS)
+BS company:                              Inteligo
+Version:                                 none
+License:                                 Inteligo license
+Necessity of license agreement:          not required. Customer doesn't need to have an agreement with Inteligo for using SDK build-in AINR library.

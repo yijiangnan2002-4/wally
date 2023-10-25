@@ -1,0 +1,9 @@
+Software name:                           pre_libloader
+Brief:                                   The pre_libloader is used to dynamic load for Position Independent Library.
+path:                                    dsp/kernel/pre_libloader
+Category:                                Open source software(OSS)
+Software maker:                          Cadence
+OSS download link:                       NA(From the cadence tool-chain folder)
+License:                                 MIT
+Evidence of license agreement:           dsp\kernel\pre_libloader\inc\license.txt
+Version:                                 RI-2021.8

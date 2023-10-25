@@ -1,0 +1,27 @@
+var structpsap__scenario__mix__mode__t =
+[
+    [ "a2dp_drc_switch_l", "structpsap__scenario__mix__mode__t.html#a344e7ab0f7ee3549213c4d3c571103f4", null ],
+    [ "a2dp_drc_switch_r", "structpsap__scenario__mix__mode__t.html#ac91b5f3d1a5589946d339739e6d2c37f", null ],
+    [ "a2dp_mfa_switch_l", "structpsap__scenario__mix__mode__t.html#a280733ab28a36f5968f0cbbe88226cdb", null ],
+    [ "a2dp_mfa_switch_r", "structpsap__scenario__mix__mode__t.html#a9ec44fc0b971ced9442a41a4eff12705", null ],
+    [ "a2dp_mix_mode_psap_gain_l", "structpsap__scenario__mix__mode__t.html#a6aae4b77287d979ea56996131b3d5181", null ],
+    [ "a2dp_mix_mode_psap_gain_r", "structpsap__scenario__mix__mode__t.html#a29ca003f358b36a85d33ab5818387e4f", null ],
+    [ "reserved_25", "structpsap__scenario__mix__mode__t.html#a13bf4571f493b275d5ce193809eb20bc", null ],
+    [ "reserved_26", "structpsap__scenario__mix__mode__t.html#ac659d1eaf4e16d59a5f38eb84e67f798", null ],
+    [ "reserved_3", "structpsap__scenario__mix__mode__t.html#ad47693f9f898f1fbd9e1ab6315c43eb4", null ],
+    [ "reserved_4", "structpsap__scenario__mix__mode__t.html#a77abb4aff4d0d1273b3df41d3ae446b5", null ],
+    [ "reserved_5", "structpsap__scenario__mix__mode__t.html#aa0cd095cb1a2ae7abb0dbf75a5ce7f7e", null ],
+    [ "reserved_6", "structpsap__scenario__mix__mode__t.html#aba710983701eccd3b1cc3a159aab7fe5", null ],
+    [ "sco_drc_switch_l", "structpsap__scenario__mix__mode__t.html#a9ded8a4edc54fb9b84411c9b28fbf888", null ],
+    [ "sco_drc_switch_r", "structpsap__scenario__mix__mode__t.html#a3f615581ae0c799b2b3991edde611749", null ],
+    [ "sco_mfa_switch_l", "structpsap__scenario__mix__mode__t.html#a24d511ee36d5cafbe0d0e477d3a053fb", null ],
+    [ "sco_mfa_switch_r", "structpsap__scenario__mix__mode__t.html#a252bfee314c370321ea4f4875f0c4b14", null ],
+    [ "sco_mix_mode_psap_gain_l", "structpsap__scenario__mix__mode__t.html#ab304215722034e25e0db16715a3193bb", null ],
+    [ "sco_mix_mode_psap_gain_r", "structpsap__scenario__mix__mode__t.html#a8fb14a143028ee361ae9338a14188129", null ],
+    [ "vp_drc_switch_l", "structpsap__scenario__mix__mode__t.html#ab1fb467685fd0234a563ddbef4034868", null ],
+    [ "vp_drc_switch_r", "structpsap__scenario__mix__mode__t.html#acedd148e149971db73dff37083f44535", null ],
+    [ "vp_mfa_switch_l", "structpsap__scenario__mix__mode__t.html#a5d0c583686bc18ae271256308c8b4f1a", null ],
+    [ "vp_mfa_switch_r", "structpsap__scenario__mix__mode__t.html#a6a99548508c59ab6d2d768e50d9c0fcb", null ],
+    [ "vp_mix_mode_psap_gain_l", "structpsap__scenario__mix__mode__t.html#a2d87ab54a8d5592c2aa510ca695ee25c", null ],
+    [ "vp_mix_mode_psap_gain_r", "structpsap__scenario__mix__mode__t.html#a559ce0f3e1d40f3bbce25b41ba6b128c", null ]
+];

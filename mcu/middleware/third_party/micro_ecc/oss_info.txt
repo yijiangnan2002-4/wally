@@ -1,0 +1,9 @@
+Software name:                           Micro-ecc
+Brief:                                   A small and fast ECDH and ECDSA implementation for 8-bit, 32-bit, and 64-bit processors.
+Path:                                    mcu\middleware\third_party\micro_ecc
+Category:                                Open source software(OSS)
+Software maker:                          kmackay
+OSS download link:                       https://github.com/kmackay/micro-ecc
+License:                                 BSD 2-Clause "Simplified"
+Evidence of license agreement:           https://github.com/kmackay/micro-ecc/blob/master/LICENSE.txt
+Version:                                 1.0

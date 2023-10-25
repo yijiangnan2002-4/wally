@@ -1,0 +1,10 @@
+Software name:                           LZMA Decoder
+Brief:                                   LZMA provides a high compression ratio and fast decompression, so it is very suitable for embedded applications. For example, it can be used for ROM (firmware) compressing.
+Path:                                    mcu\middleware\third_party\lzma_decoder
+Category:                                Open source software(OSS)
+Path:                                    /mcu/middleware/third_party/lzma_decoder
+Software maker:                          Igor Pavlov
+OSS download link:                       https://www.7-zip.org/sdk.html
+License:                                 public domain
+Evidence of license agreement:           https://www.7-zip.org/sdk.html
+Version:                                 21.02

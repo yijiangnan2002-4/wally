@@ -1,0 +1,405 @@
+/* ===========================================================================
+ *
+ * @COPYRIGHT	Copyright(c) 2015 AIROHA TECHNOLOGY CORP. CO., LTD. ALL RIGHTS RESERVED
+ *
+ * @DETAILS		The reference linker command file for the Andes.  Applications
+ *   			may use unmodified, or copy this to an application directory to
+ *   			modify as needed.
+ *
+ * =========================================================================== */
+ENTRY(_ResetVector_text_start)
+
+MEMORY {
+    ROM_DSP0(rx)                   : ORIGIN = 0x08014000, LENGTH = 1600K
+    DRAM(rw)                       : ORIGIN = 0x04580000, LENGTH = 1024K
+    IRAM(rx)                       : ORIGIN = 0x04700000, LENGTH = 256K
+    SYSRAM_DSP0 (rwx)              : ORIGIN = 0x042C0000, LENGTH = 256K
+    VSYSRAM_DSP0 (rwx)             : ORIGIN = 0x642C0000, LENGTH = 256K
+    ROM_LOG_STRING(rx)             : ORIGIN = 0x06000000, LENGTH = 32M
+}
+
+ /* Highest address of the stack */
+__stack = ORIGIN(DRAM) + _stack_size;    /* begin of DRAM */
+
+/* Generate a link error if stack don't fit into DRAM */
+_stack_size = 0x1000; /* required amount of stack 4KB */
+
+/* stack start */
+_stack_start = ORIGIN(DRAM);
+
+/* swla size */
+_swla_size = 0x400;
+
+/* Linker symbol provided for C/Assembly Code */
+_iram_start     = ORIGIN(IRAM);
+_iram_length    = LENGTH(IRAM);
+_iram_end       = _iram_start + _iram_length;
+
+_dram_start     = ORIGIN(DRAM);
+_dram_length    = LENGTH(DRAM);
+_dram_end       = _dram_start + _dram_length;
+
+_sysram_start   = ORIGIN(SYSRAM_DSP0);
+_sysram_length  = LENGTH(SYSRAM_DSP0);
+_sysram_end     = _sysram_start + _sysram_length;
+
+_vsysram_start  = ORIGIN(VSYSRAM_DSP0);
+_vsysram_length = LENGTH(VSYSRAM_DSP0);
+_vsysram_end    = _vsysram_start + _vsysram_length;
+
+SECTIONS {
+    /* @@@static vector@@@ */
+    _ResetVector_load = LOADADDR(.ResetVector.text);
+    .ResetVector.text : ALIGN(8)
+    {
+        _ResetVector_text_start = ABSOLUTE(.);
+        KEEP (*(.ResetVector.literal .ResetVector.text))
+        KEEP (*(.Reset.literal .Reset.text))
+        /* . = ABSOLUTE(_ResetVector_text_start) + 0x400; */
+        _ResetVector_text_end = ALIGN(0x8);
+    } >ROM_DSP0   AT > ROM_DSP0
+
+    /* @@@Dynamic vectors@@@ */
+    _DynamicVectors_load = LOADADDR(.DynamicVectors.text);
+    .DynamicVectors.text : ALIGN(8)
+    {
+        _DynamicVectors_start = ABSOLUTE(.);
+
+        /* WindowVectors literal and text */
+        _WindowVectors_text_start = ABSOLUTE(.);
+        KEEP (*(.WindowVectors.text))
+        . = ALIGN(4);
+        _WindowVectors_text_end = ABSOLUTE(.);
+        . = ABSOLUTE(_WindowVectors_text_start) + 0x178;
+
+        /* Level2 literal and text */
+        _Level2InterruptVector_literal_start = ABSOLUTE(.);
+        *(.Level2InterruptVector.literal)
+        . = ABSOLUTE(_Level2InterruptVector_literal_start) + 0x4;
+        _Level2InterruptVector_text_start = ABSOLUTE(.);
+        KEEP (*(.Level2InterruptVector.text))
+        . = ABSOLUTE(_Level2InterruptVector_text_start) + 0x1c;
+
+        /* Level3 literal and text */
+        _Level3InterruptVector_literal_start = ABSOLUTE(.);
+        *(.Level3InterruptVector.literal)
+        . = ABSOLUTE(_Level3InterruptVector_literal_start) + 0x4;
+        _Level3InterruptVector_text_start = ABSOLUTE(.);
+        KEEP (*(.Level3InterruptVector.text))
+        . = ABSOLUTE(_Level3InterruptVector_text_start) + 0x1c;
+
+        /* Level4 literal and text */
+        _Level4InterruptVector_literal_start = ABSOLUTE(.);
+        *(.Level4InterruptVector.literal)
+        . = ABSOLUTE(_Level4InterruptVector_literal_start) + 0x4;
+        _Level4InterruptVector_text_start = ABSOLUTE(.);
+        KEEP (*(.Level4InterruptVector.text))
+        . = ABSOLUTE(_Level4InterruptVector_text_start) + 0x1c;
+
+        /* DebugException literal and text */
+        _DebugExceptionVector_literal_start = ABSOLUTE(.);
+        *(.DebugExceptionVector.literal)
+        . = ABSOLUTE(_DebugExceptionVector_literal_start) + 0x4;
+        _DebugExceptionVector_text_start = ABSOLUTE(.);
+        KEEP (*(.DebugExceptionVector.text))
+        . = ABSOLUTE(_DebugExceptionVector_text_start) + 0x1c;
+
+        /* NMIException literal and text */
+        _NMIExceptionVector_literal_start = ABSOLUTE(.);
+        *(.NMIExceptionVector.literal)
+        . = ABSOLUTE(_NMIExceptionVector_literal_start)+ 0x4;
+        _NMIExceptionVector_text_start = ABSOLUTE(.);
+        KEEP (*(.NMIExceptionVector.text))
+        . = ABSOLUTE(_NMIExceptionVector_text_start) + 0x1c;
+
+        /* KernelException literal and text */
+        _KernelExceptionVector_literal_start = ABSOLUTE(.);
+        *(.KernelExceptionVector.literal)
+        . = ABSOLUTE(_KernelExceptionVector_literal_start) + 0x4;
+        _KernelExceptionVector_text_start = ABSOLUTE(.);
+        KEEP (*(.KernelExceptionVector.text))
+        . = ABSOLUTE(_KernelExceptionVector_text_start) + 0x1c;
+
+        /* UserException literal and text */
+        _UserExceptionVector_literal_start = ABSOLUTE(.);
+        *(.UserExceptionVector.literal)
+        . = ABSOLUTE(_UserExceptionVector_literal_start) + 0x4;
+        _UserExceptionVector_text_start = ABSOLUTE(.);
+        KEEP (*(.UserExceptionVector.text))
+        . = ABSOLUTE(_UserExceptionVector_text_start) + 0x1c;
+
+        /* DoubleException literal and text */
+        _DoubleExceptionVector_literal_start = ABSOLUTE(.);
+        *(.DoubleExceptionVector.literal)
+        . = ABSOLUTE(_DoubleExceptionVector_literal_start) + 0x4;
+        _DoubleExceptionVector_text_start = ABSOLUTE(.);
+        KEEP (*(.DoubleExceptionVector.text))
+        . = ABSOLUTE(_DoubleExceptionVector_text_start) + 0x1c;
+
+        _DynamicVectors_end = ABSOLUTE(.);
+    } >IRAM   AT > ROM_DSP0
+
+    /* @@@iram text@@@ */
+    _iram_text_load = LOADADDR(.iram.text);
+    .iram.text : ALIGN(8)
+    {
+        . = ALIGN(8);
+        _iram_text_start = ABSOLUTE(.);
+
+        *(.iram*)
+
+        *lib_full_adapt.a:*(.literal* .text*)
+        _c_lib_iram_code_start = .;
+        *libc.a:mem*.o*(.literal* .text*)
+        *libc.a:str*.o*(.literal* .text*)
+        _c_lib_iram_code_end = .;
+        . = ALIGN(8);
+        _iram_text_end = ABSOLUTE(.);
+    } >IRAM    AT > ROM_DSP0
+
+    .iram_bss (NOLOAD) :
+    {
+        . = ALIGN(8);
+        _iram_pic_bss_start = .;
+
+        *(.bss_iram*)
+
+        . = ALIGN(8);
+        _iram_pic_bss_end = .;
+    } > IRAM
+
+    /* @@@region loader@@@ */
+    _region_loader_load = LOADADDR(.region_loader);
+    .region_loader : ALIGN(8)
+    {
+        . = ALIGN(8);
+        _region_loader_start = ABSOLUTE(.);
+
+        *(.region_loader.literal .region_loader.text)
+
+        . = ALIGN(8);
+        _region_loader_end = ABSOLUTE(.);
+
+        . = ALIGN(8);
+        _preloader_pic_iram_start = .;
+
+        _preloader_pic_iram_end   = ORIGIN(IRAM)+ LENGTH(IRAM);
+    } >IRAM    AT > ROM_DSP0
+
+    /* @@@cached sysram text/data and bss@@@ */
+    . = ALIGN(16);
+    _cached_sysram_text_load = LOADADDR(.cached_sysram_text);
+    .cached_sysram_text :ALIGN(8)
+    {
+        . = ALIGN(8);
+        _cached_sysram_text_start = .;
+
+        /* Put vivid pt ldnr code on SYSRAM*/
+        *libLD_NR.a:*(.literal* .text*)
+        *libawha_aea.a:*(.literal* .text*)
+
+        /* Put wnd/ed lib on SYSRAM*/
+        *libwind_det_1585.a:*(.literal* .text*)
+        
+        
+        /* Put RTOS-related code on IRAM to run */
+        *FreeRTOS*.o(.literal* .text*)
+        *hal_gpt*.o(.literal* .text*)
+        *hal_dwt*.o(.literal* .text*)
+
+        *lib_full_adapt_2.a:*(.literal* .text*)
+        *(.sysram_code)
+        *(.sysram_code*)
+        *(.sysram_rodata)
+        *(.sysram_rodata*)
+
+        . = ALIGN(8);
+        _cached_sysram_text_end = .;
+    } > SYSRAM_DSP0   AT> ROM_DSP0
+
+    _cached_sysram_rw_data_load = LOADADDR(.cached_sysram_rw_data);
+    .cached_sysram_rw_data : ALIGN(8)
+    {
+        . = ALIGN(8);
+        _cached_sysram_rw_data_start = .;
+
+        *(.cached_sysram_rwdata)
+        *(.cached_sysram_rwdata*)
+
+        . = ALIGN(8);
+        _cached_sysram_rw_data_end = .;
+    } > SYSRAM_DSP0   AT> ROM_DSP0
+
+    .cached_sysram_bss (NOLOAD) :
+    {
+        . = ALIGN(8);
+        _cached_sysram_bss_start = .;
+
+        *(.cached_sysram_zidata)
+        *(.cached_sysram_zidata*)
+
+        . = ALIGN(8);
+        _cached_sysram_bss_end = .;
+    } > SYSRAM_DSP0  AT> ROM_DSP0
+
+    /* @@@noncached sysram data and bss@@@ */
+    . = ALIGN(64);
+    _noncached_sysram_data_load = LOADADDR(.noncached_sysram_data);
+    . = . + ORIGIN(VSYSRAM_DSP0) - ORIGIN(SYSRAM_DSP0);
+    .noncached_sysram_data . : ALIGN(8)
+    {
+        . = ALIGN(8);
+        _noncached_sysram_data_start = .;
+
+        *(.noncached_sysram_rwdata)
+        *(.noncached_sysram_rwdata*)
+
+        . = ALIGN(8);
+        _noncached_sysram_data_end = .;
+    } > VSYSRAM_DSP0  AT> ROM_DSP0
+
+    .noncached_sysram_bss . (NOLOAD) :
+    {
+        . = ALIGN(8);
+        _noncached_sysram_bss_start = .;
+
+        *(.noncached_sysram_zidata)
+        *(.noncached_sysram_zidata*)
+
+        . = ALIGN(8);
+        _noncached_sysram_bss_end = .;
+    } > VSYSRAM_DSP0  AT> ROM_DSP0
+
+    /* @@@rom text and rodata@@@ */
+    _text_load = LOADADDR(.text);
+    . = ALIGN(8);
+    .text : ALIGN(8)
+    {
+        _text_start = ABSOLUTE(.);
+
+        *(.literal* .text*)
+
+        *(.init.literal .init)
+        *(EXCLUDE_FILE (*lib_full_adapt.a *lib_full_adapt_2.a) .rodata*)
+        *(.clib.rodata*)
+
+        . = ALIGN(4);
+        _log_filter_start = .;
+        KEEP(*(SORT_BY_NAME(.log_filter.*)))
+        _log_filter_end = .;
+
+        . = ALIGN(8);
+        _text_end = ABSOLUTE(.);
+    } >ROM_DSP0   AT > ROM_DSP0
+
+    /* @@@stack memory@@@ */
+    .stack (NOLOAD) :
+    {
+        . = ALIGN(8);
+
+        . = . + _stack_size;
+        *(.isr_stack)
+        *(.isr_stack*)
+
+        . = ALIGN(8);
+    } > DRAM
+
+    /* @@@dram data and bss@@@ */
+    _data_load = LOADADDR(.data);
+    .data : ALIGN(8)
+    {
+        . = ALIGN(8);
+        _data_start = ABSOLUTE(.);
+
+        *(.data)
+        *(.data*)
+        *(.clib.data*)
+        *lib_full_adapt.a:*(.rodata*)
+        *lib_full_adapt_2.a:*(.rodata*)
+        *(.rtos.percpu.data*)
+        KEEP (*(.eh_frame))
+
+        . = ALIGN(8);
+        _data_end = ABSOLUTE(.);
+    } >DRAM   AT > ROM_DSP0
+    _BIN_END_ = LOADADDR(.data) + SIZEOF(.data);
+
+    .bss (NOLOAD):
+    {
+        . = ALIGN(8);
+        _bss_start = ABSOLUTE(.);
+
+        *(.bss)
+        *(.bss*)
+        *(.clib.bss*)
+        *(.clib.percpu.bss*)
+        *(.rtos.percpu.bss*)
+        *(COMMON)
+
+        . = ALIGN(8);
+        _bss_end = ABSOLUTE(.);
+    } > DRAM
+
+    /* @@@swla memory@@@ */
+    .swla (NOLOAD) :
+    {
+        _swla_start = .;
+        . = ALIGN(8);
+
+        . = . + (_swla_size) ;
+
+        . = ALIGN(8);
+        _swla_end = .;
+    } > DRAM
+
+    /* @@@dram pic memory@@@ */
+    .preloader_pic_dram (NOLOAD) :
+    {
+        . = ALIGN(8);
+        _preloader_pic_dram_start = .;
+
+        . = ALIGN(8);
+        _preloader_pic_dram_end   = ORIGIN(DRAM)+ LENGTH(DRAM);
+    } > DRAM
+
+    /* @@@log string@@@ */
+    .log_str :
+    {
+        KEEP(*(.log_version))
+        KEEP(*(.log_timestamp))
+        KEEP(*(SORT_BY_NAME(.log_filter_mirror*)))
+        KEEP(*(.log_filter_end))
+        KEEP(*(.log_chip_option))
+        *(.log_string)
+    } > ROM_LOG_STRING  AT> ROM_LOG_STRING
+
+    /* @@@reserved section for debug symbol when add --gc-sections for LDFLAG @@@ */
+    .xt.prop 0:
+    {
+        KEEP (*(.xt.prop))
+        KEEP (*(.xt.prop.*))
+        KEEP (*(.gnu.linkonce.prop.*))
+    }
+
+    /* Add some symbols to facilitate the calculation of
+     * the amount and remaining amount of various memory.
+     */
+    __rom_dsp0_limit = LENGTH(ROM_DSP0);
+    __rom_dsp0_used = _BIN_END_ - ORIGIN(ROM_DSP0);
+    __rom_dsp0_free = LENGTH(ROM_DSP0) - __rom_dsp0_used;
+
+    __iram_limit = LENGTH(IRAM);
+    __iram_used = _preloader_pic_iram_start - ORIGIN(IRAM);
+    __iram_free = LENGTH(IRAM) - __iram_used;
+
+    __dram_limit = LENGTH(DRAM);
+    __dram_used = _preloader_pic_dram_start - ORIGIN(DRAM);
+    __dram_free = LENGTH(DRAM) - __dram_used;
+
+    __sysram_dsp0_limit = LENGTH(SYSRAM_DSP0);
+    __sysram_dsp0_diff_addr = _vsysram_start - _sysram_start;
+    __sysram_dsp0_used = _noncached_sysram_bss_end - _sysram_start - __sysram_dsp0_diff_addr;
+    __sysram_dsp0_free = LENGTH(SYSRAM_DSP0) - __sysram_dsp0_used;
+    _c_lib_iram_code_size = _c_lib_iram_code_end - _c_lib_iram_code_start;
+}
+

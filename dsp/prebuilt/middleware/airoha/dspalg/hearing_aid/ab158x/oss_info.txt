@@ -1,0 +1,9 @@
+Software name:                           noisePowProposed
+Brief:                                   The open source is used to noise reduction in the pisplit_awha_nr.o.
+Path:                                    dsp\prebuilt\middleware\airoha\dspalg\hearing_aid\ab158x\pisplit
+Category:                                Open source software(OSS)
+Software maker:                          Timo Gerkmann and Richard Hendriks
+OSS download link:                       https://github.com/sumansamui/Auditory_model_based_MMSE_estimator/blob/master/noisePowProposed.m
+License:                                 BSD license 1.0
+Evidence of license agreement:           https://github.com/sumansamui/Auditory_model_based_MMSE_estimator/blob/master/noisePowProposed.m
+Version:                                 1.0
