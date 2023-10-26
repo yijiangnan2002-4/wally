@@ -337,6 +337,11 @@ static apps_config_serialized_event_t apps_config_key_remap_key_ev_to_serialized
 }
 #endif
 
+#if 1	// richard for test
+extern uint8_t ab1585h_command_no;
+extern uint8_t ab1585h_command_data;
+extern void BT_send_data_proc(void);
+#endif
 apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state(uint8_t key_id,
                                                                                  airo_key_event_t key_event,
                                                                                  apps_config_state_t temp_mmi_state)
@@ -411,6 +416,20 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
     }
     APPS_LOG_MSGID_I(LOG_TAG"Current used key_id = 0x%x, key_event = 0x%x, state = %d, action_id = 0x%x, channel = %d", 5, key_id, key_event, temp_mmi_state, action_id, channel);
 #endif
+
+#if 1	// richard for test
+	if(key_id==DEVICE_KEY_POWER)
+	{
+		if(key_event==AIRO_KEY_DOUBLE_CLICK)
+		{
+//			bsp_px31bf_auto_dac();
+		}
+		ab1585h_command_no=2;
+		ab1585h_command_data=key_event;
+		BT_send_data_proc();
+	}
+#endif
+
     return action_id;
 }
 
@@ -436,6 +455,11 @@ void apps_config_key_set_mmi_state(apps_config_state_t state)
 #endif
     }
     APPS_LOG_MSGID_I(LOG_TAG" apps_config_key_set_mmi_state = %d", 1, s_mmi_state);
+#if 1	// richard for customer UI spec.(BT send data)
+	ab1585h_command_no=0;		// 0: BT status
+	ab1585h_command_data=s_mmi_state;
+	BT_send_data_proc();
+#endif	
 }
 
 apps_config_state_t apps_config_key_get_mmi_state(void)

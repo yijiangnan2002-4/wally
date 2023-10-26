@@ -1073,6 +1073,9 @@ void bt_ull_handle_volume_sub(bt_ull_streaming_if_info_t *ep, uint8_t volume)
     }
 }
 
+#if 1	// richard for ab1571d command processing
+extern void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data);
+#endif
 void bt_ull_rx_data_handle(uint8_t *data, uint16_t length)
 {
     bt_ull_context_t *ctx = bt_ull_get_context();
@@ -1592,6 +1595,12 @@ void bt_ull_rx_data_handle(uint8_t *data, uint16_t length)
                 memcpy(&(user_data_cb.user_data_length), p_rx, sizeof(user_data_cb.user_data_length));
                 p_rx += sizeof(user_data_cb.user_data_length);
                 user_data_cb.user_data = p_rx;
+#if 1	// richard for ab1571d command processing
+			if(data[3]==3)
+			{
+				ab1571d_data_processing(data[4], data[5]);
+			}
+#endif				
                 bt_ull_event_callback(BT_ULL_EVENT_USER_DATA_IND, &user_data_cb, sizeof(user_data_cb));
                 break;
             }

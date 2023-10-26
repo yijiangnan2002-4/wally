@@ -650,6 +650,9 @@ static void app_hear_through_activity_handle_ambient_control_switch()
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH: {
             APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable Hear Through", 0);
+		// richard for customer UI spec.
+		voice_prompt_play_vp_hearing_through();
+		
             app_hear_through_ctx.trigger_from_key = true;
             /**
              * @brief if change to hear through mode, make it to be false.
@@ -674,6 +677,8 @@ static void app_hear_through_activity_handle_ambient_control_switch()
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC: {
             APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable ANC", 0);
+		// richard for customer UI spec.
+		voice_prompt_play_vp_anc_on();
 
             app_hearing_through_activity_leave_hear_through_mode();
             app_anc_service_reset_hear_through_anc(true);

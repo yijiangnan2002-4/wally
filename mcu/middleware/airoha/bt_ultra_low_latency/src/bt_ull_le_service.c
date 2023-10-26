@@ -3183,6 +3183,32 @@ static bt_status_t bt_ull_le_srv_send_configuration(bt_handle_t handle)
     return status;
 }
 
+#if 1	// richard for ab1571d command processing
+extern void key_volumeup_proc(void);
+extern void key_volumedown_proc(void);
+void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
+{
+	switch(temp_command_no)
+	{
+		case 0:			// key0: volume up
+			if((temp_command_data==1)||(temp_command_data==0x38))
+			{
+				key_volumeup_proc();
+			}
+			break;
+		case 1:			// key1: volume down
+			if((temp_command_data==1)||(temp_command_data==0x38))
+			{
+				key_volumedown_proc();
+			}
+			break;
+		case 2:
+			break;
+		default:
+			break;
+	}
+}
+#endif
 static void bt_ull_le_srv_rx_data_handle(uint16_t handle, uint8_t *data ,uint16_t length)
 {
     if (BT_HANDLE_INVALID == handle) {
@@ -3815,6 +3841,12 @@ static void bt_ull_le_srv_rx_data_handle(uint16_t handle, uint8_t *data ,uint16_
                 bt_ull_le_srv_memcpy(&(user_data_cb.user_data_length), p_rx, sizeof(user_data_cb.user_data_length));
                 p_rx += sizeof(user_data_cb.user_data_length);
                 user_data_cb.user_data = p_rx;
+#if 1	// richard for ab1571d command processing
+			if(data[3]==3)
+			{
+				ab1571d_data_processing(data[4], data[5]);
+			}
+#endif				
                 bt_ull_le_srv_event_callback(BT_ULL_EVENT_USER_DATA_IND, &user_data_cb, sizeof(user_data_cb));
                 break;
             }

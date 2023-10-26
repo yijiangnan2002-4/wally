@@ -53,6 +53,9 @@
 #include "apps_config_key_remapper.h"
 #include "atci.h"
 
+// richard for customer UI spec
+#include "app_psensor_px31bf_activity.h"
+
 #ifndef PACKED
 #define PACKED  __attribute__((packed))
 #endif
@@ -84,10 +87,20 @@ typedef enum {
 /**
  *  @brief This structure defines the state information.
  */
+#if 0	// richard for customer UI spec
 typedef struct {
     app_in_ear_state_t previous;      /**<  The previous state of earbuds. */
     app_in_ear_state_t current;       /**<  The current state of earbuds. */
 } app_in_ear_sta_info_t;
+#else
+typedef struct {
+    app_in_ear_state_t previous;      /**<  The previous state of earbuds. */
+    app_in_ear_state_t current;       /**<  The current state of earbuds. */
+	audio_channel_t trigger_channel;
+	uint8_t inout_ear;	
+	uint8_t cus_needResumePlay;
+} app_in_ear_sta_info_t;
+#endif
 
 /**
  *  @brief This structure defines the in ear app's context

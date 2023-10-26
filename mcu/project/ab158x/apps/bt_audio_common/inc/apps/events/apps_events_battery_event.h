@@ -53,6 +53,8 @@ enum {
     APPS_EVENTS_BATTERY_CHARGER_EXIST_CHANGE,   /**< Charger exist change, means plugin or plugout. */
     APPS_EVENTS_BATTERY_SHUTDOWN_STATE_CHANGE,  /**< Voltage is too low to shutdown. */
     APPS_EVENTS_BATTERY_CHARGER_FULL_CHANGE,    /**< Charging is full. */
+	// richard for customer UI spec.
+    APPS_EVENTS_BATTERY_PARTNER_BAT_NOTIFY,    /**< Sync partner battery to agent. */    
 };
 
 /** @brief

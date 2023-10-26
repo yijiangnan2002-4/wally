@@ -158,6 +158,9 @@ extern void dchs_device_ready_to_off_callback(void);
 #include "apps_race_cmd_event.h"
 #endif
 
+// richard for customer UI spec
+#include "app_customer_nvkey_operation.h"
+
 #define UI_SHELL_IDLE_BT_CONN_ACTIVITY  "[TK_Home]app_home_screen_idle_activity"
 
 #define POWER_OFF_TIMER_NAME       "POWER_OFF"              /* Use a timeout before power off, to show LED and play VP. */
@@ -614,6 +617,7 @@ static bool app_home_screen_process_anc_and_pass_through(ui_shell_activity_t *se
 }
 #endif
 
+#if 0	// richard for customer UI spec
 static nvdm_status_t app_home_screen_fact_rst_nvdm_flag(uint8_t factrst_flag)
 {
     nvdm_status_t status;
@@ -625,6 +629,22 @@ static nvdm_status_t app_home_screen_fact_rst_nvdm_flag(uint8_t factrst_flag)
 
     return status;
 }
+#else
+nvdm_status_t app_home_screen_fact_rst_nvdm_flag(uint8_t factrst_flag)
+{
+    nvdm_status_t status;
+
+    APPS_LOG_MSGID_I("Write Factory reset flag to NVDM: %d", 1, factrst_flag);
+
+	app_nvkey_factory_reset_flag_write(true);
+	app_nvkey_factory_reset();
+
+    factrst_flag = FACTORY_RESET_FLAG;
+    status = nvkey_write_data(NVID_SYS_FACTORY_RESET_FLAG, &factrst_flag, 1);
+
+    return status;
+}
+#endif
 
 #if defined(AIR_DCHS_MODE_ENABLE)
 extern bt_status_t bt_driver_power_on(void);
@@ -937,6 +957,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             ret = app_home_screen_process_anc_and_pass_through(self, action);
             break;
 #endif
+		case KEY_TEST_FACTORY_RESET:	// richard for customer UI spec
         case KEY_FACTORY_RESET:
 #ifdef MTK_AWS_MCE_ENABLE
             memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
@@ -958,6 +979,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             ret = true;
             break;
 
+		case KEY_TEST_FACTORY_RESET_AND_POWEROFF:		// richard for customer UI spec
         case KEY_FACTORY_RESET_AND_POWEROFF:
 #ifdef MTK_AWS_MCE_ENABLE
             memset((void *)&vp, 0, sizeof(voice_prompt_param_t));

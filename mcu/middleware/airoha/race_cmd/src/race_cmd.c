@@ -108,6 +108,8 @@
 #include "race_cmd_mainbin_dfu.h"
 #endif
 
+// richard for customer UI spec
+#include "race_cmd_factory_test.h"
 
 /* This range is reserved for customer use. */
 #define RACE_ID_CUSTOM_BEGIN 0x0000
@@ -238,8 +240,13 @@
 #define RACE_ID_SIMPLE_TEST_END    0x2E2F
 #endif
 
+// richard for customer UI spec(add for factory test)
+#define RACE_ID_FACTORY_TEST_BEGIN 0x9000
+#define RACE_ID_FACTORY_TEST_END 0x901F
 
 const RACE_HANDLER race_handlers[] = {
+	{RACE_ID_FACTORY_TEST_BEGIN, RACE_ID_FACTORY_TEST_END, RACE_CmdHandler_FACTORY_TEST},	// richard for customer UI spec(for factory test)
+
 #ifdef RACE_COSYS_SLAVE_RELAY
     {RACE_COSYS_SLAVE_RELAY_ID_BEGIN, RACE_COSYS_SLAVE_RELAY_ID_END, race_cosys_slave_relay_pkt},
 #endif
@@ -608,3 +615,51 @@ bool race_cmd_is_to_remote(race_pkt_t *pMsg)
 
     return ret;
 }
+
+// richard for customer UI spec
+#if (RACE_DEBUG_PRINT_ENABLE)
+extern void race_debug_print(uint8_t *data, uint32_t size, const char *print_tag);
+
+void race_debug_print(uint8_t *data, uint32_t size, const char *print_tag)
+{
+    uint8_t *pdata;
+    uint8_t *t_data1;
+    uint8_t *t_data2;
+    uint32_t ret_len, i;
+    uint32_t print_len;
+    uint32_t data_len;
+
+    data_len = size;
+
+    t_data1 = (uint8_t *)race_mem_alloc(data_len + 20);
+    t_data2 = (uint8_t *)race_mem_alloc((data_len * 3) + strlen(print_tag) + 20);
+
+    if ((t_data1 == NULL) || (t_data2 == NULL)) {
+        race_mem_free(t_data1);
+        race_mem_free(t_data2);
+        RACE_LOG_MSGID_I("log missing,not enough heap memmory size\r\n", 0);
+        return;
+    } else {
+        memcpy(t_data1, data, size);
+
+        ret_len   = 0;
+        print_len = 0;
+
+        pdata = (uint8_t *)t_data1;
+
+        ret_len    = sprintf((char *)(t_data2 + print_len), "%s len[%d]: ", (char *)print_tag, (int)data_len);
+        print_len += ret_len;
+
+        for (i = 0; i < data_len; i++) {
+            ret_len    = sprintf((char *)(t_data2 + print_len), "%x ", *(pdata++));
+            print_len += ret_len;
+        }
+
+        RACE_LOG_I("%s", (char *)t_data2);
+    }
+
+    race_mem_free(t_data1);
+    race_mem_free(t_data2);
+}
+#endif
+

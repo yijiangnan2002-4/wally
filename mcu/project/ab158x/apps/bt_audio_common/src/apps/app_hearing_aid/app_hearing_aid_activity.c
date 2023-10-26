@@ -2507,6 +2507,8 @@ static bool app_hearing_aid_activity_proc_ultra_low_latency_event(uint32_t event
                                 0);
         }
     }
+
+    return false;	// richard for compiling error
 }
 #endif /* AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE */
 

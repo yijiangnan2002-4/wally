@@ -58,6 +58,10 @@
 #include "hal_resource_assignment.h"
 #include "hal_pmu.h"
 
+// richard for customer UI spec
+#include "app_customer_common.h"
+#include "app_bt_state_service.h"
+
 #if defined(AIR_BTA_IC_PREMIUM_G3) || defined(AIR_BTA_IC_STEREO_HIGH_G3)
 #if defined (AIR_BTA_PMIC_HP)
 #include "hal_pmu_internal_hp.h"
@@ -114,12 +118,14 @@ log_create_module(SM_CHG, PRINT_LEVEL_INFO);
 #define BAUDRATE                8
 #define KEY_ID                  8
 
+#if 0	// richard for customer UI spec
 #define CASE_LID_OPEN           0x2
 #define CASE_LID_CLOSE_DONE     0x3
 #define CASE_CHARGER_OFF        0x4
 #define CASE_CHARGER_KEY        0x5
 #define CASE_BATTER_LEVEL       0x6
 #define CASE_LID_CLOSE          0x8
+#endif
 #define CASE_LOG_ENABLE         0xE
 #define CASE_RACE_ENABLE        0xF
 
@@ -151,16 +157,21 @@ log_create_module(SM_CHG, PRINT_LEVEL_INFO);
 #define SMCHG_TMR_START_STATUS_CHG_IN_TMR_MASK      (0x00000004) /* pSmchgChgInTmr  */
 #define SMCHG_TMR_START_STATUS_CHG_OUT_TMR_MASK     (0x00000008) /* pSmchgChgOutTmr */
 
+// richard for customer UI spec
 const uint8_t smchg_app_table[] = {
     0,
     0,
     SMCHG_LID_OPEN,
-    SMCHG_LID_CLOSE_DONE,
+    SMCHG_LID_CLOSE,
     SMCHG_CHG_OFF,
     SMCHG_CHG_KEY,
-    0,
-    0,
-    SMCHG_LID_CLOSE
+    DRV_CHARGER_EVENT_BATTERY_LEVEL,
+    DRV_CHARGER_EVENT_CHARGER_STATE,
+    SMCHG_LID_CLOSE_DONE,
+    DRV_CHARGER_EVENT_REVERSION_REPORT,
+    DRV_CHARGER_EVENT_CHARGING_CURRENT_LIMIT,
+    DRV_CHARGER_EVENT_SHIPPING_MODE_ENABLE,
+    DRV_CHARGER_EVENT_EOC_CHECKING,
 };
 
 static uint8_t raceEvt[] = {
@@ -1210,11 +1221,24 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
             uint32_t data = 0;
             uint16_t data_len = 0;
 
-            if (raceCmd[CMD_ID] == CASE_LID_OPEN || raceCmd[CMD_ID] == CASE_CHARGER_OFF) {
+            if (raceCmd[CMD_ID] == CASE_LID_OPEN 
+				|| raceCmd[CMD_ID] == CASE_CHARGER_OFF
+				|| raceCmd[CMD_ID] == CASE_LID_CLOSE
+				) {
                 data = raceCmd[BAT_LV];
                 data_len = 1;
-            } else if (raceCmd[CMD_ID] == CASE_CHARGER_KEY) {
+            } 
+			else if (raceCmd[CMD_ID] == CASE_CHARGER_KEY) 
+			{
                 data = raceCmd[KEY_ID];
+                data_len = 1;
+            }
+			else if(raceCmd[CMD_ID] == CASE_REVERSION 
+				|| raceCmd[CMD_ID] == CASE_CURRENT_LIMIT
+				|| raceCmd[CMD_ID] == CASE_EOC_CHECKING
+				|| raceCmd[CMD_ID] == CASE_SHIPPING_MODE)
+			{
+                data = raceCmd[DATA];
                 data_len = 1;
             }
 
@@ -1232,6 +1256,26 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
                 raceEvt[BAT_LV] = battery_management_get_battery_property(BATTERY_PROPERTY_CAPACITY);
                 g_smchg.state = SMCHG_1WIRE_STATE_COM_WAIT_TX_DONE;
                 g_smchg.cur_cmd_id = raceCmd[CMD_ID];
+
+				if (raceCmd[CMD_ID] == CASE_REVERSION)
+				{
+					//raceEvt[DATA] = (((app_bt_service_is_air_pairing() & 0xF)<<4) | (app_bt_service_is_visible() & 0xF));
+					raceEvt[DATA] = app_smcharger_get_state1();
+				}
+				else if (raceCmd[CMD_ID] == CASE_LID_CLOSE)
+				{
+					raceEvt[DATA] = app_get_shipping_mode_state();
+				}
+				else if (raceCmd[CMD_ID] == CASE_CHARGER_KEY)
+				{
+					raceEvt[DATA] = app_smcharger_get_earbud_state();
+				}
+				else if (raceCmd[CMD_ID] == CASE_EOC_CHECKING)
+				{
+					raceEvt[DATA] = app_common_get_eco_charging_soc();
+				}				
+
+				
                 if (raceCmd[CMD_ID] == CASE_RACE_ENABLE && race_mode_flag == 0) {
                     g_smchg.race_mode_info.race_baudrate = raceCmd[BAUDRATE];
                     g_smchg.cur_cmd = (void *)&(g_smchg.race_mode_info);

@@ -201,8 +201,14 @@ static void smcharger_agent_check_and_do_rho(app_smcharger_context_t *smcharger_
             && (in_ear_state == APP_IN_EAR_STA_BOTH_IN || in_ear_state == APP_IN_EAR_STA_BOTH_OUT) /* Both in/out ear. */
 #endif
             && smcharger_ctx->peer_battery_percent < PARTNER_BATTERY_CHARGING        /* Partner not charging. */
+#if 0	// richard for customer UI spec.
             && smcharger_ctx->battery_percent + APPS_DIFFERENCE_BATTERY_VALUE_FOR_RHO   /* 30% difference. */
             < smcharger_ctx->peer_battery_percent) {
+#else
+            && ((smcharger_ctx->battery_percent + APPS_DIFFERENCE_BATTERY_VALUE_FOR_RHO   /* 30% difference. */
+            < smcharger_ctx->peer_battery_percent)
+            ||(smcharger_ctx->battery_percent <=15 && smcharger_ctx->peer_battery_percent>=20))) {
+#endif
             APPS_LOG_MSGID_I(LOG_TAG" trigger RHO due to low_battery", 0);
             /* Send TRIGGER_RHO event to notify HomeScreen APP do RHO. */
             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_TRIGGER_RHO);
@@ -212,7 +218,11 @@ static void smcharger_agent_check_and_do_rho(app_smcharger_context_t *smcharger_
             bool in_case = (smcharger_ctx->smcharger_state == STATE_SMCHARGER_LID_OPEN
                             || smcharger_ctx->smcharger_state == STATE_SMCHARGER_LID_CLOSE);
             bool partner_out_case = (smcharger_ctx->peer_smcharger_state == STATE_SMCHARGER_OUT_OF_CASE);
+#if 0	// richard for customer UI spec.
             if (in_case && partner_out_case) {
+#else
+            if (in_case && partner_out_case && !app_bt_service_is_visible()) {
+#endif
                 APPS_LOG_MSGID_I(LOG_TAG" PREPARE_RHO due to in/out case, flag=%d",
                                  1, smcharger_ctx->agent_prepare_rho_flag);
                 if (!smcharger_ctx->agent_prepare_rho_flag) {
@@ -337,9 +347,11 @@ static void smcharger_idle_check_battery_state(app_smcharger_context_t *smcharge
         /* Do nothing when app_battery_state not changed. */
         if (new_state == SMCHARGER_BATTERY_STATE_LOW_CAP && battery_percent_changed) {
             //APPS_LOG_MSGID_I(LOG_TAG" Continue Low_Battery VP", 0);
+#if 0	// richard for customer UI spec.
             voice_prompt_param_t vp = {0};
             vp.vp_index = VP_INDEX_LOW_BATTERY;
             voice_prompt_play(&vp, NULL);
+#endif
         }
     } else if (new_state == SMCHARGER_BATTERY_STATE_SHUTDOWN
                && old_state != SMCHARGER_BATTERY_STATE_SHUTDOWN) {
@@ -399,6 +411,13 @@ static bool smcharger_idle_battery_event_group(struct _ui_shell_activity *self, 
             smcharger_ctx->shutdown_state = (battery_event_shutdown_state_t)extra_data;
             APPS_LOG_MSGID_I(LOG_TAG" [DRV]Current shutdown_state=%d", 1, smcharger_ctx->shutdown_state);
             break;
+
+		// richard for customer UI spec.
+		case APPS_EVENTS_BATTERY_PARTNER_BAT_NOTIFY:
+            smcharger_sync_data_to_peer(APP_SMCHARGER_SYNC_BATTERY, smcharger_ctx);
+			ret = true;
+			break;
+
         default:
             // APPS_LOG_MSGID_I(LOG_TAG" [DRV]Doesn't care battery event: %d", 1, event_id);
             /* Ignore other battery event. */
@@ -547,9 +566,18 @@ static bool smcharger_idle_aws_data_event_group(ui_shell_activity_t *self, uint3
                 need_check_rho = TRUE;
 
                 // Notify other APP when peer battery changed
+#ifndef HFP_DISPLAY_LOWER_BATTERY	// richard for customer UI spec.
                 if (old_peer_battery != smcharger_ctx->peer_battery_percent) {
                     app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
                 }
+#else
+                if (old_peer_battery != smcharger_ctx->peer_battery_percent || smcharger_ctx->peer_battery_percent < smcharger_ctx->battery_percent) {
+                    app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
+			ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_BATTERY,
+									APPS_EVENTS_BATTERY_PERCENT_CHANGE, (void *)smcharger_ctx->battery_percent, 0, NULL, 0);
+                }
+
+#endif
             }
         }
 

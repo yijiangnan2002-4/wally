@@ -74,6 +74,7 @@ ifeq ($(AIR_RACE_CMD_ENABLE), y)
 				  $(RACE_CMD_SRC)/src/race_cmd_bluetooth.c \
 				  $(RACE_CMD_SRC)/src/race_cmd_captouch.c \
 				  $(RACE_CMD_SRC)/src/race_cmd_register.c \
+				  $(RACE_CMD_SRC)/src/race_cmd_factory_test.c \
 				  $(RACE_CMD_SRC)/src/race_cmd.c \
 				  $(RACE_CMD_SRC)/src/race_event.c \
 				  $(RACE_CMD_SRC)/src/race_bt.c \

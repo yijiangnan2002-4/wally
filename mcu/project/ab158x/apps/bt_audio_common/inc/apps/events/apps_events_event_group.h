@@ -104,6 +104,13 @@ typedef enum {
     EVENT_GROUP_UI_SHELL_SPEAKER,           /**< group for app_speaker */
     /* Customer event grounp*/
     EVENT_GROUP_ULL_SEND_CUSTOM_DATA,
+
+	// richard for customer UI spec.
+	EVENT_GROUP_UI_SHELL_PSENSOR, 			/*< group for psensor events */
+//	EVENT_GROUP_UI_SHELL_HALL_SENSOR, 		/*< group for hall sensor events */
+	EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, 	/*< group for customer common events */
+	EVENT_GROUP_UI_SHELL_INEAR_IDLE, 			/*< group for psensor events */
+	
 } apps_event_group_t;
 
 #if defined(AIR_BT_A2DP_VENDOR_CODEC_SUPPORT) && (defined(AIR_BT_A2DP_VENDOR_ENABLE) || defined(AIR_BT_A2DP_VENDOR_2_ENABLE))

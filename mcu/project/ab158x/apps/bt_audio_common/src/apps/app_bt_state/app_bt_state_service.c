@@ -1217,3 +1217,12 @@ bool app_bt_state_client_connect_aws(bool connect)
 #endif
     return success;
 }
+
+// richard for customer UI spec
+bool app_bt_service_is_air_pairing()
+{
+    APPS_LOG_MSGID_I(LOG_TAG"[XIAOAI] app_bt_service_is_air_pairing %d",
+                     1, s_current_status.in_air_pairing);
+    return (s_current_status.in_air_pairing);
+}
+

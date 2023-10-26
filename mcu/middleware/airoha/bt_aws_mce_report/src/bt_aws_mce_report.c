@@ -41,6 +41,12 @@
 #include "bt_aws_mce_srv.h"
 #include "bt_connection_manager_internal.h"
 #include "bt_utils.h"
+
+// richard for customer UI spec.
+#include "app_customer_common.h"
+#include "apps_events_event_group.h"
+#include "app_customer_common_activity.h"
+//#include "app_customer_nvkey_operation.h"
 log_create_module(bt_aws_mce_report, PRINT_LEVEL_INFO);
 #ifdef MTK_BT_SPEAKER_ENABLE
 //#define BT_AWS_MCE_REPORT_SPEAKER_ENABLE_INTERNAL
@@ -498,6 +504,19 @@ static bt_status_t bt_aws_mce_report_event_callback(bt_msg_type_t msg, bt_status
                 bt_aws_mce_report_cntx.aws_state = BT_AWS_MCE_AGENT_STATE_NONE;
                 bt_utils_memcpy((void *)(&(bt_aws_mce_report_cntx.remote_addr)), (void *)(connected->address), sizeof(bt_bd_addr_t));
                 //LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report] aws link is connected, aws handle: 0x%0x,", 1, connected->handle);
+
+		// richard for customer UI spec.
+#if defined (HFP_DISPLAY_LOWER_BATTERY) && defined (AIR_SMART_CHARGER_ENABLE)
+				ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_BATTERY,
+									APPS_EVENTS_BATTERY_PARTNER_BAT_NOTIFY, NULL, 0,
+									NULL, 2000);
+#endif
+#ifdef BATTERY_HEATHY_ENABLE
+				uint16_t heathy_times = app_nvkey_battery_heathy_read();
+				if(heathy_times)
+					app_battery_heathy_send2peer(heathy_times);
+#endif
+				apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_CUSTOMER_COMMON_CUSTOMER_DATA_REQUEST, NULL, 0);				
             }
             break;
         }

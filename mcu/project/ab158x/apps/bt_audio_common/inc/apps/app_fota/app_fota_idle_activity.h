@@ -60,6 +60,13 @@ typedef enum {
     APP_FOTA_STATE_CANCELLED      /**<  Fota is cancelled. */
 } app_fota_state_t;
 
+// richard for customer UI spec.
+typedef enum
+{
+    FOTA_STATE_IDLE = 0,
+    FOTA_STATE_RUNNING,
+} app_sensor_fota_state_t;
+
 /**
  * @brief      This function is the interface of the app_fota_idle_activity, and is only called by ui_shell when events are sent.
  * @param[in]  self, the context pointer of the activity.

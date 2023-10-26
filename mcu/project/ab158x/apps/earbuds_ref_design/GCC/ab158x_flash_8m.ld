@@ -14,9 +14,9 @@ MEMORY
     ROM_RTOS(rx)                   : ORIGIN = 0x081A4000, LENGTH = 2188K     /* DOWNLOAD, name: freertos_create_thread.bin, display: MCU_FW */
     ROM_LM_GVA(rx)                 : ORIGIN = 0x083C7000, LENGTH = 304K      /* DOWNLOAD, name: lm_gva.bin, display: LM_GVA */
     ROM_LM_AMA(rx)                 : ORIGIN = 0x08413000, LENGTH = 244K      /* DOWNLOAD, name: lm_ama.bin, display: LM_AMA */
-    ROM_ROFS(rx)                   : ORIGIN = 0x08450000, LENGTH = 264K      /* DOWNLOAD, name: filesystem.bin, display: ROFS */
-    ROM_NVDM_OU(rx)                : ORIGIN = 0x08492000, LENGTH = 128K      /* DOWNLOAD, name: nvdm_ou.bin, display: NVDM_OU */
-    ROM_FOTA_RESERVED(rx)          : ORIGIN = 0x084B2000, LENGTH = 3320K
+    ROM_ROFS(rx)                   : ORIGIN = 0x08450000, LENGTH = 464K      /* DOWNLOAD, name: filesystem.bin, display: ROFS */
+    ROM_NVDM_OU(rx)                : ORIGIN = 0x084C4000, LENGTH = 128K      /* DOWNLOAD, name: nvdm_ou.bin, display: NVDM_OU */
+    ROM_FOTA_RESERVED(rx)          : ORIGIN = 0x084E4000, LENGTH = 3120K
     ROM_NVDM_RESERVED(rx)          : ORIGIN = 0x087F0000, LENGTH = 64K       /* DOWNLOAD, name: nvdm.bin, display: NVDM */
 
     TCM (rwx)                      : ORIGIN = 0x04000000, LENGTH = 240K

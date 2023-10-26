@@ -38,6 +38,8 @@
 #include "battery_management_sw_ntc.h"
 #include "hal_pmu_charger_lp.h"
 
+// richard for customer UI spec
+//int g_ntc_temp = 25;
 uint8_t executing_status=BM_TEMP_NORMAL;
 extern battery_managerment_control_info_t bm_ctrl_info;
 extern const char *bm_ntc_state[10];    /*Data : For output log */
@@ -49,6 +51,8 @@ void battery_jeita_task(void *pvParameters) {
         int temp = 0;
         pmu_ntc_state_t ntc_state = 0;
         pmu_ntc_update_state(&temp,&ntc_state);
+	// richard for customer UI spec
+//        g_ntc_temp = temp;
         bm_ctrl_info.temperature = temp;
         LOG_W(MPLOG,"[BM_JEITA][ntc temp :%d] [ntc_state %d :%s]" ,temp,ntc_state,bm_ntc_state[ntc_state]);/*Log output by BT*/
 
@@ -89,4 +93,11 @@ void battery_jeita_task(void *pvParameters) {
     }
 }
 
+// richard for customer UI spec
+void get_battery_NTC_status(int16_t *temperature, uint8_t *ntc_state)
+{
+//	*temperature = g_ntc_temp;
+	*temperature = bm_ctrl_info.temperature;
+	*ntc_state = executing_status;
+}
 

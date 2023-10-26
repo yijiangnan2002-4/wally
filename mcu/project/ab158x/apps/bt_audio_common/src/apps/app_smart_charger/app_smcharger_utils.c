@@ -85,6 +85,22 @@
 #include "app_bt_state_service.h"
 #endif
 
+// richard for customer UI spec.
+#include "app_customer_common.h"
+#include "apps_config_state_list.h"
+#include "app_psensor_px31bf_activity.h"
+//#include "app_hall_sensor_activity.h"
+#include "apps_config_key_remapper.h"
+#include "app_customer_nvkey_operation.h"
+#include "apps_events_event_group.h"
+#include "app_customer_common_activity.h"
+#include "anc_control_api.h"
+#include "app_anc_service.h"
+#ifdef BLE_ZOUND_ENABLE
+#include "bt_sink_srv_ami.h"
+#include "gatt_bas.h"
+#endif
+
 /* SmartCharger APP must use Battery Manager module. */
 #if !defined(MTK_BATTERY_MANAGEMENT_ENABLE)
 #error "For SmartCharger feature, please enable MTK_BATTERY_MANAGEMENT_ENABLE"
@@ -95,6 +111,9 @@
 #endif
 
 #define LOG_TAG                  "[SMCharger][Util]"
+
+static uint8_t dut_test_flag = 0;
+
 
 #ifdef AIR_SMART_CHARGER_TEST
 #include "atci.h"
@@ -200,6 +219,12 @@ static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, u
             } else {
                 need_send_event = TRUE;
             }
+		// richard for customer UI spec.
+		if (data_len == 1) {
+                app_smcharger_handle_case_battery_report(from_isr, (uint8_t)data);
+            } else {
+                APPS_LOG_MSGID_E(LOG_TAG" [DRV]callback, LID_CLOSE with error data_len", 0);
+            }
             break;
         }
         /* SmartCharger middleware LID_CLOSE complete Command - The command is sent after close lid and wait 3 sec. */
@@ -255,6 +280,33 @@ static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, u
             need_send_event = TRUE;
             break;
         }
+		// richard for customer UI spec.
+		case DRV_CHARGER_EVENT_BATTERY_LEVEL:
+			APPS_LOG_MSGID_I(" driver_callback[battery level]", 0);
+			break;
+		case DRV_CHARGER_EVENT_CHARGER_STATE:
+			APPS_LOG_MSGID_I(" driver_callback[charger state]", 0);
+			break;
+
+		case DRV_CHARGER_EVENT_REVERSION_REPORT:
+			log_hal_msgid_info(" driver_callback[casing version] = 0x%x", 1, data);
+			app_set_charger_case_version((uint8_t)data);
+			break;	
+
+		case DRV_CHARGER_EVENT_CHARGING_CURRENT_LIMIT:
+			log_hal_msgid_info(" driver_callback[set limit status] = 0x%x", 1, data);
+			app_smcharger_set_current_limit_status((uint8_t)data);
+			break;
+
+		case DRV_CHARGER_EVENT_SHIPPING_MODE_ENABLE:
+			log_hal_msgid_info(" driver_callback[shipping mode] = 0x%x", 1, data);
+			app_nvkey_shipping_mode_set(0x01);
+			break;	
+
+		case DRV_CHARGER_EVENT_EOC_CHECKING:
+			log_hal_msgid_info(" driver_callback[eoc checking] = 0x%x", 1, data);
+			break;					
+
         default: {
             break;
         }
@@ -275,7 +327,16 @@ static app_smcharger_action_status_t app_smcharger_handle_system_boot()
     int32_t charger_exitst = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);
     uint8_t reason = pmu_get_power_on_reason();
     APPS_LOG_MSGID_I(LOG_TAG" handle_system_boot reason=0x%02X charger_exitst=%d", 2, reason, charger_exitst);
+
+	// richard for customer UI spec
+	if(app_get_shipping_mode_state())
+	{//clean shipping state
+		app_set_shipping_mode_state(false);
+	}	
+
     if (charger_exitst) {
+	// richard for customer UI spec
+	//app_shipping_mode_exit();	
         /* Send CHARGER_IN_BOOT event if bit[2] is 1 (STS_CHRIN). */
         app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_CHARGER_IN_BOOT, NULL, 0);
     } else {
@@ -311,11 +372,32 @@ static void app_smcharger_send_key_action(uint16_t action)
 */
 static void app_smcharger_bt_enter_discoverable()
 {
+#if 0	// Original code
     bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
     APPS_LOG_MSGID_I(LOG_TAG" [%02X] bt_enter_discoverable", 1, role);
     if (role == BT_AWS_MCE_ROLE_AGENT) {
         app_smcharger_send_key_action(KEY_DISCOVERABLE);
     }
+#else	// richard for customer UI spec.
+    bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
+	apps_config_state_t mmi_state = apps_config_key_get_mmi_state();
+	bool mmi_state_in_call = false;
+
+	if(mmi_state == APP_HFP_CALLACTIVE ||  mmi_state == APP_HFP_CALLACTIVE_WITHOUT_SCO 
+		|| mmi_state == APP_HFP_MULTITPART_CALL || mmi_state == APP_STATE_HELD_ACTIVE || APP_STATE_VA == mmi_state)
+	{
+		mmi_state_in_call = true;
+	}
+    APPS_LOG_MSGID_I(LOG_TAG" [0x%02X] bt_enter_discoverable mmi state=%d", 2, role,mmi_state);
+    if (role == BT_AWS_MCE_ROLE_AGENT && !mmi_state_in_call) {
+		ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_BT_RECONNECT_TIMEOUT);
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+							APPS_EVENTS_INTERACTION_BT_RECONNECT_TIMEOUT, NULL, 0,
+							NULL, 0);
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST,EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+		APPS_EVENTS_INTERACTION_AUTO_START_BT_VISIBLE, NULL, 0, NULL, 0);
+    }
+#endif
 }
 
 /**
@@ -345,13 +427,28 @@ void app_smcharger_bt_clear_enter_discoverable(app_smcharger_clear_bt_step_t ste
         app_smcharger_switch_bt(FALSE, TRUE);
         //APPS_LOG_MSGID_I(LOG_TAG" BT_CLEAR - OFF action", 0);
     } else if (step == APP_SMCHARGER_REQUEST_BT_CLEAR_ALL) {
+		app_nvkey_factory_reset();
+		//app_anc_service_disable();
+		
+		//ANC ON After factory reset
+    		audio_anc_control_filter_id_t target_filter_id = AUDIO_ANC_CONTROL_ANC_FILTER_DEFAULT;
+    		audio_anc_control_type_t target_anc_type = AUDIO_ANC_CONTROL_ANC_TYPE_DEFAULT;
+    		int16_t anc_runtime_gain = AUDIO_ANC_CONTROL_UNASSIGNED_GAIN;
+		app_anc_service_enable(target_filter_id, target_anc_type, anc_runtime_gain, NULL);
+
         bt_status_t status = bt_device_manager_unpair_all();
         APPS_LOG_MSGID_I(LOG_TAG" BT_CLEAR - unpair_all=%d", 1, status);
         if (status == BT_STATUS_SUCCESS) {
 #ifdef APP_CONN_MGR_RECONNECT_CONTROL
             nvkey_delete_data_item(NVID_APP_BT_RECONNECT_INFO);
 #endif
-            app_smcharger_bt_clear_enter_discoverable(APP_SMCHARGER_REQUEST_BT_ON);
+
+		uint8_t status = aud_peq_get_peq_status(PEQ_AUDIO_PATH_A2DP, 0);
+		race_mmi_set_peq_group_id(1, &status, AM_A2DP_PEQ);		
+		app_customer_custom_eq_reset();
+		ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+		                        EVENT_ID_CASE_BT_CLEAR_BT_ON, NULL, 0, NULL, 2000);	
+//            app_smcharger_bt_clear_enter_discoverable(APP_SMCHARGER_REQUEST_BT_ON);
         } else {
             //APPS_LOG_MSGID_E(LOG_TAG" BT_CLEAR error", 0);
             g_smcharger_context->bt_clear_ongoing = FALSE;
@@ -376,7 +473,16 @@ static void app_smcharger_bt_air_pairing()
     app_lea_service_stop_advertising(FALSE);
 #endif
     APPS_LOG_MSGID_I(LOG_TAG" [%02X] bt_air_pairing", 1, role);
+#if 0	// original
     app_smcharger_send_key_action(KEY_AIR_PAIRING);
+#else	// richard for customer UI spec.
+	if((APP_DISCONNECTED == apps_config_key_get_mmi_state()||APP_CONNECTABLE == apps_config_key_get_mmi_state())
+		&& bt_sink_srv_cm_get_aws_connected_device() == NULL)
+	{
+		app_smcharger_send_key_action(KEY_AIR_PAIRING);
+	}
+
+#endif
 }
 
 /**
@@ -467,6 +573,16 @@ static app_smcharger_action_status_t app_smcharger_mute_audio(bool is_mute)
     return (status == BT_STATUS_SUCCESS ? APP_SMCHARGER_OK : APP_SMCHARGER_FAILURE);
 }
 
+static uint8_t mute_state = 0xff;
+void app_mute_audio(bool is_mute)
+{
+	if(mute_state != is_mute)
+	{	
+		mute_state = is_mute;
+		app_smcharger_mute_audio(is_mute);
+	}
+}
+
 /**
 * @brief      SmartCharger APP send public_event with action.
 * @param[in]  old_state, old SmartCharger APP state.
@@ -508,7 +624,14 @@ app_smcharger_action_status_t app_smcharger_power_off(bool normal_off)
     APPS_LOG_MSGID_I(LOG_TAG" power_off %d", 1, normal_off);
     if (normal_off) {
         /* LOW_VOLTAGE power off outside of SmartCharger case, play "power off" VP and foreground led pattern. */
+#if 0	// original		
         voice_prompt_play_vp_power_off(VOICE_PROMPT_CONTROL_POWEROFF);
+#else	// richard for customer UI spec.
+		if(g_smcharger_context->shutdown_state == APPS_EVENTS_BATTERY_SHUTDOWN_STATE_VOLTAGE_LOW)
+		{        
+        		voice_prompt_play_vp_power_off(VOICE_PROMPT_CONTROL_POWEROFF);
+		}
+#endif
         apps_config_set_foreground_led_pattern(LED_INDEX_POWER_OFF, 30, FALSE);
     }
 #ifdef AIR_TILE_ENABLE
@@ -534,7 +657,7 @@ app_smcharger_action_status_t app_smcharger_power_off(bool normal_off)
                                                 EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                                 (normal_off ? APPS_EVENTS_INTERACTION_REQUEST_POWER_OFF
                                                  : APPS_EVENTS_INTERACTION_REQUEST_IMMEDIATELY_POWER_OFF),
-                                                NULL, 0, NULL, 0);
+                                                NULL, 0, NULL, 500);	// richard for customer UI spec.
 #endif
     return (ret == UI_SHELL_STATUS_OK ? APP_SMCHARGER_OK : APP_SMCHARGER_FAILURE);
 }
@@ -619,24 +742,53 @@ app_smcharger_action_status_t app_smcharger_state_do_action(uint8_t state)
     switch (state) {
         case STATE_SMCHARGER_STARTUP: {
             status += app_smcharger_handle_system_boot();
+			app_common_add_tracking_log(0x33);	// richard for customer UI spec.
             break;
         }
         case STATE_SMCHARGER_LID_CLOSE: {
-            status += app_smcharger_mute_audio(TRUE);
+		// richard for customer UI spec.
+		g_smcharger_context->bt_clear_ongoing = FALSE;
+		//status += app_smcharger_mute_audio(TRUE);
+		app_mute_audio(TRUE);
+		app_common_add_tracking_log(0x30);
+#ifdef MTK_ANC_ENABLE
+		/* Suspend ANC when device in the SmartCharger case. */
+		app_anc_service_suspend();
+		//APPS_LOG_MSGID_I(LOG_TAG" audio_anc_suspend ret=%d", 1, anc_ret);
+#endif
+//            status += app_smcharger_mute_audio(TRUE);
             status += app_smcharger_switch_bt(FALSE, FALSE);
             break;
         }
         case STATE_SMCHARGER_LID_OPEN: {
+			// richard for customer UI spec.
+			g_smcharger_context->bt_clear_ongoing = FALSE;
+			app_common_set_eco_charging_soc(0);
             if (old_state == STATE_SMCHARGER_STARTUP) {
                 if (BT_POWER_ON_DUT == bt_power_on_get_config_type()) {
                     APPS_LOG_MSGID_I(LOG_TAG" BT_POWER_ON_DUT, No switch bt on", 0);
                 } else {
                     status += app_smcharger_switch_bt(TRUE, FALSE);
+				// richard for customer UI spec.
+				app_mute_audio(TRUE);
+				app_common_add_tracking_log(0x40);					
                 }
             } else if (old_state == STATE_SMCHARGER_LID_CLOSE) {
                 status += app_smcharger_switch_bt(TRUE, FALSE);
+				// richard for customer UI spec.
+				app_mute_audio(TRUE);
+				app_common_add_tracking_log(0x50);
+				//ui_shell_remove_event(EVENT_GROUP_UI_SHELL_PSENSOR, EVENT_ID_PSENSOR_LIMIT_CLEAN);				
+				app_psensor_limit_set(true);				
             }
-            status += app_smcharger_mute_audio(TRUE);
+		else		// richard for customer UI spec.
+		{
+			//ui_shell_remove_event(EVENT_GROUP_UI_SHELL_PSENSOR, EVENT_ID_PSENSOR_LIMIT_CLEAN);				
+			app_psensor_limit_set(true);
+			app_common_add_tracking_log(0x60);
+			app_mute_audio(TRUE);//WN move AMP mute control to Hall sensor handle for resolve sometimes cannot unmute after out of case issue.
+		}
+//            status += app_smcharger_mute_audio(TRUE);
 #ifdef MTK_ANC_ENABLE
             /* Suspend ANC when device in the SmartCharger case. */
 #ifndef AIR_HEARTHROUGH_MAIN_ENABLE
@@ -644,9 +796,16 @@ app_smcharger_action_status_t app_smcharger_state_do_action(uint8_t state)
 #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
             //APPS_LOG_MSGID_I(LOG_TAG" audio_anc_suspend ret=%d", 1, anc_ret);
 #endif
+			// richard for customer UI spec.
+			if(dut_test_flag)
+			{//if in dut test will reboot and exit dut
+				dut_test_flag = 0;
+				app_smcharger_send_key_action(KEY_SYSTEM_REBOOT);
+			}
             break;
         }
         case STATE_SMCHARGER_OUT_OF_CASE: {
+#if 0	// original
             status += app_smcharger_switch_bt(TRUE, FALSE);
             status += app_smcharger_mute_audio(FALSE);
 #ifdef MTK_ANC_ENABLE
@@ -656,9 +815,46 @@ app_smcharger_action_status_t app_smcharger_state_do_action(uint8_t state)
 #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
             //APPS_LOG_MSGID_I(LOG_TAG" audio_anc_resume ret=%d", 1, anc_ret);
 #endif
+#else	// richard for customer UI spec.
+			app_common_set_eco_charging_soc(0);
+			g_smcharger_context->bt_clear_ongoing = FALSE;
+			status += app_smcharger_switch_bt(TRUE, FALSE);
+			//ui_shell_remove_event(EVENT_GROUP_UI_SHELL_PSENSOR, EVENT_ID_PSENSOR_LIMIT_CLEAN);				
+			app_psensor_limit_set(false);	
+			app_common_tracking_log_reset();	
+			app_common_add_tracking_log(0x62);
+//			if(!get_hall_sensor_status())
+			{
+				
+				app_mute_audio(FALSE);
+				app_common_add_tracking_log(0x61);
+            	//status += app_smcharger_mute_audio(FALSE); //WN move AMP mute control to Hall sensor handle for resolve sometimes cannot unmute after out of case issue.
+#ifdef MTK_ANC_ENABLE
+            /* Resume ANC when device outside of the SmartCharger case. */
+#ifndef AIR_HEARTHROUGH_MAIN_ENABLE
+            app_anc_service_resume();
+#endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
+            //APPS_LOG_MSGID_I(LOG_TAG" audio_anc_resume ret=%d", 1, anc_ret);
+#endif
+			}
+#ifdef BATTERY_HEATHY_ENABLE
+			ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_BATTERY_HEATHY_CYCLE_END);
+			ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_BATTERY_HEATHY_CYCLE_START);
+			//read battery percent after 60s, due to floating voltage during charging
+			ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+								EVENT_ID_BATTERY_HEATHY_CYCLE_START, NULL, 0, NULL, 60*1000);
+#endif
+
+#endif
             break;
         }
         case STATE_SMCHARGER_OFF: {
+			// richard for customer UI spec
+			if(app_get_shipping_mode_state())
+			{//need enter shipping mode
+				app_enter_shipping_mode_flag_set(true);
+			}
+			app_common_add_tracking_log(0x32);
             status += app_smcharger_power_off(FALSE);
             break;
         }
@@ -746,8 +942,28 @@ void app_smcharger_handle_case_battery(uint8_t case_battery)
     }
 }
 
+// richard for customer UI spec
+uint8_t app_smcharger_get_state1(void)
+{
+	if(g_smcharger_context == NULL)
+		return ((app_bt_service_is_air_pairing()<<4)|app_bt_service_is_visible());
+
+	return (((g_smcharger_context->smcharger_state)<<5)|(app_bt_service_is_air_pairing()<<4)|((g_smcharger_context->peer_smcharger_state)<<1)|app_bt_service_is_visible());
+}
+
+uint8_t app_smcharger_get_earbud_state(void)
+{
+	bt_aws_mce_srv_link_type_t aws_link_type = bt_aws_mce_srv_get_link_type();
+
+	if(g_smcharger_context == NULL)
+		return aws_link_type;
+	
+	return ((g_smcharger_context->smcharger_state)<<5) |((g_smcharger_context->peer_smcharger_state)<<2) |aws_link_type;
+}
+
 void app_smcharger_handle_key_event(uint32_t key_value)
 {
+#if 0	// original
     bt_aws_mce_srv_link_type_t aws_link_type = bt_aws_mce_srv_get_link_type();
     APPS_LOG_MSGID_I(LOG_TAG" handle_key_event key=%d", 1, key_value);
     if (g_smcharger_context != NULL && key_value <= 255
@@ -776,6 +992,81 @@ void app_smcharger_handle_key_event(uint32_t key_value)
 
         app_smcharger_ui_shell_public_event(FALSE, SMCHARGER_CHARGER_KEY_ACTION, key_value);
     }
+#else	// richard for customer UI spec.
+    bt_aws_mce_srv_link_type_t aws_link_type = bt_aws_mce_srv_get_link_type();
+    APPS_LOG_MSGID_I(LOG_TAG" handle_key_event key=%d", 1, key_value);
+    if (g_smcharger_context != NULL && key_value <= 255
+        && (g_smcharger_context->smcharger_state == STATE_SMCHARGER_LID_OPEN
+            || g_smcharger_context->smcharger_state == STATE_SMCHARGER_LID_CLOSE)) {
+        // Default Key function must be both LID_OPEN
+        APPS_LOG_MSGID_I(LOG_TAG" handle_key_event state=%d peer=%d aws_link_type=%d", 3,
+                         g_smcharger_context->smcharger_state,
+                         g_smcharger_context->peer_smcharger_state,
+                         aws_link_type);
+        if (g_smcharger_context->smcharger_state == STATE_SMCHARGER_LID_OPEN 
+			&& (key_value == APP_SMCHARGER_KEY_BT_AIR_PAIRING 
+			|| key_value == APP_SMCHARGER_KEY_BT_SIGNAL_DISCOVERABLE
+			|| key_value == APP_SMCHARGER_KEY_BT_CLEAR
+			|| key_value == APP_SMCHARGER_KEY_TWS_CLEAN
+			|| key_value == APP_SMCHARGER_KEY_FACTORY_RESET			
+			|| key_value == APP_SMCHARGER_KEY_BT_DUT_TEST)) 
+		{
+			if(key_value == APP_SMCHARGER_KEY_BT_AIR_PAIRING)
+			{
+            	app_smcharger_bt_air_pairing();
+			}
+			else if(key_value == APP_SMCHARGER_KEY_FACTORY_RESET)
+			{
+            	app_smcharger_send_key_action(KEY_TEST_FACTORY_RESET);
+			}	
+			else if(key_value == APP_SMCHARGER_KEY_TWS_CLEAN)
+			{
+            	app_smcharger_send_key_action(KEY_TEST_TWS_CLEAN);
+			}			
+			else if(key_value == APP_SMCHARGER_KEY_BT_DUT_TEST)
+			{
+				if((APP_DISCONNECTED == apps_config_key_get_mmi_state()
+					|| APP_CONNECTABLE == apps_config_key_get_mmi_state())
+					&& dut_test_flag == 0)
+				{
+            		app_smcharger_send_key_action(KEY_ENABLE_DUT_TEST);
+					dut_test_flag = 1;
+				}
+			}			
+			else if(key_value == APP_SMCHARGER_KEY_BT_SIGNAL_DISCOVERABLE
+				&& aws_link_type == BT_AWS_MCE_SRV_LINK_NONE)
+			{
+				app_smcharger_send_key_action(KEY_SIGNAL_DISCOVERABLE);
+			}
+			else if (key_value == APP_SMCHARGER_KEY_BT_CLEAR) 
+			{
+            	if(!g_smcharger_context->bt_clear_ongoing)
+        		{
+                	g_smcharger_context->bt_clear_ongoing = TRUE;
+					//app_smcharger_bt_clear_enter_discoverable(APP_SMCHARGER_REQUEST_BT_OFF);
+					app_smcharger_send_key_action(KEY_FACTORY_RESET);
+        		}
+            }
+        } else if (g_smcharger_context->smcharger_state == STATE_SMCHARGER_LID_OPEN
+                   && (g_smcharger_context->peer_smcharger_state == STATE_SMCHARGER_LID_OPEN
+                   || aws_link_type != BT_AWS_MCE_SRV_LINK_NONE)) {
+            if (key_value == APP_SMCHARGER_KEY_BT_DISCOVERABLE) {
+                app_smcharger_bt_enter_discoverable();
+            } else if (key_value == APP_SMCHARGER_KEY_BT_CLEAR) {
+            	if(!g_smcharger_context->bt_clear_ongoing)
+        		{
+                	g_smcharger_context->bt_clear_ongoing = TRUE;
+					//app_smcharger_bt_clear_enter_discoverable(APP_SMCHARGER_REQUEST_BT_OFF);
+					app_smcharger_send_key_action(KEY_FACTORY_RESET);
+        		}
+            }
+        } else {
+            APPS_LOG_MSGID_E(LOG_TAG" handle_key_event - No both LID_OPEN/AWS", 0);
+        }
+
+        app_smcharger_ui_shell_public_event(FALSE, SMCHARGER_CHARGER_KEY_ACTION, key_value);
+    }
+#endif
 }
 
 void app_smcharger_handle_user_data(int state, int event_id, uint8_t user_data)
@@ -893,6 +1184,12 @@ static atci_status_t smcharger_atci_handler(atci_parse_cmd_param_t *parse_cmd)
 /**================================================================================*/
 /**                           PUBLIC API for other APP                             */
 /**================================================================================*/
+// richard for customer UI spec
+app_smcharger_context_t* app_get_smcharger_context(void)
+{
+	return g_smcharger_context;
+}
+
 void app_smcharger_update_bat()
 {
     bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
@@ -920,6 +1217,13 @@ void app_smcharger_update_bat()
                            right_bat);
 #endif
     }
+#ifdef BLE_ZOUND_ENABLE
+	bt_handle_t handle = bt_app_common_get_first_conneciton_handle();
+    if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
+		|| bt_le_audio_sink_is_link_valid(handle)){
+        notify_battery();
+    }
+#endif
 }
 
 app_smcharger_in_out_t app_smcharger_is_charging()

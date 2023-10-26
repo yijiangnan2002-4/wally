@@ -1168,6 +1168,12 @@ void pmu_power_off_sequence_lp(pmu_power_stage_t stage)
     switch (stage) {
         case PMU_PWROFF:
             pmu_auxadc_get_channel_value(PMU_AUX_VCHG);
+			// richard for customer UI spec
+			if(app_enter_shipping_mode_flag_read())
+			{
+				log_hal_msgid_info("[PMU_BASIC] power_off_sequence OFF enter shipping mode", 0);
+				app_shipping_mode_enter();
+			}
             pmu_set_register_value_lp(0x32C, RG_DATA_SHIPPING_MASK_MASK, 3, 0x1);
             pmu_set_register_value_lp(0x32C, RG_SET_SHIPPING_MASK_MASK, 2, 0x0);
             pmu_set_register_value_lp(0x32C, RG_SET_SHIPPING_MASK_MASK, 2, 0x1);
@@ -1180,8 +1186,8 @@ void pmu_power_off_sequence_lp(pmu_power_stage_t stage)
         case PMU_RTC:
             pmu_set_register_value_lp(0x012, RG_UARTPSW_ENB_MASK, 0, 0x1);
             pmu_set_register_value_lp(0x328, RG_SW_OCP_ENB_MASK, 7, 0x1);
-            pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x1);
-            pmu_set_register_value_lp(0x32C, RG_BAT_SYS_COMP_LPM_VCHGON_MASK, 1, 0x1);
+//            pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x1);		// richard for patch from Airoha
+//            pmu_set_register_value_lp(0x32C, RG_BAT_SYS_COMP_LPM_VCHGON_MASK, 1, 0x1);
             pmu_set_register_value_lp(0x00C, RG_BGHP_ENB_MASK, 0, 0x1);
             pmu_set_register_value_lp(0x00E, RG_FAST_BUFFER_ENB_MASK, 2, 0x1);
             pmu_set_register_value_lp(0x00E, RG_BGR_TRIM_ENB_MASK, 8, 0x1);
@@ -1190,17 +1196,27 @@ void pmu_power_off_sequence_lp(pmu_power_stage_t stage)
             pmu_enable_charger_lp(PMU_OFF);
             if (pmu_auxadc_get_channel_value_lp(PMU_AUX_VBAT) > 3200) {
                 pmu_eoc_ctrl(PMU_ON);
+                pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x1);	// richard for patch from Airoha
+                pmu_set_register_value_lp(0x32C, RG_BAT_SYS_COMP_LPM_VCHGON_MASK, 1, 0x1);
                 pmu_uart_psw(PMU_OFF);
                 pmu_uart_psw_cl(PMU_OFF);
             }
             else {
                 pmu_eoc_ctrl(PMU_OFF);
+                pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x0);	// richard for patch from Airoha
+                pmu_set_register_value_lp(0x32C, RG_BAT_SYS_COMP_LPM_VCHGON_MASK, 1, 0x0);
                 pmu_uart_psw(PMU_ON);
                 pmu_uart_psw_cl(PMU_ON);
             }
 #endif
             pmu_clear_all_intr();
 
+			// richard for customer UI spec
+			if(app_enter_shipping_mode_flag_read())
+			{
+				log_hal_msgid_info("[PMU_BASIC] power_off_sequence RTC enter shipping mode", 0);
+				app_shipping_mode_enter();
+			}
             log_hal_msgid_info("[PMU_BASIC]power_off_sequence [RTC], rg_012[0x%X], rg_084[0x%X], rg_092[0x%X], rg_09A[0x%X], rg_608[0x%X], rg_60C[0x%X]", 6,
                                pmu_get_register_value_lp(0x012, 0xFFFF, 0), pmu_get_register_value_lp(0x084, 0xFFFF, 0),
                                pmu_get_register_value_lp(0x092, 0xFFFF, 0), pmu_get_register_value_lp(0x09A, 0xFFFF, 0),

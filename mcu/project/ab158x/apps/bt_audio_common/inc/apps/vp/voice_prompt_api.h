@@ -242,6 +242,21 @@ voice_prompt_status_t voice_prompt_play_vp_successed();
 voice_prompt_status_t voice_prompt_play_sync_vp_successed();
 voice_prompt_status_t voice_prompt_play_vp_failed();
 voice_prompt_status_t voice_prompt_play_sync_vp_failed();
+
+// richard for customer UI spec.
+voice_prompt_status_t voice_prompt_play_vp_hearing_through();
+voice_prompt_status_t voice_prompt_play_sync_vp_hearing_through();
+voice_prompt_status_t voice_prompt_play_vp_anc_on();
+voice_prompt_status_t voice_prompt_play_sync_vp_anc_on();
+voice_prompt_status_t voice_prompt_play_vp_battery_fail();
+voice_prompt_status_t voice_prompt_play_sync_vp_battery_fail();
+voice_prompt_status_t voice_prompt_play_vp_volume_up();
+voice_prompt_status_t voice_prompt_play_sync_vp_volume_up();
+voice_prompt_status_t voice_prompt_play_vp_volume_down();
+voice_prompt_status_t voice_prompt_play_sync_vp_volume_down();
+voice_prompt_status_t voice_prompt_play_vp_speech_focus();
+voice_prompt_status_t voice_prompt_play_sync_vp_speech_focus();
+
 voice_prompt_status_t voice_prompt_play_vp_power_off(voice_prompt_control_mask_t mask);
 voice_prompt_status_t voice_prompt_play_vp_power_on();
 

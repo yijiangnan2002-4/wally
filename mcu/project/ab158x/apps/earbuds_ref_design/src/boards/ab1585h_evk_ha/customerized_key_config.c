@@ -243,11 +243,13 @@ const apps_config_key_event_map_t temp_key_short_click_configs[] = {
         KEY_ACCEPT_CALL,
         (1 << APP_HFP_INCOMING)
     },
+#if 0	// richard for UI
     {
         DEVICE_KEY_POWER,
         KEY_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         (1 << APP_HFP_TWC_INCOMING)
     },
+#endif
     {
         DEVICE_KEY_POWER,
         KEY_END_CALL,
@@ -295,6 +297,28 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
         KEY_REJCALL,
         (1 << APP_HFP_INCOMING)
     },
+#if 0	//DUT Test
+    {
+        DEVICE_KEY_POWER,
+        KEY_ENABLE_DUT_TEST,
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE)
+    },
+#endif    
+#if 1	// ULL Pairing
+    {
+        DEVICE_KEY_POWER,
+        KEY_ULL_AIR_PAIRING,
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED)
+        | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_LE_AUDIO_BIS_PLAYING)
+    },
+#endif
+#if 1	// richard for UI spec
+    {
+        DEVICE_KEY_POWER,
+        KEY_MUTE_MIC,
+	  (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_STATE_HELD_ACTIVE)
+    },
+#else
     {
         DEVICE_KEY_POWER,
         KEY_ONHOLD_CALL,
@@ -315,6 +339,7 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE)
 #endif
     },
+#endif
 #ifdef AIR_MCSYNC_SHARE_ENABLE
     {
         EINT_KEY_0,
@@ -356,11 +381,12 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
 };
 
 const apps_config_key_event_map_t temp_key_triple_click_configs[] = {
+#if 0	// richard for UI spec
 #if defined(MTK_AWS_MCE_ENABLE)
     {
         DEVICE_KEY_POWER,
         KEY_AIR_PAIRING,
-        (1 << APP_DISCONNECTED)
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE)
     },
 #endif
 #ifdef AIR_LE_AUDIO_BIS_ENABLE
@@ -381,6 +407,7 @@ const apps_config_key_event_map_t temp_key_triple_click_configs[] = {
         KEY_RHO_TO_AGENT,
         (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING)
     },
+#endif
 #endif
 #ifdef APPS_LINE_IN_SUPPORT
     {
@@ -451,6 +478,24 @@ const apps_config_key_event_map_t temp_key_long_press1_configs[] = {
 };
 
 const apps_config_key_event_map_t temp_key_long_press2_configs[] = {
+#ifdef AIR_MULTI_POINT_ENABLE
+    {
+        DEVICE_KEY_POWER,
+        KEY_SWITCH_ANC_AND_PASSTHROUGH,
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALLACTIVE)
+        | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_INCOMING)
+        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING)
+        | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY) | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA)
+    },
+#else
+    {
+        DEVICE_KEY_POWER,    
+        KEY_SWITCH_ANC_AND_PASSTHROUGH,
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALLACTIVE)
+        | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO)
+        | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY) | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA)
+    },
+#endif
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
     {
         EINT_KEY_0,
@@ -485,6 +530,7 @@ const apps_config_key_event_map_t temp_key_long_press3_configs[] = {
         KEY_POWER_ON,
         (1 << APP_BT_OFF)
     },
+#if 0	// richard for UI spec
     {
         DEVICE_KEY_POWER,
         KEY_POWER_OFF,
@@ -494,6 +540,18 @@ const apps_config_key_event_map_t temp_key_long_press3_configs[] = {
         | (1 << APP_STATE_FIND_ME) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
         | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA)
     },
+//#else
+    {
+        DEVICE_KEY_POWER,
+        KEY_DISCOVERABLE,
+#if defined(AIR_MULTI_POINT_ENABLE) || defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED)
+        | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_LE_AUDIO_BIS_PLAYING)
+#else
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE)
+#endif
+    },
+#endif
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
     {
         EINT_KEY_0,
@@ -523,6 +581,15 @@ const apps_config_key_event_map_t temp_key_long_press3_configs[] = {
 };
 
 const apps_config_key_event_map_t temp_key_slong_configs[] = {
+#if 1	// richard for UI spec
+#if defined(MTK_AWS_MCE_ENABLE)
+    {
+        DEVICE_KEY_POWER,
+        KEY_AIR_PAIRING,
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE)
+    },
+#endif
+#else
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
     {
         DEVICE_KEY_POWER,
@@ -542,6 +609,7 @@ const apps_config_key_event_map_t temp_key_slong_configs[] = {
         (1 << APP_A2DP_PLAYING) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING)
         | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
+#endif
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
     {
         EINT_KEY_0,
@@ -563,6 +631,15 @@ const apps_config_key_event_map_t temp_key_slong_configs[] = {
 };
 
 const apps_config_key_event_map_t temp_key_dlong_configs[] = {
+#if 1	// richard for UI spec
+#if defined(MTK_AWS_MCE_ENABLE)
+    {
+        DEVICE_KEY_POWER,
+        KEY_AIR_PAIRING,
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE)
+    },
+#endif
+#else
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
     {
         DEVICE_KEY_POWER,
@@ -576,6 +653,7 @@ const apps_config_key_event_map_t temp_key_dlong_configs[] = {
         KEY_AIR_UNPAIRING,
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED)
     }
+#endif
 #endif
 };
 
@@ -693,6 +771,15 @@ const apps_config_key_event_map_t temp_key_dlong_release_configs[] = {
 #define temp_left_key_long_press3_configs temp_key_long_press3_configs
 #define temp_left_key_slong_configs temp_key_slong_configs
 const apps_config_key_event_map_t temp_left_key_dlong_configs[] = {
+#if 1	// richard for UI spec
+#if defined(MTK_AWS_MCE_ENABLE)
+    {
+        DEVICE_KEY_POWER,
+        KEY_AIR_PAIRING,
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE)
+    },
+#endif
+#else
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
     {
         DEVICE_KEY_POWER,
@@ -700,6 +787,7 @@ const apps_config_key_event_map_t temp_left_key_dlong_configs[] = {
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_A2DP_PLAYING)
         | (1 << APP_ULTRA_LOW_LATENCY_PLAYING),
     }
+#endif
 #endif
 };
 #define temp_left_key_repeat_configs temp_key_repeat_configs
@@ -724,6 +812,14 @@ const static apps_config_configurable_table_t default_configurable_table[] = {
         KEY_AVRCP_PAUSE,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
+#if 1		// richard for UI spec
+    {
+        APPS_CONFIG_KEY_TRIPLE_CLICK,
+        DEVICE_KEY_POWER,
+        KEY_SWITCH_ANC_AND_PASSTHROUGH,
+        0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
+    },
+#else
     {
         APPS_CONFIG_KEY_DOUBLE_CLICK,
         DEVICE_KEY_POWER,
@@ -760,6 +856,7 @@ const static apps_config_configurable_table_t default_configurable_table[] = {
         KEY_POWER_OFF,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
+#endif
 };
 
 const static apps_config_configurable_table_t left_configurable_table[] = {
@@ -775,13 +872,20 @@ const static apps_config_configurable_table_t left_configurable_table[] = {
         KEY_AVRCP_PAUSE,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
+#if 1		// richard for UI spec
+    {
+        APPS_CONFIG_KEY_TRIPLE_CLICK,
+        DEVICE_KEY_POWER,
+        KEY_SWITCH_ANC_AND_PASSTHROUGH,
+        0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
+    },
+#else
     {
         APPS_CONFIG_KEY_DOUBLE_CLICK,
         DEVICE_KEY_POWER,
         KEY_SWITCH_ANC_AND_PASSTHROUGH,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
-
     {
         APPS_CONFIG_KEY_TRIPLE_CLICK,
         DEVICE_KEY_POWER,
@@ -812,6 +916,7 @@ const static apps_config_configurable_table_t left_configurable_table[] = {
         KEY_POWER_OFF,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
+#endif
 };
 
 #ifdef AIR_XIAOWEI_ENABLE

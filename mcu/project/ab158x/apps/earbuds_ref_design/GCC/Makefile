@@ -497,6 +497,9 @@ endif
 include $(SOURCE_DIR)/middleware/airoha/race_cmd/module.mk
 endif
 
+# richard for customer UI spec.
+include $(SOURCE_DIR)/driver/board/component/bsp_psensor_px31bf/module.mk
+
 ifeq ($(AIR_BT_ROLE_HANDOVER_SERVICE_ENABLE), y)
 CFLAGS += -DSUPPORT_ROLE_HANDOVER_SERVICE
 # bt bt_role_handover_service

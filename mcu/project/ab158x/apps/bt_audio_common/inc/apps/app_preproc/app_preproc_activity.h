@@ -47,6 +47,10 @@
 
 #include "ui_shell_activity.h"
 
+// richard for customer UI spec
+uint8_t app_touch_key_test_read(void);
+void app_touch_key_test_clean(void);
+
 /**
 * @brief      This function is the interface of the app_preproc_activity, and is only called by ui_shell when events are sent.
 * @param[in]  self, the context pointer of the activity.

@@ -102,6 +102,13 @@
 #endif
 #include "bt_device_manager_le.h"
 
+// richard for customer UI spec
+#include "apps_config_event_list.h"
+#include "apps_events_key_event.h"
+#include "bt_sink_srv_ami.h"
+#include "apps_events_interaction_event.h"
+#include "app_customer_common.h"
+
 #ifdef MTK_AWS_MCE_ENABLE
 extern uint8_t at_config_adv_flag;
 extern bt_status_t bt_app_common_advtising_stop(void);
@@ -170,6 +177,20 @@ static atci_status_t bt_app_comm_at_cmd_hfp_codec_set_hdl(atci_parse_cmd_param_t
 static atci_status_t bt_app_comm_at_cmd_ext_ble_ltk_2_linkkey(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_le_bond_hdl(atci_parse_cmd_param_t *parse_cmd);
 
+#if 1	// richard for customer UI spec
+static atci_status_t bt_app_comm_at_cmd_check_fw_version(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_enable_discoverable(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_enable_dut(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_factory_reset(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_channel_checking(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_enter_shipping_mode(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_power_off(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_touch_test(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_touch_check(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_wrire_HW_ver(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_IR_check(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_mem_check(atci_parse_cmd_param_t *parse_cmd);
+#endif
 static atci_cmd_hdlr_item_t bt_app_comm_at_cmd[] = {
     {
         .command_head = "AT+BLEADV",    /**< AT command string. */
@@ -308,7 +329,363 @@ static atci_cmd_hdlr_item_t bt_app_comm_at_cmd[] = {
         .hash_value2 = 0
     },
 #endif
+#if 1		// richard for customer UI spec
+	{
+		.command_head = "AT+VERSION",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_check_fw_version,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},
+	{
+		.command_head = "AT+DISCOVERABLE",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_enable_discoverable,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},
+	{
+		.command_head = "AT+DUT",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_enable_dut,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},
+	{
+		.command_head = "AT+FACTORYRESET",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_factory_reset,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},
+	{
+		.command_head = "AT+CHANNELCHECK",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_channel_checking,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},	
+	{
+		.command_head = "AT+SHIPPINGMODE",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_enter_shipping_mode,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},
+#if 0	
+	{
+		.command_head = "AT+HALLCHECK",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_HALL_check,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},	
+#endif	
+	{
+		.command_head = "AT+PWROFF",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_power_off,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},	
+	{
+		.command_head = "AT+TOUCHTEST",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_touch_test,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},
+	{
+		.command_head = "AT+TOUCHCHECK",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_touch_check,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},
+	{
+		.command_head = "AT+WRITEHWVER",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_wrire_HW_ver,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},
+	{
+		.command_head = "AT+IRCHECK",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_IR_check,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},
+	{
+		.command_head = "AT+MEM",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_mem_check,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},		
+#endif
 };
+	
+#if 1	// richard for customer UI spec
+static atci_status_t bt_app_comm_at_cmd_check_fw_version(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("factory_test_sw_version_read\r\n", 0);
+
+	//strcpy((char *)(response.response_buf), FOTA_DEFAULT_VERSION);
+
+    uint8_t version[FOTA_VERSION_MAX_SIZE] = {0};
+	int32_t ret = 0;
+
+    ret = fota_version_get(version, FOTA_VERSION_MAX_SIZE, FOTA_VERSION_TYPE_STORED);	
+
+	if(ret == 0)
+	{
+		strcpy((char *)(response.response_buf), version);
+		strcat((char *)(response.response_buf), "\r\n");
+	}
+	else
+		response.response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_enable_discoverable(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("factory_test_enable_discoverable\r\n", 0);
+
+    uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
+
+	*p_key_action = KEY_SIGNAL_DISCOVERABLE;
+
+    ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action,
+                        sizeof(uint16_t), NULL, 100);	
+
+	strcpy((char *)(response.response_buf), "Enable Discoverable Done!\r\n");
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_enable_dut(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("factory_test_enable_dut\r\n", 0);
+
+    uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
+
+	*p_key_action = KEY_ENABLE_DUT_TEST;
+
+    ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action,
+                        sizeof(uint16_t), NULL, 100);	
+
+	strcpy((char *)(response.response_buf), "Enable DUT Done!\r\n");
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_factory_reset(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("factory_test_factory_reset\r\n", 0);
+
+    uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
+
+	*p_key_action = KEY_TEST_FACTORY_RESET;
+
+    ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action,
+                        sizeof(uint16_t), NULL, 100);	
+
+	strcpy((char *)(response.response_buf), "Factory Reset Done!\r\n");
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_channel_checking(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("factory_test_channel_checking\r\n", 0);
+
+	if(ami_get_audio_channel() == AUDIO_CHANNEL_L)
+	{
+#if 0
+	    snprintf((char *)response.response_buf,
+	             ATCI_UART_TX_FIFO_BUFFER_SIZE,
+	             "Earbuds Channel: %d\r\n",
+	             ami_get_audio_channel());	
+#endif
+		strcpy((char *)(response.response_buf), "Earbuds Channel: L\r\n");
+
+	}
+	else if(ami_get_audio_channel() == AUDIO_CHANNEL_R)
+	{
+		strcpy((char *)(response.response_buf), "Earbuds Channel: R\r\n");
+	}
+	else
+	{
+		strcpy((char *)(response.response_buf), "Earbuds Channel: ERROR\r\n");
+		
+		response.response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+	}
+
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_enter_shipping_mode(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("enter shipping mode\r\n", 0);
+	
+	app_enter_shipping_mode_flag_set(true);
+
+	ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+					APPS_EVENTS_INTERACTION_REQUEST_POWER_OFF, NULL, 0,
+					NULL, 500);
+
+	strcpy((char *)(response.response_buf), "Enter shipping mode... wait few seconds.\r\n");
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_power_off(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("system power off...\r\n", 0);
+	
+	ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+						APPS_EVENTS_INTERACTION_REQUEST_POWER_OFF, NULL, 0,
+						NULL, 500);
+
+	strcpy((char *)(response.response_buf), "power off... wait few seconds.\r\n");
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_touch_test(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("enter touch test mode\r\n", 0);
+
+	app_touch_key_test_status_set(0x01);
+	
+	strcpy((char *)(response.response_buf), "enter touch test mode.\r\n");
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_touch_check(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("touch_check\r\n", 0);
+	
+	snprintf((char *)response.response_buf,
+			 ATCI_UART_TX_FIFO_BUFFER_SIZE,
+			 "Touch count = %d\r\n",
+			 app_touch_key_test_read());	
+
+	app_touch_key_test_status_set(0x00);
+
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_wrire_HW_ver(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("write hw version, parse_pos=%d\r\n", 1, parse_cmd->parse_pos);
+
+	//race_debug_print((uint8_t *)(parse_cmd->string_ptr+parse_cmd->parse_pos), 5, "HW_version");
+	app_nvkey_hw_version_set((uint8_t *)(parse_cmd->string_ptr+parse_cmd->parse_pos), 5);
+	
+	strcpy((char *)(response.response_buf), "write HW version done.\r\n");
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_IR_check(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	uint16_t ir_ps = bsp_px31bf_Threshold_Factory_Calibrate();
+	
+	APPS_LOG_MSGID_I("IR_check = %d\r\n", 1, ir_ps);
+
+	snprintf((char *)response.response_buf,
+			 ATCI_UART_TX_FIFO_BUFFER_SIZE,
+			 "IR status = %d, IR PS = %d\r\n",
+			 app_get_ir_isr_status(), ir_ps);	
+	
+
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static void at_cmd_system_query_mem(uint8_t *buf)
+{
+    int32_t pos = 0;
+    pos += snprintf((char *)(buf + pos),
+                    ATCI_UART_TX_FIFO_BUFFER_SIZE - pos,
+                    "%s",
+                    "+SYSTEM:\r\nheap information: \r\n");
+    pos += snprintf((char *)(buf + pos),
+                    ATCI_UART_TX_FIFO_BUFFER_SIZE - pos,
+                    "\ttotal: %d\r\n",
+                    configTOTAL_HEAP_SIZE);
+    pos += snprintf((char *)(buf + pos),
+                    ATCI_UART_TX_FIFO_BUFFER_SIZE - pos,
+                    "\tcurrent free: %d\r\n",
+                    xPortGetFreeHeapSize());
+    pos += snprintf((char *)(buf + pos),
+                    ATCI_UART_TX_FIFO_BUFFER_SIZE - pos,
+                    "\tmini free: %d\r\n",
+                    xPortGetMinimumEverFreeHeapSize());
+}
+
+static atci_status_t bt_app_comm_at_cmd_mem_check(atci_parse_cmd_param_t *parse_cmd)
+{
+
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	at_cmd_system_query_mem(response.response_buf);
+	response.response_len = strlen((char *)(response.response_buf));
+	response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+	atci_send_response(&response);
+    return ATCI_STATUS_OK;
+
+}
+#endif
 
 #ifdef AIR_SPEAKER_ENABLE
 static int16_t bt_app_common_at_cmd_convert_bt_data(const char *index, uint8_t *bt_data, uint32_t bt_data_len)

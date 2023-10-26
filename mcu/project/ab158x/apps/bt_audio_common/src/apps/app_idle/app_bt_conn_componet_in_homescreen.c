@@ -85,6 +85,43 @@ extern bool g_apps_bt_event_aws_connect_acl;
 
 const bt_bd_addr_t zero_bt_addr = { 0 };
 
+// richard for customer UI spec
+static bt_bd_addr_t last_conn_dev_addr = { 0 };
+static bt_bd_addr_t last_played_dev_addr = { 0 };
+//static bool take_over_connection = 0;
+static bool pre_take_over_connection = 0;
+static bool force_play_vp = 0;
+
+#define GOOGLE_6_VP_PLAY 1
+
+bool app_get_force_play_vp_flag(void)
+{
+	return force_play_vp;
+}
+
+void app_set_force_play_vp_flag(bool flag)
+{
+	force_play_vp = flag;
+}
+
+
+void app_bt_conn_take_over_clean(void)
+{
+	pre_take_over_connection = 0;
+}
+
+void app_bt_conn_record_last_conn_dev(bt_bd_addr_t* dev_addr)
+{
+	memcpy(last_conn_dev_addr, dev_addr, sizeof(bt_bd_addr_t));
+}
+
+void app_bt_conn_record_last_played_dev(bt_bd_addr_t* dev_addr)
+{
+	//APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY" connection record last play dev ", 0);
+
+	memcpy(last_played_dev_addr, dev_addr, sizeof(bt_bd_addr_t));
+}
+
 #ifdef MTK_AWS_MCE_ENABLE
 /**
 * @brief      DISCONNECTED VP callback when it plays by GPT, should unlock GPT in BT module when sync play ends.

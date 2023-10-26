@@ -79,6 +79,8 @@ extern hal_nvic_status_t hal_nvic_restore_interrupt_mask_special(uint32_t mask);
 extern pmu_status_t pmu_register_callback_lp(pmu_interrupt_index_lp_t pmu_int_ch, pmu_callback_t callback, void *user_data);
 extern void battery_jeita_task(void *pvParameters);
 
+// richard for customer UI spec
+//extern int g_ntc_temp;
 extern vbat_volt_cfg_t pmu_vbat_volt;
 extern pmu_chg_info_t pmu_chg_info;
 #include "hal_pmu.h"
@@ -113,6 +115,8 @@ int32_t battery_management_get_battery_property_internal(battery_property_t prop
             /*add customize external charger api for retrieving the charger's temperature*/
 #else
         if (bm_cust.feature_jeita == BATTERY_OPERATE_ON) {
+		// richard for customer UI spec
+//            property_value = g_ntc_temp;
             property_value = bm_ctrl_info.temperature;
         } else {
             property_value = 25;

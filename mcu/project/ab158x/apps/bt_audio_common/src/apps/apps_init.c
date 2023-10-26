@@ -245,6 +245,10 @@ extern void DrvCharger_SmartCase_Init(void);
 #include "app_speaker_le_association.h"
 #endif
 
+// richard for customer UI spec.
+#include "app_psensor_px31bf_activity.h"
+#include "app_customer_common_activity.h"
+
 static void apps_init_events_senders(void)
 {
     apps_event_key_event_init();
@@ -322,6 +326,9 @@ static void apps_init_applications(void)
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
     ui_shell_start_activity(NULL, app_in_ear_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
 #endif
+	// richard for customer UI spec.
+    ui_shell_start_activity(NULL, apps_psensor_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
+    ui_shell_start_activity(NULL, apps_customer_common_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
 #ifdef AIR_BT_HFP_ENABLE
     ui_shell_start_activity(NULL, app_hfp_idle_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
 #endif

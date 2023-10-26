@@ -175,6 +175,8 @@ bool bt_conn_component_aws_data_proc(ui_shell_activity_t *self,
 
 void app_bt_conn_sync_addr_list(home_screen_local_context_type_t *local_ctx);
 
+void app_bt_conn_take_over_clean(void);
+
 #endif /* __APP_BT_CONN_COMPONENT_IN_HOMESCREEN_H__ */
 
 

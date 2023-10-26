@@ -239,7 +239,7 @@ AIR_ULL_GAMING_HEADSET_ENABLE = n
 
 # This option is to enable ULL BLE headset scenario.
 # It must be turned on/off for both DSP and MCU side AIR_BT_ULTRA_LOW_LATENCY_ENABLE option, otherwise, it will not work.
-AIR_ULL_BLE_HEADSET_ENABLE = n
+AIR_ULL_BLE_HEADSET_ENABLE = y
 
 # This option is used to enable/disable LC3PLUS codec support. It should be disable by default.
 # This feature option/configuration is shared between the MCU and DSP side.

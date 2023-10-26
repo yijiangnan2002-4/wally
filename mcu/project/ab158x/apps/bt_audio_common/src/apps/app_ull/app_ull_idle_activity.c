@@ -2217,6 +2217,7 @@ static bool app_ull_proc_ui_shell_group(ui_shell_activity_t *self, uint32_t even
             app_le_ull_update_ver();
             APPS_LOG_MSGID_I(LOG_TAG", ull speaker mode en=%d, ver=%d", 2, s_speaker_mode, s_ull2_ver);
             app_lea_adv_mgr_enable_ull2_reconnect_mode(true);
+            s_ull_context.link_mode = ULL_LINK_MODE_MULTIPLE;	// Richard for Airoha's suggestion			
 #ifndef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
             if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
                 bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_CONNECTING);
@@ -2236,6 +2237,10 @@ static bool app_ull_proc_ui_shell_group(ui_shell_activity_t *self, uint32_t even
 #endif
             APPS_LOG_MSGID_I(LOG_TAG": create, init link mode:%d", 1, s_ull_context.link_mode);
 #else
+		// Richard for Airoha's suggestion
+		s_a2dp_standby_enable = true;
+		bt_a2dp_enable_service_record(true);
+		bt_avrcp_disable_sdp(false);
             app_le_ull_init();
 #ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
             app_detachable_mic_det_init();

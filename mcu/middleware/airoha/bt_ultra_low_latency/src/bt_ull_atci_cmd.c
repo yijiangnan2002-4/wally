@@ -577,3 +577,53 @@ void bt_ull_atci_init(void)
     }
 }
 
+#if 1	// richard for BT send data
+//#include "bt_type.h"
+//#include "bt_ull_service.h"
+//#include "bt_ull_le_service.h"
+//#include "bt_ull_le_utility.h"
+uint8_t send_command_type=2;		// 2: command from ab1585h to ab1571d; 3: command from ab1571d to ab1585h
+uint8_t ab1585h_command_no=5;		// 0: BT status; 1:OTA staus;
+uint8_t ab1585h_command_data=0;
+void BT_send_data_proc(void)
+{
+	bt_bd_addr_t addr_list = {0};
+	if (bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_ULL), &addr_list, 1))
+	{
+		bt_ull_user_data_t tx_data;
+		uint8_t buf[5] = {0x01, 0x02, 0x03, 0x04, 0x05}; //test data
+		memcpy(&(tx_data.remote_address), addr_list, sizeof(bt_bd_addr_t));
+		buf[0]=send_command_type;
+		buf[1]=ab1585h_command_no;
+		buf[2]=ab1585h_command_data;
+		tx_data.user_data_length = 0x05; //test len
+		tx_data.user_data = buf;
+		bt_ull_action(BT_ULL_ACTION_TX_USER_DATA, &tx_data, sizeof(tx_data));
+//		APPS_LOG_MSGID_I("app Send user data by ULL headset", 0);
+	}
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
+	else
+	{
+		bt_bd_addr_t address_list[BT_ULL_LE_MAX_LINK_NUM];
+		uint8_t i;
+		bt_ull_user_data_t tx_data;
+		uint8_t buf[5] = {0x01, 0x02, 0x03, 0x04, 0x05}; // test data
+		buf[0]=send_command_type;
+		buf[1]=ab1585h_command_no;
+		buf[2]=ab1585h_command_data;
+		tx_data.user_data_length = 0x05; // test len
+		tx_data.user_data = buf;
+		for(i=0; i<BT_ULL_LE_MAX_LINK_NUM; i++)
+		{
+			if(bt_ull_le_srv_get_connected_addr_by_link_index(i, &address_list[i]) == true)
+			{
+				memcpy(tx_data.remote_address, address_list[i], sizeof(bt_bd_addr_t));
+				bt_ull_action(BT_ULL_ACTION_TX_USER_DATA, &tx_data, sizeof(tx_data));
+			}
+		}
+//		APPS_LOG_MSGID_I("app Send user data by ULL headset LE", 0);
+	}
+#endif
+}
+#endif
+

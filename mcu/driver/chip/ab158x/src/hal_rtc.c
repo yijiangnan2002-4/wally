@@ -618,7 +618,14 @@ hal_rtc_status_t hal_rtc_enter_rtc_mode(void)
 
     hal_gpt_delay_ms(10); /*wait log send done */
 #ifdef HAL_PMU_MODULE_ENABLED
+#if 0	// original
     pmu_power_off_sequence(1); /* call pmu api to turn off system*/
+#else	// richard for customer UI spec
+	if(pmu_get_chr_detect_value())
+		pmu_power_off_sequence(1); 	/* call pmu api to turn off system*/
+	else
+		pmu_power_off_sequence(0); 	/* call pmu api to turn off system*/
+#endif
     hal_gpt_delay_ms(2000);
     log_rtc_error("enter rtc mode failed, pmu power off system fail!!", 0);
 #else

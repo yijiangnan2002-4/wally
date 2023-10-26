@@ -483,6 +483,14 @@ C_FILES += $(APPS_SRC)/app_adaptive_eq/app_adaptive_eq_idle_activity.c
 CFLAGS  += -DAIR_ADAPTIVE_EQ_ENABLE
 endif
 
+#psensor px31bf
+C_FILES += $(APPS_SRC)/app_psensor/app_psensor_px31bf_activity.c
+
+#app common
+C_FILES += $(APPS_SRC)/app_customer_commom/app_customer_common.c
+C_FILES += $(APPS_SRC)/app_customer_commom/app_customer_nvkey_operation.c
+C_FILES += $(APPS_SRC)/app_customer_commom/app_customer_common_activity.c
+
 # Self fitting activity
 ifeq ($(AIR_ADVANCED_PASSTHROUGH_ENABLE), y)
 C_FILES += $(APPS_SRC)/app_self_fitting/app_self_fitting_idle_activity.c
@@ -553,6 +561,8 @@ CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_ama
 CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_in_ear
 CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_seal_check
 CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_hid_call
+CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_psensor
+CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_customer_commom
 ifeq ($(AIR_ANC_ENABLE), y)
 CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_adaptive_anc
 endif

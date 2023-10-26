@@ -65,6 +65,9 @@
 #include "pmu_management.h"
 #endif
 
+// richard for customer UI spec
+#include "app_customer_common.h"
+
 #ifdef AIR_BTA_IC_PREMIUM_G3
 __attribute__((__section__(".log_chip_option"))) __attribute__((used)) static const char chip_option[] = "AIR_BTA_IC_PREMIUM_G3";
 #elif defined(AIR_BTA_IC_PREMIUM_G2)
@@ -281,6 +284,8 @@ static void prvSetupHardware(void)
 {
     /* log service pre-init */
     log_uart_init();
+	// richard for customer UI spec
+	app_shipping_mode_exit();//exist shipping mode earlier
     LOG_MSGID_I(common, "log_uart_init done.", 0);
 
     /* TODO: sleep module init */

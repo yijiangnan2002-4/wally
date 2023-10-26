@@ -165,7 +165,7 @@ AIR_IAP2_VIA_MUX_ENABLE = y
 AIR_MS_TEAMS_ENABLE = n
 
 # This option is used to enable ull2.0.
-AIR_BLE_ULTRA_LOW_LATENCY_ENABLE = n
+AIR_BLE_ULTRA_LOW_LATENCY_ENABLE = y
 
 ######  System ######
 

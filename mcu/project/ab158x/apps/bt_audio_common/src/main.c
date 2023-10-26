@@ -113,6 +113,9 @@
 #endif
 #endif
 
+// richard for customer UI spec.
+#include "app_customer_nvkey_operation.h"
+#include "bsp_px31bf.h"
 
 //log_create_module_variant(BTIF, DEBUG_LOG_ON, PRINT_LEVEL_INFO);
 /* Private typedef -----------------------------------------------------------*/
@@ -241,6 +244,10 @@ int main(void)
 #if defined(MTK_NVDM_ENABLE) && defined(MTK_FOTA_VIA_RACE_CMD)
     reserved_nvdm_item_list_check();
 #endif
+
+	// richard for customer UI spec.
+	app_nvkey_setting_init();
+	bsp_component_px31bf_init();
 
     bt_power_on_config_init();
 

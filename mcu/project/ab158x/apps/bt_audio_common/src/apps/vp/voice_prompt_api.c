@@ -530,6 +530,61 @@ voice_prompt_status_t voice_prompt_play_sync_vp_failed()
     return voice_prompt_play_sync_vp_x(VP_INDEX_FAILED);
 }
 
+// richard for customer UI spec.
+voice_prompt_status_t voice_prompt_play_vp_hearing_through()
+{
+    return voice_prompt_play_vp_x(VP_INDEX_HEARING_THROUGH);
+}
+voice_prompt_status_t voice_prompt_play_sync_vp_hearing_through()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_THROUGH);
+}
+
+voice_prompt_status_t voice_prompt_play_vp_anc_on()
+{
+    return voice_prompt_play_vp_x(VP_INDEX_ANC_ON);
+}
+voice_prompt_status_t voice_prompt_play_sync_vp_anc_on()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_ANC_ON);
+}
+
+voice_prompt_status_t voice_prompt_play_vp_battery_fail()
+{
+    return voice_prompt_play_vp_x(VP_INDEX_BATTERY_FAIL);
+}
+voice_prompt_status_t voice_prompt_play_sync_vp_battery_fail()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_BATTERY_FAIL);
+}
+
+voice_prompt_status_t voice_prompt_play_vp_volume_up()
+{
+    return voice_prompt_play_vp_x(VP_INDEX_VOLUME_UP);
+}
+voice_prompt_status_t voice_prompt_play_sync_vp_volume_up()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_VOLUME_UP);
+}
+
+voice_prompt_status_t voice_prompt_play_vp_volume_down()
+{
+    return voice_prompt_play_vp_x(VP_INDEX_VOLUME_DOWN);
+}
+voice_prompt_status_t voice_prompt_play_sync_vp_volume_down()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_VOLUME_DOWN);
+}
+
+voice_prompt_status_t voice_prompt_play_vp_speech_focus()
+{
+    return voice_prompt_play_vp_x(VP_INDEX_SPEECH_FOCUS);
+}
+voice_prompt_status_t voice_prompt_play_sync_vp_speech_focus()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_SPEECH_FOCUS);
+}
+
 voice_prompt_status_t voice_prompt_play_vp_power_off(voice_prompt_control_mask_t mask)
 {
     voice_prompt_param_t vp = {0};

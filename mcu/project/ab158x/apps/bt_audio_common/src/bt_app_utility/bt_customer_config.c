@@ -356,9 +356,13 @@ const bt_gap_config_t *bt_customer_config_get_gap_config(void)
             local_addr = bt_device_manager_get_local_address();
         }
 
+#if 1	// richard for customer UI spec.
+	snprintf((char *)name, sizeof(name), "PSAP Earbuds");
+#else
         snprintf((char *)name, sizeof(name), "H_%.2X%.2X%.2X%.2X%.2X%.2X",
                  (*local_addr)[5], (*local_addr)[4], (*local_addr)[3],
                  (*local_addr)[2], (*local_addr)[1], (*local_addr)[0]);
+#endif
     }
     name_length = strlen((char *)name);
     if (name_length > sizeof(g_bt_sink_srv_gap_config.device_name) - 1) {

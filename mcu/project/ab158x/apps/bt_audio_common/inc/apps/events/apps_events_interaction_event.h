@@ -161,6 +161,10 @@ enum {
     APPS_EVENTS_INTERACTION_BATTERY_APP_STATE_CHANGED, /**< This event is battery app state changed. */
     APPS_EVENTS_INTERACTION_LE_TAKEOVER_ADDR, /**< This event is used to sync takeover LE address. */
     APPS_EVENTS_INTERACTION_SYNC_SELF_FITTING_CONFIG, /**< This event is used to sync the self fitting config. */
+	// richard for customer UI spec.
+	APPS_EVENTS_INTERACTION_INSIDE_EAR, 				/* Indicate a inside ear event */
+	APPS_EVENTS_INTERACTION_OUTSIDE_EAR,				/* Indicate a outside ear event */
+	APPS_EVENTS_INTERACTION_PSENSOR_STATUS_UPDATE, 
     APPS_EVENTS_INTERACTION_WIRELESS_MIC_AUDIO_DATA,   /**< This event to send recorder audio data to ui shell task. */
     APPS_EVENTS_INTERACTION_DELAY_PLAY_POWER_ON_VP,     /**< This event to send to delay play the power on VP. */
     APPS_EVENTS_INTERACTION_LE_ULL_CONNECT_TIMEOUT,  /**< This event will be send when ULL connect timeout after adv start. */

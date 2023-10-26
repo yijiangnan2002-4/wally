@@ -107,6 +107,18 @@ static bool _proc_ui_shell_group(ui_shell_activity_t *self,
     return ret;
 }
 
+// richard for customer UI spec
+static uint8_t touch_test_press_times = 0;							 
+uint8_t app_touch_key_test_read(void)
+{
+	return touch_test_press_times;
+}
+
+void app_touch_key_test_clean(void)
+{
+	touch_test_press_times = 0;
+}
+
 #ifdef AIRO_KEY_EVENT_ENABLE
 static bool pre_proc_key_event_proc(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
 {

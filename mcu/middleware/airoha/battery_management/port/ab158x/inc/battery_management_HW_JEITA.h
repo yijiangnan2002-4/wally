@@ -40,4 +40,7 @@ void battery_core_hw_jeita_set_threshold(uint32_t auxadcVolt, uint8_t JeitaThres
 void battery_core_hw_jeita_enable_warmcool(void);
 void battery_core_hw_jeita_init_threshold(void);
 void battery_core_hw_jeita_init(void);
+
+// richard for customer UI spec
+void get_battery_NTC_status(int16_t *temperature, uint8_t *ntc_state);
 #endif // __BATTERY_MANAGEMENT_HW_JEITA_H__

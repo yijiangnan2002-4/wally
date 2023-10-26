@@ -167,13 +167,30 @@ void app_smcharger_handle_case_battery(uint8_t case_battery);
 /**
  *  @brief This enum defines the states of battery_app.
  */
-typedef enum {
+ #if 0	// original
+ typedef enum {
     APP_SMCHARGER_KEY_SHARE_MODE_AGENT = 0,
     APP_SMCHARGER_KEY_SHARE_MODE_FOLLOWER = 1,
     APP_SMCHARGER_KEY_BT_DISCOVERABLE,
     APP_SMCHARGER_KEY_BT_CLEAR,
     APP_SMCHARGER_KEY_BT_AIR_PAIRING
 } app_smcharger_key_event_t;
+ #else	// richard for customer UI spec
+uint8_t app_smcharger_get_state1(void);
+uint8_t app_smcharger_get_earbud_state(void);
+
+typedef enum {
+    APP_SMCHARGER_KEY_SHARE_MODE_AGENT = 0,
+    APP_SMCHARGER_KEY_SHARE_MODE_FOLLOWER = 1,
+    APP_SMCHARGER_KEY_BT_DISCOVERABLE =2,
+    APP_SMCHARGER_KEY_BT_CLEAR =3,
+    APP_SMCHARGER_KEY_BT_AIR_PAIRING =4,
+    APP_SMCHARGER_KEY_BT_SIGNAL_DISCOVERABLE = 5,
+    APP_SMCHARGER_KEY_BT_DUT_TEST = 6,
+    APP_SMCHARGER_KEY_TWS_CLEAN = 7,
+    APP_SMCHARGER_KEY_FACTORY_RESET = 8,
+} app_smcharger_key_event_t;
+#endif
 
 /**
  * @brief      This function is used to handle SmartCharger Key event and data.
@@ -188,6 +205,9 @@ void app_smcharger_handle_key_event(uint32_t key_value);
  * @param[in]  user_data, current SmartCharger user data.
  */
 void app_smcharger_handle_user_data(int state, int event_id, uint8_t user_data);
+
+void app_mute_audio(bool is_mute);
+
 
 /**
  *  @brief This enum defines the step of Clear BT.
@@ -220,7 +240,7 @@ bool app_smcharger_ui_shell_event(bool from_isr, int event_id, void *data, size_
  */
 void app_smcharger_update_case_battery_nvkey(uint8_t case_battery);
 
-
-
+// richard for customer UI spec
+app_smcharger_context_t* app_get_smcharger_context(void);
 #endif
 #endif

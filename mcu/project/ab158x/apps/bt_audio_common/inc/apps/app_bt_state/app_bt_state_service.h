@@ -159,6 +159,7 @@ const app_bt_state_service_status_t *app_bt_connection_service_get_current_statu
 * @return     The status of BT visible (discoverable mode).
 */
 bool app_bt_service_is_visible();
+bool app_bt_service_is_air_pairing();	// richard for customer UI spec
 
 #if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 void app_bt_state_service_cancel_discoverable_mode(void);

@@ -901,5 +901,9 @@ typedef enum
     NVID_APP_DONGLE_KEY_REMAP_5                        = 0xF404,
     NVID_APP_DONGLE_QC_TX_GC                           = 0xF410,
     NVID_CUS_PRODUCT_INFO_PARA_03                      = 0xF503,
+
+	// richard for customer UI spec.============CUSTOMER DEFINITION ITEM================
+	NVID_CUSTOMER_DEFAULT_SETTING				   = 0xFE00,
+	
 }NVKey_ID_list;
 #endif /* __NVKEY_ID_LIST_H__ */ 
