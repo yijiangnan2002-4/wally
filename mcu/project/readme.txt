@@ -2,7 +2,7 @@
 /**
   * @mainpage Introduction
   * @{
-
+ 
 @par Overview
   - This file guides you through the common and specific folder and file
     structure of available example projects. The example projects and
