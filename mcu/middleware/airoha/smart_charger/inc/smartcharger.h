@@ -66,13 +66,6 @@ typedef enum {
 #define SMCHG_USER_DATA_3           16
 #define SMCHG_CHG_IN                17
 
-// richard for customer UI spec customer definition
-#define DRV_CHARGER_EVENT_BATTERY_LEVEL  18
-#define DRV_CHARGER_EVENT_CHARGER_STATE  19
-#define DRV_CHARGER_EVENT_REVERSION_REPORT 20
-#define DRV_CHARGER_EVENT_CHARGING_CURRENT_LIMIT 21
-#define DRV_CHARGER_EVENT_SHIPPING_MODE_ENABLE 22
-#define DRV_CHARGER_EVENT_EOC_CHECKING 23
 
 ////////////////////////////////////////////////////////////////////////////////
 // FUNCTION PROTOTYPES /////////////////////////////////////////////////////////

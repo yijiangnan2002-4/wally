@@ -267,6 +267,77 @@ void key_volumedown_proc(void)
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
 }
+
+void key_avrcp_next_proc(void)
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
+    	if (p_key_action)
+	{
+		*p_key_action = KEY_AVRCP_FORWARD;
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+    	}
+}
+
+void key_avrcp_prev_proc(void)
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
+    	if (p_key_action)
+	{
+		*p_key_action = KEY_AVRCP_BACKWARD;
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+    	}
+}
+
+void key_switch_anc_and_passthrough_proc(void)
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
+    	if (p_key_action)
+	{
+		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH;
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+    	}
+}
+
+bool key_multifunction_short_click()
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
+	*p_key_action = KEY_ACTION_INVALID;
+	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
+	if(app_mmi_state == APP_HFP_INCOMING)
+	{
+		*p_key_action = KEY_ACCEPT_CALL;
+	}
+	else if(app_mmi_state == APP_HFP_TWC_INCOMING)
+	{
+		*p_key_action = KEY_3WAY_HOLD_ACTIVE_ACCEPT_OTHER;
+	}
+	else if(app_mmi_state == APP_HFP_CALLACTIVE || app_mmi_state == APP_HFP_CALLACTIVE_WITHOUT_SCO || app_mmi_state == APP_HFP_MULTITPART_CALL
+			||app_mmi_state == APP_HFP_OUTGOING || app_mmi_state == APP_STATE_HELD_ACTIVE || app_mmi_state == APP_HFP_TWC_OUTGOING)
+	{
+		*p_key_action = KEY_END_CALL;
+	}
+	else if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
+	{
+		*p_key_action = KEY_AVRCP_PAUSE;
+	}
+	else if(app_mmi_state == APP_CONNECTED)
+	{
+		*p_key_action = KEY_AVRCP_PLAY;
+	}
+
+	/* Send key action */
+	if (*p_key_action != KEY_ACTION_INVALID)
+	{
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}
+
+	return true;
+}
+
 #endif
 
 bool normal_ui_short_click()

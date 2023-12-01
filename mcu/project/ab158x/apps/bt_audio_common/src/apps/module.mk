@@ -486,6 +486,9 @@ endif
 #psensor px31bf
 C_FILES += $(APPS_SRC)/app_psensor/app_psensor_px31bf_activity.c
 
+#HALL Sensor
+C_FILES += $(APPS_SRC)/app_hall_sensor/app_hall_sensor_activity.c
+
 #app common
 C_FILES += $(APPS_SRC)/app_customer_commom/app_customer_common.c
 C_FILES += $(APPS_SRC)/app_customer_commom/app_customer_nvkey_operation.c
@@ -563,6 +566,7 @@ CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_seal_check
 CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_hid_call
 CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_psensor
 CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_customer_commom
+CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_hall_sensor
 ifeq ($(AIR_ANC_ENABLE), y)
 CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_adaptive_anc
 endif

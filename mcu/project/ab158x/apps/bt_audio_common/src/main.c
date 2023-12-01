@@ -116,6 +116,7 @@
 // richard for customer UI spec.
 #include "app_customer_nvkey_operation.h"
 #include "bsp_px31bf.h"
+#include "bsp_hall_sensor.h"
 
 //log_create_module_variant(BTIF, DEBUG_LOG_ON, PRINT_LEVEL_INFO);
 /* Private typedef -----------------------------------------------------------*/
@@ -248,6 +249,7 @@ int main(void)
 	// richard for customer UI spec.
 	app_nvkey_setting_init();
 	bsp_component_px31bf_init();
+	bsp_component_HALL_init();
 
     bt_power_on_config_init();
 

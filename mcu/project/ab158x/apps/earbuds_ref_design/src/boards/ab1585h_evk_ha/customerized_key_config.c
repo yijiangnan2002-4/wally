@@ -304,7 +304,7 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE)
     },
 #endif    
-#if 1	// ULL Pairing
+#if 0	// ULL Pairing
     {
         DEVICE_KEY_POWER,
         KEY_ULL_AIR_PAIRING,

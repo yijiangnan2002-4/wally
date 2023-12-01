@@ -223,7 +223,7 @@ AIR_GSOUND_HOTWORD_ENABLE = n
 
 # This option is to enable/disable LE Audio.
 # This feature option/configuration is shared between the MCU and DSP side.
-AIR_LE_AUDIO_ENABLE = n
+AIR_LE_AUDIO_ENABLE = y
 
 # This option is to enable LE Audio dongle scenario.
 # This feature option/configuration is shared between the MCU and DSP side.

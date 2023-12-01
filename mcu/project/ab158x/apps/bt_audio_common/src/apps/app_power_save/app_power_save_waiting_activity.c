@@ -237,6 +237,54 @@ static bool app_power_saving_waiting_timeout_power_saving_event_proc(ui_shell_ac
     return ret;
 }
 
+// richard for customer UI spec.
+#include "app_psensor_px31bf_activity.h"
+#include "app_hall_sensor_activity.h"
+#include "battery_management.h"
+static bool app_power_saving_waiting_timeout_psensor_event_proc(
+    ui_shell_activity_t *self,
+    uint32_t event_id,
+    void *extra_data,
+    size_t data_len)
+{
+    bool ret = false;
+    app_power_saving_context_t *local_context = (app_power_saving_context_t *)self->local_context;
+    if (!local_context) {
+        return ret;
+    }
+
+	switch(event_id)
+	{
+		case EVENT_ID_PSENSOR_POWER_SAVING_TIME_STOP:
+		{
+			app_power_saving_type_t type = 0;
+ 			app_power_saving_target_mode_t target_mode = app_power_save_utils_get_target_mode(self, &type);
+			int32_t charger_exist = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);
+
+			APPS_LOG_MSGID_I(LOG_TAG"timeout_psensor_event, timer stop! target_mode=%d", 1, target_mode);
+
+			if (APP_POWER_SAVING_TARGET_MODE_NORMAL == target_mode
+		#if (APPS_IDLE_MODE == APPS_IDLE_MODE_DISABLE_BT)
+				|| (APP_POWER_SAVING_TARGET_MODE_BT_OFF == target_mode && (get_hall_sensor_status() && !charger_exist)) 
+		#endif
+				)
+			{
+				/* Finish and return to idle state. */
+				APPS_LOG_MSGID_I(LOG_TAG"psensor in ear or bud in hall actived,Not need power saving, return to idle", 0);
+				ui_shell_finish_activity(self, self);
+				local_context->app_state = POWER_SAVING_STATE_IDLE;
+				ui_shell_remove_event(EVENT_GROUP_UI_SHELL_POWER_SAVING, APP_POWER_SAVING_EVENT_TIMEOUT);
+			}
+			ret = true;
+			break;
+		}
+		default:
+			break;
+	}
+
+    return ret;
+}	
+
 bool app_power_saving_waiting_timeout_activity_proc(ui_shell_activity_t *self,
                                                     uint32_t event_group,
                                                     uint32_t event_id,
@@ -272,6 +320,11 @@ bool app_power_saving_waiting_timeout_activity_proc(ui_shell_activity_t *self,
         case EVENT_GROUP_UI_SHELL_POWER_SAVING:
             ret = app_power_saving_waiting_timeout_power_saving_event_proc(self, event_id, extra_data, data_len);
             break;
+
+		// richard for customer UI spec.			
+		case EVENT_GROUP_UI_SHELL_PSENSOR:
+			ret = app_power_saving_waiting_timeout_psensor_event_proc(self, event_id, extra_data, data_len);
+			break;	
         default:
             break;
     }

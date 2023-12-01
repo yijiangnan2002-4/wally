@@ -107,6 +107,7 @@
 #include "apps_events_key_event.h"
 #include "bt_sink_srv_ami.h"
 #include "apps_events_interaction_event.h"
+#include "app_hall_sensor_activity.h"
 #include "app_customer_common.h"
 
 #ifdef MTK_AWS_MCE_ENABLE
@@ -184,6 +185,7 @@ static atci_status_t bt_app_comm_at_cmd_enable_dut(atci_parse_cmd_param_t *parse
 static atci_status_t bt_app_comm_at_cmd_factory_reset(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_channel_checking(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_enter_shipping_mode(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_HALL_check(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_power_off(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_touch_test(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_touch_check(atci_parse_cmd_param_t *parse_cmd);
@@ -366,14 +368,12 @@ static atci_cmd_hdlr_item_t bt_app_comm_at_cmd[] = {
 		.hash_value1 = 0,
 		.hash_value2 = 0,
 	},
-#if 0	
 	{
 		.command_head = "AT+HALLCHECK",	  /**< AT command string. */
 		.command_hdlr = bt_app_comm_at_cmd_HALL_check,
 		.hash_value1 = 0,
 		.hash_value2 = 0,
 	},	
-#endif	
 	{
 		.command_head = "AT+PWROFF",	  /**< AT command string. */
 		.command_hdlr = bt_app_comm_at_cmd_power_off,
@@ -553,6 +553,21 @@ static atci_status_t bt_app_comm_at_cmd_enter_shipping_mode(atci_parse_cmd_param
 					NULL, 500);
 
 	strcpy((char *)(response.response_buf), "Enter shipping mode... wait few seconds.\r\n");
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+
+static atci_status_t bt_app_comm_at_cmd_HALL_check(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+	APPS_LOG_MSGID_I("hall sensor status checking\r\n", 0);
+
+	snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE,
+			 "HALL sensor status is %d.", get_hall_sensor_status());
 	response.response_len = strlen((char *)response.response_buf);
 	atci_send_response(&response);	
 

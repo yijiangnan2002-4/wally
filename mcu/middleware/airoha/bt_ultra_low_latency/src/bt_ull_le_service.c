@@ -3186,23 +3186,43 @@ static bt_status_t bt_ull_le_srv_send_configuration(bt_handle_t handle)
 #if 1	// richard for ab1571d command processing
 extern void key_volumeup_proc(void);
 extern void key_volumedown_proc(void);
+extern void key_avrcp_next_proc(void);
+extern void key_avrcp_prev_proc(void);
+extern void key_switch_anc_and_passthrough_proc(void);
+extern bool key_multifunction_short_click();
 void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 {
 	switch(temp_command_no)
 	{
 		case 0:			// key0: volume up
-			if((temp_command_data==1)||(temp_command_data==0x38))
+			if((temp_command_data==1)||(temp_command_data==0x38))	// SP and repeat P
 			{
 				key_volumeup_proc();
 			}
+			else if(temp_command_data==2)								// DP
+			{
+				key_avrcp_next_proc();
+			}
 			break;
 		case 1:			// key1: volume down
-			if((temp_command_data==1)||(temp_command_data==0x38))
+			if((temp_command_data==1)||(temp_command_data==0x38))	// SP and repeat P
 			{
 				key_volumedown_proc();
 			}
+			else if(temp_command_data==2)								// DP
+			{
+				key_avrcp_prev_proc();
+			}
 			break;
-		case 2:
+		case 2:			// Multi-function
+			if(temp_command_data==1)									// SP
+			{
+				key_multifunction_short_click();
+			}
+			else if(temp_command_data==0x23)							// LP3
+			{
+				key_switch_anc_and_passthrough_proc();
+			}
 			break;
 		default:
 			break;

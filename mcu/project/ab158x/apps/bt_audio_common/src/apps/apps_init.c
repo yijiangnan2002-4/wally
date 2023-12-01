@@ -247,6 +247,7 @@ extern void DrvCharger_SmartCase_Init(void);
 
 // richard for customer UI spec.
 #include "app_psensor_px31bf_activity.h"
+#include "app_hall_sensor_activity.h"
 #include "app_customer_common_activity.h"
 
 static void apps_init_events_senders(void)
@@ -328,6 +329,7 @@ static void apps_init_applications(void)
 #endif
 	// richard for customer UI spec.
     ui_shell_start_activity(NULL, apps_psensor_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
+    ui_shell_start_activity(NULL, apps_hall_sensor_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
     ui_shell_start_activity(NULL, apps_customer_common_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
 #ifdef AIR_BT_HFP_ENABLE
     ui_shell_start_activity(NULL, app_hfp_idle_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);

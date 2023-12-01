@@ -165,6 +165,12 @@ static bool app_power_saving_get_all_streamming_state()
 }
 #endif
 
+// richard for customer UI spec.
+//#include "nvkey_id_list.h"
+//#include "nvkey.h"
+#include "app_psensor_px31bf_activity.h"
+#include "app_hall_sensor_activity.h"
+#include "battery_management.h"
 app_power_saving_target_mode_t app_power_save_utils_get_target_mode(ui_shell_activity_t *self, app_power_saving_type_t *type)
 {
     /* When all of the below status is true, need do power off:
@@ -297,6 +303,24 @@ app_power_saving_target_mode_t app_power_save_utils_get_target_mode(ui_shell_act
         APPS_LOG_MSGID_I(LOG_TAG" BT is already OFF, target is also BT OFF-2", 0);
         target_mode = APP_POWER_SAVING_TARGET_MODE_NORMAL;
     }
+
+	// richard for customer UI spec.
+	if(power_saving_get_inear_status())
+	{
+		APPS_LOG_MSGID_I(LOG_TAG"Bud in ear, not need power saving.", 0);
+		target_mode = APP_POWER_SAVING_TARGET_MODE_NORMAL;
+	}
+
+#if (APPS_IDLE_MODE == APPS_IDLE_MODE_DISABLE_BT)	
+	int32_t charger_exist = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);
+
+	if(get_hall_sensor_status() && !charger_exist)
+	{
+		APPS_LOG_MSGID_I(LOG_TAG"Bud in hall actived, power saving is BT OFF.", 0);
+		target_mode = APP_POWER_SAVING_TARGET_MODE_BT_OFF;		
+	}
+#endif
+
 #endif /* #if (APPS_POWER_SAVING_MODE == APPS_POWER_SAVING_SYSTEM_OFF) || (APPS_POWER_SAVING_MODE == APPS_POWER_SAVING_DISABLE_BT) */
     APPS_LOG_MSGID_I(LOG_TAG" get_target_mode return=%d", 1, target_mode);
     return target_mode;

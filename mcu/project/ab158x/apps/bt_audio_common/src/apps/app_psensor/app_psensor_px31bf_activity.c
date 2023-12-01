@@ -70,7 +70,7 @@ uint8_t app_psensor_limit_read(void)
 
 uint8_t app_limit_bud_key_in_case(void)
 {
-	return (app_psensor_limit_read()/*|get_hall_sensor_status() | app_key_limit_read()*/);
+	return (app_psensor_limit_read()|get_hall_sensor_status() | app_key_limit_read());
 }
 
 static void app_psensor_status_checking(void)
@@ -205,7 +205,7 @@ bool getLocalInEar(void)
 			level = PsensorThresholdHigh;
 
 		if(ps_data > level
-			&& (/*!get_hall_sensor_status() && */!charger_exist) && !app_psensor_limit_read())
+			&& (!get_hall_sensor_status() && !charger_exist) && !app_psensor_limit_read())
 		{
 			uint16_t *pSensorStatus = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
 
@@ -525,7 +525,7 @@ static bool _proc_proximity_sensor(ui_shell_activity_t *self, uint32_t event_id,
 				/* Handle sensor new status from sensor interrupt callback */
 				APPS_LOG_MSGID_I("_proc_proximity_sensor.c:: psensor_status= %d", 1, psensor_status);
 
-				if(/*get_hall_sensor_status() ||*/ charger_exist || app_psensor_limit_read())
+				if(get_hall_sensor_status() || charger_exist || app_psensor_limit_read())
 				{
 					APPS_LOG_MSGID_I("_proc_proximity_sensor.c::earbuds in case, not need handle IR interrupt!", 0);
 					ret = true;
@@ -725,7 +725,7 @@ static bool _proc_proximity_sensor(ui_shell_activity_t *self, uint32_t event_id,
 
         case EVENT_ID_PSENSOR_ACTIVITY_RESUME_ANC:
 			{			
-				if(/*!get_hall_sensor_status() &&*/ !charger_exist && !app_psensor_limit_read())
+				if(!get_hall_sensor_status() && !charger_exist && !app_psensor_limit_read())
 				{
                     APPS_LOG_MSGID_I("psensor in ear, ANC resume! \n", 0);
 				

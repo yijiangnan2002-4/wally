@@ -107,7 +107,7 @@ typedef enum {
 
 	// richard for customer UI spec.
 	EVENT_GROUP_UI_SHELL_PSENSOR, 			/*< group for psensor events */
-//	EVENT_GROUP_UI_SHELL_HALL_SENSOR, 		/*< group for hall sensor events */
+	EVENT_GROUP_UI_SHELL_HALL_SENSOR, 		/*< group for hall sensor events */
 	EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, 	/*< group for customer common events */
 	EVENT_GROUP_UI_SHELL_INEAR_IDLE, 			/*< group for psensor events */
 	

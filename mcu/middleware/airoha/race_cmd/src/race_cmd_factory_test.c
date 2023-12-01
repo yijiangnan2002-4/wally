@@ -38,7 +38,7 @@ wayne.xiong add for factory air test cmd
 #include "battery_management_HW_JEITA.h"
 #include "apps_aws_sync_event.h"
 #include "app_preproc_activity.h"
-//#include "app_hall_sensor_activity.h"
+#include "app_hall_sensor_activity.h"
 #include "race_util.h"
 
 
@@ -805,7 +805,7 @@ void* RACE_FACTORY_TEST_HALL_STATUS_CHECK(ptr_race_pkt_t pCmdMsg, uint8_t channe
 
     if (pEvt)
     {
-    	pEvt->data[0] = 0;	//get_hall_sensor_status();
+    	pEvt->data[0] = get_hall_sensor_status();
 
         pEvt->status = ret;
     }

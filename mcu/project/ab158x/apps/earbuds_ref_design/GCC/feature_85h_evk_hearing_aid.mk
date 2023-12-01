@@ -145,11 +145,11 @@ AIR_BT_INTEL_EVO_ENABLE = n
 
 # This option is used to support LE Audio broadcast.
 # Dependency: AIR_LE_AUDIO_ENABLE must be enabled when this option is set to y.
-AIR_LE_AUDIO_BIS_ENABLE = n
+AIR_LE_AUDIO_BIS_ENABLE = y
 
 # This option is used to support dual mode of classic/LE Audio.
 # Dependency: AIR_LE_AUDIO_ENABLE must be enabled when this option is set to y.
-AIR_LE_AUDIO_DUAL_MODE_ENABLE = n
+AIR_LE_AUDIO_DUAL_MODE_ENABLE = y
 
 # This option is to enable/disable latency test mode
 AIR_BT_LATENCY_TEST_MODE_ENABLE = n
