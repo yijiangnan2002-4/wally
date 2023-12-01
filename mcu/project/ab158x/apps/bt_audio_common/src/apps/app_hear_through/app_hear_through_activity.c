@@ -1645,6 +1645,7 @@ bool app_hear_through_proc_hear_through_event(int32_t event_id, void *extra_data
     }
 
 #ifdef AIR_HEARTHROUGH_VIVID_PT_ENABLE
+//errrrrrrrrrrrrrrrrrrrrrrrrr
     if ((event_id > APP_HEAR_THROUGH_VIVID_CONFIG_BASE)
             && (event_id < APP_HEAR_THROUGH_AWS_EVENT_ID_BASE)) {
         if (hear_through_event_vivid_cmd_handler_list[event_id - APP_HEAR_THROUGH_VIVID_CONFIG_BASE] != NULL) {
@@ -2174,7 +2175,9 @@ static bool app_hear_through_activity_is_out_case()
 static void app_hear_through_activity_handle_mode_index_changed()
 {
 
+    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"app_hear_through_activity aws connect=%d", 1,app_hear_through_is_aws_connected());
 #ifdef AIR_TWS_ENABLE
+//errrrrrrrrrrrrrrrrrrrr
     if (app_hear_through_is_aws_connected() == true) {
         app_hear_through_sync_ambient_control_switch_t mode_switch;
         mode_switch.mode_index = app_hear_through_ctx.mode_index;
@@ -2186,8 +2189,10 @@ static void app_hear_through_activity_handle_mode_index_changed()
                                                 (uint8_t *)&mode_switch,
                                                 sizeof(app_hear_through_sync_ambient_control_switch_t),
                                                 APP_HEAR_THROUGH_SYNC_EVENT_DEFAULT_TIMEOUT);
+    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_is_aws_connected() == true] Enter", 1,app_hear_through_is_aws_connected());
     } else {
 #endif /* AIR_TWS_ENABLE */
+    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_is_aws_connected() != true] Enter", 0);
         app_hear_through_activity_handle_ambient_control_switch();
 #ifdef AIR_TWS_ENABLE
     }

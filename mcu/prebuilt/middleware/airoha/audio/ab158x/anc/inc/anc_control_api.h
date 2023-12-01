@@ -279,14 +279,14 @@ extern "C" {
 #define AUDIO_ANC_CONTROL_ANC_FILTER_DEFAULT       (1)
 /** @brief The default type of enable ANC. */
 #define AUDIO_ANC_CONTROL_ANC_TYPE_DEFAULT         (5)
-
+errrrrrrrrrrrrrrrrrrrr
 #else
 
 /** @brief The default filter number of enable ANC. */
 #define AUDIO_ANC_CONTROL_ANC_FILTER_DEFAULT       (1)
 /** @brief The default type of enable ANC. */
 #define AUDIO_ANC_CONTROL_ANC_TYPE_DEFAULT         (0)
-
+//errrrrrrrrrrrrrrrrrrrrrrr
 #endif
 
 #if defined(AIR_ANC_V3) && defined(AIR_ANC_ADAP_PT_ENABLE)
@@ -295,16 +295,16 @@ extern "C" {
 #define AUDIO_ANC_CONTROL_PASS_THRU_FILTER_DEFAULT (5)
 /** @brief The default type of enable Pass-through. */
 #define AUDIO_ANC_CONTROL_PASS_THRU_TYPE_DEFAULT   (AUDIO_ANC_CONTROL_TYPE_PT_ADAP|(0x170))
-
+errrrrrrrrrrrrrrrrrrrrr
 #elif defined(AIR_HYBRID_PT_ENABLE)
 
 /** @brief The default filter number of enable Pass-through. */
 #define AUDIO_ANC_CONTROL_PASS_THRU_FILTER_DEFAULT (5)
 /** @brief The default type of enable Pass-through. */
 #define AUDIO_ANC_CONTROL_PASS_THRU_TYPE_DEFAULT   (6)
-
+errrrrrrrrrrrrrrrrrrrrrrrrrr
 #else
-
+//errrrrrrrrrrrrrrrrrrrrrrrr
 /** @brief The default filter number of enable Pass-through. */
 #define AUDIO_ANC_CONTROL_PASS_THRU_FILTER_DEFAULT (9)
 /** @brief The default type of enable Pass-through. */

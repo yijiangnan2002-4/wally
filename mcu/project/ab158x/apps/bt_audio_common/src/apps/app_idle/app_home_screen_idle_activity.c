@@ -485,6 +485,37 @@ static bool app_home_screen_process_anc_and_pass_through(ui_shell_activity_t *se
         }
         ret = true;
     } else if (KEY_ANC == key_action) {
+    #if 0  // for harry test anc switch mode 20231130
+
+        /* Switch loop is OFF->PassThrough->ANC->OFF. */
+        if (!anc_enable) {
+            /* When last is OFF, next state is PassThrough. */
+            if (support_hybrid_enable) {
+#ifndef AIR_HW_VIVID_PT_ENABLE
+//errrrrrrrrrrrrrrrrrrr
+                target_anc_type = AUDIO_ANC_CONTROL_PASS_THRU_TYPE_DEFAULT;
+                target_filter_id = AUDIO_ANC_CONTROL_PASS_THRU_FILTER_DEFAULT;
+#else
+errrrrrrrrrrrrrrrrrrrrr
+                target_anc_type = AUDIO_ANC_CONTROL_HW_VIVID_PASS_THRU_TYPE_DEFAULT;
+                target_filter_id = AUDIO_ANC_CONTROL_HW_VIVID_PASS_THRU_FILTER_DEFAULT;
+#endif
+            } else {
+                target_anc_type = AUDIO_ANC_CONTROL_TYPE_PASSTHRU_FF;
+                target_filter_id = AUDIO_ANC_CONTROL_FILTER_ID_PASS_THRU_1;
+            }
+        } else {
+            /* If current filter is ANC_FILTER, must set to OFF, target is ANC_FILTER
+            and if current filter is PassThrough filter, target is ANC filter. */
+            if (support_hybrid_enable) {
+                target_anc_type = AUDIO_ANC_CONTROL_ANC_TYPE_DEFAULT;
+            } else {
+                target_anc_type = AUDIO_ANC_CONTROL_TYPE_FF;
+            }
+            target_filter_id = AUDIO_ANC_CONTROL_ANC_FILTER_DEFAULT;
+        }
+        ret = true;
+        #else
         if (support_hybrid_enable) {
             target_anc_type = AUDIO_ANC_CONTROL_ANC_TYPE_DEFAULT; /* See request: hybrid, ff or fb.*/
         } else {
@@ -492,8 +523,10 @@ static bool app_home_screen_process_anc_and_pass_through(ui_shell_activity_t *se
         }
         target_filter_id = AUDIO_ANC_CONTROL_ANC_FILTER_DEFAULT;
         ret = true;
+        #endif
     } else if (KEY_SWITCH_ANC_AND_PASSTHROUGH == key_action) {
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+//errrrrrrrrrrrrrrrrrrrrr
         // OFF -> SW PT -> ANC
         app_hear_through_activity_switch_ambient_control();
         return true;
@@ -556,10 +589,12 @@ static bool app_home_screen_process_anc_and_pass_through(ui_shell_activity_t *se
         if (support_hybrid_enable) {
             /* See request: hybrid, ff or fb.*/
             target_anc_type = AUDIO_ANC_CONTROL_ANC_TYPE_DEFAULT;
+
         } else {
             target_anc_type = AUDIO_ANC_CONTROL_TYPE_FF;
         }
         target_filter_id = AUDIO_ANC_CONTROL_ANC_FILTER_DEFAULT;
+        APPS_LOG_MSGID_I("app_home_screen_process_anc_and_pass_through : target_anc_type=%d,target_filter_id=%d", 2, target_anc_type,target_filter_id);
         ret = true;
     } else if (KEY_PASSTHOUGH_ON == key_action) {
         anc_enable = false;
