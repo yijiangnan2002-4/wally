@@ -297,7 +297,7 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
         KEY_REJCALL,
         (1 << APP_HFP_INCOMING)
     },
-#if 0	//DUT Test
+#if 1	//DUT Test
     {
         DEVICE_KEY_POWER,
         KEY_ENABLE_DUT_TEST,

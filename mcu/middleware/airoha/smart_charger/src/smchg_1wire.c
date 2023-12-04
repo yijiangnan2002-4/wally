@@ -123,7 +123,12 @@ log_create_module(SM_CHG, PRINT_LEVEL_INFO);
 #define CASE_LOG_ENABLE         0xE
 #define CASE_RACE_ENABLE        0xF
 // richard for UI spec
-#define CASE_REVERSION		0x9
+#define CASE_CHARGER_STATE		0x07
+#define CASE_REVERSION			0x09
+#define CASE_CURRENT_LIMIT		0x0A
+#define CASE_SHIPPING_MODE		0x0B
+#define CASE_EOC_CHECKING		0x0C
+#define CASE_RESERVE_MAX		0x0D
 
 #define SMCHG_MUX_RX_DATA_SIZE  32
 #define SMCHG_MUX_TX_BUFF_SIZE  1024
@@ -160,9 +165,13 @@ const uint8_t smchg_app_table[] = {
     SMCHG_LID_CLOSE_DONE,
     SMCHG_CHG_OFF,
     SMCHG_CHG_KEY,
-    0,
-    0,
-    SMCHG_LID_CLOSE
+    DRV_CHARGER_EVENT_BATTERY_LEVEL,			// richard for UI spec.
+    DRV_CHARGER_EVENT_CHARGER_STATE,
+    SMCHG_LID_CLOSE,
+    DRV_CHARGER_EVENT_REVERSION_REPORT,		// richard for UI spec.
+    DRV_CHARGER_EVENT_CHARGING_CURRENT_LIMIT,
+    DRV_CHARGER_EVENT_SHIPPING_MODE_ENABLE,
+    DRV_CHARGER_EVENT_EOC_CHECKING
 };
 
 static uint8_t raceEvt[] = {
@@ -1218,13 +1227,16 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
             } else if (raceCmd[CMD_ID] == CASE_CHARGER_KEY) {
                 data = raceCmd[KEY_ID];
                 data_len = 1;
-            } else if (raceCmd[CMD_ID] == CASE_REVERSION) {		// richard for UI spec
+            } else if((raceCmd[CMD_ID] == CASE_REVERSION)		// richard for UI spec
+			|| (raceCmd[CMD_ID] == CASE_CURRENT_LIMIT)
+			|| (raceCmd[CMD_ID] == CASE_EOC_CHECKING)
+			|| (raceCmd[CMD_ID] == CASE_SHIPPING_MODE)) {
                 data = raceCmd[DATA];
                 data_len = 1;
             }
 
 //            if (raceCmd[CMD_ID] <= CASE_LID_CLOSE) {
-            if (raceCmd[CMD_ID] <= CASE_REVERSION) {			// richard for UI spec
+            if (raceCmd[CMD_ID] < CASE_RESERVE_MAX) {			// richard for UI spec
                 smchg_1wire_send_to_app(smchg_app_table[raceCmd[CMD_ID]], data, data_len);
             }
 
@@ -1240,7 +1252,7 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
 			// richard for UI spec.
 			if (raceCmd[CMD_ID] == CASE_REVERSION)
 			{
-				raceEvt[DATA] = app_smcharger_get_state();
+				raceEvt[DATA] = app_smcharger_get_state1();
 			}
 			else if (raceCmd[CMD_ID] == CASE_LID_CLOSE_DONE)
 			{
@@ -1250,6 +1262,10 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
 			{
 				raceEvt[DATA] = app_smcharger_get_earbud_state();
 			}
+			else if (raceCmd[CMD_ID] == CASE_EOC_CHECKING)
+			{
+				raceEvt[DATA] = app_common_get_eco_charging_soc();
+			}				
 
                 g_smchg.state = SMCHG_1WIRE_STATE_COM_WAIT_TX_DONE;
                 g_smchg.cur_cmd_id = raceCmd[CMD_ID];

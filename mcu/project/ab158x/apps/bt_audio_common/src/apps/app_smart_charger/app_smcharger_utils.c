@@ -262,6 +262,34 @@ static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, u
             need_send_event = TRUE;
             break;
         }
+	// richard for UI spec
+		case DRV_CHARGER_EVENT_BATTERY_LEVEL: {
+			APPS_LOG_MSGID_I(" driver_callback[battery level]", 0);
+			break;
+		}
+		case DRV_CHARGER_EVENT_CHARGER_STATE: {
+			APPS_LOG_MSGID_I(" driver_callback[charger state]", 0);
+			break;
+		}
+		case DRV_CHARGER_EVENT_REVERSION_REPORT: {
+			log_hal_msgid_info(" driver_callback[casing version] = 0x%x", 1, data);
+			app_set_charger_case_version((uint8_t)data);
+			break;	
+		}
+		case DRV_CHARGER_EVENT_CHARGING_CURRENT_LIMIT: {
+			log_hal_msgid_info(" driver_callback[set limit status] = 0x%x", 1, data);
+			app_smcharger_set_current_limit_status((uint8_t)data);
+			break;
+		}
+		case DRV_CHARGER_EVENT_SHIPPING_MODE_ENABLE: {
+			log_hal_msgid_info(" driver_callback[shipping mode] = 0x%x", 1, data);
+			app_nvkey_shipping_mode_set(0x01);
+			break;	
+		}
+		case DRV_CHARGER_EVENT_EOC_CHECKING: {
+			log_hal_msgid_info(" driver_callback[eoc checking] = 0x%x", 1, data);
+			break;					
+		}
         default: {
             break;
         }
