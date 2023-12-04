@@ -3192,6 +3192,7 @@ extern void key_switch_anc_and_passthrough_proc(void);
 extern bool key_multifunction_short_click();
 void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 {
+	ull_report("[ULL][LE] key from charging box: key=%d, event=%d ", 2, temp_command_no, temp_command_data);
 	switch(temp_command_no)
 	{
 		case 0:			// key0: volume up
@@ -3203,6 +3204,10 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			{
 				key_avrcp_next_proc();
 			}
+			else if(temp_command_data==0x22)							// LP2
+			{
+				key_multifunction_short_click();
+			}		
 			break;
 		case 1:			// key1: volume down
 			if((temp_command_data==1)||(temp_command_data==0x38))	// SP and repeat P
@@ -3213,13 +3218,17 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			{
 				key_avrcp_prev_proc();
 			}
+			else if(temp_command_data==0x22)							// LP2
+			{
+				key_multifunction_short_click();
+			}			
 			break;
 		case 2:			// Multi-function
 			if(temp_command_data==1)									// SP
 			{
 				key_multifunction_short_click();
 			}
-			else if(temp_command_data==0x23)							// LP3
+			else if(temp_command_data==0x22)							// LP2
 			{
 				key_switch_anc_and_passthrough_proc();
 			}

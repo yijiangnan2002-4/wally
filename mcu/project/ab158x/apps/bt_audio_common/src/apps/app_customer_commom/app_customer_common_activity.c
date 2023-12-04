@@ -256,6 +256,10 @@ void key_volumeup_proc(void)
 		*p_key_action = KEY_VOICE_UP;
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}		
 }
 
 void key_volumedown_proc(void)
@@ -266,6 +270,10 @@ void key_volumedown_proc(void)
 		*p_key_action = KEY_VOICE_DN;
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}		
 }
 
 void key_avrcp_next_proc(void)
@@ -276,6 +284,10 @@ void key_avrcp_next_proc(void)
 		*p_key_action = KEY_AVRCP_FORWARD;
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}		
 }
 
 void key_avrcp_prev_proc(void)
@@ -286,6 +298,10 @@ void key_avrcp_prev_proc(void)
 		*p_key_action = KEY_AVRCP_BACKWARD;
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}		
 }
 
 void key_switch_anc_and_passthrough_proc(void)
@@ -296,6 +312,10 @@ void key_switch_anc_and_passthrough_proc(void)
 		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH;
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}		
 }
 
 bool key_multifunction_short_click()
