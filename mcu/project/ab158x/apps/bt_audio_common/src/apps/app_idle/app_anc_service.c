@@ -158,12 +158,15 @@ static audio_anc_control_result_t app_anc_service_control(bool sync, bool enable
     if (role == BT_AWS_MCE_ROLE_PARTNER) {
         sync = FALSE;
     }
+//errrrrrrrrrrrrrr
 #else
+errrrrrrrrrrrrrrr
     sync = FALSE;
 #endif
 
     audio_anc_control_result_t anc_result = AUDIO_ANC_CONTROL_EXECUTION_NONE;
 #if defined(AIR_APP_ANC_SYNC_ENABLE) && defined(AIR_TWS_ENABLE)
+//errrrrrrrrrrrrrrrrr
     bt_aws_mce_srv_link_type_t aws_link_type = bt_aws_mce_srv_get_link_type();
     if (sync && role == BT_AWS_MCE_ROLE_AGENT && aws_link_type != BT_AWS_MCE_SRV_LINK_NONE) {
         // Real time sync and control ANC
@@ -183,6 +186,7 @@ static audio_anc_control_result_t app_anc_service_control(bool sync, bool enable
         anc_result = app_anc_service_local_control(enable, filter_id, anc_type, runtime_gain, control_misc);
     }
 #else
+errrrrrrrrrrrrrr
     anc_result = app_anc_service_local_control(enable, filter_id, anc_type, runtime_gain, control_misc);
 #endif
     return anc_result;
@@ -759,6 +763,7 @@ void app_anc_service_handle_event(uint32_t event_group, uint32_t event_id, void 
 
 void app_anc_service_handle_race_cmd(void *param)
 {
+//errrrrrrrrrrrr
 #if defined(AIR_APP_ANC_SYNC_ENABLE) && defined(MTK_RACE_CMD_ENABLE)
     race_dsprealtime_notify_struct *audio_param = (race_dsprealtime_notify_struct *)param;
     uint16_t race_event = audio_param->dsp_realtime_race_evet;
@@ -778,6 +783,7 @@ void app_anc_service_handle_race_cmd(void *param)
     switch (race_event) {
         case RACE_ANC_ON: {
 #ifdef AIR_ANC_V3
+//errrrrrrrr
             audio_anc_control_filter_id_t filter_id = anc_param->param.onV3Cmd.flash_no;
             audio_anc_control_type_t anc_type = anc_param->param.onV3Cmd.ancType;
             sync_mode = anc_param->param.onV3Cmd.syncMode;
@@ -785,6 +791,7 @@ void app_anc_service_handle_race_cmd(void *param)
             APPS_LOG_MSGID_I(LOG_TAG" handle_race_cmd, RACE_ANC_ON filter_id=%d anc_type=0x%04X sub_id=%d",
                              3, filter_id, anc_type, sub_id);
 #else
+errrrrrrrrrrrrrrrr
             audio_anc_control_filter_id_t filter_id = anc_param->param.onCmd.flash_no;
             audio_anc_control_type_t anc_type = anc_param->param.onCmd.ancType;
             sync_mode = anc_param->param.onCmd.syncMode;
@@ -897,7 +904,7 @@ void app_anc_service_set_hear_through_enabled(bool enable)
 
 void app_anc_service_reset_hear_through_anc(bool enable)
 {
-    APPS_LOG_MSGID_I(LOG_TAG" [HearThrough] app_anc_service_reset_hear_through_anc, enable : %d, anc_enabled : %d, filter_id : %d, type : %d, gain : %d",
+    APPS_LOG_MSGID_I(LOG_TAG"  app_anc_service_reset_hear_through_anc, enable : %d, anc_enabled : %d, filter_id : %d, type : %d, gain : %d",
                      5,
                      enable,
                      g_anc_srv_ht_context.enable,

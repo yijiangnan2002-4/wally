@@ -2934,15 +2934,17 @@ void *RACE_DSPREALTIME_ANC_PASSTHRU_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_
     audio_anc_control_result_t anc_ret = AUDIO_ANC_CONTROL_EXECUTION_NONE;
     pAnc_cmd = (race_dsprealtime_anc_struct *)pCmdMsg->payload;
     g_anc_race_cmd_length = pCmdMsg->hdr.length - 4;
-    //RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_HDR msg_length:%d payload: %d %d %d\n",4,pCmdMsg->hdr.length,pAnc_cmd->status,pAnc_cmd->param.header.ancId,pAnc_cmd->param.anc_on_param.anc_filter_type);
+    //RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_HDR msg_length:%d payload: %d %d\n",3,pCmdMsg->hdr.length,pAnc_cmd->param.header.ancId,pAnc_cmd->param.anc_on_param.anc_filter_type);
     RACE_LOG_MSGID_E("[RACE][ANC_PTHR]channel_id: %d, ANC_id: %d\n", 2, channel_id, pAnc_cmd->param.header.ancId);
 
     if (pCmdMsg->hdr.length >= 4) { //hdr.length = hdr.id(2bytes) + pAnc_cmd->status(1byte) + pAnc_cmd->anc_id(1byte) + pAnc_cmd->param(0/1/2/4 bytes)
         switch (pAnc_cmd->param.header.ancId) {
             case RACE_ANC_ON: {
 #ifdef AIR_ANC_V3
+//errrrrrrrrrrrrrrrrrrr
                 if (pAnc_cmd->param.onV3Cmd.syncMode == 2) {
 #else
+errrrrrrrrrrrr
                 if (pAnc_cmd->param.onCmd.syncMode   == 2) {
 #endif
 #if 1   //application sync workaround.
@@ -2953,6 +2955,8 @@ void *RACE_DSPREALTIME_ANC_PASSTHRU_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_
 #endif
                     g_app_sync_status   = 1;
 #endif
+                    RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_PASSTHRU_HDR,111 send g_app_sync_flash_no:%d ", 1,g_app_sync_flash_no);
+
                     race_dsp_realtime_send_notify_msg(RACE_DSPREALTIME_ANC, RACE_ANC_ON, anc_ret, g_anc_race_cmd_length + 2, (uint8_t *)pAnc_cmd);
                 } else {
                     anc_ret = audio_anc_control_command_handler(AUDIO_ANC_CONTROL_SOURCE_FROM_RACE, 0, (void *)pAnc_cmd);
@@ -2960,6 +2964,8 @@ void *RACE_DSPREALTIME_ANC_PASSTHRU_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_
                     race_dsp_realtime_send_notify_msg(RACE_DSPREALTIME_ANC, RACE_ANC_ON, anc_ret, 0, NULL);
 
                     if (g_anc_race_cmd_length <= sizeof(RACE_RSP_ANC_PASSTHRU_ON_PARAM)) {
+                    RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_PASSTHRU_HDR,222 g_anc_race_cmd_length=:%d ",1, g_anc_race_cmd_length);
+                      
                     pEvt = RACE_ClaimPacket(RACE_TYPE_RESPONSE,
                                             RACE_DSPREALTIME_ANC,
                                             sizeof(RACE_RSP_ANC_PASSTHRU_ON_PARAM),
@@ -2974,10 +2980,14 @@ void *RACE_DSPREALTIME_ANC_PASSTHRU_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_
                     pEvt->param.onRsp.flash_no      = pAnc_cmd->param.onCmd.flash_no;
                         if (pAnc_cmd->param.onCmd.flash_no < AUDIO_ANC_CONTROL_FILTER_ID_PASS_THRU_1) {
                         pEvt->param.onRsp.ancType   = pAnc_cmd->param.onCmd.ancType;
-                    } else {
+                     RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_PASSTHRU_HDR,333 pEvt->param.onRsp.ancType=:%d ", 1,pEvt->param.onRsp.ancType);
+                   } else {
                         pEvt->param.onRsp.ancType   = AUDIO_ANC_CONTROL_TYPE_PASSTHRU_FF;
+                    RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_PASSTHRU_HDR,444  pEvt->param.onRsp.ancType=:%d ",1,  pEvt->param.onRsp.ancType);
                     }
                     pEvt->param.onRsp.syncMode      = pAnc_cmd->param.onCmd.syncMode;
+                    RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_PASSTHRU_HDR,444111   pEvt->param.onRsp.syncMode:%d ",1,   pEvt->param.onRsp.syncMode);
+                    RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_PASSTHRU_HDR,444112  ancId:%d anc_ret=%d, pAnc_cmd->param.onCmd.flash_no=%d",3,   pAnc_cmd->param.onCmd.header.ancId,anc_ret,pAnc_cmd->param.onCmd.flash_no);
 #ifdef AIR_ANC_V3
                     } else {
                         pEvt = RACE_ClaimPacket(RACE_TYPE_RESPONSE,
@@ -2994,11 +3004,14 @@ void *RACE_DSPREALTIME_ANC_PASSTHRU_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_
                         pEvt->param.onV3Rsp.flash_no      = pAnc_cmd->param.onV3Cmd.flash_no;
                         if (pAnc_cmd->param.onV3Cmd.flash_no < AUDIO_ANC_CONTROL_PASS_THRU_FILTER_DEFAULT) {
                             pEvt->param.onV3Rsp.ancType   = pAnc_cmd->param.onV3Cmd.ancType;
+                    RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_PASSTHRU_HDR,555  pEvt->param.onV3Rsp.ancType=:%d ",1,  pEvt->param.onV3Rsp.ancType);
                         } else {
                             pEvt->param.onV3Rsp.ancType   = AUDIO_ANC_CONTROL_TYPE_PASSTHRU_FF;
+                    RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_PASSTHRU_HDR,666  pEvt->param.onV3Rsp.ancType=:%d ",1,  pEvt->param.onV3Rsp.ancType);
                         }
                         pEvt->param.onV3Rsp.syncMode      = pAnc_cmd->param.onV3Cmd.syncMode;
                         pEvt->param.onV3Rsp.sub_ID        = pAnc_cmd->param.onV3Cmd.sub_ID;
+                    RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_PASSTHRU_HDR,666111  pEvt->param.onV3Rsp.ancType=:%d,pAnc_cmd->param.onV3Cmd.sub_ID=%d ",2, pEvt->param.onV3Rsp.syncMode,pAnc_cmd->param.onV3Cmd.sub_ID);
 #endif
                     }
                 }
@@ -3024,6 +3037,8 @@ void *RACE_DSPREALTIME_ANC_PASSTHRU_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_
                     pEvt->param.offRsp.header.ancId  = pAnc_cmd->param.offCmd.header.ancId;
                     pEvt->param.offRsp.header.status = anc_ret;
                     pEvt->param.offRsp.syncMode      = pAnc_cmd->param.offCmd.syncMode;
+                    RACE_LOG_MSGID_I("RACE_DSPREALTIME_ANC_PASSTHRU_HDR,444113  ancId:%d anc_ret=%d, pAnc_cmd->param.offCmd.syncMode=%d",3,   pAnc_cmd->param.offCmd.header.ancId,anc_ret,pAnc_cmd->param.offCmd.syncMode);
+                    
                     #if 0
                     if (audio_anc_control_get_sync_time() == 0) {
                         RACE_FreePacket(pEvt);
@@ -5283,6 +5298,7 @@ void *RACE_CmdHandler_DSPREALTIME(ptr_race_pkt_t pRaceHeaderCmd, uint16_t length
 {
 
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)||defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
+errrrrrrrrrrrrrr
     if (race_dsprealtime_relay_check(pRaceHeaderCmd)) {
         //Relay cmd
         race_dsprealtime_relay_handler(pRaceHeaderCmd, length, channel_id, true, (uint8_t)RACE_ERRCODE_SUCCESS);
@@ -5291,6 +5307,7 @@ void *RACE_CmdHandler_DSPREALTIME(ptr_race_pkt_t pRaceHeaderCmd, uint16_t length
         return race_cmd_dsprealtime_handler(pRaceHeaderCmd, length, channel_id);
     }
 #elif defined(AIR_DCHS_MODE_ENABLE)
+errrrrrrrrrrrrrrrrr
     void *ptr = NULL;
     dsp_realtime_status_e realtime_status;
     realtime_status = race_dsprealtime_dchs_cosys_ctrl_cmd(pRaceHeaderCmd, length, channel_id);
@@ -5309,6 +5326,7 @@ void *RACE_CmdHandler_DSPREALTIME(ptr_race_pkt_t pRaceHeaderCmd, uint16_t length
 
     return ptr;
 #else
+//errrrrrrrrrrrrrrrrrrrr
     return race_cmd_dsprealtime_handler(pRaceHeaderCmd, length, channel_id);
 #endif
 }

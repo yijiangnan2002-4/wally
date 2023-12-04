@@ -1,5 +1,0 @@
-; ===================================================================
-; Download the binary image to PSRAM directly
-; ===================================================================
-
-DATA.LOAD.ELF .\freertos_create_thread.elf  /nocode
