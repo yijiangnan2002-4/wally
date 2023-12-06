@@ -816,8 +816,8 @@ void app_smcharger_handle_key_event(uint32_t key_value)
             && key_value == APP_SMCHARGER_KEY_BT_AIR_PAIRING) {
             app_smcharger_bt_air_pairing();
         } else if (g_smcharger_context->smcharger_state == STATE_SMCHARGER_LID_OPEN
-                   && g_smcharger_context->peer_smcharger_state == STATE_SMCHARGER_LID_OPEN
-                   && aws_link_type != BT_AWS_MCE_SRV_LINK_NONE) {
+/* richard for UI spec                   && g_smcharger_context->peer_smcharger_state == STATE_SMCHARGER_LID_OPEN
+                   && aws_link_type != BT_AWS_MCE_SRV_LINK_NONE*/) {
             if (key_value == APP_SMCHARGER_KEY_BT_DISCOVERABLE) {
                 app_smcharger_bt_enter_discoverable();
             } else if (key_value == APP_SMCHARGER_KEY_BT_CLEAR) {
