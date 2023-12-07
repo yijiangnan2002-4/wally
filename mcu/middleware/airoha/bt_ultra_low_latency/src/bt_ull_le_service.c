@@ -3190,9 +3190,13 @@ extern void key_avrcp_next_proc(void);
 extern void key_avrcp_prev_proc(void);
 extern void key_switch_anc_and_passthrough_proc(void);
 extern bool key_multifunction_short_click();
+extern uint8_t Is_earbuds_agent_proc(void);
 void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 {
 	ull_report("[ULL][LE] key from charging box: key=%d, event=%d ", 2, temp_command_no, temp_command_data);
+
+	if(Is_earbuds_agent_proc()==0)
+		return;
 	switch(temp_command_no)
 	{
 		case 0:			// key0: volume up

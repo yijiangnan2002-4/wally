@@ -248,6 +248,13 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
 }
 
 #if 1	// richard for ab1571d command processing
+uint8_t Is_earbuds_agent_proc(void)
+{
+	if((bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) && (bt_sink_srv_cm_get_aws_connected_device() != NULL))
+		return 1;
+	else return 0;
+}
+
 void key_volumeup_proc(void)
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
