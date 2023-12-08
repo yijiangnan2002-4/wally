@@ -2218,7 +2218,12 @@ void app_hear_through_activity_switch_ambient_control()
 
     uint8_t old_mode_index = app_hear_through_ctx.mode_index;
     app_hear_through_ctx.mode_index ++;
-    if (app_hear_through_ctx.mode_index == 3) {
+    #if 1 // harry to test for sample,just switech beteew anc off and ha . harry 0231208
+    if (app_hear_through_ctx.mode_index == 2)
+  #else
+    if (app_hear_through_ctx.mode_index == 3)
+  #endif
+    {
         app_hear_through_ctx.mode_index = 0;
     }
 
