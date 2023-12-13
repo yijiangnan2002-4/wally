@@ -2536,7 +2536,8 @@ audio_psap_status_t audio_anc_psap_control_set_mute(bool mute_l, bool mute_r)
     ha_runtime_sync_ctrl_para_t *ctrl_para_ptr = &g_ha_ctrl.ctrl_para;
     audio_psap_device_role_t role = g_ha_ctrl.role;
     audio_psap_status_t res = AUDIO_PSAP_STATUS_SUCCESS;
-    LOGMSGIDI("set mute:L(%d) R(%d)", 2, mute_l, mute_r);
+    LOGMSGIDI("set mute:L(%d) R(%d),mute_l=%d,mute_r=%d", 4, mute_l, mute_r,ctrl_para_ptr->mute_l,ctrl_para_ptr->mute_r);
+    LOGMSGIDI("set mute:role=%d framework_enable=%d,share_addr=%ld", 3, role, g_ha_ctrl.framework_enable,g_ha_ctrl.share_addr);
     LOGMSGIDI("sizeof bool(%d)", 2, sizeof(bool));
     if (!g_ha_ctrl.framework_enable | !g_ha_ctrl.share_addr) {
         return AUDIO_PSAP_STATUS_FAIL;
