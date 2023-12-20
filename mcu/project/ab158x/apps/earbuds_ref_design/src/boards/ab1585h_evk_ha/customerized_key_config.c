@@ -478,7 +478,7 @@ const apps_config_key_event_map_t temp_key_long_press1_configs[] = {
 };
 
 const apps_config_key_event_map_t temp_key_long_press2_configs[] = {
-#ifdef AIR_MULTI_POINT_ENABLE
+#if 0	//def AIR_MULTI_POINT_ENABLE
     {
         DEVICE_KEY_POWER,
         KEY_SWITCH_ANC_AND_PASSTHROUGH,
@@ -487,7 +487,7 @@ const apps_config_key_event_map_t temp_key_long_press2_configs[] = {
         | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING)
         | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY) | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA)
     },
-#else
+//#else
     {
         DEVICE_KEY_POWER,    
         KEY_SWITCH_ANC_AND_PASSTHROUGH,
@@ -770,6 +770,7 @@ const apps_config_key_event_map_t temp_key_dlong_release_configs[] = {
 #define temp_left_key_long_press2_configs temp_key_long_press2_configs
 #define temp_left_key_long_press3_configs temp_key_long_press3_configs
 #define temp_left_key_slong_configs temp_key_slong_configs
+
 const apps_config_key_event_map_t temp_left_key_dlong_configs[] = {
 #if 1	// richard for UI spec
 #if defined(MTK_AWS_MCE_ENABLE)
@@ -812,14 +813,7 @@ const static apps_config_configurable_table_t default_configurable_table[] = {
         KEY_AVRCP_PAUSE,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
-#if 1		// richard for UI spec
-    {
-        APPS_CONFIG_KEY_TRIPLE_CLICK,
-        DEVICE_KEY_POWER,
-        KEY_SWITCH_ANC_AND_PASSTHROUGH,
-        0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
-    },
-#else
+#if 0		// richard for UI spec
     {
         APPS_CONFIG_KEY_DOUBLE_CLICK,
         DEVICE_KEY_POWER,
@@ -860,6 +854,14 @@ const static apps_config_configurable_table_t default_configurable_table[] = {
 };
 
 const static apps_config_configurable_table_t left_configurable_table[] = {
+#if 1		// richard for UI spec
+    {
+        APPS_CONFIG_KEY_SHORT_CLICK,
+        DEVICE_KEY_POWER,
+        KEY_SWITCH_ANC_AND_PASSTHROUGH,
+        0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
+    },
+#else
     {
         APPS_CONFIG_KEY_SHORT_CLICK,
         DEVICE_KEY_POWER,
@@ -872,14 +874,6 @@ const static apps_config_configurable_table_t left_configurable_table[] = {
         KEY_AVRCP_PAUSE,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
-#if 1		// richard for UI spec
-    {
-        APPS_CONFIG_KEY_TRIPLE_CLICK,
-        DEVICE_KEY_POWER,
-        KEY_SWITCH_ANC_AND_PASSTHROUGH,
-        0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
-    },
-#else
     {
         APPS_CONFIG_KEY_DOUBLE_CLICK,
         DEVICE_KEY_POWER,

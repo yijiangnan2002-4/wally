@@ -21,6 +21,8 @@ void app_customer_common_setting_to_partner(void);
 void app_customer_test_enable_dut(void);
 void app_set_charger_case_version(uint8_t version_data);
 void app_get_charger_case_version(uint8_t* p_version);
+void app_set_ab1571d_version(uint8_t version_data);
+void app_get_ab1571d_version(uint8_t* p_version);
 void app_set_eco_charing_profile_switch(uint8_t profile_status);
 uint8_t app_get_eco_charing_profile_switch(void);
 void app_set_a2dp_volume(uint8_t volume_level);

@@ -3191,9 +3191,24 @@ extern void key_avrcp_prev_proc(void);
 extern void key_switch_anc_and_passthrough_proc(void);
 extern bool key_multifunction_short_click();
 extern uint8_t Is_earbuds_agent_proc(void);
+extern void app_set_ab1571d_version(uint8_t version_data);
+extern uint8_t ab1585h_command_no;
+extern uint8_t ab1585h_command_data;
+extern void BT_send_data_proc(void);
+#if 0	// for production test
+#include "voice_prompt_api.h"
+#endif
 void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 {
 	ull_report("[ULL][LE] key from charging box: key=%d, event=%d ", 2, temp_command_no, temp_command_data);
+
+#if 0	// for production test
+	if((temp_command_no==0)||(temp_command_no==1)||(temp_command_no==2))
+	{
+		voice_prompt_play_vp_press();
+		return;
+	}
+#endif
 
 	if(Is_earbuds_agent_proc()==0)
 		return;
@@ -3228,6 +3243,12 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			{
 				key_switch_anc_and_passthrough_proc();
 			}
+			break;
+		case 3:		// ab1571d version
+			app_set_ab1571d_version(temp_command_data);
+			ab1585h_command_no=2;	// 0: version feedback
+			ab1585h_command_data=0;
+			BT_send_data_proc();	
 			break;
 		default:
 			break;

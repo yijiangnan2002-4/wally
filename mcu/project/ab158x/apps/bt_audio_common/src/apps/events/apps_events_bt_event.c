@@ -481,7 +481,7 @@ bt_fast_pair_status_t bt_fast_pair_app_event_callback(bt_fast_pair_app_event_t e
  * @param[in]  user_data, The same user_data input in race_event_register().
  * @return RACE_ERRCODE_SUCCESS succeed; otherwise, fail.
  */
-  #if 1	// richard for customer UI spec.(send data)
+#if 1	// richard for customer UI spec.(send data)
 extern uint8_t ab1585h_command_no;
 extern uint8_t ab1585h_command_data;
 extern void BT_send_data_proc(void);

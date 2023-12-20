@@ -337,7 +337,7 @@ static apps_config_serialized_event_t apps_config_key_remap_key_ev_to_serialized
 }
 #endif
 
-#if 1	// richard for test
+#if 1	// richard for UI spec.
 extern uint8_t ab1585h_command_no;
 extern uint8_t ab1585h_command_data;
 extern void BT_send_data_proc(void);
@@ -417,12 +417,11 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
     APPS_LOG_MSGID_I(LOG_TAG"Current used key_id = 0x%x, key_event = 0x%x, state = %d, action_id = 0x%x, channel = %d", 5, key_id, key_event, temp_mmi_state, action_id, channel);
 #endif
 
-#if 1	// richard for test
+#if 0	// richard for test
 	if(key_id==DEVICE_KEY_POWER)
 	{
 		if(key_event==AIRO_KEY_DOUBLE_CLICK)
 		{
-//			bsp_px31bf_auto_dac();
 		}
 		ab1585h_command_no=2;
 		ab1585h_command_data=key_event;

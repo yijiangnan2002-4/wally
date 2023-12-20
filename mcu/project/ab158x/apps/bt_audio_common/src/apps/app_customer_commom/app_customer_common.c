@@ -39,6 +39,7 @@
 #include "bt_connection_manager_utils.h"
 
 static char case_verison[4] = "v0.0";
+static char ab1571d_verison[4] = "v0.0";
 static uint8_t isShippingMode = 0;
 volatile static uint8_t g_limit_status = 0;
 volatile static uint8_t sn_cmp_result = 0x0;
@@ -162,7 +163,19 @@ void app_get_charger_case_version(uint8_t* p_version)
 	memcpy((void*)p_version, (void*)case_verison, 4);
 }
 
+void app_set_ab1571d_version(uint8_t version_data)
+{
+	ab1571d_verison[1] = ((version_data>>4) & 0xF) + 0x30;
+	ab1571d_verison[3] = (version_data & 0xF) + 0x30;
+}
 
+void app_get_ab1571d_version(uint8_t* p_version)
+{
+	race_debug_print((uint8_t*)ab1571d_verison, 4,"ab1571d version:");
+	memcpy((void*)p_version, (void*)ab1571d_verison, 4);
+}
+
+	
 void app_set_eco_charing_profile_switch(uint8_t profile_status)
 {
 	app_nvkey_eco_charging_profile_status_write(profile_status);

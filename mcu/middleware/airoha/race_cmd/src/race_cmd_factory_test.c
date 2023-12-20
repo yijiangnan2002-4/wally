@@ -116,6 +116,43 @@ void* RACE_FACTORY_TEST_EARBUD_READ_OUT_CASE_VERS(ptr_race_pkt_t pCmdMsg, uint8_
 	return pEvt;
 }
 
+void* RACE_FACTORY_TEST_EARBUD_READ_OUT_AB1571D_VERS(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{
+	typedef struct
+	{
+		RACE_COMMON_HDR_STRU cmdhdr;
+		uint8_t version_read;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t ab1571d_version[4];
+	}PACKED RSP;
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_AB1571D_VERSION, (uint16_t)sizeof(RSP), channel_id);
+    	int32_t ret = RACE_ERRCODE_SUCCESS;
+
+	RACE_LOG_MSGID_I("RACE_FACTORY_TEST_EARBUD_READ_OUT_AB1571D_VERS cmd data = %x \r\n",1, pCmd->version_read);
+
+	if (pEvt)
+	{
+		if(pCmd->version_read == 0x1) 
+		{
+			app_get_ab1571d_version(pEvt->ab1571d_version);
+		}
+		else
+		{
+			ret = RACE_ERRCODE_FAIL;		
+		}
+		pEvt->status = ret;
+	}
+	
+	return pEvt;
+}
+
+
 #if 0
 void* RACE_FACTORY_TEST_BLE_COLOR_ID(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {	
@@ -1551,11 +1588,16 @@ void* RACE_CmdHandler_FACTORY_TEST(ptr_race_pkt_t pRaceHeaderCmd, uint16_t lengt
     {
         switch (pRaceHeaderCmd->hdr.id)
         {	
-		 	case FACTORY_TEST_BLE_CMD_GET_VERSION :
-            {
-                ptr = RACE_FACTORY_TEST_EARBUD_READ_OUT_CASE_VERS(pRaceHeaderCmd, channel_id);
-            }
-            break;
+		case FACTORY_TEST_BLE_CMD_GET_VERSION :
+		{
+          		ptr = RACE_FACTORY_TEST_EARBUD_READ_OUT_CASE_VERS(pRaceHeaderCmd, channel_id);
+            	}
+            	break;
+		case FACTORY_TEST_BLE_CMD_AB1571D_VERSION :
+            	{
+                	ptr = RACE_FACTORY_TEST_EARBUD_READ_OUT_AB1571D_VERS(pRaceHeaderCmd, channel_id);
+            	}
+		break;	
 #if 0
             case FACTORY_TEST_SET_ECO_PROFILE:
             {
