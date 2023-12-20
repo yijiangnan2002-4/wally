@@ -115,7 +115,7 @@ void bt_device_manager_aws_local_info_store_local_address(bt_bd_addr_t *addr)
 bt_bd_addr_t *bt_device_manager_aws_local_info_get_local_address(void)
 {
     bt_device_manager_aws_local_info_log(BT_DM_AWS_LOCAL_INFO_LOG_HANDLE_GET_LOCAL_ADDR);
-    //bt_dmgr_report_id("[BT_DM][AWS_LOCAL_INFO][I] Get local address:", 0);
+    bt_dmgr_report_id("[BT_DM][AWS_LOCAL_INFO][I] Get local address:", 0);
     bt_device_manager_dump_bt_address(BT_DEVICE_MANAGER_LOCAL_INFO_ADDRESS_AWS_LOCAL, (uint8_t *) & (bt_dm_aws_sandbox_cnt.sandbox_local_addr));
     return &(bt_dm_aws_sandbox_cnt.sandbox_local_addr);
 }
@@ -131,7 +131,7 @@ void bt_device_manager_aws_local_info_store_peer_address(bt_bd_addr_t *addr)
 bt_bd_addr_t *bt_device_manager_aws_local_info_get_peer_address(void)
 {
     bt_device_manager_aws_local_info_log(BT_DM_AWS_LOCAL_INFO_LOG_HANDLE_GET_PEER_ADDR);
-    //bt_dmgr_report_id("[BT_DM][AWS_LOCAL_INFO][I] Get peer address:", 0);
+    bt_dmgr_report_id("[BT_DM][AWS_LOCAL_INFO][I] Get peer address:", 0);
     bt_device_manager_dump_bt_address(BT_DEVICE_MANAGER_LOCAL_INFO_ADDRESS_AWS_PEER, (uint8_t *) & (bt_dm_aws_sandbox_cnt.sandbox_peer_addr));
     return &(bt_dm_aws_sandbox_cnt.sandbox_peer_addr);
 }
