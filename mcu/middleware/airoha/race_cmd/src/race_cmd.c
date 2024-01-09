@@ -242,7 +242,7 @@
 
 // richard for customer UI spec(add for factory test)
 #define RACE_ID_FACTORY_TEST_BEGIN 0x9000
-#define RACE_ID_FACTORY_TEST_END 0x901F
+#define RACE_ID_FACTORY_TEST_END 0x902F
 
 const RACE_HANDLER race_handlers[] = {
 	{RACE_ID_FACTORY_TEST_BEGIN, RACE_ID_FACTORY_TEST_END, RACE_CmdHandler_FACTORY_TEST},	// richard for customer UI spec(for factory test)
