@@ -222,7 +222,7 @@ the name is NVID_TOOL_DSP_VOICE_TX_WB_EQ and will not be built-in the nvdm.bin f
     <Value>0x0007</Value>
   </NVKey>
   <NVKey KeyID="0x2040" Name="NVID_CAL_PWR_CTL_MP_K" Domain="MP_DATA">
-    <Value>0x350039003D003D00</Value>
+    <Value>0x2C0031003D003D00</Value>
   </NVKey>
   <NVKey KeyID="0x2045" Name="NVID_CAL_XO_26M_CRTSTAL_TRIM" Domain="MP_DATA">
     <Value>0x029B00</Value>
@@ -591,7 +591,7 @@ the name is NVID_TOOL_DSP_VOICE_TX_WB_EQ and will not be built-in the nvdm.bin f
     <Value>0x0CFE080038FFCB0208070807B004B004080708070000000000000000000000000807080708070807B004B004B004B0040807080708070807</Value>
   </NVKey>
   <NVKey KeyID="0xE091" Name="NVID_DSP_FW_VOL_COMP" Domain="AUDIO_GAIN">
-    <Value>0x00003FFF0404</Value>
+    <Value>0xE5FC45FE0404</Value>
   </NVKey>
   <NVKey KeyID="0xE092" Name="NVID_DSP_FW_VOL_COMP_02" Domain="AUDIO_GAIN">
     <Value>0x45FE3FFF0404</Value>
@@ -1602,7 +1602,7 @@ the name is NVID_TOOL_DSP_VOICE_TX_WB_EQ and will not be built-in the nvdm.bin f
     <Value>0x00</Value>
   </NVKey>
   <NVKey KeyID="0xF2E6" Name="NVID_APP_A2DP_3M_CONFIG" Domain="APP_CONFIG">
-    <Value>0x01</Value>
+    <Value>0x00</Value>
   </NVKey>
   <NVKey KeyID="0xF2E8" Name="NVID_APP_AMA_DRIVER_VARIATION" Domain="USER_DATA">
     <Value>0x01000000000000000000000000000000000000000000000000000000000000000000000000000000000000</Value>

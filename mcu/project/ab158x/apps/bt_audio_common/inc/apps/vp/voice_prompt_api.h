@@ -247,6 +247,7 @@ voice_prompt_status_t voice_prompt_play_sync_vp_failed();
 voice_prompt_status_t voice_prompt_play_vp_hearing_through();
 voice_prompt_status_t voice_prompt_play_sync_vp_hearing_through();
 voice_prompt_status_t voice_prompt_play_vp_anc_on();
+voice_prompt_status_t voice_prompt_play_vp_anc_off();
 voice_prompt_status_t voice_prompt_play_sync_vp_anc_on();
 voice_prompt_status_t voice_prompt_play_vp_battery_fail();
 voice_prompt_status_t voice_prompt_play_sync_vp_battery_fail();

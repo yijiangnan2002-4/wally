@@ -176,6 +176,7 @@ static bool pre_proc_key_event_proc(ui_shell_activity_t *self, uint32_t event_id
 
         if (key_event == AIRO_KEY_PRESS) {
 #ifdef AIR_TILE_ENABLE
+errrrrrrrrrrrrrrrr
             const app_bt_state_service_status_t *bt_state_srv_status = app_bt_connection_service_get_current_status();
             if (bt_state_srv_status != NULL && bt_state_srv_status->current_power_state == APP_HOME_SCREEN_BT_POWER_CLASSIC_DISABLED) {
                 APPS_LOG_MSGID_I("AIRO_KEY_PRESS, current_power_state %d", 1, bt_state_srv_status->current_power_state);
@@ -183,10 +184,14 @@ static bool pre_proc_key_event_proc(ui_shell_activity_t *self, uint32_t event_id
 #endif
             {
 #ifndef AIR_WIRELESS_MIC_ENABLE
+//errrrrrrrrrrrrrrrrr
+                APPS_LOG_MSGID_I("pre_proc_key_event_proc AIRO_KEY_PRESS, vpvp press  key_id=%x, key_event=%x",2, key_id, key_event);
+                #if 1
                 voice_prompt_param_t vp = {0};
                 vp.vp_index = VP_INDEX_PRESS;
                 vp.control = VOICE_PROMPT_CONTROL_MASK_PREEMPT;
                 voice_prompt_play(&vp, NULL);
+                #endif
                 //apps_config_set_vp_preempt(VP_INDEX_PRESS, false, 0, VOICE_PROMPT_PRIO_HIGH, NULL);
 #endif
             }

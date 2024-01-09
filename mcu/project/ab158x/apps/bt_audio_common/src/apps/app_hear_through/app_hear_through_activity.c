@@ -646,12 +646,11 @@ static void app_hear_through_activity_handle_ambient_control_switch()
             app_hear_through_ctx.trigger_from_key = false;
             app_hearing_through_activity_leave_hear_through_mode();
             app_anc_service_disable_without_notify_hear_through();
+      
         }
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH: {
             APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable Hear Through", 0);
-		// richard for customer UI spec.
-		voice_prompt_play_vp_hearing_through();
 		
             app_hear_through_ctx.trigger_from_key = true;
             /**
@@ -673,15 +672,18 @@ static void app_hear_through_activity_handle_ambient_control_switch()
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
 
             app_hear_through_switch_on_off(true, true);
-        }
+
+  		// richard for customer UI spec.
+		voice_prompt_play_sync_vp_hearing_through();
+      }
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC: {
             APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable ANC", 0);
-		// richard for customer UI spec.
-		voice_prompt_play_vp_anc_on();
-
             app_hearing_through_activity_leave_hear_through_mode();
             app_anc_service_reset_hear_through_anc(true);
+		// richard for customer UI spec.
+		voice_prompt_play_sync_vp_anc_on();
+
         }
         break;
         default:

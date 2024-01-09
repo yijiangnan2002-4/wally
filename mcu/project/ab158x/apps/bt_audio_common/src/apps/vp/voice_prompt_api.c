@@ -488,6 +488,13 @@ static voice_prompt_status_t voice_prompt_play_vp_x(uint32_t vp_index)
 {
     voice_prompt_param_t vp = {0};
     vp.vp_index = vp_index;
+    if (vp_index==VP_INDEX_HEARING_AID_AEA_OFF||vp_index==VP_INDEX_HEARING_THROUGH||vp_index==VP_INDEX_ANC_ON)
+    {
+      vp.delay_time = 200;
+    }else
+      {
+      vp.delay_time = 0;
+      }
     return voice_prompt_play(&vp, NULL);
 }
 
@@ -549,6 +556,15 @@ voice_prompt_status_t voice_prompt_play_sync_vp_anc_on()
     return voice_prompt_play_sync_vp_x(VP_INDEX_ANC_ON);
 }
 
+
+voice_prompt_status_t voice_prompt_play_vp_anc_off()
+{
+    return voice_prompt_play_vp_x(VP_INDEX_HEARING_AID_AEA_OFF);
+}
+voice_prompt_status_t voice_prompt_play_sync_vp_anc_off()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_AEA_OFF);
+}
 voice_prompt_status_t voice_prompt_play_vp_battery_fail()
 {
     return voice_prompt_play_vp_x(VP_INDEX_BATTERY_FAIL);
