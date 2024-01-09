@@ -58,6 +58,7 @@
 #include "bt_device_manager.h"
 #include "bt_device_manager_link_record.h"
 #include "bt_sink_srv.h"
+#include "bt_gap_le.h"
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
 #include "bt_sink_srv_state_manager.h"
 #endif
@@ -254,6 +255,34 @@ void app_bt_takeover_service_run_takeover(void)
     bt_sink_srv_state_manager_played_device_t *last_played_device = NULL;
 #endif
 
+// hugo-59 start
+	bt_device_manager_link_record_item_t *link_record_list = (bt_device_manager_link_record_item_t *)&link_record->connected_device[0];
+
+    bt_device_manager_link_record_item_t local_list[BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM] = {0};
+    uint8_t local_conn_num = 0;
+    for (int i = 0; i < conn_num; i++) {
+        uint8_t link_type = link_record_list[i].link_type;
+        uint8_t *addr = (uint8_t *)link_record_list[i].remote_addr;
+
+        bool is_ull2_dongle = FALSE;
+        if (link_type == BT_DEVICE_MANAGER_LINK_TYPE_LE) {
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
+            bt_handle_t conn_handle = bt_gap_le_srv_get_conn_handle_by_address((const bt_bd_addr_t *)addr);
+            is_ull2_dongle = bt_gap_le_check_remote_features(conn_handle, BT_GAP_LE_ULL2_0);
+#endif
+        }
+
+        if (is_ull2_dongle) {
+            APPS_LOG_MSGID_E(LOG_TAG" run_takeover, [%02X] skip ULL2 dongle [%d] addr=%08X%04X origin_conn_num=%d",
+                             5, role, i, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), conn_num);
+        } else {
+            memcpy(&local_list[local_conn_num], &link_record_list[i], sizeof(bt_device_manager_link_record_item_t));
+            local_conn_num++;
+        }
+    }
+    link_record_list = local_list;
+    conn_num = local_conn_num;
+//hugo-59 end	
     if ((role != BT_AWS_MCE_ROLE_AGENT && role != BT_AWS_MCE_ROLE_NONE) || conn_num < APP_BT_CONN_MAX_CONN_NUM) {
         APPS_LOG_MSGID_E(LOG_TAG" run_takeover, [%02X] error item=0x%08X connected_num=%d",
                          2, role, conn_num);
@@ -264,7 +293,7 @@ void app_bt_takeover_service_run_takeover(void)
         return;
     }
 
-    bt_device_manager_link_record_item_t *link_record_list = (bt_device_manager_link_record_item_t *)&link_record->connected_device[0];
+    //bt_device_manager_link_record_item_t *link_record_list = (bt_device_manager_link_record_item_t *)&link_record->connected_device[0]; //hugo-59
     app_bt_takeover_item_t link_list[APP_BT_TAKEOVER_MAX_ITEM_SIZE] = {0};
     app_bt_takeover_item_t *link_select = NULL;
     int disconnect_index = APP_BT_TAKEOVER_INVALID_INDEX;
