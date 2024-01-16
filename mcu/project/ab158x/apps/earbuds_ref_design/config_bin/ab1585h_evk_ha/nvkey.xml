@@ -1638,7 +1638,7 @@ the name is NVID_TOOL_DSP_VOICE_TX_WB_EQ and will not be built-in the nvdm.bin f
     <Value>0x010100000000</Value>
   </NVKey>
   <NVKey KeyID="0xF2F2" Name="NVID_APP_HEARING_AID_USER_CONFIGURATION" Domain="Audio_HA">
-    <Value>0x070400000000</Value>
+    <Value>0x070500000000</Value>
   </NVKey>
   <NVKey KeyID="0xEE3A" In_nvdm="False" Name="NVID_TOOL_DSP_SWB_BOOMIC_TUNING" Domain="AUDIO_VOICE">
     <Value>0x0000000000000000000000000000000000000000</Value>
