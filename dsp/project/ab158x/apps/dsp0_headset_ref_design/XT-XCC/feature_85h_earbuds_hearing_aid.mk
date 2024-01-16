@@ -366,7 +366,8 @@ AIR_VOICE_BAND_CONFIG_TYPE = SWB
 #                  3RD_PARTY_AI_NR_PRO_TWS_OO : 3rd party AINR to support pro tws for open office.
 #                  3RD_PARTY_CUSTOMIZED : Customized NR.
 #                  LD_NR : Inhouse LDNR(Low Delay NR)to support 1/2 MIC.
-AIR_ECNR_CONFIG_TYPE = 3RD_PARTY_AI_NR_INEAR
+#AIR_ECNR_CONFIG_TYPE = 3RD_PARTY_AI_NR_INEAR
+AIR_ECNR_CONFIG_TYPE = 3RD_PARTY_AI_NR
 
 ######  Audio peripheral ######
 

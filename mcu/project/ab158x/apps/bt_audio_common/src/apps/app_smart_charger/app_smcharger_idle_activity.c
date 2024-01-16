@@ -73,6 +73,8 @@
 #include "xiaoai.h"
 #endif
 
+#include "app_hfp_utils.h"
+
 #define LOG_TAG             "[SMCharger][IDLE]"
 
 app_smcharger_context_t s_app_smcharger_context;    /* The variable records context */
@@ -721,6 +723,11 @@ bool app_smcharger_idle_activity_proc(struct _ui_shell_activity *self, uint32_t 
                        || event_id == SMCHARGER_EVENT_NOTIFY_BOTH_IN_OUT
                        || event_id == SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED) {
                 /* Other APP should only receive and use public event. */
+              if(event_id == SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED)  // HARRY FOR BATTERT LEVEL
+              {
+                APPS_LOG_MSGID_I(LOG_TAG" sent peer_battery_percent =%d to phone", 1, smcharger_ctx->peer_battery_percent);
+                app_hfp_report_battery_to_remote(smcharger_ctx->peer_battery_percent, 0xFFFF);
+               }
                 ret = FALSE;
             } else {
                 // APPS_LOG_MSGID_I(LOG_TAG" unexpected smcharger event", 0);

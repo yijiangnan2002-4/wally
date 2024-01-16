@@ -88,6 +88,7 @@
 #ifdef AIR_MS_TEAMS_ENABLE
 #include "app_ms_teams_telemetry.h"
 #endif
+#include "app_smcharger_utils.h"
 
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
 uint8_t g_app_hfp_auto_accept = APP_HFP_AUTO_ACCEPT_NONE;  /**<  Record the hfp auto accept incoming call config. */
@@ -404,9 +405,26 @@ static void app_hfp_incoming_call_vp_callback(uint32_t idx, voice_prompt_event_t
 void app_hfp_report_battery_to_remote(int32_t bat_val, int32_t pre_val)
 {
     /* Report current battery level to remote device, such as smartphone. */
-    APPS_LOG_MSGID_I(APP_HFP_UTILS", bat_val : %d, pre_val : %d", 2, bat_val, pre_val);
+    int32_t peer_bat_level;
+    APPS_LOG_MSGID_I(APP_HFP_UTILS", bat_val : %d, pre_val : %d,hfp profile=%d", 3, bat_val, pre_val,BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP));
+    if(!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP)))   // harry for battery level display
+      {
+        return;
+      }
     if (pre_val != bat_val) {
+      #if 1  // harry for battery level display
+     bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
+        if((BT_AWS_MCE_SRV_LINK_NONE!=bt_aws_mce_srv_get_link_type())&&(role == BT_AWS_MCE_ROLE_AGENT))
+        {
+        peer_bat_level=((app_get_smcharger_context()->peer_battery_percent) & 0x7F);
+        APPS_LOG_MSGID_I(APP_HFP_UTILS", bat_val : %d, peer_bat_level : %d, peer_battery_percent : %d", 3, bat_val, peer_bat_level,app_get_smcharger_context()->peer_battery_percent);
+        if(peer_bat_level<bat_val)
+          {
+            bat_val=peer_bat_level;
+          }
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_REPORT_BATTERY_EXT, &bat_val);
+        }
+      #endif 
     }
 }
 
