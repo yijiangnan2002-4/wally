@@ -631,7 +631,7 @@ static bool app_hfp_idle_proc_bt_cm_event_group(ui_shell_activity_t *self,
 
                     hfp_context->battery_level = bat_val;
                     hfp_context->hfp_connected = true;
-                    app_hfp_report_battery_to_remote(hfp_context->battery_level, 0xFFFF);
+                    app_hfp_report_battery_to_remote(hfp_context->battery_level, 0xFFFF,WHEN_CONNECTING);
                 } else if ((remote_update->pre_connected_service & BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP))
                            && !(remote_update->connected_service & BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP))) {
                     /* Update the state of voice assistant when HFP disconnected. */
@@ -798,7 +798,7 @@ static bool app_hfp_idle_proc_battery_event_group(ui_shell_activity_t *self,
                 if (BT_AWS_MCE_ROLE_AGENT == role)
 #endif
                 {
-                    app_hfp_report_battery_to_remote(curr_battery, pre_battery);
+                    app_hfp_report_battery_to_remote(curr_battery, pre_battery,LOCAL_REPORT);
                     hfp_context->battery_level = curr_battery;
                 }
             }
@@ -853,7 +853,7 @@ static bool app_hfp_idle_proc_app_internal_events(ui_shell_activity_t *self,
 #endif
 
                 hfp_context->battery_level = bat_val;
-                app_hfp_report_battery_to_remote(hfp_context->battery_level, 0xFFFF);
+                app_hfp_report_battery_to_remote(hfp_context->battery_level, 0xFFFF,LOCAL_REPORT);
             }
             break;
         }

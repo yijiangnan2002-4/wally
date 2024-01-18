@@ -74,6 +74,11 @@ typedef enum {
     APP_HFP_INCOMING_CALL_VP_SYNC_STOP_FAIL          /**< Incoming call vp sync stop fail. */
 } app_hfp_incoming_call_vp_sync_status_t;
 
+
+#define WHEN_CONNECTING   1
+#define PEER_REPORT   2
+#define LOCAL_REPORT   3
+//#define WHEN_CONNECTING   1
 /**
  *  @brief This structure to record the incoming call vp play and sync status.
  */
@@ -141,7 +146,7 @@ bool app_hfp_update_led_bg_pattern(ui_shell_activity_t *self,
 apps_config_state_t app_hfp_get_config_status_by_state(bt_sink_srv_state_t state);
 
 
-void app_hfp_report_battery_to_remote(int32_t bat_val, int32_t pre_val);
+void app_hfp_report_battery_to_remote(int32_t bat_val, int32_t pre_val,uint8_t formstate);
 
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
 /**
