@@ -18,8 +18,8 @@ extern "C" {
 
 #include "hal.h"
 
-#define PIO_HALL_SENSOR HAL_GPIO_26
-#define EINT_HALL_SENSOR HAL_EINT_NUMBER_26
+#define PIO_HALL_SENSOR HAL_GPIO_20
+#define EINT_HALL_SENSOR HAL_EINT_NUMBER_20
 
 
 void bsp_component_HALL_init(void);

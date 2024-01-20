@@ -3210,8 +3210,8 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 	}
 #endif
 
-	if(Is_earbuds_agent_proc()==0)
-		return;
+//	if(Is_earbuds_agent_proc()==0)
+//		return;
 	switch(temp_command_no)
 	{
 		case 0:			// key0: volume up
