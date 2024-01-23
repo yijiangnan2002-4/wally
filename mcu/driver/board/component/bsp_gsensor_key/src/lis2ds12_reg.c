@@ -279,7 +279,7 @@ int32_t lis2ds12_acceleration_module_raw_get(lis2ds12_ctx_t *ctx,
 /**
   * @brief  temperature_raw: [get] Temperature data output register (r).
   *                                L and H registers together express a 16-bit
-  *                                word in two’s complement.
+  *                                word in two's complement.
   *
   * @param  lis2ds12_ctx_t *ctx: read / write interface definitions
   * @param  uint8_t * : buffer that stores data read
@@ -293,7 +293,7 @@ int32_t lis2ds12_temperature_raw_get(lis2ds12_ctx_t *ctx, uint8_t *buff)
 /**
   * @brief  acceleration_raw: [get] Linear acceleration output register.
   *                                 The value is expressed as a 16-bit word
-  *                                 in two’s complement.
+  *                                 in two's complement.
   *
   * @param  lis2ds12_ctx_t *ctx: read / write interface definitions
   * @param  uint8_t * : buffer that stores data read

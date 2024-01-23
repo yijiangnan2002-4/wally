@@ -41,6 +41,7 @@
 #include "bt_sink_srv_dual_ant.h"
 #include "mux_ll_uart_latch.h"
 #endif
+bool bt_sink_srv_call_get_sidetone_enable_config(void);
 static void bt_sink_srv_call_psd_play(audio_src_srv_handle_t *handle);
 static void bt_sink_srv_call_psd_stop(audio_src_srv_handle_t *handle);
 static void bt_sink_srv_call_psd_reject(audio_src_srv_handle_t *handle);
@@ -156,6 +157,19 @@ bool bt_sink_srv_call_psd_is_playing(bt_sink_srv_call_pseudo_dev_t *dev)
     }
 
     bt_sink_srv_report_id("[CALL][PSD][MGR]is playing:%x", 1, result);
+    return result;
+}
+
+bool bt_sink_srv_call_psd_get_playing_state(void)
+{
+    bool result = false;
+    for (uint8_t i = 0; i < BT_SINK_SRV_CALL_PSD_NUM; i++) {
+        if(bt_sink_srv_call_psd_is_playing(&bt_sink_srv_call_pseudo_dev[i]) == true) {
+            result = true;
+            break;
+        }
+    }
+    bt_sink_srv_report_id("[CALL][PSD][MGR]get playing state, %d", 1, result);
     return result;
 }
 
@@ -298,6 +312,39 @@ uint64_t bt_sink_srv_call_psd_get_device_id(void *device)
     return dev->audio_src->dev_id;
 }
 
+void bt_sink_srv_call_psd_enable_sidetone(void *device)
+{
+    bt_sink_srv_call_pseudo_dev_t *dev = (bt_sink_srv_call_pseudo_dev_t *)device;
+
+    bt_utils_assert(dev);
+    bt_utils_assert(dev->audio_src);
+    bt_sink_srv_report_id("[CALL][PSD][MGR]enable sidetone, device: 0x%x flag: 0x%x", 2, dev, dev->flag);
+
+    if ((!bt_sink_srv_call_get_sidetone_enable_config()) ||
+        (dev->flag & BT_SINK_SRV_CALL_PSD_FLAG_ENABLE_SIDETONE)) {
+        return;
+    }
+
+    if (dev->audio_src->state == AUDIO_SRC_SRV_STATE_PLAYING &&
+        (dev->audio_src->substate == BT_SINK_SRV_CALL_PSD_SUB_STATE_CODEC_STARTING || dev->audio_src->substate == BT_SINK_SRV_CALL_PSD_SUB_STATE_PLAYING)) {
+        dev->flag |= BT_SINK_SRV_CALL_PSD_FLAG_ENABLE_SIDETONE;
+        bt_sink_srv_call_audio_side_tone_enable();
+    }
+}
+
+void bt_sink_srv_call_psd_disable_sidetone(void *device)
+{
+    bt_sink_srv_call_pseudo_dev_t *dev = (bt_sink_srv_call_pseudo_dev_t *)device;
+
+    bt_utils_assert(dev);
+    bt_sink_srv_report_id("[CALL][PSD][MGR]disable sidetone, device: 0x%x flag: 0x%x", 2, dev, dev->flag);
+
+    if (dev->flag & BT_SINK_SRV_CALL_PSD_FLAG_ENABLE_SIDETONE) {
+        dev->flag &= ~BT_SINK_SRV_CALL_PSD_FLAG_ENABLE_SIDETONE;
+        bt_sink_srv_call_audio_side_tone_disable();
+    }
+}
+
 static bt_sink_srv_call_pseudo_dev_t *bt_sink_srv_call_psd_get_ready_dev(void)
 {
     bt_sink_srv_call_pseudo_dev_t *dev = NULL;
@@ -412,7 +459,9 @@ static void bt_sink_srv_call_psd_play(audio_src_srv_handle_t *handle)
         dev->user_cb(BT_SINK_SRV_CALL_PSD_EVENT_IS_SCO_ACTIVATED, (void *)dev, (void *)&sco_activated);
         if (sco_state == BT_SINK_SRV_SCO_CONNECTION_STATE_CONNECTED) {
             dev->audio_type = BT_SINK_SRV_CALL_AUDIO_SCO;
-            dev->next_state = BT_SINK_SRV_CALL_PSD_NEXT_STATE_ACTIVATE_SCO;
+            if (!sco_activated) {
+                dev->next_state = BT_SINK_SRV_CALL_PSD_NEXT_STATE_ACTIVATE_SCO;
+            }
         } else {
             dev->audio_type = BT_SINK_SRV_CALL_AUDIO_NULL;
         }
@@ -447,6 +496,7 @@ static void bt_sink_srv_call_psd_play(audio_src_srv_handle_t *handle)
     if (BT_SINK_SRV_CALL_AUDIO_SCO  == dev->audio_type ||
         BT_SINK_SRV_CALL_AUDIO_RING == dev->audio_type ||
         BT_SINK_SRV_CALL_AUDIO_NULL == dev->audio_type) {
+        dev->user_cb(BT_SINK_SRV_CALL_PSD_EVENT_SWITCH_AWS_LINK, dev, NULL);
         bt_sink_srv_call_psd_update_state(handle, AUDIO_SRC_SRV_EVT_PLAYING);
         bt_sink_srv_call_psd_update_sub_state(handle, BT_SINK_SRV_CALL_PSD_SUB_STATE_MIC_RES_TAKING);
 
@@ -591,7 +641,7 @@ static void bt_sink_srv_call_psd_stop_int(bt_sink_srv_call_pseudo_dev_t *dev)
     bt_sink_srv_report_id("[CALL][PSD][MGR]dev stop int, type:0x%x", 1, dev->audio_type);
     bt_sink_srv_call_psd_update_sub_state(dev->audio_src, BT_SINK_SRV_CALL_PSD_SUB_STATE_CODEC_STOPPING);
     if (dev->audio_type == BT_SINK_SRV_CALL_AUDIO_SCO) {
-        bt_sink_srv_call_audio_side_tone_disable();
+        bt_sink_srv_call_psd_disable_sidetone((void *)dev);
     }
     if (!bt_sink_srv_call_audio_stop(dev->audio_id)) {
         bt_utils_assert(0);
@@ -1060,9 +1110,14 @@ static void bt_sink_srv_call_psd_state_prepare_play(
         break;
 
         case BT_SINK_SRV_CALL_EVENT_CALL_END_IND: {
-            bt_sink_srv_call_psd_set_next_state(dev, BT_SINK_SRV_CALL_PSD_NEXT_STATE_INIT);
+            bt_sink_srv_sco_connection_state_t sco_state = BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED;
+            dev->user_cb(BT_SINK_SRV_CALL_PSD_EVENT_GET_SCO_STATE, (void *)dev, (void *)&sco_state);
             bt_sink_srv_call_psd_update_sub_state(dev->audio_src, BT_SINK_SRV_CALL_PSD_SUB_STATE_NONE);
-            bt_sink_srv_call_psd_update_state(dev->audio_src, AUDIO_SRC_SRV_EVT_PREPARE_STOP);
+            if (sco_state != BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED) {
+                bt_sink_srv_call_psd_set_next_state(dev, BT_SINK_SRV_CALL_PSD_NEXT_STATE_PLAY_SCO);
+            } else {
+                bt_sink_srv_call_psd_set_next_state(dev, BT_SINK_SRV_CALL_PSD_NEXT_STATE_READY);
+            }
         }
         break;
 
@@ -1620,14 +1675,21 @@ static void bt_sink_srv_call_psd_state_prepare_stop(
         break;
 
         case BT_SINK_SRV_CALL_EVENT_STOP_CODEC_IND: {
-            bt_sink_srv_call_psd_set_sub_state(dev, BT_SINK_SRV_CALL_PSD_SUB_STATE_NONE);
-            bt_sink_srv_call_psd_run_next_state_in_prepare_stop(dev);
+            if (dev->flag & BT_SINK_SRV_CALL_PSD_FLAG_SCO_ACTIVED) {
+                bt_sink_srv_call_psd_set_sub_state(dev, BT_SINK_SRV_CALL_PSD_SUB_STATE_SCO_DEACTIVATING);
+                dev->user_cb(BT_SINK_SRV_CALL_PSD_EVENT_DEACTIVATE_SCO, (void *)dev, NULL);
+            } else {
+                /*sco is disconnectd*/
+                bt_sink_srv_call_psd_set_sub_state(dev, BT_SINK_SRV_CALL_PSD_SUB_STATE_NONE);
+                bt_sink_srv_call_psd_run_next_state_in_prepare_stop(dev);
+            }
         }
         break;
 
         case BT_SINK_SRV_CALL_EVENT_PLAY_CODEC_IND: {
-            bt_sink_srv_call_psd_set_sub_state(dev, BT_SINK_SRV_CALL_PSD_SUB_STATE_NONE);
-            bt_sink_srv_call_psd_run_next_state_in_prepare_stop(dev);
+            if(dev->flag & BT_SINK_SRV_CALL_PSD_FLAG_SUSPEND) {
+                bt_sink_srv_call_psd_stop_int(dev);
+            }
         }
         break;
 
@@ -1656,6 +1718,20 @@ static void bt_sink_srv_call_psd_state_prepare_stop(
                     (sco_state != BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED)) {
                     bt_sink_srv_call_psd_add_waiting_list(dev);
                 }
+            } else if (dev->audio_src->substate == BT_SINK_SRV_CALL_PSD_SUB_STATE_SCO_ACTIVATING) {
+                if (dev->flag & BT_SINK_SRV_CALL_PSD_FLAG_TAKED_MIC_RESOURCE) {
+                    bt_sink_srv_call_psd_release_mic_resource(dev);
+                }
+                bt_sink_srv_call_psd_set_next_state(dev, BT_SINK_SRV_CALL_PSD_NEXT_STATE_READY);
+                if (dev->flag & BT_SINK_SRV_CALL_PSD_FLAG_SCO_ACTIVED) {
+                    bt_sink_srv_call_psd_set_sub_state(dev, BT_SINK_SRV_CALL_PSD_SUB_STATE_SCO_DEACTIVATING);
+                    dev->user_cb(BT_SINK_SRV_CALL_PSD_EVENT_DEACTIVATE_SCO, (void *)dev, NULL);
+                }  
+            } else if (dev->audio_src->substate == BT_SINK_SRV_CALL_PSD_SUB_STATE_CODEC_STARTING) {
+                bt_sink_srv_call_psd_set_next_state(dev, BT_SINK_SRV_CALL_PSD_NEXT_STATE_READY);
+                if (dev->flag & BT_SINK_SRV_CALL_PSD_FLAG_CODEC_STARTED) {
+                    bt_sink_srv_call_psd_stop_int(dev);
+                }
             }
         }
         break;
@@ -1671,6 +1747,14 @@ static void bt_sink_srv_call_psd_state_prepare_stop(
                 bt_sink_srv_call_psd_set_sub_state(dev, BT_SINK_SRV_CALL_PSD_SUB_STATE_NONE);
                 bt_sink_srv_call_psd_run_next_state_in_prepare_stop(dev);
             }
+        }
+        break;
+
+        case BT_SINK_SRV_CALL_EVENT_SCO_ACTIVATED: {
+             if(dev->flag & BT_SINK_SRV_CALL_PSD_FLAG_SUSPEND) {
+                bt_sink_srv_call_psd_set_sub_state(dev, BT_SINK_SRV_CALL_PSD_SUB_STATE_SCO_DEACTIVATING);
+                dev->user_cb(BT_SINK_SRV_CALL_PSD_EVENT_DEACTIVATE_SCO, (void *)dev, NULL);
+             }
         }
         break;
 

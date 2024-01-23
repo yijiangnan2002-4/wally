@@ -831,6 +831,16 @@ audio_anc_control_result_t audio_anc_control_get_runtime_gain(audio_anc_control_
 audio_anc_control_result_t audio_anc_control_set_runtime_gain(audio_anc_control_gain_t runtime_gain, audio_anc_control_type_t type);
 
 /**
+ * @brief     This function is used to obtain the extend ramp gain in the ANC path.
+ * @param[in] gain_type parameter specifies the type of ANC extend ramp gain that user wants to retrieve.
+ * @param[out] *gain_cap parameter will save the current value of ANC extend ramp gain.
+ * @param[in] *control_misc parameter is an additional parameter for extended use.
+ * @return    Return AUDIO_ANC_CONTROL_EXECUTION_SUCCESS if the operation is successful; otherwise, an error occurs.
+ * @sa        #audio_anc_control_get_extend_gain()
+ */
+audio_anc_control_result_t audio_anc_control_get_extend_gain(audio_anc_control_extend_ramp_gain_type_t gain_type, audio_anc_control_extend_ramp_cap_t *gain_cap, audio_anc_control_misc_t *control_misc);
+
+/**
  * @brief     This function is used to set the extend ramp gain in ANC path.
  * @param[in] gain_type is whitch ANC extend ramp type user wants to set the extend ramp gain is.
  * @param[in] *gain_cap is the ANC extend ramp gain capability which user wants to be set.

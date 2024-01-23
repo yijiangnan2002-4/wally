@@ -79,13 +79,13 @@ voice_prompt_status_t voice_prompt_init(voice_prompt_play_callback_t common_call
     return VP_STATUS_FAIL;
 #endif
 
-    if (g_voice_prompt_ctx.state != VIOCE_PROMPT_STAT_NONE) {
+    if (g_voice_prompt_ctx.state != VOICE_PROMPT_STAT_NONE) {
         //VP_LOG_MSGID_E(LOG_TAG" already inited !", 0);
         return VP_STATUS_FAIL;
     }
 
     VP_LOG_MSGID_I(LOG_TAG" init", 0);
-    voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+    voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
     g_voice_prompt_ctx.common_callback = common_callback;
 
     voice_prompt_queue_init();
@@ -132,7 +132,7 @@ static void voice_prompt_main_local_play(voice_prompt_list_item_t *item, uint32_
     }
 
     item->state = VP_ITEM_STATE_PLAYING;
-    voice_prompt_main_set_state(VIOCE_PROMPT_STAT_PLAYING);
+    voice_prompt_main_set_state(VOICE_PROMPT_STAT_PLAYING);
 
     status = voice_prompt_local_play(item->vp_index, tar_gpt);
     if (status == VP_STATUS_FILE_NOT_FOUND) {
@@ -143,7 +143,7 @@ static void voice_prompt_main_local_play(voice_prompt_list_item_t *item, uint32_
     if (status != VP_STATUS_SUCCESS) {
         VP_LOG_MSGID_E(LOG_TAG" play item fail status %d, delete", 1, status);
         voice_prompt_queue_delete(0);
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
         ui_realtime_send_msg(UI_REALTIME_MSG_TYPE_VP, UI_REALTIME_MSG_PROC_NEXT, NULL);
     }
 }
@@ -178,14 +178,14 @@ static void voice_prompt_main_sync_play(voice_prompt_list_item_t *item, bool fir
 
     status = voice_prompt_aws_sync_play(&param, delay, &tar_gpt);
 
-    if (status == VP_STATUS_AWS_IF_LOCEKD) {
+    if (status == VP_STATUS_AWS_IF_LOCKED) {
         VP_LOG_MSGID_I(LOG_TAG" sync_play IF locked", 0);
         if (first_time) {
             item->state = VP_ITEM_STATE_WAIT_SYNC_PLAY;
         } else {
             item->state = VP_ITEM_STATE_WAIT_SYNC_LOOP;
         }
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_WAIT_IF_UNLOCK);
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_WAIT_IF_UNLOCK);
         return;
     }
 
@@ -194,7 +194,7 @@ static void voice_prompt_main_sync_play(voice_prompt_list_item_t *item, bool fir
         if (item->control & VOICE_PROMPT_CONTROL_MASK_SYNC_FAIL_NOT_PLAY) {
             VP_LOG_MSGID_I(LOG_TAG" sync_play fail not local play", 0);
             voice_prompt_queue_delete(0);
-            voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+            voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
             ui_realtime_send_msg(UI_REALTIME_MSG_TYPE_VP, UI_REALTIME_MSG_PROC_NEXT, NULL);
             return;
         }
@@ -225,7 +225,7 @@ static void voice_prompt_main_proc_item(voice_prompt_list_item_t *item, bool fir
 
     voice_prompt_main_noti(item->callback, item->vp_index, VP_EVENT_READY);
 
-    if (g_voice_prompt_ctx.state == VIOCE_PROMPT_STAT_PLAYING || g_voice_prompt_ctx.state == VIOCE_PROMPT_STAT_STOPING) {
+    if (g_voice_prompt_ctx.state == VOICE_PROMPT_STAT_PLAYING || g_voice_prompt_ctx.state == VOICE_PROMPT_STAT_STOPPING) {
         //VP_LOG_MSGID_E(LOG_TAG" proc item, state wrong %d", 1, g_voice_prompt_ctx.state);
         assert(0);
     }
@@ -240,17 +240,17 @@ static void voice_prompt_main_proc_item(voice_prompt_list_item_t *item, bool fir
     }
 
     if (sync) {
-        if (g_voice_prompt_ctx.state == VIOCE_PROMPT_STAT_SNIFF_EXITING || g_voice_prompt_ctx.state == VIOCE_PROMPT_STAT_WAIT_IF_UNLOCK) {
+        if (g_voice_prompt_ctx.state == VOICE_PROMPT_STAT_SNIFF_EXITING || g_voice_prompt_ctx.state == VOICE_PROMPT_STAT_WAIT_IF_UNLOCK) {
             VP_LOG_MSGID_I(LOG_TAG" proc item sync, state pending %d", 1, g_voice_prompt_ctx.state);
             item->state = VP_ITEM_STATE_WAIT_SYNC_PLAY;
             return;
         } else {
             voice_prompt_aws_state_t aws_state = voice_prompt_aws_get_state();
             //VP_LOG_MSGID_I(LOG_TAG" proc item sync, aws state %d", 1, aws_state);
-            if (aws_state == VOICE_PROMP_AWS_STATE_SNIFF) {
+            if (aws_state == VOICE_PROMPT_AWS_STATE_SNIFF) {
                 if (VP_STATUS_SNIFF_EXITING == voice_prompt_aws_exit_sniff()) {
                     item->state = VP_ITEM_STATE_WAIT_SYNC_PLAY;
-                    voice_prompt_main_set_state(VIOCE_PROMPT_STAT_SNIFF_EXITING);
+                    voice_prompt_main_set_state(VOICE_PROMPT_STAT_SNIFF_EXITING);
                     return;
                 }
             }
@@ -274,15 +274,15 @@ static void voice_prompt_main_proc_item(voice_prompt_list_item_t *item, bool fir
 static void voice_prompt_main_local_stop(uint8_t idx, voice_prompt_list_item_t *item, uint32_t tar_gpt)
 {
     VP_LOG_MSGID_I(LOG_TAG" voice_prompt_main_local_stop item->sta=%d", 1, item->state);
-    if (item->state == VP_ITEM_STATE_STOPING) {
+    if (item->state == VP_ITEM_STATE_STOPPING) {
         /* The state already in stopping */;
     } else if (item->state < VP_ITEM_STATE_PLAYING) {
         voice_prompt_queue_delete(idx);
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
         ui_realtime_send_msg(UI_REALTIME_MSG_TYPE_VP, UI_REALTIME_MSG_PROC_NEXT, NULL);
     } else {
-        item->state = VP_ITEM_STATE_STOPING;
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_STOPING);
+        item->state = VP_ITEM_STATE_STOPPING;
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_STOPPING);
         voice_prompt_local_stop(tar_gpt);
     }
 
@@ -294,14 +294,14 @@ static void voice_prompt_main_sync_stop(uint8_t idx, voice_prompt_list_item_t *i
     voice_prompt_status_t status;
     uint32_t tar_gpt = 0;
 
-    if (VIOCE_PROMPT_STAT_WAIT_IF_UNLOCK == g_voice_prompt_ctx.state) {
+    if (VOICE_PROMPT_STAT_WAIT_IF_UNLOCK == g_voice_prompt_ctx.state) {
         VP_LOG_MSGID_I(LOG_TAG" stop_item sync IF locked", 0);
         item->state = VP_ITEM_STATE_WAIT_SYNC_STOP;
     }
     status = voice_prompt_aws_sync_stop(item->vp_index, preempted, &tar_gpt);
-    if (status == VP_STATUS_AWS_IF_LOCEKD) {
+    if (status == VP_STATUS_AWS_IF_LOCKED) {
         item->state = VP_ITEM_STATE_WAIT_SYNC_STOP;
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_WAIT_IF_UNLOCK);
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_WAIT_IF_UNLOCK);
         return;
     } else if (status != VP_STATUS_SUCCESS) {
         voice_prompt_main_noti(item->callback, item->vp_index, VP_EVENT_SYNC_STOP_FAIL);
@@ -338,24 +338,24 @@ static void voice_prompt_main_stop_item(uint8_t idx, voice_prompt_list_item_t *i
         return;
     }
 
-    if (item->state == VP_ITEM_STATE_STOPING || item->state == VP_ITEM_STATE_WAIT_SYNC_STOP) {
+    if (item->state == VP_ITEM_STATE_STOPPING || item->state == VP_ITEM_STATE_WAIT_SYNC_STOP) {
         //VP_LOG_MSGID_W(LOG_TAG" already in stop progress", 0);
         return;
     }
 
 #ifdef VOICE_PROMPT_SYNC_ENABLE
     if (sync) {
-        if (g_voice_prompt_ctx.state == VIOCE_PROMPT_STAT_SNIFF_EXITING || g_voice_prompt_ctx.state == VIOCE_PROMPT_STAT_WAIT_IF_UNLOCK) {
+        if (g_voice_prompt_ctx.state == VOICE_PROMPT_STAT_SNIFF_EXITING || g_voice_prompt_ctx.state == VOICE_PROMPT_STAT_WAIT_IF_UNLOCK) {
             VP_LOG_MSGID_I(LOG_TAG" stop_item sync, state pending %d", 1, g_voice_prompt_ctx.state);
             item->state = VP_ITEM_STATE_WAIT_SYNC_STOP;
             return;
         } else {
             voice_prompt_aws_state_t aws_state = voice_prompt_aws_get_state();
             VP_LOG_MSGID_I(LOG_TAG" proc item sync, aws state %d", 1, aws_state);
-            if (aws_state == VOICE_PROMP_AWS_STATE_SNIFF) {
+            if (aws_state == VOICE_PROMPT_AWS_STATE_SNIFF) {
                 if (VP_STATUS_SNIFF_EXITING == voice_prompt_aws_exit_sniff()) {
                     item->state = VP_ITEM_STATE_WAIT_SYNC_STOP;
-                    voice_prompt_main_set_state(VIOCE_PROMPT_STAT_SNIFF_EXITING);
+                    voice_prompt_main_set_state(VOICE_PROMPT_STAT_SNIFF_EXITING);
                     return;
                 }
             }
@@ -400,7 +400,7 @@ static void voice_prompt_main_all_play_end()
     voice_prompt_aws_unlock_sleep();
     voice_prompt_aws_enable_sniff(true);
 #endif
-    voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+    voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
 }
 
 static void voice_prompt_msg_hdl_proc_next()
@@ -449,7 +449,7 @@ static void voice_prompt_main_new_vp(voice_prompt_msg_set_vp_t *vp, bool synced)
     VP_LOG_MSGID_I(LOG_TAG" new_vp, cur_num %d, cur_state %d", 2, cur_num, g_voice_prompt_ctx.state);
 
     if (cur_num == 0) {
-        if (VIOCE_PROMPT_STAT_INIT != g_voice_prompt_ctx.state) {
+        if (VOICE_PROMPT_STAT_INIT != g_voice_prompt_ctx.state) {
             assert(0);
         }
         /* Put in queue and play the incoming. */
@@ -475,7 +475,7 @@ static void voice_prompt_main_new_vp(voice_prompt_msg_set_vp_t *vp, bool synced)
         if (cur_num == 1) {
             if (vp->param.control & VOICE_PROMPT_CONTROL_MASK_PREEMPT) {
                 /* The incoming vp want to preempted. */
-                if ((cur_item->control & VOICE_PROMPT_CONTROL_MASK_NO_PREEMPTED) || (cur_item->state == VP_ITEM_STATE_STOPING)) {
+                if ((cur_item->control & VOICE_PROMPT_CONTROL_MASK_NO_PREEMPTED) || (cur_item->state == VP_ITEM_STATE_STOPPING)) {
                     /* If the current item not allow preempted, or it is already in stopping, just put the incoming in queue. */
                     VP_LOG_MSGID_I(LOG_TAG" new_vp, cur not allow preempted or stopping, put in queue", 0);
                     voice_prompt_queue_push(&(vp->param), vp->play_id, synced);
@@ -509,7 +509,7 @@ static void voice_prompt_main_new_vp(voice_prompt_msg_set_vp_t *vp, bool synced)
                     VP_LOG_MSGID_I(LOG_TAG" new_vp, insert after current", 0);
                     if (voice_prompt_queue_insert_after(&(vp->param), vp->play_id, synced, 0) == VP_QUEUE_SUCCESS) {
 
-                        if (cur_item->state != VP_ITEM_STATE_STOPING) {
+                        if (cur_item->state != VP_ITEM_STATE_STOPPING) {
                             /* Insert to the head, so stop the current item. */
                             VP_LOG_MSGID_I(LOG_TAG" new_vp, stop current", 0);
                             voice_prompt_main_stop_item(0, cur_item, true, (cur_item->control & VOICE_PROMPT_CONTROL_MASK_SYNC));
@@ -573,9 +573,9 @@ static void voice_prompt_msg_hdl_play_peer(voice_prompt_param_t *param)
         assert(0);
     }
 
-    if (voice_prompt_aws_play_peer(param) == VP_STATUS_AWS_IF_LOCEKD) {
+    if (voice_prompt_aws_play_peer(param) == VP_STATUS_AWS_IF_LOCKED) {
 #if 0
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_WAIT_IF_UNLOCK);
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_WAIT_IF_UNLOCK);
 #endif
     }
 
@@ -605,9 +605,9 @@ static void voice_prompt_msg_hdl_stop_vp(voice_prompt_stop_t *data)
 
 #ifdef VOICE_PROMPT_SYNC_ENABLE
     if (data->on_peer) {
-        if (voice_prompt_aws_stop_peer(data->vp_index, data->sync) == VP_STATUS_AWS_IF_LOCEKD) {
+        if (voice_prompt_aws_stop_peer(data->vp_index, data->sync) == VP_STATUS_AWS_IF_LOCKED) {
 #if 0
-            voice_prompt_main_set_state(VIOCE_PROMPT_STAT_WAIT_IF_UNLOCK);
+            voice_prompt_main_set_state(VOICE_PROMPT_STAT_WAIT_IF_UNLOCK);
 #endif
         }
     } else
@@ -618,7 +618,7 @@ static void voice_prompt_msg_hdl_stop_vp(voice_prompt_stop_t *data)
             if (cur_item->vp_index != data->vp_index) {
                 voice_prompt_queue_delete_by_vp_index(data->vp_index);
             } else {
-                voice_prompt_queue_delete_by_vp_index_expcur(data->vp_index);
+                voice_prompt_queue_delete_by_vp_index_skip_cur(data->vp_index);
                 voice_prompt_main_stop_item(0, cur_item, false, data->sync);
             }
         } else {
@@ -669,8 +669,8 @@ void voice_prompt_msg_hdl_lang_set(voice_prompt_set_lang_t *data)
     if (data->sync) {
         voice_prompt_aws_sync_language(data->lang_idx, data->codec);
 #if 0
-        if (status ==  VP_STATUS_AWS_IF_LOCEKD) {
-            voice_prompt_main_set_state(VIOCE_PROMPT_STAT_WAIT_IF_UNLOCK);
+        if (status ==  VP_STATUS_AWS_IF_LOCKED) {
+            voice_prompt_main_set_state(VOICE_PROMPT_STAT_WAIT_IF_UNLOCK);
         }
 #endif
     }
@@ -728,10 +728,10 @@ static void voice_prompt_msg_hdl_play_end()
     if (!loop || cur_item->state > VP_ITEM_STATE_PLAYING) {
         voice_prompt_main_noti(cur_item->callback, cur_item->vp_index, VP_EVENT_PLAY_END);
         voice_prompt_queue_delete(0);
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
         voice_prompt_msg_hdl_proc_next();
     } else {
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
         /* Delay to ensure partner play end. */
         if (cur_item->control & VOICE_PROMPT_CONTROL_MASK_SYNC) {
             vTaskDelay(50);
@@ -755,7 +755,7 @@ void voice_prompt_msg_hdl_sniff_change(voice_prompt_sniff_change_t *data)
 
     if (cur_item == NULL) {
         //VP_LOG_MSGID_W(LOG_TAG" hdl_sniff_change, queue NULL", 0);
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
         vPortFree((void *)data);
         return;
     }
@@ -807,7 +807,7 @@ void voice_prompt_msg_hdl_synced_stop(voice_prompt_synced_stop_t *data)
     if (cur_item->vp_index != data->vp_index) {
         voice_prompt_queue_delete_by_vp_index(data->vp_index);
     } else {
-        voice_prompt_queue_delete_by_vp_index_expcur(data->vp_index);
+        voice_prompt_queue_delete_by_vp_index_skip_cur(data->vp_index);
         voice_prompt_main_local_stop(0, cur_item, data->tar_gpt);
     }
 
@@ -829,13 +829,13 @@ static void voice_prompt_msg_hdl_if_unlock()
 
     if (cur_item->state == VP_ITEM_STATE_WAIT_SYNC_PLAY || cur_item->state == VP_ITEM_STATE_WAIT_SYNC_LOOP) {
         if (VP_STATUS_SNIFF_EXITING == voice_prompt_aws_exit_sniff()) {
-            voice_prompt_main_set_state(VIOCE_PROMPT_STAT_SNIFF_EXITING);
+            voice_prompt_main_set_state(VOICE_PROMPT_STAT_SNIFF_EXITING);
             return;
         }
         voice_prompt_main_sync_play(cur_item, (cur_item->state == VP_ITEM_STATE_WAIT_SYNC_PLAY) ? true : false);
     } else if (cur_item->state == VP_ITEM_STATE_WAIT_SYNC_STOP || cur_item->state == VP_ITEM_STATE_WAIT_SYNC_PREEMPT) {
         if (VP_STATUS_SNIFF_EXITING == voice_prompt_aws_exit_sniff()) {
-            voice_prompt_main_set_state(VIOCE_PROMPT_STAT_SNIFF_EXITING);
+            voice_prompt_main_set_state(VOICE_PROMPT_STAT_SNIFF_EXITING);
             return;
         }
         voice_prompt_main_sync_stop(0, cur_item, (cur_item->state == VP_ITEM_STATE_WAIT_SYNC_PREEMPT) ? true : false);
@@ -850,7 +850,7 @@ static void voice_prompt_msg_hdl_if_timeout()
 
     if (cur_item == NULL) {
         //VP_LOG_MSGID_W(LOG_TAG" hdl_if_timeout, curr no item", 0);
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
         return;
     }
 
@@ -863,7 +863,7 @@ static void voice_prompt_msg_hdl_if_timeout()
         if (cur_item->control & VOICE_PROMPT_CONTROL_MASK_SYNC_FAIL_NOT_PLAY) {
             /* Delete. */
             voice_prompt_queue_delete(0);
-            voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+            voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
             ui_realtime_send_msg(UI_REALTIME_MSG_TYPE_VP, UI_REALTIME_MSG_PROC_NEXT, NULL);
         } else {
             /* Local play. */
@@ -881,7 +881,7 @@ static void voice_prompt_msg_hdl_if_timeout()
         voice_prompt_main_noti(cur_item->callback, cur_item->vp_index, VP_EVENT_SYNC_STOP_FAIL);
         voice_prompt_main_local_stop(0, cur_item, 0);
     } else {
-        //voice_prompt_main_set_state(VIOCE_PROMPT_STAT_INIT);
+        //voice_prompt_main_set_state(VOICE_PROMPT_STAT_INIT);
     }
 }
 
@@ -889,9 +889,9 @@ static void voice_prompt_msg_hdl_remote_disc()
 {
     voice_prompt_aws_hdl_remote_disconnect();
 
-    if (g_voice_prompt_ctx.state == VIOCE_PROMPT_STAT_SNIFF_EXITING) {
+    if (g_voice_prompt_ctx.state == VOICE_PROMPT_STAT_SNIFF_EXITING) {
         /* When smart phone all disconnect, AWS will try to switch to special, so set state to wait IF unlock. */
-        voice_prompt_main_set_state(VIOCE_PROMPT_STAT_WAIT_IF_UNLOCK);
+        voice_prompt_main_set_state(VOICE_PROMPT_STAT_WAIT_IF_UNLOCK);
     }
 }
 #endif
@@ -903,7 +903,7 @@ void voice_prompt_msg_handle(uint16_t msg_id, void *data)
     return;
 #endif
 
-    if (g_voice_prompt_ctx.state == VIOCE_PROMPT_STAT_NONE) {
+    if (g_voice_prompt_ctx.state == VOICE_PROMPT_STAT_NONE) {
         //VP_LOG_MSGID_E(LOG_TAG" msg_hdl, VP has not inited!", 0);
         return;
     }

@@ -230,6 +230,12 @@ bt_handle_t bt_sink_srv_cap_stream_get_service_ble_link(void);
  */
 bt_handle_t bt_sink_srv_cap_stream_get_ble_link_with_cis_established(void);
 
+/**
+ * @brief                       This function is checks CIS is streaming under specified BLE link.
+ * @return                      #true, CIS is streaming.
+ *                              #false, CIS is not streaming.
+ */
+bool bt_sink_srv_cap_stream_is_cis_streaming(bt_handle_t le_handle);
 
 /**
  * @brief                       This function is used to get default BMR scan information.

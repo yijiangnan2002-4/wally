@@ -87,6 +87,7 @@ AIR_SMT_SPK_TO_MIC_TEST_ENABLE ?= $(MTK_SMT_AUDIO_TEST)
 AIR_UPLINK_RATE                       ?= none
 AIR_UPLINK_RESOLUTION                 ?= none
 AIR_DOWNLINK_RATE                     ?= none
+AIR_FIX_HFP_DL_STREAM_RATE            ?= none
 AIR_MP3_TASK_DEDICATE_ENABLE = y
 
 AIR_HEARING_AID_ENABLE                ?= n
@@ -614,11 +615,11 @@ AIR_OPUS_DECODER_ENABLE = y
 endif
 
 ifeq ($(AIR_HAL_EXTERNAL_RAM_TYPE),esc_psram)
-CCFLAG += -DESC_PSRAM_ENABLE
+COM_CFLAGS += -DESC_PSRAM_ENABLE
 endif
 
 ifeq ($(AIR_HAL_EXTERNAL_FLASH_TYPE),esc_flash)
-CCFLAG += -DESC_FLASH_ENABLE
+COM_CFLAGS += -DESC_FLASH_ENABLE
 endif
 
 ##
@@ -1148,7 +1149,9 @@ endif
 ##
 ifeq ($(AIR_BT_CODEC_ENABLED),y)
 CFLAGS += -DAIR_BT_CODEC_ENABLED
+ifeq ($(AIR_BT_HFP_ENABLE), y)
 CFLAGS += -DAIR_HFP_FEATURE_MODE_ENABLE
+endif
 endif
 
 ##
@@ -1294,9 +1297,6 @@ AIR_LOW_LATENCY_MUX_ENABLE = y
 AIR_LINE_OUT_USE_DAC_ENABLE = y
 AIR_DCHS_MODE_ENABLE = y
 else
-AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE = y
-AIR_WIRED_AUDIO_ENABLE = y
-#AIR_AUDIO_DETACHABLE_MIC_ENABLE = y
 endif
 endif
 
@@ -1307,8 +1307,6 @@ CFLAGS  += -DAIR_DCHS_MODE_SLAVE_ENABLE
 AIR_LOW_LATENCY_MUX_ENABLE = y
 AIR_DCHS_MODE_ENABLE = y
 else
-AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE = y
-AIR_WIRED_AUDIO_ENABLE = y
 endif
 endif
 
@@ -1331,16 +1329,10 @@ endif
 
 ifeq ($(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE),y)
 CFLAGS  += -DAIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE
-CFLAGS  += -DAIR_AUDIO_HW_LOOPBACK_ENABLE
-CFLAGS  += -DAIR_DUAL_CHIP_NR_ON_MASTER_ENABLE
 endif
 
 ifeq ($(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE),y)
 CFLAGS  += -DAIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE
-CFLAGS  += -DAIR_HWSRC_RX_TRACKING_ENABLE
-CFLAGS  += -DAIR_HWSRC_TX_TRACKING_ENABLE
-CFLAGS  += -DAIR_DUAL_CHIP_I2S_ENABLE
-CFLAGS  += -DAIR_AUDIO_HW_LOOPBACK_ENABLE
 endif
 
 ##
@@ -1423,6 +1415,68 @@ CFLAGS += -DAIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ
 endif
 
 ##
+## AIR_HFP_DL_STREAM_RATE
+## Brief:       This option is to choose the HFP stream rate.
+## Usage:       The valid values are dynamic, 48k, 96k.
+##              The setting will determine which rate of processing stream will be used.
+##              dynamic : HFP stream rate will be handled by scenario itself.
+##              48k     : HFP stream rate will be fixed in 48k Hz.
+##              96k     : HFP stream rate will be fixed in 96k Hz.
+## Path:        mcu/driver/chip/$(IC_TYPE)
+## Dependency:  None
+## Notice:      None
+##
+ifeq ($(AIR_HFP_DL_STREAM_RATE),48k)
+CFLAGS += -DAIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ
+endif
+
+ifeq ($(AIR_HFP_DL_STREAM_RATE),96k)
+CFLAGS += -DAIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ
+endif
+
+##
+## AIR_A2DP_DL_STREAM_RATE_FIX
+## Brief:       This option is to choose the A2DP stream rate.
+## Usage:       The valid values are none, 48k, 96k.
+##              The setting will determine which rate of processing stream will be used.
+##              dynamic : A2DP stream rate will be handled by scenario itself.
+##              48k     : A2DP stream rate will be fixed in 48k Hz.
+##              96k     : A2DP stream rate will be fixed in 96k Hz.
+## Path:        mcu/driver/chip/$(IC_TYPE)
+## Dependency:  None
+## Notice:      None
+##
+ifeq ($(AIR_A2DP_DL_STREAM_RATE),48k)
+CFLAGS += -DAIR_A2DP_DL_STREAM_RATE_FIX_TO_48KHZ
+CFLAGS += -DAIR_HWSRC_IN_STREAM_ENABLE
+endif
+
+ifeq ($(AIR_A2DP_DL_STREAM_RATE),96k)
+CFLAGS += -DAIR_A2DP_DL_STREAM_RATE_FIX_TO_96KHZ
+CFLAGS += -DAIR_HWSRC_IN_STREAM_ENABLE
+endif
+
+##
+## AIR_LE_CALL_DL_STREAM_RATE_FIX
+## Brief:       This option is to choose the LE Call stream rate.
+## Usage:       The valid values are none, 48k, 96k.
+##              The setting will determine which rate of processing stream will be used.
+##              none    : LE Call stream rate will be handled by scenario itself.
+##              48k     : LE Call stream rate will be fixed in 48k Hz.
+##              96k     : LE Call stream rate will be fixed in 96k Hz.
+## Path:        dsp/driver/chip/$(IC_TYPE)
+## Dependency:  None
+## Notice:      None
+##
+ifeq ($(AIR_LE_CALL_DL_STREAM_RATE_FIX),48k)
+CFLAGS += -DAIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k
+endif
+
+ifeq ($(AIR_LE_CALL_DL_STREAM_RATE_FIX),96k)
+CFLAGS += -DAIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k
+endif
+
+##
 ## AIR_SURROUND_AUDIO_ENABLE
 ## Brief:       Internal use.
 ## Notice:      AIR_SURROUND_AUDIO_ENABLE is a option to enabled surround audio effect.
@@ -1468,6 +1522,33 @@ endif
 ifeq ($(AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE_ENABLE),y)
 CFLAGS += -DHAL_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
 CFLAGS += -DAIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
+endif
+
+##
+## AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE is a option to enable multiple stream out.
+##
+ifeq ($(AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE),y)
+CFLAGS += -DAIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+endif
+
+##
+## AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE is a option to enable multiple stream out: 3I2S.
+##
+ifeq ($(AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE),y)
+CFLAGS += -DAIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE
+endif
+
+##
+## AIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE is a option to enable multiple stream out: 1DAC+1I2S.
+##
+ifeq ($(AIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE),y)
+CFLAGS += -DAIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE
 endif
 
 ##
@@ -1900,6 +1981,14 @@ CFLAGS += -DAIR_DUAL_CHIP_I2S_ENABLE
 endif
 
 ##
+## AIR_DUAL_CHIP_MASTER_HWSRC_RX_TRACKING_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_DUAL_CHIP_MASTER_HWSRC_RX_TRACKING_ENABLE is a option to to enable dual chip master hwsrc tracking mode feature.
+ifeq ($(AIR_DUAL_CHIP_MASTER_HWSRC_RX_TRACKING_ENABLE), y)
+CFLAGS += -DAIR_DUAL_CHIP_MASTER_HWSRC_RX_TRACKING_ENABLE
+endif
+
+##
 ## AIR_AUDIO_HW_LOOPBACK_ENABLE
 ## Brief:       Internal use.
 ## Notice:      AIR_AUDIO_HW_LOOPBACK_ENABLE is a option to enable hordware loopback function.
@@ -1986,13 +2075,16 @@ ifneq ($(wildcard $(AIR_PSAP_CODE)),)
     endif
     ifeq ($(AIR_HEARTHROUGH_PSAP_ENABLE),y)
     CFLAGS += -DAIR_HEARTHROUGH_PSAP_ENABLE
+    CFLAGS += -DAIR_DAC_MODE_RUNTIME_CHANGE
+    AIR_CUSTOMIZED_LLF_ENABLE := y
     endif
     ifneq ($(AIR_HEARING_AID_ENABLE)_$(AIR_HEARTHROUGH_HA_ENABLE),n_n)
     CFLAGS += -DAIR_HEARING_AID_ENABLE
     CFLAGS += -DAIR_HEARTHROUGH_HA_ENABLE
+    CFLAGS += -DAIR_DAC_MODE_RUNTIME_CHANGE
     endif
 endif
-AIR_VIVID_PT_CODE = $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/audio/anc/vivid_pt/
+AIR_VIVID_PT_CODE = $(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/audio/anc/vivid_pt/
 ifneq ($(wildcard $(AIR_VIVID_PT_CODE)),)
     CFLAGS += -DAIR_HEARTHROUGH_MAIN_ENABLE
     ifeq ($(AIR_HEARTHROUGH_VIVID_PT_ENABLE),y)
@@ -2168,7 +2260,6 @@ ifeq ($(AIR_BT_AUDIO_SYNC_ENABLE),y)
 CFLAGS += -DAIR_BT_AUDIO_SYNC_ENABLE
 endif
 
-
 ##
 ## AIR_CUSTOMIZED_BL_REGION_ENABLE
 ## Brief:       Internal use. This option is to enable customized region in bootloader
@@ -2237,6 +2328,19 @@ CFLAGS += -DAIR_MAX_SYS_CLK_MID
 else
 # DVFS_LV
 CFLAGS += -DAIR_MAX_SYS_CLK_LOW
+endif
+
+##
+## AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+## Brief:       Internal use.
+## Usage:       AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE is a option to enable lr volume balance.
+## Dependency:  None
+## Notice:      None
+## Relative doc:None
+##
+# Advanced passthrough
+ifeq ($(AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE), y)
+CFLAGS += -DAIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
 endif
 
 ###############################################################################

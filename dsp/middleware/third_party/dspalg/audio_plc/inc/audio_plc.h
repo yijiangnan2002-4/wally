@@ -63,10 +63,12 @@ void Mem_Cir2Lin(int *lin_mem, short DECODE_BUFFER_SIZE, short overlap, short ci
 int get_plc_memsize(int channels, int max_period);
 int get_plc_loss_count(void *p_plc_mem_ext);
 int PLC_Init(void *p_plc_mem_ext, DSP_PARA_AUDIO_PLC_STRU *plc_nvkey);
+int PLC_Proc_1024(void *p_plc_mem_ext, int *Buf_L, int *Buf_R, int BFI);
 int PLC_Proc_512(void *p_plc_mem_ext, int *Buf_L, int *Buf_R, int BFI);
+int PLC_Proc_480(void *p_plc_mem_ext, int *Buf_L, int *Buf_R, int BFI);
 int PLC_Proc_256(void *p_plc_mem_ext, int *Buf_L, int *Buf_R, int BFI);
 int PLC_Proc_128(void *p_plc_mem_ext, int *Buf_L, int *Buf_R, int BFI);
-
+int get_audio_plc_version(void);
 void Mem_Cir2Lin(int *lin_mem, short DECODE_BUFFER_SIZE, short overlap, short cirpt);
 
 #endif

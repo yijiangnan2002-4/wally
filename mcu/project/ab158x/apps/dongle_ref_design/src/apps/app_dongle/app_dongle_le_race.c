@@ -74,6 +74,20 @@
 #define APP_DONGLE_SCAN_UNKNOWN_NAME        "unknown_name"
 #define APP_DONGLE_SCAN_UNKNOWN_NAME_LEN    (strlen(APP_DONGLE_SCAN_UNKNOWN_NAME))
 
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
+#define APP_DONGLE_HID_MS_NAME        "Hid_Mouse"
+#define APP_DONGLE_HID_MS_NAME_LEN    (strlen(APP_DONGLE_HID_MS_NAME))
+
+#define APP_DONGLE_HID_KB_NAME        "Hid_Keyboard"
+#define APP_DONGLE_HID_KB_NAME_LEN    (strlen(APP_DONGLE_HID_KB_NAME))
+
+#define APP_DONGLE_HID_HS_NAME        "Hid_Headset"
+#define APP_DONGLE_HID_HS_NAME_LEN    (strlen(APP_DONGLE_HID_HS_NAME))
+
+#define APP_DONGLE_HID_EB_NAME        "Hid_Earbuds"
+#define APP_DONGLE_HID_EB_NAME_LEN    (strlen(APP_DONGLE_HID_EB_NAME))
+#endif
+
 typedef struct {
     uint8_t channel;
     race_pkt_t race_pkt;
@@ -420,6 +434,34 @@ static bt_status_t app_dongle_le_get_device_name_callback(bt_gatt_srv_client_eve
 }
 #endif
 
+#if defined(AIR_PURE_GAMING_MS_ENABLE) || defined(AIR_PURE_GAMING_KB_ENABLE) || defined(AIR_PURE_GAMING_MS_KB_ENABLE)
+void app_dongle_le_race_cmd_scan_prehandle()
+{
+    // Chuan: disconnect old dut first, then scan new dut
+    app_dongle_ull_le_hid_disconnect_all_device(BT_HCI_STATUS_REMOTE_USER_TERMINATED_CONNECTION);
+}
+
+void app_dongle_le_race_cmd_connect_prehandle(bt_ull_le_hid_srv_device_t cur_device_type)
+{
+    // Chuan: delete old pair info, then connect new dut
+#if defined(AIR_PURE_GAMING_MS_ENABLE)
+    if (cur_device_type == BT_ULL_LE_HID_SRV_DEVICE_MOUSE) {
+        app_dongle_ull_le_clear_bond_info_by_device_type(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
+    }
+#elif defined(AIR_PURE_GAMING_KB_ENABLE)
+    if (cur_device_type == BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD) {
+        app_dongle_ull_le_clear_bond_info_by_device_type(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+    }
+#elif defined(AIR_PURE_GAMING_MS_KB_ENABLE)
+    if (cur_device_type == BT_ULL_LE_HID_SRV_DEVICE_MOUSE) {
+        app_dongle_ull_le_clear_bond_info_by_device_type(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
+    } else if (cur_device_type == BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD) {
+        app_dongle_ull_le_clear_bond_info_by_device_type(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+    }
+#endif
+}
+#endif
+
 bool app_dongle_le_race_cmd_event_proc(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
 {
     bool ret = true;
@@ -479,6 +521,11 @@ bool app_dongle_le_race_cmd_event_proc(ui_shell_activity_t *self, uint32_t event
 
 #if defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
                 if (scan_cmd_data->start_scan) {
+
+#if defined(AIR_PURE_GAMING_MS_ENABLE) || defined(AIR_PURE_GAMING_KB_ENABLE) || defined(AIR_PURE_GAMING_MS_KB_ENABLE)
+                    app_dongle_le_race_cmd_scan_prehandle();
+#endif
+                    
                     bt_status = app_dongle_ull_le_hid_start_scan(APP_DONGLE_ULL_LE_HID_SCAN_AUDIO | APP_DONGLE_ULL_LE_HID_SCAN_KEYBOARD | APP_DONGLE_ULL_LE_HID_SCAN_MOUSE);
                     if (bt_status == BT_STATUS_SUCCESS) {
                         ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_LE_SCAN_END);
@@ -588,14 +635,16 @@ bool app_dongle_le_race_cmd_event_proc(ui_shell_activity_t *self, uint32_t event
 
  #if defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
                 else if (BT_ULL_LE_HID_SRV_DEVICE_NONE != device_type) {
-                    if (race_conn_data->connect)
-                    {
-                        bt_status = app_dongle_ull_le_hid_connect_device(device_type, &address);
+                    if (race_conn_data->connect) {
+
+#if defined(AIR_PURE_GAMING_MS_ENABLE) || defined(AIR_PURE_GAMING_KB_ENABLE) || defined(AIR_PURE_GAMING_MS_KB_ENABLE)
+                        app_dongle_le_race_cmd_connect_prehandle(device_type);
+#endif
+
+                        bt_status = app_dongle_ull_le_hid_connect_device(device_type, &address, false);
                     } else {
                         bt_status = app_dongle_ull_le_hid_disconnect_device(device_type, BT_HCI_STATUS_REMOTE_USER_TERMINATED_CONNECTION, &address);
-
                     }
-
                 }
 #endif
                 app_dongle_le_race_connect_rsp_t *response = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE,
@@ -869,6 +918,34 @@ bool app_dongle_le_race_cmd_event_proc(ui_shell_activity_t *self, uint32_t event
                     bt_status = BT_STATUS_SUCCESS;
                     memcpy(name, APP_DONGLE_SCAN_UNKNOWN_NAME, APP_DONGLE_SCAN_UNKNOWN_NAME_LEN);
                     name_len = APP_DONGLE_SCAN_UNKNOWN_NAME_LEN;
+#endif
+                } else if (APP_DONGLE_LE_RACE_SINK_DEVICE_HID_AUDIO_HS == ctx->current_sink_device \
+                            || APP_DONGLE_LE_RACE_SINK_DEVICE_HID_KB == ctx->current_sink_device \
+                            || APP_DONGLE_LE_RACE_SINK_DEVICE_HID_MS == ctx->current_sink_device \
+                            || APP_DONGLE_LE_RACE_SINK_DEVICE_HID_AUDIO_EB == ctx->current_sink_device) {
+#if defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
+                    switch(ctx->current_sink_device) {
+                        case APP_DONGLE_LE_RACE_SINK_DEVICE_HID_MS:
+                            bt_status = BT_STATUS_SUCCESS;
+                            memcpy(name, APP_DONGLE_HID_MS_NAME, APP_DONGLE_HID_MS_NAME_LEN);
+                            name_len = APP_DONGLE_HID_MS_NAME_LEN;
+                            break;
+                        case APP_DONGLE_LE_RACE_SINK_DEVICE_HID_KB:
+                            bt_status = BT_STATUS_SUCCESS;
+                            memcpy(name, APP_DONGLE_HID_KB_NAME, APP_DONGLE_HID_KB_NAME_LEN);
+                            name_len = APP_DONGLE_HID_KB_NAME_LEN;
+                            break;
+                        case APP_DONGLE_LE_RACE_SINK_DEVICE_HID_AUDIO_HS:
+                            bt_status = BT_STATUS_SUCCESS;
+                            memcpy(name, APP_DONGLE_HID_HS_NAME, APP_DONGLE_HID_HS_NAME_LEN);
+                            name_len = APP_DONGLE_HID_HS_NAME_LEN;
+                            break;
+                        case APP_DONGLE_LE_RACE_SINK_DEVICE_HID_AUDIO_EB:
+                            bt_status = BT_STATUS_SUCCESS;
+                            memcpy(name, APP_DONGLE_HID_EB_NAME, APP_DONGLE_HID_EB_NAME_LEN);
+                            name_len = APP_DONGLE_HID_EB_NAME_LEN;
+                            break;
+                    }
 #endif
                 }
 

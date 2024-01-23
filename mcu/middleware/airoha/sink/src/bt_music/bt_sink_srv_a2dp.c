@@ -76,6 +76,12 @@
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 #include "bt_ull_le_audio_manager.h"
 #endif
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+#include "bt_a2dp_vend_lc3plus.h"
+#endif
+#ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
+#include "bt_a2dp_vend_lhdc_v5.h"
+#endif
 
 /* currently care sink role */
 #define SBC_CODEC_NUM (0x01)
@@ -106,6 +112,9 @@ static bool g_bt_sink_srv_vendor_codec_open = true;
 #endif
 static bool g_bt_sink_srv_a2dp_init_complete = false;
 uint8_t g_sn_wrap_count = 0;
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+bt_sink_srv_a2dp_lc3plus_change_t g_bt_sink_srv_a2dp_lc3plus_change = {0};
+#endif
 
 extern void bt_sink_srv_music_a2dp_common_ami_hdr(bt_sink_srv_am_id_t aud_id, 
     bt_sink_srv_am_cb_msg_class_t msg_id, bt_sink_srv_am_cb_sub_msg_t sub_msg, void *param);
@@ -192,7 +201,7 @@ bt_status_t bt_sink_srv_a2dp_get_params_by_mode(bt_aws_mce_srv_mode_t mode, bt_a
         }
 #endif
 
-#ifndef AIR_BT_A2DP_VENDOR_2_ENABLE
+
 #ifdef AIR_BT_A2DP_VENDOR_ENABLE
         if (g_bt_sink_srv_vendor_codec_open) {
             bool is_add_vendor_codec = false;
@@ -222,10 +231,24 @@ bt_status_t bt_sink_srv_a2dp_get_params_by_mode(bt_aws_mce_srv_mode_t mode, bt_a
             }
         }
 #endif
-#else
+#ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
         if (g_bt_sink_srv_vendor_codec_open) {
             BT_A2DP_MAKE_VENDOR_CODEC_2(g_bt_sink_srv_a2dp_codec_list + num, BT_A2DP_SINK,
-                                        0x0000053a, BT_A2DP_CODEC_VENDOR_2_CODEC_ID, 0x35, 0x06);
+                                        0x0000053a, BT_A2DP_CODEC_LHDC_CODEC_ID, 0x35, 0x06);
+            num++;
+        }
+
+#endif
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+        if (g_bt_sink_srv_vendor_codec_open) {
+            uint8_t frame_duration = 0x60;
+            uint16_t sample_frequency = 0x0180;
+            if(g_bt_sink_srv_a2dp_lc3plus_change.changed_flag) {
+                frame_duration = g_bt_sink_srv_a2dp_lc3plus_change.frame_duration;
+                sample_frequency = g_bt_sink_srv_a2dp_lc3plus_change.sample_frequency;
+            }
+            BT_A2DP_MAKE_VENDOR_CODEC_3(g_bt_sink_srv_a2dp_codec_list + num, BT_A2DP_SINK,
+                                        0x000008a9, BT_A2DP_CODEC_LC3PLUS_CODEC_ID, frame_duration, sample_frequency);
             num++;
         }
 #endif
@@ -245,6 +268,40 @@ bt_status_t bt_sink_srv_a2dp_get_params_by_mode(bt_aws_mce_srv_mode_t mode, bt_a
         bt_sink_srv_report_id("[sink][music][a2dp] get_params_by_mode: %d, num:%d, mode:0x%02x", 3, ret, param->codec_number, mode);
     }
 
+    return ret;
+}
+
+bool bt_a2dp_validate_vendor_codec(const bt_a2dp_vendor_codec_t *codec, uint32_t length)
+{
+    bool ret = false;
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+    if(codec->vendor_id == A2DP_LC3PLUS_VENDOR_ID && codec->codec_id == A2DP_LC3PLUS_CODEC_ID) {
+        ret = bt_a2dp_validate_lc3_plus_vendor_codec(codec, length);
+    }
+#endif
+#ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
+    if(codec->vendor_id == A2DP_LHDC_V5_VENDOR_ID && codec->codec_id == A2DP_LHDC_V5_CODEC_ID) {
+        ret = bt_a2dp_validate_lhdc_vendor_codec(codec, length);
+    }
+#endif
+    bt_sink_srv_report_id("[sink][music][a2dp] validate vendor codec, ret: %d", 1, ret);
+    return ret;
+}
+
+bool bt_a2dp_negotiate_vendor_codec(bt_a2dp_vendor_codec_t *result, const bt_a2dp_vendor_codec_t *local, const bt_a2dp_vendor_codec_t *remote)
+{
+    bool ret = false;
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+    if(local->vendor_id == A2DP_LC3PLUS_VENDOR_ID && local->codec_id == A2DP_LC3PLUS_CODEC_ID) {
+        ret = bt_a2dp_negotiate_lc3_plus_vendor_codec(result, local, remote);
+    }
+#endif
+#ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
+    if(local->vendor_id == A2DP_LHDC_V5_VENDOR_ID && local->codec_id == A2DP_LHDC_V5_CODEC_ID) {
+        ret = bt_a2dp_negotiate_lhdc_vendor_codec(result, local, remote);
+    }
+#endif
+    bt_sink_srv_report_id("[sink][music][a2dp] negotiate vendor codec, ret: %d", 1, ret);
     return ret;
 }
 
@@ -328,6 +385,23 @@ bool bt_sink_srv_a2dp_get_vendor_codec_config(void)
 }
 #endif
 
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+void bt_sink_srv_a2dp_change_lc3plus_param(uint16_t sample_frequency, uint8_t frame_duration)
+{
+    bt_sink_srv_report_id("[sink][music][a2dp] change_lc3plus_param, sample_frequency:0x%x, frame_duration: 0x%x", 2, 
+        sample_frequency, frame_duration);
+    g_bt_sink_srv_a2dp_lc3plus_change.changed_flag = true;
+    g_bt_sink_srv_a2dp_lc3plus_change.sample_frequency = sample_frequency;
+    g_bt_sink_srv_a2dp_lc3plus_change.frame_duration = frame_duration;
+
+    if (g_bt_sink_srv_a2dp_init_complete) {
+        bt_a2dp_init_params_t init_param = {0};
+        bt_sink_srv_a2dp_get_init_params(&init_param);
+        bt_a2dp_update_sep(&init_param);
+    }
+}
+#endif
+
 static void bt_sink_srv_a2dp_init()
 {
     bt_sink_srv_music_context_t *ctx = bt_sink_srv_music_get_context();
@@ -385,9 +459,6 @@ void bt_sink_srv_a2dp_ami_hdr(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am_cb_msg_
                 }
                 if (BT_SINK_SRV_MUSIC_TRANSIENT_STATE_CLEAR_CODEC == run_dev->handle->substate 
                     || (run_dev->flag & BT_SINK_SRV_MUSIC_FLAG_RHO_HAPPEN_DURING_STARTING_PLAY)) {
-                    if (run_dev->flag & BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC) {
-                        BT_SINK_SRV_REMOVE_FLAG(run_dev->flag, BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC);
-                    }
                     if (!(run_dev->conn_bit & BT_SINK_SRV_MUSIC_A2DP_CONN_BIT)) {
                         bt_sink_srv_cm_profile_status_notify(&run_dev->dev_addr, BT_SINK_SRV_PROFILE_A2DP_SINK, BT_SINK_SRV_PROFILE_CONNECTION_STATE_DISCONNECTED, BT_STATUS_SUCCESS);
                     }
@@ -418,30 +489,30 @@ void bt_sink_srv_a2dp_ami_hdr(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am_cb_msg_
                 uint32_t gap_hd = bt_sink_srv_cm_get_gap_handle(&(run_dev->dev_addr));
                 bt_utils_assert(gap_hd);
                 bt_sink_srv_music_set_music_enable(gap_hd, BT_AVM_ROLE_AWS_MCE_AGENT, true);
-                if (run_dev->a2dp_status == BT_SINK_SRV_A2DP_STATUS_STREAMING) {
-                    uint16_t n_value = BT_SINK_SRV_A2DP_N_PACKET_NOTIFY;
-                    bool ret = bt_iot_device_white_list_check_iot_case((bt_bd_addr_t *)&run_dev->dev_addr, BT_IOT_MUSIC_NOTIFY_VENDOR_CODEC_BY_N_PACKET);
-                    bt_sink_srv_music_mode_t music_mode = bt_sink_srv_music_get_mode(&run_dev->dev_addr);
-                    if (run_dev->codec.type == BT_A2DP_CODEC_VENDOR || ret || music_mode == BT_SINK_SRV_MUSIC_GAME_MODE) {
-                        n_value = BT_SINK_SRV_A2DP_N_PACKET_NOTIFY_VENDOR_CODEC;
+
+                uint32_t n_value = BT_SINK_SRV_A2DP_N_PACKET_NOTIFY;
+                bool ret = bt_iot_device_white_list_check_iot_case((bt_bd_addr_t *)&run_dev->dev_addr, BT_IOT_MUSIC_NOTIFY_VENDOR_CODEC_BY_N_PACKET);
+                bt_sink_srv_music_mode_t music_mode = bt_sink_srv_music_get_mode(&run_dev->dev_addr);
+                if (run_dev->codec.type == BT_A2DP_CODEC_VENDOR || ret || music_mode == BT_SINK_SRV_MUSIC_GAME_MODE) {
+                    n_value = BT_SINK_SRV_A2DP_N_PACKET_NOTIFY_VENDOR_CODEC;
 #ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
-                    } else if (run_dev->codec.codec.vendor.codec_id == 0x4c33 || (run_dev->codec.codec.vendor.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID)) {
-                        n_value =  BT_SINK_SRV_A2DP_VENDOR_2_N_PACKET_NOTIFY;
+                } else if (run_dev->codec.codec.vendor.codec_id == 0x4c33 || (run_dev->codec.codec.vendor.codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID)) {
+                    n_value =  BT_SINK_SRV_A2DP_VENDOR_2_N_PACKET_NOTIFY;
 #endif
-                    }
-                    if (run_dev->codec.sec_type) {
-                        n_value |= BT_SINK_SRV_MUSIC_CONTENT_PROTECTION_MASK;
-                    }
-#ifdef AIR_A2DP_REINIT_V2_ENABLE
-                    if (run_dev->codec.type == BT_A2DP_CODEC_SBC
-                        && bt_iot_device_white_list_check_iot_case((bt_bd_addr_t *)&run_dev->dev_addr, BT_IOT_MUSIC_IS_WALKMAN_SET_RATIO_AND_PCDC_OBSERVATION)) {
-                        n_value |= BT_SINK_SRV_A2DP_SHORT_PCDC_OBSERVATION;
-                        bt_media_handle_t *med_hd = run_dev->med_handle.med_hd;
-                        med_hd->set_ts_ratio(med_hd, 0xfffffffe);
-                    }
-#endif
-                    bt_avm_set_a2dp_notify_condition(gap_hd, n_value);
                 }
+                if (run_dev->codec.sec_type) {
+                    n_value |= BT_SINK_SRV_MUSIC_CONTENT_PROTECTION_MASK;
+                }
+#ifdef AIR_A2DP_REINIT_V2_ENABLE
+                if (run_dev->codec.type == BT_A2DP_CODEC_SBC
+                    && bt_iot_device_white_list_check_iot_case((bt_bd_addr_t *)&run_dev->dev_addr, BT_IOT_MUSIC_IS_WALKMAN_SET_RATIO_AND_PCDC_OBSERVATION)) {
+                    n_value |= BT_SINK_SRV_A2DP_SHORT_PCDC_OBSERVATION;
+                    bt_media_handle_t *med_hd = run_dev->med_handle.med_hd;
+                    med_hd->set_ts_ratio(med_hd, 0xfffffffe);
+                }
+#endif
+                bt_avm_set_a2dp_notify_condition(gap_hd, n_value);
+
 #endif
                     if (BT_SINK_SRV_MUSIC_TRANSIENT_STATE_CLEAR_CODEC != run_dev->handle->substate) {
 #ifdef __BT_SINK_SRV_A2DP_V13_SUPPORT__
@@ -682,8 +753,7 @@ static int32_t bt_sink_srv_a2dp_handle_disconnect_handler(uint32_t handle, uint3
                                               | BT_SINK_SRV_MUSIC_FLAG_DEV_TO_CON_AVRCP
                                               | BT_SINK_SRV_MUSIC_NEED_TO_RESPONSE_A2DP_START
                                               | BT_SINK_SRV_MUSIC_FLAG_WAITING_START
-                                              | BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC
-                                              | BT_SINK_SRV_MUSIC_FLAG_ADD_WAITING_LIST);
+                                              | BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC);
 
         a2dp_dev->a2dp_hd = BT_SINK_SRV_MUSIC_INVALID_HD;
 
@@ -742,24 +812,31 @@ static bt_status_t bt_sink_srv_a2dp_handle_start_streaming_ind(bt_a2dp_start_str
     bt_sink_srv_memcpy(&(dev->codec), start_ind->codec_cap, sizeof(bt_a2dp_codec_capability_t));
     uint32_t old_a2dp_status = dev->a2dp_status;
     dev->a2dp_status = BT_SINK_SRV_A2DP_STATUS_STREAMING;
-    /* Disable media data channel */
-    uint32_t gap_hd = bt_sink_srv_cm_get_gap_handle(&(dev->dev_addr));
-    bt_utils_assert(dev);
-    bt_avm_set_music_enable(gap_hd, BT_AVM_ROLE_AWS_MCE_AGENT, false);
-    /* set must play flag */
-    if ((!(dev->avrcp_flag & BT_SINK_SRV_AVRCP_MUST_PLAY_RING_TONE_FLAG))
-        && (ctx->context_flag & BT_SINK_SRV_CNTX_FLAG_MUST_PLAY_RING_TONE_FLAG)) {
-        BT_SINK_SRV_SET_FLAG(dev->avrcp_flag, BT_SINK_SRV_AVRCP_MUST_PLAY_RING_TONE_FLAG);
-        BT_SINK_SRV_REMOVE_FLAG(ctx->context_flag, BT_SINK_SRV_CNTX_FLAG_MUST_PLAY_RING_TONE_FLAG);
+
+#if (BT_A2DP_TOTAL_LINK_NUM>3)
+    dev->a2dp_start_count = bt_sink_srv_state_manager_get_play_count();
+#endif
+    if (BT_SINK_SRV_MUSIC_TRANSIENT_STATE_PREPARE_BUFFER != dev->handle->substate) {
+        /* Disable media data channel */
+        uint32_t gap_hd = bt_sink_srv_cm_get_gap_handle(&(dev->dev_addr));
+        bt_utils_assert(dev);
+        bt_avm_set_music_enable(gap_hd, BT_AVM_ROLE_AWS_MCE_AGENT, false);
+        /* set must play flag */
+        if ((!(dev->avrcp_flag & BT_SINK_SRV_AVRCP_MUST_PLAY_RING_TONE_FLAG))
+            && (ctx->context_flag & BT_SINK_SRV_CNTX_FLAG_MUST_PLAY_RING_TONE_FLAG)) {
+            BT_SINK_SRV_SET_FLAG(dev->avrcp_flag, BT_SINK_SRV_AVRCP_MUST_PLAY_RING_TONE_FLAG);
+            BT_SINK_SRV_REMOVE_FLAG(ctx->context_flag, BT_SINK_SRV_CNTX_FLAG_MUST_PLAY_RING_TONE_FLAG);
+        }
+
+        bt_sink_srv_music_state_change_handler(dev, old_a2dp_status, dev->avrcp_status);
     }
 
-    bt_sink_srv_music_state_change_handler(dev, old_a2dp_status, dev->avrcp_status);
     if (!is_cnf) {
         bt_a2dp_start_streaming_response(dev->a2dp_hd, true);
     }
 
-    bt_sink_srv_report_id("[sink][music][a2dp] start_streaming_ind-ret:dev:0x%x, a2dp status: 0x%x=>0x%x",
-        3, dev, old_a2dp_status, dev->a2dp_status);
+    bt_sink_srv_report_id("[sink][music][a2dp] start_streaming_ind-ret:dev:0x%x, a2dp status: 0x%x=>0x%x, substate:0x%x",
+        4, dev, old_a2dp_status, dev->a2dp_status, dev->handle->substate);
 
     return ret;
 }
@@ -776,7 +853,8 @@ static int32_t bt_sink_srv_a2dp_handle_suspend_streaming_ind(bt_a2dp_suspend_str
         if (!(a2dp_dev->flag & BT_SINK_SRV_MUSIC_FLAG_A2DP_INTERRUPT)) {
             audio_src_srv_del_waiting_list(a2dp_dev->handle);
         }
-        BT_SINK_SRV_REMOVE_FLAG(a2dp_dev->flag, BT_SINK_SRV_MUSIC_NEED_TO_RESPONSE_A2DP_START
+        BT_SINK_SRV_REMOVE_FLAG(a2dp_dev->flag, BT_SINK_SRV_MUSIC_NEED_TO_RESPONSE_A2DP_START
+
                                                | BT_SINK_SRV_MUSIC_STOP_MUSIC_PENDING
                                                | BT_SINK_SRV_MUSIC_FLAG_WAITING_START
                                                | BT_SINK_SRV_MUSIC_FLAG_ALC_REINITIAL_SYNC);
@@ -858,7 +936,6 @@ void bt_sink_srv_a2dp_free_pseudo_handle(audio_src_srv_handle_t *hd)
     bt_sink_srv_report_id("[sink][music][a2dp] free_pseudo_handle--hd: 0x%x", 1, hd);
 }
 
-uint32_t lhdc_ll_mode_latency = 60000;
 bt_status_t bt_sink_srv_a2dp_action_handler(bt_sink_srv_action_t action, void *param)
 {
     bt_status_t ret = BT_STATUS_SUCCESS;
@@ -871,9 +948,8 @@ bt_status_t bt_sink_srv_a2dp_action_handler(bt_sink_srv_action_t action, void *p
     (void)ret;
     if (BT_SINK_SRV_ACTION_SET_LATENCY == action) {
         if (param) {
-            //uint32_t *latency_val = (uint32_t *)param;
-            lhdc_ll_mode_latency = *((uint32_t *)param);
-            //ret = bt_sink_srv_music_set_sink_latency(*latency_val, true);
+            uint32_t *latency_val = (uint32_t *)param;
+            ret = bt_sink_srv_music_set_sink_latency(*latency_val);
         }
     } else {
         if (BT_AWS_MCE_ROLE_AGENT == role || BT_AWS_MCE_ROLE_NONE == role) {
@@ -948,12 +1024,12 @@ static bt_status_t bt_sink_srv_a2dp_link_status_change_handler(bt_gap_link_statu
     bt_device_manager_db_remote_pnp_info_t dev_id_p = {0, 0};
 
     bt_device_manager_remote_find_pnp_info((void *)(link_data->address), &dev_id_p);
-    if (link_data->link_status == BT_GAP_LINK_STATUS_CONNECTED_0
-        && dev_id_p.product_id != 0 && dev_id_p.vender_id != 0) {
-        bt_sink_srv_a2dp_set_special_dev_mtu(&dev_id_p, (void *)(link_data->address), true);
-    } else if (link_data->link_status == BT_GAP_LINK_STATUS_DISCONNECTED
-               && dev_id_p.product_id != 0 && dev_id_p.vender_id != 0) {
-        bt_sink_srv_a2dp_set_special_dev_mtu(&dev_id_p, (void *)(link_data->address), false);
+    if (dev_id_p.product_id != 0 && dev_id_p.vender_id != 0) {
+        if (link_data->link_status == BT_GAP_LINK_STATUS_CONNECTED_0) {
+            bt_sink_srv_a2dp_set_special_dev_mtu(&dev_id_p, (void *)(link_data->address), true);
+        } else if (link_data->link_status == BT_GAP_LINK_STATUS_DISCONNECTED) {
+            bt_sink_srv_a2dp_set_special_dev_mtu(&dev_id_p, (void *)(link_data->address), false);
+        }
     }
     return BT_STATUS_SUCCESS;
 }
@@ -973,21 +1049,21 @@ static void bt_sink_srv_a2dp_sdp_attribute_handler(void *buffer)
 
     if (parse_result) {
         bt_sdpc_parse_next_value(&vendor_id, &vendor_id_len, parse_result, result_len);
-    if (vendor_id_len) {
-        device_id.vender_id = (vendor_id[0] << 8 | vendor_id[1]);
-    }
+        if (vendor_id_len) {
+            device_id.vender_id = (vendor_id[0] << 8 | vendor_id[1]);
+        }
         bt_sink_srv_report_id("[sink][music][a2dp] 1-vendor_id_len:0x%x, vender_id:0x%x", 2, vendor_id_len, device_id.vender_id);
-    bt_sdpc_parse_attribute(&parse_result, &result_len, BT_DI_SDP_ATTRIBUTE_PRODUCT_ID, 0, attr_result->length, attr_result->attribute_data);
+            bt_sdpc_parse_attribute(&parse_result, &result_len, BT_DI_SDP_ATTRIBUTE_PRODUCT_ID, 0, attr_result->length, attr_result->attribute_data);
         bt_sink_srv_report_id("[sink][music][a2dp] 2-result_len:0x%x, parse_result:0x%x",
             2, result_len, parse_result[0] << 8 | parse_result[1]);
-    bt_sdpc_parse_next_value(&vendor_id, &vendor_id_len, parse_result, result_len);
-    if (vendor_id_len) {
-        device_id.product_id = (vendor_id[0] << 8 | vendor_id[1]);
-    }
+        bt_sdpc_parse_next_value(&vendor_id, &vendor_id_len, parse_result, result_len);
+        if (vendor_id_len) {
+            device_id.product_id = (vendor_id[0] << 8 | vendor_id[1]);
+        }
         bt_sink_srv_report_id("[sink][music][a2dp] 3-vendor_id_len:0x%x, product_id:0x%x", 2, vendor_id_len, device_id.product_id);
-    if (device_id.product_id && device_id.vender_id) {
-        bt_sink_srv_a2dp_set_special_dev_mtu(&device_id, (void *)(attr_result->user_data), true);
-    }
+        if (device_id.product_id && device_id.vender_id) {
+            bt_sink_srv_a2dp_set_special_dev_mtu(&device_id, (void *)(attr_result->user_data), true);
+        }
     }
 }
 #endif
@@ -1004,140 +1080,140 @@ bt_status_t bt_sink_srv_a2dp_common_callback(bt_msg_type_t msg, bt_status_t stat
 
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
     if ((role == BT_AWS_MCE_ROLE_AGENT) || (role == BT_AWS_MCE_ROLE_NONE)) {
-    switch (msg) {
-        case BT_A2DP_CONNECT_CNF: {
-            bt_a2dp_connect_cnf_t *conn_cnf = (bt_a2dp_connect_cnf_t *)buffer;
-            ret = bt_sink_srv_a2dp_handle_connect_cnf(conn_cnf);
-            break;
-        }
-
-        case BT_A2DP_CONNECT_IND: {
-            bt_a2dp_connect_ind_t *conn_ind = (bt_a2dp_connect_ind_t *)buffer;
-            ret = bt_sink_srv_a2dp_handle_connect_ind(conn_ind);
-            break;
-        }
-
-        case BT_A2DP_DISCONNECT_CNF: {
-            bt_a2dp_disconnect_cnf_t *disconn_cnf = (bt_a2dp_disconnect_cnf_t *)buffer;
-            ret = bt_sink_srv_a2dp_handle_disconnect_handler(disconn_cnf->handle, msg, disconn_cnf->status);
-            break;
-        }
-
-        case BT_A2DP_DISCONNECT_IND: {
-            bt_a2dp_disconnect_ind_t *disconn_ind = (bt_a2dp_disconnect_ind_t *)buffer;
-            ret = bt_sink_srv_a2dp_handle_disconnect_handler(disconn_ind->handle, msg, BT_STATUS_SUCCESS);
-            break;
-        }
-
-        case BT_A2DP_START_STREAMING_CNF: {
-            bt_a2dp_start_streaming_cnf_t *start_cnf = (bt_a2dp_start_streaming_cnf_t *)buffer;
-            ret = bt_sink_srv_a2dp_handle_start_streaming_cnf(start_cnf);
-            break;
-        }
-
-        case BT_A2DP_START_STREAMING_IND: {
-            bt_a2dp_start_streaming_ind_t *start_ind = (bt_a2dp_start_streaming_ind_t *)buffer;
-                    bt_sink_srv_report_id("[sink][music][a2dp] start_ind-buff:0x%x,handle:0x%x,cap:0x%x,type:0x%x,sec_type:0x%x,delay_report:0x%x,length:0x%x",
-                        7,buffer,start_ind->handle,start_ind->codec_cap,start_ind->codec_cap->type,start_ind->codec_cap->sec_type,start_ind->codec_cap->delay_report,start_ind->codec_cap->length);
-
-            if (start_ind->codec_cap->type == BT_A2DP_CODEC_SBC) {
-                        bt_sink_srv_report_id("[sink][music][a2dp] start_ind(sbc)--1: %d, 2: %d, 3: %d, 4: %d, 5: %d, 6: %d, 7: %d", 7,
-                                      start_ind->codec_cap->codec.sbc.channel_mode,
-                                      start_ind->codec_cap->codec.sbc.sample_freq,
-                                      start_ind->codec_cap->codec.sbc.alloc_method,
-                                      start_ind->codec_cap->codec.sbc.subbands,
-                                      start_ind->codec_cap->codec.sbc.block_len,
-                                      start_ind->codec_cap->codec.sbc.min_bitpool,
-                                      start_ind->codec_cap->codec.sbc.max_bitpool);
-            } else if (start_ind->codec_cap->type == BT_A2DP_CODEC_AAC) {
-                        bt_sink_srv_report_id("[sink][music][a2dp] start_ind(aac)--1: %d, 2: %d, 3: %d, 4: %d, 5: %d, 6: %d, 7: %d, 8: %d, 9: %d", 9,
-                                      start_ind->codec_cap->codec.aac.object_type,
-                                      start_ind->codec_cap->codec.aac.drc,
-                                      start_ind->codec_cap->codec.aac.freq_h,
-                                      start_ind->codec_cap->codec.aac.channels,
-                                      start_ind->codec_cap->codec.aac.freq_l,
-                                      start_ind->codec_cap->codec.aac.br_h,
-                                      start_ind->codec_cap->codec.aac.vbr,
-                                      start_ind->codec_cap->codec.aac.br_m,
-                                      start_ind->codec_cap->codec.aac.br_l);
+        switch (msg) {
+            case BT_A2DP_CONNECT_CNF: {
+                bt_a2dp_connect_cnf_t *conn_cnf = (bt_a2dp_connect_cnf_t *)buffer;
+                ret = bt_sink_srv_a2dp_handle_connect_cnf(conn_cnf);
+                break;
             }
 
-            ret = bt_sink_srv_a2dp_handle_start_streaming_ind(start_ind, false);
-            break;
-        }
-
-        case BT_A2DP_SUSPEND_STREAMING_CNF: {
-            bt_a2dp_suspend_streaming_cnf_t *suspend_cnf = (bt_a2dp_suspend_streaming_cnf_t *)buffer;
-
-            ret = bt_sink_srv_a2dp_handle_suspend_streaming_cnf(suspend_cnf);
-            break;
-        }
-
-        case BT_A2DP_SUSPEND_STREAMING_IND: {
-            bt_a2dp_suspend_streaming_ind_t *suspend_ind = (bt_a2dp_suspend_streaming_ind_t *)buffer;
-
-            ret = bt_sink_srv_a2dp_handle_suspend_streaming_ind(suspend_ind, true);
-            break;
-        }
-
-        case BT_A2DP_RECONFIGURE_CNF: {
-            bt_a2dp_reconfigure_cnf_t *reconfigure_cnf = (bt_a2dp_reconfigure_cnf_t *)buffer;
-
-            ret = bt_sink_srv_a2dp_handle_reconfigure_cnf(reconfigure_cnf);
-            break;
-        }
-
-        case BT_A2DP_RECONFIGURE_IND: {
-            bt_a2dp_reconfigure_ind_t *reconfigure_ind = (bt_a2dp_reconfigure_ind_t *)buffer;
-
-            ret = bt_sink_srv_a2dp_handle_reconfigure_ind(reconfigure_ind);
-            break;
-        }
-
-        case BT_AVM_MEDIA_DATA_RECEIVED_IND: {
-            bt_avm_a2dp_media_info_t *media_info = (bt_avm_a2dp_media_info_t *)buffer;
-            bt_sink_srv_music_data_info_t media_data_info;
-            media_data_info.asi = media_info->asi;
-            media_data_info.clock.nclk = media_info->clock.nclk;
-            media_data_info.clock.nclk_intra = media_info->clock.nclk_intra;
-            media_data_info.ratio = (media_info->ratio == 0xff ? 0xffffffff : media_info->ratio);
-            media_data_info.samples = media_info->samples;
-            bt_sink_srv_a2dp_handle_media_data_received_ind(media_info->gap_handle, &media_data_info);
-            break;
-        }
-        case BT_AVM_SEQUENCE_NUM_WRAP_COUNT_IND: {
-            bt_avm_a2dp_sn_wrap_count_t *wrap_count_info = (bt_avm_a2dp_sn_wrap_count_t *)buffer;
-            bt_sink_srv_music_context_t *ctx = bt_sink_srv_music_get_context();
-            uint32_t gap_hd = bt_sink_srv_cm_get_gap_handle(&(ctx->run_dev->dev_addr));
-            if (gap_hd == wrap_count_info->gap_handle) {
-                g_sn_wrap_count = wrap_count_info->wrap_count;
+            case BT_A2DP_CONNECT_IND: {
+                bt_a2dp_connect_ind_t *conn_ind = (bt_a2dp_connect_ind_t *)buffer;
+                ret = bt_sink_srv_a2dp_handle_connect_ind(conn_ind);
+                break;
             }
-                    bt_sink_srv_report_id("[sink][music][a2dp] sequence num wrap count:%d, handle:0x%08x, gap_handle:0x%08x", 1, g_sn_wrap_count, gap_hd, wrap_count_info->gap_handle);
-            break;
-        }
 
-        case BT_AVM_SET_LOCAL_ASI_FLAG: {
-            bt_avm_a2dp_local_asi_ind_t *media_info = (bt_avm_a2dp_local_asi_ind_t *)buffer;
-            bt_sink_srv_music_context_t *ctx = bt_sink_srv_music_get_context();
-            ret = bt_sink_srv_music_set_nvdm_data(&ctx->run_dev->dev_addr, BT_SINK_SRV_MUSIC_DATA_LOCAL_ASI_FLAG, (void *)(&media_info->local_asi_flag));
-            break;
-        }
+            case BT_A2DP_DISCONNECT_CNF: {
+                bt_a2dp_disconnect_cnf_t *disconn_cnf = (bt_a2dp_disconnect_cnf_t *)buffer;
+                ret = bt_sink_srv_a2dp_handle_disconnect_handler(disconn_cnf->handle, msg, disconn_cnf->status);
+                break;
+            }
+
+            case BT_A2DP_DISCONNECT_IND: {
+                bt_a2dp_disconnect_ind_t *disconn_ind = (bt_a2dp_disconnect_ind_t *)buffer;
+                ret = bt_sink_srv_a2dp_handle_disconnect_handler(disconn_ind->handle, msg, BT_STATUS_SUCCESS);
+                break;
+            }
+
+            case BT_A2DP_START_STREAMING_CNF: {
+                bt_a2dp_start_streaming_cnf_t *start_cnf = (bt_a2dp_start_streaming_cnf_t *)buffer;
+                ret = bt_sink_srv_a2dp_handle_start_streaming_cnf(start_cnf);
+                break;
+            }
+
+            case BT_A2DP_START_STREAMING_IND: {
+                bt_a2dp_start_streaming_ind_t *start_ind = (bt_a2dp_start_streaming_ind_t *)buffer;
+                        bt_sink_srv_report_id("[sink][music][a2dp] start_ind-buff:0x%x,handle:0x%x,cap:0x%x,type:0x%x,sec_type:0x%x,delay_report:0x%x,length:0x%x",
+                            7,buffer,start_ind->handle,start_ind->codec_cap,start_ind->codec_cap->type,start_ind->codec_cap->sec_type,start_ind->codec_cap->delay_report,start_ind->codec_cap->length);
+
+                if (start_ind->codec_cap->type == BT_A2DP_CODEC_SBC) {
+                            bt_sink_srv_report_id("[sink][music][a2dp] start_ind(sbc)--1: %d, 2: %d, 3: %d, 4: %d, 5: %d, 6: %d, 7: %d", 7,
+                                          start_ind->codec_cap->codec.sbc.channel_mode,
+                                          start_ind->codec_cap->codec.sbc.sample_freq,
+                                          start_ind->codec_cap->codec.sbc.alloc_method,
+                                          start_ind->codec_cap->codec.sbc.subbands,
+                                          start_ind->codec_cap->codec.sbc.block_len,
+                                          start_ind->codec_cap->codec.sbc.min_bitpool,
+                                          start_ind->codec_cap->codec.sbc.max_bitpool);
+                } else if (start_ind->codec_cap->type == BT_A2DP_CODEC_AAC) {
+                            bt_sink_srv_report_id("[sink][music][a2dp] start_ind(aac)--1: %d, 2: %d, 3: %d, 4: %d, 5: %d, 6: %d, 7: %d, 8: %d, 9: %d", 9,
+                                          start_ind->codec_cap->codec.aac.object_type,
+                                          start_ind->codec_cap->codec.aac.drc,
+                                          start_ind->codec_cap->codec.aac.freq_h,
+                                          start_ind->codec_cap->codec.aac.channels,
+                                          start_ind->codec_cap->codec.aac.freq_l,
+                                          start_ind->codec_cap->codec.aac.br_h,
+                                          start_ind->codec_cap->codec.aac.vbr,
+                                          start_ind->codec_cap->codec.aac.br_m,
+                                          start_ind->codec_cap->codec.aac.br_l);
+                }
+
+                ret = bt_sink_srv_a2dp_handle_start_streaming_ind(start_ind, false);
+                break;
+            }
+
+            case BT_A2DP_SUSPEND_STREAMING_CNF: {
+                bt_a2dp_suspend_streaming_cnf_t *suspend_cnf = (bt_a2dp_suspend_streaming_cnf_t *)buffer;
+
+                ret = bt_sink_srv_a2dp_handle_suspend_streaming_cnf(suspend_cnf);
+                break;
+            }
+
+            case BT_A2DP_SUSPEND_STREAMING_IND: {
+                bt_a2dp_suspend_streaming_ind_t *suspend_ind = (bt_a2dp_suspend_streaming_ind_t *)buffer;
+
+                ret = bt_sink_srv_a2dp_handle_suspend_streaming_ind(suspend_ind, true);
+                break;
+            }
+
+            case BT_A2DP_RECONFIGURE_CNF: {
+                bt_a2dp_reconfigure_cnf_t *reconfigure_cnf = (bt_a2dp_reconfigure_cnf_t *)buffer;
+
+                ret = bt_sink_srv_a2dp_handle_reconfigure_cnf(reconfigure_cnf);
+                break;
+            }
+
+            case BT_A2DP_RECONFIGURE_IND: {
+                bt_a2dp_reconfigure_ind_t *reconfigure_ind = (bt_a2dp_reconfigure_ind_t *)buffer;
+
+                ret = bt_sink_srv_a2dp_handle_reconfigure_ind(reconfigure_ind);
+                break;
+            }
+
+            case BT_AVM_MEDIA_DATA_RECEIVED_IND: {
+                bt_avm_a2dp_media_info_t *media_info = (bt_avm_a2dp_media_info_t *)buffer;
+                bt_sink_srv_music_data_info_t media_data_info = {0};
+                media_data_info.asi = media_info->asi;
+                media_data_info.clock.nclk = media_info->clock.nclk;
+                media_data_info.clock.nclk_intra = media_info->clock.nclk_intra;
+                media_data_info.ratio = (media_info->ratio == 0xff ? 0xffffffff : media_info->ratio);
+                media_data_info.samples = media_info->samples;
+                bt_sink_srv_a2dp_handle_media_data_received_ind(media_info->gap_handle, &media_data_info);
+                break;
+            }
+            case BT_AVM_SEQUENCE_NUM_WRAP_COUNT_IND: {
+                bt_avm_a2dp_sn_wrap_count_t *wrap_count_info = (bt_avm_a2dp_sn_wrap_count_t *)buffer;
+                bt_sink_srv_music_context_t *ctx = bt_sink_srv_music_get_context();
+                uint32_t gap_hd = bt_sink_srv_cm_get_gap_handle(&(ctx->run_dev->dev_addr));
+                if (gap_hd == wrap_count_info->gap_handle) {
+                    g_sn_wrap_count = wrap_count_info->wrap_count;
+                }
+                bt_sink_srv_report_id("[sink][music][a2dp] sequence num wrap count:%d, handle:0x%08x, gap_handle:0x%08x", 1, g_sn_wrap_count, gap_hd, wrap_count_info->gap_handle);
+                break;
+            }
+
+            case BT_AVM_SET_LOCAL_ASI_FLAG: {
+                bt_avm_a2dp_local_asi_ind_t *media_info = (bt_avm_a2dp_local_asi_ind_t *)buffer;
+                bt_sink_srv_music_context_t *ctx = bt_sink_srv_music_get_context();
+                ret = bt_sink_srv_music_set_nvdm_data(&ctx->run_dev->dev_addr, BT_SINK_SRV_MUSIC_DATA_LOCAL_ASI_FLAG, (void *)(&media_info->local_asi_flag));
+                break;
+            }
 
 #ifdef MTK_AWS_MCE_ENABLE
-        case BT_GAP_LINK_STATUS_UPDATED_IND: {
-            bt_gap_link_status_updated_ind_t *link_data = (bt_gap_link_status_updated_ind_t *)buffer;
-            ret = bt_sink_srv_a2dp_link_status_change_handler(link_data);
-            break;
-        }
-        case BT_SDPC_SEARCH_ATTRIBUTE_CNF: {
-            bt_sink_srv_a2dp_sdp_attribute_handler(buffer);
-            break;
-        }
+            case BT_GAP_LINK_STATUS_UPDATED_IND: {
+                bt_gap_link_status_updated_ind_t *link_data = (bt_gap_link_status_updated_ind_t *)buffer;
+                ret = bt_sink_srv_a2dp_link_status_change_handler(link_data);
+                break;
+            }
+            case BT_SDPC_SEARCH_ATTRIBUTE_CNF: {
+                bt_sink_srv_a2dp_sdp_attribute_handler(buffer);
+                break;
+            }
 #endif
 
-        default:
-            break;
-    }
+            default:
+                break;
+        }
     }
     moduel = msg & 0xFF000000;
     if((moduel == BT_MODULE_A2DP) || (moduel == BT_MODULE_AVM) 
@@ -1168,10 +1244,9 @@ bt_status_t bt_sink_srv_a2dp_change_sync_volume(uint8_t type, uint8_t notify_avr
     }
 
     if ((vol != ctx->vol_lev) && run_dev && (run_dev->op & BT_SINK_SRV_MUSIC_OP_DRV_PLAY)) {
-        bt_sink_srv_audio_sync_music_data_t music_data;
-        bt_sink_srv_get_sync_data_parameter_t sync_data;
+        bt_sink_srv_audio_sync_music_data_t music_data = {0};
+        bt_sink_srv_get_sync_data_parameter_t sync_data = {0};
         music_data.volume = vol;
-        music_data.volume_type = 0;
         if (notify_avrcp) {
             music_data.volume_type = type;
         }
@@ -1275,6 +1350,19 @@ int32_t bt_sink_srv_a2dp_change_volume(uint8_t type, uint8_t sync, uint32_t volu
     return BT_STATUS_SUCCESS;
 }
 
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+static void bt_sink_srv_a2dp_resume_timer_handler(uint32_t timer_id, uint32_t data)
+{
+    bt_sink_srv_music_device_t *a2dp_dev = (bt_sink_srv_music_device_t*)data;
+    bt_sink_srv_report_id("[sink][music][a2dp] resume_timer_handler--a2dp_dev:0x%x", 1,
+                          a2dp_dev);
+
+    if ((a2dp_dev->conn_bit & BT_SINK_SRV_MUSIC_A2DP_CONN_BIT)
+        && (BT_SINK_SRV_A2DP_STATUS_STREAMING != a2dp_dev->a2dp_status)) {
+        bt_sink_srv_music_state_machine_handle(a2dp_dev, BT_A2DP_SUSPEND_STREAMING_IND, NULL);
+    }
+}
+#endif
 
 void bt_sink_srv_a2dp_play(audio_src_srv_handle_t *handle)
 {
@@ -1288,11 +1376,12 @@ void bt_sink_srv_a2dp_play(audio_src_srv_handle_t *handle)
     BT_SINK_SRV_REMOVE_FLAG(a2dp_dev->flag, BT_SINK_SRV_MUSIC_FLAG_WAIT_LIST_SINK_PLAY);
     bt_sink_srv_report_id("[sink][music][a2dp] play(s)--a2dp_dev:0x%x, hd: 0x%08x, type: %d, flag: 0x%08x, op: 0x%08x", 5,
                           a2dp_dev, handle, handle->type, a2dp_dev->flag, a2dp_dev->op);
-
+#ifndef BT_SINK_SRV_IMPROVE_RESYNC
 #ifdef AIR_LE_AUDIO_ENABLE
     if (a2dp_dev->flag & BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC) {
         bt_sink_srv_cap_am_enable_waiting_list();
     }
+#endif
 #endif
 
     bt_sink_srv_music_stop_vp_detection(a2dp_dev->handle);
@@ -1308,6 +1397,8 @@ void bt_sink_srv_a2dp_play(audio_src_srv_handle_t *handle)
                                                                         &ue_config)) {
             if (BT_SINK_SRV_INTERRUPT_OPERATION_PLAY_MUSIC == ue_config.resume_config.resume_operation) {
                 if (BT_AVRCP_STATUS_PLAY_PAUSED == a2dp_dev->avrcp_status) {
+                    bt_timer_ext_start(BT_SINK_SRV_RESUME_SRC_WAITING_TIMER, (uint32_t)a2dp_dev,
+                           BT_SINK_SRV_AVRCP_PLAY_PAUSE_ACTION_TIMER_DUR, bt_sink_srv_a2dp_resume_timer_handler);
                     ret = bt_sink_srv_avrcp_play_music(a2dp_dev);
                 }
             }
@@ -1316,15 +1407,10 @@ void bt_sink_srv_a2dp_play(audio_src_srv_handle_t *handle)
         if (BT_AVRCP_STATUS_PLAY_PAUSED == a2dp_dev->avrcp_status) {
             ret = bt_sink_srv_avrcp_play_music(a2dp_dev);
         }
-
 #endif
-        if (a2dp_dev->a2dp_status == BT_SINK_SRV_A2DP_STATUS_SUSPEND) {
-            bt_sink_srv_music_state_machine_handle(a2dp_dev, BT_SINK_SRV_MUSIC_EVT_RESUME, NULL);
-            bt_sink_srv_mutex_unlock();
-            return ;
-        }
     }
 
+    bt_sink_srv_music_get_nvdm_data(&(a2dp_dev->dev_addr), BT_SINK_SRV_MUSIC_DATA_VOLUME, &ctx->vol_lev);
 #ifdef __BT_AWS_MCE_A2DP_SUPPORT__
     if (a2dp_dev->a2dp_status == BT_SINK_SRV_A2DP_STATUS_STREAMING) {
         bt_sink_srv_aws_mce_a2dp_send_eir(BT_SINK_SRV_AWS_MCE_A2DP_EVT_START_STREAMING, (void *)(&(a2dp_dev->a2dp_hd)));
@@ -1337,12 +1423,8 @@ void bt_sink_srv_a2dp_play(audio_src_srv_handle_t *handle)
     conn_req.profile = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS);
     bt_cm_connect(&conn_req);
 #endif
-    /* Audio source accept play request */
-    BT_SINK_SRV_SET_FLAG(a2dp_dev->flag, BT_SINK_SRV_MUSIC_FLAG_WAIT_AMI_OPEN_CODEC);
     /* Update run device */
     bt_sink_srv_music_update_run_device(a2dp_dev);
-    /* 1. Open A2DP codec */
-    bt_sink_srv_music_get_nvdm_data(&(a2dp_dev->dev_addr), BT_SINK_SRV_MUSIC_DATA_VOLUME, &ctx->vol_lev);
 
     uint16_t a2dp_mtu = bt_a2dp_get_mtu_size(a2dp_dev->a2dp_hd);
     bt_sink_srv_music_fill_am_aud_param(&aud_cap, &a2dp_dev->codec, BT_A2DP_SINK, a2dp_mtu);
@@ -1368,9 +1450,12 @@ void bt_sink_srv_a2dp_play(audio_src_srv_handle_t *handle)
                     }
                 }
             } else {
+#ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
                 if(bt_sink_srv_music_is_lhdc_ll_mode(&(a2dp_dev->codec))) {
-                    latency_val = lhdc_ll_mode_latency;
-                } else {
+                    latency_val = BT_SINK_SRV_A2DP_LHDC_LL_MODE_LATENCY;
+                } else 
+#endif
+                {
                     latency_val = bt_sink_srv_get_latency(&a2dp_dev->dev_addr, true, false, false);
                 }
             }
@@ -1395,6 +1480,8 @@ void bt_sink_srv_a2dp_play(audio_src_srv_handle_t *handle)
     bt_sink_srv_dual_ant_notify(false, &notify);
 #endif
     bt_gap_reset_sniff_timer(BT_SINK_SRV_A2DP_MIN_SNIFF_DUR);
+
+    BT_SINK_SRV_SET_FLAG(a2dp_dev->flag, BT_SINK_SRV_MUSIC_FLAG_WAIT_AMI_OPEN_CODEC);
     bt_sink_srv_am_result_t am_ret = bt_sink_srv_ami_audio_play(ctx->a2dp_aid, &aud_cap);
     bt_sink_srv_update_last_device(&(a2dp_dev->dev_addr), BT_SINK_SRV_PROFILE_A2DP_SINK);
 
@@ -1468,7 +1555,6 @@ void bt_sink_srv_a2dp_stop(audio_src_srv_handle_t *handle)
     }
 }
 
-
 void bt_sink_srv_a2dp_suspend(audio_src_srv_handle_t *handle, audio_src_srv_handle_t *int_hd)
 {
     bt_sink_srv_mutex_lock();
@@ -1476,6 +1562,7 @@ void bt_sink_srv_a2dp_suspend(audio_src_srv_handle_t *handle, audio_src_srv_hand
     bt_sink_srv_music_device_t *int_dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_PSE_HD, (void *)int_hd);
 
     bt_utils_assert(a2dp_dev && handle && int_hd);
+    BT_SINK_SRV_REMOVE_FLAG(a2dp_dev->flag, BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC);
     /*GVA-13775, if a2dp suspend come before open codec done and esco need to suspend a2dp, just do nothing.*/
     if (a2dp_dev->a2dp_status == BT_SINK_SRV_A2DP_STATUS_SUSPEND
         && BT_SINK_SRV_MUSIC_TRANSIENT_STATE_CLEAR_CODEC == a2dp_dev->handle->substate) {
@@ -1510,20 +1597,19 @@ void bt_sink_srv_a2dp_suspend(audio_src_srv_handle_t *handle, audio_src_srv_hand
     } else if ((int_hd->type == AUDIO_SRC_SRV_PSEUDO_DEVICE_A2DP) || ((int_hd->type == AUDIO_SRC_SRV_PSEUDO_DEVICE_BLE) && (int_hd->priority == AUDIO_SRC_SRV_PRIORITY_NORMAL))) {
         /* PartyMode interrupt */
         if (int_dev || (int_hd->type == AUDIO_SRC_SRV_PSEUDO_DEVICE_BLE)) {
+            bt_sink_srv_a2dp_add_waitinglist(handle);
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
-            if (BT_SINK_SRV_INTERRUPT_OPERATION_PAUSE_MUSIC == ue_config.suspend_config.suspend_operation
-                && BT_AVRCP_STATUS_PLAY_PLAYING == a2dp_dev->avrcp_status) {
+            if ((BT_SINK_SRV_INTERRUPT_OPERATION_PAUSE_MUSIC == ue_config.suspend_config.suspend_operation)
+                && (BT_AVRCP_STATUS_PLAY_PLAYING == a2dp_dev->avrcp_status)) {
                 bt_sink_srv_music_pause_remote_music(a2dp_dev);
+                if (ue_config.suspend_config.will_suspend_resume) {
+                    BT_SINK_SRV_SET_FLAG(a2dp_dev->flag, BT_SINK_SRV_MUSIC_FLAG_A2DP_INTERRUPT);
+                }
             }
             if (ue_config.suspend_config.will_suspend_resume) {
                 if (ue_config.suspend_config.suspend_resume_timeout) {
                     bt_sink_srv_music_start_vp_detection(a2dp_dev->handle, ue_config.suspend_config.suspend_resume_timeout);
                 }
-                if (BT_SINK_SRV_INTERRUPT_OPERATION_PAUSE_MUSIC == ue_config.suspend_config.suspend_operation
-                    && BT_AVRCP_STATUS_PLAY_PLAYING == a2dp_dev->avrcp_status) {
-                BT_SINK_SRV_SET_FLAG(a2dp_dev->flag, BT_SINK_SRV_MUSIC_FLAG_A2DP_INTERRUPT);
-                }
-                bt_sink_srv_a2dp_add_waitinglist(handle);
             }
 #else
             bt_sink_srv_music_pause_remote_music(a2dp_dev);
@@ -1532,13 +1618,14 @@ void bt_sink_srv_a2dp_suspend(audio_src_srv_handle_t *handle, audio_src_srv_hand
     } else {
         /* Add self in waiting list */
         if (!(a2dp_dev->avrcp_flag & BT_SINK_SRV_AVRCP_MUST_PLAY_RING_TONE_FLAG)) {
-            BT_SINK_SRV_SET_FLAG(a2dp_dev->flag, BT_SINK_SRV_MUSIC_FLAG_A2DP_INTERRUPT);
+            bt_sink_srv_a2dp_add_waitinglist(handle);
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
-            if (ue_config.suspend_config.will_suspend_resume) {
-                bt_sink_srv_a2dp_add_waitinglist(handle);
-            }
-            if (BT_SINK_SRV_INTERRUPT_OPERATION_PAUSE_MUSIC == ue_config.suspend_config.suspend_operation) {
+            if ((BT_SINK_SRV_INTERRUPT_OPERATION_PAUSE_MUSIC == ue_config.suspend_config.suspend_operation)
+                && (BT_AVRCP_STATUS_PLAY_PLAYING == a2dp_dev->avrcp_status)) {
                 bt_sink_srv_music_pause_remote_music(a2dp_dev);
+                if (ue_config.suspend_config.will_suspend_resume) {
+                    BT_SINK_SRV_SET_FLAG(a2dp_dev->flag, BT_SINK_SRV_MUSIC_FLAG_A2DP_INTERRUPT);
+                }
             }
 #else
             ret = bt_sink_srv_music_pause_remote_music(a2dp_dev);
@@ -1547,8 +1634,8 @@ void bt_sink_srv_a2dp_suspend(audio_src_srv_handle_t *handle, audio_src_srv_hand
     }
     bt_sink_srv_mutex_unlock();
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
-    bt_sink_srv_report_id("[sink][music][a2dp] suspend--hd: ret:0x%x, will_suspend_resume:0x%x, suspend_operation:0x%x", 3,
-                          ret, ue_config.suspend_config.will_suspend_resume, ue_config.suspend_config.suspend_operation);
+    bt_sink_srv_report_id("[sink][music][a2dp] suspend--hd: ret:0x%x, will_suspend_resume:0x%x, suspend_operation:0x%x, flag:0x%x", 4,
+                          ret, ue_config.suspend_config.will_suspend_resume, ue_config.suspend_config.suspend_operation, a2dp_dev->flag);
 #else
     bt_sink_srv_report_id("[sink][music][a2dp] suspend--ret:0x%x", 1, ret);
 #endif
@@ -1587,12 +1674,11 @@ void bt_sink_srv_a2dp_reject(audio_src_srv_handle_t *handle)
         if (BT_STATUS_SUCCESS == bt_sink_srv_state_manager_get_config(BT_SINK_SRV_GET_REJECT_CONFIG, 
                                             (void*)(&get_reject_config),
                                             &ue_config)) {
-            if (BT_SINK_SRV_INTERRUPT_OPERATION_PAUSE_MUSIC == ue_config.reject_config.reject_operation) {
+            bt_sink_srv_a2dp_add_waitinglist(dev->handle);
+            if ((BT_SINK_SRV_INTERRUPT_OPERATION_PAUSE_MUSIC == ue_config.reject_config.reject_operation)
+                && (BT_AVRCP_STATUS_PLAY_PLAYING == dev->avrcp_status)) {
                 bt_sink_srv_music_pause_remote_music(dev);
-            }
-            if (ue_config.reject_config.will_reject_resume) {
-                bt_sink_srv_a2dp_add_waitinglist(dev->handle);
-                if (BT_SINK_SRV_INTERRUPT_OPERATION_PAUSE_MUSIC == ue_config.reject_config.reject_operation) {
+                if (ue_config.reject_config.will_reject_resume) {
                     BT_SINK_SRV_SET_FLAG(dev->flag, BT_SINK_SRV_MUSIC_FLAG_A2DP_INTERRUPT);
                 }
             }
@@ -1854,24 +1940,28 @@ bt_status_t bt_sink_srv_a2dp_reinitial_sync()
     if (run_dev) {
         flag = run_dev->flag;
         if ((!(run_dev->flag & BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC)) && (!(run_dev->flag & BT_SINK_SRV_MUSIC_FLAG_WAIT_AMI_OPEN_CODEC))) {
+        BT_SINK_SRV_REMOVE_FLAG(run_dev->flag, BT_SINK_SRV_MUSIC_FLAG_ALC_REINITIAL_SYNC);
+        BT_SINK_SRV_SET_FLAG(run_dev->flag, BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC);
+#ifndef BT_SINK_SRV_IMPROVE_RESYNC
         uint32_t device_list[BT_SINK_SRV_MUISC_DEV_COUNT];
         uint32_t device_count = 0;
-        BT_SINK_SRV_REMOVE_FLAG(run_dev->flag, BT_SINK_SRV_MUSIC_FLAG_ALC_REINITIAL_SYNC);
         bt_sink_srv_music_get_waiting_list_devices(device_list, &device_count);
         bt_sink_srv_music_device_waiting_list_operation(device_list, device_count, false);
 
-        BT_SINK_SRV_SET_FLAG(run_dev->flag, BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC);
 #ifdef AIR_LE_AUDIO_ENABLE
         bt_sink_srv_cap_am_disable_waiting_list();
 #endif
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
         bt_ull_le_am_operate_waiting_list_for_a2dp_resync(false);
 #endif
+#endif
         bt_sink_srv_music_state_machine_handle(run_dev, BT_A2DP_SUSPEND_STREAMING_IND, NULL);
+#ifndef BT_SINK_SRV_IMPROVE_RESYNC
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
         bt_ull_le_am_operate_waiting_list_for_a2dp_resync(true);
 #endif
         bt_sink_srv_music_device_waiting_list_operation(device_list, device_count, true);
+#endif
         } else if (run_dev->flag & BT_SINK_SRV_MUSIC_FLAG_WAIT_AMI_OPEN_CODEC) {
             BT_SINK_SRV_SET_FLAG(run_dev->op, BT_SINK_SRV_MUSIC_WAITING_REINITIAL_SYNC);
             ret = BT_STATUS_FAIL;
@@ -1915,42 +2005,11 @@ bt_status_t bt_sink_srv_a2dp_get_volume(bt_bd_addr_t *bd_addr, uint32_t *volume)
 
 #endif
 
-int32_t bt_sink_srv_a2dp_add_waitinglist(audio_src_srv_handle_t *handle)
+void bt_sink_srv_a2dp_add_waitinglist(audio_src_srv_handle_t *handle)
 {
-    int32_t ret = 0;
-    uint32_t idx = 0;
-    bt_sink_srv_music_device_t *dev = NULL;
-    bt_sink_srv_music_device_list_t *device_list = bt_sink_srv_music_get_played_device_list(true);
-
-    bt_utils_assert(handle);
-    if (device_list) {
-        for (idx = 0; idx < device_list->number; idx++) {
-                dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_ADDR_A2DP, (void *)(&(device_list->device_list[idx])));
-            if (!dev) {
-                dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_ADDR_AVRCP, (void *)(&(device_list->device_list[idx])));
-            }
-
-            if (dev) {
-                if (dev->handle->flag & AUDIO_SRC_SRV_FLAG_WAITING) {
-                    if (dev->handle != handle) {
-                        ret = 2;
-                    }
-                    break;
-                }
-            } else {
-                ret = 1;
-            }
-        }
-    } else {
-        ret = 3;
-    }
-    if (0 == ret) {
-        audio_src_srv_add_waiting_list(handle);
-    }
-
-    bt_sink_srv_report_id("[sink][music][a2dp] add waiting list, dev: 0x%08x, handle: 0x%08x, ret:0x%x",
-        3, dev, handle, ret);
-    return ret;
+    audio_src_srv_add_waiting_list(handle);
+    bt_sink_srv_report_id("[sink][music][a2dp] add_waitinglist, handle: 0x%08x, flag: 0x%08x, ret:0x%x",
+        2, handle, handle->flag);
 }
 
 bt_status_t bt_sink_srv_a2dp_get_codec_parameters(bt_sink_srv_a2dp_basic_config_t *config_data)
@@ -2007,6 +2066,38 @@ bt_status_t bt_sink_srv_a2dp_get_codec_parameters_ext(bt_sink_srv_a2dp_basic_con
     return ret;
 }
 
+bt_status_t bt_sink_srv_a2dp_get_codec_type(bt_sink_srv_a2dp_codec_name_t *codec_data)
+{
+    bt_sink_srv_music_device_t *run_dev = bt_sink_srv_music_get_context()->run_dev;
+    bt_status_t ret = BT_STATUS_FAIL;
+    if (run_dev) {
+        if(run_dev->codec.type == BT_A2DP_CODEC_SBC) {
+            strcpy((char*)codec_data->name, "SBC\n");
+            codec_data->name_len = 4;
+        } else if (run_dev->codec.type == BT_A2DP_CODEC_AAC) {
+            strcpy(codec_data->name, "AAC\n");
+            codec_data->name_len = 4;
+        } else if (run_dev->codec.type == BT_A2DP_CODEC_VENDOR) {
+            uint32_t vendor_id = run_dev->codec.codec.vendor.vendor_id;
+            uint16_t codec_id = run_dev->codec.codec.vendor.codec_id;
+            if (vendor_id == 0x0000012d && codec_id == 0x00aa) {
+                strcpy(codec_data->name, "LDAC\n");
+                codec_data->name_len = 5;
+            } else if (vendor_id == 0x0000053a && codec_id == 0x4C35) {
+                strcpy(codec_data->name, "LHDC\n");
+                codec_data->name_len = 5;
+            } else if (vendor_id == 0x000008a9 && codec_id == 0x0001) {
+                strcpy(codec_data->name, "LC3+\n");
+                codec_data->name_len = 5;
+            }
+        }
+        ret = BT_STATUS_SUCCESS;
+    } else {
+        strcpy(codec_data->name, "None\n");
+        codec_data->name_len = 5;
+    }
+    return ret;
+}
 bt_status_t  bt_sink_srv_a2dp_cm_callback_handler(bt_cm_profile_service_handle_t type, void *data)
 {
     bt_sink_srv_music_context_t *ctx = bt_sink_srv_music_get_context();

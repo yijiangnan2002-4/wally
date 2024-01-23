@@ -43,7 +43,7 @@
 #include "hal_audio.h"
 #include "hal_dvfs.h"
 #include "task_def.h"
-
+#include "fixrate_control.h"
 #include "bt_ble_codec_internal.h"
 #include "bt_sink_srv_ami.h"
 #include "audio_nvdm_common.h"
@@ -63,8 +63,10 @@
 #define BLE_MUSIC_DVFS_SPEED HAL_DVFS_OPP_LOW
 #if defined(AIR_ECNR_1MIC_INEAR_ENABLE) || defined(AIR_ECNR_2MIC_INEAR_ENABLE) || defined(AIR_3RD_PARTY_NR_ENABLE)
 #define BLE_CALL_DVFS_SPEED HAL_DVFS_OPP_MID
+#define BLE_CALL_DVFS_SPEED_HIGH_RES HAL_DVFS_OPP_HIGH
 #else
 #define BLE_CALL_DVFS_SPEED HAL_DVFS_OPP_LOW
+#define BLE_CALL_DVFS_SPEED_HIGH_RES HAL_DVFS_OPP_LOW
 #endif
 
 #include "hal_audio_message_struct_common.h"
@@ -82,8 +84,10 @@
 #define BLE_MUSIC_DVFS_SPEED HAL_DVFS_HALF_SPEED_52M
 #if defined(AIR_ECNR_1MIC_INEAR_ENABLE) || defined(AIR_ECNR_2MIC_INEAR_ENABLE) || defined(AIR_3RD_PARTY_NR_ENABLE)
 #define BLE_CALL_DVFS_SPEED HAL_DVFS_FULL_SPEED_104M
+#define BLE_CALL_DVFS_SPEED_HIGH_RES HAL_DVFS_HIGH_SPEED_208M
 #else
 #define BLE_CALL_DVFS_SPEED HAL_DVFS_HALF_SPEED_52M
+#define BLE_CALL_DVFS_SPEED_HIGH_RES HAL_DVFS_HALF_SPEED_52M
 #endif
 #if defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
 #define ULL_BLE_UL_DVFS_SPEED HAL_DVFS_HIGH_SPEED_208M
@@ -97,8 +101,15 @@
 #define BLE_MUSIC_DVFS_SPEED HAL_DVFS_OPP_LOW
 #if defined(AIR_ECNR_1MIC_INEAR_ENABLE) || defined(AIR_ECNR_2MIC_INEAR_ENABLE) || defined(AIR_3RD_PARTY_NR_ENABLE)
 #define BLE_CALL_DVFS_SPEED HAL_DVFS_OPP_MID
+#define BLE_CALL_DVFS_SPEED_HIGH_RES HAL_DVFS_OPP_HIGH
+#if defined(AIR_FULL_ADAPTIVE_ANC_ENABLE)
+#include "anc_control_api.h"
+#define BLE_CALL_DVFS_SPEED_FADP_ANC_ON     HAL_DVFS_OPP_HIGH
+#define BLE_CALL_DVFS_SPEED_FADP_ANC_OFF    HAL_DVFS_OPP_LOW
+#endif
 #else
 #define BLE_CALL_DVFS_SPEED HAL_DVFS_OPP_LOW
+#define BLE_CALL_DVFS_SPEED_HIGH_RES HAL_DVFS_OPP_LOW
 #endif
 #if defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
 #define ULL_BLE_UL_DVFS_SPEED           HAL_DVFS_OPP_HIGH
@@ -453,8 +464,10 @@ static bt_codec_media_status_t bt_ble_play(bt_media_handle_t *handle)
     start_param.param.stream_in = STREAM_IN_BLE;  //Rdebug Need DSP in
     start_param.param.stream_out = STREAM_OUT_AFE;
     start_param.stream_out_param.afe.aws_flag = aws_flag;
+
         hal_audio_service_hook_callback(AUDIO_MESSAGE_TYPE_BLE_AUDIO_DL, bt_ble_isr_handler, handle);  //Rdebug Need message
 #ifdef AIR_DCHS_MODE_ENABLE
+    start_param.stream_out_param.afe.mce_flag = true; //enable play en
     dchs_cosys_ctrl_cmd_relay(AUDIO_UART_COSYS_DL_START, AUDIO_SCENARIO_TYPE_BLE_DL , NULL, &start_param);
 #endif
     p_param_share = hal_audio_dsp_controller_put_paramter(&start_param, sizeof(mcu2dsp_start_param_t), AUDIO_MESSAGE_TYPE_BLE_AUDIO_DL);
@@ -475,7 +488,7 @@ static bt_codec_media_status_t bt_ble_play(bt_media_handle_t *handle)
 #ifdef AIR_MUTE_MIC_DETECTION_ENABLE
         if(internal_handle->codec_info.ul_param.codec == BT_CODEC_TYPE_LE_AUDIO_LC3){
         audio_volume_monitor_param_t param = {0};
-        param.cb = NULL;
+        param.cb = mute_mic_detection;
         param.volume_len = 1;
         param.ch         = 1;
         param.user_data  = NULL;
@@ -542,6 +555,35 @@ static void bt_ble_lightmode_dvfs_setting(dvfs_frequency_t *ble_dvfs_clk) {
 #endif
 #endif
 
+#if defined(HAL_DVFS_MODULE_ENABLED)
+static dvfs_frequency_t ble_dl_dvfs_clk;
+static dvfs_frequency_t ble_ul_dvfs_clk;
+
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && defined(AIR_FULL_ADAPTIVE_ANC_ENABLE) && (defined(AIR_ECNR_1MIC_INEAR_ENABLE) || defined(AIR_ECNR_2MIC_INEAR_ENABLE) || defined(AIR_3RD_PARTY_NR_ENABLE))
+static dvfs_frequency_t ble_ul_fadp_dvfs_clk;
+
+static void bt_ble_call_fadp_anc_callback_handler(audio_anc_control_event_t event_id, audio_anc_control_result_t result)
+{
+    if ((AUDIO_ANC_CONTROL_EXECUTION_SUCCESS == result) && (event_id == AUDIO_ANC_CONTROL_EVENT_ON)) {
+        /*ANC ON Case*/
+        if(ble_ul_fadp_dvfs_clk != BLE_CALL_DVFS_SPEED_FADP_ANC_ON) {
+            ble_ul_fadp_dvfs_clk = BLE_CALL_DVFS_SPEED_FADP_ANC_ON;
+            BLE_LOG_MSGID_I("FADP ANC ON: UL dvfs lock %d\r\n", 1, ble_ul_fadp_dvfs_clk);
+            hal_dvfs_lock_control(ble_ul_fadp_dvfs_clk, HAL_DVFS_LOCK);
+        }
+    } else if ((AUDIO_ANC_CONTROL_EXECUTION_SUCCESS == result) && (event_id == AUDIO_ANC_CONTROL_EVENT_OFF)) {
+        /*ANC OFF Case*/
+        if(ble_ul_fadp_dvfs_clk != BLE_CALL_DVFS_SPEED_FADP_ANC_OFF) {
+            BLE_LOG_MSGID_I("FADP ANC OFF: UL dvfs unlock %d\r\n", 1, ble_ul_fadp_dvfs_clk);
+            hal_dvfs_lock_control(ble_ul_fadp_dvfs_clk, HAL_DVFS_UNLOCK);
+            ble_ul_fadp_dvfs_clk = BLE_CALL_DVFS_SPEED_FADP_ANC_OFF;
+        }
+    }
+
+}
+#endif // #ifdef AIR_FULL_ADAPTIVE_ANC_ENABLE
+#endif // #if defined(HAL_DVFS_MODULE_ENABLED)
+
 static bt_codec_media_status_t bt_ble_stop(bt_media_handle_t *handle)
 {
     bt_ble_codec_internal_handle_t *internal_handle = (bt_ble_codec_internal_handle_t *)handle;
@@ -553,55 +595,28 @@ static bt_codec_media_status_t bt_ble_stop(bt_media_handle_t *handle)
         hal_audio_service_unhook_callback(AUDIO_MESSAGE_TYPE_BLE_AUDIO_DL);
 
         #if defined(HAL_DVFS_MODULE_ENABLED)
-        dvfs_frequency_t ble_dvfs_clk;
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
-        if (internal_handle->codec_info.dl_param.codec == BT_CODEC_TYPE_LE_AUDIO_LC3PULS || internal_handle->codec_info.dl_param.codec == BT_CODEC_TYPE_LE_AUDIO_VENDOR || internal_handle->codec_info.dl_param.codec == BT_CODEC_TYPE_LE_AUDIO_ULD) {
-            if (internal_handle->codec_info.dl_param.channel_num == CHANNEL_MONO) {
-                ble_dvfs_clk = ULL_BLE_DL_DVFS_SPEED_MONO;
-            } else {
-                ble_dvfs_clk = ULL_BLE_DL_DVFS_SPEED_STEREO;
-            }
-            bt_ble_lightmode_dvfs_setting(&ble_dvfs_clk);
-        } else
-#endif
-        {
-            if (internal_handle->codec_info.dl_param.context_type != AUDIO_CONTENT_TYPE_GAME) {
-                ble_dvfs_clk = BLE_MUSIC_DVFS_SPEED;
-            } else {
-#ifdef CORE_CM33
-                ble_dvfs_clk = HAL_DVFS_OPP_HIGH;
-#else
-                ble_dvfs_clk = HAL_DVFS_HIGH_SPEED_208M;
-#endif
-            }
-        }
-        BLE_LOG_MSGID_I("DL dvfs unlock %d\r\n", 1, ble_dvfs_clk);
-        hal_dvfs_lock_control(ble_dvfs_clk, HAL_DVFS_UNLOCK);
+        BLE_LOG_MSGID_I("DL dvfs unlock %d\r\n", 1, ble_dl_dvfs_clk);
+        hal_dvfs_lock_control(ble_dl_dvfs_clk, HAL_DVFS_UNLOCK);
         #endif
     }
     if (internal_handle->codec_info.channel_mode != CHANNEL_MODE_DL_ONLY) {
         BLE_LOG_MSGID_I("stop UL\r\n", 0);
         hal_audio_dsp_controller_send_message(MSG_MCU2DSP_BLE_AUDIO_UL_STOP, 0, 0, true);
         hal_audio_service_unhook_callback(AUDIO_MESSAGE_TYPE_BLE_AUDIO_UL);
+
         #if defined(HAL_DVFS_MODULE_ENABLED)
-        dvfs_frequency_t ble_dvfs_clk;
-        #if defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
-        if (internal_handle->codec_info.ul_param.codec == BT_CODEC_TYPE_LE_AUDIO_LC3PULS || internal_handle->codec_info.ul_param.codec == BT_CODEC_TYPE_LE_AUDIO_VENDOR
-            || internal_handle->codec_info.ul_param.codec == BT_CODEC_TYPE_LE_AUDIO_ULD) {
-            ble_dvfs_clk = ULL_BLE_UL_DVFS_SPEED;
-            bt_ble_lightmode_dvfs_setting(&ble_dvfs_clk);
-        } else
-        #endif
-        {
-#ifndef AIR_DCHS_MODE_ENABLE
-            ble_dvfs_clk = BLE_CALL_DVFS_SPEED;
-#else
-            ble_dvfs_clk = HAL_DVFS_OPP_HIGH;
-#endif
+        BLE_LOG_MSGID_I("UL dvfs unlock %d\r\n", 1, ble_ul_dvfs_clk);
+        hal_dvfs_lock_control(ble_ul_dvfs_clk, HAL_DVFS_UNLOCK);
+
+        #if defined(AIR_BTA_IC_STEREO_HIGH_G3) && defined(AIR_FULL_ADAPTIVE_ANC_ENABLE) && (defined(AIR_ECNR_1MIC_INEAR_ENABLE) || defined(AIR_ECNR_2MIC_INEAR_ENABLE) || defined(AIR_3RD_PARTY_NR_ENABLE))
+        audio_anc_control_deregister_callback(bt_ble_call_fadp_anc_callback_handler);
+        if(ble_ul_fadp_dvfs_clk != BLE_CALL_DVFS_SPEED_FADP_ANC_OFF) {
+            BLE_LOG_MSGID_I("FADP ANC OFF: UL dvfs unlock %d\r\n", 1, ble_ul_fadp_dvfs_clk);
+            hal_dvfs_lock_control(ble_ul_fadp_dvfs_clk, HAL_DVFS_UNLOCK);
+            ble_ul_fadp_dvfs_clk = BLE_CALL_DVFS_SPEED_FADP_ANC_OFF;
         }
-        BLE_LOG_MSGID_I("UL dvfs unlock %d\r\n", 1, ble_dvfs_clk);
-        hal_dvfs_lock_control(ble_dvfs_clk, HAL_DVFS_UNLOCK);
         #endif
+        #endif // #if defined(HAL_DVFS_MODULE_ENABLED)
 #ifdef AIR_MUTE_MIC_DETECTION_ENABLE
         if(internal_handle->codec_info.ul_param.codec == BT_CODEC_TYPE_LE_AUDIO_LC3){
             audio_volume_monitor_stop(AUDIO_SCENARIO_TYPE_BLE_UL);
@@ -621,29 +636,28 @@ static bt_codec_media_status_t bt_ble_dl_internal_open(const bt_codec_le_audio_d
     bt_codec_type_le_audio_t codec_type = param->codec;
 
     #if defined(HAL_DVFS_MODULE_ENABLED)
-    dvfs_frequency_t ble_dvfs_clk;
 
     #if defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
     if (codec_type == BT_CODEC_TYPE_LE_AUDIO_LC3PULS || codec_type == BT_CODEC_TYPE_LE_AUDIO_VENDOR || codec_type == BT_CODEC_TYPE_LE_AUDIO_ULD) {
         if (param->channel_num == CHANNEL_MONO) {
-            ble_dvfs_clk = ULL_BLE_DL_DVFS_SPEED_MONO;
+            ble_dl_dvfs_clk = ULL_BLE_DL_DVFS_SPEED_MONO;
         } else {
-            ble_dvfs_clk = ULL_BLE_DL_DVFS_SPEED_STEREO;
+            ble_dl_dvfs_clk = ULL_BLE_DL_DVFS_SPEED_STEREO;
         }
-        bt_ble_lightmode_dvfs_setting(&ble_dvfs_clk);
+        bt_ble_lightmode_dvfs_setting(&ble_dl_dvfs_clk);
     } else
     #endif
     if (param->context_type != AUDIO_CONTENT_TYPE_GAME) {
-        ble_dvfs_clk = BLE_MUSIC_DVFS_SPEED;
-        } else {
+        ble_dl_dvfs_clk = BLE_MUSIC_DVFS_SPEED;
+    } else {
 #ifdef CORE_CM33
-        ble_dvfs_clk = HAL_DVFS_OPP_HIGH;
+        ble_dl_dvfs_clk = HAL_DVFS_OPP_HIGH;
 #else
-        ble_dvfs_clk = HAL_DVFS_HIGH_SPEED_208M;
+        ble_dl_dvfs_clk = HAL_DVFS_HIGH_SPEED_208M;
 #endif
-        }
-    BLE_LOG_MSGID_I("DL dvfs lock %d\r\n", 1, ble_dvfs_clk);
-    hal_dvfs_lock_control(ble_dvfs_clk, HAL_DVFS_LOCK);
+    }
+    BLE_LOG_MSGID_I("DL dvfs lock %d\r\n", 1, ble_dl_dvfs_clk);
+    hal_dvfs_lock_control(ble_dl_dvfs_clk, HAL_DVFS_LOCK);
     #endif
 
     if(!open_param)
@@ -728,12 +742,18 @@ static bt_codec_media_status_t bt_ble_dl_internal_open(const bt_codec_le_audio_d
         } else {
             open_param->stream_out_param.afe.format          = HAL_AUDIO_PCM_FORMAT_S32_LE;
         }
-        if((param->context_type == AUDIO_CONTENT_TYPE_ULL_BLE)||(param->context_type == AUDIO_CONTENT_TYPE_WIRELESS_MIC)){
-        open_param->stream_out_param.afe.stream_out_sampling_rate = param->sample_rate;
-        open_param->stream_out_param.afe.sampling_rate   = param->sample_rate;
+        if((param->context_type == AUDIO_CONTENT_TYPE_ULL_BLE)||(param->context_type == AUDIO_CONTENT_TYPE_WIRELESS_MIC)||(codec_type == BT_CODEC_TYPE_LE_AUDIO_LC3PULS)){
+            open_param->stream_out_param.afe.stream_out_sampling_rate = param->sample_rate;
+            open_param->stream_out_param.afe.sampling_rate   = param->sample_rate;
+            #if defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
+            if (param->context_type == AUDIO_CONTENT_TYPE_ULL_BLE && (codec_type == BT_CODEC_TYPE_LE_AUDIO_ULD)) {
+                open_param->stream_out_param.afe.stream_out_sampling_rate = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_96KHZ);
+                open_param->stream_out_param.afe.sampling_rate   = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_96KHZ);
+            }
+            #endif
         }else{
-        open_param->stream_out_param.afe.stream_out_sampling_rate = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_48KHZ);
-        open_param->stream_out_param.afe.sampling_rate   = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_48KHZ);
+            open_param->stream_out_param.afe.stream_out_sampling_rate = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_48KHZ);
+            open_param->stream_out_param.afe.sampling_rate   = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_48KHZ);
         }
 
         open_param->stream_out_param.afe.irq_period      = 0;  /* do not set irq_period, let audio framework use sample count to decide it*/
@@ -743,11 +763,9 @@ static bt_codec_media_status_t bt_ble_dl_internal_open(const bt_codec_le_audio_d
         open_param->stream_in_param.ble.decode_mode  = CODEC_AUDIO_MODE;
         #endif
         open_param->stream_out_param.afe.frame_size  = (open_param->stream_out_param.afe.sampling_rate / 1000) * open_param->stream_in_param.ble.frame_ms / 1000;
-#if defined (FIXED_SAMPLING_RATE_TO_48KHZ)
-        open_param->stream_out_param.afe.sampling_rate = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
-#elif defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
-        open_param->stream_out_param.afe.sampling_rate = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
-#endif
+        if (aud_fixrate_get_downlink_rate(open_param->audio_scenario_type) != FIXRATE_NONE) {
+            open_param->stream_out_param.afe.sampling_rate = aud_fixrate_get_downlink_rate(open_param->audio_scenario_type);
+        }
 
 
         /*    Voice DL Part       */
@@ -779,13 +797,17 @@ static bt_codec_media_status_t bt_ble_dl_internal_open(const bt_codec_le_audio_d
 #else
                 /* no need to adjust afe sampling rate */
 #endif
-                open_param->stream_out_param.afe.frame_size  = (open_param->stream_out_param.afe.sampling_rate / 1000) * open_param->stream_in_param.ble.frame_ms / 1000;
-#if defined (FIXED_SAMPLING_RATE_TO_48KHZ)
-                open_param->stream_out_param.afe.sampling_rate = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
-#elif defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
-                open_param->stream_out_param.afe.sampling_rate = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
+#if defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k)
+                open_param->stream_out_param.afe.stream_out_sampling_rate = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_96KHZ);
+                open_param->stream_out_param.afe.sampling_rate           = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_96KHZ);
+#elif defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k)
+                open_param->stream_out_param.afe.stream_out_sampling_rate = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_48KHZ);
+                open_param->stream_out_param.afe.sampling_rate           = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_48KHZ);
 #endif
-
+                open_param->stream_out_param.afe.frame_size  = (open_param->stream_out_param.afe.sampling_rate / 1000) * open_param->stream_in_param.ble.frame_ms / 1000;
+                if (aud_fixrate_get_downlink_rate(open_param->audio_scenario_type) != FIXRATE_NONE) {
+                    open_param->stream_out_param.afe.sampling_rate = aud_fixrate_get_downlink_rate(open_param->audio_scenario_type);
+                }
             } //else {
             //open_param->stream_in_param.ble.decode_mode  = CODEC_AUDIO_MODE;
             //open_param->stream_out_param.afe.frame_size  = (open_param->stream_out_param.afe.sampling_rate/1000) * open_param->stream_in_param.ble.frame_ms/1000;
@@ -812,8 +834,38 @@ static bt_codec_media_status_t bt_ble_dl_internal_open(const bt_codec_le_audio_d
 #if defined AIR_HWSRC_TX_TRACKING_ENABLE || defined AIR_HWSRC_RX_TRACKING_ENABLE
         open_param->stream_out_param.afe.clkskew_mode = CLK_SKEW_V1;
 #endif
-
+#endif
+#if defined(AIR_HWSRC_IN_STREAM_ENABLE)
+        open_param->stream_out_param.afe.hwsrc_type      = HAL_AUDIO_HWSRC_IN_STREAM;
+        if(open_param->stream_out_param.afe.hwsrc_type == HAL_AUDIO_HWSRC_IN_STREAM) {
+            open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V1;
+        }
+#endif
         BLE_LOG_MSGID_I("open_param->stream_out_param.afe.clkskew_mode:%d", 1, open_param->stream_out_param.afe.clkskew_mode);
+
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+        //hal_dvfs_lock_control(HAL_DVFS_OPP_HIGH, HAL_DVFS_LOCK);
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE
+        open_param->stream_out_param.afe.audio_device     = HAL_AUDIO_DEVICE_DAC_DUAL;
+        open_param->stream_out_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+        open_param->stream_out_param.afe.audio_device1    = HAL_AUDIO_DEVICE_I2S_MASTER;
+        open_param->stream_out_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_1;
+        open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_NONE;
+        open_param->stream_out_param.afe.audio_interface2 = HAL_AUDIO_DEVICE_NONE;
+        open_param->stream_out_param.afe.memory           |= HAL_AUDIO_MEM3;
+        open_param->stream_out_param.afe.is_low_jitter[0]    = true;
+#elif AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE
+        open_param->stream_out_param.afe.audio_device     = HAL_AUDIO_DEVICE_I2S_MASTER;
+        open_param->stream_out_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+        open_param->stream_out_param.afe.audio_device1    = HAL_AUDIO_DEVICE_I2S_MASTER;
+        open_param->stream_out_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_2;
+        open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_I2S_MASTER;
+        open_param->stream_out_param.afe.audio_interface2 = HAL_AUDIO_INTERFACE_3;
+        open_param->stream_out_param.afe.memory           |= HAL_AUDIO_MEM3|HAL_AUDIO_MEM4;
+#endif
+        BLE_LOG_MSGID_I("out_device0(0x%x), channel(%d), interface0(%d)", 3, open_param->stream_out_param.afe.audio_device, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface);
+        BLE_LOG_MSGID_I("out_device1(0x%x), channel(%d), interface1(%d)", 3, open_param->stream_out_param.afe.audio_device1, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface1);
+        BLE_LOG_MSGID_I("out_device2(0x%x), channel(%d), interface2(%d)", 3, open_param->stream_out_param.afe.audio_device2, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface2);
 #endif
 
         BLE_LOG_MSGID_I("open DL\r\n", 0);
@@ -840,22 +892,43 @@ static bt_codec_media_status_t bt_ble_ul_internal_open(const bt_codec_le_audio_u
         void *p_param_share;
         bt_codec_type_le_audio_t codec_type = param->codec;
 #if defined(HAL_DVFS_MODULE_ENABLED)
-        dvfs_frequency_t ble_dvfs_clk;
 #if defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
         if (codec_type == BT_CODEC_TYPE_LE_AUDIO_LC3PULS || codec_type == BT_CODEC_TYPE_LE_AUDIO_VENDOR || codec_type == BT_CODEC_TYPE_LE_AUDIO_ULD) {
-            ble_dvfs_clk = ULL_BLE_UL_DVFS_SPEED;
-            bt_ble_lightmode_dvfs_setting(&ble_dvfs_clk);
+            ble_ul_dvfs_clk = ULL_BLE_UL_DVFS_SPEED;
+            bt_ble_lightmode_dvfs_setting(&ble_ul_dvfs_clk);
         } else
 #endif
         {
 #ifndef AIR_DCHS_MODE_ENABLE
-            ble_dvfs_clk = BLE_CALL_DVFS_SPEED;
-#else
-            ble_dvfs_clk = HAL_DVFS_OPP_HIGH;
+            if(param->sample_rate > 32000)
+                ble_ul_dvfs_clk = BLE_CALL_DVFS_SPEED_HIGH_RES;
+#ifdef AIR_BT_BLE_SWB_ENABLE
+            else if(param->sample_rate < 32000)
+                ble_ul_dvfs_clk = BLE_CALL_DVFS_SPEED_HIGH_RES;
 #endif
+            else
+                ble_ul_dvfs_clk = BLE_CALL_DVFS_SPEED;
+#else
+            ble_ul_dvfs_clk = HAL_DVFS_OPP_HIGH;
+#endif
+
+            #if defined(AIR_BTA_IC_STEREO_HIGH_G3) && defined(AIR_FULL_ADAPTIVE_ANC_ENABLE) && (defined(AIR_ECNR_1MIC_INEAR_ENABLE) || defined(AIR_ECNR_2MIC_INEAR_ENABLE) || defined(AIR_3RD_PARTY_NR_ENABLE))
+            if(ami_hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_FADP_ANC_STREAM)){
+                ble_ul_fadp_dvfs_clk = BLE_CALL_DVFS_SPEED_FADP_ANC_ON;
+                BLE_LOG_MSGID_I("FADP ANC ON: UL dvfs lock %d\r\n", 1, ble_ul_fadp_dvfs_clk);
+                hal_dvfs_lock_control(ble_ul_fadp_dvfs_clk, HAL_DVFS_LOCK);
+            }
+            else {
+                ble_ul_fadp_dvfs_clk = BLE_CALL_DVFS_SPEED_FADP_ANC_OFF;
+            }
+
+            audio_anc_control_event_t event_mask = AUDIO_ANC_CONTROL_EVENT_ON | AUDIO_ANC_CONTROL_EVENT_OFF | AUDIO_ANC_CONTROL_EVENT_FORCE_OFF;
+            audio_anc_control_register_callback(bt_ble_call_fadp_anc_callback_handler, event_mask, AUDIO_ANC_CONTROL_CB_LEVEL_ALL);
+            #endif
         }
-        BLE_LOG_MSGID_I("UL dvfs lock %d\r\n", 1, ble_dvfs_clk);
-        hal_dvfs_lock_control(ble_dvfs_clk, HAL_DVFS_LOCK);
+
+        BLE_LOG_MSGID_I("UL dvfs lock %d\r\n", 1, ble_ul_dvfs_clk);
+        hal_dvfs_lock_control(ble_ul_dvfs_clk, HAL_DVFS_LOCK);
 
 #endif
 #ifdef AIR_WIRELESS_MIC_TX_ENABLE
@@ -1072,7 +1145,7 @@ static bt_codec_media_status_t bt_ble_ul_internal_open(const bt_codec_le_audio_u
     } else {
         configASSERT(0 && "[wireless_mic] unsupported sample rate");
     }
-        
+
     open_param->stream_in_param.afe.sampling_rate = hal_audio_sampling_rate_enum_to_value(HAL_AUDIO_SAMPLING_RATE_32KHZ);
 #endif
     open_param->stream_in_param.afe.frame_number    = 4; /* AFE buffer can cache 6 frame */
@@ -1098,6 +1171,9 @@ static bt_codec_media_status_t bt_ble_ul_internal_open(const bt_codec_le_audio_u
         open_param->stream_in_param.afe.memory          &= ~HAL_AUDIO_MEM3;
 #endif
     }
+
+    open_param->stream_in_param.afe.clkskew_mode    = CLK_SKEW_V1;
+    BLE_LOG_MSGID_I("open_param->stream_in_param.afe.clkskew_mode:%d", 1, open_param->stream_in_param.afe.clkskew_mode);
 
     ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_BLE_UL, open_param, true);
     p_param_share = hal_audio_dsp_controller_put_paramter(open_param, sizeof(mcu2dsp_open_param_t), AUDIO_MESSAGE_TYPE_BLE_AUDIO_UL);

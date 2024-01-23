@@ -135,7 +135,7 @@ typedef struct {
 } app_le_audio_aird_info_t;
 
 static app_le_audio_aird_info_t g_le_audio_aird_info[APP_LE_AUDIO_UCST_LINK_MAX_NUM];
-static app_le_audio_aird_mode_t g_le_audio_aird_mode = APP_LE_AUDIO_AIRD_MODE_NORMOL;
+static app_le_audio_aird_mode_t g_le_audio_aird_mode = APP_LE_AUDIO_AIRD_MODE_NORMAL;
 static bool g_le_audio_aird_mute = false;
 
 /**************************************************************************************************
@@ -363,7 +363,12 @@ static uint32_t app_le_audio_aird_charc_value_rx_callback(const uint8_t rw, uint
         case APP_LE_AUDIO_AIRD_ACTION_MUTE_MIC: {
             LE_AUDIO_MSGLOG_I("[APP][AIRD] MUTE_MIC", 0);
             if(is_active_device == true){
-                usb_hid_srv_send_action(USB_HID_SRV_ACTION_TOGGLE_MIC_MUTE, NULL);
+                if (size > 1) {
+                    usb_hid_srv_send_action(USB_HID_SRV_ACTION_TOGGLE_MIC_MUTE, (void *)&ptr[1]);
+                }
+                else {
+                    usb_hid_srv_send_action(USB_HID_SRV_ACTION_TOGGLE_MIC_MUTE, NULL);
+                }
             }
             break;
         }
@@ -507,9 +512,24 @@ void app_le_audio_aird_init(void)
 #ifdef AIR_MS_TEAMS_ENABLE
     g_le_audio_aird_mode = APP_LE_AUDIO_AIRD_MODE_SUPPORT_HID_CALL;
 #else
-    g_le_audio_aird_mode = APP_LE_AUDIO_AIRD_MODE_NORMOL;
+    g_le_audio_aird_mode = APP_LE_AUDIO_AIRD_MODE_NORMAL;
 #endif
 }
 
+bool app_le_audio_aird_is_connected(bt_handle_t handle)
+{
+    app_le_audio_aird_info_t *p_info = NULL;
+
+    if (BT_HANDLE_INVALID == handle) {
+        return false;
+    }
+    p_info = app_le_audio_aird_get_info(handle);
+
+    if ((NULL != p_info) && (BT_ATT_CLIENT_CHARC_CONFIG_NOTIFICATION == p_info->cccd_tx)) {
+        return true;
+    }
+    return false;
+
+}
 #endif  /* AIR_LE_AUDIO_ENABLE */
 

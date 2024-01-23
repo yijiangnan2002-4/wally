@@ -68,6 +68,8 @@
 
 #define RHO_IDLE_ACTIVITY "[RHO_IDLE]"
 
+#define RHO_RETRY_MAX_TIMES     (6)
+
 /**
  *  @brief This enum defines the states of RHO APP.
  */
@@ -83,6 +85,7 @@ typedef enum {
 typedef struct {
     bool aws_state;                     /**<  AWS connection flag. */
     app_rho_state rho_state;            /**<  RHO APP state. */
+    uint8_t retry_times;                /**<  RHO retry times. */
 } app_rho_context_t;
 
 /* Global context for RHO APP. */
@@ -170,13 +173,17 @@ static void _battery_role_handover_service_status_callback(const bt_bd_addr_t *a
                             APPS_EVENTS_INTERACTION_RHO_STARTED, (void *)(uint32_t)role, 0,
                             NULL, 0);
     } else if (BT_ROLE_HANDOVER_COMPLETE_IND == event) {
-        if (status == BT_STATUS_CONNECTION_IN_SNIFF || status == BT_AWS_MCE_RHO_ERROR_SNIFF_MODE) {
+        if ((status == BT_STATUS_CONNECTION_IN_SNIFF || status == BT_AWS_MCE_RHO_ERROR_SNIFF_MODE)
+            && s_app_rho_context.retry_times < RHO_RETRY_MAX_TIMES) {
             APPS_LOG_MSGID_I(RHO_IDLE_ACTIVITY" fail reason in sniff, retry", 0);
+            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_TRIGGER_RHO);
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_TRIGGER_RHO, NULL, 0,
-                                NULL, 0);
+                                NULL, 100);
+            s_app_rho_context.retry_times++;
             return;
         }
+        s_app_rho_context.retry_times = 0;
         APPS_LOG_MSGID_I(RHO_IDLE_ACTIVITY" RHO end, role 0x%x, status: 0x%x", 2, role, status);
         if (role == BT_AWS_MCE_ROLE_AGENT) {
             if (status == BT_STATUS_SUCCESS) {
@@ -236,6 +243,7 @@ exit:
         ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                             APPS_EVENTS_INTERACTION_RHO_END, (void *)APP_RHO_RESULT_FAIL, 0,
                             NULL, 0);
+        s_app_rho_context.retry_times = 0;
     }
 }
 #endif

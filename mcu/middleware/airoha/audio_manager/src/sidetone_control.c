@@ -49,6 +49,13 @@ extern HAL_DSP_PARA_AU_AFE_CTRL_t audio_nvdm_HW_config;
 extern void audio_side_tone_enable_hdlr(bt_sink_srv_am_amm_struct *amm_ptr);
 extern void audio_side_tone_disable_hdlr(bt_sink_srv_am_amm_struct *amm_ptr);
 sidetone_scenario_t g_AM_sidetone_scenario = SIDETONE_SCENARIO_COMMON;
+bool g_SS_sidetone_on = false;
+
+bool am_audio_side_tone_get_status(void)
+{
+    return g_SS_sidetone_on;
+}
+
 /*****************************************************************************
  * FUNCTION
  *  am_audio_side_tone_enable_by_scenario
@@ -222,7 +229,7 @@ sidetone_control_result_t am_audio_side_tone_enable(void)
 #endif
         }
     }
-
+    g_SS_sidetone_on = true;
     audio_src_srv_report("[AMI] am_audio_side_tone_enable method(%d)", 1, am_audio_side_tone_query_method());
     return ST_EXECUTION_SUCCESS;
 }
@@ -286,8 +293,17 @@ sidetone_control_result_t am_audio_side_tone_set_volume_by_scenario(sidetone_sce
 {
     bool is_am_task = false;
     uint32_t savedmask;
-    bt_sink_srv_am_background_t temp_background_t = {0};
-    bt_sink_srv_am_amm_struct am_amm;
+    //bt_sink_srv_am_background_t temp_background_t = {0};
+    //bt_sink_srv_am_amm_struct am_amm;
+    bt_sink_srv_am_background_t *temp_background_t;
+    bt_sink_srv_am_amm_struct *am_amm;
+    temp_background_t = (bt_sink_srv_am_background_t *)pvPortMalloc(sizeof(bt_sink_srv_am_background_t));
+    am_amm = (bt_sink_srv_am_amm_struct *)pvPortMalloc(sizeof(bt_sink_srv_am_amm_struct));
+    if((temp_background_t == NULL) || (am_amm == NULL)){
+        AUDIO_ASSERT(0 && "[Sink][AM] am_audio_side_tone_set_volume_by_scenario init malloc fail.");
+    }
+    memset(temp_background_t, 0, sizeof(bt_sink_srv_am_background_t));
+    memset(am_amm, 0, sizeof(bt_sink_srv_am_amm_struct));
 
     hal_nvic_save_and_set_interrupt_mask(&savedmask);
     if (AUDIO_SRC_SRV_AM_TASK == pxCurrentTCB) {
@@ -298,9 +314,9 @@ sidetone_control_result_t am_audio_side_tone_set_volume_by_scenario(sidetone_sce
     hal_nvic_restore_interrupt_mask(savedmask);
     if (is_am_task) {
         if ((ST_MECH_FIR_IND == am_audio_side_tone_query_method()) || (ST_MECH_IIR_IND == am_audio_side_tone_query_method())) {
-            am_amm.background_info.local_feature.feature_param.sidetone_param.scenario = scenario;
-            am_amm.background_info.local_feature.feature_param.sidetone_param.side_tone_gain = side_tone_gain;
-            audio_side_tone_set_volume_hdlr(&am_amm);
+            am_amm->background_info.local_feature.feature_param.sidetone_param.scenario = scenario;
+            am_amm->background_info.local_feature.feature_param.sidetone_param.side_tone_gain = side_tone_gain;
+            audio_side_tone_set_volume_hdlr(am_amm);
         } else if ((ST_MECH_FIR_EXTEND == am_audio_side_tone_query_method()) || (ST_MECH_IIR_EXTEND == am_audio_side_tone_query_method())) {
 #if defined(MTK_ANC_ENABLE) && (defined(MTK_ANC_V2) || defined(AIR_ANC_V3))
             audio_anc_control_sidetone_set_volume((audio_anc_control_gain_t)(side_tone_gain * 100), NULL);
@@ -315,10 +331,10 @@ sidetone_control_result_t am_audio_side_tone_set_volume_by_scenario(sidetone_sce
         }
     } else {
         if ((ST_MECH_FIR_IND == am_audio_side_tone_query_method()) || (ST_MECH_IIR_IND == am_audio_side_tone_query_method())) {
-            temp_background_t.local_feature.feature_param.sidetone_param.scenario = scenario;
-            temp_background_t.local_feature.feature_param.sidetone_param.side_tone_gain = side_tone_gain;
+            temp_background_t->local_feature.feature_param.sidetone_param.scenario = scenario;
+            temp_background_t->local_feature.feature_param.sidetone_param.side_tone_gain = side_tone_gain;
             bt_sink_srv_ami_send_amm(MOD_AM, MOD_AMI, AUD_SELF_CMD_REQ,
-                                     MSG_ID_AUDIO_SET_SIDE_TONE_VOLUME, &temp_background_t,
+                                     MSG_ID_AUDIO_SET_SIDE_TONE_VOLUME, temp_background_t,
                                      FALSE, ptr_callback_amm);
         } else if ((ST_MECH_FIR_EXTEND == am_audio_side_tone_query_method()) || (ST_MECH_IIR_EXTEND == am_audio_side_tone_query_method())) {
 #if defined(MTK_ANC_ENABLE) && (defined(MTK_ANC_V2) || defined(AIR_ANC_V3))
@@ -335,6 +351,8 @@ sidetone_control_result_t am_audio_side_tone_set_volume_by_scenario(sidetone_sce
     }
 
     audio_src_srv_report("[AMI] side tone set volume:sidetone_gain = %d, scenario = %d", 2, side_tone_gain, (int)scenario);
+    vPortFree(temp_background_t);
+    vPortFree(am_amm);
     return ST_EXECUTION_SUCCESS;
 }
 
@@ -380,7 +398,7 @@ sidetone_control_result_t am_audio_side_tone_disable(void)
 #endif
 #endif
     }
-
+    g_SS_sidetone_on = false;
     audio_src_srv_report("[AMI] am_audio_side_tone_disable method(%d)", 1, am_audio_side_tone_query_method());
     return ST_EXECUTION_SUCCESS;
 }

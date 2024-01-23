@@ -74,7 +74,17 @@
 #ifdef AIR_MS_GIP_ENABLE
 #include "usb_main.h"
 #endif
+#ifdef AIR_USB_MFI_ENABLE
+#include "usb_mfi.h"
+#endif
 #include "app_dongle_le_race.h"
+
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
+#include "app_dongle_ull_le_hid.h"
+#include "apps_usb_utils.h"
+#include "app_key_remap.h"
+#endif
+
 #define LOG_TAG     "[app_dongle_common]"
 static uint8_t s_dongle_mode;
 
@@ -131,7 +141,7 @@ static void app_dongle_common_profile_mode_changed(app_dongle_comomn_profile_mod
 #if defined(AIR_LE_AUDIO_ENABLE)
 static const int32_t apps_usb_ent_sample_rate[USB_AUDIO_DSCR_MAX_FREQ_NUM] = {
     USB_AUDIO_SAMPLE_RATE_48K,
-    USB_AUDIO_NULL,
+    USB_AUDIO_SAMPLE_RATE_96K,
     USB_AUDIO_NULL,
     USB_AUDIO_NULL,
     USB_AUDIO_NULL
@@ -278,7 +288,6 @@ static void app_home_usb_pulg_in_cb(usb_evt_t event, void* usb_data, void* user_
         case APPS_USB_MODE_ENTERPRISE: {
             usb_set_device_type(APPS_USB_ENT_DEV_TYPE);
             usb_custom_set_speed(APPS_USB_ENT_HS_ENABLE);
-            usb_custom_set_speed(APPS_USB_ENT_HS_ENABLE);
             usb_custom_set_product_info(APPS_USB_ENT_VID, APPS_USB_ENT_PID, APPS_USB_ENT_VER);
             usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Dongle Enterprise");
             break;
@@ -305,7 +314,7 @@ static void app_home_usb_pulg_in_cb(usb_evt_t event, void* usb_data, void* user_
 #if defined(AIR_USB_AUDIO_MULTI_CH_MODE) || defined(AIR_DCHS_MODE_ENABLE)
         case APPS_USB_MODE_DCHS_CUSTOM: {
             usb_set_device_type(APPS_USB_GAME_DEV_TYPE);
-            usb_custom_set_speed(APPS_USB_GAME_HS_ENABLE);
+            usb_custom_set_speed(false);
             usb_custom_set_product_info(APPS_USB_GAME_VID, 0x0812, APPS_USB_GAME_VER);
             usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Dongle DCHS Custom");
             break;
@@ -363,21 +372,47 @@ static void app_home_usb_pulg_in_cb(usb_evt_t event, void* usb_data, void* user_
         }
 #endif
 #if defined(AIR_PURE_GAMING_ENABLE)
-        case APPS_USB_MODE_PURE_GAMING:{
+        case APPS_USB_MODE_GAMING_MSKB:{
             usb_set_device_type(USB_HID);
             usb_custom_set_speed(true);
-            usb_custom_set_product_info(0x0E8D, 0x0701, 0x0100);
-            usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Dongle Pure Gaming");
+            usb_custom_set_product_info(0x0E8D, 0x0703, 0x0100);
+            usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Gaming MS/KB Dongle");
+            usb_custom_set_power_info(false, true, 100);
+            break;
+        }
+        case APPS_USB_MODE_GAMING_MS:{
+            usb_set_device_type(USB_HID);
+            usb_custom_set_speed(true);
+            usb_custom_set_product_info(0x0E8D, 0x0704, 0x0100);
+            usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Gaming MS Dongle");
+            usb_custom_set_power_info(false, true, 100);
+            break;
+        }
+        case APPS_USB_MODE_GAMING_KB:{
+            usb_set_device_type(USB_HID);
+            usb_custom_set_speed(true);
+            usb_custom_set_product_info(0x0E8D, 0x0705, 0x0100);
+            usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Gaming Nkey KB Dongle");
             usb_custom_set_power_info(false, true, 100);
             break;
         }
 #endif
 #if defined(AIR_NVIDIA_REFLEX_ENABLE)
-        case APPS_USB_MODE_NV_GAMING:{
+        case APPS_USB_MODE_GAMING_NVMS: {
             usb_set_device_type(USB_HID);
             usb_custom_set_speed(true);
-            usb_custom_set_product_info(0x0E8D, 0x0701, 0x0100);
-            usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Dongle NV Gaming");
+            usb_custom_set_product_info(0x0E8D, 0x0706, 0x0100);
+            usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Gaming NV MS Dongle");
+            usb_custom_set_power_info(false, true, 100);
+            break;
+        }
+#endif
+#if defined(AIR_HID_BT_HOGP_ENABLE)
+        case APPS_USB_MODE_OFFICE_MSKB:{
+            usb_set_device_type(USB_HID);
+            usb_custom_set_speed(true);
+            usb_custom_set_product_info(0x0E8D, 0x0705, 0x0100);
+            usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Office KB/MS Dongle");
             usb_custom_set_power_info(false, true, 100);
             break;
         }
@@ -516,10 +551,16 @@ static void app_home_usb_device_init_cb(usb_evt_t event, void* usb_data, void* u
             usb_audio_set_spk_channels(USB_AUDIO_1_PORT, USB_AUDIO_CHANNEL_2, USB_AUDIO_CHANNEL_CONBINE_2CH, USB_AUDIO_VC_INDIVIUAL);
             usb_audio_set_mic_channels(USB_AUDIO_1_PORT, USB_AUDIO_CHANNEL_1, USB_AUDIO_CHANNEL_CONBINE_MONO, USB_AUDIO_VC_MASTER);
 
-            USB_Aduio_Set_RX1_Alt1(USB_AUDIO_SAMPLE_RATE_NUM_1,
+            USB_Aduio_Set_RX1_Alt1(USB_AUDIO_SAMPLE_RATE_NUM_2,
                                    USB_AUDIO_SAMPLE_SIZE_16BIT,
                                    USB_AUDIO_CHANNEL_2,
                                    (uint32_t *)apps_usb_ent_sample_rate);
+
+            USB_Aduio_Set_RX1_Alt2(true,
+                                   USB_AUDIO_SAMPLE_RATE_NUM_2,
+                                   USB_AUDIO_SAMPLE_SIZE_24BIT,
+                                   USB_AUDIO_CHANNEL_2,
+                                   (uint32_t *)apps_usb_game_sample_rate);
 
             USB_Aduio_Set_TX1_Alt1(USB_AUDIO_SAMPLE_RATE_NUM_2,
                                    USB_AUDIO_SAMPLE_SIZE_16BIT,
@@ -553,6 +594,11 @@ static void app_home_usb_device_init_cb(usb_evt_t event, void* usb_data, void* u
                     USB_REPORT_DSCR_TYPE_MUX,
                     USB_REPORT_DSCR_TYPE_AC,},
                 2);
+
+            #if defined(AIR_USB_MFI_ENABLE)
+            usb_mfi_set_dscr_enable(true);
+            #endif
+
             break;
         }
 #endif
@@ -837,17 +883,83 @@ static void app_home_usb_device_init_cb(usb_evt_t event, void* usb_data, void* u
         }
 #endif
 #if defined(AIR_PURE_GAMING_ENABLE)
-        case APPS_USB_MODE_PURE_GAMING: {
+        case APPS_USB_MODE_GAMING_MSKB: {
             usb_hid_device_enable(USB_HID_DEV_PORT_0_MASK | USB_HID_DEV_PORT_1_MASK | USB_HID_DEV_PORT_2_MASK);
 
             /* HID Device 0 Race/Mux/AudioControl */
+            usb_hid_out_ep_enable(USB_HID_DEV_PORT_0, true);
             usb_hid_set_interval(USB_HID_DEV_PORT_0, USB_HID_EP_INTERVAL_125US);
             usb_hid_set_protocol_code(USB_HID_DEV_PORT_0, USB_HID_PROTOCOL_CODE_NONE);
             usb_hid_report_enable(
                 USB_HID_DEV_PORT_0,
                 (usb_hid_report_dscr_type_t[2]) {
                     USB_REPORT_DSCR_TYPE_MUX,
-                    USB_REPORT_DSCR_TYPE_AC,
+                    USB_REPORT_DSCR_TYPE_EPIO,
+                    },
+                2);
+
+            /* HID Device 1 Mouse */
+            usb_hid_set_interval(USB_HID_DEV_PORT_1, USB_HID_EP_INTERVAL_125US);
+            usb_hid_set_protocol_code(USB_HID_DEV_PORT_1, USB_HID_PROTOCOL_CODE_MOUSE);
+            usb_hid_report_enable(USB_HID_DEV_PORT_1,
+                (usb_hid_report_dscr_type_t[1]) {
+                    USB_REPORT_DSCR_TYPE_GMOUSE},
+                1);
+
+            /* HID Device 2 Keyboard */
+            usb_hid_set_interval(USB_HID_DEV_PORT_2, USB_HID_EP_INTERVAL_125US);
+            usb_hid_set_protocol_code(USB_HID_DEV_PORT_2, USB_HID_PROTOCOL_CODE_KEYBOARD);
+            usb_hid_report_enable(
+                USB_HID_DEV_PORT_2,
+                (usb_hid_report_dscr_type_t[1]) {USB_REPORT_DSCR_TYPE_GKEYBOARD},
+                1);
+            break;
+        }
+        case APPS_USB_MODE_GAMING_MS: {
+            usb_hid_device_enable(USB_HID_DEV_PORT_0_MASK | USB_HID_DEV_PORT_1_MASK | USB_HID_DEV_PORT_2_MASK);
+
+            /* HID Device 0 Race/Mux/AudioControl */
+            usb_hid_out_ep_enable(USB_HID_DEV_PORT_0, true);
+            usb_hid_set_interval(USB_HID_DEV_PORT_0, USB_HID_EP_INTERVAL_125US);
+            usb_hid_set_protocol_code(USB_HID_DEV_PORT_0, USB_HID_PROTOCOL_CODE_NONE);
+            usb_hid_report_enable(
+                USB_HID_DEV_PORT_0,
+                (usb_hid_report_dscr_type_t[2]) {
+                    USB_REPORT_DSCR_TYPE_MUX,
+                    USB_REPORT_DSCR_TYPE_EPIO,
+                    },
+                2);
+
+            /* HID Device 1 Mouse */
+            usb_hid_set_interval(USB_HID_DEV_PORT_1, USB_HID_EP_INTERVAL_125US);
+            usb_hid_set_protocol_code(USB_HID_DEV_PORT_1, USB_HID_PROTOCOL_CODE_MOUSE);
+            usb_hid_report_enable(
+                USB_HID_DEV_PORT_1,
+                (usb_hid_report_dscr_type_t[1]) {
+                    USB_REPORT_DSCR_TYPE_GMOUSE},
+                1);
+
+            /* HID Device 2 Keyboard */
+            usb_hid_set_interval(USB_HID_DEV_PORT_2, USB_HID_EP_INTERVAL_125US);
+            usb_hid_set_protocol_code(USB_HID_DEV_PORT_2, USB_HID_PROTOCOL_CODE_KEYBOARD);
+            usb_hid_report_enable(
+                USB_HID_DEV_PORT_2,
+                (usb_hid_report_dscr_type_t[1]) {USB_REPORT_DSCR_TYPE_GKEYBOARD},
+                1);
+            break;
+        }
+        case APPS_USB_MODE_GAMING_KB: {
+            usb_hid_device_enable(USB_HID_DEV_PORT_0_MASK | USB_HID_DEV_PORT_1_MASK | USB_HID_DEV_PORT_2_MASK);
+
+            /* HID Device 0 Race/Mux/AudioControl */
+            usb_hid_out_ep_enable(USB_HID_DEV_PORT_0, true);
+            usb_hid_set_interval(USB_HID_DEV_PORT_0, USB_HID_EP_INTERVAL_125US);
+            usb_hid_set_protocol_code(USB_HID_DEV_PORT_0, USB_HID_PROTOCOL_CODE_NONE);
+            usb_hid_report_enable(
+                USB_HID_DEV_PORT_0,
+                (usb_hid_report_dscr_type_t[2]) {
+                    USB_REPORT_DSCR_TYPE_MUX,
+                    USB_REPORT_DSCR_TYPE_EPIO,
                     },
                 2);
 
@@ -871,17 +983,18 @@ static void app_home_usb_device_init_cb(usb_evt_t event, void* usb_data, void* u
         }
 #endif
 #if defined(AIR_NVIDIA_REFLEX_ENABLE)
-        case APPS_USB_MODE_NV_GAMING:{
+        case APPS_USB_MODE_GAMING_NVMS: {
             usb_hid_device_enable(USB_HID_DEV_PORT_0_MASK | USB_HID_DEV_PORT_1_MASK | USB_HID_DEV_PORT_2_MASK);
 
             /* HID Device 0 Race/Mux/AudioControl */
+            usb_hid_out_ep_enable(USB_HID_DEV_PORT_0, true);
             usb_hid_set_interval(USB_HID_DEV_PORT_0, USB_HID_EP_INTERVAL_125US);
             usb_hid_set_protocol_code(USB_HID_DEV_PORT_0, USB_HID_PROTOCOL_CODE_NONE);
             usb_hid_report_enable(
                 USB_HID_DEV_PORT_0,
                 (usb_hid_report_dscr_type_t[2]) {
                     USB_REPORT_DSCR_TYPE_MUX,
-                    USB_REPORT_DSCR_TYPE_AC,
+                    USB_REPORT_DSCR_TYPE_EPIO,
                     },
                 2);
 
@@ -903,6 +1016,36 @@ static void app_home_usb_device_init_cb(usb_evt_t event, void* usb_data, void* u
                 (usb_hid_report_dscr_type_t[1]) {
                     USB_REPORT_DSCR_TYPE_GKEYBOARD,
                     },
+                1);
+            break;
+        }
+#endif
+#if defined(AIR_HID_BT_HOGP_ENABLE)
+        case APPS_USB_MODE_OFFICE_MSKB: {
+            usb_hid_device_enable(USB_HID_DEV_PORT_0_MASK | USB_HID_DEV_PORT_1_MASK | USB_HID_DEV_PORT_2_MASK);
+
+            /* HID Device 0 Race/Mux/AudioControl */
+            usb_hid_set_interval(USB_HID_DEV_PORT_0, USB_HID_EP_INTERVAL_1MS);
+            usb_hid_set_protocol_code(USB_HID_DEV_PORT_0, USB_HID_PROTOCOL_CODE_NONE);
+            usb_hid_report_enable(
+                USB_HID_DEV_PORT_0,
+                (usb_hid_report_dscr_type_t[1]) {USB_REPORT_DSCR_TYPE_MUX},
+                1);
+
+            /* HID Device 1 Mouse */
+            usb_hid_set_interval(USB_HID_DEV_PORT_1, USB_HID_EP_INTERVAL_1MS);
+            usb_hid_set_protocol_code(USB_HID_DEV_PORT_1, USB_HID_PROTOCOL_CODE_MOUSE);
+            usb_hid_report_enable(
+                USB_HID_DEV_PORT_1,
+                (usb_hid_report_dscr_type_t[1]) {USB_REPORT_DSCR_TYPE_OFFICE_MS},
+                1);
+
+            /* HID Device 2 Keyboard */
+            usb_hid_set_interval(USB_HID_DEV_PORT_2, USB_HID_EP_INTERVAL_1MS);
+            usb_hid_set_protocol_code(USB_HID_DEV_PORT_2, USB_HID_PROTOCOL_CODE_KEYBOARD);
+            usb_hid_report_enable(
+                USB_HID_DEV_PORT_2,
+                (usb_hid_report_dscr_type_t[1]) {USB_REPORT_DSCR_TYPE_OFFICE_KB},
                 1);
             break;
         }
@@ -974,22 +1117,22 @@ uint8_t app_dongle_common_idle_verify_mode(uint8_t mode) {
     }
 #endif
 #if !(defined(AIR_PURE_GAMING_ENABLE))
-    if (APPS_USB_MODE_PURE_GAMING == mode) {
+    if (APPS_USB_MODE_GAMING_MSKB == mode) {
         mode = APPS_DEFAULT_USB_MODE;
     }
 #endif
 #if !(defined(AIR_NVIDIA_REFLEX_ENABLE))
-    if (APPS_USB_MODE_NV_GAMING == mode) {
+    if (APPS_USB_MODE_GAMING_NVMS == mode) {
+        mode = APPS_DEFAULT_USB_MODE;
+    }
+#endif
+#if !(defined(AIR_HID_BT_HOGP_ENABLE))
+    if (APPS_USB_MODE_OFFICE_MSKB == mode) {
         mode = APPS_DEFAULT_USB_MODE;
     }
 #endif
     return mode;
 }
-
-#ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
-#include "apps_usb_utils.h"
-#include "app_key_remap.h"
-#endif
 
 /******** UI shell proc events functions ***********/
 static bool app_dongle_common_idle_system_event_proc(ui_shell_activity_t *self,
@@ -1010,13 +1153,21 @@ static bool app_dongle_common_idle_system_event_proc(ui_shell_activity_t *self,
 #endif
 
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
+        app_usb_utils_hid_bt_reg();
+#if defined (AIR_PURE_GAMING_MS_ENABLE) || defined (AIR_PURE_GAMING_KB_ENABLE)
+        app_dongle_ull_le_hid_ep_tx_reg();
+#endif
 #if defined(AIR_PURE_GAMING_MS_ENABLE)
         app_key_remap_init();
-#endif /* defined(AIR_PURE_GAMING_MS_ENABLE) */
-        app_usb_utils_register_bt_cb();
-        app_usb_utils_register_preintr_cb();
-        app_usb_utils_register_intr_cb();
-        app_usb_utils_register_hid_output_cb();
+#endif
+#if defined(AIR_PURE_GAMING_KB_ENABLE)
+        app_usb_utils_hid_kb_intr_reg();
+        app_usb_utils_hid_output_reg();
+#endif
+#if defined(AIR_NVIDIA_REFLEX_ENABLE)
+        app_usb_utils_hid_preintr_reg();
+        //app_usb_utils_hid_intr_reg();
+#endif
 #endif
     }
 
@@ -1032,7 +1183,9 @@ static bool app_dongle_common_idle_interaction_event_proc(ui_shell_activity_t *s
 
     if (APPS_EVENTS_INTERACTION_SET_USB_MODE == event_id) {
         uint32_t mode = (uint32_t)extra_data;
-        if (mode >= APPS_USB_MODE_MAX) {
+        if ((mode < APPS_USB_MODE_BTA_MIN || mode >= APPS_USB_MODE_BTA_MAX) &&
+            (mode < APPS_USB_MODE_BTD_MIN || mode >= APPS_USB_MODE_BTD_MAX)
+        ) {
             mode = APPS_DEFAULT_USB_MODE;
         }
         if (mode != s_dongle_mode) {
@@ -1044,7 +1197,7 @@ static bool app_dongle_common_idle_interaction_event_proc(ui_shell_activity_t *s
         }
         ret = true;
     } else if (APPS_EVENTS_INTERACTION_LE_SCAN_END == event_id) {
-#if defined(MTK_RACE_CMD_ENABLE) 
+#if defined(MTK_RACE_CMD_ENABLE)
         ret = app_dongle_le_race_interaction_event_proc(self, event_id, extra_data, data_len);
 #endif
     }
@@ -1285,7 +1438,9 @@ void app_dongle_common_idle_activity_init_mode(void)
         }
 #endif
 #if defined(AIR_PURE_GAMING_ENABLE)
-        case APPS_USB_MODE_PURE_GAMING: {
+        case APPS_USB_MODE_GAMING_MSKB:
+        case APPS_USB_MODE_GAMING_MS:
+        case APPS_USB_MODE_GAMING_KB: {
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
             mode |= APP_DONGLE_CM_LINK_MODE_ULL_V1;
 #endif
@@ -1296,7 +1451,18 @@ void app_dongle_common_idle_activity_init_mode(void)
         }
 #endif
 #if defined(AIR_NVIDIA_REFLEX_ENABLE)
-        case APPS_USB_MODE_NV_GAMING: {
+        case APPS_USB_MODE_GAMING_NVMS: {
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
+            mode |= APP_DONGLE_CM_LINK_MODE_ULL_V1;
+#endif
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
+            mode |= APP_DONGLE_CM_LINK_MODE_ULL_V2;
+#endif
+            break;
+        }
+#endif
+#if defined(AIR_HID_BT_HOGP_ENABLE)
+        case APPS_USB_MODE_OFFICE_MSKB: {
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
             mode |= APP_DONGLE_CM_LINK_MODE_ULL_V1;
 #endif

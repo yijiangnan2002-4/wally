@@ -175,17 +175,17 @@ void gpio_get_state(hal_gpio_pin_t gpio_pin, gpio_state_t *gpio_state)
         } else if (temp == 0x01) {
             pull_type = GPIO_PD_R;
         } else if (temp == 0x101) {
-            pull_type = GPIO_PD_R0;
+            pull_type = GPIO_PD_RSEL01;
         } else if (temp == 0x1001) {
-            pull_type = GPIO_PD_R1;
+            pull_type = GPIO_PD_RSEL10;
         } else if (temp == 0x1101) {
-            pull_type = GPIO_PD_R0_R1;
+            pull_type = GPIO_PD_RSEL11;
         } else if (temp == 0x110) {
-            pull_type = GPIO_PU_R0;
+            pull_type = GPIO_PU_RSEL01;
         } else if (temp == 0x1010) {
-            pull_type = GPIO_PU_R1;
+            pull_type = GPIO_PU_RSEL10;
         } else if (temp == 0x1110) {
-            pull_type = GPIO_PU_R0_R1;
+            pull_type = GPIO_PU_RSEL11;
         } else if ((temp & 0xFF) == 0x11) {
             pull_type = GPIO_PUPD_ERR;
             log_hal_msgid_info("error pu = %x, pd= %x\r\n", 2, pu, pd);

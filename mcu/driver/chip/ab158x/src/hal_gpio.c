@@ -34,13 +34,17 @@
 
 #include "hal_gpio.h"
 
-
 #ifdef HAL_GPIO_MODULE_ENABLED
 #include "hal_gpio_internal.h"
 #include "hal_nvic.h"
 #include "hal_clock_internal.h"
 #include "hal_log.h"
 #include <assert.h>
+
+#if !defined(__UBL__) && !defined(__EXT_DA__)
+#include "ept_gpio_drv.h"
+#include "exception_handler.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -202,6 +206,64 @@ hal_pinmux_status_t hal_pinmux_set_function(hal_gpio_pin_t gpio_pin, uint8_t fun
     return HAL_PINMUX_STATUS_OK;
 
 }
+
+uint32_t hal_pinmux_get_function(hal_gpio_pin_t gpio_pin)
+{
+    uint32_t reg_index;
+    uint32_t bit_index;
+    uint32_t mode;
+
+    reg_index = gpio_pin / 8;
+    bit_index = (gpio_pin % 8) * 4;
+    mode = (gpio_base->GPIO_MODE.RW[reg_index] >> (bit_index) & 0xf);
+
+    return mode;
+}
+
+#if !defined(__UBL__) && !defined(__EXT_DA__)
+hal_gpio_status_t hal_gpio_mode_ept_compare_hw_config(void)
+{
+    uint32_t i, j;
+    uint32_t count = 0;
+    uint32_t hw_gpio_mode[HAL_GPIO_MAX]  = {0};
+    uint32_t ept_gpio_mode[] = {GPIO_PORT0_MODE,  GPIO_PORT1_MODE,  GPIO_PORT2_MODE,  GPIO_PORT3_MODE,  GPIO_PORT4_MODE,  GPIO_PORT5_MODE,  GPIO_PORT6_MODE,  GPIO_PORT7_MODE,  GPIO_PORT8_MODE,  GPIO_PORT9_MODE,\
+                                GPIO_PORT10_MODE, GPIO_PORT11_MODE, GPIO_PORT12_MODE, GPIO_PORT13_MODE, GPIO_PORT14_MODE, GPIO_PORT15_MODE, GPIO_PORT16_MODE, GPIO_PORT17_MODE, GPIO_PORT18_MODE, GPIO_PORT19_MODE,\
+                                GPIO_PORT20_MODE, GPIO_PORT21_MODE, GPIO_PORT22_MODE, GPIO_PORT23_MODE, GPIO_PORT24_MODE, GPIO_PORT25_MODE, GPIO_PORT26_MODE, GPIO_PORT27_MODE, GPIO_PORT28_MODE, GPIO_PORT29_MODE,\
+                                GPIO_PORT30_MODE, GPIO_PORT31_MODE, GPIO_PORT32_MODE, GPIO_PORT33_MODE, GPIO_PORT34_MODE, GPIO_PORT35_MODE, GPIO_PORT36_MODE, GPIO_PORT37_MODE, GPIO_PORT38_MODE, GPIO_PORT39_MODE,\
+                                GPIO_PORT40_MODE, GPIO_PORT41_MODE, GPIO_PORT42_MODE, GPIO_PORT43_MODE, GPIO_PORT44_MODE, GPIO_PORT45_MODE, GPIO_PORT46_MODE, GPIO_PORT47_MODE, GPIO_PORT48_MODE, GPIO_PORT49_MODE,\
+                                GPIO_PORT50_MODE, GPIO_PORT51_MODE, GPIO_PORT52_MODE, GPIO_PORT53_MODE, GPIO_PORT54_MODE, GPIO_PORT55_MODE, GPIO_PORT56_MODE, GPIO_PORT57_MODE};
+
+
+    for (i = 0; i < HAL_GPIO_MAX; i++) {
+        hw_gpio_mode[i] = hal_pinmux_get_function(i);
+    }
+
+    for (j = 0; j < HAL_GPIO_MAX; j++) {
+       if(ept_gpio_mode[j] != hw_gpio_mode[j]) {
+            if(hal_core_status_read(HAL_CORE_MCU) == HAL_CORE_EXCEPTION) {
+                exception_printf("[pinmux] ept gpio[%d] = mode%d, hw gpio[%d] = mode%d\r\n", j, ept_gpio_mode[j], j, hw_gpio_mode[j]);
+            } else {
+                log_hal_msgid_error("[pinmux] ept gpio[%d] = mode%d, hw gpio[%d] = mode%d\r\n", 4, j, ept_gpio_mode[j], j, hw_gpio_mode[j]);
+            }
+        } else {
+            count ++;
+            //log_hal_msgid_info("[pinmux] ept gpio[%d] = mode%d,  hw gpio[%d] = mode%d\r\n", 4, j, ept_gpio_mode[j], j, hw_gpio_mode[j]);
+        }
+    }
+
+    if (count == HAL_GPIO_MAX) {
+        if(hal_core_status_read(HAL_CORE_MCU) == HAL_CORE_EXCEPTION) {
+            exception_printf("[pinmux] all gpio pinmux mode match\r\n");
+        } else {
+            log_hal_msgid_info("[pinmux] all gpio pinmux mode match\r\n", 0);
+        }
+    }
+
+    count = 0;
+
+    return HAL_GPIO_STATUS_OK;
+}
+#endif
 
 hal_gpio_status_t hal_gpio_get_input(hal_gpio_pin_t gpio_pin, hal_gpio_data_t *gpio_data)
 {

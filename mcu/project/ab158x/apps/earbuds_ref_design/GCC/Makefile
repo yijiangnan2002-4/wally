@@ -102,6 +102,7 @@ MTK_CAPID_IN_NVDM_AT_COMMAND_ENABLE  := y
 # HW IO
 MTK_AUDIO_SUPPORT_MULTIPLE_MICROPHONE := y
 MTK_AUDIO_HW_IO_CONFIG_ENHANCE        := y
+AIR_AUDIO_BIAS_CONTROL_BY_TOOL        := y
 
 MTK_MUX_AWS_MCE_ENABLE = n
 # bluetooth connection manager feature support.
@@ -350,6 +351,13 @@ AIR_LE_EATT_ENABLE                              = n
 
 # Disable always because it is for dongle only.
 AIR_LE_AUDIO_DONGLE_ENABLE                      = n
+
+# LE Audio support LC3PLUS codec
+ifeq ($(AIR_AUDIO_LC3PLUS_CODEC_ENABLE)_$(AIR_LE_AUDIO_ENABLE), y_y)
+ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE), n)
+AIR_LE_AUDIO_LC3PLUS_ENABLE     = y
+endif
+endif
 #######################################################
 
 # LD Flags
@@ -645,8 +653,8 @@ endif
 # XiaoAI
 ifeq ($(AIR_XIAOAI_ENABLE),y)
 CFLAGS += -DAIR_XIAOAI_ENABLE
-#CFLAGS  += -DAIR_XIAOAI_PTT_ENABLE
 #CFLAGS  += -DAIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
+#CFLAGS  += -DAIR_XIAOAI_AUDIO_SWITCH_ENABLE
 include $(SOURCE_DIR)/middleware/airoha/xiaoai/module.mk
 
 ifeq ($(AIR_XIAOAI_TRIGGER_MODE),TTT_HOTWORD)
@@ -716,9 +724,30 @@ CFLAGS += -DAIR_LE_AUDIO_ENABLE
 CFLAGS += -DAIR_LE_AUDIO_CIS_ENABLE
 CFLAGS += -DAIR_BT_CODEC_BLE_ENABLED
 CFLAGS += -DAPPS_MULTI_INSTANCE_SERVICE_DISCOVERY_ENABLE
-#CFLAGS += -DAIR_LE_AUDIO_HAPS_ENABLE
+
+ifeq ($(AIR_LE_AUDIO_BIS_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_BIS_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_TMAP_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_TMAP_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_HAP_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_HAPS_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_GMAP_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_GMAP_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_AURACAST_ENABLE), y)
 CFLAGS += -DAIR_LE_AUDIO_PBP_ENABLE
-#CFLAGS += -DAIR_LE_AUDIO_LC3PLUS_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_LC3PLUS_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_LC3PLUS_ENABLE
+endif
 
 ifeq ($(MTK_AWS_MCE_ENABLE), y)
 CFLAGS += -DAIR_CIS_DUAL_UPLINK_ENABLE
@@ -733,9 +762,7 @@ include $(SOURCE_DIR)/middleware/airoha/bt_le_audio/module.mk
 ifeq ($(AIR_MULTI_POINT_ENABLE), y)
 CFLAGS += -DAIR_LE_AUDIO_MULTIPOINT_ENABLE
 endif
-ifeq ($(AIR_LE_AUDIO_BIS_ENABLE), y)
-CFLAGS += -DAIR_LE_AUDIO_BIS_ENABLE
-endif
+
 ifneq ($(AIR_XIAOAI_ENABLE), y)
 CFLAGS += -DAIR_LE_AUDIO_MTK_HFP_AT_CMD
 endif
@@ -769,15 +796,6 @@ ifeq ($(AIR_BT_INTEL_EVO_ENABLE), y)
 CFLAGS += -DAIR_BT_INTEL_EVO_ENABLE
 CFLAGS += -DAIR_LE_AUDIO_DIRECT_ADV
 CFLAGS += -DAPP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE
-endif
-
-# BT Takeover
-ifeq ($(AIR_BT_TAKEOVER_ENABLE),y)
-CFLAGS += -DAIR_BT_TAKEOVER_ENABLE
-
-CFLAGS += -DAPP_CONN_MGR_RECONNECT_CONTROL
-CFLAGS += -DAPP_CONN_MGR_RECONNECT_SAVE_LAST_TWO_DEVICE
-#CFLAGS += -DAPP_CONN_MGR_RECONNECT_ONLY_ONE
 endif
 
 ifeq ($(AIR_CFU_ENABLE), y)
@@ -823,9 +841,21 @@ ifneq ($(wildcard $(strip $(SOURCE_DIR))/project/ab157x_ab158x/),)
 APP_COMMON_PATH := project/ab157x_ab158x/apps/bt_audio_common
 endif
 
+ifneq ($(wildcard $(strip $(SOURCE_DIR))/project/ab15xx/),)
+APP_COMMON_PATH := project/ab15xx/apps/bt_audio_common
+endif
+
 # latency test mode
 ifeq ($(AIR_BT_LATENCY_TEST_MODE_ENABLE), y)
 CFLAGS += -DAIR_BT_LATENCY_TEST_MODE_ENABLE
+endif
+
+# This option is used to enable microphone bias control by Airoha tool for AB157x SDK3.10.0
+#  y: enable config tool bias configuration
+#  n: disable tool configuration and configure by SW code
+# Please check the bias configuration by Airoha Tool if the option is enabled
+ifeq ($(AIR_AUDIO_BIAS_CONTROL_BY_TOOL), y)
+CFLAGS += -DAIR_AUDIO_BIAS_CONTROL_BY_TOOL
 endif
 
 #######################################################
@@ -912,6 +942,10 @@ endif
 
 ifeq ($(AIR_MULTI_POINT_ENABLE),y)
 CFLAGS += -DAIR_MULTI_POINT_ENABLE
+
+ifeq ($(AIR_MULTI_POINT_MAX_CONNECTION),3)
+CFLAGS += -DAIR_3_LINK_MULTI_POINT_ENABLE
+endif
 endif
 
 
@@ -1059,11 +1093,15 @@ all: cleanlog checkoption proj
 MOD_EXTRA = BUILD_DIR=$(BUILD_DIR) OUTPATH=$(OUTPATH) PROJ_PATH=$(PROJ_PATH) IC_CONFIG=$(IC_CONFIG)
 
 checkoption:
+# Check MCU include shared option or not
+# Shared optin is a option that MCU and DSP are both used, but should ONLY defined in DSP feature.mk
+	$(SOURCE_DIR)/tools/scripts/build/shared_option_checker.sh $(SOURCE_DIR) $(BOARD) $(FEATURE) >&2
+
 # fota related files
 ifeq ($(AIR_FOTA_VIA_RACE_CMD_ENABLE),y)
-ifneq ($(AIR_FOTA_ENABLE),y)
-	$(warning "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE")
-	@echo "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE";
+ifneq ($(AIR_FOTA_ENABLE)_$(AIR_RACE_CMD_ENABLE),y_y)
+	$(warning "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE/AIR_RACE_CMD_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE/AIR_RACE_CMD_ENABLE";
 	@set -e; exit 2;
 endif
 endif
@@ -1273,6 +1311,43 @@ ifneq ($(AIR_LE_AUDIO_ENABLE),y)
 endif
 endif
 
+# Add make error for TMAP feature, MUST need LE audio support
+ifeq ($(AIR_LE_AUDIO_TMAP_ENABLE), y)
+ifneq ($(AIR_LE_AUDIO_ENABLE),y)
+	$(warning "Error: [Conflict feature option] To enable AIR_LE_AUDIO_TMAP_ENABLE must support AIR_LE_AUDIO_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_LE_AUDIO_TMAP_ENABLE must support AIR_LE_AUDIO_ENABLE";
+	@set -e; exit 2;
+endif
+endif
+
+
+# Add make error for GMAP feature, MUST need LE audio support
+ifeq ($(AIR_LE_AUDIO_GMAP_ENABLE), y)
+ifneq ($(AIR_LE_AUDIO_ENABLE),y)
+	$(warning "Error: [Conflict feature option] To enable AIR_LE_AUDIO_GMAP_ENABLE must support AIR_LE_AUDIO_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_LE_AUDIO_GMAP_ENABLE must support AIR_LE_AUDIO_ENABLE";
+	@set -e; exit 2;
+endif
+endif
+
+# Add make error for HAP feature, MUST need LE audio support
+ifeq ($(AIR_LE_AUDIO_HAP_ENABLE), y)
+ifneq ($(AIR_LE_AUDIO_ENABLE),y)
+	$(warning "Error: [Conflict feature option] To enable AIR_LE_AUDIO_HAP_ENABLE must support AIR_LE_AUDIO_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_LE_AUDIO_HAP_ENABLE must support AIR_LE_AUDIO_ENABLE";
+	@set -e; exit 2;
+endif
+endif
+
+# Add make error for TMAP feature, MUST need LE audio support
+ifeq ($(AIR_LE_AUDIO_AURACAST_ENABLE), y)
+ifneq ($(AIR_LE_AUDIO_ENABLE)_$(AIR_LE_AUDIO_BIS_ENABLE),y_y)
+	$(warning "Error: [Conflict feature option] To enable AIR_LE_AUDIO_TMAP_ENABLE must support AIR_LE_AUDIO_ENABLE and AIR_LE_AUDIO_BIS_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_LE_AUDIO_AURACAST_ENABLE must support AIR_LE_AUDIO_ENABLE and AIR_LE_AUDIO_BIS_ENABLE";
+	@set -e; exit 2;
+endif
+endif
+
 # Add make error for spotify tap feature, MUST need IAP2 support
 ifeq ($(AIR_SPOTIFY_TAP_ENABLE), y)
 ifneq ($(AIR_IAP2_VIA_MUX_ENABLE),y)
@@ -1299,6 +1374,15 @@ ifneq ($(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE),y)
 	@echo "Error: [Conflict feature option] To enable AIR_MS_GIP_ENABLE must support AIR_BT_ULTRA_LOW_LATENCY_ENABLE or AIR_BLE_ULTRA_LOW_LATENCY_ENABLE";
 	@set -e; exit 2;
 endif
+endif
+endif
+
+# Add make error for AIR_MULTI_POINT_MAX_CONNECTION set
+ifeq ($(shell test $(AIR_MULTI_POINT_MAX_CONNECTION) -ge 2; echo $$?),0)
+ifneq ($(AIR_MULTI_POINT_ENABLE),y)
+    $(warning "Error: [Conflict feature option] To enable multiple connections exist simultaneously must support AIR_MULTI_POINT_ENABLE")
+    @echo "Error: [Conflict feature option] To enable multiple connections exist simultaneously must support AIR_MULTI_POINT_ENABLE";
+    @set -e; exit 2;
 endif
 endif
 

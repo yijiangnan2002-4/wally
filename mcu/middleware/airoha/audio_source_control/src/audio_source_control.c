@@ -158,7 +158,11 @@ static void audio_source_control_transmitter_callback(audio_transmitter_event_t 
         audio_source_control_send_notify(usr_ctx->usr_cfg.usr, AUDIO_SOURCE_CONTROL_EVENT_TRANSMITTER, event);
     }
 
-    if (event == AUDIO_TRANSMITTER_EVENT_START_SUCCESS && usr_ctx->usr_cfg.usr == AUDIO_SOURCE_CONTROL_USR_LINE_OUT) {
+    if (event == AUDIO_TRANSMITTER_EVENT_START_SUCCESS && (usr_ctx->usr_cfg.usr == AUDIO_SOURCE_CONTROL_USR_LINE_OUT
+#ifdef AIR_BTA_IC_STEREO_HIGH_G3
+        || usr_ctx->usr_cfg.usr == AUDIO_SOURCE_CONTROL_USR_LINE_IN
+#endif
+        )) {
         /* Since 2022/8/30, the line out need set the default volume at slave side, other user should not do this!!!!!!!!!!!! */
         audio_transmitter_runtime_config_t config;
         memset(&config, 0, sizeof(audio_transmitter_runtime_config_t));

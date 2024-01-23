@@ -73,6 +73,7 @@
 #ifdef AIR_LE_AUDIO_CIS_ENABLE
 #define BT_SINK_SRV_CAP_EVENT_ASE_STATE                             (BT_LE_AUDIO_MODULE_ASE|0x0001U)       /**< The notification when ASE state change, with #bt_sink_srv_cap_event_ase_state_t as the payload in the callback function. */
 #define BT_SINK_SRV_CAP_EVENT_ASE_UPDATE_METADATA                   (BT_LE_AUDIO_MODULE_ASE|0x0002U)       /**< The notification when metadata of ASE updated, with #bt_sink_srv_cap_event_ase_update_metadata_t as the payload in the callback function. */
+#define BT_SINK_SRV_CAP_EVENT_ASE_READY                             (BT_LE_AUDIO_MODULE_ASE|0x0003U)       /**< The notification when ASE is ready, with #bt_sink_srv_cap_event_ase_ready_t as the payload in the callback function*/
 #endif
 #define BT_SINK_SRV_CAP_EVENT_BASE_BROADCAST_AUDIO_ANNOUNCEMENTS    (BT_LE_AUDIO_MODULE_BASE|0x0001U)      /**< The notification when receiving Broadcast Audio Announcements, with #bt_sink_srv_cap_event_base_broadcast_audio_announcements_t as the payload in the callback function. */
 #define BT_SINK_SRV_CAP_EVENT_BASE_PERIODIC_ADV_SYNC_ESTABLISHED    (BT_LE_AUDIO_MODULE_BASE|0x0002U)      /**< The notification when Periodic Advertising Sync established, with #bt_sink_srv_cap_event_base_periodic_adv_sync_established_t as the payload in the callback function. */
@@ -148,6 +149,14 @@ typedef struct {
     uint8_t  metadata[1];                       /**< LTV-formatted Metadata. */
 } bt_sink_srv_cap_event_ase_update_metadata_t;
 #endif
+
+/**
+ *  @brief This structure defines the parameter data type for event #BT_SINK_SRV_CAP_EVENT_ASE_READY.
+ */
+typedef struct {
+    bt_handle_t connect_handle;                 /**< Connection handle. */
+    ble_ascs_ready_event_t ready_event;         /**< Ready event. */
+} bt_sink_srv_cap_event_ase_ready_t;
 
 /**
 *   @brief This structure defines the parameter data type for event #

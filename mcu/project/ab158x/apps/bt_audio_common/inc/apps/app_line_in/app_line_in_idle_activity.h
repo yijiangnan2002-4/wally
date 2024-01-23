@@ -59,12 +59,12 @@ typedef enum {
 
 enum {
     APPS_EVENTS_INTERACTION_LINE_IN_PLUG_IN         = 0x01, /**<  Indicate that the line in jack inserted. */
-    APPS_EVENTS_INTERACTION_LINE_IN_PLUG_OUT        = 0x02, /**<  Indicate that the line in jack uninserted. */
+    APPS_EVENTS_INTERACTION_LINE_IN_PLUG_OUT        = 0x02, /**<  Indicate that the line in jack not inserted. */
     APPS_EVENTS_INTERACTION_AM_EVENT                = 0x03, /**<  Indicate the state of audio manager updated. */
     APPS_EVENTS_INTERACTION_AUDIO_PATH_UI_CTRL      = 0x04, /**<  The audio path switched by UI. */
     APPS_EVENTS_INTERACTION_LINE_IN_CTRL            = 0x05, /**<  Start or stop the line in function. */
     APPS_EVENTS_INTERACTION_LINE_IN_TRANSMITTER     = 0x06, /**<  Indicate the transmitter event. */
-    APPS_EVENTS_INTERACTION_LINE_IN_RTC_PLUG_EV     = 0x07, /**<  Indicate that the line in jack inserted or uninserted. */
+    APPS_EVENTS_INTERACTION_LINE_IN_RTC_PLUG_EV     = 0x07, /**<  Indicate that the line in jack inserted or not inserted. */
     APPS_EVENTS_INTERACTION_AUDIO_SRC_CTRL_EV       = 0x08, /**<  Indicate the audio source event. */
 };
 

@@ -49,13 +49,28 @@
 #define APP_ULL_DONGLE_LE_SCAN_RECONNECT_DEVICE         3   /* scan device to reconnect. */
 typedef uint8_t app_ull_dongle_le_scan_t;
 
+#define APP_ULL_DONGLE_LE_SUBRATE_STATE_DISABLED        0x00
+#define APP_ULL_DONGLE_LE_SUBRATE_STATE_ENABLING        0x01
+#define APP_ULL_DONGLE_LE_SUBRATE_STATE_ENABLED         0x02
+typedef uint8_t app_ull_dongle_le_subrate_state_t;
+
+typedef struct {
+    app_ull_dongle_le_subrate_state_t state;
+    uint16_t    latency;
+    uint16_t    factor;
+    uint16_t    supervision_timeout;
+    uint16_t    continuation_number;
+} app_ull_dongle_le_subrate_info_t;
+
 /*link information Context. */
 typedef struct {
     bt_addr_t addr;                             /* peer device address */
     bt_handle_t handle;                         /* connection handle */
     bool is_ull_connected;                      /**< ull channel is connected */
     bool is_disable_sniff;                      /**< ull link sniff mode is disabled or not */
-    uint16_t conn_interval; 
+    uint16_t conn_interval;
+    uint16_t conn_to;
+    app_ull_dongle_le_subrate_info_t subrate_info; 
 } app_ull_dongle_le_link_info_t;
 
 void app_ull_dongle_le_init(void);

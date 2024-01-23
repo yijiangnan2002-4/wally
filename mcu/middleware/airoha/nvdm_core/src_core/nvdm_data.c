@@ -565,7 +565,7 @@ nvdm_status_t nvdm_create_data_item(uint32_t partition,
     int32_t index, pnum, offset, temp;
     uint32_t hashname;
     uint32_t checksum_twice_match = 1;
-    uint16_t checksum, checksum_after_write, checksum_on_flash;
+    uint16_t checksum = 0, checksum_after_write=0, checksum_on_flash=0, checksum_ram_2rd=0;
     uint8_t *working_buffer;
     data_item_header_t *p_data_item_header;
     data_item_header_t *p_old_item_header;
@@ -743,9 +743,6 @@ nvdm_status_t nvdm_create_data_item(uint32_t partition,
     offset += DATA_ITEM_HEADER_SIZE - 1;
     peb_write_data(partition, pnum, offset, working_buffer, group_name_size + data_item_name_size);
 
-    /* this variable will not be used again */
-    nvdm_port_free(working_buffer);
-
     /* write value of data item */
     offset += group_name_size + data_item_name_size;
     peb_write_data(partition, pnum, offset, (uint8_t *)buffer, size);
@@ -772,7 +769,17 @@ nvdm_status_t nvdm_create_data_item(uint32_t partition,
 
     if (checksum != checksum_after_write || checksum_on_flash != checksum) {
         checksum_twice_match = 0;
+
+        /* if match fail, then calc ram data checksum again for check ram data whether or not modified */
+        checksum_ram_2rd = 0;
+        checksum_ram_2rd = calculate_checksum(checksum_ram_2rd, &p_data_item_header->pnum, DATA_ITEM_HEADER_SIZE - 1);
+        checksum_ram_2rd = calculate_checksum(checksum_ram_2rd, working_buffer, (group_name_size + data_item_name_size));
+        checksum_ram_2rd = calculate_checksum(checksum_ram_2rd, buffer, size);
     }
+
+    /* this variable will not be used again */
+    nvdm_port_free(working_buffer);
+
     nvdm_port_protect_mutex_give();
 
     /* set status of data item to valid */
@@ -842,11 +849,16 @@ nvdm_status_t nvdm_create_data_item(uint32_t partition,
     } else {
         /* Mark the newly written data as delete, and actively trigger a restart to prevent the nvdm driver from writing data later. */
         peb_write_data(partition, p_data_item_header->pnum, p_data_item_header->offset, (uint8_t *) & (p_data_item_header->status), 1);
-        nvdm_log_error("task %s write { %u, %s, %s }, calc checksum twice: 0x%08X and 0x%08X, trigger assert",
+        nvdm_log_warning("checksum value {calc input data of ram:%x; calc flash data of readback:%x; calc ram data after wr flash:%x; readback checksum of flash:%x}",
+                             checksum,
+                             checksum_after_write,
+                             checksum_ram_2rd,
+                             checksum_on_flash
+                        );
+        nvdm_log_error("task %s write { %u, %s, %s },  checksum not matched will trigger assert!!!!",
                        nvdm_port_get_curr_task_name(),
                        partition,
-                       group_name, data_item_name,
-                       checksum, checksum_after_write
+                       group_name, data_item_name
                       );
         /* Then the driver needs to directly mark the position of the next data item header as 0x00,
          * because 0x00 is not a valid data item header state, so the nvdm driver will not

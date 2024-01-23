@@ -215,7 +215,7 @@ static void report_usb_plug_status(bool plug_in)
     if (is_plug_in != plug_in) {
         is_plug_in = plug_in;
         if (s_usb_audio_mode) {
-            ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+            ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_USB_PLUG_STATE,
                                 (void *)plug_in, 0, NULL, 0);
         }
@@ -396,11 +396,11 @@ static void app_usb_audio_init()
 #ifdef AIR_USB_AUDIO_IN_ENABLE
     usb_audio_cfg.type = APP_AUDIO_TRANS_MGR_USR_USB_IN1;
 #ifndef AIR_USB_AUDIO_IN_MIX_ENABLE
-    usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_SEUDO_DEVICE;
+    usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_PSEUDO_DEVICE;
 #else
     usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_RESOURCE_CTRL;
 #endif
-    usb_audio_cfg.rconfig_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_MUSIC;
+    usb_audio_cfg.rt_config_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_MUSIC;
     usb_audio_cfg.name = "usb_in";
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
     usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_RESOURCE_CTRL;
@@ -419,7 +419,7 @@ static void app_usb_audio_init()
 #else
     usb_audio_cfg.en_side_tone = true;
 #endif
-    usb_audio_cfg.rconfig_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_MUSIC;
+    usb_audio_cfg.rt_config_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_MUSIC;
     usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_RESOURCE_CTRL;
     usb_audio_cfg.name = "usb_out";
     s_usb_out_handle = app_audio_trans_mgr_register(&usb_audio_cfg);
@@ -427,7 +427,7 @@ static void app_usb_audio_init()
 #endif
 
 #ifdef AIR_USB_AUDIO_IN_AND_OUT_MIX_ENABLE
-    usb_audio_cfg.rconfig_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_MUSIC;
+    usb_audio_cfg.rt_config_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_MUSIC;
     usb_audio_cfg.type = APP_AUDIO_TRANS_MGR_USR_USB_IN_OUT_MIX;
     usb_audio_cfg.en_side_tone = false;
     usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_NONE;
@@ -611,7 +611,7 @@ static bool _proc_apps_internal_events(struct _ui_shell_activity *self,
                     }
                 }
                 if (is_plug_in) {
-                    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                         APPS_EVENTS_INTERACTION_USB_PLUG_STATE,
                                         (void *)en, 0, NULL, 0);
                 }
@@ -837,7 +837,7 @@ static bool _proc_usb_audio_event_group(
         }
         case APPS_EVENTS_USB_AUDIO_VOLUME: {
             app_events_usb_volume_t *vol = (app_events_usb_volume_t *)extra_data;
-            app_audio_trans_mgrs_set_db(get_handle_by_port(vol->port_type, vol->port_num), vol->left_db, vol->right_db);
+            app_audio_trans_mgr_set_db(get_handle_by_port(vol->port_type, vol->port_num), vol->left_db, vol->right_db);
 #ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
             /* back usb out volume due to it will be reset. */
             if (get_idx_by_port(vol->port_type, vol->port_num) == APP_USB_AUDIO_IDX_AUDIO_OUT) {
@@ -1161,7 +1161,7 @@ bool app_usb_out_is_open()
 
 void app_usb_audio_enable(bool en)
 {
-    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                         APPS_EVENTS_INTERACTION_USB_AUDIO_EN,
                         (void *)en, 0, NULL, 0);
 }

@@ -34,8 +34,8 @@ extern "C" {
 
 //#define PRELOADER_VERIFY_IMAGE_COPY
 //#define DEBUG_USE_CPU_COPY
-#define PRELOADER_MEMORY_ALIGNMENT (32) //for cache line alignment, one cache line 16B, reserved two cache line size
-
+#define PRELOADER_MEMORY_ALIGNMENT (32)
+#define PRELOADER_MEMORY_ALIGNMENT_64 (64) //for cache line alignment, one cache line 16B, one cache line size 64B
 
 /*split pi library configure part start*/
 typedef enum {

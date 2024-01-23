@@ -234,7 +234,7 @@ static void app_line_in_switch(app_audio_path_t path)
 
 static void broadcast_line_in_plug_state(bool from_isr, bool plug_in)
 {
-    ui_shell_send_event(from_isr, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+    ui_shell_send_event(from_isr, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                         APPS_EVENTS_INTERACTION_LINE_IN_PLUG_STATE,
                         (void *)plug_in, 0, NULL, 0);
 }
@@ -308,7 +308,7 @@ static void app_line_in_cfg_callback(app_audio_trans_mgr_usr_type_t type, app_au
         codec_param = &cfg->trans_cfg.scenario_config.wired_audio_config.line_out_config.codec_param.pcm;
     }
 #endif
-    codec_param->channel_mode = 2; // stero
+    codec_param->channel_mode = 2; // stereo
 #if 0
     if (type == APP_AUDIO_TRANS_MGR_USR_LINE_IN) {
         codec_param->sample_rate = 48000; // 48K
@@ -347,11 +347,11 @@ static void app_line_in_init()
     line_in_cfg.volume_l = line_in_cfg.volume_r = bt_sink_srv_ami_get_lineIN_max_volume_level();
     line_in_cfg.type = APP_AUDIO_TRANS_MGR_USR_LINE_IN;
 #ifndef AIR_LINE_IN_MIX_ENABLE
-    line_in_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_SEUDO_DEVICE;
+    line_in_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_PSEUDO_DEVICE;
 #else
     line_in_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_RESOURCE_CTRL;
 #endif
-    line_in_cfg.rconfig_type = WIRED_AUDIO_CONFIG_OP_VOL_LEVEL_LINEIN;
+    line_in_cfg.rt_config_type = WIRED_AUDIO_CONFIG_OP_VOL_LEVEL_LINEIN;
     line_in_cfg.name = "line_in";
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)
     line_in_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_AUD_SRC_CTRL;
@@ -367,7 +367,7 @@ static void app_line_in_init()
 #else
     line_in_cfg.en_side_tone = false;
 #endif
-    line_in_cfg.rconfig_type = WIRED_AUDIO_CONFIG_OP_VOL_LEVEL_VOICE_DUL;
+    line_in_cfg.rt_config_type = WIRED_AUDIO_CONFIG_OP_VOL_LEVEL_VOICE_DUL;
     line_in_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_RESOURCE_CTRL;
     line_in_cfg.name = "line_out";
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)
@@ -424,7 +424,7 @@ static void init_audio_path()
             }
         } else {
             hal_rtc_status_t rtc_gpio_status = hal_rtc_gpio_get_input(LINE_IN_DETECT_PORT, &rtc_level);
-            /* Base on hardware design, high level means line in pluged in. */
+            /* Base on hardware design, high level means line in plug in. */
             if (((hal_rtc_gpio_data_t)rtc_level == (hal_rtc_gpio_data_t)LINE_IN_ALREADY_PLUG_IN) && (rtc_gpio_status == HAL_RTC_STATUS_OK)) {
                 temp_path = APP_AUDIO_PATH_LINE_IN;
             } else {
@@ -462,7 +462,7 @@ static void line_in_detect_callback(void *user_data)
         hal_gpio_get_input(LINE_IN_DETECT_PORT, &current_gpio_status);
         LINE_IN_LOG_I("detect_callback -> detect callback with value : %d", 1, current_gpio_status);
 
-        ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_SWITCH_AUDIO_PATH,
+        ui_shell_send_event(true, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_SWITCH_AUDIO_PATH,
                             current_gpio_status == LINE_IN_ALREADY_PLUG_IN ? APPS_EVENTS_INTERACTION_LINE_IN_PLUG_IN : APPS_EVENTS_INTERACTION_LINE_IN_PLUG_OUT,
                             NULL, 0, NULL, 0);
 
@@ -470,7 +470,7 @@ static void line_in_detect_callback(void *user_data)
     } else {
         /* If the RTC pin used for line in, need debounce. */
         ui_shell_remove_event(EVENT_GROUP_SWITCH_AUDIO_PATH, APPS_EVENTS_INTERACTION_LINE_IN_RTC_PLUG_EV);
-        ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_SWITCH_AUDIO_PATH,
+        ui_shell_send_event(true, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_SWITCH_AUDIO_PATH,
                             APPS_EVENTS_INTERACTION_LINE_IN_RTC_PLUG_EV,
                             NULL, 0, NULL, 300);
     }
@@ -563,7 +563,7 @@ static void line_in_sp_app_control_request(uint8_t new_audio_path, uint8_t *cont
         return;
     }
 
-    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_SWITCH_AUDIO_PATH, APPS_EVENTS_INTERACTION_AUDIO_PATH_UI_CTRL,
+    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_SWITCH_AUDIO_PATH, APPS_EVENTS_INTERACTION_AUDIO_PATH_UI_CTRL,
                         (void *)path, 0, NULL, 0);
     *control_result = 0;
 }
@@ -661,7 +661,7 @@ static bool app_line_in_handle_key_event(uint32_t event_id,
     action_id = *(uint16_t *)extra_data;
     if (action_id == KEY_LINE_IN_SWITCH) {
         LINE_IN_LOG_I("key_event -> switch the audio path : (current %d)", 1, current_audio_path_value);
-        ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_SWITCH_AUDIO_PATH, APPS_EVENTS_INTERACTION_AUDIO_PATH_UI_CTRL,
+        ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_SWITCH_AUDIO_PATH, APPS_EVENTS_INTERACTION_AUDIO_PATH_UI_CTRL,
                             (void *)path, 0, NULL, 0);
         return true;
     } else if (action_id == KEY_MUTE_MIC) {
@@ -761,7 +761,7 @@ static bool app_line_in_handle_line_in_event(ui_shell_activity_t *self,
                                              size_t data_len)
 {
     switch (event_id) {
-        /* Line in pluged in or pluged out. */
+        /* Line in plug in or plug out. */
         case APPS_EVENTS_INTERACTION_LINE_IN_PLUG_IN:
         case APPS_EVENTS_INTERACTION_LINE_IN_PLUG_OUT: {
             /* JACK sta: line in plug in. */
@@ -801,7 +801,7 @@ static bool app_line_in_handle_line_in_event(ui_shell_activity_t *self,
             hal_rtc_eint_register_callback(LINE_IN_DETECT_PORT, line_in_detect_callback, NULL);
 
             LINE_IN_LOG_I("get line in sta(RTC): %d", 1, rtc_level);
-            ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_SWITCH_AUDIO_PATH,
+            ui_shell_send_event(true, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_SWITCH_AUDIO_PATH,
                                 rtc_level == LINE_IN_ALREADY_PLUG_IN ? APPS_EVENTS_INTERACTION_LINE_IN_PLUG_IN : APPS_EVENTS_INTERACTION_LINE_IN_PLUG_OUT,
                                 NULL, 0, NULL, 0);
         }

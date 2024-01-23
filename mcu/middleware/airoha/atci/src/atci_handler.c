@@ -686,6 +686,8 @@ atci_status_t atci_input_command_handler(uint8_t *cmd_msg)
     parse_cmd.string_ptr = cmd_msg;
     parse_cmd.string_len = strlen((char *)cmd_msg);
     atci_dump_data(cmd_msg, parse_cmd.string_len, "atci_input_command_handler");
+    /*print the input at cmd for string type*/
+    LOG_I(atci, "atci_input_command:%s", cmd_msg);
 
     if (((ATCI_CHAR_A == parse_cmd.string_ptr[0] || ATCI_char_a == parse_cmd.string_ptr[0]) &&
          (ATCI_CHAR_T == parse_cmd.string_ptr[1] || ATCI_char_t == parse_cmd.string_ptr[1]) &&
@@ -712,14 +714,14 @@ atci_status_t atci_input_command_handler(uint8_t *cmd_msg)
 
     /* Parse AT command and calculate hash value*/
     ret = atci_local_parse_input_at_cmd(&parse_cmd);
-    ATCI_LOG_I("atci_input_command_handler, 2, ...", 0);
+    ATCI_LOG_I("atci_input_command_handler, 2, ret:%d", 1, ret);
 
     if (ATCI_STATUS_ERROR != ret) {
         /* Dispatch AT command */
         ret = atci_local_dispatch_cm4_general_handler(&parse_cmd);
     }
 
-    ATCI_LOG_I("atci_input_command_handler, 3, ...", 0);
+    ATCI_LOG_I("atci_input_command_handler, 3, ret:%d", 1, ret);
     if (ATCI_STATUS_OK != ret) {
         /* AT command format is invalid and returns "ERROR" directly. Set Output Buffer Param */
         //ATCI_SET_OUTPUT_PARAM_STRING(response, "ERROR\r\n", strlen("ERROR\r\n"), cmd_msg->flag);

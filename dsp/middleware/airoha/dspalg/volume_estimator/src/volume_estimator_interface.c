@@ -49,20 +49,11 @@
 #endif
 
 /* Private define ------------------------------------------------------------*/
-#define AUDIO_VOLUME_MONITOR_DEBUG_ENABLE 0
-#define MUTE_MIC_DETECTION_THD -8500
-#define MUTE_MIC_DETECTION_INTERVAL_MS 600
 /* Private typedef -----------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 static volume_estimator_port_t volume_estimator_port[VOLUME_ESTIMATOR_PORT_MAX];
-uint8_t mute_mic_detection_cnt = 0;
 /* Public variables ----------------------------------------------------------*/
-#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
-#ifdef AIR_SOFTWARE_GAIN_ENABLE
-extern bool g_call_mute_flag;
-#endif
-#endif
 /* Private functions ---------------------------------------------------------*/
 static int32_t volume_estimator_covert_sample_rate_to_mode(uint32_t sample_rate)
 {
@@ -88,6 +79,14 @@ static int32_t volume_estimator_covert_sample_rate_to_mode(uint32_t sample_rate)
 
         case 192000:
             mode = 4;
+            break;
+
+        case 8000:
+            mode = 5;
+            break;
+
+        case 24000:
+            mode = 6;
             break;
 
         default:
@@ -289,46 +288,6 @@ volume_estimator_status_t volume_estimator_process(volume_estimator_port_t *port
 /* ------------------------------------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------------------------------------------------------------------------------ */
 #if defined(AIR_AUDIO_VOLUME_MONITOR_ENABLE)
-#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
-#ifdef AIR_SOFTWARE_GAIN_ENABLE
-bool last_det_sta = false;
-void mute_mic_detection(int32_t out_data){
-    if(g_call_mute_flag && (out_data > MUTE_MIC_DETECTION_THD)){
-        mute_mic_detection_cnt++;
-    }else{
-        if(last_det_sta){
-            last_det_sta = false;
-            /* send CCNI to APP */
-            hal_ccni_message_t msg;
-            memset((void *)&msg, 0, sizeof(hal_ccni_message_t));
-            msg.ccni_message[0] = (MSG_DSP2MCU_AUDIO_UL_MUTE_SPEAK_DETECT << 16);
-            aud_msg_tx_handler(msg, 0, FALSE);
-#if AUDIO_VOLUME_MONITOR_DEBUG_ENABLE
-            DSP_MW_LOG_E("[Audio Spectrum Meter] mute_mic_detection_end", 0);
-#endif
-        }
-        mute_mic_detection_cnt = 0;
-    }
-
-    if(mute_mic_detection_cnt > (MUTE_MIC_DETECTION_INTERVAL_MS /15) && !last_det_sta){
-        /* send CCNI to APP */
-        hal_ccni_message_t msg;
-        memset((void *)&msg, 0, sizeof(hal_ccni_message_t));
-        msg.ccni_message[0] = (MSG_DSP2MCU_AUDIO_UL_MUTE_SPEAK_DETECT << 16 | 0x1);
-        last_det_sta = true;
-        aud_msg_tx_handler(msg, 0, FALSE);
-        mute_mic_detection_cnt = 0;
-#if AUDIO_VOLUME_MONITOR_DEBUG_ENABLE
-        DSP_MW_LOG_E("[Audio Spectrum Meter] mute_mic_detection_start", 0);
-#endif
-    }
-#if AUDIO_VOLUME_MONITOR_DEBUG_ENABLE
-    DSP_MW_LOG_E("[Audio Spectrum Meter] mute_mic_detection_cnt %d", 1,mute_mic_detection_cnt);
-#endif
-}
-#endif
-#endif
-
 static volume_estimator_port_t *volume_estimator_get_the_port(DSP_STREAMING_PARA_PTR stream_ptr)
 {
     volume_estimator_port_t *port = NULL;
@@ -534,11 +493,6 @@ bool stream_function_audio_spectrum_meter_process(void *para)
                     case VOLUME_ESTIMATOR_CHAT_INSTANT_MODE:
                         out_data = chat_vol_prcs_instant((int32_t *)((uint32_t)input_buffer), handle);
                         out_data = out_data * 100 / 256;
-#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
-#ifdef AIR_SOFTWARE_GAIN_ENABLE
-                        mute_mic_detection(out_data);
-#endif
-#endif
                         if (port->count_in_frame == 7) {
                             *(addr + port->frame_count + i * port->node->volume_len) = out_data;
                         }

@@ -45,6 +45,7 @@ AIR_BT_A2DP_SBC_ENABLE ?= y
 AIR_BT_HFP_MSBC_ENABLE ?= y
 AIR_COMPONENT_CALIBRATION_ENABLE ?= y
 AIR_ECHO_MEMIF_IN_ORDER_ENABLE := y
+AIR_ECHO_PATH_STEREO_ENABLE    ?= n
 AIR_AUDIO_NONREALTIME_RX_ENABLE ?= y
 
 ifeq ($(AIR_ECNR_CONFIG_TYPE),ECNR_1_OR_2_MIC)
@@ -163,6 +164,7 @@ AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE_ENABLE ?= y
 AIR_UPLINK_RATE                       ?= none
 AIR_UPLINK_RESOLUTION                 ?= none
 AIR_DOWNLINK_RATE                     ?= none
+AIR_FIX_HFP_DL_STREAM_RATE            ?= none
 
 #CCFLAG += -DDSP_MIPS_FEATURE_PROFILE
 #CCFLAG += -DDSP_MIPS_STREAM_PROFILE
@@ -182,12 +184,6 @@ AIR_CPU_SECURITY_MODE                 ?= s
 CCFLAG += -DAIR_BTA_IC_PREMIUM_G3
 AIR_BTA_IC_PREMIUM_G3 = y
 
-ifeq ($(IC_TYPE),ab1588)
-CCFLAG += -DAIR_BTA_IC_PREMIUM_G3_TYPE_S
-endif
-ifeq ($(IC_TYPE),ab1585)
-CCFLAG += -DAIR_BTA_IC_PREMIUM_G3_TYPE_P
-endif
 PRODUCT_VERSION           = 0
 CCFLAG += -DPRODUCT_VERSION=$(PRODUCT_VERSION)
 CCFLAG += -DCORE_DSP0
@@ -722,6 +718,72 @@ CCFLAG += -DAIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ
 endif
 
 ##
+## AIR_HFP_DL_STREAM_RATE
+## Brief:       This option is to choose the HFP stream rate.
+## Usage:       The valid values are dynamic, 48k, 96k.
+##              The setting will determine which rate of processing stream will be used.
+##              dynamic : HFP stream rate will be handled by scenario itself.
+##              48k     : HFP stream rate will be fixed in 48k Hz.
+##              96k     : HFP stream rate will be fixed in 96k Hz.
+## Path:        dsp/driver/chip/$(IC_TYPE)
+## Dependency:  None
+## Notice:      None
+##
+ifeq ($(AIR_HFP_DL_STREAM_RATE),48k)
+CCFLAG += -DAIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ
+CCFLAG += -DAIR_FIXED_RATIO_SRC
+endif
+
+ifeq ($(AIR_HFP_DL_STREAM_RATE),96k)
+CCFLAG += -DAIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ
+CCFLAG += -DAIR_FIXED_RATIO_SRC
+endif
+
+##
+## AIR_A2DP_DL_STREAM_RAT
+## Brief:       This option is to choose the A2DP stream rate.
+## Usage:       The valid values are dynamic, 48k, 96k.
+##              The setting will determine which rate of processing stream will be used.
+##              dynamic : A2DP stream rate will be handled by scenario itself.
+##              48k     : A2DP stream rate will be fixed in 48k Hz.
+##              96k     : A2DP stream rate will be fixed in 96k Hz.
+## Path:        dsp/driver/chip/$(IC_TYPE)
+## Dependency:  None
+## Notice:      None
+##
+ifeq ($(AIR_A2DP_DL_STREAM_RATE),48k)
+CCFLAG += -DAIR_A2DP_DL_STREAM_RATE_FIX_TO_48KHZ
+CCFLAG += -DMTK_HWSRC_IN_STREAM
+endif
+
+ifeq ($(AIR_A2DP_DL_STREAM_RATE),96k)
+CCFLAG += -DAIR_A2DP_DL_STREAM_RATE_FIX_TO_96KHZ
+CCFLAG += -DMTK_HWSRC_IN_STREAM
+endif
+
+##
+## AIR_LE_CALL_DL_STREAM_RATE
+## Brief:       This option is to choose the LE Call stream rate.
+## Usage:       The valid values are none, 48k, 96k.
+##              The setting will determine which rate of processing stream will be used.
+##              dynamic : LE Call stream rate will be handled by scenario itself.
+##              48k     : LE Call stream rate will be fixed in 48k Hz.
+##              96k     : LE Call stream rate will be fixed in 96k Hz.
+## Path:        dsp/driver/chip/$(IC_TYPE)
+## Dependency:  None
+## Notice:      None
+##
+ifeq ($(AIR_LE_CALL_DL_STREAM_RATE),48k)
+CCFLAG += -DAIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k
+CCFLAG += -DAIR_FIXED_RATIO_SRC
+endif
+
+ifeq ($(AIR_LE_CALL_DL_STREAM_RATE),96k)
+CCFLAG += -DAIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k
+CCFLAG += -DAIR_FIXED_RATIO_SRC
+endif
+
+##
 ## AIR_PEQ_ENABLE
 ## Brief:       This option is to enable PEQ feature.
 ## Usage:       If the value is "y",  the AIR_PEQ_ENABLE option will be defined.
@@ -896,6 +958,21 @@ CCFLAG += -DMTK_BT_CELT_USE_PIC
 endif
 endif
 
+##
+## AIR_MIXER_STREAM_ENABLE
+## Brief:       This option is to enable Mixer Stream.
+## Usage:       If the value is "n",  the AIR_MIXER_STREAM_ENABLE option will not be defined.
+## Path:        middleware/airoha/stream/src/stream_interface
+## Dependency:  None
+## Notice:      None
+## Relative doc:None
+##
+ifeq ($(AIR_MIXER_STREAM_ENABLE),y)
+CCFLAG += -DAIR_MIXER_STREAM_ENABLE
+AIR_SOFTWARE_MIXER_ENABLE := y
+AIR_SOFTWARE_GAIN_ENABLE  := y
+endif
+
 ###############################################################################
 ##
 ## The following makefile options are not configurable or only for internal user. They may be removed in the future.
@@ -962,6 +1039,33 @@ endif
 ifeq ($(AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE_ENABLE),y)
 CCFLAG += -DHAL_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
 CCFLAG += -DAIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
+endif
+
+##
+## AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE is a option to enable multiple stream out.
+##
+ifeq ($(AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE),y)
+CCFLAG += -DAIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+endif
+
+##
+## AIR_ECHO_PATH_FIRST_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_ECHO_PATH_FIRST_ENABLE is a option to enable multiple stream out first path to be echo path.
+##
+ifeq ($(AIR_ECHO_PATH_FIRST_ENABLE),y)
+CCFLAG += -DAIR_ECHO_PATH_FIRST_ENABLE
+endif
+
+##
+## AIR_ECHO_PATH_SECOND_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_ECHO_PATH_SECOND_ENABLE is a option to enable multiple stream out second path to be echo path..
+##
+ifeq ($(AIR_ECHO_PATH_SECOND_ENABLE),y)
+CCFLAG += -DAIR_ECHO_PATH_SECOND_ENABLE
 endif
 
 ##
@@ -1075,7 +1179,6 @@ endif
 AIR_HWSRC_IN_STREAM_ENABLE ?= $(MTK_HWSRC_IN_STREAM)
 ifeq ($(AIR_HWSRC_IN_STREAM_ENABLE),y)
 CCFLAG += -DMTK_HWSRC_IN_STREAM
-CCFLAG += -DENABLE_HWSRC_CLKSKEW
 endif
 
 ##
@@ -1160,6 +1263,15 @@ endif
 ##
 ifeq ($(MTK_BT_A2DP_LC3_USE_LIGHT_PIC),y)
 CCFLAG += -DMTK_BT_A2DP_LC3_USE_LIGHT_PIC
+endif
+
+##
+## AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE
+## Brief:       Internal use.
+## Notice:      AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE is a option support LC3 use LC3PLUS PLC. Default should be disabled.
+##
+ifeq ($(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE),y)
+CCFLAG += -DAIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE
 endif
 
 ##
@@ -1436,6 +1548,20 @@ endif
 endif
 else
 AIR_BT_A2DP_VENDOR_1_ENABLE = n
+endif
+
+##
+## AIR_BT_A2DP_LC3PLUS_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_BT_A2DP_LC3PLUS_ENABLE is an option to use LC3PLUS codec.
+##
+LC3PLUS_LIB = $(strip $(ROOTDIR))/prebuilt/middleware/third_party/dspalg/lc3plus_codec/$(IC_CONFIG)/pisplit/codec_lib/pisplit_lc3plusi_codec.o
+ifeq ($(LC3PLUS_LIB), $(wildcard $(LC3PLUS_LIB)))
+ifeq ($(AIR_BT_A2DP_LC3PLUS_ENABLE),y)
+CCFLAG += -DAIR_BT_A2DP_LC3PLUS_ENABLE
+endif
+else
+AIR_BT_A2DP_LC3PLUS_ENABLE = n
 endif
 
 ##
@@ -1771,16 +1897,19 @@ ifneq ($(wildcard $(AIR_PSAP_CODE)),)
         AIR_HEARTHROUGH_PSAP_LIB = $(strip $(ROOTDIR))/prebuilt/middleware/airoha/dspalg/hearthrough_psap/$(IC_CONFIG)/
         ifneq ($(wildcard $(AIR_HEARTHROUGH_PSAP_LIB)),)
             CCFLAG += -DAIR_HEARTHROUGH_PSAP_ENABLE
+            CCFLAG += -DAIR_DAC_MODE_RUNTIME_CHANGE
             ifeq ($(AIR_HEARTHROUGH_PSAP_USE_PIC),y)
                 CCFLAG += -DAIR_HEARTHROUGH_PSAP_USE_PIC
             endif
         endif
+        AIR_CUSTOMIZED_LLF_ENABLE := y
     endif
     ifeq ($(AIR_HEARING_AID_ENABLE),y)
         AIR_HA_LIB = $(strip $(ROOTDIR))/prebuilt/middleware/airoha/dspalg/hearing_aid/$(IC_CONFIG)/
         ifneq ($(wildcard $(AIR_HA_LIB)),)
             CCFLAG += -DAIR_HEARING_AID_ENABLE
             CCFLAG += -DAIR_HEARTHROUGH_HA_ENABLE
+            CCFLAG += -DAIR_DAC_MODE_RUNTIME_CHANGE
             AIR_SOFTWARE_GAIN_ENABLE = y
             ifeq ($(AIR_HEARTHROUGH_HA_USE_PIC),y)
                 CCFLAG += -DAIR_HEARTHROUGH_HA_USE_PIC
@@ -1802,8 +1931,13 @@ endif
 ifeq ($(AIR_CUSTOMIZED_LLF_ENABLE), y)
 ifeq ($(AIR_ANC_ENABLE), y)
 AIR_LLF_LIB = $(strip $(ROOTDIR))/middleware/airoha/llf/stream/
+AIR_LLF_SAMPLE = $(strip $(ROOTDIR))/middleware/airoha/dspalg/low_latency_framework_example/module.mk
 ifneq ($(wildcard $(AIR_LLF_LIB)),)
+ifneq ($(wildcard $(AIR_LLF_SAMPLE)),)
 CCFLAG += -DAIR_CUSTOMIZED_LLF_ENABLE
+else
+AIR_CUSTOMIZED_LLF_ENABLE := n
+endif
 endif
 endif
 endif
@@ -1826,18 +1960,25 @@ endif
 ## Notice:      None
 ## Relative doc:None
 ##
+ifeq ($(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE),y)
+CCFLAG  += -DAIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE
+endif
+
+ifeq ($(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE),y)
+CCFLAG  += -DAIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE
+endif
+
 ifeq ($(AIR_DUAL_CHIP_MIXING_MODE),master)
 ifeq ($(AIR_DUAL_CHIP_AUDIO_INTERFACE),uart)
 CCFLAG  += -DAIR_DCHS_MODE_ENABLE
 CCFLAG  += -DAIR_DCHS_MODE_MASTER_ENABLE
+CCFLAG  += -DAIR_MIXER_STREAM_ENABLE
 AIR_LOW_LATENCY_MUX_ENABLE = y
 AIR_SOFTWARE_MIXER_ENABLE = y
 AIR_SURROUND_AUDIO_ENABLE = y
+AIR_MIXER_STREAM_ENABLE = y
 AIR_NLE_ENABLE:= n
 else
-CCFLAG  += -DAIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE
-CCFLAG  += -DAIR_HWSRC_RX_TRACKING_ENABLE
-CCFLAG  += -DAIR_DUAL_CHIP_MASTER_HWSRC_RX_TRACKING_ENABLE
 endif
 
 endif
@@ -1845,14 +1986,12 @@ ifeq ($(AIR_DUAL_CHIP_MIXING_MODE),slave)
 ifeq ($(AIR_DUAL_CHIP_AUDIO_INTERFACE),uart)
 CCFLAG  += -DAIR_DCHS_MODE_ENABLE
 CCFLAG  += -DAIR_DCHS_MODE_SLAVE_ENABLE
+CCFLAG  += -DAIR_MIXER_STREAM_ENABLE
 AIR_LOW_LATENCY_MUX_ENABLE = y
 AIR_SOFTWARE_MIXER_ENABLE = y
+AIR_MIXER_STREAM_ENABLE = y
 AIR_NLE_ENABLE:= n
 else
-CCFLAG  += -DAIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE
-CCFLAG  += -DAIR_HWSRC_TX_TRACKING_ENABLE
-CCFLAG  += -DAIR_HWSRC_RX_TRACKING_ENABLE
-CCFLAG  += -DAIR_DUAL_CHIP_I2S_ENABLE
 endif
 endif
 
@@ -2139,6 +2278,23 @@ ifeq ($(AIR_HEARING_PROTECTION_ENABLE), y)
 CCFLAG += -DAIR_HEARING_PROTECTION_ENABLE
 endif
 
+##
+## AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE is a option to to enable LR volume balance.
+ifeq ($(AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE), y)
+CCFLAG += -DAIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+endif
+
+##
+## AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE is a option to enable SW Gain control for BLE UL.
+ifeq ($(AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE), y)
+CCFLAG += -DAIR_SOFTWARE_GAIN_ENABLE
+CCFLAG += -DAIR_BLE_UL_SW_GAIN_CONTROL_ENABLE
+endif
+
 ###############################################################################
 
 
@@ -2244,6 +2400,16 @@ endif
 ## Notice:      AIR_ECHO_MEMIF_IN_ORDER_ENABLE is a option to set echo reference memory interface in order, not fix AWB2.
 ##
 ifeq ($(AIR_ECHO_MEMIF_IN_ORDER_ENABLE),y)
+CCFLAG += -DAIR_ECHO_MEMIF_IN_ORDER_ENABLE
+endif
+
+##
+## AIR_ECHO_PATH_STEREO_ENABLE
+## Brief:       Internal use.
+## Notice:      AIR_ECHO_PATH_STEREO_ENABLE is a option to set stereo echo reference path.
+##
+ifeq ($(AIR_ECHO_PATH_STEREO_ENABLE),y)
+CCFLAG += -DAIR_ECHO_PATH_STEREO_ENABLE
 CCFLAG += -DAIR_ECHO_MEMIF_IN_ORDER_ENABLE
 endif
 

@@ -45,7 +45,7 @@
 #include <stdint.h>
 
 /**
- *  @brief This structure defines the information needed by the slience detection feature.
+ *  @brief This structure defines the information needed by the silence detection feature.
  */
 typedef struct
 {

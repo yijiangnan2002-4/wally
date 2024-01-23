@@ -32,27 +32,10 @@
  * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
  */
 
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    usb_msdisk.h
- *
- * Project:
- * --------
- *   Maui_Software
- *
- * Description:
- * ------------
- *   This file is intends for usb mass storage disk related information.
- *
- * Author:
- * -------
- *  Jensen Hu
- *
- ****************************************************************************/
 #ifndef USB_MSDISK_H
 #define USB_MSDISK_H
+
+#ifdef AIR_USB_MSC_ENABLE
 
 /* C library */
 #include <stdbool.h>
@@ -113,6 +96,8 @@ extern USB_DiskDriver_STRUCT USB_MSDC_drv;
 extern uint8_t USB_Ms_Register_DiskDriver(USB_DiskDriver_STRUCT *disk_api);
 extern uint8_t USB_Ms_Set_Current_Driver(uint32_t drv);
 extern uint32_t USB_Ms_Get_Current_Driver(void);
+
+#endif /* AIR_USB_MSC_ENABLE */
 
 #endif /* USB_MSDISK_H */
 

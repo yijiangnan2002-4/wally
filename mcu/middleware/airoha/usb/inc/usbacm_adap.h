@@ -32,30 +32,10 @@
  * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
  */
 
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    usbacm_adap.h
- *
- * Project:
- * --------
- *   Maui_Software
- *
- * Description:
- * ------------
- *  This file intends for usb adaption layer for UART API definitions
- *
- * Author:
- * -------
- *   Jensen Hu
- *   CJung Chen
- *
- *============================================================================
- ****************************************************************************/
-
 #ifndef USBACM_ADAP_H
 #define USBACM_ADAP_H
+
+#ifdef AIR_USB_CDC_ENABLE
 
 /* C library */
 #include <stdbool.h>
@@ -95,6 +75,8 @@ extern void USB2UART_Register_TxCallback(uint8_t port, UART_TX_FUNC func);
 extern void USB2UART_Register_RxBuffer(uint8_t port, void* buffer, uint16_t size);
 extern void USB2UART_Register_TxBuffer(uint8_t port, void* buffer, uint16_t size);
 extern void USB2UART_port_init(uint8_t port);
+
+#endif /* AIR_USB_CDC_ENABLE */
 
 #endif /* USBACM_ADAP_H */
 

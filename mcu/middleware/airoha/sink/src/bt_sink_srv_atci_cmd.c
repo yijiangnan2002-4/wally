@@ -47,25 +47,42 @@
 
 //BT releated
 #include "bt_avm.h"
-#include "bt_hfp.h"
+
 //BT Sink releated
-#include "bt_sink_srv.h"
-#include "bt_sink_srv_utils.h"
-#include "bt_sink_srv_common.h"
-#include "bt_sink_srv_music.h"
+#ifdef MTK_BT_HFP_ENABLE
+#include "bt_hfp.h"
+#endif
+#ifdef MTK_BT_HSP_ENABLE
+#include "bt_hsp.h"
+#endif
+#ifdef AIR_BT_SINK_CALL_ENABLE
+#include "bt_sink_srv_hf.h"
 #include "bt_sink_srv_call_audio.h"
-#include "bt_sink_srv_a2dp.h"
 #ifdef MTK_BT_HSP_ENABLE
 #include "bt_sink_srv_hsp.h"
 #endif /*MTK_BT_HSP_ENABLE*/
+#endif
+
+#include "bt_sink_srv.h"
+#include "bt_sink_srv_utils.h"
+#include "bt_sink_srv_common.h"
+
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
+#include "bt_sink_srv_music.h"
+#include "bt_sink_srv_a2dp.h"
+#ifdef AIR_FEATURE_SINK_AVRCP_BQB
+#include "bt_sink_srv_avrcp.h"
+#endif
 #ifdef __BT_AWS_MCE_A2DP_SUPPORT__
 #include "bt_sink_srv_aws_mce_a2dp.h"
 #endif
-#ifdef MTK_AWS_MCE_ENABLE
-#include "bt_aws_mce_report.h"
-#endif
 #ifdef MTK_BT_SPEAKER_ENABLE
 #include "speaker_fec.h"
+#endif
+#endif
+
+#ifdef MTK_AWS_MCE_ENABLE
+#include "bt_aws_mce_report.h"
 #endif
 #include "bt_utils.h"
 
@@ -73,15 +90,16 @@
 #include "bt_gap_le.h"
 #include "bt_hci.h"
 #endif
-#include "bt_sink_srv_hf.h"
-#ifdef AIR_FEATURE_SINK_AVRCP_BQB
-#include "bt_sink_srv_avrcp.h"
-#endif
 //extern global various.
+bool g_sink_srv_pts_on;
+
+#ifdef AIR_BT_SINK_CALL_ENABLE
 extern uint32_t g_sink_srv_hf_delay_for_acqua;
 extern bt_hfp_audio_codec_type_t g_sink_srv_hf_audio_codec;
-bool g_sink_srv_pts_on;
-extern bt_status_t bt_sink_srv_hf_switch(bool value);
+extern bt_sink_srv_hf_context_t *g_sink_srv_hf_last_device_p;
+bt_sink_srv_send_dtmf_t bt_sink_srv_dtmf_t;
+#endif
+
 
 //extern functions.
 extern void bt_driver_trigger_controller_codedump(void);
@@ -94,19 +112,26 @@ extern void bt_sink_srv_hsp_button_press(void);
 #ifdef MTK_BT_A2DP_AAC_ENABLE
 extern void bt_sink_srv_a2dp_enable_aac(bool open_flag);
 #endif /*MTK_BT_A2DP_AAC_ENABLE*/
-extern bool bt_sink_srv_hf_mic_volume_change_handler(bt_sink_srv_call_audio_volume_act_t vol_act, bool min_max);
+#ifdef AIR_BT_SINK_CALL_ENABLE
+extern bt_status_t bt_sink_srv_hf_switch(bool value);
 extern bt_sink_srv_state_t bt_sink_srv_hf_get_call_state(void);
+extern bool bt_sink_srv_hf_mic_volume_change_handler(bt_sink_srv_call_audio_volume_act_t vol_act, bool min_max);
+#endif
+
 extern void bt_sink_srv_avrcp_send_stop_command(void *param);
 extern void bt_sink_srv_avrcp_send_vup_vdn_command(uint8_t type);
 //static functions.
 static atci_status_t bt_sink_srv_atci_it_handler(atci_parse_cmd_param_t *parse_cmd);
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 static void bt_sink_srv_atci_get_music_state(void);
+#endif
+#ifdef AIR_BT_SINK_CALL_ENABLE
 static void bt_sink_srv_atci_get_call_state(void);
+#endif
+
 #ifdef AIR_FEATURE_SINK_AVRCP_BQB
 extern atci_status_t bt_sink_srv_avrcp_bqb_atci_callback(atci_parse_cmd_param_t *parse_cmd);
 #endif
-extern bt_sink_srv_hf_context_t *g_sink_srv_hf_last_device_p;
-bt_sink_srv_send_dtmf_t bt_sink_srv_dtmf_t;
 
 //defined.
 #define CMD_PARAM(s) s, bt_sink_srv_strlen(s)
@@ -251,7 +276,7 @@ static uint16_t bt_sink_srv_parse_digital(const uint8_t *string, uint8_t **resul
     return MBp;
 }
 #endif /*MTK_AWS_MCE_ENABLE*/
-
+#ifdef AIR_BT_SINK_CALL_ENABLE
 static void bt_sink_srv_cmd_copy_str_to_addr(uint8_t *addr, const char *str)
 {
     unsigned int i = 0, value = 0;
@@ -272,6 +297,20 @@ static void bt_sink_srv_cmd_copy_str_to_addr(uint8_t *addr, const char *str)
         addr[5 - i] = (uint8_t) value;
     }
 }
+#endif
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
+static void bt_sink_srv_atci_get_music_codec(void)
+{
+    bt_sink_srv_a2dp_codec_name_t codec_name;
+    bt_sink_srv_a2dp_get_codec_type(&codec_name);
+    atci_response_t *response = (atci_response_t *)bt_sink_srv_memory_alloc(sizeof(atci_response_t));
+    bt_sink_srv_memcpy(response->response_buf, codec_name.name, codec_name.name_len);
+    response->response_len = codec_name.name_len;
+    response->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+    atci_send_response(response);
+    bt_sink_srv_memory_free(response);
+}
+#endif
 
 #ifdef MTK_BT_AT_COMMAND_ENABLE
 extern atci_bt_context_struct_t *atci_bt_cntx_p;
@@ -279,10 +318,11 @@ extern atci_bt_context_struct_t *atci_bt_cntx_p;
 
 static int16_t bt_sink_srv_cmd_entry(const char *string)
 {
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     bt_sink_srv_music_device_t *dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_SP, NULL);
-
+#endif
     bt_sink_srv_report("[SINK][ATCI] string:%s", string);
-
+#ifdef AIR_BT_SINK_CALL_ENABLE
     /*  FOR BQB */
     if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("ATD01"))) { //DIAL NUMBER
         char *number = "1234567";
@@ -298,7 +338,9 @@ static int16_t bt_sink_srv_cmd_entry(const char *string)
         bt_sink_srv_dtmf_t.code = dtmf + '0';
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_DTMF, &bt_sink_srv_dtmf_t);
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("AT+BIEV"))) {
+#ifdef MTK_BT_HFP_ENABLE
         bt_hfp_send_command(g_sink_srv_hf_last_device_p->link.handle, (uint8_t *)(string), strlen(string));
+#endif
     }
     /* ACTION PART */
     if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("ANS"))) { //ANSWER
@@ -359,7 +401,9 @@ static int16_t bt_sink_srv_cmd_entry(const char *string)
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_REPORT_BATTERY, (void *)&bat_lev);
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SIRI"))) {
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_HF_GET_SIRI_STATE, NULL);
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("VUP"))) { //BT  MUSIC VOLUME UP
+    }
+#endif
+    if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("VUP"))) { //BT  MUSIC VOLUME UP
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_VOLUME_UP, NULL);
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("VDN"))) { // BT MUSIC VOLUME DOWN
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_VOLUME_DOWN, NULL);
@@ -377,6 +421,7 @@ static int16_t bt_sink_srv_cmd_entry(const char *string)
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_PLAY, NULL);
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("PAUSE"))) { //BT MUSIC PAUSE
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_PAUSE, NULL);
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("STOP"))) { //BT MUSIC STOP
         bt_sink_srv_avrcp_send_stop_command(NULL);
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("PT-VUP"))) { //BT MUSIC VUP BY PASS THROUGH CMD
@@ -386,12 +431,123 @@ static int16_t bt_sink_srv_cmd_entry(const char *string)
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("LMP_REJ_1M"))) {
         bt_sink_srv_music_reject_a2dp_1M();
         bt_sink_srv_report_id("Disable LMP 1M", 0);
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("REINIT_MUSIC"))) {
+        bt_sink_srv_a2dp_reinitial_sync();
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_MAX_BP,"))) {
+        uint32_t max_bp = (uint32_t)strtoul(string + 11, NULL, 10);
+        bt_sink_srv_music_set_max_bit_pool(max_bp);
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("GET_SINK_LATENCY"))) {
+        bt_sink_srv_report_id("[SINK][ATCI]get sink lt: %d", 1, bt_sink_srv_music_get_sink_latency());
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_ALC_STATE,"))) {
+        bt_sink_srv_music_set_ALC_enable((uint32_t)strtoul(string + 14, NULL, 10));
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_NO_RETRANS"))) {
+        bt_sink_srv_a2dp_set_no_retransmission_mode(0, 0xffff);
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("REG_VOL_CHANGE")) && dev) {
+        bt_avrcp_register_notification(dev->avrcp_hd, BT_AVRCP_EVENT_VOLUME_CHANGED, 0);
+    }  else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_ABSOLUTE")) && dev) {
+        bt_avrcp_set_absolute_volume(dev->avrcp_hd, 10);
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("START_STREAMING"))) {
+        bt_sink_srv_music_device_list_t *device_list = bt_sink_srv_music_get_played_device_list(true);
+        bt_sink_srv_music_device_t *dev;
+        if (device_list && device_list->number) {
+            dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_ADDR_A2DP, &(device_list->device_list[0]));
+        } else {
+            dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_SP, NULL);
+        }
+        if(dev){
+            bt_a2dp_start_streaming(dev->a2dp_hd);
+        }
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SUSPEND_STREAMING"))) {
+        bt_sink_srv_music_device_list_t *device_list = bt_sink_srv_music_get_played_device_list(true);
+        bt_sink_srv_music_context_t *ctx = bt_sink_srv_music_get_context();
+        bt_sink_srv_music_device_t *dev = ctx->run_dev;
+        if(!dev){
+            if (device_list && device_list->number) {
+                dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_ADDR_A2DP, &(device_list->device_list[0]));
+            } else {
+                dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_SP, NULL);
+            }
+        }
+        if(dev){
+            bt_a2dp_suspend_streaming(dev->a2dp_hd);
+        }
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("GET_MUSIC_STATE"))) {
+        bt_sink_srv_atci_get_music_state();
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("GET_MUSIC_CODEC"))) {
+        bt_sink_srv_atci_get_music_codec();
+#ifdef MTK_BT_SPEAKER_DISABLE_BROADCAST_EDR
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("MUSIC_STOP"))) {
+        bt_sink_srv_music_audio_switch(false, BT_SINK_SRV_ACTION_PAUSE);
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("MUSIC_RESUME"))) {
+        bt_sink_srv_music_audio_switch(true, BT_SINK_SRV_ACTION_PLAY);
+#endif
+#ifdef MTK_BT_SPEAKER_ENABLE
+#ifdef MTK_BT_SPEAKER_FEC_ENABLE
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_FEC_COUNT,"))) {
+        speaker_fec_set_fec_gen_count((uint8_t)strtoul(string + 14, NULL, 10));
+#endif
+#endif
+#ifdef __BT_AWS_MCE_A2DP_SUPPORT__
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("PARTNER_REINIT"))) {
+        bt_sink_srv_aws_mce_trigger_agent_reinitial_sync(BT_SINK_SRV_MUSIC_TYPE_CONTROL_TRIGGER_ALC);
+#endif
+#ifdef MTK_BT_A2DP_AAC_ENABLE
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("AAC_ON"))) {
+        bt_sink_srv_a2dp_enable_aac(true);
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("AAC_OFF"))) {
+        bt_sink_srv_a2dp_enable_aac(false);
+#endif
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("LC3+TEST,"))) {
+        uint32_t sample_frequency_case = (uint32_t)strtoul(string + 9, NULL, 16);
+        uint8_t frame_duration_case = (uint32_t)strtoul(string + 12, NULL, 10);
+        uint16_t sample_frequency = 0;
+        uint8_t frame_duration = 0;
+        if(sample_frequency_case == 0x48) {
+            sample_frequency = 0x0100;
+        } else if(sample_frequency_case == 0x96) {
+            sample_frequency = 0x0080;
+        }
+        if(frame_duration_case == 5) {
+            frame_duration = 0x20;
+        } else if(frame_duration_case == 10) {
+            frame_duration = 0x40;
+        }
+        bt_sink_srv_a2dp_change_lc3plus_param(sample_frequency, frame_duration);
+#endif
+#ifdef MTK_BT_AVRCP_BROWSE_ENABLE
+   } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("DISCONN_BROW"))) {
+        if (dev) {
+            bt_status_t status = BT_STATUS_FAIL;
+            if (dev->a2dp_hd) {
+                status = bt_a2dp_disconnect(dev->a2dp_hd);
+            }
+            if (dev->avrcp_browse_hd) {
+                status = bt_avrcp_browse_disconnect(dev->avrcp_browse_hd);
+                if (status == BT_STATUS_SUCCESS && dev->avrcp_hd) {
+                    bt_avrcp_disconnect(dev->avrcp_hd);
+                }
+            }
+            bt_sink_srv_report_id("[SINK][ATCI]DISCONN_BROW,br_hd: %x,hd:%x, status :%x",
+                3, dev->avrcp_browse_hd, dev->avrcp_hd, status);
+        }
+    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("BROW_SUPPORT"))) {
+        bt_avrcp_init_t init;
+        init.role = BT_AVRCP_ROLE_CT;
+        init.support_browse = true;
+        bt_avrcp_init(&init);
+#endif
+
+#endif //#AIR_BT_SINK_MUSIC_ENABLE
+        
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("ASSERT"))) {
         bt_utils_assert(0);
+#ifdef AIR_BT_SINK_CALL_ENABLE
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("CVSD"))) {
         g_sink_srv_hf_audio_codec = (bt_hfp_audio_codec_type_t)BT_HFP_CODEC_TYPE_CVSD;
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("MSBC"))) {
         g_sink_srv_hf_audio_codec = (bt_hfp_audio_codec_type_t)BT_HFP_CODEC_TYPE_MSBC;
+#endif
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("BATEXT"))) {
         uint8_t battery_level = atoi(string + 7);
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_REPORT_BATTERY_EXT, &battery_level);
@@ -432,6 +588,7 @@ static int16_t bt_sink_srv_cmd_entry(const char *string)
         param.end_item = 5;
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_GET_FOLDER_ITEM, &param);
 #endif
+#ifdef AIR_BT_SINK_CALL_ENABLE
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("MICVUP"))) {
         bt_sink_srv_hf_mic_volume_change_handler(BT_SINK_SRV_CALL_AUDIO_VOL_ACT_UP, false);
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("MICVDN"))) {
@@ -448,6 +605,7 @@ static int16_t bt_sink_srv_cmd_entry(const char *string)
         bt_hfp_enable_ag_service_record(true);
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("AG-OFF"))) {
         bt_hfp_enable_ag_service_record(false);
+#endif
 #ifdef MTK_AWS_MCE_ENABLE
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SEND_IF_APP"))) {
         bt_sink_srv_aws_mce_send_action_for_debug();
@@ -457,65 +615,32 @@ static int16_t bt_sink_srv_cmd_entry(const char *string)
         sender = true;
         bt_sink_srv_aws_mce_test(AWS_TEST_TYPE_CMD);
 #endif
-#ifdef MTK_BT_HSP_ENABLE
+#if defined(MTK_BT_HSP_ENABLE) && defined(MTK_BT_HFP_ENABLE)
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("HSP-ON"))) {
         bt_hfp_enable_service_record(false);
         bt_hsp_enable_service_record(true);
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("HSP-OFF"))) {
         bt_hfp_enable_service_record(true);
         bt_hsp_enable_service_record(false);
+#ifdef AIR_BT_SINK_CALL_ENABLE
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("HSP-PRESS"))) {
         bt_sink_srv_hsp_button_press();
+#endif
 #endif /*MTK_BT_HSP_ENABLE*/
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("REINIT_MUSIC"))) {
-        bt_sink_srv_a2dp_reinitial_sync();
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_SINK_LATENCY,"))) {
         uint32_t sink_lt = (uint32_t)strtoul(string + 17, NULL, 10);
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_SET_LATENCY, (void *)&sink_lt);
+#ifdef AIR_BT_A2DP_ENABLE
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_A2DP_MTU,"))) {
         uint32_t a2dp_mtu = (uint32_t)strtoul(string + 13, NULL, 10);
         bt_a2dp_set_mtu_size(a2dp_mtu);
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_MAX_BP,"))) {
-        uint32_t max_bp = (uint32_t)strtoul(string + 11, NULL, 10);
-        bt_sink_srv_music_set_max_bit_pool(max_bp);
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("GET_SINK_LATENCY"))) {
-        bt_sink_srv_report_id("[SINK][ATCI]get sink lt: %d", 1, bt_sink_srv_music_get_sink_latency());
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_ALC_STATE,"))) {
-        bt_sink_srv_music_set_ALC_enable((uint8_t)strtoul(string + 14, NULL, 10));
+#endif
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("GET_VOLUME,"))) {
         bt_sink_srv_get_volume(NULL, (uint8_t)strtoul(string + 11, NULL, 10));
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_VOLUME,"))) {
         uint8_t volume = (uint8_t)strtoul(string + 11, NULL, 10);
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_SET_VOLUME, &volume);
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_CALL_SET_VOLUME, &volume);
-#ifdef MTK_BT_SPEAKER_ENABLE
-#ifdef MTK_BT_SPEAKER_FEC_ENABLE
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_FEC_COUNT,"))) {
-        speaker_fec_set_fec_gen_count((uint8_t)strtoul(string + 14, NULL, 10));
-#endif
-#endif
-#ifdef __BT_AWS_MCE_A2DP_SUPPORT__
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("PARTNER_REINIT"))) {
-        bt_sink_srv_aws_mce_trigger_agent_reinitial_sync(BT_SINK_SRV_MUSIC_TYPE_CONTROL_TRIGGER_ALC);
-#endif
-#ifdef MTK_BT_A2DP_AAC_ENABLE
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("AAC_ON"))) {
-        bt_sink_srv_a2dp_enable_aac(true);
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("AAC_OFF"))) {
-        bt_sink_srv_a2dp_enable_aac(false);
-#endif
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_NO_RETRANS"))) {
-        bt_sink_srv_a2dp_set_no_retransmission_mode(0, 0xffff);
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("REG_VOL_CHANGE")) && dev) {
-        bt_avrcp_register_notification(dev->avrcp_hd, BT_AVRCP_EVENT_VOLUME_CHANGED, 0);
-    }  else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_ABSOLUTE")) && dev) {
-        bt_avrcp_set_absolute_volume(dev->avrcp_hd, 10);
-#ifdef MTK_BT_SPEAKER_DISABLE_BROADCAST_EDR
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("MUSIC_STOP"))) {
-        bt_sink_srv_music_audio_switch(false, BT_SINK_SRV_ACTION_PAUSE);
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("MUSIC_RESUME"))) {
-        bt_sink_srv_music_audio_switch(true, BT_SINK_SRV_ACTION_PLAY);
-#endif
 #ifdef AIR_FEATURE_SINK_AUDIO_SWITCH_SUPPORT
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("HFP_STOP"))) {
         bt_sink_srv_hf_switch(false);
@@ -523,57 +648,6 @@ static int16_t bt_sink_srv_cmd_entry(const char *string)
         bt_sink_srv_hf_switch(true);
 #endif
     }
-#ifdef MTK_BT_AVRCP_BROWSE_ENABLE
-    else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("DISCONN_BROW"))) {
-        if (dev) {
-            bt_status_t status = BT_STATUS_FAIL;
-            if (dev->a2dp_hd) {
-                status = bt_a2dp_disconnect(dev->a2dp_hd);
-            }
-            if (dev->avrcp_browse_hd) {
-                status = bt_avrcp_browse_disconnect(dev->avrcp_browse_hd);
-                if (status == BT_STATUS_SUCCESS && dev->avrcp_hd) {
-                    bt_avrcp_disconnect(dev->avrcp_hd);
-                }
-            }
-            bt_sink_srv_report_id("[SINK][ATCI]DISCONN_BROW,br_hd: %x,hd:%x, status :%x",
-                3, dev->avrcp_browse_hd, dev->avrcp_hd, status);
-        }
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("BROW_SUPPORT"))) {
-        bt_avrcp_init_t init;
-        init.role = BT_AVRCP_ROLE_CT;
-        init.support_browse = true;
-        bt_avrcp_init(&init);
-    }
-#endif
-    else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("GET_MUSIC_STATE"))) {
-        bt_sink_srv_atci_get_music_state();
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("START_STREAMING"))) {
-        bt_sink_srv_music_device_list_t *device_list = bt_sink_srv_music_get_played_device_list(true);
-        bt_sink_srv_music_device_t *dev;
-        if (device_list && device_list->number) {
-            dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_ADDR_A2DP, &(device_list->device_list[0]));
-        } else {
-            dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_SP, NULL);
-        }
-        if(dev){
-            bt_a2dp_start_streaming(dev->a2dp_hd);
-        }
-    } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SUSPEND_STREAMING"))) {
-        bt_sink_srv_music_device_list_t *device_list = bt_sink_srv_music_get_played_device_list(true);
-        bt_sink_srv_music_context_t *ctx = bt_sink_srv_music_get_context();
-        bt_sink_srv_music_device_t *dev = ctx->run_dev;
-        if(!dev){
-            if (device_list && device_list->number) {
-                dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_ADDR_A2DP, &(device_list->device_list[0]));
-            } else {
-                dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_SP, NULL);
-            }
-        }
-        if(dev){
-            bt_a2dp_suspend_streaming(dev->a2dp_hd);
-        }
-    } 
 #ifdef FPGA_ENV
     else if(0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_ADV_ENABLE"))){
         bt_hci_cmd_le_set_advertising_enable_t adv_enable = {
@@ -752,6 +826,7 @@ uint32_t bt_sink_srv_atci_get_element_attributes(bt_sink_srv_avrcp_get_element_a
     return parsered_length;
 }
 
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 static void bt_sink_srv_atci_get_music_state(void)
 {
     bt_sink_srv_music_playback_state_t state = bt_sink_srv_get_music_state();
@@ -765,7 +840,8 @@ static void bt_sink_srv_atci_get_music_state(void)
     }
     bt_sink_srv_report("music state:%d", state);
 }
-
+#endif
+#ifdef AIR_BT_SINK_CALL_ENABLE
 static void bt_sink_srv_atci_get_call_state(void)
 {
     bt_sink_srv_state_t call_state = bt_sink_srv_hf_get_call_state();
@@ -780,4 +856,4 @@ static void bt_sink_srv_atci_get_call_state(void)
         bt_sink_srv_memory_free(response);
     }
 }
-
+#endif

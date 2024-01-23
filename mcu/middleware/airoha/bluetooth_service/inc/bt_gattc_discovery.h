@@ -178,7 +178,8 @@ typedef uint8_t bt_gattc_discovery_user_t;
 #define BT_GATTC_DISCOVERY_USER_AIR_SERVICE    0x04    /**< The AIR_SERVICE service user. */
 #define BT_GATTC_DISCOVERY_USER_COMMON_SERVICE 0x05    /**< The gap/gatt service user. */
 #define BT_GATTC_DISCOVERY_USER_LE_ASSOCIATION 0x06    /**< The le association service user. */
-#define BT_GATTC_DISCOVERY_USER_MAX_NUM        0x07
+#define BT_GATTC_DISCOVERY_USER_HOGP           0x07    /**< The HOGP service user. */
+#define BT_GATTC_DISCOVERY_USER_MAX_NUM        0x08
 
 
 /**

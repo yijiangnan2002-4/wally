@@ -92,6 +92,12 @@ typedef enum {
     GPIO_PUPD_ERR = 7,
     GPIO_PU_R1    = 8,
     GPIO_PD_R1    = 9,
+    GPIO_PD_RSEL01 = 10,
+    GPIO_PD_RSEL10 = 11,
+    GPIO_PD_RSEL11 = 12,
+    GPIO_PU_RSEL01 = 13,
+    GPIO_PU_RSEL10 = 14,
+    GPIO_PU_RSEL11 = 15,
 }
 gpio_pull_type_t;
 
@@ -151,6 +157,8 @@ extern GPIO_CFG0_REGISTER_T *gpio_cfg0;
 extern const hal_gpio_cfg_reg_t gpio_cfg_table[];
 
 void gpio_get_state(hal_gpio_pin_t gpio_pin, gpio_state_t *gpio_state);
+uint32_t hal_pinmux_get_function(hal_gpio_pin_t gpio_pin);
+hal_gpio_status_t hal_gpio_mode_ept_compare_hw_config(void);
 
 #ifdef __cplusplus
 }

@@ -74,7 +74,7 @@ void bt_app_common_generate_device_name(void);
 typedef enum {
     BT_APP_COMMON_BLE_ADV_STOPPED   = 0,
     BT_APP_COMMON_BLE_ADV_STARTED,
-    BT_APP_COMMON_BLE_ADV_STOPING,
+    BT_APP_COMMON_BLE_ADV_STOPPING,
     BT_APP_COMMON_BLE_ADV_STARTING,
     BT_APP_COMMON_BLE_ADV_UPDATING,
 } bt_app_common_ble_adv_status_t;

@@ -1079,7 +1079,7 @@ ATTR_TEXT_IN_IRAM mux_status_t mux_tx(mux_handle_t handle, const mux_buffer_t bu
 
 #ifdef AIR_LOW_LATENCY_MUX_ENABLE
     if (is_mux_ll_handle(handle)) {
-        return mux_tx_ll(handle, buffers, buffers_counter, send_done_data_len);
+        return mux_tx_ll_with_silence(handle, buffers, buffers_counter, send_done_data_len);
     }
 #endif
     cpu_id = GET_CURRENT_CPU_ID();

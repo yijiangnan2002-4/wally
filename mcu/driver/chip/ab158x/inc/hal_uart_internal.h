@@ -112,17 +112,19 @@ typedef struct {
     uint32_t uart_rg_DMACON;        // log_para 14
     uint32_t uart_rg_RXTRIG;        // log_para 15
     uint32_t uart_rg_FRACDIV;       // log_para 16
-    uint32_t vdma_rg_tx_COUNT;      // log_para 17
-    uint32_t vdma_rg_tx_CON;        // log_para 18
-    uint32_t vdma_rg_tx_PGMADDR;    // log_para 19
-    uint32_t vdma_rg_tx_ALTLEN;     // log_para 20
-    uint32_t vdma_rg_tx_FFSIZE;     // log_para 21
-    uint32_t vdma_rg_rx_COUNT;      // log_para 22
-    uint32_t vdma_rg_rx_CON;        // log_para 23
-    uint32_t vdma_rg_rx_PGMADDR;    // log_para 24
-    uint32_t vdma_rg_rx_ALTLEN;     // log_para 25
-    uint32_t vdma_rg_rx_FFSIZE;     // log_para 26
-    uint32_t infra_reinit_flag;     // log_para 27
+    uint32_t uart_rg_RX_TO_CON;     // log_para 17
+    uint32_t uart_rg_RX_TO_DEST;    // log_para 18
+    uint32_t vdma_rg_tx_COUNT;      // log_para 19
+    uint32_t vdma_rg_tx_CON;        // log_para 20
+    uint32_t vdma_rg_tx_PGMADDR;    // log_para 21
+    uint32_t vdma_rg_tx_ALTLEN;     // log_para 22
+    uint32_t vdma_rg_tx_FFSIZE;     // log_para 23
+    uint32_t vdma_rg_rx_COUNT;      // log_para 24
+    uint32_t vdma_rg_rx_CON;        // log_para 25
+    uint32_t vdma_rg_rx_PGMADDR;    // log_para 26
+    uint32_t vdma_rg_rx_ALTLEN;     // log_para 27
+    uint32_t vdma_rg_rx_FFSIZE;     // log_para 28
+    uint32_t infra_reinit_flag;     // log_para 29
 } uart_backup_para_for_log_t;       // address = 0x0425B264
 
 /*internal API for uart to set DMA mode*/

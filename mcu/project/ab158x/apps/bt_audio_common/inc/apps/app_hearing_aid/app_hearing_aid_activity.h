@@ -76,6 +76,8 @@ bool app_hearing_aid_activity_is_fwk_opening();
 
 bool app_hearing_aid_activity_is_sco_ongoing();
 
+bool app_hearing_aid_activity_is_need_reopen_fwk();
+
 bool app_hearing_aid_activity_enable_hearing_aid(bool from_key);
 
 void app_hearing_aid_activity_set_power_on_played();
@@ -93,6 +95,10 @@ void app_hearing_aid_activity_proc_vp_streaming_state_change(bool streaming);
 bool app_hearing_aid_is_mp_test_mode();
 
 bool app_hearing_aid_is_need_enable_ha();
+
+bool app_hearing_aid_is_ready_to_enable_side_tone();
+
+bool app_hearing_aid_is_supported_cmd(uint16_t cmd_type);
 
 bool app_hearing_aid_activity_proc(ui_shell_activity_t *self,
                                    uint32_t event_group,

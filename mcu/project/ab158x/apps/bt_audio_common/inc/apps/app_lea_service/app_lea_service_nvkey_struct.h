@@ -75,10 +75,11 @@ typedef struct {
     uint8_t         bond_addr[BT_BD_ADDR_LEN];
     uint8_t         reconnect_type;
     uint32_t        value;
-} PACKED app_lea_bond_info_t;
+} PACKED app_lea_bond_info_t;           // Unreasonable naming; LEA/ULL2 Device Info, not LE GAP bond info
 
 /* value - reserve for future, feature flag or other */
 /* bit0~1 addr resolution feature, 00 - none not check done, 01 - support, 10 - not support, 11 - not used. */
+/* bit8   LEA dongle flag, 1 - yes. */
 
 #ifdef __cplusplus
 }

@@ -49,6 +49,7 @@ LE_AUDIO_FILE = $(LE_AUDIO_SRC)/ascs/ble_ascs_service.c \
                 $(LE_AUDIO_SRC)/util/bt_le_audio_log.c \
                 $(LE_AUDIO_SRC)/cap/ble_cas_service.c \
                 $(LE_AUDIO_SRC)/haps/ble_has_service.c \
+                $(LE_AUDIO_SRC)/gmas/ble_gmas_service.c \
 
 
 C_FILES    +=    $(LE_AUDIO_FILE)
@@ -75,6 +76,7 @@ CFLAGS    +=    -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/bt_le_audio/inc/cap
 CFLAGS    +=    -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/bt_le_audio/inc/pbp
 CFLAGS    +=    -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/bt_le_audio/inc/haps
 CFLAGS    +=    -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/bt_le_audio/inc/hapc
+CFLAGS    +=    -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/bt_le_audio/inc/gmap
 CFLAGS    +=    -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/bt_le_audio/inc/iac
 
 ###################################################

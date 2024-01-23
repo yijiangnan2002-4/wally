@@ -50,6 +50,9 @@
 #include "ble_pacs.h"
 #include "bt_gap_le_audio.h"
 #include "app_le_audio.h"
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+#include "ble_gmas_def.h"
+#endif
 #endif
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
 #include "bt_ull_le.h"
@@ -94,9 +97,9 @@
 #include "ble_haps.h"
 #endif
 
+
+
 #define LOG_TAG     "[LEA][ADV]"
-
-
 
 typedef enum {
     APP_LEA_ADV_ERROR_OK                       = 0,
@@ -124,17 +127,21 @@ typedef struct {
 
 #define APP_LE_AUDIO_RSI_LENGTH             6
 
+#ifdef AIR_HEADSET_ENABLE
+#define APP_LEA_AD_TYPE_APPEARANCE BT_SIG_AD_TYPE_APPEARANCE_HEADSET
+#elif defined(AIR_SPEAKER_ENABLE)
+#define APP_LEA_AD_TYPE_APPEARANCE BT_SIG_AD_TYPE_APPEARANCE_SPEAKER
+#else
+#define APP_LEA_AD_TYPE_APPEARANCE BT_SIG_AD_TYPE_APPEARANCE_EARBUD
+#endif
+
 static bool         app_lea_adv_enabled = FALSE;
 static uint32_t     app_lea_adv_timeout = APP_LE_AUDIO_ADV_TIME;   /* 0 - always */
 
 static uint16_t     app_lea_adv_interval_min = APP_LE_AUDIO_ADV_INTERVAL_MIN_S;
 static uint16_t     app_lea_adv_interval_max = APP_LE_AUDIO_ADV_INTERVAL_MAX_S;
 
-#ifdef AIR_BT_INTEL_EVO_ENABLE
 static uint32_t     app_lea_adv_time_tick = 0;
-#endif
-
-extern bt_addr_t    app_lea_adv_target_addr[];
 
 typedef enum {
     APP_LEA_ADV_TIMEOUT_ACTION_STOP                 = 0,
@@ -148,6 +155,9 @@ typedef struct {
     uint8_t         sub_mode;
     uint8_t         sub_mode_num;
     uint8_t         index;
+    uint8_t         direct_index;
+    uint8_t         direct_num;
+    bool            targeted_flag_on_general;
 } PACKED app_lea_adv_mgr_context_t;
 static app_lea_adv_mgr_context_t  app_lea_adv_mgr_ctx = {0};
 
@@ -161,12 +171,10 @@ bool                app_lea_adv_add_ull_data        = FALSE;
 #elif defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
 bool                app_lea_adv_add_ull_data        = FALSE;
 #endif
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE) && defined(AIR_BLE_ULL_PARING_MODE_ENABLE)
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 // Note: After Dongle and device both enter ULL pairing mode, dongle will only scan pair_mode=1 ADV and connect it
 #define APP_LEA_ULL_ADV_PAIR_MODE_LEN               2
 bool                app_lea_adv_ull_pair_mode       = FALSE;
-#endif
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 bool                app_lea_adv_ull_reconnect_mode  = FALSE;
 #endif
 #if defined(AIR_WIRELESS_MIC_ENABLE)
@@ -177,15 +185,27 @@ bool                app_lea_adv_ull_reconnect_mode  = FALSE;
 static const uint8_t APPS_ULL2_128_BIT_UUID[] = APPS_ULL2_128_BIT_UUID_DEF;
 #endif
 
+#pragma weak app_lea_service_adv_customer_data = default_app_lea_service_adv_customer_data
+void app_lea_service_adv_customer_data(uint8_t *adv_data, uint8_t *len);
+void default_app_lea_service_adv_customer_data(uint8_t *adv_data, uint8_t *len)
+{
+    //APPS_LOG_MSGID_E(LOG_TAG" default_app_lea_service_adv_customer_data", 0);
+}
+
+
+
 /**================================================================================*/
 /**                                   Internal API                                 */
 /**================================================================================*/
 extern bt_status_t bt_gatts_service_set_le_audio_device_name(const uint8_t *device_name, uint16_t length);
 static void app_lea_adv_mgr_do_stop_advertising(void);
 
-#ifdef AIR_BT_INTEL_EVO_ENABLE
 static bool app_lea_adv_mgr_is_enter_slow_phase(void)
 {
+    if (app_lea_adv_time_tick == 0) {
+        return TRUE;
+    }
+
     uint32_t start_tick = app_lea_adv_time_tick;
     uint32_t end_tick = xTaskGetTickCount();
     uint32_t duration_tick = 0;
@@ -196,7 +216,6 @@ static bool app_lea_adv_mgr_is_enter_slow_phase(void)
     }
     return (duration_tick >= APP_LE_AUDIO_ADV_FAST_TIME);
 }
-#endif
 
 #ifdef AIR_LE_AUDIO_DIRECT_ADV
 static uint8_t app_lea_adv_mgr_convert_addr_type(bt_addr_type_t addr_type)
@@ -247,12 +266,12 @@ static uint8_t app_lea_adv_mgr_check_adv_allow(uint8_t mode)
         error_code = APP_LEA_ADV_ERROR_CHARGER_LID_CLOSE;
     }
 #endif
-#ifdef AIR_LE_AUDIO_ENABLE
+#if defined(AIR_LE_AUDIO_ENABLE) && !defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     if (app_lea_feature_mode == APP_LEA_FEATURE_MODE_OFF) {
         error_code = APP_LEA_ADV_ERROR_LEA_DISABLE;
     }
 #endif
-#ifndef MTK_AWS_MCE_ENABLE  // Headset project
+#ifdef APP_LE_AUDIO_ADV_STOP_ADV_WHEN_WIRED_AUDIO
     extern bool app_le_audio_is_wired_audio(void);
     if (app_le_audio_is_wired_audio()) {
         error_code = APP_LEA_ADV_ERROR_WIRED_AUDIO;
@@ -326,6 +345,8 @@ static uint32_t app_lea_adv_mgr_get_adv_data_internal(bool want_lea_targeted_fla
 #endif
     if ((NULL != adv_data->adv_data) && (NULL != adv_data->adv_data->data)) {
         uint8_t len = 0;
+        bool need_flag = TRUE;
+        bool discoverable = (app_lea_adv_mode == APP_LEA_ADV_MODE_GENERAL);// app_bt_service_is_visible();
 #if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
         uint8_t rsi[APP_LE_AUDIO_RSI_LENGTH] = {0};
 #endif
@@ -336,20 +357,28 @@ static uint32_t app_lea_adv_mgr_get_adv_data_internal(bool want_lea_targeted_fla
 #ifdef MTK_AWS_MCE_ENABLE
             /* BR/EDR is only supported on primary earbud */
             if (app_le_audio_is_primary_earbud()) {
-                adv_data->adv_data->data[len + 2] = BT_GAP_LE_AD_FLAG_GENERAL_DISCOVERABLE;
+                (discoverable) ? (adv_data->adv_data->data[len + 2] = BT_GAP_LE_AD_FLAG_GENERAL_DISCOVERABLE) : (need_flag = FALSE);
             } else {
                 adv_data->adv_data->data[len + 2] = BT_GAP_LE_AD_FLAG_BR_EDR_NOT_SUPPORTED;
             }
 #else
-            adv_data->adv_data->data[len + 2] = BT_GAP_LE_AD_FLAG_GENERAL_DISCOVERABLE;
+            (discoverable) ? (adv_data->adv_data->data[len + 2] = BT_GAP_LE_AD_FLAG_GENERAL_DISCOVERABLE) : (need_flag = FALSE);
 #endif
-        } else {
+        } else if (discoverable) {
             adv_data->adv_data->data[len + 2] = BT_GAP_LE_AD_FLAG_BR_EDR_NOT_SUPPORTED | BT_GAP_LE_AD_FLAG_GENERAL_DISCOVERABLE;
+        } else {
+            adv_data->adv_data->data[len + 2] = BT_GAP_LE_AD_FLAG_BR_EDR_NOT_SUPPORTED;
         }
 #else
-        adv_data->adv_data->data[len + 2] = BT_GAP_LE_AD_FLAG_BR_EDR_NOT_SUPPORTED | BT_GAP_LE_AD_FLAG_GENERAL_DISCOVERABLE;
+        if (discoverable) {
+            adv_data->adv_data->data[len + 2] = BT_GAP_LE_AD_FLAG_BR_EDR_NOT_SUPPORTED | BT_GAP_LE_AD_FLAG_GENERAL_DISCOVERABLE;
+        } else {
+            adv_data->adv_data->data[len + 2] = BT_GAP_LE_AD_FLAG_BR_EDR_NOT_SUPPORTED;
+        }
 #endif
-        len += 3;
+        if (need_flag) {
+            len += 3;
+        }
 
 #ifdef AIR_LE_AUDIO_ENABLE
         uint8_t announcement_type = ANNOUNCEMENT_TYPE_GENERAL;
@@ -399,12 +428,8 @@ static uint32_t app_lea_adv_mgr_get_adv_data_internal(bool want_lea_targeted_fla
         adv_data->adv_data->data[len] = 3;
         adv_data->adv_data->data[len + 1] = BT_GAP_LE_AD_TYPE_APPEARANCE;
         /* value: 2 bytes */
-#ifdef AIR_HEADSET_ENABLE
-        adv_data->adv_data->data[len + 2] = 0x42;
-#else
-        adv_data->adv_data->data[len + 2] = 0x41;
-#endif
-        adv_data->adv_data->data[len + 3] = 0x09;
+        adv_data->adv_data->data[len + 2] = (APP_LEA_AD_TYPE_APPEARANCE & 0x00FF);
+        adv_data->adv_data->data[len + 3] = ((APP_LEA_AD_TYPE_APPEARANCE & 0xFF00) >> 8);
         len += 4;
 
         /* adv_data: AD_TYPE_SERVICE_DATA (TMAS)*/
@@ -418,7 +443,17 @@ static uint32_t app_lea_adv_mgr_get_adv_data_internal(bool want_lea_targeted_fla
         adv_data->adv_data->data[len + 4] = (tmas_role & 0x00FF);
         adv_data->adv_data->data[len + 5] = ((tmas_role & 0xFF00) >> 8);
         len += 6;
-
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+        /* adv_data: AD_TYPE_SERVICE_DATA (GMAS)*/
+        adv_data->adv_data->data[len] = 4;
+        adv_data->adv_data->data[len + 1] = BT_GAP_LE_AD_TYPE_SERVICE_DATA;
+        /* GMAS UUID: 2 bytes */
+        adv_data->adv_data->data[len + 2] = (BT_SIG_UUID16_GMAS & 0x00FF);
+        adv_data->adv_data->data[len + 3] = ((BT_SIG_UUID16_GMAS & 0xFF00) >> 8);
+        /* GMAS Data: 1 bytes */
+        adv_data->adv_data->data[len + 4] = BLE_GMAP_ROLE_MASK_UGT | BLE_GMAP_ROLE_MASK_BGR;
+        len += 5;
+#endif
         /* adv_data: AD_TYPE_SERVICE_DATA (BASS)*/
         adv_data->adv_data->data[len] = 3;
         adv_data->adv_data->data[len + 1] = BT_GAP_LE_AD_TYPE_SERVICE_DATA;
@@ -458,6 +493,8 @@ static uint32_t app_lea_adv_mgr_get_adv_data_internal(bool want_lea_targeted_fla
             len += 12;
         }
 #endif
+
+        app_lea_service_adv_customer_data(adv_data->adv_data->data, &len);
 
         uint16_t device_name_len = 0;
         char device_name[BT_GAP_LE_MAX_DEVICE_NAME_LENGTH] = {0};
@@ -514,19 +551,22 @@ static uint32_t app_lea_adv_mgr_get_adv_data_internal(bool want_lea_targeted_fla
             memcpy(&adv_data->adv_data->data[len + 2], APPS_ULL2_128_BIT_UUID, BT_ULL_LE_MAX_UUID_LENGTH);
             len += BT_ULL_LE_MAX_UUID_LENGTH + 2;
 
-#ifdef AIR_BLE_ULL_PARING_MODE_ENABLE
-            adv_data->adv_data->data[len] = APP_LEA_ULL_ADV_PAIR_MODE_LEN + 1;
+            adv_data->adv_data->data[len] = APP_LEA_ULL_ADV_PAIR_MODE_LEN + 3;
             adv_data->adv_data->data[len + 1] = BT_GAP_LE_AD_TYPE_MANUFACTURER_SPECIFIC;
-            adv_data->adv_data->data[len + 2] = app_lea_adv_ull_pair_mode;
-            adv_data->adv_data->data[len + 3] = 0xFF;
-            len += APP_LEA_ULL_ADV_PAIR_MODE_LEN + 2;
-#endif
+            adv_data->adv_data->data[len + 2] = 0x94;
+            adv_data->adv_data->data[len + 3] = 0x00;
+            adv_data->adv_data->data[len + 4] = 0xFF;
+            adv_data->adv_data->data[len + 5] = app_lea_adv_ull_pair_mode;
+            len += APP_LEA_ULL_ADV_PAIR_MODE_LEN + 4;
+
             if (app_lea_adv_ull_reconnect_mode) {
-                adv_data->adv_data->data[len] = APP_LEA_ULL_ADV_PAIR_MODE_LEN + 1;
+                adv_data->adv_data->data[len] = APP_LEA_ULL_ADV_PAIR_MODE_LEN + 3;
                 adv_data->adv_data->data[len + 1] = BT_GAP_LE_AD_TYPE_MANUFACTURER_SPECIFIC;
-                adv_data->adv_data->data[len + 2] = 0x03;
-                adv_data->adv_data->data[len + 3] = 0xFF;
-                len += APP_LEA_ULL_ADV_PAIR_MODE_LEN + 2;
+                adv_data->adv_data->data[len + 2] = 0x94;
+                adv_data->adv_data->data[len + 3] = 0x00;
+                adv_data->adv_data->data[len + 4] = 0xFF;
+                adv_data->adv_data->data[len + 5] = 0x03;
+                len += APP_LEA_ULL_ADV_PAIR_MODE_LEN + 4;
             }
 #else
             if (app_lea_adv_add_ull_data) {
@@ -556,19 +596,22 @@ static uint32_t app_lea_adv_mgr_get_adv_data_internal(bool want_lea_targeted_fla
         memcpy(&adv_data->adv_data->data[len + 2], APPS_ULL2_128_BIT_UUID, BT_ULL_LE_MAX_UUID_LENGTH);
         len += BT_ULL_LE_MAX_UUID_LENGTH + 2;
 
-#ifdef AIR_BLE_ULL_PARING_MODE_ENABLE
-        adv_data->adv_data->data[len] = APP_LEA_ULL_ADV_PAIR_MODE_LEN + 1;
+        adv_data->adv_data->data[len] = APP_LEA_ULL_ADV_PAIR_MODE_LEN + 3;
         adv_data->adv_data->data[len + 1] = BT_GAP_LE_AD_TYPE_MANUFACTURER_SPECIFIC;
-        adv_data->adv_data->data[len + 2] = app_lea_adv_ull_pair_mode;
-        adv_data->adv_data->data[len + 3] = 0xFF;
-        len += APP_LEA_ULL_ADV_PAIR_MODE_LEN + 2;
-#endif
+        adv_data->adv_data->data[len + 2] = 0x94;
+        adv_data->adv_data->data[len + 3] = 0x00;
+        adv_data->adv_data->data[len + 4] = 0xFF;
+        adv_data->adv_data->data[len + 5] = app_lea_adv_ull_pair_mode;
+        len += APP_LEA_ULL_ADV_PAIR_MODE_LEN + 4;
+
         if (app_lea_adv_ull_reconnect_mode) {
-            adv_data->adv_data->data[len] = APP_LEA_ULL_ADV_PAIR_MODE_LEN + 1;
+            adv_data->adv_data->data[len] = APP_LEA_ULL_ADV_PAIR_MODE_LEN + 3;
             adv_data->adv_data->data[len + 1] = BT_GAP_LE_AD_TYPE_MANUFACTURER_SPECIFIC;
-            adv_data->adv_data->data[len + 2] = 0x03;
-            adv_data->adv_data->data[len + 3] = 0xFF;
-            len += APP_LEA_ULL_ADV_PAIR_MODE_LEN + 2;
+            adv_data->adv_data->data[len + 2] = 0x94;
+            adv_data->adv_data->data[len + 3] = 0x00;
+            adv_data->adv_data->data[len + 4] = 0xFF;
+            adv_data->adv_data->data[len + 5] = 0x03;
+            len += APP_LEA_ULL_ADV_PAIR_MODE_LEN + 4;
         }
 #else
         /* ULL2 with HID uuid */
@@ -583,11 +626,24 @@ static uint32_t app_lea_adv_mgr_get_adv_data_internal(bool want_lea_targeted_fla
 #endif
     }
 
+    uint16_t adv_interval_min = app_lea_adv_interval_min;
+    uint16_t adv_interval_max = app_lea_adv_interval_max;
+#if defined(AIR_WIRELESS_MIC_ENABLE) && defined(AIR_AUDIO_ULD_CODEC_ENABLE)
+    adv_interval_min = APP_LE_AUDIO_ADV_INTERVAL_MIN;
+    adv_interval_max = APP_LE_AUDIO_ADV_INTERVAL_MAX;
+#else
+    uint8_t sub_mode = app_lea_adv_mgr_ctx.sub_mode;
+    if (sub_mode == APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT || sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT) {
+        adv_interval_min = ((adv_interval_min <= APP_LE_AUDIO_ADV_INTERVAL_M) ? adv_interval_min : APP_LE_AUDIO_ADV_INTERVAL_M);
+        adv_interval_max = ((adv_interval_max <= APP_LE_AUDIO_ADV_INTERVAL_M) ? adv_interval_max : APP_LE_AUDIO_ADV_INTERVAL_M);
+    }
+#endif
+
     if (NULL != adv_data->adv_param) {
         adv_data->adv_param->advertising_event_properties = BT_HCI_ADV_EVT_PROPERTIES_MASK_CONNECTABLE;
         /* Interval should be no larger than 100ms when discoverable */
-        adv_data->adv_param->primary_advertising_interval_min = app_lea_adv_interval_min;
-        adv_data->adv_param->primary_advertising_interval_max = app_lea_adv_interval_max;
+        adv_data->adv_param->primary_advertising_interval_min = adv_interval_min;
+        adv_data->adv_param->primary_advertising_interval_max = adv_interval_max;
         adv_data->adv_param->primary_advertising_channel_map = 0x07;
 #ifdef AIR_LE_AUDIO_DUALMODE_ENABLE
         if (is_enable_dual_mode) {
@@ -615,32 +671,56 @@ static uint32_t app_lea_adv_mgr_get_adv_data(multi_ble_adv_info_t *adv_data)
 #ifdef AIR_LE_AUDIO_ENABLE
     uint8_t sub_mode = app_lea_adv_mgr_ctx.sub_mode;
     bool want_lea_targeted_flag = FALSE;
-    if (sub_mode == APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT || sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT_1 || sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT_2) {
+    if (sub_mode == APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT || sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT) {
+        want_lea_targeted_flag = TRUE;
+    } else if (sub_mode == APP_LEA_ADV_SUB_MODE_GENERAL && app_lea_adv_mgr_ctx.targeted_flag_on_general) {
         want_lea_targeted_flag = TRUE;
     }
+
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
+    if (sub_mode == APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT) {
+        uint8_t active_num = 0;
+        app_lea_conn_mgr_get_reconnect_info(FALSE, NULL, &active_num, NULL);
+        if (active_num == 1) {
+            bt_addr_t addr_list[1] = {0};
+            uint8_t list_num = 1;
+            app_lea_conn_mgr_get_reconnect_addr(sub_mode, addr_list, &list_num);
+            uint8_t conn_type = app_lea_conn_mgr_get_conn_type_by_addr(addr_list[0].addr);
+            if (conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
+                //APPS_LOG_MSGID_E(LOG_TAG"[SUB_MODE] get_adv_data, ONE-ULL2 not targeted flag", 0);
+                want_lea_targeted_flag = FALSE;
+            }
+        }
+    }
+#endif
+
     uint32_t ret = app_lea_adv_mgr_get_adv_data_internal(want_lea_targeted_flag, adv_data);
 
 #ifdef AIR_LE_AUDIO_DIRECT_ADV
-    if ((sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT_1 || sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT_2) && adv_data->adv_param != NULL) {
-        bt_addr_t addr_list[1] = {0};
-        uint8_t list_num = 1;
+    if (sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT && adv_data->adv_param != NULL) {
+        bt_addr_t addr_list[APP_LEA_MAX_TARGET_NUM] = {0};
+        uint8_t list_num = APP_LEA_MAX_TARGET_NUM;
         app_lea_conn_mgr_get_reconnect_addr(sub_mode, addr_list, &list_num);
+        uint8_t index = app_lea_adv_mgr_ctx.direct_index;
 
-        uint8_t direct_adv_addr_type = app_lea_adv_mgr_convert_addr_type(addr_list[0].type);
-        adv_data->adv_param->primary_advertising_interval_min = APP_LE_AUDIO_ADV_INTERVAL_MIN_S;
-        adv_data->adv_param->primary_advertising_interval_max = APP_LE_AUDIO_ADV_INTERVAL_MAX_S;
+        uint8_t direct_adv_addr_type = app_lea_adv_mgr_convert_addr_type(addr_list[index].type);
         adv_data->adv_param->advertising_event_properties |= BT_HCI_ADV_EVT_PROPERTIES_MASK_DIRECTED;
         adv_data->adv_param->advertising_event_properties &= (~BT_HCI_ADV_EVT_PROPERTIES_MASK_SCANNABLE);
         adv_data->adv_param->peer_address.type = direct_adv_addr_type;
-        memcpy(adv_data->adv_param->peer_address.addr, addr_list[0].addr, sizeof(bt_bd_addr_t));
-        if (app_lea_conn_mgr_is_support_addr_resolution(addr_list[0].addr)) {
-            adv_data->adv_param->own_address_type = BT_ADDR_RANDOM_IDENTITY;
-        } else {
+        memcpy(adv_data->adv_param->peer_address.addr, addr_list[index].addr, sizeof(bt_bd_addr_t));
+        bool is_enable_dual_mode = app_lea_service_is_enable_dual_mode();
+        if (is_enable_dual_mode) {
+            if (app_lea_conn_mgr_is_support_addr_resolution(addr_list[index].addr)) {
+                adv_data->adv_param->own_address_type = BT_ADDR_RANDOM_IDENTITY; // ToDo, BT_ADDR_PUBLIC_IDENTITY
+            } else {
 #ifdef AIR_TWS_ENABLE
-            adv_data->adv_param->own_address_type = BT_ADDR_LE_PUBLIC;
+                adv_data->adv_param->own_address_type = BT_ADDR_LE_PUBLIC;
 #else
-            adv_data->adv_param->own_address_type = BT_ADDR_PUBLIC;
+                adv_data->adv_param->own_address_type = BT_ADDR_PUBLIC;
 #endif
+            }
+        } else {
+            adv_data->adv_param->own_address_type = BT_ADDR_RANDOM;
         }
 
 //        if (adv_data->adv_data != NULL) {
@@ -656,7 +736,7 @@ static uint32_t app_lea_adv_mgr_get_adv_data(multi_ble_adv_info_t *adv_data)
             adv_data->adv_param->advertising_filter_policy = BT_HCI_ADV_FILTER_ACCEPT_SCAN_CONNECT_FROM_ALL;
         } else if (sub_mode == APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT) {
             adv_data->adv_param->advertising_filter_policy = BT_HCI_ADV_FILTER_ACCEPT_SCAN_CONNECT_IN_WHITE_LIST;
-        } else if (sub_mode == APP_LEA_ADV_SUB_MODE_UNACTIVE) {
+        } else if (sub_mode == APP_LEA_ADV_SUB_MODE_INACTIVE) {
             adv_data->adv_param->advertising_filter_policy = BT_HCI_ADV_FILTER_ACCEPT_SCAN_CONNECT_IN_WHITE_LIST;
         }
     }
@@ -684,22 +764,37 @@ static uint32_t app_lea_adv_mgr_get_adv_data_common(multi_ble_adv_info_t *adv_da
 #ifdef AIR_LE_AUDIO_ENABLE
 static void app_lea_adv_mgr_change_adv_sub_mode(void)
 {
+    if (app_lea_adv_mgr_ctx.sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT
+        && app_lea_adv_mgr_ctx.direct_num > 1
+        && app_lea_adv_mgr_ctx.direct_index < app_lea_adv_mgr_ctx.direct_num - 1) {
+        app_lea_adv_mgr_ctx.direct_index++;
+        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CHANGE_ADV_SUB_MODE);
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
+                            EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CHANGE_ADV_SUB_MODE,
+                            NULL, 0, NULL, APP_LE_AUDIO_ADV_GENERAL_FLAG_CHANGE_TIME);
+        return;
+    }
+
     app_lea_adv_mgr_ctx.index++;
     if (app_lea_adv_mgr_ctx.index == APP_LEA_ADV_SUB_MODE_MAX) {
         app_lea_adv_mgr_ctx.index = APP_LEA_ADV_SUB_MODE_GENERAL;
     }
 
     do {
+        if (app_lea_adv_mgr_ctx.sub_mode_bitmask == 0) {
+            APPS_LOG_MSGID_E(LOG_TAG" change_adv_sub_mode, bitmask=0", 0);
+            break;
+        }
+
         uint8_t sub_mode_bit = APP_LEA_ADV_SUB_MODE_MASK(app_lea_adv_mgr_ctx.index);
         if ((app_lea_adv_mgr_ctx.sub_mode_bitmask & sub_mode_bit) > 0) {
             app_lea_adv_mgr_ctx.sub_mode = app_lea_adv_mgr_ctx.index;
+            app_lea_adv_mgr_ctx.direct_index = 0;
 
-#ifdef AIR_BT_INTEL_EVO_ENABLE
             if (app_lea_adv_mgr_is_enter_slow_phase()) {
                 app_lea_adv_interval_min = APP_LE_AUDIO_ADV_INTERVAL_MIN_L;
                 app_lea_adv_interval_max = APP_LE_AUDIO_ADV_INTERVAL_MAX_L;
             }
-#endif
 
             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CHANGE_ADV_SUB_MODE);
             ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
@@ -716,79 +811,84 @@ static void app_lea_adv_mgr_init_adv_sub_mode(void)
 {
     uint8_t direct_num = 0;
     uint8_t active_num = 0;
-    uint8_t unactive_num = 0;
-    app_lea_conn_mgr_get_reconnect_info(&direct_num, &active_num, &unactive_num);
+    uint8_t inactive_num = 0;
+    app_lea_conn_mgr_get_reconnect_info(TRUE, &direct_num, &active_num, &inactive_num);
 
     uint8_t sub_mode_num = 0;
     memset(&app_lea_adv_mgr_ctx, 0, sizeof(app_lea_adv_mgr_context_t));
-
-#ifdef AIR_BT_INTEL_EVO_ENABLE
-    app_lea_adv_time_tick = xTaskGetTickCount();
-    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_EVO_ADV_FAST_TIMEOUT);
-    ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
-                        EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_EVO_ADV_FAST_TIMEOUT,
-                        NULL, 0, NULL, APP_LE_AUDIO_ADV_FAST_TIME);
-#endif
 
     if (app_lea_adv_mode == APP_LEA_ADV_MODE_GENERAL) {
         app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_GENERAL);
         app_lea_adv_mgr_ctx.sub_mode = APP_LEA_ADV_SUB_MODE_GENERAL;
         sub_mode_num++;
 
-        if (active_num > 0) {
-            app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT);
-            sub_mode_num++;
-        }
-        if (direct_num > 0) {
-            app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_DIRECT_1);
-            sub_mode_num++;
-            if (direct_num == 2) {
-                app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_DIRECT_2);
+        if (direct_num == 0 && active_num > 0) {
+            app_lea_adv_mgr_ctx.targeted_flag_on_general = TRUE;
+            APPS_LOG_MSGID_W(LOG_TAG"[SUB_MODE] init_adv_sub_mode, targeted_flag on general_adv", 0);
+        } else {
+            if (active_num > 0) {
+                app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT);
                 sub_mode_num++;
+            }
+            if (direct_num > 0) {
+                app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_DIRECT);
+                sub_mode_num++;
+                app_lea_adv_mgr_ctx.direct_num = direct_num;
             }
         }
     }
 
-    if (app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET_ALL) {
+    if (app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET || app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET_ALL) {
         if (active_num > 0) {
             app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT);
             app_lea_adv_mgr_ctx.sub_mode = APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT;
             sub_mode_num++;
         }
-        if (unactive_num > 0) {
-            app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_UNACTIVE);
+#ifdef AIR_LE_AUDIO_DIRECT_ADV
+        if (app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET_ALL && inactive_num > 0) {
+#else
+        // No direct ADV, Mix inactive/active to one "targeted announcement flag" ADV
+        if (app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET_ALL && inactive_num > 0 && active_num == 0) {
+#endif
+            app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_INACTIVE);
             if (app_lea_adv_mgr_ctx.sub_mode == APP_LEA_ADV_SUB_MODE_NONE) {
-                app_lea_adv_mgr_ctx.sub_mode = APP_LEA_ADV_SUB_MODE_UNACTIVE;
+                app_lea_adv_mgr_ctx.sub_mode = APP_LEA_ADV_SUB_MODE_INACTIVE;
             }
             sub_mode_num++;
         }
         if (direct_num > 0) {
-            app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_DIRECT_1);
+            app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_DIRECT);
             if (app_lea_adv_mgr_ctx.sub_mode == APP_LEA_ADV_SUB_MODE_NONE) {
-                app_lea_adv_mgr_ctx.sub_mode = APP_LEA_ADV_SUB_MODE_DIRECT_1;
+                app_lea_adv_mgr_ctx.sub_mode = APP_LEA_ADV_SUB_MODE_DIRECT;
             }
             sub_mode_num++;
-            if (direct_num == 2) {
-                app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_DIRECT_2);
-                sub_mode_num++;
-            }
+            app_lea_adv_mgr_ctx.direct_num = direct_num;
         }
     }
 
-    if (app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET) {
-        app_lea_adv_mgr_ctx.sub_mode_bitmask |= APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT);
-        app_lea_adv_mgr_ctx.sub_mode = APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT;
-        sub_mode_num++;
-    }
     app_lea_adv_mgr_ctx.sub_mode_num = sub_mode_num;
 
     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CHANGE_ADV_SUB_MODE);
     if (sub_mode_num > 1) {
-        app_lea_adv_mgr_ctx.index++;
+        // Move to next valid index from index=0
+        do {
+            uint8_t sub_mode_bit = APP_LEA_ADV_SUB_MODE_MASK(app_lea_adv_mgr_ctx.index);
+            if ((app_lea_adv_mgr_ctx.sub_mode_bitmask & sub_mode_bit) > 0) {
+                break;
+            } else {
+                app_lea_adv_mgr_ctx.index++;
+            }
+        } while (1);
+
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
+                            EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CHANGE_ADV_SUB_MODE,
+                            NULL, 0, NULL, APP_LE_AUDIO_ADV_GENERAL_FLAG_CHANGE_TIME);
+    } else if (sub_mode_num == 1 && app_lea_adv_mgr_ctx.sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT && direct_num > 1) {
         ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
                             EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CHANGE_ADV_SUB_MODE,
                             NULL, 0, NULL, APP_LE_AUDIO_ADV_GENERAL_FLAG_CHANGE_TIME);
     }
+
     APPS_LOG_MSGID_W(LOG_TAG"[SUB_MODE] init_adv_sub_mode, sub_mode_bitmask=0x%04X index=%d sub_mode_num=%d",
                      3, app_lea_adv_mgr_ctx.sub_mode_bitmask, app_lea_adv_mgr_ctx.index, sub_mode_num);
 }
@@ -798,30 +898,31 @@ static void app_lea_adv_mgr_update_multi_adv(bool update_white_list)
 {
     if (update_white_list) {
 #ifdef AIR_LE_AUDIO_ENABLE
-        uint8_t sub_mode = app_lea_adv_mgr_ctx.sub_mode;
-        if (sub_mode == APP_LEA_ADV_SUB_MODE_GENERAL) {
-            app_lea_clear_target_addr(FALSE);
-        } else if (sub_mode == APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT) {
-            app_lea_update_target_add_white_list(TRUE);
-        } else if (sub_mode == APP_LEA_ADV_SUB_MODE_UNACTIVE) {
+        if (app_lea_adv_mode == APP_LEA_ADV_MODE_GENERAL) {
+            app_lea_clear_target_addr(TRUE);
+        }
+
+        uint32_t sub_mode_bitmask = app_lea_adv_mgr_ctx.sub_mode_bitmask;
+        if ((sub_mode_bitmask & APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_INACTIVE)) > 0) {
+            app_lea_update_target_add_white_list(FALSE);
+        } else if ((sub_mode_bitmask & APP_LEA_ADV_SUB_MODE_MASK(APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT)) > 0) {
+            // Set all non-connected addr
             app_lea_update_target_add_white_list(FALSE);
         }
 #elif defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)     // Only ULL2 Enable
         if (app_lea_adv_mode == APP_LEA_ADV_MODE_GENERAL) {
             app_lea_clear_target_addr(FALSE);
-        } else if (app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET_ALL) {
-            app_lea_update_target_add_white_list(TRUE);
-        } else if (app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET) {
+        } else if (app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET_ALL || app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET) {
             // ULL2 Only, all device are active_reconnect_type
-            // app_lea_add_white_list();    // Target_Addr_List may be clear by APP_LEA_ADV_MODE_GENERAL
             app_lea_update_target_add_white_list(TRUE);
         }
 #endif
     }
 
-    APPS_LOG_MSGID_W(LOG_TAG"[SUB_MODE] update_multi_adv, update_white_list=%d sub_mode_bitmask=0x%04X sub_mode_num=%d index=%d sub_mode=%d",
-                     5, update_white_list, app_lea_adv_mgr_ctx.sub_mode_bitmask, app_lea_adv_mgr_ctx.sub_mode_num,
-                     app_lea_adv_mgr_ctx.index, app_lea_adv_mgr_ctx.sub_mode);
+    APPS_LOG_MSGID_W(LOG_TAG"[SUB_MODE] update_multi_adv, WL=%d bitmask=0x%04X sub_mode_num=%d index=%d sub_mode=%d direct=%d/%d",
+                     7, update_white_list, app_lea_adv_mgr_ctx.sub_mode_bitmask, app_lea_adv_mgr_ctx.sub_mode_num,
+                     app_lea_adv_mgr_ctx.index, app_lea_adv_mgr_ctx.sub_mode, app_lea_adv_mgr_ctx.direct_index,
+                     app_lea_adv_mgr_ctx.direct_num);
     multi_ble_adv_manager_remove_ble_adv(MULTI_ADV_INSTANCE_NOT_RHO, app_lea_adv_mgr_get_adv_data_common);
     multi_ble_adv_manager_add_ble_adv(MULTI_ADV_INSTANCE_NOT_RHO, app_lea_adv_mgr_get_adv_data_common, 1);
     multi_ble_adv_manager_notify_ble_adv_data_changed(MULTI_ADV_INSTANCE_NOT_RHO);
@@ -829,13 +930,14 @@ static void app_lea_adv_mgr_update_multi_adv(bool update_white_list)
 
 static void app_lea_adv_mgr_do_start_advertising(uint8_t mode, uint32_t timeout)
 {
+    uint8_t old_mode = app_lea_adv_mode;
     bool is_reset_general_adv = FALSE;
     bool visible = app_bt_service_is_visible();
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
     APPS_LOG_MSGID_I(LOG_TAG" do_start_advertising, [%02X] start adv_mode=%d->%d timeout=%d visible=%d",
-                     5, role, app_lea_adv_mode, mode, timeout, visible);
+                     5, role, old_mode, mode, timeout, visible);
 
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE) && defined(AIR_BLE_ULL_PARING_MODE_ENABLE)
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     if (app_lea_adv_ull_pair_mode && mode == APP_LEA_ADV_MODE_TARGET_ALL) {
         APPS_LOG_MSGID_E(LOG_TAG" start_advertising, disable TARGET_ALL for ULL2 pairing mode %d",
                          1, app_lea_adv_mode);
@@ -856,17 +958,16 @@ static void app_lea_adv_mgr_do_start_advertising(uint8_t mode, uint32_t timeout)
     }
 #endif
 
-#ifdef APP_CONN_MGR_RECONNECT_SAVE_LAST_TWO_DEVICE
     if (mode == APP_LEA_ADV_MODE_TARGET) {
+        uint8_t direct_num = 0;
         uint8_t active_num = 0;
-        app_lea_conn_mgr_get_reconnect_info(NULL, &active_num, NULL);
-        if (active_num == 0) {
+        app_lea_conn_mgr_get_reconnect_info(TRUE, &direct_num, &active_num, NULL);
+        if (direct_num == 0 && active_num == 0) {
             mode = APP_LEA_ADV_MODE_TARGET_ALL;
             timeout = 0;
             APPS_LOG_MSGID_W(LOG_TAG" do_start_advertising, no active_reconnect_type, Target -> Target_All", 0);
         }
     }
-#endif
 
     if (app_lea_adv_mode == APP_LEA_ADV_MODE_GENERAL && visible && mode != APP_LEA_ADV_MODE_TARGET) {
         if (mode == APP_LEA_ADV_MODE_GENERAL && timeout == APP_LE_AUDIO_ADV_TIME
@@ -889,20 +990,6 @@ static void app_lea_adv_mgr_do_start_advertising(uint8_t mode, uint32_t timeout)
             timeout = app_lea_adv_timeout;
         }
     }
-#ifdef APP_CONN_MGR_RECONNECT_CONTROL
-    // Note: After support LEA announcement flag feature, still support "active reconnect" on General ADV.
-    // Only disallow TARGET_ALL when power on reconnect state (TARGET ADV)
-    bool reconnecting = app_bt_conn_mgr_is_reconnecting();
-    if (app_lea_adv_mode == APP_LEA_ADV_MODE_TARGET && reconnecting
-        && mode == APP_LEA_ADV_MODE_TARGET_ALL
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE) && defined(AIR_BLE_ULL_PARING_MODE_ENABLE)
-        && !app_lea_adv_ull_pair_mode
-#endif
-       ) {
-        APPS_LOG_MSGID_W(LOG_TAG" start_advertising, switch mode fail from TARGET Mode", 0);
-        return;
-    }
-#endif
 
     app_lea_adv_error_code_t error_code = APP_LEA_ADV_ERROR_OK;
     uint8_t adv_timeout_action = APP_LEA_ADV_TIMEOUT_ACTION_STOP;
@@ -922,6 +1009,7 @@ static void app_lea_adv_mgr_do_start_advertising(uint8_t mode, uint32_t timeout)
 
     error_code = app_lea_adv_mgr_check_adv_allow(mode);
     if (error_code != APP_LEA_ADV_ERROR_OK) {
+        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CANCEL_ADV_RECONNECT_FLAG);
         uint8_t cur_conn_num = app_lea_conn_mgr_get_conn_num();
         uint8_t support_max_conn_num = app_lea_conn_mgr_get_support_max_conn_num();
         APPS_LOG_MSGID_E(LOG_TAG" do_start_advertising, error_code=%d conn_num=%d %d %d",
@@ -931,14 +1019,21 @@ static void app_lea_adv_mgr_do_start_advertising(uint8_t mode, uint32_t timeout)
 
     app_lea_adv_mode = mode;
 
-#if defined(AIR_WIRELESS_MIC_ENABLE) && defined(AIR_AUDIO_ULD_CODEC_ENABLE)
-    app_lea_adv_interval_min = APP_LE_AUDIO_ADV_INTERVAL_MIN;
-    app_lea_adv_interval_max = APP_LE_AUDIO_ADV_INTERVAL_MAX;
-#else
+#ifdef AIR_LE_AUDIO_ENABLE
+    if (mode == APP_LEA_ADV_MODE_TARGET
+        || (old_mode != APP_LEA_ADV_MODE_GENERAL && mode == APP_LEA_ADV_MODE_GENERAL)
+        || (old_mode == APP_LEA_ADV_MODE_NONE && mode == APP_LEA_ADV_MODE_TARGET_ALL)) {
+        app_lea_adv_time_tick = xTaskGetTickCount();
+        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_ADV_FAST_TIMEOUT);
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
+                            EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_ADV_FAST_TIMEOUT,
+                            NULL, 0, NULL, APP_LE_AUDIO_ADV_FAST_TIME);
+    }
+#endif
     /* LE-Audio ADV is long interval when the AWS link is disconnected. */
     if (bt_sink_srv_get_state() >= BT_SINK_SRV_STATE_STREAMING
         || app_lea_adv_mgr_is_esco_ongoing()
-        || bt_cm_get_connecting_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 0) > 0
+        || app_bt_conn_mgr_is_connecting_edr()
 #ifdef MTK_AWS_MCE_ENABLE
 #ifdef AIR_SPEAKER_ENABLE
         || (BT_AWS_MCE_SRV_MODE_DOUBLE == bt_aws_mce_srv_get_mode() && BT_AWS_MCE_SRV_LINK_NONE == bt_aws_mce_srv_get_link_type())
@@ -946,17 +1041,13 @@ static void app_lea_adv_mgr_do_start_advertising(uint8_t mode, uint32_t timeout)
         || BT_AWS_MCE_SRV_LINK_NONE == bt_aws_mce_srv_get_link_type()
 #endif
 #endif
-#ifdef AIR_BT_INTEL_EVO_ENABLE
-        || (is_reset_general_adv && app_lea_adv_mgr_is_enter_slow_phase())
-#endif
-       ) {
+        || app_lea_adv_mgr_is_enter_slow_phase()) {
         app_lea_adv_interval_min = APP_LE_AUDIO_ADV_INTERVAL_MIN_L;
         app_lea_adv_interval_max = APP_LE_AUDIO_ADV_INTERVAL_MAX_L;
     } else {
         app_lea_adv_interval_min = APP_LE_AUDIO_ADV_INTERVAL_MIN_S;
         app_lea_adv_interval_max = APP_LE_AUDIO_ADV_INTERVAL_MAX_S;
     }
-#endif
 
 #ifdef AIR_LE_AUDIO_ENABLE
     app_lea_adv_mgr_init_adv_sub_mode();
@@ -976,8 +1067,8 @@ static void app_lea_adv_mgr_do_start_advertising(uint8_t mode, uint32_t timeout)
     }
 
     app_lea_adv_enabled = TRUE;
-    APPS_LOG_MSGID_I(LOG_TAG" do_start_advertising, success adv_mode=%d timeout=%d interval=0x%04X 0x%04X reset_general_adv=%d",
-                     5, app_lea_adv_mode, app_lea_adv_timeout,
+    APPS_LOG_MSGID_I(LOG_TAG" do_start_advertising, success adv_mode=%d timeout=%d time_tick=0x%08X interval=0x%04X 0x%04X reset_general_adv=%d",
+                     6, app_lea_adv_mode, app_lea_adv_timeout, app_lea_adv_time_tick,
                      app_lea_adv_interval_min, app_lea_adv_interval_max, is_reset_general_adv);
 
 #if defined(MTK_AWS_MCE_ENABLE) && defined(AIR_LE_AUDIO_BOTH_SYNC_INFO)
@@ -989,7 +1080,8 @@ static void app_lea_adv_mgr_do_stop_advertising(void)
 {
     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_ADV_TIMER);
     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CHANGE_ADV_SUB_MODE);
-    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_EVO_ADV_FAST_TIMEOUT);
+    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_ADV_FAST_TIMEOUT);
+    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CANCEL_ADV_RECONNECT_FLAG);
 
     multi_ble_adv_manager_remove_ble_adv(MULTI_ADV_INSTANCE_NOT_RHO, app_lea_adv_mgr_get_adv_data_common);
     multi_ble_adv_manager_notify_ble_adv_data_changed(MULTI_ADV_INSTANCE_NOT_RHO);
@@ -1023,10 +1115,10 @@ static void app_lea_adv_mgr_do_update_advertising_param(void)
         return;
     }
 
-    if (app_lea_adv_mgr_ctx.sub_mode_num > 1) {
-        APPS_LOG_MSGID_W(LOG_TAG" update_adv_interval, Not update immediately 0x%04X 0x%04X mode=%d sub_mode_num=%d",
-                         4, app_lea_adv_interval_min, app_lea_adv_interval_max,
-                         app_lea_adv_mode, app_lea_adv_mgr_ctx.sub_mode_num);
+    if (app_lea_adv_mgr_ctx.sub_mode_num > 1 || app_lea_adv_mgr_ctx.direct_num > 1) {
+        APPS_LOG_MSGID_W(LOG_TAG" update_adv_interval, Not update immediately 0x%04X 0x%04X mode=%d sub_mode_num=%d direct_num=%d",
+                         5, app_lea_adv_interval_min, app_lea_adv_interval_max,
+                         app_lea_adv_mode, app_lea_adv_mgr_ctx.sub_mode_num, app_lea_adv_mgr_ctx.direct_num);
         return;
     }
 
@@ -1055,7 +1147,7 @@ static void app_lea_adv_mgr_interaction_event_group(uint32_t event_id, void *ext
         if (visible) {
             app_lea_adv_mgr_do_start_advertising(APP_LEA_ADV_MODE_GENERAL, APP_LE_AUDIO_ADV_TIME);
         } else if (app_lea_adv_mode == APP_LEA_ADV_MODE_GENERAL) {
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE) && defined(AIR_BLE_ULL_PARING_MODE_ENABLE)
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
             if (app_lea_adv_ull_pair_mode) {
                 // do nothing
                 APPS_LOG_MSGID_W(LOG_TAG" BT_VISIBLE_NOTIFY event, continue General ADV for ULL2 pairing mode", 0);
@@ -1098,10 +1190,28 @@ static void app_lea_adv_mgr_bt_sink_event_group(uint32_t event_id, void *extra_d
             if (esco_state->state == BT_SINK_SRV_SCO_CONNECTION_STATE_CONNECTED) {
                 app_lea_adv_mgr_update_adv_interval(APP_LE_AUDIO_ADV_INTERVAL_MIN_L, APP_LE_AUDIO_ADV_INTERVAL_MAX_L);
             } else if (esco_state->state == BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED) {
-                app_lea_adv_mgr_update_adv_interval(APP_LE_AUDIO_ADV_INTERVAL_MIN_S, APP_LE_AUDIO_ADV_INTERVAL_MAX_S);;
+                app_lea_adv_mgr_update_adv_interval(APP_LE_AUDIO_ADV_INTERVAL_MIN_S, APP_LE_AUDIO_ADV_INTERVAL_MAX_S);
             }
             break;
         }
+
+#if defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_LE_AUDIO_CIS_ENABLE)
+        case BT_SINK_SRV_EVENT_LE_BIDIRECTION_LEA_UPDATE: {
+            bt_sink_srv_bidirection_lea_state_update_t *event = (bt_sink_srv_bidirection_lea_state_update_t *)extra_data;
+            if (event == NULL) {
+                break;
+            }
+
+            APPS_LOG_MSGID_I(LOG_TAG" LEA call state = %d", 1, event->state);
+            if (event->state == BT_SINK_SRV_BIDIRECTION_LEA_STATE_ENABLE) {
+                app_lea_adv_mgr_update_adv_interval(APP_LE_AUDIO_ADV_INTERVAL_MIN_L, APP_LE_AUDIO_ADV_INTERVAL_MAX_L);
+            } else if (event->state == BT_SINK_SRV_BIDIRECTION_LEA_STATE_DISABLE) {
+                app_lea_adv_mgr_update_adv_interval(APP_LE_AUDIO_ADV_INTERVAL_MIN_S, APP_LE_AUDIO_ADV_INTERVAL_MAX_S);
+            }
+            break;
+        }
+#endif
+
         default:
             break;
     }
@@ -1129,7 +1239,7 @@ static void app_lea_adv_mgr_lea_event_group(uint32_t event_id, void *extra_data,
         case EVENT_ID_LE_AUDIO_ADV_TIMER: {
             uint8_t action = (uint8_t)(int)extra_data;
             bool visible = app_bt_service_is_visible();
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE) && defined(AIR_BLE_ULL_PARING_MODE_ENABLE)
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
             APPS_LOG_MSGID_I(LOG_TAG" LE Audio event, ADV timeout action=%d visible=%d ull2_pair_mode=%d",
                              3, action, visible, app_lea_adv_ull_pair_mode);
 #else
@@ -1138,7 +1248,7 @@ static void app_lea_adv_mgr_lea_event_group(uint32_t event_id, void *extra_data,
 #endif
             if (action == APP_LEA_ADV_TIMEOUT_ACTION_START) {
                 if (visible
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE) && defined(AIR_BLE_ULL_PARING_MODE_ENABLE)
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
                     || app_lea_adv_ull_pair_mode
 #endif
                    ) {
@@ -1161,8 +1271,18 @@ static void app_lea_adv_mgr_lea_event_group(uint32_t event_id, void *extra_data,
             break;
         }
         case EVENT_ID_LEA_FORCE_UPDATE_ADV: {
+            bool general_adv = FALSE;
             bool visible = app_bt_service_is_visible();
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+            if (app_lea_adv_ull_pair_mode || visible) {
+                general_adv = TRUE;
+            }
+#else
             if (visible) {
+                general_adv = TRUE;
+            }
+#endif
+            if (general_adv) {
                 app_lea_adv_mgr_do_start_advertising(APP_LEA_ADV_MODE_GENERAL, APP_LE_AUDIO_ADV_TIME);
             } else {
                 app_lea_adv_mgr_do_start_advertising(APP_LEA_ADV_MODE_TARGET_ALL, 0);
@@ -1172,30 +1292,42 @@ static void app_lea_adv_mgr_lea_event_group(uint32_t event_id, void *extra_data,
 #ifdef AIR_SMART_CHARGER_ENABLE
         case EVENT_ID_LEA_CLOSE_LID_ACTION: {
             APPS_LOG_MSGID_E(LOG_TAG" LE Audio event, CLOSE_LID_ACTION", 0);
+            app_lea_adv_mgr_do_stop_advertising();
             app_lea_service_disconnect(FALSE, APP_LE_AUDIO_DISCONNECT_MODE_ALL,
                                        NULL, BT_HCI_STATUS_REMOTE_TERMINATED_CONNECTION_DUE_TO_POWER_OFF);
-            app_lea_service_stop_advertising(FALSE);
             break;
         }
 #endif
-        case EVENT_ID_LE_AUDIO_RESTART_ADV: {
+        case EVENT_ID_LE_AUDIO_GENERAL_ADV_FOR_TEST: {
             // For low power mode testing
-            APPS_LOG_MSGID_E(LOG_TAG" LE Audio event, restart ADV for testing on Low power mode", 0);
+            APPS_LOG_MSGID_E(LOG_TAG" LE Audio event, restart GENERAL_ADV for testing on Low power mode", 0);
             app_lea_adv_mgr_do_start_advertising(APP_LEA_ADV_MODE_GENERAL, 0);
             multi_ble_adv_manager_start_ble_adv();
             break;
         }
 #ifdef AIR_LE_AUDIO_ENABLE
         case EVENT_ID_LEA_CHANGE_ADV_SUB_MODE: {
+            if (app_lea_adv_mgr_ctx.sub_mode_bitmask == 0) {
+                APPS_LOG_MSGID_E(LOG_TAG" LE Audio event, CHANGE_ADV_SUB_MODE bitmask=0", 0);
+                break;
+            }
             app_lea_adv_mgr_change_adv_sub_mode();
-            app_lea_adv_mgr_update_multi_adv(TRUE);
+            app_lea_adv_mgr_update_multi_adv(FALSE);
             break;
         }
-#endif
-#ifdef AIR_BT_INTEL_EVO_ENABLE
-        case EVENT_ID_LEA_EVO_ADV_FAST_TIMEOUT: {
-            APPS_LOG_MSGID_W(LOG_TAG"[EVO] ADV_FAST_TIMEOUT, slow", 0);
+        case EVENT_ID_LEA_ADV_FAST_TIMEOUT: {
+            APPS_LOG_MSGID_W(LOG_TAG"[Interval] ADV_FAST_TIMEOUT, slow", 0);
             app_lea_adv_mgr_update_adv_interval(APP_LE_AUDIO_ADV_INTERVAL_MIN_L, APP_LE_AUDIO_ADV_INTERVAL_MAX_L);
+            break;
+        }
+        case EVENT_ID_LEA_CANCEL_ADV_RECONNECT_FLAG: {
+            app_lea_conn_mgr_control_temp_reconnect_type(FALSE);
+            break;
+        }
+        case EVENT_ID_LEA_RESET_LEA_DONGLE: {
+            app_lea_adv_mgr_do_stop_advertising();
+            app_lea_conn_mgr_reset_lea_dongle();
+            app_lea_adv_mgr_do_start_advertising(APP_LEA_ADV_MODE_GENERAL, APP_LE_AUDIO_ADV_TIME);
             break;
         }
 #endif
@@ -1220,7 +1352,7 @@ static void app_lea_adv_mgr_lea_event_group(uint32_t event_id, void *extra_data,
             }
 
             if (!app_lea_adv_add_lea_data && !app_lea_adv_add_ull_data) {
-                app_lea_adv_mgr_stop_advertising(FALSE);
+                app_lea_adv_mgr_do_stop_advertising();
                 need_update = FALSE;
             }
 
@@ -1233,13 +1365,13 @@ static void app_lea_adv_mgr_lea_event_group(uint32_t event_id, void *extra_data,
             }
             if (!app_lea_adv_add_ull_data) {
                 app_lea_adv_mgr_stop_advertising(FALSE);
-        }
+            }
 #endif
             break;
         }
 #endif
 
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE) && defined(AIR_BLE_ULL_PARING_MODE_ENABLE)
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
         case EVENT_ID_LEA_ULL_PAIR_MODE: {
             bool enable = (bool)(uint32_t)extra_data;
             APPS_LOG_MSGID_I(LOG_TAG" enable_ull2_pair_mode, adv_mode=%d enable=%d", 2, app_lea_adv_mode, enable);
@@ -1251,8 +1383,7 @@ static void app_lea_adv_mgr_lea_event_group(uint32_t event_id, void *extra_data,
             }
             break;
         }
-#endif
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+
         case EVENT_ID_LEA_ULL_RECONNECT_MODE: {
             bool enable = (bool)(uint32_t)extra_data;
             APPS_LOG_MSGID_I(LOG_TAG" enable_ull2_reconnect_mode, pre=%d, enable=%d", 2, app_lea_adv_ull_reconnect_mode, enable);
@@ -1293,6 +1424,10 @@ static void app_lea_adv_mgr_proc_aws_data(void *extra_data, size_t data_len)
             app_lea_adv_mgr_do_start_advertising(adv_param->mode, adv_param->timeout);
         } else if (aws_event_id == EVENT_ID_LE_AUDIO_STOP_ADV) {
             app_lea_adv_mgr_do_stop_advertising();
+        } else if (aws_event_id == EVENT_ID_LEA_RESET_LEA_DONGLE) {
+            app_lea_adv_mgr_do_stop_advertising();
+            app_lea_conn_mgr_reset_lea_dongle();
+            app_lea_adv_mgr_do_start_advertising(APP_LEA_ADV_MODE_GENERAL, APP_LE_AUDIO_ADV_TIME);
         }
     }
 }
@@ -1380,9 +1515,6 @@ void app_lea_adv_mgr_start_advertising(uint8_t mode, bool sync, uint32_t timeout
 
     adv_param->mode = mode;
     adv_param->timeout = timeout;
-    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH,
-                        EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_START_ADV,
-                        (void *)adv_param, sizeof(app_lea_adv_param_t), NULL, 0);
 
 #ifdef MTK_AWS_MCE_ENABLE
     bt_aws_mce_srv_link_type_t aws_link_type = bt_aws_mce_srv_get_link_type();
@@ -1396,6 +1528,10 @@ void app_lea_adv_mgr_start_advertising(uint8_t mode, bool sync, uint32_t timeout
         }
     }
 #endif
+
+    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH,
+                        EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_START_ADV,
+                        (void *)adv_param, sizeof(app_lea_adv_param_t), NULL, 0);
 }
 
 void app_lea_adv_mgr_stop_advertising(bool sync)
@@ -1417,6 +1553,20 @@ void app_lea_adv_mgr_stop_advertising(bool sync)
 #endif
 }
 
+void app_lea_adv_mgr_quick_stop_adv(void)
+{
+    APPS_LOG_MSGID_I(LOG_TAG" quick_stop_adv", 0);
+    app_lea_adv_mgr_do_stop_advertising();
+}
+
+void app_lea_adv_mgr_refresh_advertising(uint32_t delay)
+{
+    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_FORCE_UPDATE_ADV);
+    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH,
+                        EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_FORCE_UPDATE_ADV,
+                        NULL, 0, NULL, delay);
+}
+
 uint8_t app_lea_adv_mgr_get_adv_mode(void)
 {
     return app_lea_adv_mode;
@@ -1424,19 +1574,12 @@ uint8_t app_lea_adv_mgr_get_adv_mode(void)
 
 bool app_lea_adv_mgr_update_adv_interval(uint16_t interval_min, uint16_t interval_max)
 {
-#if defined(AIR_WIRELESS_MIC_ENABLE) && defined(AIR_AUDIO_ULD_CODEC_ENABLE)
-    interval_min = APP_LE_AUDIO_ADV_INTERVAL_MIN;
-    interval_max = APP_LE_AUDIO_ADV_INTERVAL_MAX;
-    APPS_LOG_MSGID_I(LOG_TAG"[WIRELESS_MIC] update_adv_interval, min=0x%04X max=0x%04X",
-                     2, app_lea_adv_interval_min, app_lea_adv_interval_max);
-#endif
-
-    uint8_t sink_state = bt_sink_srv_get_state();
+    bt_sink_srv_state_t sink_state = bt_sink_srv_get_state();
     bool esco_ongoing = app_lea_adv_mgr_is_esco_ongoing();
-    uint32_t connecting_num = bt_cm_get_connecting_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 0);
+    bool connecting_edr = app_bt_conn_mgr_is_connecting_edr();
     bool turn_down = (interval_min < app_lea_adv_interval_min && interval_max < app_lea_adv_interval_max);
-    APPS_LOG_MSGID_I(LOG_TAG" update_adv_interval, adv_enabled=%d sink_state=%d esco_ongoing=%d connecting_num=%d min=0x%04X->0x%04X max=0x%04X->0x%04X",
-                     8, app_lea_adv_enabled, sink_state, esco_ongoing, connecting_num,
+    APPS_LOG_MSGID_I(LOG_TAG" update_adv_interval, adv_enabled=%d sink_state=0x%04X esco_ongoing=%d connecting_edr=%d min=0x%04X->0x%04X max=0x%04X->0x%04X",
+                     8, app_lea_adv_enabled, sink_state, esco_ongoing, connecting_edr,
                      app_lea_adv_interval_min, interval_min,
                      app_lea_adv_interval_max, interval_max);
 
@@ -1461,18 +1604,16 @@ bool app_lea_adv_mgr_update_adv_interval(uint16_t interval_min, uint16_t interva
             return FALSE;
         }
 #endif
-        if (connecting_num > 0) {
+        if (connecting_edr) {
             //APPS_LOG_MSGID_E(LOG_TAG" update_adv_interval, not turn_down when BT EDR connecting", 0);
             return FALSE;
         }
     }
 
-#ifdef AIR_BT_INTEL_EVO_ENABLE
     if (turn_down && app_lea_adv_mgr_is_enter_slow_phase()) {
-        APPS_LOG_MSGID_E(LOG_TAG"[EVO] update_adv_interval, cannot turn_down for EVO", 0);
+        APPS_LOG_MSGID_E(LOG_TAG"[Interval] update_adv_interval, cannot turn_down for enter_slow_phase", 0);
         return FALSE;
     }
-#endif
 
     app_lea_adv_interval_min = interval_min;
     app_lea_adv_interval_max = interval_max;
@@ -1498,7 +1639,7 @@ bool app_lea_adv_mgr_control_adv_data(uint8_t adv_type, bool enable)
     return TRUE;
 }
 
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE) && defined(AIR_BLE_ULL_PARING_MODE_ENABLE)
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 bool app_lea_adv_mgr_enable_ull2_pairing_mode(bool enable)
 {
     ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH,
@@ -1506,9 +1647,7 @@ bool app_lea_adv_mgr_enable_ull2_pairing_mode(bool enable)
                         (void *)enable, 0, NULL, 0);
     return TRUE;
 }
-#endif
 
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 bool app_lea_adv_mgr_enable_ull2_reconnect_mode(bool enable)
 {
     ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH,
@@ -1518,24 +1657,14 @@ bool app_lea_adv_mgr_enable_ull2_reconnect_mode(bool enable)
 }
 #endif
 
-void app_lea_adv_mgr_get_adv_info(uint8_t *mode, bt_addr_t *target_addr, uint32_t *timeout)
+void app_lea_adv_mgr_get_adv_info(uint8_t *mode, uint32_t *timeout)
 {
     if (mode != NULL) {
         *mode = app_lea_adv_mode;
     }
-    if (target_addr != NULL) {
-        memcpy(target_addr, &app_lea_adv_target_addr[0], sizeof(bt_addr_t) * APP_LEA_MAX_TARGET_NUM);
-    }
     if (timeout != NULL) {
         *timeout = app_lea_adv_timeout;
     }
-}
-
-bool app_lea_adv_mgr_update_target_addr(app_le_audio_update_target_mode_t mode,
-                                        bt_addr_type_t addr_type,
-                                        const uint8_t *addr)
-{
-    return app_lea_update_target_addr(mode, addr_type, addr);
 }
 
 void app_lea_adv_mgr_init(void)
@@ -1543,6 +1672,9 @@ void app_lea_adv_mgr_init(void)
 #if defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     app_lea_adv_add_lea_data = TRUE;
     app_lea_adv_add_ull_data = TRUE;
+    if (app_lea_feature_mode == APP_LEA_FEATURE_MODE_OFF) {
+        app_lea_adv_add_lea_data = FALSE;
+    }
 #elif defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
     app_lea_adv_add_ull_data = TRUE;
 #endif
@@ -1581,4 +1713,3 @@ void app_lea_adv_mgr_proc_ui_shell_event(uint32_t event_group,
 }
 
 #endif  /* AIR_LE_AUDIO_ENABLE */
-

@@ -1977,9 +1977,18 @@ typedef enum {
     MUX_CMD_GET_LL_USER_RX_BUFFER_DATA_SIZE, /**< special command to query low lantency uart user's rx buffer data size. */
     MUX_CMD_GET_LL_USER_TX_BUFFER_FREE_SIZE, /**< special command to query low lantency uart user's tx buffer free sapce size. */
     MUX_CMD_SET_LL_USER_TX_PKT_LEN, /**< special command to set low lantency uart user's transmission packet length. */
+    MUX_CMD_SET_LL_USER_TIMEOUT_WITH_SILENCE, /**< special command to set low lantency uart user's transmission timeout. */
 #endif
     MUX_CMD_MAX,                        /**< The maximum number of commands. */
 } mux_ctrl_cmd_t;
+#if defined(AIR_LOW_LATENCY_MUX_ENABLE)
+typedef struct {
+    uint32_t tx_enable;
+    uint32_t tx_timeout;
+    uint32_t rx_enable;
+    uint32_t rx_drop_max;
+} mux_ll_user_timeout_with_silence_t;
+#endif
 
 /** @brief
  * This structure defines the data structure for each command in
@@ -1994,6 +2003,7 @@ typedef union {
     uint32_t mux_ll_user_rx_data_len;        /**< Parameters for port rx buffer data length.  */
     uint32_t mux_ll_user_tx_free_len;        /**< Parameters for port tx buffer free space length.  */
     uint32_t mux_ll_user_tx_pkt_len;         /**< Parameters for port tx buffer transmission packet length.  */
+    mux_ll_user_timeout_with_silence_t mux_ll_user_timeout_with_silence;         /**< Parameters for port tx buffer transmission timeout  */
 #endif
     mux_get_connection_param_t mux_get_connection_param; /**< Parameters for iAP2 special get connection parameters command. */
     mux_set_config_param_t mux_set_config_param;    /**< Parameters for iAP2 special set configuration parameters command. */

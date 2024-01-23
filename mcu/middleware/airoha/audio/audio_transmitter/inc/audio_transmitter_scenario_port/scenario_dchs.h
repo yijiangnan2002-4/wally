@@ -89,7 +89,10 @@ typedef enum
     AUDIO_UART_COSYS_ANC_CTRL = 10,
     AUDIO_UART_COSYS_RACE_CMD,
     AUDIO_UART_COSYS_CMD_ACK,
-    AUDIO_UART_COSYS_CMD_WAITING_ACK,
+	AUDIO_UART_COSYS_CMD_WAITING_ACK,
+    AUDIO_UART_COSYS_DETACHABLE_MIC,
+    AUDIO_UART_COSYS_UL_MUTE,
+    AUDIO_UART_COSYS_UL_SW_GAIN,
     //extend here
 
     AUDIO_UART_COSYS_CMD_MAX,
@@ -117,6 +120,13 @@ typedef enum
     ACK_CONTEXT_MAX_VALUE = 0xFFFFFFFF,
 }audio_uart_cmd_ack_context_t;
 
+typedef enum
+{
+    SYNC_START,
+    SYNC_END,
+    SYNC_MAX_VALUE = 0xFFFFFFFF,
+}audio_uart_sync_status_t;
+
 typedef struct
 {
     uart_cmd_type_t ctrl_type;
@@ -135,27 +145,14 @@ typedef struct
 {
     audio_uart_cmd_header_t header;
     audio_scenario_type_t scenario_type;
-    bt_a2dp_codec_type_t a2dp_codec_type;
-    hal_audio_memory_t in_memory;
-    hal_audio_memory_t out_memory;
-    hal_audio_interface_t in_interface;
-    hal_audio_interface_t out_interface;
-    uint32_t sampling_rate;
-    uint32_t frame_size; //samples
-    uint32_t  context_type;
-    uint8_t frame_number;
-    hal_audio_format_t format;
-    uint8_t  irq_period;
-    uint8_t  channel_num;
-    dchs_dl_chip_role_t chip_role;
+    hal_audio_memory_t memory_agent;
+    U8 format_bytes;
 } audio_dchs_dl_open_param_t;
 
 typedef struct
 {
     audio_uart_cmd_header_t header;
     audio_scenario_type_t scenario_type;
-    dchs_dl_chip_role_t   chip_role;
-    uint32_t  context_type;
 } audio_dchs_dl_start_param_t;
 
 typedef struct
@@ -169,8 +166,6 @@ typedef struct
 {
     audio_uart_cmd_header_t header;
     audio_scenario_type_t scenario_type;
-    dchs_dl_chip_role_t   chip_role;
-    uint32_t  context_type;
 } audio_dchs_dl_close_param_t;
 
 typedef struct
@@ -182,16 +177,20 @@ typedef struct
     uint8_t frame_number;
     hal_audio_format_t format;
     uint8_t  irq_period;
+    uint32_t  codec_type;
 } audio_dchs_ul_open_param_t;
+
 typedef struct
 {
     audio_uart_cmd_header_t header;
     audio_scenario_type_t scenario_type;
 } audio_dchs_ul_start_param_t;
+
 typedef struct {
     audio_uart_cmd_header_t header;
     audio_scenario_type_t scenario_type;
 } audio_dchs_ul_close_param_t;
+
 typedef struct {
     audio_uart_cmd_header_t header;
     audio_scenario_type_t scenario_type;
@@ -219,6 +218,26 @@ typedef struct
 typedef struct
 {
     audio_uart_cmd_header_t header;
+    U32 voice_mic_type;
+    audio_scenario_type_t scenario_type;
+}audio_dchs_detachable_mic_param_t;
+
+typedef struct
+{
+    audio_uart_cmd_header_t header;
+    bool mute;
+}audio_set_mute_param_t;
+
+typedef struct
+{
+    audio_uart_cmd_header_t header;
+    uint32_t config_operation;
+    uint8_t config_param[40];
+}audio_set_sw_gain_param_t;
+
+typedef struct
+{
+    audio_uart_cmd_header_t header;
     uart_cmd_type_t cmd_type;
 }audio_dchs_wait_ack_param_t;
 
@@ -234,14 +253,18 @@ typedef union {
     audio_dchs_ul_volume_param_t dchs_ul_volume_param;
 
     audio_dchs_relay_cmd_param_t dchs_relay_cmd_param;
-    audio_dchs_wait_ack_param_t  dchs_wait_ack_param;
+    audio_dchs_detachable_mic_param_t dchs_detachable_mic_param;
+	audio_dchs_wait_ack_param_t  dchs_wait_ack_param;
+    audio_set_mute_param_t audio_set_mute_param;
+    audio_set_sw_gain_param_t audio_set_sw_gain_param;
 }audio_dchs_cosys_ctrl_param_t;
 
 typedef struct
 {
     uart_cmd_type_t ctrl_type;
     audio_dchs_cosys_ctrl_param_t ctrl_param;
-    bool is_send_am_front;
+    dchs_dl_chip_role_t   chip_role;
+    void * dchs_am_ptr;
 }audio_dchs_cosys_ctrl_t;
 
 
@@ -256,11 +279,13 @@ extern void mcu_uart_init(void);
 
 extern void dchs_cosys_ctrl_cmd_relay(uart_cmd_type_t ctrl_type, audio_scenario_type_t scenario_type, mcu2dsp_open_param_t *open_param, mcu2dsp_start_param_t * start_param);
 extern void dchs_cosys_ctrl_cmd_execute(audio_dchs_cosys_ctrl_t * cosys_ctrl);
-
-extern void    dchs_dl_set_scenario_exist_flag(dchs_dl_chip_role_t chip_role, audio_scenario_type_t data_scenario_type, bool is_running);
-extern uint8_t dchs_dl_check_scenario_exist_flag(dchs_dl_chip_role_t chip_role);
+extern void dchs_ul_audio_set_mute(bool mute);
+extern void dchs_ul_audio_set_sw_gain(mcu2dsp_audio_transmitter_runtime_config_param_t * runtime_config_param,uint32_t size);
 extern void dchs_dl_set_audio_sample_rate(uint32_t sample_rate);
 void dchs_lock_bt_sleep(bool is_dchs_dl);
+void dchs_uart_detachable_mic_sync(U32 voice_mic_type, audio_uart_sync_status_t sync_status);
+void dchs_check_ul_running_scenario(audio_scenario_type_t *scenario_type, U32 *codec_type, U32 *sample_rate);
+void dchs_ul_replace_feature_nvkey(audio_scenario_type_t scenario_type, U32 codec_type, U32 sample_rate);
 #endif
 
 #ifdef __cplusplus

@@ -970,8 +970,5 @@ spp_air_status_t spp_air_get_uuid(uint8_t *uuid128)
 
     return status;
 }
-
-#endif
-
-
+#endif /* #ifdef MTK_PORT_SERVICE_BT_ENABLE */
 

@@ -244,6 +244,9 @@ ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_170[] = LOG_DEBUG_PREFIX(anc) "[seamles
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_171[] = LOG_DEBUG_PREFIX(anc) "[seamless]Set seamless param Fail. One of param is 0, step = %d, delay = %d";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_172[] = LOG_DEBUG_PREFIX(anc) "[ANC][Init]Read bonding option EFUSE = 0x%x, support_hybrid %d.\r\n";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_173[] = LOG_DEBUG_PREFIX(anc) "[ANC][Howling] Enable(%d), type(%d)";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_174[] = LOG_DEBUG_PREFIX(anc) "[switch_specific_filter]seamless switch fail, ANC/PT not enable %d, %d\n";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_175[] = LOG_DEBUG_PREFIX(anc) "[seamless]set param fail, flag = %d\n";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_176[] = LOG_DEBUG_PREFIX(anc) "[ANC][Calibration] set_component_gain fail, index(%d), gain(%d)";
 
 /*for Leakage detection*/
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_200[] = LOG_DEBUG_PREFIX(anc) "[RECORD_LC] audio_anc_control ignore event:%d because LD happening.";
@@ -526,6 +529,9 @@ ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_170[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_171[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_172[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_173[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_174[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_175[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_176[] = "";
 
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_200[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_201[] = "";

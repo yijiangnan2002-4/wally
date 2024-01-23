@@ -171,7 +171,7 @@ enum {
     APPS_EVENTS_INTERACTION_USB_AUDIO_EN, /**< This event is used to enable/disable usb audio. */
 //new add
     APPS_EVENTS_INTERACTION_DCHS_NOTIFY_BATTERY_PERCENT,
-    APPS_EVENTS_INTERACTION_DCHS_NOTIFY_SHUTDONE_STATE,
+    APPS_EVENTS_INTERACTION_DCHS_NOTIFY_SHUTDOWN_STATE,
     APPS_EVENTS_INTERACTION_TEAMS_DELAY_TO_RECONNECT, /**< This event is used to reconnect Teams if not handshake done with Teams. */
     APPS_EVENTS_INTERACTION_SYNC_CALL_RX_EQ_STATUS, /**< This event is used to sync the rx eq status of call. */
     APPS_EVENTS_INTERACTION_FAST_PAIR_GENERATE_ADV_ADDR,    /**< Send the event create a timer to generate adv address. */
@@ -190,6 +190,8 @@ enum {
     APPS_EVENTS_INTERACTION_SYNC_MUSIC_APP_STREAMING_STATE_TO_PEER, /**< Agent sync music streaming state to partner.*/
     APPS_EVENTS_INTERACTION_TEAMS_DELAY_GET_CONN_NUMS, /**< Get the connected num with debounce. */
     APPS_EVENTS_INTERACTION_UPDATE_TEAMS_LED_BG_PATTERN, /**< Update the teams led pattern */
+    APPS_EVENTS_INTERACTION_TRIGGER_TAKEOVER,
+    APPS_EVENTS_INTERACTION_TAKEOVER_FOR_SASS,
 };
 
 #endif /* __APPS_EVENTS_INTERACTION_EVENT_H__ */

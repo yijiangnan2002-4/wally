@@ -50,12 +50,19 @@ extern "C" {
 #define BT_CIS_CONNECTION_MAX   4
 
 /* max supported EDR connection number */
-/* Temp for multi link */
+#ifdef AIR_3_LINK_MULTI_POINT_ENABLE
+#define BT_MAX_LINK_NUM 4
+#else
 #define BT_MAX_LINK_NUM 3
+#endif
 
 /* max supported connection number*/
 /* Temp for multi link */
+#ifdef AIR_3_LINK_MULTI_POINT_ENABLE
+#define BT_MAX_CONNECTION_NUM 5
+#else
 #define BT_MAX_CONNECTION_NUM 4
+#endif
 
 /* max timer count */
 #define BT_TIMER_NUM 29
@@ -97,14 +104,14 @@ extern "C" {
 #define BT_A2DP_TOTAL_LINK_NUM BT_MAX_LINK_NUM
 #define BT_A2DP_LINK_BUF_SIZE (BT_A2DP_TOTAL_LINK_NUM * BT_CONTROL_BLOCK_SIZE_OF_A2DP)
 
-#define BT_SPP_TOTAL_CONNECTION_NUM  (3 + 2) /**<[IMPORTANT!]total num = N1 + N2 + ..., Nx is the really used connection num for link-x, each link may different*/
+#define BT_SPP_TOTAL_CONNECTION_NUM  (3 * BT_MAX_LINK_NUM) /**<[IMPORTANT!]total num = N1 + N2 + ..., Nx is the really used connection num for link-x, each link may different*/
 #define BT_SPP_CONNECTION_BUF_SIZE (BT_SPP_TOTAL_CONNECTION_NUM * BT_CONTROL_BLOCK_SIZE_OF_SPP)
 
 #define BT_PBAPC_TOTAL_CONNECTION_NUM  0 /**<[IMPORTANT!]total num = N1 + N2 + ..., Nx is the really used connection num for link-x, each link may different*/
 #define BT_PBAPC_CONNECTION_BUF_SIZE (BT_PBAPC_TOTAL_CONNECTION_NUM * BT_CONTROL_BLOCK_SIZE_OF_PBAPC)
 
 /* Temp for multi link */
-#define BT_AWS_MCE_TOTAL_CONNECTION_NUM  3 /**<[IMPORTANT!]total num = N1 + N2 + ..., Nx is the really used connection num for link-x, each link may different*/
+#define BT_AWS_MCE_TOTAL_CONNECTION_NUM  BT_MAX_LINK_NUM /**<[IMPORTANT!]total num = N1 + N2 + ..., Nx is the really used connection num for link-x, each link may different*/
 #define BT_AWS_MCE_CONNECTION_BUF_SIZE (BT_AWS_MCE_TOTAL_CONNECTION_NUM * BT_CONTROL_BLOCK_SIZE_OF_AWS_MCE)
 
 #define BT_AIRUPDATE_TOTAL_CONNECTION_NUM  BT_MAX_LINK_NUM
@@ -144,7 +151,11 @@ extern "C" {
 #endif
 
 #ifdef AIR_LE_OTP_ENABLE
+#ifdef AIR_BT_TAKEOVER_ENABLE
+#define BT_LE_OTP_NUM       3//(APP_LE_AUDIO_MAX_LINK_NUM)
+#else
 #define BT_LE_OTP_NUM       2//(APP_LE_AUDIO_MAX_LINK_NUM)
+#endif
 #define BT_LE_OTP_BUF_SIZE  (BT_CONTROL_BLOCK_SIZE_OF_LE_OTP * BT_LE_OTP_NUM)
 #endif
 

@@ -77,7 +77,7 @@
 #include "bt_interface.h"
 
 Stream_n9ble_Config_t N9BLE_setting;
-static bool g_ble_pkt_lost[4][2];
+static U8 g_ble_pkt_lost[4][2];
 static uint32_t g_pkt_lost_count = 0;
 
 uint16_t g_ble_abr_length=0;
@@ -189,6 +189,11 @@ static void N9ble_add_status_to_frames_in_packet(SOURCE source, U8 *dst_addr, U8
 
 static U32 N9Ble_check_avm_frame_valid(LE_AUDIO_HEADER *buf_header, U32 check_abr)
 {
+    /*
+        _reserved_byte_0Dh = 0x0 ==> NULL
+        _reserved_byte_0Dh = 0x1 ==> VALID
+        _reserved_byte_0Dh = 0x3 ==> PADDING
+    */
     U32 frame_valid = (buf_header->TimeStamp != BLE_AVM_INVALID_TIMESTAMP) && (buf_header->_reserved_byte_0Dh & 0x01);
     if(frame_valid && check_abr) {
         frame_valid = (buf_header->Pdu_LEN_Without_MIC) && (g_ble_abr_length == buf_header->Pdu_LEN_Without_MIC);
@@ -329,7 +334,15 @@ static uint32_t internal_fs_converter(stream_samplerate_t fs)
 }
 #endif
 #if (defined(AIR_BLE_FIXED_RATIO_SRC_ENABLE) && defined(AIR_FIXED_RATIO_SRC))
-static src_fixed_ratio_port_t *g_n9ble_dl_swb_fixed_ratio_port[3];
+#define n9ble_dl_fixed_ratio_port_ma
+
+#if defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k) || defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k)
+#define N9BLE_DL_FIXED_RATIO_PORT_NAX_NUM 5
+#else
+#define N9BLE_DL_FIXED_RATIO_PORT_NAX_NUM 3
+#endif
+
+static src_fixed_ratio_port_t *g_n9ble_dl_swb_fixed_ratio_port[N9BLE_DL_FIXED_RATIO_PORT_NAX_NUM];
 static src_fixed_ratio_port_t *g_n9ble_ul_swb_fixed_ratio_port[3];
 
 static const N9ble_Swsrc_Config_t N9Ble_Swsrc_maping_table[] = {
@@ -357,6 +370,51 @@ static const N9ble_Swsrc_Config_t N9Ble_Swsrc_maping_table[] = {
     {96, 96, 0, 0, 0},
 };
 
+#if defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k) || defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k)
+static const N9ble_Swsrc_Config_t N9Ble_fix_rate_Swsrc_maping_table[] = {
+    /*fs_in, fs_out, fs_tmp1, fs_tmp2, swb_cnt*/
+    { 32, 48, 96, 0, 2},
+    { 32, 96, 0, 0, 1},
+    { 16, 48, 0, 0, 1},
+    { 16, 96, 16, 0, 1},
+};
+#endif
+
+void N9Ble_DL_Sample_Rate_Parameter_Maping(N9ble_Swsrc_Config_t *table, uint32_t table_size, stream_samplerate_t fs_in, stream_samplerate_t fs_out, stream_samplerate_t *fs_temp, stream_samplerate_t *fs_temp2, uint8_t *swb_cnt)
+{
+    uint32_t i;
+    for (i = 0; i < table_size; i++) {
+        if (fs_in <= fs_out) {
+            if ((fs_in == table[i].fs_in) && (fs_out == table[i].fs_out)) {
+                *fs_temp = table[i].fs_tmp1;
+                *fs_temp2 = table[i].fs_tmp2;
+                *swb_cnt = table[i].swb_cnt;
+                break;
+            }
+        } else {
+            if ((fs_out == table[i].fs_in) && (fs_in == table[i].fs_out)) {
+                *fs_temp = table[i].fs_tmp2;
+                *fs_temp2 = table[i].fs_tmp1;
+                *swb_cnt = table[i].swb_cnt;
+                break;
+            }
+        }
+    }
+
+    if ((!(*fs_temp)) && (!(*fs_temp2))) { /*swb_cnt=1*/
+        (*fs_temp) = fs_out;
+        (*fs_temp2) = fs_out;
+    }
+    if ((!(*fs_temp)) || (!(*fs_temp2))) { /*swb_cnt<3*/
+        if (!(*fs_temp)) {
+            (*fs_temp) = (*fs_temp2);
+            (*fs_temp2) = fs_out;
+        } else {
+            (*fs_temp2) = fs_out;
+        }
+    }
+}
+
 void N9Ble_DL_SWB_Sample_Rate_Init(void)
 {
     uint32_t channel_number;
@@ -365,57 +423,59 @@ void N9Ble_DL_SWB_Sample_Rate_Init(void)
     SOURCE source = Source_blks[SOURCE_TYPE_N9BLE];
 
     dl_stream = DSP_Streaming_Get(source, source->transform->sink);
-    channel_number = stream_function_get_channel_number(&(dl_stream->callback.EntryPara));
+    //channel_number = stream_function_get_channel_number(&(dl_stream->callback.EntryPara));
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    channel_number = 2;
+#else
+    channel_number = source->transform->sink->param.audio.channel_num;
+#endif
     stream_samplerate_t fs_in = dl_stream->callback.EntryPara.in_sampling_rate;
     //stream_samplerate_t fs_out = dl_stream->sink->param.audio.src_rate / 1000; //dl_stream->callback.EntryPara.codec_out_sampling_rate;
     stream_samplerate_t fs_out = 48;
+    stream_samplerate_t fs_temp = 0, fs_temp2 = 0;
+    uint8_t swb_cnt = 0;
+    uint32_t used_port_num = 1;
+#if defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k) || defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k)
+    uint8_t swb_cnt_fix_rate = 0;
+    stream_samplerate_t fs_in_fix_rate, fs_out_fix_rate, fs_temp_fix_rate, fs_temp2_fix_rate;
+#endif
+
+    if (fs_in == 96){
+        fs_out = 96;
+    }
     if(source->param.n9ble.context_type == BLE_CONTEXT_CONVERSATIONAL){
 #ifdef AIR_BT_BLE_SWB_ENABLE
         fs_out = 32;
 #else
         fs_out = 16;
 #endif
+    } else if (source->param.n9ble.context_type == BLE_CONTENT_TYPE_ULL_BLE && source->param.n9ble.codec_type == BT_BLE_CODEC_ULD){
+#ifdef AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ
+        fs_out = 96;
+#endif
     }
-    stream_samplerate_t fs_temp = 0, fs_temp2 = 0;
-    uint8_t swb_cnt = 0;
+
     /*fs_in = FS_RATE_32K;
     fs_temp = FS_RATE_16K;//fs_out;
     fs_temp2 = FS_RATE_48K;//fs_out;
     fs_out = FS_RATE_16K;
     swb_cnt = 1;*/
 
-    uint32_t i;
-    for (i = 0; i < ARRAY_SIZE(N9Ble_Swsrc_maping_table); i++) {
-        if (fs_in <= fs_out) {
-            if ((fs_in == N9Ble_Swsrc_maping_table[i].fs_in) && (fs_out == N9Ble_Swsrc_maping_table[i].fs_out)) {
-                fs_temp = N9Ble_Swsrc_maping_table[i].fs_tmp1;
-                fs_temp2 = N9Ble_Swsrc_maping_table[i].fs_tmp2;
-                swb_cnt = N9Ble_Swsrc_maping_table[i].swb_cnt;
-                break;
-            }
-        } else {
-            if ((fs_out == N9Ble_Swsrc_maping_table[i].fs_in) && (fs_in == N9Ble_Swsrc_maping_table[i].fs_out)) {
-                fs_temp = N9Ble_Swsrc_maping_table[i].fs_tmp2;
-                fs_temp2 = N9Ble_Swsrc_maping_table[i].fs_tmp1;
-                swb_cnt = N9Ble_Swsrc_maping_table[i].swb_cnt;
-                break;
-            }
-        }
-    }
-
-    if ((!fs_temp) && (!fs_temp2)) { /*swb_cnt=1*/
-        fs_temp = fs_out;
-        fs_temp2 = fs_out;
-    }
-    if ((!fs_temp) || (!fs_temp2)) { /*swb_cnt<3*/
-        if (!fs_temp) {
-            fs_temp = fs_temp2;
-            fs_temp2 = fs_out;
-        } else {
-            fs_temp2 = fs_out;
-        }
-    }
+    N9Ble_DL_Sample_Rate_Parameter_Maping((N9ble_Swsrc_Config_t *)N9Ble_Swsrc_maping_table, ARRAY_SIZE(N9Ble_Swsrc_maping_table), fs_in, fs_out, &fs_temp, &fs_temp2, &swb_cnt);
     DSP_MW_LOG_I("[BLE] N9Ble_DL_SWB_Sample_Rate_Init %d %d %d %d %d", 5, fs_in, fs_temp, fs_temp2, fs_out, swb_cnt);
+
+#if defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k) || defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k)
+    if(source->param.n9ble.context_type == BLE_CONTEXT_CONVERSATIONAL) {
+        fs_in_fix_rate = fs_out;
+#if defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k)
+        fs_out_fix_rate = 48;
+#else
+        fs_out_fix_rate = 96;
+#endif
+        N9Ble_DL_Sample_Rate_Parameter_Maping((N9ble_Swsrc_Config_t *)N9Ble_fix_rate_Swsrc_maping_table, ARRAY_SIZE(N9Ble_fix_rate_Swsrc_maping_table), fs_in_fix_rate, fs_out_fix_rate, &fs_temp_fix_rate, &fs_temp2_fix_rate, &swb_cnt_fix_rate);
+        DSP_MW_LOG_I("[BLE][fix_rate] %d %d %d %d %d", 5, fs_in_fix_rate, fs_temp_fix_rate, fs_temp2_fix_rate, fs_out_fix_rate, swb_cnt_fix_rate);
+    }
+#endif //AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k || AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k
 
     smp_config = (src_fixed_ratio_config_t *)pvPortMalloc(sizeof(src_fixed_ratio_config_t));
     configASSERT(smp_config);
@@ -424,18 +484,27 @@ void N9Ble_DL_SWB_Sample_Rate_Init(void)
     smp_config->cvt_num = swb_cnt;
     smp_config->channel_number = channel_number;
     smp_config->resolution = dl_stream->callback.EntryPara.resolution.feature_res;
-    smp_config->multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
-
+#if defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k) || defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k)
+    if(source->param.n9ble.context_type == BLE_CONTEXT_CONVERSATIONAL) {
+        smp_config->multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE_AND_ALTERNATE;
+        smp_config->cvt_processing_num_in_list = 1;
+    } else
+#endif
+    {
+        smp_config->multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
+    }
     smp_config->in_sampling_rate = internal_fs_converter(fs_in);
     smp_config->out_sampling_rate = internal_fs_converter(fs_temp);
     g_n9ble_dl_swb_fixed_ratio_port[0] = stream_function_src_fixed_ratio_get_port(source);
     stream_function_src_fixed_ratio_init(g_n9ble_dl_swb_fixed_ratio_port[0], smp_config);
+    used_port_num++;
 
     if (swb_cnt > 1) {
         smp_config->in_sampling_rate = internal_fs_converter(fs_temp);
         smp_config->out_sampling_rate = internal_fs_converter(fs_temp2);
         g_n9ble_dl_swb_fixed_ratio_port[1] = stream_function_src_fixed_ratio_get_2nd_port(source);
         stream_function_src_fixed_ratio_init(g_n9ble_dl_swb_fixed_ratio_port[1], smp_config);
+        used_port_num++;
     }
 
     if (swb_cnt > 2) {
@@ -443,8 +512,38 @@ void N9Ble_DL_SWB_Sample_Rate_Init(void)
         smp_config->out_sampling_rate = internal_fs_converter(fs_out);
         g_n9ble_dl_swb_fixed_ratio_port[2] = stream_function_src_fixed_ratio_get_3rd_port(source);
         stream_function_src_fixed_ratio_init(g_n9ble_dl_swb_fixed_ratio_port[2], smp_config);
+        used_port_num++;
     }
 
+#if defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k) || defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k)
+    if(source->param.n9ble.context_type == BLE_CONTEXT_CONVERSATIONAL) {
+        smp_config->cvt_processing_num_in_list = 2;
+        smp_config->cvt_num = swb_cnt_fix_rate;
+
+        smp_config->in_sampling_rate = internal_fs_converter(fs_in_fix_rate);
+        smp_config->out_sampling_rate = internal_fs_converter(fs_temp_fix_rate);
+        g_n9ble_dl_swb_fixed_ratio_port[used_port_num] = stream_function_src_fixed_ratio_get_number_port(source, used_port_num);
+        stream_function_src_fixed_ratio_init(g_n9ble_dl_swb_fixed_ratio_port[used_port_num], smp_config);
+        used_port_num++;
+
+
+        if (swb_cnt_fix_rate > 1) {
+            smp_config->in_sampling_rate = internal_fs_converter(fs_temp_fix_rate);
+            smp_config->out_sampling_rate = internal_fs_converter(fs_temp2_fix_rate);
+            g_n9ble_dl_swb_fixed_ratio_port[used_port_num] = stream_function_src_fixed_ratio_get_number_port(source, used_port_num);
+            stream_function_src_fixed_ratio_init(g_n9ble_dl_swb_fixed_ratio_port[used_port_num], smp_config);
+            used_port_num++;
+        }
+
+        if (swb_cnt_fix_rate > 2) {
+            smp_config->in_sampling_rate = internal_fs_converter(fs_temp2_fix_rate);
+            smp_config->out_sampling_rate = internal_fs_converter(fs_out_fix_rate);
+            g_n9ble_dl_swb_fixed_ratio_port[used_port_num] = stream_function_src_fixed_ratio_get_number_port(source, used_port_num);
+            stream_function_src_fixed_ratio_init(g_n9ble_dl_swb_fixed_ratio_port[used_port_num], smp_config);
+            used_port_num++;
+        }
+    }
+#endif
     DSP_MW_LOG_I("[BLE] N9Ble_DL_SWB_Sample_Rate_Init: channel_number %d, fs_in %d, fs_temp %d, fs_temp2 %d, fs_out %d", 5,
                  smp_config->channel_number, fs_in, fs_temp, fs_temp2, fs_out);
 
@@ -658,6 +757,89 @@ void N9Ble_UL_Volume_Estimator_Deinit(void){
 }
 #endif
 
+#ifdef AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE
+#ifdef AIR_SOFTWARE_GAIN_ENABLE
+#include "sw_gain_interface.h"
+#define BLE_SW_GAIN_MUTE_VALUE (-(96 * 100))
+static bool g_ble_ul_sw_gain_is_ready;
+static sw_gain_port_t *g_ble_ul_sw_gain_port;
+static int32_t g_ble_ul_sw_gain_value;
+extern bool g_call_mute_flag;
+
+void N9Ble_UL_SW_Gain_Init(void)
+{
+    uint32_t i, channel_number;
+    sw_gain_config_t sw_gain_config;
+    DSP_STREAMING_PARA_PTR ul_stream;
+    volatile SINK sink = Sink_blks[SINK_TYPE_N9BLE];
+
+    ul_stream = DSP_Streaming_Get(sink->transform->source, sink);
+    channel_number = stream_function_get_channel_number(&(ul_stream->callback.EntryPara));
+
+    g_ble_ul_sw_gain_port = stream_function_sw_gain_get_port(sink);
+    AUDIO_ASSERT(g_ble_ul_sw_gain_port != NULL);
+    sw_gain_config.resolution = RESOLUTION_16BIT;
+    sw_gain_config.target_gain = BLE_SW_GAIN_MUTE_VALUE;
+    sw_gain_config.up_step = 1;
+    sw_gain_config.up_samples_per_step = 2;
+    sw_gain_config.down_step = -1;
+    sw_gain_config.down_samples_per_step = 2;
+    stream_function_sw_gain_init(g_ble_ul_sw_gain_port, channel_number, &sw_gain_config);
+    for (i = 0; i < channel_number; i++) {
+        stream_function_sw_gain_configure_gain_target(g_ble_ul_sw_gain_port, i + 1, BLE_SW_GAIN_MUTE_VALUE);
+    }
+
+    g_ble_ul_sw_gain_is_ready = true;
+    g_call_mute_flag = true;
+}
+
+static void N9Ble_UL_SW_Gain_DeInit(void)
+{
+    if (g_ble_ul_sw_gain_port != NULL) {
+        g_ble_ul_sw_gain_is_ready = false;
+        stream_function_sw_gain_deinit(g_ble_ul_sw_gain_port);
+        g_ble_ul_sw_gain_port = NULL;
+    }
+}
+
+void N9Ble_UL_Set_SW_Gain(int32_t new_gain)
+{
+    sw_gain_config_t old_config;
+
+    if (g_ble_ul_sw_gain_is_ready == true) {
+        stream_function_sw_gain_get_config(g_ble_ul_sw_gain_port, 2, &old_config); /* Only channel 1 is usefull */
+        DSP_MW_LOG_I("[DSP][BLE] UL set SW gain from %d*0.01dB to %d*0.01dB\r\n", 2, old_config.target_gain, new_gain);
+        if(g_call_mute_flag){
+            DSP_MW_LOG_I("[DSP][BLE] Call UL is mute, save new gain only.\r\n", 0);
+        }else{
+            stream_function_sw_gain_configure_gain_target(g_ble_ul_sw_gain_port, 1, new_gain); /* Only channel 1 is usefull */
+        }
+        g_ble_ul_sw_gain_value = new_gain;
+    } else {
+        DSP_MW_LOG_E("[DSP][BLE] UL set SW gain fail\r\n", 0);
+    }
+}
+
+void N9Ble_UL_Set_SW_Gain_Mute(bool mute)
+{
+    sw_gain_config_t old_config;
+    int32_t new_gain;
+
+    if (g_ble_ul_sw_gain_is_ready == true) {
+        if(mute){
+            new_gain = -(96 * 100);
+        }else{
+            new_gain = g_ble_ul_sw_gain_value;
+        }
+        stream_function_sw_gain_get_config(g_ble_ul_sw_gain_port, 2, &old_config); /* Only channel 1 is usefull */
+        DSP_MW_LOG_I("[DSP][BLE] UL set SW gain from %d*0.01dB to %d*0.01dB\r\n", 2, old_config.target_gain, new_gain);
+        stream_function_sw_gain_configure_gain_target(g_ble_ul_sw_gain_port, 1, new_gain); /* Only channel 1 is usefull */
+    } else {
+        DSP_MW_LOG_E("[DSP][BLE] UL set SW gain fail\r\n", 0);
+    }
+}
+#endif
+#endif
 /**
  * SinkSlackN9Ble
  *
@@ -940,6 +1122,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 static BOOL SinkBufferWriteN9Ble(SINK sink, U8 *src_ad
         buf_header = (LE_AUDIO_HEADER *)write_ptr;
         buf_header->DataOffset = BLE_AVM_FRAME_HEADER_SIZE;
         buf_header->Pdu_LEN_Without_MIC = g_ble_ul_abr_length;
+        buf_header->DataLen = g_ble_ul_abr_length;
         buf_header->TimeStamp = timestamp;
         #ifdef AIR_ULL_BLE_HEADSET_ENABLE
         buf_header->crc32_value = CRC32_Generate((uint8_t *)src_ptr, g_ble_ul_abr_length, sink->param.n9ble.crc_init);
@@ -976,11 +1159,14 @@ static BOOL SinkCloseN9Ble(SINK sink)
     N9Ble_UL_Fix_Sample_Rate_Deinit();
 #endif
 
-#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
 if ((sink->param.n9ble.context_type != BLE_CONTENT_TYPE_ULL_BLE) && (sink->param.n9ble.context_type != BLE_CONTENT_TYPE_WIRELESS_MIC)) {
+#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
     N9Ble_UL_Volume_Estimator_Deinit();
-}
 #endif
+#if defined(AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE) && defined(AIR_SOFTWARE_GAIN_ENABLE)
+    N9Ble_UL_SW_Gain_DeInit();
+#endif
+}
 
 #ifdef AIR_BT_LE_LC3PLUS_ENABLE
     if(sink->param.n9ble.codec_type == BT_BLE_CODEC_LC3PLUS ) {
@@ -1088,7 +1274,7 @@ ATTR_TEXT_IN_IRAM static U32 SourceSizeN9Ble(SOURCE source)
 #endif
 #ifdef AIR_CELT_DEC_V2_ENABLE
     if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR){
-        ProcessFrameLen = 108;
+        ProcessFrameLen = g_ble_abr_length + 2*source->param.n9ble.plc_state_len;
     }
 #endif
 
@@ -1129,7 +1315,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 static VOID SourceDropN9Ble(SOURCE source, U32 amount)
 
 #ifdef AIR_CELT_DEC_V2_ENABLE
     if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR){
-        ProcessFrameLen = 108;
+        ProcessFrameLen = g_ble_abr_length + 2*source->param.n9ble.plc_state_len;
     } else {
 #endif
     ProcessFrameLen = (g_ble_abr_length * source->param.n9ble.process_number) << (source->param.n9ble.dual_cis_status != DUAL_CIS_DISABLED);
@@ -1229,7 +1415,7 @@ static BOOL SourceConfigureN9Ble(SOURCE source, stream_config_type type, U32 val
  */
 ATTR_TEXT_IN_IRAM_LEVEL_2 static BOOL SourceReadBufN9Ble(SOURCE source, U8 *dst_addr, U32 length)
 {
-    U16 i;
+    U16 i, j, cis_num;
     U8 *read_ptr;
     U8 *write_ptr;
     U32 ProcessFrameLen;
@@ -1245,15 +1431,15 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 static BOOL SourceReadBufN9Ble(SOURCE source, U8 *dst_
 #if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
     TRANSFORM transform =  source->transform;
     DSP_CALLBACK_PTR callback_ptr = NULL;
-    U8 *dst_addr2 = NULL;
+    U32 frame_num = 1;
     if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR || source->param.n9ble.codec_type == BT_BLE_CODEC_ULD){
-        if (transform != NULL && dst_addr == NULL  && source->param.n9ble.dual_cis_status != DUAL_CIS_DISABLED) {
+        if (transform != NULL) {
             callback_ptr = DSP_Callback_Get(source, transform->sink);
             dst_addr = callback_ptr->EntryPara.in_ptr[0];
-            dst_addr2 = callback_ptr->EntryPara.in_ptr[1];
         }
-        if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR) {
-            ProcessFrameLen = 108;
+        if (source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR) {
+            ProcessFrameLen = g_ble_abr_length + 2*source->param.n9ble.plc_state_len;
+            frame_num = 2;
         }
     }
 #endif
@@ -1275,72 +1461,108 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 static BOOL SourceReadBufN9Ble(SOURCE source, U8 *dst_
     N9BleRx_update_from_share_information(source);
     //Clock_Skew_Offset_Update_BLE(source);
 
+    cis_num = (source->param.n9ble.dual_cis_status == DUAL_CIS_DISABLED) ? 1 : 2;/*SINGLE CIS or DUAL CIS*/
     for (i = 0; i < source->param.n9ble.process_number; i++) {
-        read_ptr = (U8 *)(source->streamBuffer.ShareBufferInfo.start_addr + source->streamBuffer.ShareBufferInfo.read_offset);
-        write_ptr = (source->param.n9ble.dual_cis_status == DUAL_CIS_DISABLED) ? dst_addr + i * g_ble_abr_length : dst_addr + (i * 2) * g_ble_abr_length;
+        for (j = 0; j < cis_num; j++) {
+            n9_dsp_share_info_ptr base_addr;
+            uint32_t RO, WO;
+            if (j == 0) {
+                base_addr = source->param.n9ble.share_info_base_addr;
+                RO = source->streamBuffer.ShareBufferInfo.read_offset;
+                read_ptr = (U8 *)(source->streamBuffer.ShareBufferInfo.start_addr + RO);
+            } else {
+                base_addr = source->param.n9ble.sub_share_info_base_addr;
+                RO = (source->streamBuffer.ShareBufferInfo.read_offset + source->param.n9ble.dual_cis_buffer_offset)%source->streamBuffer.ShareBufferInfo.length;
+                read_ptr = (U8 *)((U32)source->param.n9ble.sub_share_info_base_addr + RO);
+            }
+            WO = base_addr->write_offset;
+            write_ptr = (source->param.n9ble.dual_cis_status == DUAL_CIS_DISABLED) ? dst_addr + i * g_ble_abr_length : dst_addr + (i * 2 + j) * g_ble_abr_length;
 
-        buf_header = (LE_AUDIO_HEADER *)read_ptr;
-       //DSP_MW_LOG_I("[BLE][source] Start_addr = 0x%x ,TimeStamp = 0x%08x, PduLen = %d", 3, source->streamBuffer.ShareBufferInfo.start_addr, buf_header->TimeStamp, buf_header->Pdu_LEN_Without_MIC);
+            buf_header = (LE_AUDIO_HEADER *)read_ptr;
+           //DSP_MW_LOG_I("[BLE][source] Start_addr = 0x%x ,TimeStamp = 0x%08x, PduLen = %d", 3, source->streamBuffer.ShareBufferInfo.start_addr, buf_header->TimeStamp, buf_header->Pdu_LEN_Without_MIC);
 
 #if 0
-        DSP_MW_LOG_I("[BLE_DEBUG] BEFORE info_addr = 0x%08x, predict = 0x%08x, TimeStamp = 0x%08x, valid = %d cnt= %d, RO = %d, WO = %d", 7,
-            source->param.n9ble.share_info_base_addr,
-            source->param.n9ble.predict_timestamp,
-            buf_header->TimeStamp,
-            buf_header->_reserved_byte_0Dh,
-            buf_header->EventCount,
-            source->streamBuffer.ShareBufferInfo.read_offset,
-            source->param.n9ble.share_info_base_addr->write_offset
-        );
+            DSP_MW_LOG_I("[BLE_DEBUG] BEFORE info_addr = 0x%08x, predict = 0x%08x, TimeStamp = 0x%08x, valid = %d cnt= %d, RO = %d, WO = %d", 7,
+                source->param.n9ble.share_info_base_addr,
+                source->param.n9ble.predict_timestamp,
+                buf_header->TimeStamp,
+                buf_header->_reserved_byte_0Dh,
+                buf_header->EventCount,
+                source->streamBuffer.ShareBufferInfo.read_offset,
+                source->param.n9ble.share_info_base_addr->write_offset
+            );
 #endif
-
+        U8 ble_pkt_lost_state_prev = g_ble_pkt_lost[i][j];
         if (N9Ble_check_avm_frame_valid(buf_header, TRUE)) {
-            g_ble_pkt_lost[i][0] = false;
+            if (buf_header->_reserved_byte_0Dh == 0x03) {
+                g_ble_pkt_lost[i][j] = BLE_PKT_PADDING;
 #if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
-            if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR || source->param.n9ble.codec_type == BT_BLE_CODEC_ULD){
-                N9ble_add_status_to_frames_in_packet(source, dst_addr, read_ptr,  g_ble_abr_length, 2, 0); //status:0 -> Normal
+                U32 combinedSize = ALIGN_4((source->param.n9ble.plc_state_len) + g_ble_abr_length/frame_num); /*4B align is needed because of decoder interface*/
+                if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR || source->param.n9ble.codec_type == BT_BLE_CODEC_ULD) {
+                    memset(callback_ptr->EntryPara.in_ptr[j], 0, combinedSize*frame_num);
+                } else {
+#endif
+                memset(write_ptr, 0, g_ble_abr_length);
+#if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
+                }
+#endif
             } else {
+                g_ble_pkt_lost[i][j] = BLE_PKT_VALID;
+#if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
+                if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR || source->param.n9ble.codec_type == BT_BLE_CODEC_ULD) {
+                    N9ble_add_status_to_frames_in_packet(source, callback_ptr->EntryPara.in_ptr[j], read_ptr,  g_ble_abr_length, frame_num, 0); //status:0 -> Normal
+                } else {
 #endif
-            memcpy(write_ptr, read_ptr + BLE_AVM_FRAME_HEADER_SIZE, g_ble_abr_length);
+                memcpy(write_ptr, read_ptr + BLE_AVM_FRAME_HEADER_SIZE, g_ble_abr_length);
 
 #if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
-            }
+                }
 #endif
-            if(!source->param.n9ble.predict_packet_cnt) {
-                source->param.n9ble.predict_packet_cnt = buf_header->EventCount;
             }
 
-            if(source->param.n9ble.predict_packet_cnt != buf_header->EventCount) {
-                DSP_MW_LOG_W("[BLE][source] Rx packet cnt mismatch %d != %d RO:%d WO:%d", 4
-                    , source->param.n9ble.predict_packet_cnt
+            if(!source->param.n9ble.predict_packet_cnt[j]) {
+                source->param.n9ble.predict_packet_cnt[j] = buf_header->EventCount;
+            }
+
+            if(source->param.n9ble.predict_packet_cnt[j] != buf_header->EventCount) {
+                DSP_MW_LOG_W("[BLE][source][%d] Rx packet cnt mismatch %d != %d RO:%d WO:%d", 5
+                    , j
+                    , source->param.n9ble.predict_packet_cnt[j]
                     , buf_header->EventCount
-                    , source->streamBuffer.ShareBufferInfo.read_offset
-                    , source->param.n9ble.share_info_base_addr->write_offset
+                    , RO
+                    , WO
                 );
-                source->param.n9ble.predict_packet_cnt = 0;
+                source->param.n9ble.predict_packet_cnt[j] = 0;
             }
 
-           if (source->param.n9ble.pkt_lost_cnt) {
-                DSP_MW_LOG_W("[BLE][source] Rx packet RECV with SEQ: %d, PTS:%d, TS: %d, PCNT: %d, CNT: %d, VALID: 0x%X, RO: %4d, WO: %4d", 8
+
+           if (ble_pkt_lost_state_prev != g_ble_pkt_lost[i][j]) {
+                DSP_MW_LOG_W("[BLE][source][%d] Rx packet RECV%d with SEQ: %6d, PTS:%8d, TS: %8d, DIFF: %5d, PCNT: %8d, CNT: %4d, VALID: 0x%X, RO: %4d, WO: %4d", 11
+                    , j
+                    , g_ble_pkt_lost[i][j]
                     , source->param.n9ble.seq_num + i
                     , source->param.n9ble.predict_timestamp
                     , buf_header->TimeStamp
-                    , source->param.n9ble.predict_packet_cnt
+                    , source->param.n9ble.predict_timestamp - buf_header->TimeStamp
+                    , source->param.n9ble.predict_packet_cnt[j]
                     , buf_header->EventCount
                     , buf_header->_reserved_byte_0Dh
-                    , source->streamBuffer.ShareBufferInfo.read_offset
-                    , source->param.n9ble.share_info_base_addr->write_offset
+                    , RO
+                    , WO
                 );
             }
-            source->param.n9ble.pkt_lost_cnt = 0;
+            source->param.n9ble.pkt_lost_cnt[j] = 0;
 
             if (((abs32((S32)(buf_header->TimeStamp - source->param.n9ble.predict_timestamp)) * 625) >> 1) > source->param.n9ble.iso_interval) {
-                DSP_MW_LOG_W("[BLE][source] ts info %d %d index:%d mis_cnt:%d", 4, buf_header->TimeStamp, source->param.n9ble.predict_timestamp, source->streamBuffer.ShareBufferInfo.read_offset, source->param.n9ble.seq_miss_cnt);
-                source->param.n9ble.seq_miss_cnt++;
+                DSP_MW_LOG_W("[BLE][source][%d] ts info %d %d index:%d mis_cnt:%d", 5, j, buf_header->TimeStamp, source->param.n9ble.predict_timestamp, RO, source->param.n9ble.seq_miss_cnt);
+                if (j == 0) {
+                    source->param.n9ble.seq_miss_cnt++;
+                }
             } else {
-                source->param.n9ble.seq_miss_cnt = 0;
+                if (j == 0) {
+                    source->param.n9ble.seq_miss_cnt = 0;
+                }
             }
-
 #if 0
             if(source->param.n9ble.predict_packet_cnt && source->param.n9ble.share_info_base_addr->write_offset == source->streamBuffer.ShareBufferInfo.read_offset) {
                 DSP_MW_LOG_E("[BLE][source] AVM RW access conflict seq: %d, PTS: %d, RO: %d, WO %d", 4
@@ -1352,29 +1574,31 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 static BOOL SourceReadBufN9Ble(SOURCE source, U8 *dst_
             }
 #endif
         } else {
-            g_ble_pkt_lost[i][0] = true;
+            g_ble_pkt_lost[i][j] = BLE_PKT_LOST;
 #if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
-            if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR || source->param.n9ble.codec_type == BT_BLE_CODEC_ULD){
-                N9ble_add_status_to_frames_in_packet(source, dst_addr, read_ptr,g_ble_abr_length, 2, 1);//status:1 -> PLC
+            if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR || source->param.n9ble.codec_type == BT_BLE_CODEC_ULD) {
+                N9ble_add_status_to_frames_in_packet(source, callback_ptr->EntryPara.in_ptr[j], read_ptr,g_ble_abr_length, frame_num, 1);//status:1 -> PLC
             } else {
 #endif
             memset(write_ptr, 0, g_ble_abr_length);
 #if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
             }
 #endif
-            if (!source->param.n9ble.pkt_lost_cnt) {
-                DSP_MW_LOG_W("[BLE][source] Rx packet LOST with SEQ: %d, PTS:%d, TS: %d, PCNT: %d, CNT: %d, VALID: 0x%X, RO: %4d, WO: %4d", 8
+            if (ble_pkt_lost_state_prev != g_ble_pkt_lost[i][j]) {
+                DSP_MW_LOG_W("[BLE][source][%d] Rx packet LOST  with SEQ: %6d, PTS:%8d, TS: %8d, DIFF: %5d, PCNT: %8d, CNT: %4d, VALID: 0x%X, RO: %4d, WO: %4d", 10
+                    , j
                     , source->param.n9ble.seq_num + i
                     , source->param.n9ble.predict_timestamp
                     , buf_header->TimeStamp
-                    , source->param.n9ble.predict_packet_cnt
+                    , -1
+                    , source->param.n9ble.predict_packet_cnt[j]
                     , buf_header->EventCount
                     , buf_header->_reserved_byte_0Dh
-                    , source->streamBuffer.ShareBufferInfo.read_offset
-                    , source->param.n9ble.share_info_base_addr->write_offset
+                    , RO
+                    , WO
                 );
             }
-            source->param.n9ble.pkt_lost_cnt = 1;
+            source->param.n9ble.pkt_lost_cnt[j] = 1;
 
             #ifdef AIR_BT_LE_LC3PLUS_ENABLE
             if (source->param.n9ble.plc_state_len != 0)
@@ -1387,8 +1611,8 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 static BOOL SourceReadBufN9Ble(SOURCE source, U8 *dst_
             g_pkt_lost_count++;
         }
 
-        if(source->param.n9ble.predict_packet_cnt) {
-            ++source->param.n9ble.predict_packet_cnt;
+        if(source->param.n9ble.predict_packet_cnt[j]) {
+            ++source->param.n9ble.predict_packet_cnt[j];
         }
 
 #if 0
@@ -1404,100 +1628,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 static BOOL SourceReadBufN9Ble(SOURCE source, U8 *dst_
         );
 
 #endif
-
-        if (source->param.n9ble.dual_cis_status != DUAL_CIS_DISABLED) {
-            read_ptr = (U8 *)((U32)source->param.n9ble.sub_share_info_base_addr + ((source->streamBuffer.ShareBufferInfo.read_offset + source->param.n9ble.dual_cis_buffer_offset)%source->streamBuffer.ShareBufferInfo.length));
-
-            write_ptr = (source->param.n9ble.dual_cis_status == DUAL_CIS_DISABLED) ? dst_addr + i * g_ble_abr_length : dst_addr + (i * 2 + 1) * g_ble_abr_length;
-
-            buf_header = (LE_AUDIO_HEADER *)read_ptr;
-            if (N9Ble_check_avm_frame_valid(buf_header, TRUE)) {
-                g_ble_pkt_lost[i][1] = false;
-#if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
-                if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR || source->param.n9ble.codec_type == BT_BLE_CODEC_ULD){
-                    N9ble_add_status_to_frames_in_packet(source, dst_addr2, read_ptr,  g_ble_abr_length, 2, 0); //status:0 -> Normal
-                } else {
-#endif
-                memcpy(write_ptr, read_ptr + BLE_AVM_FRAME_HEADER_SIZE, g_ble_abr_length);
-#if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
-                }
-#endif
-                if(!source->param.n9ble.predict_packet_cnt_sub) {
-                    source->param.n9ble.predict_packet_cnt_sub = buf_header->EventCount;
-                }
-
-                if(source->param.n9ble.predict_packet_cnt_sub != buf_header->EventCount) {
-                    DSP_MW_LOG_W("[BLE][source] Rx sub packet cnt mismatch %d != %d", 2
-                        , source->param.n9ble.predict_packet_cnt_sub
-                        , buf_header->EventCount
-                    );
-                    source->param.n9ble.predict_packet_cnt_sub = 0;
-                }
-
-                if (source->param.n9ble.pkt_lost_cnt_sub) {
-                    DSP_MW_LOG_W("[BLE][source] Rx sub packet RECV with SEQ: %d, PTS:%d, TS: %d, PCNT: %d, CNT: %d, VALID: 0x%X", 6
-                        , source->param.n9ble.seq_num + i
-                        , source->param.n9ble.predict_timestamp
-                        , buf_header->TimeStamp
-                        , source->param.n9ble.predict_packet_cnt_sub
-                        , buf_header->EventCount
-                        , buf_header->_reserved_byte_0Dh
-                    );
-                }
-                source->param.n9ble.pkt_lost_cnt_sub = 0;
-
-                if ((((abs32((S32)(buf_header->TimeStamp - source->param.n9ble.predict_timestamp)) * 625) >> 1) > source->param.n9ble.iso_interval)&& ((source->param.n9ble.seq_num % 1000) == 0)) {
-                    DSP_MW_LOG_W("[BLE][source] sub ts info %d %d index:%d", 3, buf_header->TimeStamp, source->param.n9ble.predict_timestamp, ((source->streamBuffer.ShareBufferInfo.read_offset + source->param.n9ble.dual_cis_buffer_offset)%source->streamBuffer.ShareBufferInfo.length));
-                }
-
-                #if 0
-                if(source->param.n9ble.predict_packet_cnt && source->param.n9ble.sub_share_info_base_addr->write_offset == ((source->streamBuffer.ShareBufferInfo.read_offset + source->param.n9ble.dual_cis_buffer_offset)%source->streamBuffer.ShareBufferInfo.length)) {
-                    DSP_MW_LOG_W("[BLE][source] sub AVM RW access conflict seq: %d, PTS: %d, RO: %d, WO %d", 4
-                        , source->param.n9ble.seq_num + i
-                        , source->param.n9ble.predict_timestamp
-                        , ((source->streamBuffer.ShareBufferInfo.read_offset + source->param.n9ble.dual_cis_buffer_offset)%source->streamBuffer.ShareBufferInfo.length)
-                        , source->param.n9ble.sub_share_info_base_addr->write_offset
-                    );
-                }
-                #endif
-            } else {
-                g_ble_pkt_lost[i][1] = true;
-#if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
-                if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR || source->param.n9ble.codec_type == BT_BLE_CODEC_ULD){
-                    N9ble_add_status_to_frames_in_packet(source, dst_addr2, read_ptr,  g_ble_abr_length, 2, 1); //status:1 -> PLC
-                } else {
-#endif
-                memset(write_ptr, 0, g_ble_abr_length);
-#if defined(AIR_CELT_DEC_V2_ENABLE) || defined(AIR_AUDIO_ULD_DECODE_ENABLE)
-                }
-#endif
-                if (!source->param.n9ble.pkt_lost_cnt_sub) {
-                    DSP_MW_LOG_W("[BLE][source] Rx sub packet LOST with SEQ: %d, PTS:%d, TS: %d, PCNT: %d, CNT: %d, VALID: 0x%X", 6
-                        , source->param.n9ble.seq_num + i
-                        , source->param.n9ble.predict_timestamp
-                        , buf_header->TimeStamp
-                        , source->param.n9ble.predict_packet_cnt_sub
-                        , buf_header->EventCount
-                        , buf_header->_reserved_byte_0Dh
-                    );
-                }
-                source->param.n9ble.pkt_lost_cnt_sub = 1;
-
-                #ifdef AIR_BT_LE_LC3PLUS_ENABLE
-                if (source->param.n9ble.plc_state_len != 0)
-                {
-                    if(source->param.n9ble.codec_type == BT_BLE_CODEC_LC3PLUS) {
-                        *plc_report_addr = LC3PLUS_DEC_FRAME_STATUS_PLC;
-                    }
-                }
-                #endif
-            }
-
-            if(source->param.n9ble.predict_packet_cnt_sub) {
-                ++source->param.n9ble.predict_packet_cnt_sub;
-            }
         }
-
         N9Ble_SourceUpdateLocalReadOffset(source, 1);
     }
 
@@ -1579,8 +1710,8 @@ VOID SourceInitN9Ble(SOURCE source)
     source->param.n9ble.IsFirstIRQ = TRUE;
     source->param.n9ble.write_offset_advance = 1; // force stream process to prevent first package lost
     source->param.n9ble.seq_num = 0;
-    source->param.n9ble.predict_packet_cnt = 0;
-    source->param.n9ble.predict_packet_cnt_sub = 0;
+    source->param.n9ble.predict_packet_cnt[0] = 0;
+    source->param.n9ble.predict_packet_cnt[1] = 0;
 #ifdef AIR_BLE_FEATURE_MODE_ENABLE
     source->param.n9ble.dl_reinit = false;
     g_ble_dl_ul_process_active = false;

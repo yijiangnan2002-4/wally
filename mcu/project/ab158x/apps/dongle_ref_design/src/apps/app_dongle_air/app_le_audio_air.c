@@ -280,8 +280,13 @@ void app_le_audio_air_start_pre_action(bt_handle_t handle, bt_status_t status)
                 param.role = p_info->role;
                 g_le_audio_air_callback(APP_LE_AUDIO_AIR_EVENT_ENABLE_SERVICE_COMPLETE, &param);
             }
-            ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_LE_AUDIO_RACE_READY,
-                                &p_info->role, 0, NULL, 100);
+            extern void *pvPortMalloc(size_t);
+            bt_bd_addr_t *addr = pvPortMalloc(sizeof(bt_bd_addr_t));
+            if (addr) {
+                memcpy(addr, &p_info->addr.addr, sizeof(bt_bd_addr_t));
+                ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_LE_AUDIO_RACE_READY,
+                                addr, sizeof(bt_bd_addr_t), NULL, 100);
+            }
             if (BT_HANDLE_INVALID != p_info->att_handle_role_cccd) {
                 p_info->state = APP_LE_AUDIO_AIR_STATE_SET_CCCD_ROLE;
                 if (BT_STATUS_SUCCESS == app_le_audio_air_set_cccd(handle, p_info->att_handle_role_cccd, APP_LE_AUDIO_ENABLE_NOTIFICATION)) {

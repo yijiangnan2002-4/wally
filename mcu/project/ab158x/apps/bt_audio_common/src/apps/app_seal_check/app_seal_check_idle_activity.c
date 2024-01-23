@@ -60,6 +60,9 @@
 #include "apps_debug.h"
 #include "ui_shell_manager.h"
 #include "bt_sink_srv_ami.h"
+#ifdef AIR_LE_AUDIO_ENABLE
+#include "bt_sink_srv_le.h"
+#endif
 #include "leakage_detection_control.h"
 #if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE_V2)
 #include "app_advance_passthrough.h"
@@ -73,10 +76,14 @@
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
 #include "app_in_ear_idle_activity.h"
 #endif
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
+#include "bt_ull_service.h"
+#include "bt_ull_le_service.h"
+#endif
 
 #define SC_TAG "app_seal_check "
 
-static app_leakage_detection_context_t s_app_leakage_detection_conext;  /* The variable records context. */
+static app_leakage_detection_context_t s_app_leakage_detection_context;  /* The variable records context. */
 
 static void app_leakage_detection_broadcast_ongoing_status(bool is_from_irq, bool is_ongoing)
 {
@@ -87,7 +94,7 @@ static void app_leakage_detection_broadcast_ongoing_status(bool is_from_irq, boo
 }
 
 /**
-* @brief      This function is callback from the middleware to tigger the vp of leakage detection.
+* @brief      This function is callback from the middleware to trigger the vp of leakage detection.
 * @param[in]  leakage_status, the leakage detection status.
 * @return     None.
 */
@@ -95,7 +102,7 @@ static void app_leakage_detection_trigger_vp_callback(uint16_t leakage_status)
 {
     bool *p_play_flag = NULL;
 
-    s_app_leakage_detection_conext.seal_checking = true;
+    s_app_leakage_detection_context.seal_checking = true;
 
     /* Play leakage detection VP with 1500ms delay. */
     p_play_flag = (bool *)pvPortMalloc(sizeof(bool));
@@ -120,31 +127,22 @@ static void app_leakage_detection_trigger_vp_callback(uint16_t leakage_status)
     }
 }
 
-
-static void app_leakage_detection_over(app_leakage_detection_context_t *ctx)
+static void app_leakage_detection_stop(bool is_vp_over)
 {
     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_LEAKAGE_DETECTION_VP_TRIGGER);
     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_LEAKAGE_DETECTION_VP);
     if (APP_LEAKAGE_DETECTION_VP_INDEX == voice_prompt_get_current_index()) {
         voice_prompt_stop(APP_LEAKAGE_DETECTION_VP_INDEX, VOICE_PROMPT_ID_INVALID, true);
     }
-    ctx->vp_cnt = 0;
-    ctx->seal_checking = false;
+    s_app_leakage_detection_context.vp_cnt = 0;
+    s_app_leakage_detection_context.seal_checking = false;
 
 #if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE_V2)
     app_advance_passthrough_set_ld_ongoing(FALSE);
 #endif
-    app_leakage_detection_broadcast_ongoing_status(false, false);
-}
-
-static void app_leakage_detection_stop()
-{
-    s_app_leakage_detection_conext.seal_checking = false;
-
-#if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE_V2)
-    app_advance_passthrough_set_ld_ongoing(FALSE);
-#endif
-    audio_anc_leakage_detection_stop();
+    if (!is_vp_over) {
+        audio_anc_leakage_detection_stop();
+    }
     app_leakage_detection_broadcast_ongoing_status(false, false);
 }
 
@@ -153,7 +151,7 @@ static void app_leakage_detection_vp_callback(uint32_t idx, voice_prompt_event_t
     /* Stop the leakage detection when the VP of leakage detection is interrupted by others VP. */
     if (idx == APP_LEAKAGE_DETECTION_VP_INDEX && err == VP_EVENT_PREEMPTED) {
         APPS_LOG_MSGID_I(SC_TAG" vp stoped", 0);
-        app_leakage_detection_stop();
+        app_leakage_detection_stop(false);
     }
 }
 
@@ -184,7 +182,7 @@ static void app_leakage_detection_event_callback(audio_anc_leakage_detection_con
             if (anc_enable) {
 #ifdef MTK_ANC_ENABLE
                 app_anc_service_suspend();
-                s_app_leakage_detection_conext.is_resume_anc = true;
+                s_app_leakage_detection_context.is_resume_anc = true;
 #endif
             } else {
 #ifdef AIR_TWS_ENABLE
@@ -203,9 +201,9 @@ static void app_leakage_detection_event_callback(audio_anc_leakage_detection_con
             }
 #endif
             app_leakage_detection_broadcast_ongoing_status(true, false);
-            if (s_app_leakage_detection_conext.is_resume_anc) {
+            if (s_app_leakage_detection_context.is_resume_anc) {
                 app_anc_service_resume();
-                s_app_leakage_detection_conext.is_resume_anc = false;
+                s_app_leakage_detection_context.is_resume_anc = false;
             }
             break;
         }
@@ -232,7 +230,7 @@ static bool app_leakage_detection_proc_ui_shell_events(ui_shell_activity_t *self
 
     switch (event_id) {
         case EVENT_ID_SHELL_SYSTEM_ON_CREATE: {
-            self->local_context = &s_app_leakage_detection_conext;
+            self->local_context = &s_app_leakage_detection_context;
             memset(self->local_context, 0, sizeof(app_leakage_detection_context_t));
             ctx = (app_leakage_detection_context_t *)self->local_context;
             ctx->in_idle = true;
@@ -293,11 +291,10 @@ static bool app_leakage_detection_proc_apps_internal_events(ui_shell_activity_t 
                                         APP_LEAKAGE_DETECTION_VP_REPEAT_INTERVAL);
 #endif
                 } else {
-                    ctx->seal_checking = false;
-                    app_leakage_detection_over(ctx);
+                    app_leakage_detection_stop(true);
                 }
             } else {
-                app_leakage_detection_stop();
+                app_leakage_detection_stop(false);
             }
 
             break;
@@ -309,7 +306,7 @@ static bool app_leakage_detection_proc_apps_internal_events(ui_shell_activity_t 
 
             APPS_LOG_MSGID_I(SC_TAG" [%02X] LEAKAGE_DETECTION_VP event", 1, role);
 #ifndef APP_LEAKAGE_DETECTION_VP_REPEAT_INTERVAL
-            app_leakage_detection_over(ctx);
+            app_leakage_detection_stop(true);
             if (role == BT_AWS_MCE_ROLE_PARTNER) {
                 ld_over = TRUE;
             }
@@ -365,7 +362,7 @@ static bool app_leakage_detection_proc_apps_internal_events(ui_shell_activity_t 
                 && sta_info->previous != APP_IN_EAR_STA_BOTH_OUT
                 && ctx->seal_checking) {
                 APPS_LOG_MSGID_I(SC_TAG" out ear interrupt LD.", 0);
-                app_leakage_detection_stop();
+                app_leakage_detection_stop(false);
             }
             break;
         }
@@ -384,20 +381,24 @@ static bool app_leakage_detection_proc_bt_state_events(ui_shell_activity_t *self
 {
     app_leakage_detection_context_t *ctx = (app_leakage_detection_context_t *)self->local_context;
 
-    if (event_id == BT_SINK_SRV_EVENT_STATE_CHANGE) {
-        bt_sink_srv_state_change_t *param = (bt_sink_srv_state_change_t *) extra_data;
-        /* Leakage detection will stop when the HFP is active. */
-        if ((param->previous < BT_SINK_SRV_STATE_INCOMING) && (param->current >= BT_SINK_SRV_STATE_INCOMING)) {
-            ctx->in_idle = false;
-            app_leakage_detection_over(ctx);
-        }
+    switch (event_id) {
+        case BT_SINK_SRV_EVENT_STATE_CHANGE: {
+            bt_sink_srv_state_change_t *param = (bt_sink_srv_state_change_t *) extra_data;
+            /* Leakage detection will stop when the HFP is active. */
+            if ((param->previous < BT_SINK_SRV_STATE_INCOMING) && (param->current >= BT_SINK_SRV_STATE_INCOMING)) {
+                ctx->in_idle = false;
+                if (audio_anc_leakage_compensation_get_status()) {
+                    app_leakage_detection_stop(false);
+                }
+            }
 
-        if (param->current < BT_SINK_SRV_STATE_INCOMING) {
-            ctx->in_idle = true;
+            if (param->current < BT_SINK_SRV_STATE_INCOMING) {
+                ctx->in_idle = true;
+            }
+            break;
         }
-    }
-#if defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_LE_AUDIO_CIS_ENABLE)
-        else if (event_id == BT_SINK_SRV_EVENT_LE_BIDIRECTION_LEA_UPDATE) {
+#ifdef AIR_LE_AUDIO_ENABLE
+        case BT_SINK_SRV_EVENT_LE_BIDIRECTION_LEA_UPDATE: {
             bt_sink_srv_bidirection_lea_state_update_t *event = (bt_sink_srv_bidirection_lea_state_update_t *)extra_data;
             if (event == NULL) {
                 return false;
@@ -405,12 +406,38 @@ static bool app_leakage_detection_proc_bt_state_events(ui_shell_activity_t *self
             APPS_LOG_MSGID_I(SC_TAG",[BIDIRECTION_LEA_STATE] le call start:event_state=%d ", 1, event->state);
             if (BT_SINK_SRV_BIDIRECTION_LEA_STATE_ENABLE == event->state) {
                 ctx->in_idle = false;
-                app_leakage_detection_over(ctx);
+                if (audio_anc_leakage_compensation_get_status()) {
+                    app_leakage_detection_stop(false);
+                }
             } else if (BT_SINK_SRV_BIDIRECTION_LEA_STATE_DISABLE == event->state) {
                 ctx->in_idle = true;
             }
+            break;
+        }
+        case LE_SINK_SRV_EVENT_REMOTE_INFO_UPDATE: {
+            bt_le_sink_srv_event_remote_info_update_t *ind = (bt_le_sink_srv_event_remote_info_update_t *)extra_data;
+            if (ind == NULL) {
+                break;
+            }
+
+            if (ind->pre_state == BT_BLE_LINK_CONNECTED
+                && ind->state == BT_BLE_LINK_DISCONNECTED) {
+#ifdef AIR_PROMPT_SOUND_ENABLE
+                if (APP_LEAKAGE_DETECTION_VP_INDEX == voice_prompt_get_current_index()) {
+                    voice_prompt_stop(APP_LEAKAGE_DETECTION_VP_INDEX, VOICE_PROMPT_ID_INVALID, true);
+                }
+#endif
+                if (ctx->seal_checking) {
+                    APPS_LOG_MSGID_I(SC_TAG" LD terminated LEA disconnected", 0);
+                    app_leakage_detection_stop(false);
+                }
+            }
+            break;
         }
 #endif
+        default:
+            break;
+    }
 
     return false;
 }
@@ -440,8 +467,8 @@ static bool app_leakage_detection_proc_bt_cm_events(ui_shell_activity_t *self,
                 }
 #endif
                 if (ctx->seal_checking) {
-                    APPS_LOG_MSGID_I(SC_TAG" LD terminated bt disconncted", 0);
-                    app_leakage_detection_stop();
+                    APPS_LOG_MSGID_I(SC_TAG" LD terminated bt disconnected", 0);
+                    app_leakage_detection_stop(false);
                 }
             }
 #ifdef MTK_AWS_MCE_ENABLE
@@ -453,7 +480,7 @@ static bool app_leakage_detection_proc_bt_cm_events(ui_shell_activity_t *self,
                         voice_prompt_stop(APP_LEAKAGE_DETECTION_VP_INDEX, VOICE_PROMPT_ID_INVALID, false);
                     }
 #endif
-                    app_leakage_detection_stop();
+                    app_leakage_detection_stop(false);
                 }
             //}
 #endif
@@ -465,6 +492,58 @@ static bool app_leakage_detection_proc_bt_cm_events(ui_shell_activity_t *self,
 
     return ret;
 }
+
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
+bool app_leakage_detection_proc_ull_events(ui_shell_activity_t *self,
+                                    uint32_t event_id,
+                                    void *extra_data,
+                                    size_t data_len)
+{
+    bool ret = false;
+
+    app_leakage_detection_context_t *ctx = (app_leakage_detection_context_t *)self->local_context;
+    if (ctx == NULL) {
+        return ret;
+    }
+    switch (event_id) {
+        case BT_ULL_EVENT_LE_STREAMING_START_IND: {
+            bt_ull_le_streaming_start_ind_t *bt_ull2_link_type = (bt_ull_le_streaming_start_ind_t *)extra_data;
+            if (BT_ULL_LE_STREAM_MODE_UPLINK == bt_ull2_link_type->stream_mode) {
+                ctx->in_idle = false;
+#ifdef AIR_PROMPT_SOUND_ENABLE
+                if (APP_LEAKAGE_DETECTION_VP_INDEX == voice_prompt_get_current_index()) {
+                    voice_prompt_stop(APP_LEAKAGE_DETECTION_VP_INDEX, VOICE_PROMPT_ID_INVALID, true);
+                }
+#endif
+                if (audio_anc_leakage_compensation_get_status()) {
+                    app_leakage_detection_stop(false);
+                }
+            }
+            break;
+        }
+        case BT_ULL_EVENT_LE_STREAMING_STOP_IND: {
+            bt_ull_le_streaming_start_ind_t *bt_ull2_link_type = (bt_ull_le_streaming_start_ind_t *)extra_data;
+            if (BT_ULL_LE_STREAM_MODE_UPLINK == bt_ull2_link_type->stream_mode) {
+                ctx->in_idle = true;
+            }
+            break;
+        }
+        case BT_ULL_EVENT_LE_DISCONNECTED: {
+#ifdef AIR_PROMPT_SOUND_ENABLE
+            if (APP_LEAKAGE_DETECTION_VP_INDEX == voice_prompt_get_current_index()) {
+                voice_prompt_stop(APP_LEAKAGE_DETECTION_VP_INDEX, VOICE_PROMPT_ID_INVALID, true);
+            }
+#endif
+            if (ctx->seal_checking) {
+                APPS_LOG_MSGID_I(SC_TAG" LD terminated ULL disconnected", 0);
+                app_leakage_detection_stop(false);
+            }
+            break;
+        }
+    }
+    return ret;
+}
+#endif
 
 #ifdef MTK_ANC_ENABLE
 static bool app_leakage_detection_proc_audio_anc_events(ui_shell_activity_t *self,
@@ -523,6 +602,13 @@ bool app_leakage_detection_idle_activity_proc(ui_shell_activity_t *self,
             /* Event come from bt connection manager, indicates the connection state of HFP or AWS. */
             ret = app_leakage_detection_proc_bt_cm_events(self, event_id, extra_data, data_len);
             break;
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
+        case EVENT_GROUP_BT_ULTRA_LOW_LATENCY: {
+            ret = app_leakage_detection_proc_ull_events(self, event_id, extra_data, data_len);
+            ret = false;
+            break;
+        }
+#endif
 #ifdef MTK_ANC_ENABLE
         case EVENT_GROUP_UI_SHELL_AUDIO_ANC: {
             ret = app_leakage_detection_proc_audio_anc_events(self, event_id, extra_data, data_len);

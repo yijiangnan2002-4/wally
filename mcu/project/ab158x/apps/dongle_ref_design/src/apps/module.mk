@@ -108,6 +108,7 @@ C_FILES += $(APPS_SRC)/app_dongle/app_dongle_race.c
 C_FILES += $(APPS_SRC)/app_dongle/app_dongle_common_idle_activity.c
 C_FILES += $(APPS_SRC)/app_dongle/app_dongle_connection_common.c
 C_FILES += $(APPS_SRC)/app_dongle/app_dongle_le_race.c
+C_FILES += $(APPS_SRC)/app_dongle/app_dongle_session_manager.c
 ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE),y)
 C_FILES += $(APPS_SRC)/app_dongle/app_ull_dongle_le.c
 endif
@@ -444,4 +445,19 @@ ifeq ($(AIR_MS_GIP_ENABLE), y)
 CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_ms_xbox
 C_FILES += $(APPS_SRC)/app_ms_xbox/app_ms_xbox_idle_activity.c
 endif # AIR_MS_GIP_ENABLE
+
+ifeq ($(AIR_HID_BT_HOGP_ENABLE), y)
+CFLAGS += -I$(SOURCE_DIR)/$(APPS_INC)/app_hid_hogp
+C_FILES += $(APPS_SRC)/app_hid_hogp/app_bolt_poc_idle_activity.c
+C_FILES += $(APPS_SRC)/app_hid_hogp/app_bolt_poc_data.c
+C_FILES += $(APPS_SRC)/app_hid_hogp/app_bolt_poc_race.c
+C_FILES += $(APPS_SRC)/app_hid_hogp/app_bolt_poc_bt_common.c
+C_FILES += $(APPS_SRC)/app_hid_hogp/app_bolt_poc_utility.c
+
+ifeq ($(AIR_HID_HOGP_VENDOR_SUPPORT_ENABLE), y)
+C_FILES += $(APPS_SRC)/app_hid_hogp/app_bolt_poc_report_usage.c
+C_FILES += $(APPS_SRC)/app_hid_hogp/app_bolt_poc_report_item.c
+C_FILES += $(APPS_SRC)/app_hid_hogp/app_bolt_poc_report_merge.c
+endif
+endif
 

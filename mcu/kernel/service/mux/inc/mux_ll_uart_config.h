@@ -42,6 +42,7 @@
 #define MUX_LL_UART_HEADER_CHECK_ENABLE     /**< To enable header check. */
 // #define MUX_LL_UART_CRC_CHECK_ENABLE        /**< To enable data CRC check. */
 #define MUX_LL_UART_TIMESTAMP_ENABLE        /**< To enable timestamp in every packet header. This is used to debug. */
+#define MUX_LL_UART_BTCLK_SYNC_P34_ENABLE   /**< To enable BT clock sync path 3 and 4. */
 
 #define _HAL_CORE_MCU_MEM_ATTR  ATTR_ZIDATA_IN_NONCACHED_SYSRAM
 #define _HAL_CORE_DSP0_MEM_ATTR ATTR_SHARE_ZIDATA

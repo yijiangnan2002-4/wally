@@ -110,6 +110,9 @@ extern const bt_gatts_service_t ble_gtbs_service;
 extern const bt_gatts_service_t ble_tbs_service;
 extern const bt_gatts_service_t ble_tmas_service;
 extern const bt_gatts_service_t ble_aird_service;
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+extern const bt_gatts_service_t ble_gmas_service;
+#endif
 #endif
 
 /**< gatt server collects all service. */
@@ -156,6 +159,9 @@ const bt_gatts_service_t *bt_if_clm_gatt_server[] = {
     //&ble_tbs_service,                    /**< handle range: 0xA001 to 0xA019. */
     &ble_tmas_service,                     /**< handle range: 0xA301 to 0xA303. */
     &ble_aird_service,                     /**< handle range: 0xA401 to 0xA406. */
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    &ble_gmas_service,                     /**< handle range: 0xA701 to 0xA703. */
+#endif
 #endif
 
     NULL

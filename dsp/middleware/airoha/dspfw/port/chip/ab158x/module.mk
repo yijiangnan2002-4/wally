@@ -79,6 +79,7 @@ C_SRC += $(DSPFW_PATH)/src/dsp_lower_layer/dsp_interface/dsp_nvkey.c
 C_SRC += $(DSPFW_PATH)/src/dsp_lower_layer/dsp_interface/dsp_dump.c
 C_SRC += $(DSPFW_PATH)/src/dsp_lower_layer/dsp_interface/dsp_vad.c
 C_SRC += $(DSPFW_PATH)/src/dsp_lower_layer/dsp_interface/dsp_vow.c
+C_SRC += $(DSPFW_PATH)/src/dsp_lower_layer/dsp_interface/dsp_play_en.c
 
 C_SRC += $(DSPFW_PATH)/src/dsp_lower_layer/dsp_stream/stream_audio_driver.c
 ifeq ($(AIR_AUDIO_HARDWARE_ENABLE),y)

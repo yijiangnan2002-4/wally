@@ -338,18 +338,18 @@ void hal_audio_set_stream_in_volume_for_multiple_microphone(uint16_t volume_inde
     gain_id0 = hal_audio_gain_index_multiple_mic_matching_table[gain_select].index0;
     gain_id1 = hal_audio_gain_index_multiple_mic_matching_table[gain_select].index1;
     if (gain_select < HAL_AUDIO_INPUT_GAIN_SELECTION_A0_A1) {
-        if ((volume_index0 != HAL_AUDIO_INVALID_DIGITAL_GAIN_INDEX) && (gain_id0!=INPUT_DIGITAL_GAIN_NUM)) {
+        if ((volume_index0 != HAL_AUDIO_INVALID_DIGITAL_GAIN_INDEX) && (gain_id0 != INPUT_DIGITAL_GAIN_NUM)) {
             afe.stream_in.digital_gain_index[gain_id0] = (int32_t)((int16_t)volume_index0);
         }
-        if ((volume_index1 != HAL_AUDIO_INVALID_DIGITAL_GAIN_INDEX) && (gain_id1!=INPUT_DIGITAL_GAIN_NUM)) {
+        if ((volume_index1 != HAL_AUDIO_INVALID_DIGITAL_GAIN_INDEX) && (gain_id1 != INPUT_DIGITAL_GAIN_NUM)) {
             afe.stream_in.digital_gain_index[gain_id1] = (int32_t)((int16_t)volume_index1);
         }
     } else {
-        if ((volume_index0 != HAL_AUDIO_INVALID_ANALOG_GAIN_INDEX) && (gain_id0!=INPUT_DIGITAL_GAIN_NUM)) {
+        if ((volume_index0 != HAL_AUDIO_INVALID_ANALOG_GAIN_INDEX) && (gain_id0 != INPUT_DIGITAL_GAIN_NUM)) {
             afe.stream_in.analog_gain_index[gain_id0] = (uint32_t)((int32_t)((int16_t)volume_index0));
             analog_input_gain.value_l = afe.stream_in.analog_gain_index[gain_id0];
         }
-        if ((volume_index1 != HAL_AUDIO_INVALID_ANALOG_GAIN_INDEX) && (gain_id1!=INPUT_DIGITAL_GAIN_NUM)){
+        if ((volume_index1 != HAL_AUDIO_INVALID_ANALOG_GAIN_INDEX) && (gain_id1 != INPUT_DIGITAL_GAIN_NUM)) {
             afe.stream_in.analog_gain_index[gain_id1] = (uint32_t)((int32_t)((int16_t)volume_index1));
             analog_input_gain.value_r = afe.stream_in.analog_gain_index[gain_id1];
         }

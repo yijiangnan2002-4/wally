@@ -36,6 +36,8 @@
 #ifndef __USB_HOST_SPEC_H__
 #define __USB_HOST_SPEC_H__
 
+#ifdef AIR_USB_HOST_ENABLE
+
 /* C library */
 #include <stdint.h>
 
@@ -132,5 +134,7 @@ typedef struct _usb_host_descriptor_configuration {
     uint8_t bMaxPower;                  /* Maximum power from bus, 2 mA units */
 } usb_host_descriptor_configuration_t;
 
+#endif /* AIR_USB_HOST_ENABLE */
 
-#endif
+#endif /* __USB_HOST_SPEC_H__ */
+

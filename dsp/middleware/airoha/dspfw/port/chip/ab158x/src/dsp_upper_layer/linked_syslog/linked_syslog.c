@@ -174,7 +174,7 @@ ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_125[] = LOG_DEBUG_PREFIX(anc) "[ADAP_PT
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_126[] = LOG_DEBUG_PREFIX(anc) "[ADAP_PT]dsp_anc_control_suspend_adapt_passthru, suspend %d, save original settings, ch(%d)(%d/%d/%d/%d), ch(%d)(%d/%d/%d/%d)";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_127[] = LOG_DEBUG_PREFIX(anc) "[ADAP_PT]ramp_reason %d, another smooth ramp is left behind! ch %d, g_smooth_ramp_dn_cnt %d, g_smooth_ramp_up_cnt %d";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_128[] = LOG_DEBUG_PREFIX(anc) "[anc_ramp_by_scenario] scenario_type %d, enable %d, ret %d, scenario_mask 0x%x, dominate_scenario %d->%d, anc_status %d->%d";
-ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_129[] = LOG_DEBUG_PREFIX(anc) "[anc_ramp_by_scenario] dominate_scenario_gain %d/%d/%d/%d/%d/%d";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_129[] = LOG_DEBUG_PREFIX(anc) "[anc_ramp_by_scenario] dominate_scenario_gain [%d] %d/%d/%d/%d/%d/%d";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_130[] = LOG_DEBUG_PREFIX(anc) "hal_anc_reset_biquad_taps reset:%d filter_id:%d";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_131[] = LOG_DEBUG_PREFIX(anc) "hal_anc_reset_deq_mix reset:%d filter_id:0x%x DGAIN_SET_0=0x%x CTL_0=0x%x";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_132[] = LOG_DEBUG_PREFIX(anc) "hal_anc_set_adap[%d]: filter_id:%d, sram_mux:0x%x, R_en(0x%x), W_en(0x%x), Value(0x%x)(0x%x)(0x%x)";
@@ -189,6 +189,15 @@ ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_140[] = LOG_DEBUG_PREFIX(anc) "[ANC_dec
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_141[] = LOG_DEBUG_PREFIX(anc) "[ANC_LIB]!!!!! (%d)ramp over count, reset (0x%x) !!!!!";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_142[] = LOG_DEBUG_PREFIX(anc) "hal_anc_set_FBC_SPE setting(%d) -> setting(%d), ramp request(%d)";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_143[] = LOG_DEBUG_PREFIX(anc) "[Wind Detection]anc_set_wnd_status, update wnd status %d->%d";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_144[] = LOG_DEBUG_PREFIX(anc) "[anc_pwd_howling_status]anc_control_set_howling_status, update(%d) w/ howling status(%d), 0x%x, %d";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_145[] = LOG_DEBUG_PREFIX(anc) "[SM_RAMP] sm_ramp_force_to_target[%d], ramp_mask (%d)0x%x/(%d)0x%x";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_146[] = LOG_DEBUG_PREFIX(anc) "[SM_RAMP] sub_ch(%d), ramp_mask 0x%x, other target_ramp_gain = %d(0x%x)";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_147[] = LOG_DEBUG_PREFIX(anc) "[SM_RAMP] Total target_ramp_gain(%d)(%d) = other ramp_gain(%d) + smooth_target_ramp_gain(%d), ramp_parameter_select %d, ramp_mask 0x%x";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_148[] = LOG_DEBUG_PREFIX(anc) "anc_update_anc_control_global, id %d, value 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_149[] = LOG_DEBUG_PREFIX(anc) "[ANC_API] ANC MIC Switch, sub_ch(%d), mic(%d)->(%d), ret 0x%x";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_150[] = LOG_DEBUG_PREFIX(anc) "ANC MIC Switch one-shot timer(%u) expire/start(%d)";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_151[] = LOG_DEBUG_PREFIX(anc) "[ANC_API] dsp_anc_task_event_handler, sub_event_id %d, filter_id %d, count %d";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_152[] = LOG_DEBUG_PREFIX(anc) "hal_anc_pwd_enable, AFE_ANC_PWR_(0x%x/0x%x)(0x%x/0x%x), AFE_IRQ_MCU_IRQ_MCU_(0x%x/0x%x)";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_999[] = LOG_DEBUG_PREFIX(anc) "[ANC] DBG";
 
 #ifdef AIR_FULL_ADAPTIVE_ANC_ENABLE
@@ -261,7 +270,8 @@ ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_65[] = LOG_DEBUG_PREFIX(full_adapt_a
 ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_66[] = LOG_DEBUG_PREFIX(full_adapt_anc) "pisplit_full_adapt preloader_pisplit_get_handle() error!!!!";
 ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_67[] = LOG_DEBUG_PREFIX(full_adapt_anc) "pisplit_full_adapt preloader_pisplit_load() error!!!!";
 ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_68[] = LOG_DEBUG_PREFIX(full_adapt_anc) "pisplit_full_adapt preloader_pisplit_unload() error!!!!";
-ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_69[] = LOG_DEBUG_PREFIX(full_adapt_anc) "[Full Adapt ANC]Compensation path %d, %d";
+ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_69[] = LOG_DEBUG_PREFIX(full_adapt_anc) "[Full Adapt ANC]Compensation path %d, (%d, %d)";
+ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_70[] = LOG_DEBUG_PREFIX(full_adapt_anc) "[FADP SYNC] DSP STATUS_SYNC %d %d %d %d\n";
 #endif
 
 #ifdef AIR_HW_VIVID_PT_ENABLE
@@ -475,6 +485,15 @@ ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_140[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_141[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_142[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_143[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_144[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_145[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_146[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_147[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_148[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_149[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_150[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_151[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_152[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_999[] = "";
 
 #ifdef AIR_FULL_ADAPTIVE_ANC_ENABLE
@@ -548,6 +567,7 @@ ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_66[] = "";
 ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_67[] = "";
 ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_68[] = "";
 ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_69[] = "";
+ATTR_LOG_STRING_LIB  g_FA_ANC_msg_id_string_70[] = "";
 #endif
 
 #ifdef AIR_HW_VIVID_PT_ENABLE

@@ -60,6 +60,22 @@ AIR_MCU_LINKER_SCRIPT_FILE = ab158x_flash_8m.ld
 # Dependency: AIR_LE_AUDIO_ENABLE must be enabled when this option is set to y.
 AIR_LE_AUDIO_BIS_ENABLE = n
 
+# This option is used to support LE Audio Telephony and Media Audio Profile.
+# Dependency: AIR_LE_AUDIO_ENABLE must be enabled when this option is set to y.
+AIR_LE_AUDIO_TMAP_ENABLE = n
+
+# This option is used to support LE Audio Hearing Access Profile.
+# Dependency: AIR_LE_AUDIO_ENABLE must be enabled when this option is set to y.
+AIR_LE_AUDIO_HAP_ENABLE = n
+
+# This option is used to support LE Audio Gaming Audio Profile.
+# Dependency: AIR_LE_AUDIO_ENABLE must be enabled when this option is set to y.
+AIR_LE_AUDIO_GMAP_ENABLE = n
+
+# This option is used to support Auracast
+# Dependency: AIR_LE_AUDIO_ENABLE and AIR_LE_AUDIO_BIS_ENABLE must be enabled when this option is set to y.
+AIR_LE_AUDIO_AURACAST_ENABLE = n
+
 # This option is to enable LE Audio dongle multi-device scenario.
 # Dependency: AIR_LE_AUDIO_DONGLE_ENABLE must be enabled when this option is set to y.
 AIR_LE_AUDIO_MULTI_DEVICE_ENABLE = n
@@ -111,6 +127,10 @@ AIR_USB_AUDIO_HID_ENABLE              = y
 # This option is used to support XBOX.
 # Dependency: AIR_USB_ENABLE must be enabled when this option is set to y.
 AIR_USB_XBOX_ENABLE                   = n
+
+# This option is used to support MFI.
+# Dependency: AIR_USB_ENABLE must be enabled when this option is set to y.
+AIR_USB_MFI_ENABLE                    = n
 
 # This option is used to enable race cmd.
 AIR_RACE_CMD_ENABLE                 = y
@@ -197,11 +217,6 @@ AIR_HAL_EXTERNAL_RAM_TYPE = none
 # This option is used for customization files
 # Usage: default, or other customers
 AIR_SDK_CUSTOMER = default
-
-##############################################
-# Include the MCU DSP shared feature option checking flow
-##############################################
-include $(PWD)/mcu_dsp_share_option_checker.mk
 
 ##############################################
 # Include the DSP feature makefile to inlcude the feature options are both supported in MCU and DSP

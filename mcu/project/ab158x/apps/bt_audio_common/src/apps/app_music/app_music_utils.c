@@ -116,12 +116,16 @@ bool app_music_ull2_uplink_enable = false;
 bool app_music_ull2_downlink_enable = false;
 #endif
 
-
 static app_music_avrcp_status_t s_app_music_avrcp_status = {0};
 
-bool app_music_get_active_device_addr(bt_bd_addr_t *active_addr)
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+static bt_status_t app_music_set_ull_link_volume(bt_ull_streaming_interface_t interface, bool volume_up, uint32_t volume);
+#endif
+
+bool app_music_get_active_device(uint8_t *active_type, bt_bd_addr_t *active_addr)
 {
-    if (NULL == active_addr) {
+    if (NULL == active_addr || active_type == NULL) {
+        APPS_LOG_MSGID_W(APP_MUSIC_ACTI" parameter is NULL", 0);
         return false;
     }
     bt_sink_srv_state_manager_played_device_t list = {0};
@@ -130,69 +134,68 @@ bool app_music_get_active_device_addr(bt_bd_addr_t *active_addr)
     list_num = bt_sink_srv_state_manager_get_played_device_list(&list, 1);
 #endif
     const bt_device_manager_link_record_t *link_info = bt_device_manager_link_record_get_connected_link();
-    if (link_info == NULL || (link_info != NULL && link_info->connected_num == 0)) {
-        return false;
-    }
-    if (list_num == 0) {
-        /* Use the last of address. */
-        memcpy((*active_addr), link_info->connected_device[0].remote_addr, sizeof(bt_bd_addr_t));
-    } else if (list_num == 1) {
+
+    if (list_num == 1) {
+        *active_type = list.type;
         memcpy((*active_addr), list.address, sizeof(bt_bd_addr_t));
+    } else if (list_num == 0) {
+        /* Use the last of invalid address. */
+        if (link_info == NULL || (link_info != NULL && link_info->connected_num == 0)) {
+            APPS_LOG_MSGID_W(APP_MUSIC_ACTI" get_active_device: get connected link info fail!", 0);
+            return false;
+        }
+        for (int i=0; i<link_info->connected_num; i++) {
+            if (link_info->connected_device[i].link_type == BT_DEVICE_MANAGER_LINK_TYPE_EDR) {
+                bt_bd_addr_t temp_addr = {0};
+                memcpy(temp_addr, link_info->connected_device[i].remote_addr, sizeof(bt_bd_addr_t));
+                bt_cm_profile_service_mask_t music_mask = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP) | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK);
+                bt_cm_profile_service_mask_t mask = bt_cm_get_connected_profile_services(temp_addr);
+                if ((mask & music_mask) == 0) {
+                    continue;
+                } else {
+                    *active_type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR;
+                    memcpy((*active_addr), link_info->connected_device[i].remote_addr, sizeof(bt_bd_addr_t));
+                    break;
+                }
+            } else {
+                *active_type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE;
+                memcpy((*active_addr), link_info->connected_device[i].remote_addr, sizeof(bt_bd_addr_t));
+                break;
+            }
+        }
     }
 #ifdef AIR_LE_AUDIO_ENABLE
-    if (link_info->connected_device[0].link_type == BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE) {
+    if (*active_type == BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE) {
         bt_device_manager_le_bonded_info_t *le_bond_info = bt_device_manager_le_get_bonding_info_by_addr_ext(active_addr);
         if (le_bond_info != NULL) {
             memcpy((*active_addr), le_bond_info->bt_addr.addr, sizeof(bt_bd_addr_t));
         }
     }
 #endif
-    APPS_LOG_MSGID_I(APP_MUSIC_ACTI" app_music_get_active_device_addr: =%02X:%02X:%02X:%02X:%02X:%02X", 6
+    APPS_LOG_MSGID_I(APP_MUSIC_ACTI" get_active_device: type=%d, list_num=%d, connected_num=%d", 3, *active_type, list_num, link_info->connected_num);
+    APPS_LOG_MSGID_I(APP_MUSIC_ACTI" get_active_device: addr=%02X:%02X:%02X:%02X:%02X:%02X", 6
                      , (*active_addr)[0], (*active_addr)[1], (*active_addr)[2], (*active_addr)[3], (*active_addr)[4], (*active_addr)[5]);
     return true;
 
 }
 
-uint8_t app_music_get_active_device_type()
-{
-    bt_sink_srv_device_t type = BT_SINK_SRV_DEVICE_INVALID;
-    bt_sink_srv_state_manager_played_device_t list = {0};
-    uint32_t list_num = 0;
-#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
-    list_num = bt_sink_srv_state_manager_get_played_device_list(&list, 1);
-#endif
-    const bt_device_manager_link_record_t *link_info = bt_device_manager_link_record_get_connected_link();
-    if (link_info == NULL || (link_info != NULL && link_info->connected_num == 0)) {
-        return type;
-    }
-    if (list_num == 0) {
-        /* Use the last of address. */
-        type = (link_info->connected_device[0].link_type == BT_DEVICE_MANAGER_LINK_TYPE_LE) ? BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE : BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR;
-    } else if (list_num == 1) {
-        type          = list.type;
-    }
-
-    APPS_LOG_MSGID_I(APP_MUSIC_ACTI" app_music_get_active_device_type: =%d", 1, type);
-    return type;
-}
-
 bool app_music_add_avrcp_status(bt_sink_srv_event_param_t *sink_event)
 {
     bool ret = false;
-    if (sink_event == NULL || s_app_music_avrcp_status.avrcp_num >= APP_MUISC_AVRCP_RECORD_MAX_NUM) {
+    if (sink_event == NULL || s_app_music_avrcp_status.avrcp_num >= APP_MUSIC_AVRCP_RECORD_MAX_NUM) {
         return ret;
     }
 
     uint8_t i = 0;
 
-    for (i = 0; i < APP_MUISC_AVRCP_RECORD_MAX_NUM; i++) {
+    for (i = 0; i < APP_MUSIC_AVRCP_RECORD_MAX_NUM; i++) {
         if (0 == memcmp(s_app_music_avrcp_status.avrcp_device[i].remote_addr, sink_event->avrcp_status_change.address, sizeof(bt_bd_addr_t))) {
             APPS_LOG_MSGID_I(APP_MUSIC_ACTI" app_music_add_avrcp_status already added.", 0);
             return ret;
         }
     }
 
-    for (i = 0; i < APP_MUISC_AVRCP_RECORD_MAX_NUM; i++) {
+    for (i = 0; i < APP_MUSIC_AVRCP_RECORD_MAX_NUM; i++) {
         if (!s_app_music_avrcp_status.avrcp_device[i].is_playing) {
             memcpy(s_app_music_avrcp_status.avrcp_device[i].remote_addr, sink_event->avrcp_status_change.address, sizeof(bt_bd_addr_t));
             s_app_music_avrcp_status.avrcp_device[i].is_playing = true;
@@ -217,7 +220,7 @@ bool app_music_remove_avrcp_status(bt_bd_addr_t *addr)
     }
 
     uint8_t i = 0;
-    for (i = 0; i < APP_MUISC_AVRCP_RECORD_MAX_NUM; i++) {
+    for (i = 0; i < APP_MUSIC_AVRCP_RECORD_MAX_NUM; i++) {
         if (s_app_music_avrcp_status.avrcp_device[i].is_playing
             && (0 == memcmp(s_app_music_avrcp_status.avrcp_device[i].remote_addr, *addr, sizeof(bt_bd_addr_t)))) {
             memset(s_app_music_avrcp_status.avrcp_device[i].remote_addr, 0, sizeof(bt_bd_addr_t));
@@ -246,8 +249,7 @@ bt_status_t app_music_send_actions_by_address(bt_sink_srv_action_t action)
     if (BT_SINK_SRV_ACTION_PLAY == action
         || BT_SINK_SRV_ACTION_PLAY_PAUSE == action) {
         bt_sink_srv_action_play_t play_device = {0};
-        play_device.type = app_music_get_active_device_type();
-        if (app_music_get_active_device_addr(&(play_device.address))) {
+        if (app_music_get_active_device(&(play_device.type), &(play_device.address))) {
             bt_status =  bt_sink_srv_send_action(action, &play_device);
         } else {
             bt_status = bt_sink_srv_send_action(action, NULL);
@@ -342,20 +344,12 @@ static bool app_music_do_music_actions(bool from_aws_data, ui_shell_activity_t *
         }
     }
 
-#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
-    uint32_t a2dp_conn_num = 0;
-    uint32_t ull_conn_num = 0;
-    a2dp_conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK),
-                                                NULL, 0);
-    ull_conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_ULL),
-                                               NULL, 0);
-    APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_do_music_actions: a2dp_conn_num=%d, ull_conn_num=%d, mmi_state=%d",
-                     3, a2dp_conn_num, ull_conn_num, apps_config_key_get_mmi_state());
-
-#if defined(MTK_AWS_MCE_ENABLE) && !defined (AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
-    /* Partner can not send action to ull for control music, so relay to agent.*/
+#if defined(MTK_AWS_MCE_ENABLE)
     if ((BT_AWS_MCE_ROLE_PARTNER == bt_device_manager_aws_local_info_get_role())
         && (TRUE == app_home_screen_idle_activity_is_aws_connected())
+#ifdef AIR_LE_AUDIO_BIS_ENABLE
+        && !app_le_audio_bis_is_streaming()
+#endif
         && (BT_SINK_SRV_ACTION_PLAY_PAUSE == sink_action
             || BT_SINK_SRV_ACTION_PREV_TRACK == sink_action
             || BT_SINK_SRV_ACTION_NEXT_TRACK == sink_action
@@ -365,6 +359,17 @@ static bool app_music_do_music_actions(bool from_aws_data, ui_shell_activity_t *
         return ret;
     }
 #endif
+
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
+    uint32_t a2dp_conn_num = 0;
+    uint32_t ull_conn_num = 0;
+    a2dp_conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK),
+                                                NULL, 0);
+    ull_conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_ULL),
+                                               NULL, 0);
+    APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_do_music_actions: a2dp_conn_num=%d, ull_conn_num=%d, mmi_state=%d",
+                     3, a2dp_conn_num, ull_conn_num, apps_config_key_get_mmi_state());
+
     if (app_music_get_ull_is_streaming()
         || (ull_conn_num  != 0 && a2dp_conn_num == 0)
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
@@ -481,7 +486,7 @@ static bool app_music_do_music_actions(bool from_aws_data, ui_shell_activity_t *
                 if (sink_action == BT_SINK_SRV_ACTION_VOLUME_UP
                     || sink_action == BT_SINK_SRV_ACTION_VOLUME_DOWN) {
 #if defined(MTK_AWS_MCE_ENABLE)
-                    /* Partner can not send volume address action to middlerware for control music, so relay to agent handle.*/
+                    /* Partner can not send volume address action to middleware for control music, so relay to agent handle.*/
                     if ((BT_AWS_MCE_ROLE_PARTNER == bt_device_manager_aws_local_info_get_role())
                         && (TRUE == app_home_screen_idle_activity_is_aws_connected())) {
                         apps_aws_sync_event_send(EVENT_GROUP_UI_SHELL_KEY, action);
@@ -490,7 +495,7 @@ static bool app_music_do_music_actions(bool from_aws_data, ui_shell_activity_t *
 #endif
                     {
                         bt_sink_srv_action_volume_t volume_addr = {0};
-                        bool get_volume_addr_ret = app_music_get_volume_device_addr(&volume_addr);
+                        bool get_volume_addr_ret = app_music_get_active_device((uint8_t *)&(volume_addr.type), &(volume_addr.address));
                         if (get_volume_addr_ret) {
 #ifdef AIR_LE_AUDIO_ENABLE
                             if (volume_addr.type == BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE) {
@@ -565,6 +570,25 @@ apps_config_key_action_t app_music_utils_proc_key_events(ui_shell_activity_t *se
     if (!app_music_get_curr_link_is_connected()) {
         action = KEY_ACTION_INVALID;
     }
+
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+    if (action == KEY_ULL_UL_VOL_UP || action == KEY_ULL_UL_VOL_DN) {
+        if (true == app_music_ull2_uplink_enable) {
+            bt_status_t bt_status = BT_STATUS_FAIL;
+            bool volume_up = (action == KEY_ULL_UL_VOL_UP) ? true : false;
+            if (BT_ULL_MIC_CLIENT ==  bt_ull_le_srv_get_client_type()) {
+                bt_status = app_music_set_ull_link_volume(BT_ULL_STREAMING_INTERFACE_LINE_OUT, volume_up, 1);
+            } else {
+                bt_status = app_music_set_ull_link_volume(BT_ULL_STREAMING_INTERFACE_MICROPHONE, volume_up, 1);
+            }
+            if (bt_status == BT_STATUS_SUCCESS) {
+                 return action;
+            }
+        } else {
+            action = KEY_ACTION_INVALID;
+        }
+    }
+#endif
 
     if (KEY_ACTION_INVALID != action) {
         ret = app_music_do_music_actions(FALSE, self, action);
@@ -775,7 +799,7 @@ bool app_music_idle_proc_aws_data_events(ui_shell_activity_t *self, uint32_t eve
                 if (s_app_music_avrcp_status.avrcp_num != 0) {
                     bt_sink_srv_state_t bt_sink_state = bt_sink_srv_get_state();
                     if ((!local_context->music_playing) && (bt_sink_state < BT_SINK_SRV_STATE_INCOMING && bt_sink_state >= BT_SINK_SRV_STATE_CONNECTED)) {
-                        for (uint8_t i = 0; i < APP_MUISC_AVRCP_RECORD_MAX_NUM; i++) {
+                        for (uint8_t i = 0; i < APP_MUSIC_AVRCP_RECORD_MAX_NUM; i++) {
                             if (s_app_music_avrcp_status.avrcp_device[i].is_playing) {
                                 local_context->isAutoPaused = false;
                                 local_context->music_playing = true;
@@ -819,7 +843,7 @@ bool app_music_idle_proc_aws_data_events(ui_shell_activity_t *self, uint32_t eve
 #elif defined(MTK_BATTERY_MANAGEMENT_ENABLE)
         local_context->isPartnerCharging = battery & PARTNER_BATTERY_CHARGING ? true : false;
 #endif
-        /* Update music mixing mode when parter's battery info updated. */
+        /* Update music mixing mode when partner's battery info updated. */
 #if !defined(AIR_SPEAKER_ENABLE)
         app_music_checkAudioState(local_context);
 #endif
@@ -929,7 +953,7 @@ static bool app_music_idle_check_and_start_music(struct _ui_shell_activity *self
     }
 
     /*
-     * this is a sepcial case. it is means that the old Agent send the play action and start the shell activity, but the new Agent
+     * this is a special case. it is means that the old Agent send the play action and start the shell activity, but the new Agent
      * still in pause status because of the SINK_SRV not report the event about the music to play status.
      */
     if (sta_info->current != APP_IN_EAR_STA_BOTH_IN && sta_info->previous != APP_IN_EAR_STA_BOTH_OUT) {
@@ -1204,12 +1228,12 @@ static bt_status_t app_music_set_ull_link_volume(bt_ull_streaming_interface_t in
     }
 
     ret = bt_ull_action(BT_ULL_ACTION_SET_STREAMING_VOLUME, &volume_param, sizeof(bt_ull_volume_t));
+
+    APPS_LOG_MSGID_I(APP_MUSIC_UTILS" set_ull_link_volume: interface=0x%x, volume_up=%d, volume=%d, ret=%d",
+                     4, interface, volume_up, volume, ret);
     return ret;
 }
-
 #endif
-
-
 
 bool app_music_set_ull_volume(bool volume_up, uint32_t volume)
 {
@@ -1217,21 +1241,12 @@ bool app_music_set_ull_volume(bool volume_up, uint32_t volume)
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     bt_status_t bt_status = BT_STATUS_FAIL;
 
-    if (true == app_music_ull2_uplink_enable) {
-        if (BT_ULL_MIC_CLIENT ==  bt_ull_le_srv_get_client_type()) {
-            bt_status = app_music_set_ull_link_volume(BT_ULL_STREAMING_INTERFACE_LINE_OUT, volume_up, volume);
-        } else {
-            bt_status = app_music_set_ull_link_volume(BT_ULL_STREAMING_INTERFACE_MICROPHONE, volume_up, volume);
-        }
-    } 
     bt_status = app_music_set_ull_link_volume(BT_ULL_STREAMING_INTERFACE_SPEAKER, volume_up, volume);
 
     if (bt_status == BT_STATUS_SUCCESS) {
         ret = true;
     }
 #endif
-    APPS_LOG_MSGID_I(APP_MUSIC_UTILS" set_ull_volume: volume_up=%d, volume=%d, ret=%d",
-                     3, volume_up, volume, ret);
     return ret;
 }
 
@@ -1326,42 +1341,6 @@ void app_music_update_ull2_link_state(uint32_t event_id, bt_ull_le_streaming_sta
 }
 
 
-#endif
-
-#ifdef APP_MUSIC_ADJUST_VOLUME_VIA_ADDRESS_ENABLE
-bool app_music_get_volume_device_addr(bt_sink_srv_action_volume_t *volume_addr)
-{
-    bool ret = true;
-    bt_sink_srv_state_manager_played_device_t list = {0};
-    uint32_t list_num = 0;
-#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
-    list_num = bt_sink_srv_state_manager_get_played_device_list(&list, 1);
-#endif
-    const bt_device_manager_link_record_t *link_info = bt_device_manager_link_record_get_connected_link();
-    if (link_info == NULL || (link_info != NULL && link_info->connected_num == 0)) {
-        return false;
-    }
-    if (list_num == 0) {
-        /* Use the last of address. */
-        volume_addr->type = (link_info->connected_device[0].link_type == BT_DEVICE_MANAGER_LINK_TYPE_LE) ? BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE : BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR;
-        memcpy(volume_addr->address, link_info->connected_device[0].remote_addr, sizeof(bt_bd_addr_t));
-    } else if (list_num == 1) {
-        volume_addr->type          = list.type;
-        memcpy(volume_addr->address, list.address, sizeof(bt_bd_addr_t));
-    }
-#ifdef AIR_LE_AUDIO_ENABLE
-    if (volume_addr->type == BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE) {
-        bt_device_manager_le_bonded_info_t *le_bond_info = bt_device_manager_le_get_bonding_info_by_addr_ext(&volume_addr->address);
-        if (le_bond_info != NULL) {
-            memcpy(volume_addr->address, le_bond_info->bt_addr.addr, sizeof(bt_bd_addr_t));
-        }
-    }
-#endif
-
-    APPS_LOG_MSGID_I(APP_MUSIC_UTILS"list_num=%d, conn_num=%d, addr_type=%x",
-                     3, list_num, link_info->connected_num, volume_addr->type);
-    return ret;
-}
 #endif
 
 #ifdef AIR_ROTARY_ENCODER_ENABLE

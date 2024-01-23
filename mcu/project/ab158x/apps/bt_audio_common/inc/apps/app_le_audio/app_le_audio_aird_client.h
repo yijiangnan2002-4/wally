@@ -45,7 +45,7 @@ typedef uint8_t app_le_audio_aird_client_event_t;
 #define APP_LE_AUDIO_AIRD_CLIENT_STATE_IDLE                     0
 #define APP_LE_AUDIO_AIRD_CLIENT_STATE_SRV_DISCOVERY_COMPLETE   1
 #define APP_LE_AUDIO_AIRD_CLIENT_STATE_SET_CCCD_TX              2
-#define APP_LE_AUDIO_AIRD_CLIENT_STATE_INFOM_DEVICE_STATUS      3
+#define APP_LE_AUDIO_AIRD_CLIENT_STATE_INFORM_DEVICE_STATUS     3
 #define APP_LE_AUDIO_AIRD_CLIENT_STATE_READY                    4
 #define APP_LE_AUDIO_AIRD_CLIENT_STATE_MAX                      5
 typedef uint8_t app_le_audio_aird_client_state_t;

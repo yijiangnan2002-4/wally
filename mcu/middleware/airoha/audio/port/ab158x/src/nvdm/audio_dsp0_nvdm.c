@@ -368,12 +368,18 @@ uint16_t nat_table_nvkey_id_replace(uint16_t nvdm_id)
 
     replace_nvdm_id = nvdm_id;
 
+#if defined(AIR_BT_HFP_ENABLE)
 #if defined(AIR_HFP_FEATURE_MODE_ENABLE) || defined(AIR_AUDIO_DETACHABLE_MIC_ENABLE)
     replace_nvdm_id = hfp_restore_feature_mode_nvkey_id(replace_nvdm_id);
 #endif
+#endif
+
+#if defined(AIR_BT_CODEC_BLE_ENABLED)
 #if defined(AIR_BLE_FEATURE_MODE_ENABLE) || defined(AIR_AUDIO_DETACHABLE_MIC_ENABLE)
     replace_nvdm_id = ble_restore_feature_mode_nvkey_id(replace_nvdm_id);
 #endif
+#endif
+
 #ifdef AIR_WIRED_AUDIO_ENABLE
     extern uint16_t wired_audio_restore_feature_mode_nvkey_id(uint16_t nvkey_id);
     replace_nvdm_id = wired_audio_restore_feature_mode_nvkey_id(replace_nvdm_id);

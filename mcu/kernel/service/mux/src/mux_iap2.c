@@ -775,31 +775,40 @@ static void mux_iap2_send_context_data(mux_iap2_context_t *context)
 
             context->read_write_point.tx_send_is_running = MUX_DEVICE_HW_IDLE;
         } else {
-            mux_iap2_header.session_id = ((mux_iap2_header_t *)(context->read_write_point.tx_send_src_address))->session_id;
-            LOG_MSGID_I(MUX_IAP2, "[MUX][iAP2]send context data transparent, session_id:0x%x", 1, mux_iap2_header.session_id);
-            LOG_MSGID_I(MUX_IAP2, "[MUX][iAP2]tx_send_src_address:0x%x, packet_session_id:%x, current head:0x%x tail:0x%x", 4,
-                        context->read_write_point.tx_send_src_address, mux_iap2_header.session_id, context->tx_head_packet, context->tx_tail_packet);
+            mux_iap2_header.session_id = ((mux_iap2_header_t *)(send_packet->data))->session_id;
+
+            LOG_MSGID_I(MUX_IAP2, "[MUX][iAP2]send_context_data, transparent tx_send_src_address: 0x%x tx_send_src_length: %d", 2,
+                context->read_write_point.tx_send_src_address, context->read_write_point.tx_send_src_length);
+
+            LOG_MSGID_I(MUX_IAP2, "[MUX][iAP2]send_context_data, transparent tx_head_packet: 0x%x tx_tail_packet: 0x%x send_data: 0x%x, send_length: %d", 4,
+                context->tx_head_packet, context->tx_tail_packet, send_packet->data, send_packet->data_length);
 
             if (!MUX_IAP2_IS_SESSION_CONNECTED(context)) {
-                LOG_MSGID_I(MUX_IAP2, "[MUX][iAP2]session has closed transparent, context:0x%x", 1, context);
+                LOG_MSGID_I(MUX_IAP2, "[MUX][iAP2]send_context_data, transparent session has closed, context:0x%x", 1, context);
                 context->read_write_point.tx_send_is_running = MUX_DEVICE_HW_IDLE;
                 break;
             }
 
             if (!MUX_IAP2_IS_SESSION_VALID(context, mux_iap2_header.session_id)) {
                 /*specific ea session has closed, so abandon this packet, adjust rptr, free packet, show log*/
+                LOG_MSGID_I(MUX_IAP2, "[MUX][iAP2]send_context_data, transparent abandon invalid packet, session_id: 0x%x", 1, mux_iap2_header.session_id);
                 context->read_write_point.tx_send_is_running = MUX_DEVICE_HW_IDLE;
                 mux_iap2_assert(0 && "invalid session id");
-                //context->tx_head_packet = send_packet->next;
-                //mux_iap2_free_packet(send_packet);
-                //continue;
+                context->tx_head_packet = send_packet->next;
+                if (context->tx_head_packet == NULL) {
+                    context->tx_tail_packet = NULL;
+                }
+                mux_iap2_free_packet(send_packet);
+                continue;
             }
 
-            iap2_status_t ret = iap2_send_data_by_external_accessory_session(context->spp_handle, mux_iap2_header.session_id,
-                                                                                 (uint8_t *)(context->read_write_point.tx_send_src_address + sizeof(mux_iap2_header_t)),
-                                                                                 send_packet->data_length - sizeof(mux_iap2_header_t));
-            LOG_MSGID_I(MUX_IAP2, "[MUX][iAP2]iap2_send_data_by_external_accessory_session ret: 0x%x", 1, ret);
+            LOG_HEXDUMP_I(MUX_IAP2, "[MUX][iAP2]", send_packet->data, send_packet->data_length);
 
+            if (iap2_send_data_by_external_accessory_session(context->spp_handle, mux_iap2_header.session_id,
+                    (uint8_t *)(send_packet->data+ sizeof(mux_iap2_header_t)),
+                    send_packet->data_length - sizeof(mux_iap2_header_t)) != IAP2_STATUS_SUCCESS ){
+                LOG_MSGID_I(MUX_IAP2, "[MUX][iAP2]send_context_data, failed", 0);
+            }
             context->tx_head_packet = send_packet->next;
             if (context->tx_head_packet == NULL) {
                 context->tx_tail_packet = NULL;

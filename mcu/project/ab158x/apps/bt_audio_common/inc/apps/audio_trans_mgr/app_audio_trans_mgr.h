@@ -54,7 +54,7 @@ extern "C" {
 typedef enum {
     APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_TRANSMITTER_EV    = 0,
     APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_RESOURCE_CTRL_EV  = 1,
-    APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_SEUDO_DEV_EV      = 2,
+    APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_PSEUDO_DEV_EV      = 2,
     APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_SELF_CMD          = 3,
     APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_AUD_SRC_CTRL_EV   = 4,
     APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_SALVE_EV          = 5,
@@ -71,7 +71,7 @@ typedef enum {
 } app_audio_trans_mgr_usr_type_t;
 
 #define APP_AUDIO_TRANS_MGR_CTRL_TYPE_RESOURCE_CTRL 0
-#define APP_AUDIO_TRANS_MGR_CTRL_TYPE_SEUDO_DEVICE 1
+#define APP_AUDIO_TRANS_MGR_CTRL_TYPE_PSEUDO_DEVICE 1
 #define APP_AUDIO_TRANS_MGR_CTRL_TYPE_AUD_SRC_CTRL 2
 #define APP_AUDIO_TRANS_MGR_CTRL_TYPE_NONE 0xff
 
@@ -105,7 +105,7 @@ typedef struct {
     uint8_t mute;
     uint8_t en_side_tone;
     app_audio_trans_mgr_ctrl_type_t ctrl_type;
-    audio_transmitter_runtime_config_type_t rconfig_type;
+    audio_transmitter_runtime_config_type_t rt_config_type;
     const char *name;
     void *usr_data;
 } app_audio_trans_mgr_usr_t;
@@ -114,7 +114,7 @@ void *app_audio_trans_mgr_register(app_audio_trans_mgr_usr_t *usr);
 void app_audio_trans_mgr_init_audio(void *usr);
 void app_audio_trans_mgr_start_audio(void *usr);
 void app_audio_trans_mgr_set_volume(void *usr, uint8_t l, uint8_t r);
-void app_audio_trans_mgrs_set_db(void *usr, int32_t l, int32_t r);
+void app_audio_trans_mgr_set_db(void *usr, int32_t l, int32_t r);
 void app_audio_trans_mgr_set_mix_ratio(void *usr, uint8_t ratio);
 void app_audio_trans_mgr_set_mute(void *usr, uint8_t mute);
 void app_audio_trans_mgr_stop_audio(void *usr);

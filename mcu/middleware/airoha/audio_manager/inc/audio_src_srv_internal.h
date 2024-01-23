@@ -52,6 +52,7 @@ typedef enum {
     AUDIO_SRC_SRV_MSG_PLAY,
     AUDIO_SRC_SRV_MSG_STOP,
     AUDIO_SRC_SRV_MSG_PLAYING,
+    AUDIO_SRC_SRV_MSG_RESUME,
 } audio_src_srv_message_t;
 
 typedef struct {

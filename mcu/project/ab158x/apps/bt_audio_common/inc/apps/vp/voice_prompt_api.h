@@ -54,7 +54,7 @@ extern "C" {
 #define VOICE_PROMPT_ID_MAX               (0xFFFD)
 
 #define VOICE_PROMPT_VP_INDEX_INVALID                    0xFFFFFFFF
-#define VOICE_PROMPT_VP_LEANGUAGE_INVALID                0xFF
+#define VOICE_PROMPT_VP_LANGUAGE_INVALID                0xFF
 
 typedef uint16_t voice_prompt_lang_codec_t;  /* Type of language codec. */
 #define VOICE_PROMPT_LANG_CODEC_INVALID 0xFFFF
@@ -75,7 +75,7 @@ typedef uint16_t voice_prompt_control_mask_t;
  * Only works when VOICE_PROMPT_CONTROL_MASK_SYNC set.
  * Only for Agent. */
 #define VOICE_PROMPT_CONTROL_MASK_SYNC_FAIL_NOT_PLAY     0x0008
-/* If there's other VP playing when it is recved on Partner, then don't play it.
+/* If there's other VP playing when it is recvd on Partner, then don't play it.
  * Only works when VOICE_PROMPT_CONTROL_MASK_SYNC set.
  * Only for Partner. */
 #define VOICE_PROMPT_CONTROL_MASK_SYNCED_FAIL_NOT_PLAY   0x0010
@@ -131,7 +131,7 @@ typedef enum {
     VP_STATUS_FILE_NOT_FOUND,
     VP_STATUS_SNIFF_EXITING,
     VP_STATUS_AWS_DISCONNECT,
-    VP_STATUS_AWS_IF_LOCEKD,
+    VP_STATUS_AWS_IF_LOCKED,
 } voice_prompt_status_t;
 
 /* User callback. */
@@ -238,13 +238,15 @@ voice_prompt_status_t voice_prompt_get_support_language(uint16_t *buffer, uint16
 /* The follow apis is based on voice_prompt_play and it's for the vp which frequently used. */
 voice_prompt_status_t voice_prompt_play_vp_press();
 voice_prompt_status_t voice_prompt_play_sync_vp_press();
-voice_prompt_status_t voice_prompt_play_vp_successed();
-voice_prompt_status_t voice_prompt_play_sync_vp_successed();
+voice_prompt_status_t voice_prompt_play_vp_succeed();
+voice_prompt_status_t voice_prompt_play_sync_vp_succeed();
 voice_prompt_status_t voice_prompt_play_vp_failed();
 voice_prompt_status_t voice_prompt_play_sync_vp_failed();
 voice_prompt_status_t voice_prompt_play_vp_power_off(voice_prompt_control_mask_t mask);
 voice_prompt_status_t voice_prompt_play_vp_power_on();
 
+#define voice_prompt_play_vp_successed voice_prompt_play_vp_succeed
+#define voice_prompt_play_sync_vp_successed voice_prompt_play_sync_vp_succeed
 #ifdef __cplusplus
 }
 #endif

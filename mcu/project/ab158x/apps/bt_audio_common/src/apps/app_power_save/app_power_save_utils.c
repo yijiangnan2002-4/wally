@@ -145,7 +145,7 @@ bool app_power_save_utils_add_new_callback_func(get_power_saving_target_mode_fun
 }
 
 #if !defined(AIR_SILENCE_DETECTION_ENABLE) && !defined(AIR_DONGLE_ENABLE)
-static bool app_power_saving_get_all_streamming_state()
+static bool app_power_saving_get_all_streaming_state()
 {
     bool ret = true;
     if (BT_SINK_SRV_STATE_STREAMING > bt_sink_srv_get_state()
@@ -202,6 +202,7 @@ app_power_saving_target_mode_t app_power_save_utils_get_target_mode(ui_shell_act
         /* Default Power saving mode is POWER_OFF_SYSTEM, see inc/boards/<board_type>/apps_customer_config.h. */
         if (APP_POWER_SAVING_BT_CONNECTED > local_context->bt_sink_srv_state
 #ifdef AIR_LE_AUDIO_ENABLE
+            && (local_context->le_sink_srv_state < APP_POWER_SAVING_BT_CONNECTED)
             && !app_le_audio_is_connected()
 #endif
 #ifdef AIR_LE_AUDIO_BIS_ENABLE
@@ -251,7 +252,7 @@ app_power_saving_target_mode_t app_power_save_utils_get_target_mode(ui_shell_act
 #endif
             && app_power_saving_get_cfg()->silence_detect_enable
 #ifndef AIR_DONGLE_ENABLE
-            && app_power_saving_get_all_streamming_state() == false
+            && app_power_saving_get_all_streaming_state() == false
 #endif
            ) {
             APPS_LOG_MSGID_I(LOG_TAG" Need power off by silence ", 0);
@@ -277,7 +278,7 @@ app_power_saving_target_mode_t app_power_save_utils_get_target_mode(ui_shell_act
             if (power_saving_module->get_mode_func) {
                 temp_mode = power_saving_module->get_mode_func();
             } else {
-                APPS_LOG_MSGID_E(LOG_TAG" get_tagert_mode, power_saving_module->get_mode_func = NULL", 0);
+                APPS_LOG_MSGID_E(LOG_TAG" get_target_mode, power_saving_module->get_mode_func = NULL", 0);
             }
             /* Select "lower" target_mode. */
             if (target_mode > temp_mode) {
@@ -346,6 +347,8 @@ bool app_power_save_utils_update_bt_state(ui_shell_activity_t *self, uint32_t ev
 {
     app_power_saving_context_t *local_context = (app_power_saving_context_t *)self->local_context;
     bool bt_changed = FALSE;
+    bool le_sink_change = FALSE;
+
     if (local_context == NULL) {
         return FALSE;
     }
@@ -354,6 +357,10 @@ bool app_power_save_utils_update_bt_state(ui_shell_activity_t *self, uint32_t ev
 #endif
 
     app_power_saving_bt_state_t old_bt_state = local_context->bt_sink_srv_state;
+#ifdef AIR_LE_AUDIO_ENABLE
+    app_power_saving_bt_state_t old_le_state = local_context->le_sink_srv_state;
+#endif
+
 
     switch (event_id) {
         case BT_CM_EVENT_POWER_STATE_UPDATE: {
@@ -422,10 +429,11 @@ bool app_power_save_utils_update_bt_state(ui_shell_activity_t *self, uint32_t ev
 #endif
             {
                 bt_le_sink_srv_event_remote_info_update_t *ind = (bt_le_sink_srv_event_remote_info_update_t *)extra_data;
+                APPS_LOG_MSGID_I(LOG_TAG" [LEA] REMOTE_INFO_UPDATE: %x -> %x", 2, ind->pre_state, ind->state);
                 if (ind->pre_state == BT_BLE_LINK_CONNECTED && ind->state == BT_BLE_LINK_DISCONNECTED) {
-                    local_context->bt_sink_srv_state = APP_POWER_SAVING_BT_DISCONNECTED;
+                    local_context->le_sink_srv_state = APP_POWER_SAVING_BT_DISCONNECTED;
                 } else if (ind->pre_state == BT_BLE_LINK_DISCONNECTED && ind->state == BT_BLE_LINK_CONNECTED) {
-                    local_context->bt_sink_srv_state = APP_POWER_SAVING_BT_CONNECTED;
+                    local_context->le_sink_srv_state = APP_POWER_SAVING_BT_CONNECTED;
                 }
             }
             break;
@@ -436,8 +444,11 @@ bool app_power_save_utils_update_bt_state(ui_shell_activity_t *self, uint32_t ev
     }
 
     bt_changed = (old_bt_state != local_context->bt_sink_srv_state);
+#ifdef AIR_LE_AUDIO_ENABLE
+    le_sink_change = (old_le_state != local_context->le_sink_srv_state);
+#endif
     APPS_LOG_MSGID_I(LOG_TAG"bt_state change = %d->%d", 2, old_bt_state, local_context->bt_sink_srv_state);
-    return bt_changed;
+    return (bt_changed || le_sink_change);
 }
 
 void app_power_save_utils_refresh_waiting_time(void)
@@ -450,7 +461,7 @@ void app_power_save_utils_refresh_waiting_time(void)
 void app_power_save_utils_slave_silence_detect(bool silence)
 {
     s_slave_audio_silence = silence;
-    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_POWER_SAVING,
+    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_POWER_SAVING,
                         APP_POWER_SAVING_EVENT_NOTIFY_CHANGE, NULL, 0, NULL, 0);
 }
 #endif
@@ -475,8 +486,8 @@ uint32_t app_power_save_utils_get_timeout(app_power_saving_type_t type)
         timeout = app_power_saving_get_cfg()->silence_detect_timeout;
     }
 
-    if (timeout < MS_TO_SECOND(APPS_MIN_TIMEOUT_OF_SLEEP_AFTER_NO_CONNECTEION)) {
-        timeout = MS_TO_SECOND(APPS_MIN_TIMEOUT_OF_SLEEP_AFTER_NO_CONNECTEION);
+    if (timeout < MS_TO_SECOND(APPS_MIN_TIMEOUT_OF_SLEEP_AFTER_NO_CONNECTION)) {
+        timeout = MS_TO_SECOND(APPS_MIN_TIMEOUT_OF_SLEEP_AFTER_NO_CONNECTION);
     }
     APPS_LOG_MSGID_I(LOG_TAG", power saving cfg timeout: %d.", 1, SECOND_TO_MS(timeout));
     return SECOND_TO_MS(timeout);

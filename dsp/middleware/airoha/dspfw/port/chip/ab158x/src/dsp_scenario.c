@@ -60,13 +60,11 @@
 #include "clk_skew.h"
 #include "long_term_clk_skew.h"
 #endif
-#include "compander_interface.h"
 #ifdef AIR_VOICE_NR_ENABLE
 #include "voice_nr_interface.h"
 #endif
 #if defined(MTK_PEQ_ENABLE) || defined(MTK_LINEIN_PEQ_ENABLE)
 #include "peq_interface.h"
-#include "compander_interface.h"
 #endif
 #include "dsp_dump.h"
 #include "sfr_bt.h"
@@ -87,7 +85,9 @@
 #ifdef MTK_SLT_AUDIO_HW
 #include "dsp_audio_slt.h"
 #endif
-
+#if defined(AIR_DRC_ENABLE) || defined(AIR_VOICE_DRC_ENABLE)
+#include "compander_interface.h"
+#endif
 #ifdef MTK_BT_A2DP_ENABLE
 #define PLAY_EN_CHECK_TIMER
 #endif /* MTK_BT_A2DP_ENABLE */
@@ -114,7 +114,7 @@
 
 #endif
 
-#ifdef AIR_BT_LE_LC3PLUS_ENABLE
+#if defined(AIR_BT_LE_LC3PLUS_ENABLE) || defined(AIR_BT_A2DP_LC3PLUS_ENABLE)
 #include "lc3plus_dec_interface.h"
 #endif
 
@@ -220,6 +220,15 @@
 #include "stream_dchs.h"
 #include "hal_gpt.h"
 #endif
+
+#if defined(AIR_FIXED_RATIO_SRC)
+#include "src_fixed_ratio_interface.h"
+#endif
+
+#ifdef AIR_MIXER_STREAM_ENABLE
+#include "stream_mixer.h"
+#endif
+
 /******************************************************************************
 * Define
 ******************************************************************************/
@@ -239,6 +248,10 @@ EXTERN audio_channel afe_get_audio_channel_by_au_afe_open_param(au_afe_open_para
 EXTERN afe_t afe;
 EXTERN hal_nvic_status_t hal_nvic_save_and_set_interrupt_mask_special(uint32_t *mask);
 EXTERN hal_nvic_status_t hal_nvic_restore_interrupt_mask_special(uint32_t mask);
+#ifdef AIR_MCU_DSP_DEPENDECY_CHECK_ENABLE
+audio_clock_share_buffer_p audio_clock_param;
+#endif
+
 /******************************************************************************
 * Global variable
 ******************************************************************************/
@@ -269,10 +282,13 @@ CONNECTION_IF sensor_anc_monitor_if = {NULL,      NULL,       NULL,     stream_f
 CONNECTION_IF sensor_adaptive_eq_monitor_if = {NULL,      NULL,       NULL,     stream_featuremulti_adaptive_eq_monitor};
 #endif
 #ifdef AIR_DCHS_MODE_ENABLE
-CONNECTION_IF dchs_dl_left_if  = {NULL,      NULL,       NULL,     stream_feature_list_dchs_dl_left};
-CONNECTION_IF dchs_dl_right_if = {NULL,      NULL,       NULL,     stream_feature_list_dchs_dl_right};
-CONNECTION_IF dchs_uart_ul_left_if = {NULL,      NULL,       NULL,     stream_feature_list_dchs_uart_ul_left};
+CONNECTION_IF dchs_uart_ul_left_if_wb = {NULL,      NULL,       NULL,     stream_feature_list_dchs_uart_ul_left_wb};
+CONNECTION_IF dchs_uart_ul_left_if_swb = {NULL,      NULL,       NULL,     stream_feature_list_dchs_uart_ul_left_swb};
+CONNECTION_IF dchs_uart_ul_left_if_wb_sw_gain = {NULL,      NULL,       NULL,     stream_feature_list_dchs_uart_ul_left_wb_sw_gain};
+CONNECTION_IF dchs_uart_ul_left_if_swb_sw_gain = {NULL,      NULL,       NULL,     stream_feature_list_dchs_uart_ul_left_swb_sw_gain};
 CONNECTION_IF dchs_uart_ul_right_if = {NULL,      NULL,       NULL,     stream_feature_list_dchs_uart_ul_right};
+uint8_t dchs_voice_mode;
+uint8_t dchs_ul_scenario_type;
 #endif
 #if defined(AIR_HEARTHROUGH_MAIN_ENABLE) || defined(AIR_CUSTOMIZED_LLF_ENABLE)
 dsp_llf_feature_entry_t LLF_feature_entry_table[AUDIO_LLF_TYPE_ALL] = {
@@ -407,6 +423,9 @@ SOURCE dsp_open_stream_in_afe(mcu2dsp_open_param_p open_param)
     open_param->stream_in_param.afe.audio_interface3    = HAL_AUDIO_INTERFACE_2;
 
 #endif
+
+    AudioAfeConfiguration(AUDIO_SOURCE_CLKSKEW_MODE, open_param->stream_in_param.afe.clkskew_mode);
+    DSP_MW_LOG_I("afe source clkskew_mode:%d", 1, open_param->stream_in_param.afe.clkskew_mode);
 
     AudioAfeConfiguration(AUDIO_SOURCE_DEVICE, open_param->stream_in_param.afe.audio_device);
     DSP_MW_LOG_I("audio_device 0x%x", 1, open_param->stream_in_param.afe.audio_device);
@@ -548,9 +567,15 @@ SOURCE dsp_open_stream_in_afe(mcu2dsp_open_param_p open_param)
     AudioAfeConfiguration(AUDIO_SOURCE_MAX_CHANNEL_NUM, open_param->stream_in_param.afe.max_channel_num);
 #endif
 
-    AudioAfeConfiguration(AUDIO_SOURCE_UPDOWN_SAMPLER_ENABLE, open_param->stream_in_param.afe.with_upwdown_sampler);
-    AudioAfeConfiguration(AUDIO_SOURCE_PATH_INPUT_RATE, open_param->stream_in_param.afe.audio_path_input_rate);
-    AudioAfeConfiguration(AUDIO_SOURCE_PATH_OUTPUT_RATE, open_param->stream_in_param.afe.audio_path_output_rate);
+    AudioAfeConfiguration(AUDIO_SOURCE_DEVICE_INPUT_RATE, open_param->stream_in_param.afe.audio_device_input_rate[0]);
+    AudioAfeConfiguration(AUDIO_SOURCE_DEVICE_INPUT_RATE1, open_param->stream_in_param.afe.audio_device_input_rate[1]);
+    AudioAfeConfiguration(AUDIO_SOURCE_DEVICE_INPUT_RATE2, open_param->stream_in_param.afe.audio_device_input_rate[2]);
+    AudioAfeConfiguration(AUDIO_SOURCE_DEVICE_INPUT_RATE3, open_param->stream_in_param.afe.audio_device_input_rate[3]);
+    AudioAfeConfiguration(AUDIO_SOURCE_DEVICE_INPUT_RATE4, open_param->stream_in_param.afe.audio_device_input_rate[4]);
+    AudioAfeConfiguration(AUDIO_SOURCE_DEVICE_INPUT_RATE5, open_param->stream_in_param.afe.audio_device_input_rate[5]);
+    AudioAfeConfiguration(AUDIO_SOURCE_DEVICE_INPUT_RATE6, open_param->stream_in_param.afe.audio_device_input_rate[6]);
+    AudioAfeConfiguration(AUDIO_SOURCE_DEVICE_INPUT_RATE7, open_param->stream_in_param.afe.audio_device_input_rate[7]);
+
     DSP_MW_LOG_I("afe in format:%d, sampling rate:%d, IRQ period:%d mise:0x%x\r\n", 4, open_param->stream_in_param.afe.format,
                  gAudioCtrl.Afe.AfeULSetting.rate,
                  open_param->stream_in_param.afe.irq_period,
@@ -691,7 +716,7 @@ SOURCE dsp_open_stream_in_ble(mcu2dsp_open_param_p open_param)
     } else
 
     {
-        if (open_param->stream_in_param.ble.codec_type == BT_BLE_CODEC_LC3) {
+        if ((open_param->stream_in_param.ble.codec_type == BT_BLE_CODEC_LC3)||(open_param->stream_in_param.ble.codec_type == BT_BLE_CODEC_LC3PLUS)) {
 #ifdef AIR_BT_LE_LC3_ENABLE
             g_n9_ble_dl_ll_flag = FALSE;
             if (open_param->stream_in_param.ble.decode_mode == CODEC_AUDIO_MODE) {
@@ -715,24 +740,32 @@ SOURCE dsp_open_stream_in_ble(mcu2dsp_open_param_p open_param)
                 #endif
                 DSP_MW_LOG_I("[BLE][CPD] HSE mode %d, g_cpd_nv_length:%d", 2, g_cpd_hse_mode, g_cpd_nv_length);
             }
-            stream_feature_configure_type(n9_ble_dl_if.pfeature_table, CODEC_DECODER_LC3, CONFIG_DECODER);
-            lc3_dual_decode_mode_set(open_param->stream_in_param.ble.channel_num == 2);
-            pic_dram_usage = 0;
+            if (open_param->stream_in_param.ble.codec_type == BT_BLE_CODEC_LC3PLUS)
+            {
+                stream_feature_configure_type(n9_ble_dl_if.pfeature_table, CODEC_DECODER_LC3PLUS, CONFIG_DECODER);
+                stream_feature_configure_resolution((stream_feature_list_ptr_t)n9_ble_dl_if.pfeature_table, RESOLUTION_32BIT, CONFIG_DECODER);
+            }
+            else
+            {
+                stream_feature_configure_type(n9_ble_dl_if.pfeature_table, CODEC_DECODER_LC3, CONFIG_DECODER);
+                lc3_dual_decode_mode_set(open_param->stream_in_param.ble.channel_num == 2);
+                pic_dram_usage = 0;
 
 #ifdef PRELOADER_ENABLE
 #ifdef AIR_DSP_MEMORY_REGION_ENABLE
-            memory_return_status = DspMemoryManager_AcquireGroupMemory(Component_LE_CALL,SubComponent_LECALL_LC3_FFT,&lc3_fft_memory_addr);
-            code_addr_fft = lc3_fft_memory_addr.IramAddr;
-            data_addr_fft = lc3_fft_memory_addr.DramAddr;
+                memory_return_status = DspMemoryManager_AcquireGroupMemory(Component_LE_CALL,SubComponent_LECALL_LC3_FFT,&lc3_fft_memory_addr);
+                code_addr_fft = lc3_fft_memory_addr.IramAddr;
+                data_addr_fft = lc3_fft_memory_addr.DramAddr;
 #endif
-            if (open_param->stream_in_param.ble.frame_ms == 10000) {
-                lc3i_fft10ms_library_load(code_addr_fft,data_addr_fft,&pic_dram_usage);
-            } else if (open_param->stream_in_param.ble.frame_ms == 7500) {
-                lc3i_fft7_5ms_library_load(code_addr_fft,data_addr_fft,&pic_dram_usage);
-            } else {
-                DSP_MW_LOG_E("[BLE] unsupported DL frame interval %d", 1, open_param->stream_in_param.ble.frame_ms);
+                if (open_param->stream_in_param.ble.frame_ms == 10000) {
+                    lc3i_fft10ms_library_load(code_addr_fft,data_addr_fft,&pic_dram_usage);
+                } else if (open_param->stream_in_param.ble.frame_ms == 7500) {
+                    lc3i_fft7_5ms_library_load(code_addr_fft,data_addr_fft,&pic_dram_usage);
+                } else {
+                    DSP_MW_LOG_E("[BLE] unsupported DL frame interval %d", 1, open_param->stream_in_param.ble.frame_ms);
+                }
+#endif
             }
-#endif
 #endif
         }
 
@@ -772,12 +805,22 @@ SOURCE dsp_open_stream_in_a2dp(mcu2dsp_open_param_p open_param)
             DSP_UpdateA2DPCodec(BT_A2DP_CODEC_VENDOR);
 
             DSP_MW_LOG_I("A2DP codec id :%x", 1, codec_cap_ptr->codec.vend.codec_id);
-            if (codec_cap_ptr->codec.vend.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID){
+            if (codec_cap_ptr->codec.vend.codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID){
 #if !defined(MTK_BT_A2DP_VENDOR_2_ENABLE)
             DSP_MW_LOG_E("A2DP request unsupported codec", 0);
             AUDIO_ASSERT(0);
 #endif
                 stream_feature_configure_type(n9_a2dp_if.pfeature_table, CODEC_DECODER_VENDOR_2, CONFIG_DECODER);
+
+#ifdef MTK_AUDIO_PLC_ENABLE
+                Audio_PLC_ctrl(open_param->stream_in_param.a2dp.audio_plc);
+#endif
+            }else if (codec_cap_ptr->codec.vend.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID){
+#if !defined(AIR_BT_A2DP_LC3PLUS_ENABLE)
+            DSP_MW_LOG_E("A2DP request unsupported codec", 0);
+            AUDIO_ASSERT(0);
+#endif
+                stream_feature_configure_type(n9_a2dp_if.pfeature_table, CODEC_DECODER_LC3PLUS, CONFIG_DECODER);
 
 #ifdef MTK_AUDIO_PLC_ENABLE
                 Audio_PLC_ctrl(open_param->stream_in_param.a2dp.audio_plc);
@@ -838,6 +881,9 @@ SOURCE dsp_open_stream_in_a2dp(mcu2dsp_open_param_p open_param)
 #endif /* AIR_BT_CLK_SKEW_ENABLE */
 
         source->param.n9_a2dp.p_afe_buf_report = open_param->stream_in_param.a2dp.p_afe_buf_report;// store afe buffer report instead
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+        source->param.n9_a2dp.plc_state_len = sizeof(lc3plus_dec_frame_status_t);
+#endif
 #ifdef MTK_PEQ_ENABLE
         PEQ_Reset_Info();
 #endif
@@ -929,30 +975,6 @@ SOURCE dsp_open_stream_in_gsensor(mcu2dsp_open_param_p open_param)
     source = StreamGsensorSource();
 
     return source;
-}
-#endif
-
-#ifdef AIR_DCHS_MODE_ENABLE
-SOURCE dsp_open_stream_in_uart(mcu2dsp_open_param_p open_param)
-{
-    SOURCE source = NULL;
-    DSP_MW_LOG_I("[DSP][DCHS DL]Stream in uart\r\n", 0);
-
-    source = StreamUartSource(open_param);
-    if(!source){
-        DSP_MW_LOG_E("[DSP][DCHS DL]uart source create fail\r\n", 0);
-    }
-    return source;
-}
-
-void dsp_start_stream_in_uart(mcu2dsp_start_param_p start_param, SOURCE source)
-{
-    UNUSED(source);
-    if(!start_param->stream_out_param.afe.mce_flag){
-        DSP_MW_LOG_I("[DCHS DL] no play en",0);
-        return;//no play en
-    }
-    dchs_dl_set_scenario_play_en_exist(HAL_AUDIO_AGENT_MEMORY_DL12, true);
 }
 #endif
 
@@ -1057,9 +1079,6 @@ const dsp_stream_open_in_entry_table_t dsp_stream_open_in_entry_table[] = {
 #ifdef AIR_FULL_ADAPTIVE_ANC_ENABLE
     {STREAM_IN_ADAPT_ANC, dsp_open_stream_in_adapt_anc},
 #endif
-#ifdef AIR_DCHS_MODE_ENABLE
-    {STREAM_IN_UART, dsp_open_stream_in_uart},
-#endif
 #if defined(AIR_HEARTHROUGH_MAIN_ENABLE) || defined(AIR_CUSTOMIZED_LLF_ENABLE)
     {STREAM_IN_LLF, dsp_open_stream_in_LLF},
 #endif
@@ -1067,6 +1086,9 @@ const dsp_stream_open_in_entry_table_t dsp_stream_open_in_entry_table[] = {
     {STREAM_IN_HW_VIVID_PT, dsp_open_stream_in_hw_vivid_pt},
 #endif
     {STREAM_IN_VIRTUAL, dsp_open_stream_in_virtual},
+#ifdef AIR_MIXER_STREAM_ENABLE
+    {STREAM_IN_MIXER, dsp_open_stream_in_mixer},
+#endif
 };
 SOURCE dsp_open_stream_in(mcu2dsp_open_param_p open_param)
 {
@@ -1406,27 +1428,23 @@ SINK dsp_open_stream_out_afe(mcu2dsp_open_param_p open_param)
 
 #if defined(ENABLE_HWSRC_ON_MAIN_STREAM) || defined(MTK_HWSRC_IN_STREAM)
     AudioAfeConfiguration(AUDIO_SRC_RATE, open_param->stream_out_param.afe.stream_out_sampling_rate);
+    AudioAfeConfiguration(AUDIO_SINK_HWSRC_TYPE, open_param->stream_out_param.afe.hwsrc_type);
 #endif
     AudioAfeConfiguration(AUDIO_SINK_IRQ_PERIOD, open_param->stream_out_param.afe.irq_period);
 
     AudioAfeConfiguration(AUDIO_SINK_DEVICE, open_param->stream_out_param.afe.audio_device);
     AudioAfeConfiguration(AUDIO_SINK_DEVICE1, open_param->stream_out_param.afe.audio_device1);
+    AudioAfeConfiguration(AUDIO_SINK_DEVICE2, open_param->stream_out_param.afe.audio_device2);
     AudioAfeConfiguration(AUDIO_SINK_CHANNEL, open_param->stream_out_param.afe.stream_channel);
     AudioAfeConfiguration(AUDIO_SINK_MEMORY, open_param->stream_out_param.afe.memory);
     AudioAfeConfiguration(AUDIO_SINK_INTERFACE, open_param->stream_out_param.afe.audio_interface);
     AudioAfeConfiguration(AUDIO_SINK_INTERFACE1, open_param->stream_out_param.afe.audio_interface1);
+    AudioAfeConfiguration(AUDIO_SINK_INTERFACE2, open_param->stream_out_param.afe.audio_interface2);
     AudioAfeConfiguration(AUDIO_SINK_HW_GAIN, open_param->stream_out_param.afe.hw_gain);
-#ifdef ENABLE_HWSRC_CLKSKEW
-    if (open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM1) {
-        if (ClkSkewMode_isModify_g == TRUE) {
-            AudioAfeConfiguration(AUDIO_SINK_CLKSKEW_MODE, ClkSkewMode_g);
-        } else {
-            AudioAfeConfiguration(AUDIO_SINK_CLKSKEW_MODE, open_param->stream_out_param.afe.clkskew_mode);
-            ClkSkewMode_g = open_param->stream_out_param.afe.clkskew_mode;
-        }
-        DSP_MW_LOG_I("afe clkskew_mode:%d %d", 2, open_param->stream_out_param.afe.clkskew_mode, ClkSkewMode_g);
-    }
-#endif
+
+    AudioAfeConfiguration(AUDIO_SINK_CLKSKEW_MODE, open_param->stream_out_param.afe.clkskew_mode);
+    DSP_MW_LOG_I("afe sink clkskew_mode:%d", 1, open_param->stream_out_param.afe.clkskew_mode);
+
 #ifdef HAL_AUDIO_ENABLE_PATH_MEM_DEVICE
     AudioAfeConfiguration(AUDIO_SINK_ADC_MODE, open_param->stream_out_param.afe.dl_dac_mode);
     if ((open_param->stream_out_param.afe.audio_device & (HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R))
@@ -1481,11 +1499,6 @@ if((open_param->stream_out_param.afe.audio_device == HAL_AUDIO_CONTROL_DEVICE_I2
 #ifdef AIR_HFP_DNN_PATH_ENABLE
     AudioAfeConfiguration(AUDIO_SINK_DNN_PATH_ENABLE, open_param->stream_out_param.afe.enable_ul_dnn);
 #endif
-#ifdef AIR_WIRED_AUDIO_ENABLE
-    AudioAfeConfiguration(AUDIO_SINK_UPDOWN_SAMPLER_ENABLE, open_param->stream_out_param.afe.with_upwdown_sampler);
-    AudioAfeConfiguration(AUDIO_SINK_PATH_INPUT_RATE, open_param->stream_out_param.afe.audio_path_input_rate);
-    AudioAfeConfiguration(AUDIO_SINK_PATH_OUTPUT_RATE, open_param->stream_out_param.afe.audio_path_output_rate);
-#endif
     DSP_MW_LOG_I("afe out format:%d, src out rate:%d, IRQ period:%d src in rate:%d\r\n", 4, open_param->stream_out_param.afe.format,
                  gAudioCtrl.Afe.AfeDLSetting.rate,
                  (uint32_t)(open_param->stream_out_param.afe.irq_period), // can't print float
@@ -1496,7 +1509,7 @@ if((open_param->stream_out_param.afe.audio_device == HAL_AUDIO_CONTROL_DEVICE_I2
     if (open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM1 || open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM6) {
 #else
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-        if (open_param->stream_out_param.afe.memory & HAL_AUDIO_MEM1 || open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM6 || open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM7) {
+        if (((open_param->audio_scenario_type != AUDIO_SCENARIO_TYPE_WIRED_AUDIO_MAINSTREAM) && (open_param->stream_out_param.afe.memory & HAL_AUDIO_MEM1)) || open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM6 || open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM7) {
 #else
     if (open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM1 || open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM6 || open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM7) {
 #endif
@@ -1527,7 +1540,11 @@ if((open_param->stream_out_param.afe.audio_device == HAL_AUDIO_CONTROL_DEVICE_I2
                                      afe_get_audio_instance_by_au_afe_open_param(&(open_param->stream_out_param.afe)),
                                      afe_get_audio_channel_by_au_afe_open_param(&(open_param->stream_out_param.afe)));
 #endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    } else if (open_param->stream_out_param.afe.memory & HAL_AUDIO_MEM3) {
+#else
     } else if (open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM3) {
+#endif
 #if defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined (AIR_PROMPT_SOUND_DUMMY_SOURCE_ENABLE) || defined(AIR_HFP_DNN_PATH_ENABLE) || defined(AIR_DCHS_MODE_ENABLE) || defined(AIR_WIRELESS_MIC_RX_ENABLE) || defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
         AudioAfeConfiguration(AUDIO_SINK_SW_CHANNELS, open_param->stream_out_param.afe.sw_channels);
         Audio_setting->Audio_sink.Buffer_Frame_Num = open_param->stream_out_param.afe.frame_number;
@@ -1537,7 +1554,7 @@ if((open_param->stream_out_param.afe.audio_device == HAL_AUDIO_CONTROL_DEVICE_I2
                                    afe_get_audio_channel_by_au_afe_open_param(&(open_param->stream_out_param.afe)));
 #endif
     }
-#if defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined (AIR_DCHS_MODE_ENABLE)
+#if defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined (AIR_DCHS_MODE_ENABLE) || defined(AIR_MIXER_STREAM_ENABLE)
     else if (open_param->stream_out_param.afe.memory == HAL_AUDIO_MEM4) {
         AudioAfeConfiguration(AUDIO_SINK_SW_CHANNELS, open_param->stream_out_param.afe.sw_channels);
         Audio_setting->Audio_sink.Buffer_Frame_Num = open_param->stream_out_param.afe.frame_number;
@@ -1668,7 +1685,7 @@ static void playen_check_timer_callback(TimerHandle_t xTimer)
     if ((n9_a2dp_if.transform != NULL) && (n9_a2dp_if.sink->param.audio.irq_exist == FALSE)) {
         DSP_MW_LOG_E("AFE wait play en trigger re-sync", 0);
 #ifdef MTK_BT_A2DP_ENABLE
-        Au_DL_send_reinit_request(MSG2_DSP2CN4_REINIT_AFE_ABNORMAL);
+        Au_DL_send_reinit_request(MSG2_DSP2CN4_REINIT_AFE_ABNORMAL, FALSE);
 #endif /* MTK_BT_A2DP_ENABLE */
     } else {
         xTimerStop(playen_check_timer, 0);
@@ -1718,7 +1735,7 @@ void dsp_start_stream_in_a2dp(mcu2dsp_start_param_p start_param, SOURCE source)
     source->param.n9_a2dp.alc_monitor = !start_param->stream_in_param.a2dp.alc_monitor;// If Host already enabled ALC, DSP not to trigger ALC mode
 
     //source->param.n9_a2dp.latency_monitor = TRUE;
-    U32 bt_clk,sample,clk_offset;
+    U32 bt_clk,sample,clk_offset, codec_id;
     U16 intra_clk;
     U32 prefill_samples;
 #ifdef AIR_A2DP_REINIT_V2_ENABLE
@@ -1784,7 +1801,8 @@ void dsp_start_stream_in_a2dp(mcu2dsp_start_param_p start_param, SOURCE source)
         if ((S32)(start_param->stream_in_param.a2dp.start_bt_clk - bt_clk) <= 0x10) { // check play time in time
             U32 temp_start_bt_clk = start_param->stream_in_param.a2dp.start_bt_clk;
 
-            if ((source->param.n9_a2dp.codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) && (source->param.n9_a2dp.codec_info.codec_cap.codec.vend.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID)){
+            codec_id = source->param.n9_a2dp.codec_info.codec_cap.codec.vend.codec_id;
+            if ((source->param.n9_a2dp.codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) && ((codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID) || (codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID))){
                 sample = 960;
                 clk_offset = 768000;
             }else {
@@ -1805,18 +1823,20 @@ void dsp_start_stream_in_a2dp(mcu2dsp_start_param_p start_param, SOURCE source)
             MCE_TransBT2NativeClk(start_param->stream_in_param.a2dp.start_bt_clk, start_param->stream_in_param.a2dp.start_bt_intra_clk, &bt_clk, &intra_clk, BT_CLK_Offset);
             DSP_MW_LOG_I("Play en b:0x%x i:0x%x n:0x%x asi: 0x%x", 4, bt_clk, intra_clk, rBb->rClkCtl.rNativeClock, source->param.n9_a2dp.predict_asi);
         }else{
-            //start_param->stream_in_param.a2dp.start_bt_clk += (20 / 0.3125);//wordaround
             MCE_TransBT2NativeClk(start_param->stream_in_param.a2dp.start_bt_clk, start_param->stream_in_param.a2dp.start_bt_intra_clk, &bt_clk, &intra_clk, DCHS_CLK_Offset);
             DSP_MW_LOG_I("[DCHS DL] a2dp Play en native clk:%u,play phase:%u,cur native clk:%u clk offset: %u", 4, bt_clk, intra_clk, rBb->rClkCtl.rNativeClock, *((volatile uint32_t *)(0xA0010974)));
-            //vTaskDelay(20 / portTICK_PERIOD_MS);//workaround
-            dchs_dl_uart_relay_play_en_info(start_param->stream_in_param.a2dp.start_bt_clk, start_param->stream_in_param.a2dp.start_bt_intra_clk, AUDIO_SCENARIO_TYPE_A2DP);
+            dchs_dl_uart_relay_play_en_info(start_param->stream_in_param.a2dp.start_bt_clk, start_param->stream_in_param.a2dp.start_bt_intra_clk);
         }
         #else
         MCE_TransBT2NativeClk(start_param->stream_in_param.a2dp.start_bt_clk, start_param->stream_in_param.a2dp.start_bt_intra_clk, &bt_clk, &intra_clk, BT_CLK_Offset);
         DSP_MW_LOG_I("Play en b:0x%x i:0x%x n:0x%x asi: 0x%x", 4, bt_clk, intra_clk, rBb->rClkCtl.rNativeClock, source->param.n9_a2dp.predict_asi);
         #endif
 #ifdef AIR_AUDIO_HARDWARE_ENABLE
+        #ifdef AIR_MIXER_STREAM_ENABLE
+        mixer_stream_setup_play_en(bt_clk, intra_clk, source, NULL);
+        #else
         hal_audio_afe_set_play_en(bt_clk, intra_clk);
+        #endif
 #endif /* AIR_AUDIO_HARDWARE_ENABLE */
 #ifdef TRIGGER_A2DP_PROCSESS_TIMER
         U32 bt_clk_cur;
@@ -1841,7 +1861,7 @@ void dsp_start_stream_in_a2dp(mcu2dsp_start_param_p start_param, SOURCE source)
         } else {
             prefill_samples = ((2 * (U32)n9_a2dp_if.sink->param.audio.period * (n9_a2dp_if.sink->param.audio.rate / 1000) + 256) & 0xFF00);
         }
-        afe_prefill_for_src_out(((2 * (U32)n9_a2dp_if.sink->param.audio.period * (n9_a2dp_if.sink->param.audio.rate / 1000) + 256) & 0xFF00), n9_a2dp_if.sink);
+        afe_prefill_for_src_out(prefill_samples, n9_a2dp_if.sink);
 
 #endif /*TRIGGER_A2DP_PROCSESS_TIMER*/
 #ifdef PLAY_EN_CHECK_TIMER
@@ -1954,10 +1974,9 @@ const dsp_stream_start_in_entry_table_t dsp_stream_start_in_entry_table[] = {
 #ifdef AIR_AUDIO_BT_COMMON_ENABLE
     {STREAM_IN_BT_COMMON, dsp_start_stream_in_bt_common},
 #endif /* AIR_AUDIO_BT_COMMON_ENABLE */
-#ifdef AIR_DCHS_MODE_ENABLE
-    {STREAM_IN_UART, dsp_start_stream_in_uart},
+#ifdef AIR_MIXER_STREAM_ENABLE
+    {STREAM_IN_MIXER, dsp_start_stream_in_mixer},
 #endif
-
 };
 void dsp_start_stream_in(mcu2dsp_start_param_p start_param, SOURCE source)
 {
@@ -2087,21 +2106,12 @@ void CB_N9_A2DP_OPEN(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     DSP_REMAP_SHARE_INFO(open_param->stream_in_param.a2dp.bt_inf_address, uint32_t);
     DSP_REMAP_SHARE_INFO(open_param->stream_in_param.a2dp.p_afe_buf_report, uint32_t *);
 
-#ifdef ENABLE_HWSRC_CLKSKEW
-#ifdef AIR_HWSRC_TX_TRACKING_ENABLE
-    open_param->stream_out_param.afe.clkskew_mode = CLK_SKEW_V1;
-#endif
-#endif
-
 #ifdef MTK_GAMING_MODE_HEADSET
     DSP_REMAP_SHARE_INFO(open_param->stream_in_param.a2dp.ull_clk_info_address, uint32_t *);
     MCE_Update_BtClkOffsetAddr(open_param->stream_in_param.a2dp.ull_clk_info_address, ULL_CLK_Offset);
     DSP_MW_LOG_I("[TEST]ull_clk_info_address:0x%x", 1, open_param->stream_in_param.a2dp.ull_clk_info_address);
 #endif
     n9_a2dp_if.source   = dsp_open_stream_in(open_param);
-#if MTK_HWSRC_IN_STREAM
-    open_param->stream_out_param.afe.sampling_rate = 48000;
-#endif
     n9_a2dp_if.sink     = dsp_open_stream_out(open_param);
     n9_a2dp_if.transform = NULL;
 
@@ -2149,12 +2159,14 @@ void CB_N9_A2DP_START(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 
 
     stream_feature_configure_resolution((stream_feature_list_ptr_t)n9_a2dp_if.pfeature_table, RESOLUTION_32BIT, CONFIG_DECODER);
-#if MTK_HWSRC_IN_STREAM
-    U32 samplerate;//modify for ASRC
-    //samplerate = afe_get_audio_device_samplerate(n9_a2dp_if.sink->param.audio.audio_device, n9_a2dp_if.sink->param.audio.audio_interface) /1000 ; //modify for SRC
-    samplerate = (n9_a2dp_if.sink->param.audio.rate) / 1000;
-    DSP_MW_LOG_I("afe_get_audio_device_samplerate = %d\r\n codec:%d fixed point %d", 3, samplerate,n9_a2dp_if.source->param.n9_a2dp.codec_info.codec_cap.type ,2048); //modify for ASRC
-    stream_feature_configure_src(n9_a2dp_if.pfeature_table, RESOLUTION_32BIT, RESOLUTION_32BIT, samplerate, 2048);
+    DSP_MW_LOG_I("a2dp hwsrc_type:%d",1,n9_a2dp_if.sink->param.audio.hwsrc_type);
+#ifdef MTK_HWSRC_IN_STREAM
+    if(n9_a2dp_if.sink->param.audio.hwsrc_type == HAL_AUDIO_HWSRC_IN_STREAM){
+        U32 samplerate;//modify for ASRC
+        samplerate = (n9_a2dp_if.sink->param.audio.rate) / 1000;
+        DSP_MW_LOG_I("hwsrc_in_stream afe_get_audio_device_samplerate = %d\r\n codec:%d fixed point %d", 3, samplerate,n9_a2dp_if.source->param.n9_a2dp.codec_info.codec_cap.type ,2048); //modify for ASRC
+        stream_feature_configure_src(n9_a2dp_if.pfeature_table, RESOLUTION_32BIT, RESOLUTION_32BIT, samplerate, 2048);
+    }
 #endif
 
     n9_a2dp_if.transform = TrasformAudio2Audio(n9_a2dp_if.source, n9_a2dp_if.sink, (stream_feature_list_ptr_t)n9_a2dp_if.pfeature_table);
@@ -2591,6 +2603,7 @@ void CB_N9_SCO_UL_CLOSE(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     UNUSED(ack);
     U32 scenario = (msg.ccni_message[0] & 0x00ff);
 #ifdef AIR_DCHS_MODE_ENABLE
+    dsp_uart_ul_clear_rx_buffer();
     dchs_send_unlock_sleep_msg(false);
 #endif
     if (scenario == 0) {
@@ -2877,6 +2890,9 @@ void CB_AUDIO_DUMP_INIT(hal_ccni_message_t msg, hal_ccni_message_t *ack)
                 remove_cfg_dump_id(dumpID);
             }
         }
+    } else if(u2SendID == 4) { //enable/disable block dump.
+        U8  enable = msg.ccni_message[1];
+        audio_dump_set_block(enable);
     }
 
 #ifdef AIR_AUDIO_DUMP_BY_SPDIF_ENABLE
@@ -2913,6 +2929,7 @@ void CB_N9_BLE_UL_OPEN(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 #if defined (AIR_DCHS_MODE_ENABLE)
     if(dchs_get_device_mode() != DCHS_MODE_SINGLE){
         dsp_uart_ul_open();
+        dsp_uart_ul_clear_tx_buffer();
         dsp_uart_ul_clear_rx_buffer();
     }
 #endif
@@ -2955,14 +2972,15 @@ void CB_N9_BLE_UL_START(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 void CB_N9_BLE_UL_STOP(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 {
     UNUSED(ack);
-#ifdef AIR_WIRELESS_MIC_TX_ENABLE
+
+    DSP_MW_LOG_I("[BLE] UL STOP\r\n", 0);
+
     if (g_ul_sw_timer_handle != 0) {
         hal_gpt_sw_stop_timer_us(g_ul_sw_timer_handle);
         hal_gpt_sw_free_timer(g_ul_sw_timer_handle);
         g_ul_sw_timer_handle = 0;
     }
-#endif
-    DSP_MW_LOG_I("[BLE] UL STOP\r\n", 0);
+
     if (n9_ble_ul_if.transform != NULL) {
         StreamDSPClose(n9_ble_ul_if.transform->source, n9_ble_ul_if.transform->sink, msg.ccni_message[0] >> 16 | 0x8000);
     }
@@ -2989,6 +3007,8 @@ void CB_N9_BLE_UL_CLOSE(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     UNUSED(ack);
     DSP_MW_LOG_I("[BLE] UL CLOSE\r\n", 0);
 #ifdef AIR_DCHS_MODE_ENABLE
+    dsp_uart_ul_clear_tx_buffer();
+    dsp_uart_ul_clear_rx_buffer();
     dchs_send_unlock_sleep_msg(false);
 #endif
     DSP_Callback_UnloaderConfig(n9_ble_ul_if.pfeature_table, n9_ble_ul_if.source->scenario_type);
@@ -3104,6 +3124,16 @@ void CB_N9_BLE_UL_RESUME(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     dsp_detachable_config(&n9_ble_ul_if, msg);
 #endif
     dsp_trigger_resume(n9_ble_ul_if.source, n9_ble_ul_if.sink);
+}
+
+void CB_N9_BLE_UL_SET_VOLUME(hal_ccni_message_t msg, hal_ccni_message_t *ack)
+{
+
+#if defined(AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE) && defined(AIR_SOFTWARE_GAIN_ENABLE)
+    N9Ble_UL_Set_SW_Gain((int32_t)(msg.ccni_message[1]));
+#endif
+    UNUSED(msg);
+    UNUSED(ack);
 }
 
 bool g_n9_ble_dl_open_flag = false;
@@ -3368,11 +3398,7 @@ void CB_N9_BLE_MICIRQ(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 #define BLE_ULL_UL_TIME_AVM_MARGIN      1000
 #define BLE_ULL_UL_TIME_STREAM_PROCESS  6000
 
-#if defined(AIR_BTA_IC_STEREO_HIGH_G3)
 #define BLE_UL_TIME_STREAM_PROCESS      15000
-#else
-#define BLE_UL_TIME_STREAM_PROCESS      11000
-#endif
 
 #if defined(AIR_BTA_IC_STEREO_HIGH_G3)
 #ifdef AIR_BT_ULL_SWB_ENABLE
@@ -3395,15 +3421,13 @@ void CB_N9_BLE_MICIRQ(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 #define BIT_MASK(n)         (1UL << (n))
 #define BT_CLOCK_TICK_MASK  (0x0FFFFFFC)
 #define BT_CLOCK_MAX_WRAP   (0x10000000)
-
-ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void LC_Get_CurrBtClk(BTCLK *pCurrCLK, BTPHASE *pCurrPhase)
+#define BLE_CURR_TIME_CHECK (3000)
+ATTR_TEXT_IN_RAM_FOR_MASK_IRQ U32 LC_Get_CurrBtClk(BTCLK *pCurrCLK, BTPHASE *pCurrPhase)
 {
     *pCurrCLK = rBb->rAudioCtl.rRxClk;
     *pCurrPhase = rBb->rAudioCtl.rRxPhs;
-    if (*((volatile uint32_t *)(CONN_BT_TIMCON_BASE + 0x011C)) != 0)
-    {
-        DSP_MW_LOG_E("[LC] DSP get current bt clk when sleep, 0x%x", 1,*((volatile uint32_t *)(CONN_BT_TIMCON_BASE + 0x011C)) );
-    }
+    U32 rg = *((volatile uint32_t *)(CONN_BT_TIMCON_BASE + 0x011C));
+    return rg;
 }
 
 /******************************************************************************
@@ -3508,6 +3532,18 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ U32 LC_Get_Offset_FromAB(BTTIME_STRU_PTR pa, BTTIM
     }
     Phase = (CLKOffset * 625) - pa->phase + pb->phase;
     return (Phase >> 1);
+}
+U32 LC_Get_period_Offset_FromAB(BTTIME_STRU_PTR pa, BTTIME_STRU_PTR pb)
+{
+    BTCLK a_t0 = pa->period & 0xFFFFFFC;
+    BTCLK b_t0 = pb->period & 0xFFFFFFC;
+    BTCLK CLKOffset;
+    if (pa->period <= pb->period) {
+        CLKOffset = (b_t0 - a_t0);
+    } else {
+        CLKOffset = (0xFFFFFFF - a_t0 + b_t0 + 1);
+    }
+    return (CLKOffset >> 1);
 }
 
 #if defined (AIR_DCHS_MODE_ENABLE)
@@ -3627,8 +3663,8 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void ble_init_wireless_timer_callback(void 
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &gpt_timer2);
         hal_gpt_get_duration_count(gpt_timer, gpt_timer2, &cnt);
         if (cnt > 500){  /*start timer 150ns before play en enable, so if >500, bt is abnormal. alse disable irq no more than 5ms*/
-            DSP_MW_LOG_E("[BLE] ble sw ul can`t start, cnt=%d, please check if bt is sleep", 1, cnt);
-            AUDIO_ASSERT(0);
+            DSP_MW_LOG_E("[BLE] ble sw ul can`t start, cnt=%d, please check if bt is sleep or if bt link loss, curr=0x%x,0x%x", 3, cnt, curr_time.period,curr_time.phase);
+            break;
         }
     }
     hal_nvic_restore_interrupt_mask(mask);
@@ -3670,16 +3706,20 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void ble_trigger_ul_stream(ble_init_play_in
     uint16_t curr_intra_clk;
     uint32_t curr_bt_clk, during_time, offset_time = 0, relocate_avm_wptr;
     BTTIME_STRU curr_time, expect_time, first_anchor_time;
+    U32 rg_bt_sleep;
 
     hal_gpt_sw_get_timer(&g_ul_sw_timer_handle);
-    /*
-     * decide the time of play en depending on dl
-     *     - set ul play en after dl
-     *     - shift 2 UL IRQ period for the first ul play en
-    */
 
+    #if 0
+    // separated anchor
     first_anchor_time.period = play_info->ul_timestamp;
     first_anchor_time.phase = play_info->dl_timestamp_phase;
+    #else
+    // aligned anchor
+    first_anchor_time.period = play_info->ISOAnchorClk;
+    first_anchor_time.phase = play_info->ISOAnchorPhase;
+    #endif
+
     n9_ble_ul_if.sink->param.n9ble.iso_interval = (play_info->iso_interval >>1)*625;
     n9_ble_ul_if.sink->param.n9ble.frame_per_iso = n9_ble_ul_if.sink->param.n9ble.iso_interval / n9_ble_ul_if.sink->param.n9ble.frame_interval;
 
@@ -3717,6 +3757,8 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void ble_trigger_ul_stream(ble_init_play_in
         offset_time = n9_ble_ul_if.source->param.audio.period * 1000 + BLE_ULL_UL_TIME_STREAM_PROCESS + BLE_ULL_UL_TIME_MIC_MUTE + BLE_ULL_UL_TIME_AVM_MARGIN + BLE_UL_VUL1_DEALY_TIME_STREAM_PROCESS;
 #else
         offset_time = n9_ble_ul_if.source->param.audio.period * 1000 * ((n9_ble_ul_if.sink->param.n9ble.frame_per_iso +1 )>>1)  + BLE_UL_TIME_STREAM_PROCESS;
+        if ((n9_ble_ul_if.sink->param.n9ble.frame_per_iso != 1)&&(n9_ble_ul_if.sink->param.n9ble.frame_interval == 10000)&&(n9_ble_ul_if.source->param.audio.period * 1000 == 15000))
+        {offset_time += (5000 * n9_ble_ul_if.sink->param.n9ble.frame_per_iso);}
 #endif
         /* set ul play en before first anchor*/
         LC_Subtract_us_Fromb(offset_time, &play_en_time, &first_anchor_time);
@@ -3727,7 +3769,11 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void ble_trigger_ul_stream(ble_init_play_in
 
     }
 
-    LC_Get_CurrBtClk(&curr_bt_clk, &curr_intra_clk);
+    rg_bt_sleep = LC_Get_CurrBtClk(&curr_bt_clk, &curr_intra_clk);
+    if (rg_bt_sleep)
+    {
+        DSP_MW_LOG_E("[BLE][LC] DSP get current bt clk when sleep, 0x%x", 1, rg_bt_sleep);
+    }
     curr_time.period = curr_bt_clk;
     curr_time.phase = curr_intra_clk;
 #if defined (AIR_DCHS_MODE_ENABLE)
@@ -3742,6 +3788,10 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void ble_trigger_ul_stream(ble_init_play_in
 
     relocate_avm_wptr = play_info->ul_packet_counter;
     while (LC_BtClock_IsBTTimeExpired(&play_en_time, &expect_time) == true) {
+        if (BLE_CURR_TIME_CHECK < LC_Get_period_Offset_FromAB(&play_en_time, &expect_time)){
+            DSP_MW_LOG_E("[BLE] UL clock abnormal %d %d", 2, play_en_time.period,expect_time.period);
+            return;
+        }
         LC_Add_us_FromA(n9_ble_ul_if.sink->param.n9ble.frame_interval, &play_en_time, &play_en_time);
         relocate_avm_wptr++;
         n9_ble_ul_if.sink->param.n9ble.predict_timestamp += ((n9_ble_ul_if.sink->param.n9ble.frame_interval << 1) / BLE_TIME_BT_CLOCK);
@@ -3767,7 +3817,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void ble_trigger_ul_stream(ble_init_play_in
 #endif
     U32 mask;
     hal_nvic_save_and_set_interrupt_mask(&mask);
-    LC_Get_CurrBtClk(&curr_bt_clk, &curr_intra_clk);
+    rg_bt_sleep = LC_Get_CurrBtClk(&curr_bt_clk, &curr_intra_clk);
     curr_time.period = curr_bt_clk;
     curr_time.phase = curr_intra_clk;
 #ifdef AIR_WIRELESS_MIC_TX_ENABLE
@@ -3785,6 +3835,13 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void ble_trigger_ul_stream(ble_init_play_in
     hal_gpt_sw_start_timer_us(g_ul_sw_timer_handle, during_time, ble_init_ul_timer_callback, NULL);
     }
     hal_nvic_restore_interrupt_mask(mask);
+    if (rg_bt_sleep)
+    {
+        DSP_MW_LOG_E("[BLE][LC] DSP get current bt clk when sleep, 0x%x", 1, rg_bt_sleep);
+        #ifdef AIR_WIRELESS_MIC_TX_ENABLE
+        AUDIO_ASSERT(FALSE);
+        #endif
+    }
     DSP_MW_LOG_I("[BLE] ble_trigger_ul_stream(), during_time = %d", 1, during_time);
 }
 static TimerHandle_t ble_playen_check_timer = NULL;
@@ -3813,6 +3870,7 @@ static void ble_trigger_dl_stream(ble_init_play_info_t *play_info)
     BTTIME_STRU play_en_time, curr_time, expect_time;
     U8 *read_ptr;
     LE_AUDIO_HEADER *buf_header;
+    U32 rg_bt_sleep;
 
     /*
       * decide the time of play en
@@ -3827,7 +3885,12 @@ static void ble_trigger_dl_stream(ble_init_play_info_t *play_info)
         ble_set_dl_play_en_time(&play_en_time);
     }
 
-    LC_Get_CurrBtClk(&curr_time.period, &curr_time.phase);
+    rg_bt_sleep = LC_Get_CurrBtClk(&curr_time.period, &curr_time.phase);
+    if (rg_bt_sleep)
+    {
+        DSP_MW_LOG_E("[BLE][LC] DSP get current bt clk when sleep, 0x%x", 1, rg_bt_sleep);
+    }
+
     LC_Add_us_FromA(BLE_DL_TIME_PLAY_EN_MARGIN, &curr_time, &expect_time);
     if (n9_ble_dl_if.source->param.n9ble.dual_cis_status == DUAL_CIS_WAITING_SUB)
     {
@@ -3873,7 +3936,7 @@ static void ble_trigger_dl_stream(ble_init_play_info_t *play_info)
     }
 
     /* Init TimeStamp & _reserved_byte_0Dh */
-    DSP_MW_LOG_I("[BLE] Init TimeStamp & _reserved_byte_0Dh", 0);
+    DSP_MW_LOG_I("[BLE] Init TimeStamp & _reserved_byte_0Dh current clk: %d", 1,curr_time.period);
     for (int i = 0; i < N9BLE_setting.N9Ble_source.Buffer_Frame_Num; i++) {
         read_ptr = (U8 *)((U8 *)n9_ble_dl_if.source->streamBuffer.ShareBufferInfo.start_addr + i * ALIGN_4(n9_ble_dl_if.source->param.n9ble.frame_length + BLE_AVM_FRAME_HEADER_SIZE));
         buf_header = (LE_AUDIO_HEADER *)read_ptr;
@@ -3884,6 +3947,10 @@ static void ble_trigger_dl_stream(ble_init_play_info_t *play_info)
     n9_ble_dl_if.source->streamBuffer.ShareBufferInfo.read_offset = (play_info->dl_packet_counter%N9BLE_setting.N9Ble_source.Buffer_Frame_Num)*(U32)(ALIGN_4(n9_ble_dl_if.source->param.n9ble.frame_length + BLE_AVM_FRAME_HEADER_SIZE));
     DSP_MW_LOG_I("[BLE] init readoffset : %d %d %d ",3,n9_ble_dl_if.source->streamBuffer.ShareBufferInfo.read_offset,play_info->dl_packet_counter,(play_info->dl_packet_counter%N9BLE_setting.N9Ble_source.Buffer_Frame_Num));
     while (LC_BtClock_IsBTTimeExpired(&play_en_time, &expect_time) == true) {
+        if (BLE_CURR_TIME_CHECK < LC_Get_period_Offset_FromAB(&play_en_time, &expect_time)){
+            DSP_MW_LOG_E("[BLE] DL clock abnormal %d %d", 2, play_en_time.period,expect_time.period);
+            return;
+        }
         LC_Add_us_FromA((play_info->iso_interval * BLE_TIME_BT_CLOCK) >> 1, &play_en_time, &play_en_time);
         n9_ble_dl_if.source->param.n9ble.predict_timestamp += play_info->iso_interval;
         N9Ble_SourceUpdateLocalReadOffset(n9_ble_dl_if.source, n9_ble_dl_if.source->param.n9ble.frame_per_iso);
@@ -3897,28 +3964,28 @@ static void ble_trigger_dl_stream(ble_init_play_info_t *play_info)
         MCE_TransBT2NativeClk(play_en_time.period, play_en_time.phase, &native_bt_clk, &native_intra_clk, BT_CLK_Offset);
         hal_audio_afe_set_play_en(native_bt_clk, native_intra_clk);
     }else{
-        U32 cur_native_clk = dchs_get_cur_native_clk();
+        U32 cur_native_clk = rBb->rClkCtl.rNativeClock & 0x0FFFFFFC;
         if(n9_ble_dl_if.source->param.n9ble.context_type == BLE_CONTEXT_CONVERSATIONAL || n9_ble_dl_if.source->param.n9ble.context_type == BLE_CONTEXT_MEDIA){
             MCE_TransBT2NativeClk(play_en_time.period, play_en_time.phase, &native_bt_clk, &native_intra_clk, BT_CLK_Offset);
-            hal_audio_afe_set_play_en(native_bt_clk, native_intra_clk);
-            DSP_MW_LOG_I("[DCHS DL][BLE] le audio Play en, play native clk:0x%x(%d),play phase:0x%x(%d),cur native clk:0x%x(%d)",6 ,
-                    native_bt_clk, native_bt_clk, native_intra_clk, native_intra_clk, cur_native_clk, cur_native_clk);
+            mixer_stream_setup_play_en(native_bt_clk, native_intra_clk, n9_ble_dl_if.source, NULL);
+            DSP_MW_LOG_I("[DCHS DL][BLE] le audio Play en, play native clk:0x%x(%d),play phase:0x%x(%d),cur native clk:0x%x(%d)",6 ,native_bt_clk, native_bt_clk, native_intra_clk, native_intra_clk, cur_native_clk, cur_native_clk);
             DCHS_TransBT2NativeClk(native_bt_clk, native_intra_clk, &native_bt_clk, &native_intra_clk, DCHS_CLK_Offset);
-            dchs_dl_uart_relay_play_en_info(native_bt_clk, native_intra_clk, AUDIO_SCENARIO_TYPE_BLE_DL);
-            DSP_MW_LOG_I("[DCHS DL][BLE] le audio relay Play en, play native clk:0x%x(%d),play phase:0x%x(%d),cur native clk:0x%x(%d)",6 ,
-                    native_bt_clk, native_bt_clk, native_intra_clk, native_intra_clk, cur_native_clk, cur_native_clk);
+            dchs_dl_uart_relay_play_en_info(native_bt_clk, native_intra_clk);
+            DSP_MW_LOG_I("[DCHS DL][BLE] le audio relay Play en, play native clk:0x%x(%d),play phase:0x%x(%d),cur native clk:0x%x(%d)",6 ,native_bt_clk, native_bt_clk, native_intra_clk, native_intra_clk, cur_native_clk, cur_native_clk);
         }else{
             MCE_TransBT2NativeClk(play_en_time.period, play_en_time.phase, &native_bt_clk, &native_intra_clk, BT_CLK_Offset);
-            dchs_dl_uart_relay_play_en_info(native_bt_clk, native_intra_clk, AUDIO_SCENARIO_TYPE_BLE_DL);
-            DSP_MW_LOG_I("[DCHS DL][BLE] ULL Play en, play native clk:0x%x(%d),play phase:0x%x(%d),cur native clk:0x%x(%d)",6 ,
-                    native_bt_clk, native_bt_clk, native_intra_clk, native_intra_clk, cur_native_clk, cur_native_clk);
-            hal_audio_afe_set_play_en(native_bt_clk, native_intra_clk);
+            dchs_dl_uart_relay_play_en_info(native_bt_clk, native_intra_clk);
+            DSP_MW_LOG_I("[DCHS DL][BLE] ULL Play en, play native clk:0x%x(%d),play phase:0x%x(%d),cur native clk:0x%x(%d)",6 ,native_bt_clk, native_bt_clk, native_intra_clk, native_intra_clk, cur_native_clk, cur_native_clk);
+            mixer_stream_setup_play_en(native_bt_clk, native_intra_clk, n9_ble_dl_if.source, NULL);
         }
-        dchs_dl_count_mix_point(native_bt_clk, native_intra_clk, AUDIO_SCENARIO_TYPE_BLE_DL, LOCAL_SCENARIO_1);
     }
-    #else
+    #else //AIR_DCHS_MODE_ENABLE
     MCE_TransBT2NativeClk(play_en_time.period, play_en_time.phase, &native_bt_clk, &native_intra_clk, BT_CLK_Offset);
+    #if AIR_MIXER_STREAM_ENABLE
+    mixer_stream_setup_play_en(native_bt_clk, native_intra_clk, n9_ble_dl_if.source, NULL);
+    #else
     hal_audio_afe_set_play_en(native_bt_clk, native_intra_clk);
+    #endif
     #endif
     AFE_SET_REG(AFE_MEMIF_PBUF_SIZE, 0, 3 << 0); //reduce pbuffer size
     AFE_SET_REG(AFE_MEMIF_MINLEN, 1, 0XF);//reduce pbuffer size
@@ -3979,35 +4046,42 @@ void CB_N9_BLE_INIT_PLAY_INFO(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     } else {
         if ((n9_ble_dl_if.source->param.n9ble.IsPlayInfoReceived == FALSE) || (n9_ble_dl_if.source->param.n9ble.IsSubPlayInfoReceived == FALSE))
         {
-            DSP_MW_LOG_I("[BLE] play_info->dl_retransmission_window_clk %d", 1, play_info->dl_retransmission_window_clk);
-            DSP_MW_LOG_I("[BLE] play_info->dl_retransmission_window_phase %d", 1, play_info->dl_retransmission_window_phase);
-            DSP_MW_LOG_I("[BLE] play_info->dl_timestamp_clk %d", 1, play_info->dl_timestamp_clk);
-            DSP_MW_LOG_I("[BLE] play_info->dl_timestamp_phase %d", 1, play_info->dl_timestamp_phase);
-            DSP_MW_LOG_I("[BLE] play_info->dl_packet_counter %d", 1, play_info->dl_packet_counter);
-            DSP_MW_LOG_I("[BLE] play_info->dl_avm_info_addr %x", 1, play_info->dl_avm_info_addr);
             play_info->dl_avm_info_addr = hal_memview_cm4_to_dsp0(play_info->dl_avm_info_addr);
             DSP_MW_LOG_I("[BLE] play_info->max_pdu_size %d", 1, ((n9_dsp_share_info_ptr)(play_info->dl_avm_info_addr))->anchor_clk);
-            n9_ble_dl_if.source->param.n9ble.iso_interval = (play_info->iso_interval >> 1) * 625;
-            n9_ble_dl_if.source->param.n9ble.ret_window_len = ((play_info->iso_interval + 1) >> 1) * 625;
-            n9_ble_dl_if.source->param.n9ble.ft = play_info->dl_ft;
-            n9_ble_dl_if.source->param.n9ble.seq_miss_cnt = 0;
-            if (n9_ble_dl_if.source->param.n9ble.dual_cis_status != DUAL_CIS_WAITING_SUB)
+            if(!((n9_dsp_share_info_ptr)(play_info->dl_avm_info_addr))->anchor_clk)
             {
-                n9_ble_dl_if.source->param.n9ble.predict_frame_counter = 0;
-                n9_ble_dl_if.source->param.n9ble.predict_timestamp = play_info->dl_timestamp_clk + (play_info->dl_ft*play_info->iso_interval);
-                n9_ble_dl_if.source->param.n9ble.frame_per_iso = n9_ble_dl_if.source->param.n9ble.iso_interval / n9_ble_dl_if.source->param.n9ble.frame_interval;
-                DSP_MW_LOG_I("[le audio DSP] frame per iso %d",1,n9_ble_dl_if.source->param.n9ble.frame_per_iso) ;
-                n9_ble_dl_if.source->param.n9ble.IsPlayInfoReceived = TRUE; // It is better to add avm buffer compare
+                DSP_MW_LOG_W("[BLE] DL max_pdu_size %d skip play_info", 1, ((n9_dsp_share_info_ptr)(play_info->dl_avm_info_addr))->anchor_clk);
             }
             else
             {
-                n9_ble_dl_if.source->param.n9ble.IsSubPlayInfoReceived = TRUE; // It is better to add avm buffer compare
+                DSP_MW_LOG_I("[BLE] play_info->dl_retransmission_window_clk %d", 1, play_info->dl_retransmission_window_clk);
+                DSP_MW_LOG_I("[BLE] play_info->dl_retransmission_window_phase %d", 1, play_info->dl_retransmission_window_phase);
+                DSP_MW_LOG_I("[BLE] play_info->dl_timestamp_clk %d", 1, play_info->dl_timestamp_clk);
+                DSP_MW_LOG_I("[BLE] play_info->dl_timestamp_phase %d", 1, play_info->dl_timestamp_phase);
+                DSP_MW_LOG_I("[BLE] play_info->dl_packet_counter %d", 1, play_info->dl_packet_counter);
+                DSP_MW_LOG_I("[BLE] play_info->dl_avm_info_addr %x", 1, play_info->dl_avm_info_addr);
+                n9_ble_dl_if.source->param.n9ble.iso_interval = (play_info->iso_interval >> 1) * 625;
+                n9_ble_dl_if.source->param.n9ble.ret_window_len = ((play_info->iso_interval + 1) >> 1) * 625;
+                n9_ble_dl_if.source->param.n9ble.ft = play_info->dl_ft;
+                n9_ble_dl_if.source->param.n9ble.seq_miss_cnt = 0;
+                if (n9_ble_dl_if.source->param.n9ble.dual_cis_status != DUAL_CIS_WAITING_SUB)
+                {
+                    n9_ble_dl_if.source->param.n9ble.predict_frame_counter = 0;
+                    n9_ble_dl_if.source->param.n9ble.predict_timestamp = play_info->dl_timestamp_clk + (play_info->dl_ft*play_info->iso_interval);
+                    n9_ble_dl_if.source->param.n9ble.frame_per_iso = n9_ble_dl_if.source->param.n9ble.iso_interval / n9_ble_dl_if.source->param.n9ble.frame_interval;
+                    DSP_MW_LOG_I("[le audio DSP] frame per iso %d",1,n9_ble_dl_if.source->param.n9ble.frame_per_iso) ;
+                    n9_ble_dl_if.source->param.n9ble.IsPlayInfoReceived = TRUE; // It is better to add avm buffer compare
+                }
+                else
+                {
+                    n9_ble_dl_if.source->param.n9ble.IsSubPlayInfoReceived = TRUE; // It is better to add avm buffer compare
+                }
+                //if(n9_ble_dl_if.source->param.n9ble.context_type != BLE_CONTENT_TYPE_ULL_BLE){
+                    n9_ble_dl_if.source->param.n9ble.frame_length = ((n9_dsp_share_info_ptr)(play_info->dl_avm_info_addr))->anchor_clk;
+                //}
+                SourceInitBleAvm(n9_ble_dl_if.source,n9_ble_ul_if.sink);
+                ble_trigger_dl_stream(play_info);
             }
-            //if(n9_ble_dl_if.source->param.n9ble.context_type != BLE_CONTENT_TYPE_ULL_BLE){
-                n9_ble_dl_if.source->param.n9ble.frame_length = ((n9_dsp_share_info_ptr)(play_info->dl_avm_info_addr))->anchor_clk;
-            //}
-            SourceInitBleAvm(n9_ble_dl_if.source,n9_ble_ul_if.sink);
-            ble_trigger_dl_stream(play_info);
         }
     }
 
@@ -4020,9 +4094,25 @@ void CB_N9_BLE_INIT_PLAY_INFO(hal_ccni_message_t msg, hal_ccni_message_t *ack)
         play_info->ul_avm_info_addr = hal_memview_cm4_to_dsp0(play_info->ul_avm_info_addr);
         n9_ble_ul_if.sink->param.n9ble.frame_length = ((n9_dsp_share_info_ptr)(play_info->ul_avm_info_addr))->anchor_clk;
         DSP_MW_LOG_I("[BLE] play_info->ul_max_pdu_size %d", 1, n9_ble_ul_if.sink->param.n9ble.frame_length);
-        SourceInitBleAvm(n9_ble_dl_if.source,n9_ble_ul_if.sink);
-        ble_trigger_ul_stream(play_info);
-        n9_ble_ul_if.sink->param.n9ble.IsPlayInfoReceived = TRUE;
+        if(!n9_ble_ul_if.sink->param.n9ble.frame_length)
+        {
+            DSP_MW_LOG_W("[BLE] UL max_pdu_size %d skip play_info", 1, ((n9_dsp_share_info_ptr)(play_info->dl_avm_info_addr))->anchor_clk);
+        }
+        else
+        {
+            SourceInitBleAvm(n9_ble_dl_if.source,n9_ble_ul_if.sink);
+            ble_trigger_ul_stream(play_info);
+            n9_ble_ul_if.sink->param.n9ble.IsPlayInfoReceived = TRUE;
+        }
+    } else {
+    #if 1
+        DSP_MW_LOG_W("[BLE] UL already open ble flow", 0);
+        DSP_MW_LOG_W("[BLE] play_info->ul_timestamp %d", 1, play_info->ul_timestamp);
+        DSP_MW_LOG_W("[BLE] play_info->ul_timestamp %d", 1, play_info->ul_timestamp);
+        DSP_MW_LOG_W("[BLE] play_info->ul_packet_counter %d", 1, play_info->ul_packet_counter);
+        DSP_MW_LOG_W("[BLE] play_info->ul_avm_info_addr %x", 1, play_info->ul_avm_info_addr);
+        DSP_MW_LOG_W("[BLE] play_info->ul_max_pdu_size %d", 1, n9_ble_ul_if.sink->param.n9ble.frame_length);
+    #endif
     }
 
 }
@@ -4361,6 +4451,12 @@ extern bool utff_enable;
 #ifdef MTK_WWE_ENABLE
 hal_audio_device_t  wwe_audio_device;
 #endif
+//SWSRC for record
+#if defined(AIR_FIXED_RATIO_SRC) && (defined(AIR_UL_FIX_SAMPLING_RATE_32K) || defined(AIR_UL_FIX_SAMPLING_RATE_48K))
+#define DSP_RECORD_SMP_PORT_NUM  2
+uint8_t record_smp_port_use_cnt = 0;
+src_fixed_ratio_port_t *record_smp_port[DSP_RECORD_SMP_PORT_NUM];
+#endif //SWSRC for record
 void CB_CM4_RECORD_OPEN(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 {
     UNUSED(ack);
@@ -4441,6 +4537,79 @@ void CB_CM4_RECORD_OPEN(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 #ifdef MTK_WWE_ENABLE
     wwe_processing_init();
 #endif
+#if defined(AIR_FIXED_RATIO_SRC) && (defined(AIR_UL_FIX_SAMPLING_RATE_32K) || defined(AIR_UL_FIX_SAMPLING_RATE_48K))
+    //SWARC
+    if (AUDIO_DSP_CODEC_TYPE_PCM == audio_dsp_codec_type) {
+        src_fixed_ratio_config_t smp_config;
+        U32 fs;
+
+        memset(&smp_config, 0, sizeof(src_fixed_ratio_config_t));
+        fs = open_param->stream_in_param.afe.sampling_rate;
+        switch (fs) {
+            case 16000:
+            case 32000:
+            case 48000: {
+                smp_config.channel_number = 0;
+                smp_config.in_sampling_rate = open_param->stream_in_param.afe.sampling_rate;
+                smp_config.out_sampling_rate = 16000;
+                smp_config.resolution = RESOLUTION_16BIT;
+                smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE;
+                smp_config.cvt_num = 1;
+
+                if (record_smp_port_use_cnt < DSP_RECORD_SMP_PORT_NUM) {
+                    record_smp_port[record_smp_port_use_cnt] = stream_function_src_fixed_ratio_get_port(record_if.source);
+                    stream_function_src_fixed_ratio_init(record_smp_port[record_smp_port_use_cnt], &smp_config);
+                    record_smp_port_use_cnt++;
+                } else {
+                    DSP_MW_LOG_E("[CB_CM4_RECORD_OPEN] missing record smp port, record_smp_port_use_cnt: %u, max_port_num: %u", 2, record_smp_port_use_cnt, DSP_RECORD_SMP_PORT_NUM);
+                    AUDIO_ASSERT(FALSE);
+                }
+                DSP_MW_LOG_I("[CB_CM4_RECORD_OPEN]smp port0:  in_sampling_rate: %u, out_sampling_rate: %u", 2, smp_config.in_sampling_rate, smp_config.out_sampling_rate);
+                break;
+            }
+            case 96000: {
+                smp_config.channel_number = 0;
+                smp_config.in_sampling_rate = open_param->stream_in_param.afe.sampling_rate;
+                smp_config.out_sampling_rate = 48000;
+                smp_config.resolution = RESOLUTION_16BIT;
+                smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
+                smp_config.cvt_num = 2;
+
+                if (record_smp_port_use_cnt < DSP_RECORD_SMP_PORT_NUM) {
+                    record_smp_port[record_smp_port_use_cnt] = stream_function_src_fixed_ratio_get_port(record_if.source);
+                    stream_function_src_fixed_ratio_init(record_smp_port[record_smp_port_use_cnt], &smp_config);
+                    record_smp_port_use_cnt++;
+                } else {
+                    DSP_MW_LOG_E("[CB_CM4_RECORD_OPEN] missing record smp port, record_smp_port_use_cnt: %u, max_port_num: %u", 2, record_smp_port_use_cnt, DSP_RECORD_SMP_PORT_NUM);
+                    AUDIO_ASSERT(FALSE);
+                }
+                DSP_MW_LOG_I("[CB_CM4_RECORD_OPEN]smp port0:  in_sampling_rate: %u, out_sampling_rate: %u", 2, smp_config.in_sampling_rate, smp_config.out_sampling_rate);
+
+                smp_config.channel_number = 0;
+                smp_config.in_sampling_rate = 48000;
+                smp_config.out_sampling_rate = 16000;
+                smp_config.resolution = RESOLUTION_16BIT;
+                smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
+                smp_config.cvt_num = 2;
+
+                if (record_smp_port_use_cnt < DSP_RECORD_SMP_PORT_NUM) {
+                    record_smp_port[record_smp_port_use_cnt] = stream_function_src_fixed_ratio_get_2nd_port(record_if.source);
+                    stream_function_src_fixed_ratio_init(record_smp_port[record_smp_port_use_cnt], &smp_config);
+                    record_smp_port_use_cnt++;
+                } else {
+                    DSP_MW_LOG_E("[CB_CM4_RECORD_OPEN] missing record smp port, record_smp_port_use_cnt: %u, max_port_num: %u", 2, record_smp_port_use_cnt, DSP_RECORD_SMP_PORT_NUM);
+                    AUDIO_ASSERT(FALSE);
+                }
+                DSP_MW_LOG_I("[CB_CM4_RECORD_OPEN]smp port1:  in_sampling_rate: %u, out_sampling_rate: %u", 2, smp_config.in_sampling_rate, smp_config.out_sampling_rate);
+                break;
+            }
+            default: {
+                DSP_MW_LOG_E("[CB_CM4_RECORD_OPEN] Not support sample rate, sample_rate: %u", 1, fs);
+                break;
+            }
+        }
+    }
+#endif
 }
 
 
@@ -4494,6 +4663,17 @@ void CB_CM4_RECORD_CLOSE(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 #ifdef MTK_WWE_ENABLE
     wwe_processing_deinit();
 #endif
+
+#if defined(AIR_FIXED_RATIO_SRC) && (defined(AIR_UL_FIX_SAMPLING_RATE_32K) || defined(AIR_UL_FIX_SAMPLING_RATE_48K))
+    uint8_t i;
+    for (i = 0; i < record_smp_port_use_cnt; i++) {
+        if (record_smp_port[i]) {
+            stream_function_src_fixed_ratio_deinit(record_smp_port[i]);
+            record_smp_port[i] = NULL;
+        }
+    }
+    record_smp_port_use_cnt = 0;
+#endif
     DSP_Callback_UnloaderConfig(record_if.pfeature_table, record_if.source->scenario_type);
     SourceClose(record_if.source);
     SinkClose(record_if.sink);
@@ -4543,25 +4723,33 @@ void CB_CM4_RECORD_LC_SET_PARAM_ACK(hal_ccni_message_t msg, hal_ccni_message_t *
 }
 #endif
 
-#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
 
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
 void dsp_dac_enter_deactive_mode(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 {
-    UNUSED(msg);
+//    UNUSED(msg);
     UNUSED(ack);
+
+    uint32_t gain_compensation = msg.ccni_message[0];
+
     /*pass message to dtm task and call  "hal_audio_device_enter_dac_deactive_mode(true)" */
-    DTM_enqueue(DTM_EVENT_ID_DAC_DEACTIVE_MODE_ENTER, 0, false);
+    DTM_enqueue(DTM_EVENT_ID_DAC_DEACTIVE_MODE_ENTER, gain_compensation, false);
 }
 
 void dsp_dac_exit_deactive_mode(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 {
     UNUSED(ack);
-    uint32_t dac_mode = msg.ccni_message[0] & 0xFFFF;
+
+
+    uint32_t dac_info = msg.ccni_message[0] & 0xFF;
+    dac_info |= (msg.ccni_message[1] & 0x3F) << 16;
+
 
     /*pass message to dtm task and call  "hal_audio_device_enter_dac_deactive_mode(false)" */
-    DTM_enqueue(DTM_EVENT_ID_DAC_DEACTIVE_MODE_EXIT, dac_mode, false);
+    DTM_enqueue(DTM_EVENT_ID_DAC_DEACTIVE_MODE_EXIT, dac_info, false);
 }
 #endif
+
 
 #ifdef AIR_SIDETONE_ENABLE
 afe_sidetone_param_t dsp_afe_sidetone;
@@ -4661,6 +4849,16 @@ static void rg_debug_timer_callback(void *user_data)
     HAL_AUDIO_LOG_INFO("rg_debug_timer_callback, ASM_OUT_BUF_MON0:0x%x", 1, reg_value);
 
     hal_gpt_sw_start_timer_ms(rg_debug_timer_handle, 500, rg_debug_timer_callback, NULL);
+}
+#endif
+
+#ifdef AIR_MCU_DSP_DEPENDECY_CHECK_ENABLE
+void dsp_a2dp_clock_dependency_check(hal_ccni_message_t msg, hal_ccni_message_t *ack)
+{
+    UNUSED(ack);
+    DSP_MW_LOG_I("dsp_a2dp_clock_dependency_check\r\n", 0);
+
+    audio_clock_param = (audio_clock_share_buffer_p)hal_memview_cm4_to_dsp0(msg.ccni_message[1]);
 }
 #endif
 
@@ -4807,9 +5005,11 @@ void dsp_dc_compensation_stop(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     DSP_MW_LOG_I("DC COMPENSATION val:0x%x, no_delay_flag = 0x%x\r\n", 2, afe.stream_out.dc_compensation_value, no_delay_flag);
 
     uint32_t value = 0;
+#ifndef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
     if (no_delay_flag == 0) {
         value = 2000;
     }
+#endif
     hal_audio_set_value((hal_audio_set_value_parameter_t *)&value, HAL_AUDIO_SET_DEVICE_AMP_DELAY_TIMER_MS);
     if (dac_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSD) {
         DSP_MW_LOG_I("[DC COMPENSATION] classd unlock amp", 0);
@@ -4842,7 +5042,7 @@ void dsp_peq_set_param(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     mcu2dsp_peq_param_p peq_param;
     peq_param = (mcu2dsp_peq_param_p)hal_memview_mcu_to_dsp0(msg.ccni_message[1]);
 
-    if (((msg.ccni_message[0] & 0xFFFF) == PEQ_DISABLE_ALL) || ((msg.ccni_message[0] & 0xFFFF) == PEQ_ON_ALL)) {  
+    if (((msg.ccni_message[0] & 0xFFFF) == PEQ_DISABLE_ALL) || ((msg.ccni_message[0] & 0xFFFF) == PEQ_ON_ALL)) {
         Audio_Peq_Enable_Control(msg);
         return;
     }
@@ -4866,6 +5066,7 @@ void dsp_peq_set_param(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     DSP_MW_LOG_I("PEQ set param with phase %d,BypassTimestamp:%d\r\n", 2, peq_param->phase_id,BypassTimestamp);
     PEQ_Set_Param(msg, ack, BypassTimestamp);
 
+#if defined(AIR_DRC_ENABLE)
     if ((msg.ccni_message[0] & 0xFFFF) == PEQ_AUDIO_PATH_A2DP) {
         Audio_CPD_Enable(peq_param->drc_enable, peq_param->phase_id, peq_param->drc_force_disable, PEQ_AUDIO_PATH_A2DP, peq_param->peq_nvkey_id);
     } else if ((msg.ccni_message[0] & 0xFFFF) == PEQ_AUDIO_PATH_LINEIN) {
@@ -4883,6 +5084,7 @@ void dsp_peq_set_param(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     } else {
         Audio_CPD_Enable(peq_param->drc_enable, peq_param->phase_id, peq_param->drc_force_disable, PEQ_AUDIO_PATH_ADAPTIVE_EQ, peq_param->peq_nvkey_id);
     }
+#endif
 }
 #endif
 
@@ -5044,6 +5246,15 @@ void dsp_streaming_deinit_all(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 #if defined(AIR_DRC_ENABLE) || defined(AIR_VOICE_DRC_ENABLE)
             stream_function_cpd_deinitialize(true);
 #endif
+    } else if(stream_deinit == AUDIO_STRAM_DEINIT_ULL_DL){
+        dsp_stream_deinit_all();
+        #if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_HEARTHROUGH_MAIN_ENABLE) || defined(AIR_CUSTOMIZED_LLF_ENABLE)
+        DLLT_StreeamingDeinitAll();
+        #endif
+
+        #if defined(AIR_DRC_ENABLE) || defined(AIR_VOICE_DRC_ENABLE)
+        stream_function_cpd_deinitialize(true);
+        #endif
     } else {
         dsp_stream_deinit_all();
         #if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_HEARTHROUGH_MAIN_ENABLE) || defined(AIR_CUSTOMIZED_LLF_ENABLE)
@@ -5194,7 +5405,8 @@ void dsp_set_algorithm_param(hal_ccni_message_t msg, hal_ccni_message_t *ack)
                (nvkey_id == NVID_DSP_ALG_ANC_WIND_DET_SIDETONE) ||
                (nvkey_id == NVID_DSP_ALG_ANC_WIND_DET_HW_VIVID_PT) ||
                (nvkey_id == NVID_DSP_ALG_ANC_WIND_DET_HA_PSAP) ||
-               (nvkey_id == NVID_DSP_ALG_ANC_WIND_DET_SW_VIVID_PT)) {
+               (nvkey_id == NVID_DSP_ALG_ANC_WIND_DET_SW_VIVID_PT) ||
+               (nvkey_id == NVID_DSP_ALG_ANC_WIND_DET_LLF)) {
         stream_function_wind_load_nvkey(share_ptr);
 #endif
 #ifdef AIR_AUDIO_HARDWARE_ENABLE
@@ -5217,7 +5429,8 @@ void dsp_set_algorithm_param(hal_ccni_message_t msg, hal_ccni_message_t *ack)
                (nvkey_id == NVID_DSP_ALG_ANC_ENVIRONMENT_DETECTION_SIDETONE) ||
                (nvkey_id == NVID_DSP_ALG_ANC_ENVIRONMENT_DETECTION_HW_VIVID_PT) ||
                (nvkey_id == NVID_DSP_ALG_ANC_ENVIRONMENT_DETECTION_HA_PSAP) ||
-               (nvkey_id == NVID_DSP_ALG_ANC_ENVIRONMENT_DETECTION_SW_VIVID_PT)) {
+               (nvkey_id == NVID_DSP_ALG_ANC_ENVIRONMENT_DETECTION_SW_VIVID_PT) ||
+               (nvkey_id == NVID_DSP_ALG_ANC_ENVIRONMENT_DETECTION_LLF)) {
         stream_function_environment_detection_load_nvkey(share_ptr);
 #endif
 #ifdef AIR_ADVANCED_PASSTHROUGH_ENABLE
@@ -5483,7 +5696,6 @@ void CB_CM4_VP_PLAYBACK_OPEN(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     open_param->stream_out_param.afe.clkskew_mode = CLK_SKEW_V1;
 #endif
 #endif
-
     DSP_REMAP_SHARE_INFO(open_param->stream_in_param.playback.p_share_info, n9_dsp_share_info_ptr);
 
     playback_vp_if.source = dsp_open_stream_in(open_param);//StreamCM4VPPlaybackSource(share_info);
@@ -6152,6 +6364,14 @@ CONNECTION_IF g_ull_audio_v2_dongle_line_out_streams_0 = {
 };
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
 
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+extern stream_feature_list_t stream_feature_list_ull_audio_v2_dongle_i2s_mst_out[];
+CONNECTION_IF g_ull_audio_v2_dongle_i2s_mst_out_streams_0 = {
+    /* source     sink            transform     pfeature_table */
+    NULL,        NULL,       NULL,       stream_feature_list_ull_audio_v2_dongle_i2s_mst_out
+};
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
+
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
 extern stream_feature_list_t stream_feature_list_ull_audio_v2_dongle_i2s_slv_out[];
 CONNECTION_IF g_ull_audio_v2_dongle_i2s_slv_out_streams_0 = {
@@ -6435,6 +6655,11 @@ CONNECTION_IF *port_audio_transmitter_get_connection_if(audio_transmitter_scenar
             application_ptr = &g_ull_audio_v2_dongle_line_out_streams_0;
         }
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        else if (sub_id.ull_audio_v2_dongle_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0) {
+            application_ptr = &g_ull_audio_v2_dongle_i2s_mst_out_streams_0;
+        }
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         else if (sub_id.ull_audio_v2_dongle_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0) {
             application_ptr = &g_ull_audio_v2_dongle_i2s_slv_out_streams_0;
@@ -6544,17 +6769,23 @@ CONNECTION_IF *port_audio_transmitter_get_connection_if(audio_transmitter_scenar
 #endif
 #if defined (AIR_DCHS_MODE_ENABLE)
     else if (scenario_id == AUDIO_TRANSMITTER_DCHS){
-        if(sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_DL){
-            if(dchs_get_device_mode() == DCHS_MODE_RIGHT){
-                application_ptr = &dchs_dl_right_if;
-            }else{
-                application_ptr = &dchs_dl_left_if;
-            }
-        }else if(sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_UL){
+        if(sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_UL){
             if(dchs_get_device_mode() == DCHS_MODE_RIGHT){
                 application_ptr = &dchs_uart_ul_right_if;
             }else{
-                application_ptr = &dchs_uart_ul_left_if;
+                if(dchs_voice_mode == VOICE_WB){
+                    if((dchs_ul_scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_OUT) || (dchs_ul_scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_OUT)){
+                        application_ptr = &dchs_uart_ul_left_if_wb_sw_gain;
+                    }else{
+                        application_ptr = &dchs_uart_ul_left_if_wb;
+                    }
+                }else{
+                    if((dchs_ul_scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_OUT) || (dchs_ul_scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_OUT)){
+                        application_ptr = &dchs_uart_ul_left_if_swb_sw_gain;
+                    }else{
+                        application_ptr = &dchs_uart_ul_left_if_swb;
+                    }
+                }
             }
         }
     }
@@ -6650,36 +6881,46 @@ void audio_transmitter_open(hal_ccni_message_t msg, hal_ccni_message_t *ack)
         return;
     }
 #endif
-    application_ptr = port_audio_transmitter_get_connection_if(scenario_id, sub_id);
-
     open_param = (mcu2dsp_open_param_p)hal_memview_cm4_to_dsp0(msg.ccni_message[1]);
+
+#if defined (AIR_DCHS_MODE_ENABLE)
+    if (scenario_id == AUDIO_TRANSMITTER_DCHS){
+        if(sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_UL){
+            dchs_ul_scenario_type = open_param->stream_in_param.afe.dchs_ul_scenario_type;
+            dsp_uart_ul_open();
+            dsp_uart_ul_clear_rx_buffer();
+            dsp_uart_ul_clear_tx_buffer();
+            DSP_MW_LOG_I("[DCHS UL] open_param sampling_rate:%d,dchs_ul_scenario_type:%d,codec_type:%d", 3,open_param->stream_in_param.afe.sampling_rate,dchs_ul_scenario_type,open_param->stream_in_param.afe.codec_type);
+            if(open_param->stream_in_param.afe.sampling_rate == 16000){
+                if(open_param->stream_in_param.afe.codec_type == BT_HFP_CODEC_CVSD){
+                    DSP_ALG_UpdateEscoTxMode(VOICE_NB);         /*16K sample rate. Need NB algorithm*/
+                    DSP_ALG_UpdateEscoRxMode(VOICE_NB);         /*16K sample rate. Need NB algorithm*/
+                }else{
+                    DSP_ALG_UpdateEscoTxMode(VOICE_WB);         /*16K sample rate. Need WB algorithm*/
+                    DSP_ALG_UpdateEscoRxMode(VOICE_WB);         /*16K sample rate. Need WB algorithm*/
+                }
+                dchs_voice_mode = VOICE_WB;
+            }else if(open_param->stream_in_param.afe.sampling_rate == 32000){
+#ifdef AIR_BT_BLE_SWB_ENABLE
+                DSP_ALG_UpdateEscoTxMode(VOICE_SWB);         /*32K sample rate. Need SWB algorithm*/
+                DSP_ALG_UpdateEscoRxMode(VOICE_SWB);         /*32K sample rate. Need SWB algorithm*/
+                dchs_voice_mode = VOICE_SWB;
+#endif
+            }
+        }
+    }
+#endif
+
+    application_ptr = port_audio_transmitter_get_connection_if(scenario_id, sub_id);
     application_ptr->source     = dsp_open_stream_in(open_param);
     application_ptr->sink       = dsp_open_stream_out(open_param);
     application_ptr->transform = NULL;
     audio_transmitter_configure_task(application_ptr, scenario_id, sub_id);
 
 #if defined (AIR_DCHS_MODE_ENABLE)
-    if(scenario_id == AUDIO_TRANSMITTER_WIRED_AUDIO){
-        if((sub_id.dchs_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_OUT)||(sub_id.dchs_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_OUT)){
-            dsp_uart_ul_open();
-            dsp_uart_ul_clear_rx_buffer();
-            dsp_uart_ul_clear_tx_buffer();
-        }
-    }
     if (scenario_id == AUDIO_TRANSMITTER_DCHS){
         if(sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_UL){
-            dsp_uart_ul_open();
             dchs_sub_ul_mem = application_ptr->source->param.audio.mem_handle.memory_select;
-            DSP_MW_LOG_I("[DCHS UL] open_param sampling_rate:%d", 1,open_param->stream_in_param.afe.sampling_rate);
-            if(open_param->stream_in_param.afe.sampling_rate == 16000){
-                DSP_ALG_UpdateEscoTxMode(VOICE_WB);         /*16K sample rate. Need WB algorithm*/
-                DSP_ALG_UpdateEscoRxMode(VOICE_WB);         /*16K sample rate. Need WB algorithm*/
-            }else if(open_param->stream_in_param.afe.sampling_rate == 32000){
-#ifdef AIR_BT_BLE_SWB_ENABLE
-                DSP_ALG_UpdateEscoTxMode(VOICE_SWB);         /*32K sample rate. Need SWB algorithm*/
-                DSP_ALG_UpdateEscoRxMode(VOICE_SWB);         /*32K sample rate. Need SWB algorithm*/
-#endif
-            }
         }
     }
 #endif
@@ -6796,6 +7037,8 @@ void audio_transmitter_close(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 #if defined (AIR_DCHS_MODE_ENABLE)
     if (scenario_id == AUDIO_TRANSMITTER_DCHS){
         if(sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_UL){
+            dsp_uart_ul_clear_rx_buffer();
+            dsp_uart_ul_clear_tx_buffer();
             dchs_send_unlock_sleep_msg(false);
         }
     }
@@ -7595,6 +7838,9 @@ extern void dsp_sync_callback_ble(cm4_dsp_audio_sync_action_type_t request_actio
 #ifdef AIR_ANC_ADAPTIVE_CLOCK_CONTROL_ENABLE
 extern void dsp_sync_callback_adapt_anc(cm4_dsp_audio_sync_action_type_t request_action_id, void * user_data);
 #endif
+#ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+extern void dsp_sync_callback_llf(cm4_dsp_audio_sync_action_type_t request_action_id, void *user_data);
+#endif
 
 void dsp_audio_request_sync_initialization(void)
 {
@@ -7606,6 +7852,33 @@ void dsp_audio_request_sync_initialization(void)
 #ifdef AIR_ANC_ADAPTIVE_CLOCK_CONTROL_ENABLE
     dsp_audio_request_sync_register_callback((cm4_dsp_audio_sync_scenario_type_t)MCU2DSP_SYNC_REQUEST_ADAPT_ANC, (dsp_sync_callback_t*)dsp_sync_callback_adapt_anc);
 #endif
+#ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+    dsp_audio_request_sync_register_callback(MCU2DSP_SYNC_REQUEST_LLF, (dsp_sync_callback_t*)dsp_sync_callback_llf);
+#endif
 }
 #endif
 
+#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_LE_AUDIO_DONGLE_ENABLE) || defined(AIR_BT_LE_LC3PLUS_ENABLE)
+uint32_t g_plc_mode = 1;
+typedef enum {
+    LC3_PARA_TYPE_PLC_MODE = 0,
+    LC3_PARA_TYPE_MAX = 0xFFFF,
+} lc3_param_type_t;
+
+void lc3_set_param(hal_ccni_message_t msg, hal_ccni_message_t *ack)
+{
+    lc3_param_type_t msg16 = (lc3_param_type_t)(msg.ccni_message[0] & 0xFFFF);
+    uint32_t msg32 = msg.ccni_message[1];
+
+    UNUSED(ack);
+
+    switch (msg16) {
+        case LC3_PARA_TYPE_PLC_MODE:
+            g_plc_mode = msg32;
+            DSP_MW_LOG_I("[lc3] AT_CMD SET PLC %d",1,g_plc_mode);
+            break;
+        default:
+            return;
+    }
+}
+#endif

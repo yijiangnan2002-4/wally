@@ -48,6 +48,8 @@
 #define BT_SINK_SRV_LE_VCS_ACTION_SET_ABSOLUTE_VOLUME                     (0x0005U)    /**< This action sends a request to set absolute volume with parameter #bt_sink_srv_le_set_absolute_volume_t. */
 #define BT_SINK_SRV_LE_VCS_ACTION_UNMUTE                                  (0x0006U)    /**< This action sends a request to set unmute. */
 #define BT_SINK_SRV_LE_VCS_ACTION_MUTE                                    (0x0007U)    /**< This action sends a request to set mute. */
+#define BT_SINK_SRV_LE_VCS_ACTION_SET_MUTE_STATE_AND_VOLUME_LEVEL         (0x0008U)    /**< This action sends a request to set mute state and volume level with parameter #bt_sink_srv_le_set_mute_state_and_volume_level_t. */
+#define BT_SINK_SRV_LE_VCS_ACTION_SET_MIC_MUTE_STATE_AND_VOLUME_LEVEL     (0x0009U)    /**< This action sends a request to set microphone mute state and volume level with parameter #bt_sink_srv_le_set_mute_state_and_volume_level_t. */
 #define BT_SINK_SRV_LE_ACTION_INVALID                                     (0xFFFF)     /**< Invalid sink srv LE VCP action. */
 typedef uint16_t bt_sink_srv_le_vcp_action_t; /**< The type of the sink srv LE VCP action. */
 
@@ -77,6 +79,13 @@ typedef struct {
     uint8_t volume;     /**< Volume.*/
     bool mute;          /**< Mute.*/
 } bt_sink_srv_le_volume_state_t;
+
+typedef struct {
+    bool set_mute;              /**< Set mute.*/
+    bool mute;                  /**< Mute.*/
+    bool set_volume_level;      /**< Set volume level.*/
+    uint8_t volume_level;       /**< Volume level.*/
+} bt_sink_srv_le_set_mute_state_and_volume_level_t;
 
 /**
  * @brief     This function is used to mute or unmute the device.

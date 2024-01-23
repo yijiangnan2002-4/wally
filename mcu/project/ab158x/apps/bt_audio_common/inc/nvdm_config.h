@@ -52,7 +52,11 @@ extern "C" {
 #ifdef MTK_NVDM_ENABLE
 
 /* This macro defines max count of data items. */
+#if defined(AIR_BTA_IC_PREMIUM_G2)
 #define NVDM_PORT_DAT_ITEM_COUNT (400)
+#else
+#define NVDM_PORT_DAT_ITEM_COUNT (600)
+#endif
 
 /* This macro defines size of PEB, normally it is size of flash block. */
 #define NVDM_PORT_PEB_SIZE (4096)

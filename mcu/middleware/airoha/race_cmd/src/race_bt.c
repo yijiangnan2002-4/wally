@@ -71,41 +71,15 @@ typedef struct {
 
 race_bt_context_struct g_race_bt_cntx, *g_race_bt_cntx_ptr;
 
-static void race_bt_handle_power_on(bt_msg_type_t pmsg)
+static void race_bt_handle_power_on(race_general_msg_t *pmsg)
 {
-    /*bt_msg_type_t msg_type = 0;
+    bt_msg_type_t msg_type = 0;
     if (NULL == pmsg) {
         return;
     }
-    msg_type = (bt_msg_type_t)pmsg->msg_data;*/
-    RACE_LOG_MSGID_I("pmsg = %x", 1, pmsg);
-    if (BT_POWER_ON_CNF == pmsg) {
-        race_bt_init();
-        race_serial_port_open(RACE_SERIAL_PORT_TYPE_SPP,
-                              SERIAL_PORT_DEV_BT_SPP);
-        race_serial_port_open(RACE_SERIAL_PORT_TYPE_BLE,
-                              SERIAL_PORT_DEV_BT_LE);
-        race_serial_port_open(RACE_SERIAL_PORT_TYPE_BLE_1,
-                              SERIAL_PORT_DEV_BT_LE_1);
-        race_serial_port_open(RACE_SERIAL_PORT_TYPE_BLE_2,
-                              SERIAL_PORT_DEV_BT_LE_2);
-#ifdef MTK_AIRUPDATE_ENABLE
-        race_serial_port_open(RACE_SERIAL_PORT_TYPE_AIRUPDATE,
-                              SERIAL_PORT_DEV_BT_AIRUPDATE);
-#endif
-#ifdef MTK_IAP2_PROFILE_ENABLE
-        race_serial_port_open(RACE_SERIAL_PORT_TYPE_IAP2,
-                              SERIAL_PORT_DEV_IAP2_SESSION2);
-#endif
-#ifdef MTK_GATT_OVER_BREDR_ENABLE
-        race_serial_port_open(RACE_SERIAL_PORT_TYPE_GATT_OVER_BREDR,
-                              SERIAL_PORT_DEV_BT_GATT_OVER_BREDR);
-#endif
-#ifdef AIR_MUX_BT_HID_ENABLE
-        race_serial_port_open(RACE_SERIAL_PORT_TYPE_HID,
-                              SERIAL_PORT_DEV_HID_CONTROL);
-#endif
-    } else if (BT_POWER_OFF_CNF == pmsg) {
+    msg_type = (bt_msg_type_t)pmsg->msg_data;
+    RACE_LOG_MSGID_I("msg_type = %x", 1, msg_type);
+    if (BT_POWER_OFF_CNF == msg_type) {
         race_bt_deinit();
 #ifdef RACE_AWS_ENABLE
         race_lpcomm_deattach_proc(NULL,
@@ -261,7 +235,7 @@ void race_bt_init(void)
     g_race_bt_cntx_ptr->ble_conn_hdl = BT_HANDLE_INVALID;
     g_race_bt_cntx_ptr->hfp_hdl = BT_HANDLE_INVALID;
     g_race_bt_cntx_ptr->a2dp_hdl = BT_HANDLE_INVALID;
-    //race_register_general_msg_hdl(MSG_ID_RACE_BT_POWER_ON_OFF_IND, race_bt_handle_power_on);
+    race_register_general_msg_hdl(MSG_ID_RACE_BT_POWER_ON_OFF_IND, race_bt_handle_power_on);
 }
 
 
@@ -392,16 +366,41 @@ bt_status_t race_bt_event_process(bt_msg_type_t msg_type,
             msg_item.msg_id = MSG_ID_RACE_BT_POWER_ON_OFF_IND;
             msg_item.msg_data = (uint8_t *)BT_POWER_ON_CNF;
             race_send_msg(&msg_item);*/
-            race_bt_handle_power_on(msg_type);
+            //race_bt_handle_power_on(msg_type);
+            race_bt_init();
+            race_serial_port_open(RACE_SERIAL_PORT_TYPE_SPP,
+                                  SERIAL_PORT_DEV_BT_SPP);
+            race_serial_port_open(RACE_SERIAL_PORT_TYPE_BLE,
+                                  SERIAL_PORT_DEV_BT_LE);
+            race_serial_port_open(RACE_SERIAL_PORT_TYPE_BLE_1,
+                                  SERIAL_PORT_DEV_BT_LE_1);
+            race_serial_port_open(RACE_SERIAL_PORT_TYPE_BLE_2,
+                                  SERIAL_PORT_DEV_BT_LE_2);
+#ifdef MTK_AIRUPDATE_ENABLE
+            race_serial_port_open(RACE_SERIAL_PORT_TYPE_AIRUPDATE,
+                                  SERIAL_PORT_DEV_BT_AIRUPDATE);
+#endif
+#ifdef MTK_IAP2_PROFILE_ENABLE
+            race_serial_port_open(RACE_SERIAL_PORT_TYPE_IAP2,
+                                  SERIAL_PORT_DEV_IAP2_SESSION2);
+#endif
+#ifdef MTK_GATT_OVER_BREDR_ENABLE
+            race_serial_port_open(RACE_SERIAL_PORT_TYPE_GATT_OVER_BREDR,
+                                  SERIAL_PORT_DEV_BT_GATT_OVER_BREDR);
+#endif
+#ifdef AIR_MUX_BT_HID_ENABLE
+            race_serial_port_open(RACE_SERIAL_PORT_TYPE_HID,
+                                  SERIAL_PORT_DEV_HID_CONTROL);
+#endif
             break;
         }
 
         case BT_POWER_OFF_CNF: {
-            /*race_general_msg_t msg_item = {0};
+            race_general_msg_t msg_item = {0};
             msg_item.msg_id = MSG_ID_RACE_BT_POWER_ON_OFF_IND;
             msg_item.msg_data = (uint8_t *)BT_POWER_OFF_CNF;
-            race_send_msg(&msg_item);*/
-            race_bt_handle_power_on(msg_type);
+            race_send_msg(&msg_item);
+            //race_bt_handle_power_on(msg_type);
             break;
         }
 

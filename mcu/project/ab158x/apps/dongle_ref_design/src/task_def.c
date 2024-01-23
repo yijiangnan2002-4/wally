@@ -47,13 +47,13 @@
 #include "audio_nvdm_common.h"
 #include "audio_nvdm_coef_default.h"
 
-#ifdef AIR_PURE_GAMING_ENABLE
+#if defined (AIR_PURE_GAMING_ENABLE) || defined(AIR_HID_BT_HOGP_ENABLE)
 #include "hal_audio_internal.h"
 #endif
 
 #define ATCI_DEMO
 
-#ifndef AIR_PURE_GAMING_ENABLE
+#if !defined (AIR_PURE_GAMING_ENABLE) && !defined(AIR_HID_BT_HOGP_ENABLE)
 #define BT_SINK_DEMO
 #endif
 
@@ -193,9 +193,12 @@ void task_def_init(void)
 #endif
 
     bt_sink_init();
-#ifdef AIR_PURE_GAMING_ENABLE
+
+#if defined (AIR_PURE_GAMING_ENABLE)
     //Set the ADC when starting up to prevent ADC leakage
     hal_ana_adc_init();
+#elif defined (AIR_HID_BT_HOGP_ENABLE)
+	// Nothing
 #else
     hal_audio_init();
     audio_dsp0_nvdm_init();     // write the default nvdm data to flash memory.

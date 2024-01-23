@@ -50,10 +50,40 @@
 /**************************************************************************************************
 * Define
 **************************************************************************************************/
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+#define APP_LE_AUDIO_BCST_GMAP_AC_LEVEL_LOWEST_LATENCY      0
+#define APP_LE_AUDIO_BCST_GMAP_AC_LEVEL_LOW_LATENCY         1
+#define APP_LE_AUDIO_BCST_GMAP_AC_LEVEL_BALANCED            2
+#define APP_LE_AUDIO_BCST_GMAP_AC_LEVEL_HIGH_RELIABILITY    3
+#define APP_LE_AUDIO_BCST_GMAP_AC_LEVEL_MAX                 4
 
+#define APP_LE_BCST_GMAP_QOS_CONFIG(sampling_rate, sdu_size, sdu_interval, bitrate, lowest_rtn, lowest_latency, low_rtn, low_latency, balanced_rtn, balanced_latency, high_rtn, high_latency) \
+    {sampling_rate, sdu_size, sdu_interval, bitrate, {{lowest_rtn, lowest_latency}, {low_rtn, low_latency}, {balanced_rtn, balanced_latency}, {high_rtn, high_latency}}}
+#endif
 /**************************************************************************************************
 * Structure
 **************************************************************************************************/
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+typedef struct {
+    uint8_t rtn;                                /* retransmission number */
+    uint8_t latency;                            /* Max transport latency (ms) */
+} app_le_audio_bcst_gmap_ac_level_t;
+
+typedef struct {
+    uint8_t sampling_rate;                      /* sampling rate */
+    uint16_t sdu_size;                          /* Maximum SDU size (octets) */
+    app_le_audio_sdu_interval_t sdu_interval;   /* SDU interval */
+    float bitrate;                              /* Bitrate (kbps) */
+    app_le_audio_bcst_gmap_ac_level_t ac_level[APP_LE_AUDIO_BCST_GMAP_AC_LEVEL_MAX];
+} app_le_audio_bcst_gmap_qos_params_t;
+
+typedef struct {
+    uint8_t ft;
+    uint8_t nse;
+    uint8_t bn;
+    uint8_t rtn;
+} app_le_audio_bcst_gmap_ll_params_t;
+#endif
 
 /**************************************************************************************************
 * Variable
@@ -85,7 +115,23 @@ static const app_le_audio_qos_params_tbl_t g_lea_bcst_qos_params_tbl[] = {
     {120,       SDU_INTERVAL_10_MS,    96,      4,      20,       4,        65},       /* 11 48_4 */
     {155,       SDU_INTERVAL_10_MS,    124,     4,      20,       4,        65},       /* 12 48_6 */
     {26,        SDU_INTERVAL_7P5_MS,   27.734,  2,       8,       4,        45},       /* 13 8_1 */
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+    {160,       SDU_INTERVAL_10_MS,    128,     13,    100,      13,       100},       /* 14 48_1_LC3plusHR_CBR */
+    {190,       SDU_INTERVAL_10_MS,    152,     13,    100,      13,       100},       /* 15 96_1_LC3plusHR_CBR */
+#endif
 };
+
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+static const app_le_audio_bcst_gmap_qos_params_t g_lea_bcst_gmap_qos_params_tbl[] = {
+    /* GMAP d09r09 for mic and speaker */
+    APP_LE_BCST_GMAP_QOS_CONFIG(48,  75, SDU_INTERVAL_7P5_MS,  80, 2,  8, 2,  8, 2,  8, 2,  8),      /* 0  48_1 */
+    APP_LE_BCST_GMAP_QOS_CONFIG(48, 100, SDU_INTERVAL_10_MS,   80, 2, 10, 2, 10, 2, 10, 2, 10),      /* 1  48_2 */
+    APP_LE_BCST_GMAP_QOS_CONFIG(48,  90, SDU_INTERVAL_7P5_MS,  96, 2,  8, 2,  8, 2,  8, 2,  8),      /* 2  48_3 */
+    APP_LE_BCST_GMAP_QOS_CONFIG(48, 120, SDU_INTERVAL_10_MS,   96, 2, 10, 2, 10, 2, 10, 2, 10),      /* 3  48_4 */
+};
+
+#define APP_LE_AUDIO_BCST_GMAP_QOS_PARAMS_TBL_COUNT  (sizeof(g_lea_bcst_gmap_qos_params_tbl)/sizeof(app_le_audio_bcst_gmap_qos_params_t))
+#endif
 
 #define APP_LE_AUDIO_BCST_QOS_PARAMS_TBL_COUNT (sizeof(g_lea_bcst_qos_params_tbl)/sizeof(app_le_audio_qos_params_tbl_t))
 
@@ -107,6 +153,44 @@ extern const uint32_t g_lea_sdu_interval_tbl[];
 /**************************************************************************************************
 * Public Functions
 **************************************************************************************************/
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+bool app_le_audio_bcst_gmap_set_qos_params(uint8_t sel_setting, uint8_t audio_config_level)
+{
+    app_le_audio_qos_params_t *qos_parameter = NULL;
+    app_le_audio_bcst_gmap_qos_params_t *gmap_qos;
+
+    LE_AUDIO_MSGLOG_I("[APP][B][GMAP] set_qos_params, sel_setting:%d audio_config_level:%d", 2, sel_setting, audio_config_level);
+
+    if (APP_LE_AUDIO_BCST_GMAP_AC_LEVEL_MAX <= audio_config_level || APP_LE_AUDIO_BCST_GMAP_QOS_PARAMS_TBL_COUNT <= sel_setting) {
+        LE_AUDIO_MSGLOG_I("[APP][B][GMAP] set_qos_params invalid, max sel_setting:%d level:%d", 2,
+            APP_LE_AUDIO_BCST_GMAP_QOS_PARAMS_TBL_COUNT, APP_LE_AUDIO_BCST_GMAP_AC_LEVEL_MAX);
+        return FALSE;
+    }
+
+    gmap_qos = (app_le_audio_bcst_gmap_qos_params_t *)&g_lea_bcst_gmap_qos_params_tbl[sel_setting];
+    qos_parameter = &g_lea_bcst_qos_params;
+
+    qos_parameter->sampling_freq = app_le_audio_get_sample_freq(gmap_qos->sampling_rate);
+    qos_parameter->sdu_size      = gmap_qos->sdu_size;
+    qos_parameter->sdu_interval  = gmap_qos->sdu_interval;
+    qos_parameter->bitrate       = gmap_qos->bitrate;
+    qos_parameter->rtn           = gmap_qos->ac_level[audio_config_level].rtn;
+    qos_parameter->latency       = gmap_qos->ac_level[audio_config_level].latency;
+
+    LE_AUDIO_MSGLOG_I("[APP][B][GMAP] set_qos_params qos_parameter:%d %d %d %d %d %d", 6,
+        qos_parameter->sampling_freq,
+        qos_parameter->sdu_size,
+        qos_parameter->sdu_interval,
+        (int)(qos_parameter->bitrate * 10),
+        qos_parameter->rtn,
+        qos_parameter->latency);
+
+    app_le_audio_bcst_write_qos_params_nvkey(gmap_qos->sampling_rate, sel_setting, audio_config_level);
+
+    return TRUE;
+}
+#endif
+
 void app_le_audio_bcst_set_qos_params(uint8_t sampling_rate, uint8_t sel_setting, bool high_reliability)
 {
     uint8_t sampling_freq;
@@ -162,6 +246,8 @@ uint32_t app_le_audio_bcst_get_sampling_rate(void)
             return 44100;
         case CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ:
             return 48000;
+        case CODEC_CONFIGURATION_SAMPLING_FREQ_96KHZ:
+            return 96000;
         default:
             break;
     }

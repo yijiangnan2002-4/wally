@@ -78,6 +78,12 @@ U8 DSPMemoryBlock_DPRT[DSP_DPRT_MEMSIZE];
 U8 DSPMemoryBlock_DAVT[DSP_DAVT_MEMSIZE];
 U8 DSPMemoryBlock_DHPT[DSP_DHPT_MEMSIZE];
 #endif
+
+#ifdef AIR_BTA_IC_PREMIUM_G3
+ATTR_ZIDATA_IN_CACHED_SYSRAM ATTR_ALIGN(HAL_I_CACHE_LINE_SIZE) U8 DSP_SYSRAM_CODE_PIC_POOL[DSP_SYSRAM_CODE_PIC_POOL_SIZE];
+ATTR_ZIDATA_IN_CACHED_SYSRAM ATTR_ALIGN(HAL_I_CACHE_LINE_SIZE) U8 DSP_SYSRAM_DATA_PIC_POOL[DSP_SYSRAM_DATA_PIC_POOL_SIZE];
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // DSPMEM FUNCTION DECLARATIONS /////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -302,8 +308,26 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ VOID *DSPMEM_tmalloc(
 #else
     AUDIO_ASSERT(usingPtr != NULL);
 #endif
+#if 0
+    U32 is_stream_using = 0;
+    DSP_STREAMING_PARA_PTR  stream_ptr;
+    stream_ptr = (DSP_STREAMING_PARA_PTR)usingPtr;
 
+    //Check if the usingPtr is  DSP_STREAMING_PARA_PTR
+    if ((stream_ptr) &&
+        ((stream_ptr->streamingStatus == STREAMING_START)||(stream_ptr->streamingStatus == STREAMING_ACTIVE)||(stream_ptr->streamingStatus == STREAMING_END)) &&
+        ((stream_ptr->callback.Status == CALLBACK_DISABLE) || (stream_ptr->callback.Status == CALLBACK_MALLOC) || (stream_ptr->callback.Status == CALLBACK_INIT))) {
+        is_stream_using = 1;
+    }
+
+    if ((is_stream_using) && ((stream_ptr->source->scenario_type == AUDIO_SCENARIO_TYPE_VP)))  {
+            pMalloc = (DSPMEM_BLK_PTR) preloader_pisplit_malloc_memory(PRELOADER_D_LOW_PERFORMANCE, RealBlkSize);
+    } else {
+        pMalloc = (DSPMEM_BLK_PTR) preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, RealBlkSize);
+    }
+#else
     pMalloc = (DSPMEM_BLK_PTR) preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, RealBlkSize);
+#endif
     AUDIO_ASSERT(pMalloc != NULL);
 
     hal_nvic_save_and_set_interrupt_mask(&mask);

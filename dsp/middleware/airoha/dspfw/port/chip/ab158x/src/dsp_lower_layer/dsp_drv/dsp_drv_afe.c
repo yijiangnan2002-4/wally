@@ -447,15 +447,20 @@ audio_channel afe_get_audio_channel_by_au_afe_open_param(au_afe_open_param_t *af
         default:
             channel = AUDIO_CHANNEL_A_AND_B;
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-            if ((afe_open->audio_device == HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER) && ((afe_open->audio_device == afe_open->audio_device1)||(afe_open->audio_device1 == HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL))) {
-                channel = AUDIO_CHANNEL_4ch;
-                DSP_MW_LOG_I("[MULTI] support multiple stream out", 0);
+            if ((afe_open->audio_device == HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL) || (afe_open->audio_device == HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER)) {
+                if (afe_open->audio_device1 != HAL_AUDIO_CONTROL_NONE) {
+                    if (afe_open->audio_device2 != HAL_AUDIO_CONTROL_NONE) {
+                            channel = AUDIO_CHANNEL_6ch;
+                    } else {
+                        channel = AUDIO_CHANNEL_4ch;
+                    }
+                }
             }
 #endif
             break;
     }
     //Need to modify for echo path channel
-    DSP_MW_LOG_I("afe_get_audio_channel, audio_device=%d,stream_channel %d,channel %d", 3, afe_open->audio_device, afe_open->stream_channel, channel);
+    DSP_MW_LOG_I("afe_get_audio_channel, audio_device=0x%x,stream_channel %d,channel %d", 3, afe_open->audio_device, afe_open->stream_channel, channel);
 
     return channel;
 #endif

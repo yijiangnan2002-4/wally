@@ -234,7 +234,7 @@ hal_i2c_status_t    hal_i2c_master_send_to_receive_polling_internal_init(hal_i2c
     } else {
         config->trans_type = I2C_TRANSFER_TYPE_RX;
     }
-    
+
     return HAL_I2C_STATUS_OK;
 }
 
@@ -553,10 +553,11 @@ static hal_i2c_status_t    _hal_i2c_config_transfer_poll(hal_i2c_port_t i2c_port
 }
 
 
-static hal_i2c_status_t    _hal_i2c_config_transfer(hal_i2c_port_t i2c_port, i2c_transfer_config_t *config)
+ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static hal_i2c_status_t    _hal_i2c_config_transfer(hal_i2c_port_t i2c_port, i2c_transfer_config_t *config)
 {
     i2c_private_info_t     *priv_info = NULL;
     //hal_i2c_status_t        status    = HAL_I2C_STATUS_OK;
+    uint32_t mask;
 
     priv_info = &s_priv_info[i2c_port];
 
@@ -577,18 +578,26 @@ static hal_i2c_status_t    _hal_i2c_config_transfer(hal_i2c_port_t i2c_port, i2c
      */
     do {
         /* clear status & fifo */
+        hal_nvic_save_and_set_interrupt_mask(&mask);
         if(i2c_op_ioctl(i2c_port, I2C_IOCTRL_GET_BUSY_STAT, 0) == 0) {
             i2c_op_ioctl(i2c_port, I2C_IOCTRL_CLR_IRQ_STAT, 0);
             i2c_config_fifo(i2c_port, I2C_FIFO_OP_CLR, 0, 0);
         }
+        hal_nvic_restore_interrupt_mask(mask);
 
         /* if config is fifo mode, write data to fifo*/
+        hal_nvic_save_and_set_interrupt_mask(&mask);
         if (config->trans_mode == I2C_TRANSFER_MODE_FIFO) {
             if (i2c_op_ioctl(i2c_port, I2C_IOCTRL_GET_BUSY_STAT, 0) == 0) {
                 if (config->trans_type == I2C_TRANSFER_TYPE_TX_RX || config->trans_type == I2C_TRANSFER_TYPE_TX) {
                     i2c_config_fifo(i2c_port, I2C_FIFO_OP_WR, config->send_buff, config->send_size); /* write fifo if trans type is tx */
                 }
             }
+        }
+        hal_nvic_restore_interrupt_mask(mask);
+        /* config i2c hw */
+        if (i2c_op_ioctl(i2c_port, I2C_IOCTRL_GET_BUSY_STAT, 0) == 0) {
+            i2c_config_transfer(i2c_port, config);
         }
 
         /* if config is DMA mode, init dma*/
@@ -597,41 +606,13 @@ static hal_i2c_status_t    _hal_i2c_config_transfer(hal_i2c_port_t i2c_port, i2c
                 break;
             }
         }
-
-        /* config i2c hw */
-        if (i2c_op_ioctl(i2c_port, I2C_IOCTRL_GET_BUSY_STAT, 0) == 0) {
-            i2c_config_transfer(i2c_port, config);
-        }
     } while (0);
    // hal_nvic_restore_interrupt_mask(mask);
 
     return HAL_I2C_STATUS_OK;
 }
 
-
-ATTR_TEXT_IN_RAM_FOR_MASK_IRQ   static void    _hal_i2c_interrupt_handle_internal(i2c_private_info_t *priv_info, uint32_t *temp, i2c_transfer_config_t  *pconfig, hal_i2c_port_t i2c_port)
-{
-    uint32_t                mask = 0;
-    /* if queue is not empty then start next transfer, else deinit pdma and unlock sleep */
-    hal_nvic_save_and_set_interrupt_mask(&mask);
-    if (queue_top(&(priv_info->i2c_queue), (int *)temp) >= 0) {
-        hal_nvic_restore_interrupt_mask(mask);
-        pconfig    = (i2c_transfer_config_t *)(*temp);
-        _hal_i2c_config_transfer(i2c_port, pconfig);
-        i2c_op_ioctl(i2c_port, I2C_IOCTRL_START, 0);
-    } else {
-        priv_info->hw_state &= ~I2C_HW_STATE_DEV_BUSY_MASK;  /* clear hw busy flag */
-        priv_info->hw_state |= I2C_HW_STATE_IN_DEINIT_MASK;
-        hal_nvic_restore_interrupt_mask(mask);
-        /* if user call non-block api, need deinit hw */
-        if ((priv_info->hw_state & I2C_HW_STATE_USED_MASK) == I2C_HW_STATE_USED_NB) {
-            hal_i2c_master_deinit(i2c_port);
-        }
-        i2c_op_ioctl(i2c_port, I2C_IOCTRL_LOCK_SLEEP, false);
-    }
-}
-
-static void    _hal_i2c_interrupt_handle(hal_nvic_irq_t irq_number)
+ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void    _hal_i2c_interrupt_handle(hal_nvic_irq_t irq_number)
 {
     uint32_t  temp = 0;
     i2c_transfer_config_t  *pconfig = NULL;
@@ -640,6 +621,7 @@ static void    _hal_i2c_interrupt_handle(hal_nvic_irq_t irq_number)
     i2c_irq_status_t        irq_status;
     int                     q_stat;
     uint8_t                 slv_addr = 0;
+    uint32_t                mask = 0;
 
     i2c_port = i2c_get_port_by_nvic_id(irq_number);
     if (i2c_port >= HAL_I2C_MASTER_MAX) {
@@ -670,7 +652,23 @@ static void    _hal_i2c_interrupt_handle(hal_nvic_irq_t irq_number)
         priv_info->call_back(slv_addr, (hal_i2c_callback_event_t)irq_status, priv_info->user_data);
     }
     pconfig->priv_data &= ~(I2C_ITEM_FLAG_IS_USED); ; /* clear item flag */
-    _hal_i2c_interrupt_handle_internal(priv_info, &temp, pconfig, i2c_port);
+    /* if queue is not empty then start next transfer, else deinit pdma and unlock sleep */
+    hal_nvic_save_and_set_interrupt_mask(&mask);
+    if (queue_top(&(priv_info->i2c_queue), (int *)&temp) >= 0) {
+        hal_nvic_restore_interrupt_mask(mask);
+        pconfig    = (i2c_transfer_config_t *)temp;
+        _hal_i2c_config_transfer(i2c_port, pconfig);
+        i2c_op_ioctl(i2c_port, I2C_IOCTRL_START, 0);
+    } else {
+        priv_info->hw_state &= ~I2C_HW_STATE_DEV_BUSY_MASK;  /* clear hw busy flag */
+        priv_info->hw_state |= I2C_HW_STATE_IN_DEINIT_MASK;
+        hal_nvic_restore_interrupt_mask(mask);
+        /* if user call non-block api, need deinit hw */
+        if ((priv_info->hw_state & I2C_HW_STATE_USED_MASK) == I2C_HW_STATE_USED_NB) {
+            hal_i2c_master_deinit(i2c_port);
+        }
+        i2c_op_ioctl(i2c_port, I2C_IOCTRL_LOCK_SLEEP, false);
+    }
 }
 
 

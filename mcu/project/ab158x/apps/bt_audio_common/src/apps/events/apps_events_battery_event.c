@@ -64,21 +64,21 @@
 
 TimerHandle_t timer = NULL; /* The pointer of the timer instance. */
 /* The current battery percent, when the value is not change, don't send event. */
-int32_t         s_battary_percent = 0;
+int32_t         s_battery_percent = 0;
 /* The current charger status, when the value is not change, don't send event. */
 int32_t         s_charging_status = 0;
 /* The shutdown state, calculate from voltage. */
 battery_event_shutdown_state_t s_shutdown_state = APPS_EVENTS_BATTERY_SHUTDOWN_STATE_NONE;
 
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_MASTER_ENABLE)
-int32_t         s_optimal_battary_percent = -1;
+int32_t         s_another_side_battery = -1;
 #endif
 
 
 int32_t apps_events_battery_get_current_battery()
 {
-    s_battary_percent = battery_management_get_battery_property(BATTERY_PROPERTY_CAPACITY);
-    return s_battary_percent;
+    s_battery_percent = battery_management_get_battery_property(BATTERY_PROPERTY_CAPACITY);
+    return s_battery_percent;
 }
 
 battery_event_shutdown_state_t apps_events_battery_get_shutdown_state()
@@ -90,17 +90,22 @@ battery_event_shutdown_state_t apps_events_battery_get_shutdown_state()
 
 void app_events_battery_set_battery_percent(int32_t battery_percent)
 {
-    if (s_battary_percent != battery_percent) {
-        s_battary_percent = battery_percent;
+    if (s_battery_percent != battery_percent) {
+        s_battery_percent = battery_percent;
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DCHS_MODE_SLAVE_ENABLE)
         // report percent of battery to master while the percent changed
         app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_DCHS_NOTIFY_BATTERY_PERCENT,
-                                       &s_battary_percent, sizeof(int32_t), false);
+                                       &s_battery_percent, sizeof(int32_t), false);
         APPS_LOG_MSGID_I("[DCHS_battery] Send slave battery percent : %d", 1, battery_percent);
 #endif
-        ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_BATTERY,
-                            APPS_EVENTS_BATTERY_PERCENT_CHANGE, (void *)s_battary_percent, 0,
-                            NULL, 0);
+#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_MASTER_ENABLE)
+        if (s_another_side_battery == -1 || s_battery_percent < s_another_side_battery)
+#endif
+        {
+            ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_BATTERY,
+                                APPS_EVENTS_BATTERY_PERCENT_CHANGE, (void *)s_battery_percent, 0,
+                                NULL, 0);
+        }
     }
 
 }
@@ -112,7 +117,7 @@ void app_events_battery_set_shutdown_state(battery_event_shutdown_state_t curren
         ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_BATTERY,
                             APPS_EVENTS_BATTERY_SHUTDOWN_STATE_CHANGE, (void *)s_shutdown_state, 0, NULL, 0);
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DCHS_MODE_SLAVE_ENABLE)
-        app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_DCHS_NOTIFY_SHUTDONE_STATE,
+        app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_DCHS_NOTIFY_SHUTDOWN_STATE,
                                        &s_shutdown_state, sizeof(int32_t), false);
         APPS_LOG_MSGID_I("[DCHS_battery] send slave shutdown_state : %d ", 1, s_shutdown_state);
 #endif
@@ -121,18 +126,16 @@ void app_events_battery_set_shutdown_state(battery_event_shutdown_state_t curren
 }
 
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_MASTER_ENABLE)
-void apps_events_update_optimal_battery(int32_t cur_battery)
-{
-    if (s_optimal_battary_percent < 0) {
-        s_optimal_battary_percent = cur_battery;
+void apps_events_battery_update_dual_chip_another_side_battery(int32_t battery) {
+    APPS_LOG_MSGID_I("[DCHS_battery] recv another_side battery:%d->%d, local:%d,", 3, s_another_side_battery, battery, s_battery_percent);
+    if (battery != s_another_side_battery) {
+        s_another_side_battery = battery;
+        if (s_another_side_battery < s_battery_percent) {
+            ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_BATTERY,
+                                APPS_EVENTS_BATTERY_PERCENT_CHANGE, (void *)s_another_side_battery, 0,
+                                NULL, 0);
+        }
     }
-    if (s_battary_percent > cur_battery && s_optimal_battary_percent > cur_battery) {
-        s_optimal_battary_percent = cur_battery;
-    }
-    ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_BATTERY,
-                        APPS_EVENTS_BATTERY_PERCENT_CHANGE, (void *)s_optimal_battary_percent, 0,
-                        NULL, 0);
-    APPS_LOG_MSGID_I("[DCHS_battery] recv cur_battery:%d, optimal_battery:%d,", 2, cur_battery, s_optimal_battary_percent);
 }
 
 
@@ -147,8 +150,12 @@ void apps_events_shutdown_by_slave_battery(int32_t shutdown_state)
 
 int32_t apps_events_get_optimal_battery()
 {
-    APPS_LOG_MSGID_I("[DCHS_battery] s_optimal_battary_percent:%d,", 1, s_optimal_battary_percent);
-    return s_optimal_battary_percent;
+    int32_t optimal_battery_percent = s_battery_percent;
+    if (s_another_side_battery != -1 && s_another_side_battery < s_battery_percent) {
+        optimal_battery_percent = s_another_side_battery;
+    }
+    APPS_LOG_MSGID_I("[DCHS_battery] apps_events_get_optimal_battery:%d,", 1, optimal_battery_percent);
+    return optimal_battery_percent;
 }
 
 
@@ -179,27 +186,7 @@ static void _timer_callback_function(TimerHandle_t xTimer)
     int32_t battery_percent = battery_management_get_battery_property(BATTERY_PROPERTY_CAPACITY);
     int32_t battery_voltage = battery_management_get_battery_property(BATTERY_PROPERTY_VOLTAGE);
     /* Send event when value changed. */
-    if (s_battary_percent != battery_percent) {
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_MASTER_ENABLE)
-        apps_events_update_optimal_battery(battery_percent);
-#else
-        ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_BATTERY,
-                            APPS_EVENTS_BATTERY_PERCENT_CHANGE, (void *)battery_percent, 0, NULL, 0);
-
-#endif
-
-        s_battary_percent = battery_percent;
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DCHS_MODE_SLAVE_ENABLE)
-        // report percent of battery to master while the percent changed
-        app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_DCHS_NOTIFY_BATTERY_PERCENT,
-                                       &s_battary_percent, sizeof(int32_t), false);
-        APPS_LOG_MSGID_I("[DCHS_battery] Send slave battery percent : %d", 1, battery_percent);
-#else
-        APPS_LOG_MSGID_I("Send battery percent : %d", 1, battery_percent);
-#endif
-
-
-    }
+    app_events_battery_set_battery_percent(battery_percent);
     shutdown_state = calculate_shutdown_state(battery_voltage);
     /* Send event when value changed. */
     if (shutdown_state != s_shutdown_state) {
@@ -315,18 +302,7 @@ static atci_status_t _battery_atci_update_battery_percent(atci_parse_cmd_param_t
         case ATCI_CMD_MODE_EXECUTION:
             percent = atoi(parse_cmd->string_ptr + parse_cmd->name_len + 1);
             APPS_LOG_MSGID_I("Send simulated battery percent = %d", 1, percent);
-
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_MASTER_ENABLE)
-            apps_events_update_optimal_battery(percent);
-#elif defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DCHS_MODE_SLAVE_ENABLE)
             app_events_battery_set_battery_percent(percent);
-#else
-            ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_BATTERY,
-                                APPS_EVENTS_BATTERY_PERCENT_CHANGE, (void *)percent, 0,
-                                NULL, 0);
-#endif
-
-
             response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
             break;
         default:
@@ -413,13 +389,9 @@ void apps_events_battery_event_init(void)
     }
     */
     s_charging_status = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_STATE);
-    s_battary_percent = battery_management_get_battery_property(BATTERY_PROPERTY_CAPACITY);
+    s_battery_percent = battery_management_get_battery_property(BATTERY_PROPERTY_CAPACITY);
 
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_MASTER_ENABLE)
-    apps_events_update_optimal_battery(s_battary_percent);
-#endif
-
-    APPS_LOG_MSGID_I("Start percent : %d", 1, s_battary_percent);
+    APPS_LOG_MSGID_I("Start percent : %d", 1, s_battery_percent);
 
 #ifdef SUPPORT_ATCI_BAT_SIMULATE
     ret = atci_register_handler(battery_simu_atci_cmd, sizeof(battery_simu_atci_cmd) / sizeof(atci_cmd_hdlr_item_t));

@@ -172,7 +172,7 @@ static void smcharger_agent_check_and_do_rho(app_smcharger_context_t *smcharger_
 #ifdef MTK_FOTA_ENABLE
     bool ota_ongoing = app_fota_get_ota_ongoing();
 #ifdef AIR_XIAOAI_ENABLE
-    if (ota_ongoing && !xiaoai_is_slience_ota())
+    if (ota_ongoing && !xiaoai_is_silence_ota())
 #else
     if (ota_ongoing)
 #endif

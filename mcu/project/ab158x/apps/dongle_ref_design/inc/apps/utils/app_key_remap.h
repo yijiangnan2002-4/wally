@@ -99,12 +99,10 @@ typedef enum {
 extern volatile uint8_t g_key_output;
 #define     APP_KEY_REMAP_GET_KEY_OUTPUT() g_key_output
 
-void app_key_remap_key_status_update(uint8_t *p_button_mask, uint8_t pkt_reason);
+void app_key_remap_key_status_update(uint8_t *data, uint8_t len, uint8_t plc_reason);
 void app_key_remap_set_pattern(uint8_t key_idx, uint8_t *pdata, uint32_t len);
 void app_key_remap_disconnection_request(void);
 bool app_key_remap_init(void);
-void app_key_remap_timer_start(void);
-void app_key_remap_timer_stop(void);
 
 #endif //__APP_KEY_REMAP_H__
 

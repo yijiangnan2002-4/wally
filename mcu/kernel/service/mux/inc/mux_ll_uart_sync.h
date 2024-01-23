@@ -50,5 +50,6 @@ typedef enum {
 #define DCHS_SYNC_DETECT_RESPONSE_FROM_MASTER          0x2006
 
 extern void mux_ll_uart_sync_init(void);
+extern dchs_mode_t mux_ll_uart_get_device_mode(void);
 extern dchs_mode_t dchs_get_device_mode(void);
 #endif

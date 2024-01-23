@@ -44,7 +44,7 @@
 #define BT_SOURCE_SRV_MUSIC_AUDIO_DSP_FORMAT_MAX                    5
 #define BT_SOURCE_SRV_MUSIC_AUDIO_FRAME_INTERVAL                    1000
 
-static void bt_source_srv_music_set_audio_notify(n9_dsp_share_info_t *p_dsp_info, uint32_t inteval, uint32_t frame_size, uint8_t codec_type);
+static void bt_source_srv_music_set_audio_notify(n9_dsp_share_info_t *p_dsp_info, uint32_t inteval, uint32_t frame_size, uint32_t codec_type);
 
 const static uint32_t g_audio_dsp_format_mapping[BT_SOURCE_SRV_MUSIC_AUDIO_DSP_FORMAT_MAX] = {
     HAL_AUDIO_PCM_FORMAT_DUMMY,//AFE_PCM_FORMAT_DUMMY,
@@ -72,7 +72,7 @@ static audio_dsp_codec_type_t bt_source_srv_music_audio_dsp_codec_mapping(bt_a2d
 
         case BT_A2DP_CODEC_VENDOR: {
 #ifdef AIR_BT_AUDIO_DONGLE_LHDC_ENABLE
-            if (codec->codec.vendor.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID) {
+            if (codec->codec.vendor.codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID) {
                 dsp_codec_type = AUDIO_DSP_CODEC_TYPE_LHDC;
             }
 #endif
@@ -94,14 +94,14 @@ static void bt_source_srv_music_config_init_pcm(audio_codec_pcm_t *pcm, bt_sourc
     LOG_MSGID_I(source_srv,"[A2DP_SOURCE]config_init, rate:%x,channel:%x, format:%x,", 3, pcm->sample_rate,pcm->channel_mode, pcm->format);
 }
 
-static void bt_source_srv_music_set_audio_notify(n9_dsp_share_info_t *p_dsp_info, uint32_t inteval, uint32_t frame_size, uint8_t codec_type)
+static void bt_source_srv_music_set_audio_notify(n9_dsp_share_info_t *p_dsp_info, uint32_t inteval, uint32_t frame_size, uint32_t codec_type)
 {
     bt_avm_ext_share_buffer_info_t buffer_info = {0};
     buffer_info.music_dl_address = (uint32_t)p_dsp_info;
-    buffer_info.reserve = (((uint8_t)inteval) << 24);/*bit23~bit31*/
-    buffer_info.reserve |= (((uint8_t)frame_size) << 16); /*bit15~bit23*/
+    buffer_info.reserve = (((uint8_t)inteval) << 24);/*bit24~bit31*/
+    buffer_info.reserve |= (((uint8_t)frame_size) << 16); /*bit16~bit23*/
     buffer_info.reserve |= 0x01;/* bit0: notify contollter dongle role */
-    buffer_info.reserve |= ((codec_type) << 4);/* bit3~Bbit7 */
+    buffer_info.reserve |= (((uint8_t)codec_type) << 4);/* bit4~Bbit7 */
     LOG_MSGID_I(source_srv,"[A2DP_SOURCE]set_audio_notify, interval:0x%x,reserve:0x%x",2, inteval,buffer_info.reserve);
     bt_avm_set_ext_share_buffer(&buffer_info);
 }
@@ -225,7 +225,7 @@ bt_status_t bt_source_srv_music_audio_config_init(bt_source_srv_music_audio_conf
     uint32_t mtu = context->max_mtu;
     uint32_t sub_band = 0, blocks = 0, sample_rate = 0;
     audio_dsp_codec_type_t type = AUDIO_DSP_CODEC_TYPE_DUMMY;
-    uint8_t notify_type = BT_SOURCE_SRV_CODEC_SBC;
+    uint32_t notify_type = BT_SOURCE_SRV_CODEC_SBC;
     n9_dsp_share_info_t *p_dsp_info = NULL;
 
     bt_audio_dongle_dl_info_t *dl_config = &config->transmitter_config.scenario_config.bt_audio_dongle_config.dl_info;
@@ -241,10 +241,9 @@ bt_status_t bt_source_srv_music_audio_config_init(bt_source_srv_music_audio_conf
     LOG_MSGID_I(source_srv,"[A2DP_SOURCE]config_init, audio_port:0x%x,rate:0x%x,size:0x%x,channel:0x%x", 4, port_context.port,port_context.sample_rate, port_context.sample_size, port_context.sample_channel);
     /* PC->audio:source config */
     dl_config->source.usb_in.codec_type = AUDIO_DSP_CODEC_TYPE_PCM;
+    dl_config->sink.bt_out.without_bt_link_mode_enable = false;
     if (context->detect_flag) {
         dl_config->sink.bt_out.without_bt_link_mode_enable = true;
-    } else {
-        dl_config->sink.bt_out.without_bt_link_mode_enable = false;
     }
 
     bt_source_srv_music_config_init_pcm(&dl_config->source.usb_in.codec_param.pcm, &port_context);
@@ -321,7 +320,19 @@ bt_status_t bt_source_srv_music_audio_config_init(bt_source_srv_music_audio_conf
         config->transmitter_config.scenario_sub_id = AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0;
     }
     bt_source_srv_music_pseduo_dev_t *device = (bt_source_srv_music_pseduo_dev_t*)user_data;
-    LOG_MSGID_I(source_srv,"[A2DP_SOURCE]config_init, detect_flag:0x%x", 1, context->detect_flag);
+
+    LOG_MSGID_I(source_srv,"[A2DP_SOURCE]config_init, detect_flag:0x%x, device_flags:%x", 2, context->detect_flag, device->flags);
+    dl_config->sink.bt_out.ts_not_reset_flag = false;
+
+    if (BT_SOURCE_SRV_MUSIC_PSD_FLAG_IS_SET(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_RESTART)) {
+        if (BT_SOURCE_SRV_MUSIC_PSD_FLAG_IS_SET(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_RESTART)) {
+            BT_SOURCE_SRV_MUSIC_PSD_REMOVE_FLAG(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_RESTART);
+            dl_config->sink.bt_out.ts_not_reset_flag = true;
+        }
+    }
+
+
+    LOG_MSGID_I(source_srv,"[A2DP_SOURCE]config_init, reset_flag:0x%x, device_flags:%x", 1, dl_config->sink.bt_out.ts_not_reset_flag);
 
     if (!device->audio_play_num && !context->detect_flag) {
         bt_source_srv_music_set_audio_notify(p_dsp_info, interval, frame_size, notify_type);
@@ -381,7 +392,6 @@ bt_status_t bt_source_srv_music_audio_deinit(audio_transmitter_id_t id)
 
 static void bt_source_srv_music_psd_audio_dectection_media_data_callback(bt_audio_notify_event_t event)
 {
-    uint8_t bt_event = (uint8_t)event;
     bt_source_srv_music_device_t *context = bt_source_srv_music_get_device(BT_SRV_MUSIC_DEVICE_HIGHLIGHT, NULL);
     if (context == NULL) {
         context = bt_source_srv_music_get_device(BT_SRV_MUSIC_DEVICE_VAILD_DEVICE, NULL);
@@ -389,7 +399,7 @@ static void bt_source_srv_music_psd_audio_dectection_media_data_callback(bt_audi
     }
     if (context != NULL) {
         bt_source_srv_music_pseduo_dev_t *device = (bt_source_srv_music_pseduo_dev_t *)context->audio_dev;
-        LOG_MSGID_I(source_srv, "[MUSIC][PSD][MGR]detect_media_data_timer:device = 0x%x, event= 0x%x", 2, device, bt_event);
+        LOG_MSGID_I(source_srv, "[MUSIC][PSD][MGR]detect_media_data_timer:device = 0x%x, event= 0x%x", 2, device, event);
 
         if (device->user_musicback) {
             device->user_musicback(BT_SOURCE_SRV_MUSIC_PSD_USER_EVENT_MEDIA_DETECT, (void *)device, &event);
@@ -421,7 +431,7 @@ void bt_source_srv_music_psd_start_detect_media_data(int8_t audio_id)
     audio_transmitter_status_t audio_status = AUDIO_TRANSMITTER_STATUS_FAIL;
     audio_transmitter_runtime_config_t audio_config = {0};
     bt_audio_usb_detect_config_t detect_config = {0};
-    detect_config.timer_period_ms = 500;//2S check1��
+    detect_config.timer_period_ms = 500;//2S check
     detect_config.notify_threshold_ms = 2000;// check 3s
     detect_config.cb = bt_source_srv_music_psd_audio_dectection_media_data_callback;
     memcpy(&(audio_config.bt_audio_runtime_config.config.usb_detect), &detect_config, sizeof(bt_audio_usb_detect_config_t));
@@ -456,5 +466,38 @@ bt_status_t bt_source_src_music_audio_unmute(audio_transmitter_id_t sub_id)
     return (audio_status == AUDIO_TRANSMITTER_STATUS_SUCCESS) ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
 }
 
+#if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
+bt_status_t bt_source_srv_music_set_audio_volume_by_port(bt_source_srv_music_device_t *device, bt_source_srv_port_t port, uint32_t volume)
+{
+    bt_source_srv_music_pseduo_dev_t *audio_dev = (bt_source_srv_music_pseduo_dev_t *)device->audio_dev;
+    if (audio_dev == NULL) {
 
+        return BT_STATUS_FAIL;
+    }
+    audio_transmitter_id_t sub_id = audio_dev->audio_id[port];
+
+    LOG_MSGID_I(source_srv, "[MUSIC][PSD][MGR] set_audio_volume_by_port:sub_id = %02x, port:%x, volume:%x", 3, sub_id, port, volume);
+
+    if (BT_SOURCE_SRV_MUSIC_AUDIO_INVALID_ID == sub_id) {
+        return BT_STATUS_FAIL;
+    }
+    uint32_t level = 0;
+    audio_transmitter_runtime_config_t config = {0};
+
+    bt_audio_volume_config_t *volume_config = &config.bt_audio_runtime_config.config.vol_config;
+
+    memset(volume_config, 0xFF, sizeof(bt_audio_volume_config_t));
+    volume_config->vol_ratio = 100;
+
+    if (device->flag & BT_SOURCE_SRV_A2DP_MUTE_FLAG) {
+        level = 0x7F;
+    } else {
+        level = volume;
+    }
+    memset(volume_config->vol_level, (uint8_t)level, sizeof(volume_config->vol_level));
+    audio_transmitter_status_t audio_status  = audio_transmitter_set_runtime_config(sub_id,BT_AUDIO_DONGLE_CONFIG_OP_SET_VOLUME_LEVEL, &config);
+
+    return (audio_status == AUDIO_TRANSMITTER_STATUS_SUCCESS) ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
+}
+#endif
 

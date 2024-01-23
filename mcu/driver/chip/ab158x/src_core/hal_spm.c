@@ -569,7 +569,7 @@ int spm_init(void)
     //hw_latency_time_ms = (uint32_t)((((float)hw_latency_time_32k) * (1/32.768))) + 1;
 
     /* Wakeup Source mask setting */
-    *SPM_CMSYS_WAKEUP_SOURCE_MASK = 0x20;
+    *SPM_CMSYS_WAKEUP_SOURCE_MASK = 0x3020;  //mask audio, anc_ramp, anc_dma wakeup source, IRQ, CM4 not used
     *SPM_DSP_WAKEUP_SOURCE_MASK = 0x0;
 
     *SPM_SKIP_SFC_EMI_TASK |= (1 << 8);    /* SKIP SFC */

@@ -81,37 +81,6 @@ void afe_clock_variable_init(void)
 
 }
 
-void hal_audio_afe_clock_on(void)
-{
-    //uint32_t mask;
-    //hal_nvic_save_and_set_interrupt_mask(&mask);
-    aud_afe_clk_cntr++;
-    if (aud_afe_clk_cntr == 1) {
-        /*afe clk*/
-        //AFE_SET_REG(AUDIO_TOP_CON0, 0, 0x4);
-        AFE_SET_REG(AUDIO_TOP_CON0, 0 << AUDIO_TOP_CON0_PDN_AFE_POS, AUDIO_TOP_CON0_PDN_AFE_MASK);
-    }
-    //hal_nvic_restore_interrupt_mask(mask);
-}
-
-void hal_audio_afe_clock_off(void)
-{
-    //uint32_t mask;
-    //hal_nvic_save_and_set_interrupt_mask(&mask);
-    aud_afe_clk_cntr--;
-    if (aud_afe_clk_cntr == 0) {
-        /* pdn afe clk*/
-#if 0
-        // Workaround : Keep afe clock for volume setting & noise issue
-        log_hal_msgid_info("disable AUDIO_TOP_CON0: PDN_AFE bit\n", 0);
-        AFE_SET_REG(AUDIO_TOP_CON0, 1 << AUDIO_TOP_CON0_PDN_AFE_POS, AUDIO_TOP_CON0_PDN_AFE_MASK); // Power down all AFE clock : Main clock
-#endif
-    } else if (aud_afe_clk_cntr < 0) {
-        aud_afe_clk_cntr = 0;
-    }
-    //hal_nvic_restore_interrupt_mask(mask);
-}
-
 /*DL*/
 void afe_dac_clock_on(void)
 {

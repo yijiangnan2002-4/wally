@@ -165,23 +165,8 @@ void pisplit_library_dma_irq_handle(hal_sw_dma_event_t event, void *argument)
         // PRELOADER_LOG_E(preloader, "xtlib_load_split_pi_library_common_mtk_fn Error: the dst code addr not 16byte align,addr:0x%x,len:%d\r\n ", 2, NARROW_UP_TO_ICACHE_BYTES_ALIGN((uint32_t)p_handle->code_dest_memory_align), NARROW_UP_TO_ICACHE_BYTES_ALIGN(p_handle->code_bytes));
         assert(0);
     }
-#else
-    
-    PRELOADER_LOG_D(preloader, "preloader_pisplit_get_export_parameter do cache invalidate/flush(addr:0x%x len:0x%x)\r\n ", 2, NARROW_UP_TO_ICACHE_BYTES_ALIGN((uint32_t)p_handle->code_dest_memory_align), NARROW_UP_TO_ICACHE_BYTES_ALIGN(p_handle->code_bytes));
-    if (HAL_CACHE_STATUS_OK != hal_cache_invalidate_multiple_i_cache_lines(NARROW_DOWN_TO_ICACHE_BYTES_ALIGN((uint32_t)p_handle->code_dest_memory_align), NARROW_UP_TO_ICACHE_BYTES_ALIGN(p_handle->code_bytes))) {
-        // PRELOADER_LOG_E(preloader, "preloader_pisplit_get_export_parameter Error: the dst code addr not 16byte align,addr:0x%x,len:%d\r\n ", 2, NARROW_UP_TO_ICACHE_BYTES_ALIGN((uint32_t)p_handle->code_dest_memory_align), NARROW_UP_TO_ICACHE_BYTES_ALIGN(p_handle->code_bytes));
-        assert(0);
-    }
-
-    PRELOADER_LOG_D(preloader, "preloader_pisplit_get_export_parameter do cache invalidate/flush(addr:0x%x len:0x%x)\r\n ", 2, NARROW_UP_TO_DCACHE_BYTES_ALIGN((uint32_t)p_handle->data_dest_memory_align), NARROW_UP_TO_DCACHE_BYTES_ALIGN(p_handle->data_bytes));
-
-    if (HAL_CACHE_STATUS_OK != hal_cache_invalidate_multiple_d_cache_lines(NARROW_DOWN_TO_DCACHE_BYTES_ALIGN((uint32_t)p_handle->data_dest_memory_align), NARROW_UP_TO_DCACHE_BYTES_ALIGN(p_handle->data_bytes))) {
-        // PRELOADER_LOG_E(preloader, "preloader_pisplit_get_export_parameter Error: the dst data addr not 16byte align,addr:0x%x,len:%d\r\n ", 2, NARROW_UP_TO_DCACHE_BYTES_ALIGN((uint32_t)p_handle->data_dest_memory_align), NARROW_UP_TO_DCACHE_BYTES_ALIGN(p_handle->data_bytes));
-        assert(0);
-    }
-
-#endif
-#endif
+#endif/*DEBUG_USE_CPU_COPY*/
+#endif/*HAL_CACHE_MODULE_ENABLED*/
 
 #ifdef PRELOADER_VERIFY_IMAGE_COPY
     {
@@ -313,24 +298,24 @@ preloader_pisplit_error_handling_t xtlib_load_split_pi_library_common_mtk_fn(pis
 //if CPU copy, need do nothing about cache operation before CPU memcpy (do it is better), but should do D cache Flush and I cache invalidate after memory copy.
     if (((uint32_t)p_handle->code_dest_memory_align >= SYSRAM_BASE) && ((uint32_t)p_handle->code_dest_memory_align <= (SYSRAM_BASE + SYSRAM_LENGTH))) {
         //PRELOADER_LOG_D(preloader, "xtlib_load_split_pi_library_common_mtk_fn do cache Flush and invalidate(addr:0x%x len:0x%x)\r\n ", 2, NARROW_UP_TO_ICACHE_BYTES_ALIGN((uint32_t)p_handle->code_dest_memory_align), NARROW_UP_TO_ICACHE_BYTES_ALIGN(p_handle->code_bytes));
-        if (HAL_CACHE_STATUS_OK != hal_cache_invalidate_multiple_i_cache_lines((uint32_t)p_handle->code_dest_memory_align, p_handle->code_bytes)) {
-            PRELOADER_LOG_E(preloader, "xtlib_load_split_pi_library_common_mtk_fn Error: the dst code addr not 16byte align,addr:0x%x,len:%d\r\n ", 2, (uint32_t)p_handle->code_dest_memory_align, p_handle->code_bytes);
+        if (HAL_CACHE_STATUS_OK != hal_cache_invalidate_multiple_i_cache_lines(NARROW_UP_TO_ICACHE_BYTES_ALIGN((uint32_t)p_handle->code_dest_memory_align), NARROW_UP_TO_ICACHE_BYTES_ALIGN(p_handle->code_bytes))) {
+            PRELOADER_LOG_E(preloader, "xtlib_load_split_pi_library_common_mtk_fn Error: the dst code addr not 16byte align,addr:0x%x,len:%d\r\n ", 2,NARROW_UP_TO_ICACHE_BYTES_ALIGN((uint32_t)p_handle->code_dest_memory_align), NARROW_UP_TO_ICACHE_BYTES_ALIGN(p_handle->code_bytes));
             assert(0);
         }
         PRELOADER_LOG_D(preloader, "xtlib_load_split_pi_library_common_mtk_fn do cache invalidate(addr:0x%x len:0x%x)\r\n ", 2, (uint32_t)p_handle->data_dest_memory_align, p_handle->data_bytes);
-        if (HAL_CACHE_STATUS_OK != hal_cache_invalidate_multiple_d_cache_lines((uint32_t)p_handle->code_dest_memory_align, p_handle->code_bytes)) {
-            PRELOADER_LOG_E(preloader, "xtlib_load_split_pi_library_common_mtk_fn Error: the dst data addr not 16byte align,addr:0x%x,len:%d\r\n ", 2, (uint32_t)p_handle->data_dest_memory_align, p_handle->data_bytes);
+        if (HAL_CACHE_STATUS_OK != hal_cache_invalidate_multiple_d_cache_lines(NARROW_DOWN_TO_DCACHE_BYTES_ALIGN((uint32_t)p_handle->code_dest_memory_align), NARROW_UP_TO_DCACHE_BYTES_ALIGN(p_handle->code_bytes))) {
+            PRELOADER_LOG_E(preloader, "xtlib_load_split_pi_library_common_mtk_fn Error: the dst data addr not 16byte align,addr:0x%x,len:%d\r\n ", 2, NARROW_DOWN_TO_DCACHE_BYTES_ALIGN((uint32_t)p_handle->code_dest_memory_align), NARROW_UP_TO_DCACHE_BYTES_ALIGN(p_handle->code_bytes));
             assert(0);
         }
     }
     if (((uint32_t)p_handle->data_dest_memory_align >= SYSRAM_BASE) && ((uint32_t)p_handle->data_dest_memory_align <= (SYSRAM_BASE + SYSRAM_LENGTH))) {
-        if (HAL_CACHE_STATUS_OK != hal_cache_invalidate_multiple_i_cache_lines((uint32_t)p_handle->data_dest_memory_align, p_handle->data_bytes)) {
-            PRELOADER_LOG_E(preloader, "xtlib_load_split_pi_library_common_mtk_fn Error: the dst code addr not 16byte align,addr:0x%x,len:%d\r\n ", 2, (uint32_t)p_handle->code_dest_memory_align, p_handle->code_bytes);
+        if (HAL_CACHE_STATUS_OK != hal_cache_invalidate_multiple_i_cache_lines(NARROW_UP_TO_ICACHE_BYTES_ALIGN((uint32_t)p_handle->data_dest_memory_align), NARROW_UP_TO_ICACHE_BYTES_ALIGN(p_handle->data_bytes))) {
+            PRELOADER_LOG_E(preloader, "xtlib_load_split_pi_library_common_mtk_fn Error: the dst code addr not 16byte align,addr:0x%x,len:%d\r\n ", 2, NARROW_UP_TO_ICACHE_BYTES_ALIGN((uint32_t)p_handle->data_dest_memory_align), NARROW_UP_TO_ICACHE_BYTES_ALIGN(p_handle->data_bytes));
             assert(0);
         }
         //PRELOADER_LOG_D(preloader, "xtlib_load_split_pi_library_common_mtk_fn do cache invalidate(addr:0x%x len:0x%x)\r\n ", 2, NARROW_DOWN_TO_DCACHE_BYTES_ALIGN((uint32_t)p_handle->data_dest_memory_align), NARROW_UP_TO_DCACHE_BYTES_ALIGN(p_handle->data_bytes));
-        if (HAL_CACHE_STATUS_OK != hal_cache_invalidate_multiple_d_cache_lines((uint32_t)p_handle->data_dest_memory_align, p_handle->data_bytes)) {
-            PRELOADER_LOG_E(preloader, "xtlib_load_split_pi_library_common_mtk_fn Error: the dst data addr not 16byte align,addr:0x%x,len:%d\r\n ", 2, (uint32_t)p_handle->data_dest_memory_align, p_handle->data_bytes);
+        if (HAL_CACHE_STATUS_OK != hal_cache_invalidate_multiple_d_cache_lines(NARROW_DOWN_TO_DCACHE_BYTES_ALIGN((uint32_t)p_handle->data_dest_memory_align), NARROW_UP_TO_DCACHE_BYTES_ALIGN(p_handle->data_bytes))) {
+            PRELOADER_LOG_E(preloader, "xtlib_load_split_pi_library_common_mtk_fn Error: the dst data addr not 16byte align,addr:0x%x,len:%d\r\n ", 2, NARROW_DOWN_TO_DCACHE_BYTES_ALIGN((uint32_t)p_handle->data_dest_memory_align), NARROW_UP_TO_DCACHE_BYTES_ALIGN(p_handle->data_bytes));
             assert(0);
         }
     }
@@ -404,8 +389,12 @@ void xtlib_load_code_seg_mtk_fn(pisplit_library_info_t *p_handle, Elf32_Phdr *ph
         
         temp_src_addr += temp_byte_to_copy;
         temp_dst_addr += temp_byte_to_copy;
+        
+        PRELOADER_LOG_I(preloader, "xtlib_load_code_seg_mtk_fn library(0x%x) -loading code region- start dma to do memcpy,src addr=0x%x,dest addr=0x%x,len=%d narrow up to 4 bytes alignment len:%d\r\n ", 5,
+         (unsigned int)p_handle->p_pi_library, temp_dma_cfg.source_address, temp_dma_cfg.destination_address, temp_byte_to_copy, temp_dma_cfg.length);
 
-#ifdef DEBUG_USE_CPU_COPY
+//#ifdef DEBUG_USE_CPU_COPY
+#ifdef AIR_BTA_IC_PREMIUM_G3
         //for test image copy
         {
             unsigned int j, i;
@@ -420,15 +409,13 @@ void xtlib_load_code_seg_mtk_fn(pisplit_library_info_t *p_handle, Elf32_Phdr *ph
             PRELOADER_LOG_I(preloader, "CPU image copy done : (0x%x:%x)-(0x%x:%x)", 4, i, *(unsigned int *)i, j, *(unsigned int *)j);
             temp_dma_cfg.length = 4;
         }
-#endif
-        PRELOADER_LOG_I(preloader, "xtlib_load_code_seg_mtk_fn library(0x%x) -loading code region- start dma to do memcpy,src addr=0x%x,dest addr=0x%x,len=%d narrow up to 4 bytes alignment len:%d\r\n ", 5,
-         (unsigned int)p_handle->p_pi_library, temp_dma_cfg.source_address, temp_dma_cfg.destination_address, temp_byte_to_copy, temp_dma_cfg.length);
-
+        pisplit_library_dma_irq_handle(HAL_SW_DMA_EVENT_TRANSACTION_SUCCESS,&p_handle->code_mem_copy_request);
+#else
         while (HAL_SW_DMA_STATUS_BUFFER_FULL == hal_sw_gdma_start(&temp_dma_cfg)) {
             // PRELOADER_LOG_W(preloader, "xtlib_load_code_seg_mtk_fn library(0x%x) -loading code region- DMA busy!!! try again!!!\r\n ", 1, (unsigned int)p_handle->p_pi_library);
             hal_gpt_delay_ms(50);// wait for the SW DMA have idle buffer
         }
-     
+#endif
     } else {
         PRELOADER_LOG_I(preloader, "xtlib_load_code_seg_mtk_fn library(0x%x)-loading code region- bytes_to_copy is 0, no need start dma to do memcpy\r\n ", 1, (unsigned int)p_handle->p_pi_library);
         p_handle->code_mem_copy_request.pre_load_dma_event = PRELOADER_PISPLIT_DO_MEM_DONE;
@@ -496,8 +483,14 @@ void xtlib_load_data_seg_mtk_fn(pisplit_library_info_t *p_handle, Elf32_Phdr *ph
         temp_dma_cfg.h_size = HAL_SW_DMA_WORD;
         temp_dma_cfg.dma_type = HAL_SW_DMA_NORMAL_MODE;
         temp_dma_cfg.transfer_type = HAL_SW_DMA_SINGLE_BURST;
+        
+        temp_src_addr += temp_byte_to_copy;
+        temp_dst_addr += temp_byte_to_copy;
 
-#ifdef DEBUG_USE_CPU_COPY
+        PRELOADER_LOG_I(preloader, "xtlib_load_data_seg_mtk_fn library(0x%x)-loading data region- start dma to do memcpy,src addr=0x%x,dest addr=0x%x,len=%d,narrow up to 4 bytes alignment len:%d\r\n ", 5,
+         (unsigned int)p_handle->p_pi_library, temp_dma_cfg.source_address, temp_dma_cfg.destination_address, temp_byte_to_copy, temp_dma_cfg.length);
+//#ifdef DEBUG_USE_CPU_COPY
+#ifdef AIR_BTA_IC_PREMIUM_G3
         //for test image copy
         {
             unsigned int j, i;
@@ -512,17 +505,13 @@ void xtlib_load_data_seg_mtk_fn(pisplit_library_info_t *p_handle, Elf32_Phdr *ph
             PRELOADER_LOG_I(preloader, "CPU data copy done : (0x%x:%x)-(0x%x:%x)", 4, i, *(unsigned int *)i, j, *(unsigned int *)j);
             temp_dma_cfg.length = 4;
         }
-#endif
-
-        PRELOADER_LOG_I(preloader, "xtlib_load_data_seg_mtk_fn library(0x%x)-loading data region- start dma to do memcpy,src addr=0x%x,dest addr=0x%x,len=%d,narrow up to 4 bytes alignment len:%d\r\n ", 5,
-         (unsigned int)p_handle->p_pi_library, temp_dma_cfg.source_address, temp_dma_cfg.destination_address, temp_byte_to_copy, temp_dma_cfg.length);
+       pisplit_library_dma_irq_handle(HAL_SW_DMA_EVENT_TRANSACTION_SUCCESS,&p_handle->data_mem_copy_request);
+#else
         while (HAL_SW_DMA_STATUS_BUFFER_FULL == hal_sw_gdma_start(&temp_dma_cfg)) {
             PRELOADER_LOG_W(preloader, "xtlib_load_data_seg_mtk_fn library(0x%x) -loading data region- DMA busy!!! try again!!!\r\n ", 1, (unsigned int)p_handle->p_pi_library);
             hal_gpt_delay_ms(50);// wait for the SW DMA have idle buffer
         }
-        temp_src_addr += temp_byte_to_copy;
-        temp_dst_addr += temp_byte_to_copy;
-  
+#endif
     } else {
         PRELOADER_LOG_I(preloader, "xtlib_load_data_seg_mtk_fn library(0x%x)-loading data region- bytes_to_copy is 0, no need start dma to do memcpy\r\n ", 1, (unsigned int)p_handle->p_pi_library);
         p_handle->data_mem_copy_request.pre_load_dma_event = PRELOADER_PISPLIT_DO_MEM_DONE;
@@ -579,7 +568,8 @@ void xtlib_load_data_seg_mtk_fn(pisplit_library_info_t *p_handle, Elf32_Phdr *ph
         zero_addr += temp_bytes_to_zero;
         PRELOADER_LOG_I(preloader, "xtlib_load_data_seg_mtk_fn library(0x%x)-loading data region- start dma to do memset,dest addr=0x%x,len=%d, narrow up to 4 bytes alignment len:%d\r\n ", 4,
          (unsigned int)p_handle->p_pi_library, temp_dma_cfg.destination_address, temp_bytes_to_zero, temp_dma_cfg.length);
-#ifdef DEBUG_USE_CPU_COPY
+//#ifdef DEBUG_USE_CPU_COPY
+#ifdef AIR_BTA_IC_PREMIUM_G3
         //for test image copy
         {
             unsigned int j;
@@ -593,12 +583,13 @@ void xtlib_load_data_seg_mtk_fn(pisplit_library_info_t *p_handle, Elf32_Phdr *ph
             PRELOADER_LOG_I(preloader, "CPU data ZI done: (0x%x:%x)", 2, j, *(unsigned int *)j);
             temp_dma_cfg.length = 4;
         }
-#endif
+        pisplit_library_dma_irq_handle(HAL_SW_DMA_EVENT_TRANSACTION_SUCCESS,&p_handle->data_mem_set_request);
+#else
         while (HAL_SW_DMA_STATUS_BUFFER_FULL == hal_sw_gdma_start(&temp_dma_cfg)) {
             // PRELOADER_LOG_W(preloader, "xtlib_load_data_seg_mtk_fn library(0x%x) -loading ZI- DMA busy!!! try again!!!\r\n ", 1, (unsigned int)p_handle->p_pi_library);
             hal_gpt_delay_ms(50);// wait for the SW DMA have idle buffer
         }
-
+#endif
         }
     } else {
         PRELOADER_LOG_I(preloader, "xtlib_load_data_seg_mtk_fn library(0x%x)-loading data region- bytes_to_zero is 0, no need start dma to do memset\r\n ", 1, (unsigned int)p_handle->p_pi_library);

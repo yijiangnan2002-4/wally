@@ -72,9 +72,8 @@ bool stream_function_clock_skew_a2dp_initialize(void *para)
     }
     #endif
 
-#if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE))
+
     ClkSkewSetup.ecdc_en = Clock_Skew_ECDC_Initialize(para, ClkSkewSetup.clk_skew_dir);
-#endif
 
     ClkSkewSetup.rcdc_av_en = true;
 
@@ -151,9 +150,7 @@ bool stream_function_clock_skew_hfp_ul_initialize(void *para)
         ClkSkewSetup.rcdc_en = false;
     }
     #endif
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
     ClkSkewSetup.ecdc_en = Clock_Skew_ECDC_Initialize(para, ClkSkewSetup.clk_skew_dir);
-#endif
     Clock_Skew_Initialize(para, &ClkSkewSetup ,0);
 
     return FALSE;
@@ -256,9 +253,7 @@ bool stream_function_clock_skew_le_call_ul_initialize(void *para)
         ClkSkewSetup.rcdc_en = false;
     }
     #endif
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-    ClkSkewSetup.ecdc_en = Clock_Skew_ECDC_Initialize(para, ClkSkewSetup.clk_skew_dir);
-#endif
+
     Clock_Skew_Initialize(para, &ClkSkewSetup ,0);
 
     return FALSE;

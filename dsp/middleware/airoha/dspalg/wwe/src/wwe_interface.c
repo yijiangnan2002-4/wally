@@ -392,7 +392,9 @@ static VOID wwe_notify_cm4(bool is_detected)
 
         /*check if the preroll buffer have overflow ,will lead to drop data*/
         if (wkword_frame_size > total_frame_size) {
-            DSP_MW_LOG_E("[WWE][wwe_notify_cm4] wkword_frame_size is larger than total_frame_size!!!!", 0);
+            if (g_wwe_mode != WWE_MODE_GSOUND) {
+                DSP_MW_LOG_E("[WWE][wwe_notify_cm4] wkword_frame_size is larger than total_frame_size!!!!", 0);
+            }
             total_frame_size = wkword_frame_size;
             //AUDIO_ASSERT(0);
         }
@@ -478,9 +480,35 @@ bool stream_function_wwe_preprocessing_initialize(void *para)
 
     /* Get frame size */
     g_wwe_frame_size = wwe_get_frame_size(para);
-#if defined(AIR_UL_FIX_SAMPLING_RATE_48K) & defined(AIR_FIXED_RATIO_SRC)
-    g_wwe_frame_size /= 3;
+
+#if defined(AIR_FIXED_RATIO_SRC) && (defined(AIR_UL_FIX_SAMPLING_RATE_32K) || defined(AIR_UL_FIX_SAMPLING_RATE_48K))
+    uint8_t sample_rate;
+    sample_rate = stream_function_get_samplingrate(para);
+    DSP_MW_LOG_I("[WWE][PREPROC_INIT] sample_rate = %d", 1, sample_rate);
+    switch (sample_rate) {
+        case 16: {
+            break;
+        }
+        case 32: {
+            g_wwe_frame_size /= 2;
+            break;
+        }
+        case 48: {
+            g_wwe_frame_size /= 3;
+            break;
+        }
+        case 96: {
+            g_wwe_frame_size /= 6;
+            break;
+        }
+        default: {
+            DSP_MW_LOG_E("[WWE][PROC_INIT]sample_rate error(%d)", 1, sample_rate);
+            AUDIO_ASSERT(0);
+            break;
+        }
+    }
 #endif
+
     DSP_MW_LOG_I("[WWE][PREPROC_INIT]g_wwe_frame_size = %d", 1, g_wwe_frame_size);
 
     /* Workaround for first init of FW and 3rd init of FW */
@@ -802,9 +830,36 @@ bool stream_function_wwe_processing_initialize(void *para)
 
     /* Get frame size */
     g_wwe_frame_size = wwe_get_frame_size(para);
-#if defined(AIR_UL_FIX_SAMPLING_RATE_48K) & defined(AIR_FIXED_RATIO_SRC)
-    g_wwe_frame_size /= 3;
+
+#if defined(AIR_FIXED_RATIO_SRC) && (defined(AIR_UL_FIX_SAMPLING_RATE_32K) || defined(AIR_UL_FIX_SAMPLING_RATE_48K))
+    uint8_t sample_rate;
+    sample_rate = stream_function_get_samplingrate(para);
+    DSP_MW_LOG_I("[WWE][PROC_INIT] sample_rate = %d", 1, sample_rate);
+
+    switch (sample_rate) {
+        case 16: {
+            break;
+        }
+        case 32: {
+            g_wwe_frame_size /= 2;
+            break;
+        }
+        case 48: {
+            g_wwe_frame_size /= 3;
+            break;
+        }
+        case 96: {
+            g_wwe_frame_size /= 6;
+            break;
+        }
+        default: {
+            DSP_MW_LOG_E("[WWE][PROC_INIT]sample_rate error(%d)", 1, sample_rate);
+            AUDIO_ASSERT(0);
+            break;
+        }
+    }
 #endif
+
     DSP_MW_LOG_I("[WWE][PROC_INIT]g_wwe_frame_size = %d", 1, g_wwe_frame_size);
 
     /* Workaround for first init of FW and 3rd init of FW */

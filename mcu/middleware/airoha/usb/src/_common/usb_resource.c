@@ -167,22 +167,6 @@ static const uint8_t dev_qual_dscr[] = {
     0x00                                //bReserved
 };
 
-#if 0
-/* Initialize the descriptors for other speed configuration */
-static const uint8_t other_speed_cfg_dscr[] = {
-    USB_OTHER_CFGDSC_LENGTH,            //bLength
-    USB_OTHER_SPEED,                    //bDescriptorType
-    0x00,                               //wTotalLength
-    0x00,                               //wTotalLength
-    0x00,                               //bNumInterfaces
-    /*the value = (cfg index+1), select this config's number*/
-    0x01,                               //bConfigurationValue
-    0x00,                               //iConfiguration
-    0x00,                               //bmAttributes
-    0x00                                //MaxPower
-};
-#endif
-
 /* interface specific create and init functions */
 static Usb_IfCreate_Info usb_ifcreate_tbl[USB_MAX_INTERFACE];
 static uint8_t usb_ifcreate_number = 0;
@@ -245,24 +229,13 @@ static void USB_Check_Ep_Number()
 
     /* Check the valid endpoint number */
     if(ep_tx > HAL_USB_MAX_NUMBER_ENDPOINT_TX){
-       LOG_MSGID_E(USB_RESOURCE, "USB_Check_Ep_Number ep_tx[%x]>MAX EP TX[%x]", 2, ep_tx, HAL_USB_MAX_NUMBER_ENDPOINT_TX);
+       LOG_MSGID_E(USB_RESOURCE, "USB_Check_Ep_Number ep_tx[%x] > MAX EP TX[%x]", 2, ep_tx, HAL_USB_MAX_NUMBER_ENDPOINT_TX);
        USB_Check_Ep_Number_ErrorLog();
     }
 
     if(ep_rx > HAL_USB_MAX_NUMBER_ENDPOINT_RX){
-       LOG_MSGID_E(USB_RESOURCE, "USB_Check_Ep_Number ep_rx[%x]>MAX EP RX[%x]", 2, ep_rx, HAL_USB_MAX_NUMBER_ENDPOINT_RX);
+       LOG_MSGID_E(USB_RESOURCE, "USB_Check_Ep_Number ep_rx[%x] > MAX EP RX[%x]", 2, ep_rx, HAL_USB_MAX_NUMBER_ENDPOINT_RX);
        USB_Check_Ep_Number_ErrorLog();
-    }
-
-    /* Check the type of endpoint number for Usb_Ep_Info */
-    if ((gUsbDevice.resource_ep_intr_tx_number > USB_MAX_EP_INTR_TX) ||
-        (gUsbDevice.resource_ep_intr_rx_number > USB_MAX_EP_INTR_RX) ||
-        (gUsbDevice.resource_ep_iso_tx_number  > USB_MAX_EP_ISO_TX)  ||
-        (gUsbDevice.resource_ep_iso_rx_number  > USB_MAX_EP_ISO_RX)  ||
-        (gUsbDevice.resource_ep_bulk_tx_number > USB_MAX_EP_BULK_TX) ||
-        (gUsbDevice.resource_ep_bulk_rx_number > USB_MAX_EP_BULK_RX)) {
-        LOG_MSGID_E(USB_RESOURCE, "USB_Check_Ep_Number type of endpoint number is invalid", 0);
-        USB_Check_Ep_Number_ErrorLog();
     }
 }
 
@@ -531,17 +504,6 @@ void USB_Software_Create(void)
     gUsbDevice.dev_qual_dscr.bDeviceSubClass = gUsbDevice.devdscr.bDeviceSubClass;
     gUsbDevice.dev_qual_dscr.bDeviceProtocol = gUsbDevice.devdscr.bDeviceProtocol;
     gUsbDevice.dev_qual_dscr.bNumConfigurations = gUsbDevice.devdscr.bNumConfigurations;
-
-#if 0
-    /* Initialize the descriptors for other speed configuration */
-    memcpy(&(gUsbDevice.other_speed_cfg_dscr), other_speed_cfg_dscr, USB_OTHER_CFGDSC_LENGTH);
-
-    gUsbDevice.other_speed_cfg_dscr.wTotalLength = gUsbDevice.cfgdscr.wTotalLength;
-    gUsbDevice.other_speed_cfg_dscr.bNumInterfaces = gUsbDevice.cfgdscr.bNumInterfaces;
-    gUsbDevice.other_speed_cfg_dscr.iConfiguration = 0;
-    gUsbDevice.other_speed_cfg_dscr.bmAttributes = gUsbDevice.cfgdscr.bmAttributes;
-    gUsbDevice.other_speed_cfg_dscr.MaxPower = gUsbDevice.cfgdscr.bMaxPower;
-#endif
 
     if( g_USB_Software_Speed_skip_enable==0 ) {
         USB_Software_Speed_Init(false);
@@ -857,7 +819,7 @@ static void USB_Basic_Info_Init(void)
     nvkey_status = nvkey_read_data(NVID_USB_BASICINFO, (uint8_t *)&basicinfo, &nvkey_size);
 
     LOG_MSGID_I(USB_RESOURCE, "USB_Basic_Info_Init nvkey read nvkey_status=%d", 1, nvkey_status);
-    LOG_MSGID_I(USB_RESOURCE, "USB_Basic_Info_Init USE_CLASS:%d USE_PRODUCT:%d USE_POWER:%d", 3,
+    LOG_MSGID_I(USB_RESOURCE, "USB_Basic_Info_Init USB_CLASS:%d USB_PRODUCT:%d USB_POWER:%d", 3,
                 basicinfo.use_class_info, basicinfo.use_product_info, basicinfo.use_power_info);
     overwrite_class   = (bool)basicinfo.use_class_info;
     overwrite_product = (bool)basicinfo.use_product_info;
@@ -1147,3 +1109,4 @@ static void USB_String_Create_Language_Id(void)
 }
 
 #endif /* AIR_USB_ENABLE */
+

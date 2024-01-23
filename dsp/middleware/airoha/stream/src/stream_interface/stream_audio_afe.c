@@ -235,11 +235,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 U32 SinkSizeAudioAfe(SINK sink)
     }
 #endif
 
-    if (sink->param.audio.AfeBlkControl.u4asrcflag
-    #ifdef AIR_DCHS_MODE_ENABLE
-    || dchs_dl_check_hwsrc_enable(LOCAL_SCENARIO_2) || dchs_dl_check_hwsrc_enable(LOCAL_SCENARIO_1)
-    #endif
-    ) {
+    if (sink->param.audio.AfeBlkControl.u4asrcflag) {
         if (available_length >= 4) {
             available_length -= 4;
         }

@@ -770,20 +770,37 @@ SINK StreamAudioAfeSink(audio_hardware hardware, audio_instance instance, audio_
     Sink_Audio_HW_Init_AFE(sink);
 
 #ifdef ENABLE_HWSRC_ON_MAIN_STREAM
+    if(sink->param.audio.hwsrc_type != HAL_AUDIO_HWSRC_IN_STREAM){
 #ifndef ENABLE_HWSRC_CLKSKEW
     if ((sink->param.audio.rate != sink->param.audio.src_rate) && (sink->param.audio.with_sink_src == false)) //modify for HWSRC power measuring
 #else
 
 #ifndef AIR_HWSRC_TX_TRACKING_ENABLE
-    if (((sink->param.audio.rate != sink->param.audio.src_rate) && (sink->param.audio.with_sink_src == false)) || (ClkSkewMode_g == CLK_SKEW_V2)) //modify for HWSRC power measuring
+    if (((sink->param.audio.rate != sink->param.audio.src_rate) && (sink->param.audio.with_sink_src == false)) || (sink->param.audio.clk_skew_mode == CLK_SKEW_V2)) //modify for HWSRC power measuring
 #else
-    if ((sink->param.audio.with_sink_src == false) || (ClkSkewMode_g == CLK_SKEW_V2))//modify for HWSRC power measuring
+    if ((sink->param.audio.with_sink_src == false) || (sink->param.audio.clk_skew_mode == CLK_SKEW_V2))//modify for HWSRC power measuring
 #endif
 
 #endif /*ENABLE_HWSRC_CLKSKEW*/
     {
         sink->param.audio.AfeBlkControl.u4asrcflag = true;//Enable DL1 asrc //modify for asrc
         sink->param.audio.AfeBlkControl.u4asrc_buffer_size = ASRC_OUT_BUFFER_SIZE; //modify for asrc
+#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
+        extern bool g_esco_dl_open_flag;
+
+        #ifdef AIR_BT_CODEC_BLE_ENABLED
+        extern bool g_n9_ble_dl_open_flag;
+        #endif
+
+        if(g_esco_dl_open_flag
+            #ifdef AIR_BT_CODEC_BLE_ENABLED
+            || g_n9_ble_dl_open_flag
+            #endif
+        )
+        {
+            sink->param.audio.AfeBlkControl.u4asrc_buffer_size = 12544;
+        }
+#endif
 #ifdef HAL_AUDIO_ENABLE_PATH_MEM_DEVICE
         sink->param.audio.mem_handle.pure_agent_with_src = true;//modify for ab1568
         DSP_MW_LOG_I("[HWSRC]enable sink hwsrc\r\n", 0);
@@ -795,6 +812,7 @@ SINK StreamAudioAfeSink(audio_hardware hardware, audio_instance instance, audio_
     anc_leakage_compensation_src_usage_flag = true;
     DSP_MW_LOG_I("[RECORD_LC]anc_leakage_compensation_src_usage_flag = true\r\n", 0);
 #endif
+    }
 #endif /*ENABLE_HWSRC_ON_MAIN_STREAM*/
 
     Sink_Audio_Path_Init_AFE(sink);
@@ -901,9 +919,6 @@ SINK StreamAudioAfe2Sink(audio_hardware hardware, audio_instance instance, audio
     if (sink->param.audio.with_sink_src == false) {
 #endif
 #if !defined AIR_I2S_SLAVE_ENABLE
-    #ifdef AIR_DCHS_MODE_ENABLE
-    if(dchs_get_device_mode() == DCHS_MODE_SINGLE){
-    #endif
         DSP_MW_LOG_I("StreamAudioAfe2Sink, VP uses HWSRC, %d != %d\r\n", 2, sink->param.audio.rate, sink->param.audio.src_rate);
         sink->param.audio.AfeBlkControl.u4asrcflag = true;//Enable DL2 asrc
 #ifdef HAL_AUDIO_ENABLE_PATH_MEM_DEVICE
@@ -912,9 +927,6 @@ SINK StreamAudioAfe2Sink(audio_hardware hardware, audio_instance instance, audio
             sink->param.audio.device_handle.dac.with_force_change_rate = false;
         }
 #endif
-    #ifdef AIR_DCHS_MODE_ENABLE
-    }
-    #endif
 #endif //#ifndef AIR_HWSRC_RX_TRACKING_ENABLE
     }
 
@@ -980,7 +992,7 @@ SINK StreamAudioAfe3Sink(audio_hardware hardware, audio_instance instance, audio
 }
 #endif
 
-#if defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined (AIR_DCHS_MODE_ENABLE)
+#if defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined (AIR_MIXER_STREAM_ENABLE)
 /**
  * @brief Request to create an audio sink afe for DL12
  * @param hardware The audio hardware which would be reserved as a sink
@@ -1016,6 +1028,9 @@ SINK StreamAudioAfe12Sink(audio_hardware hardware, audio_instance instance, audi
     if(dchs_get_device_mode() != DCHS_MODE_SINGLE){
         sink->taskid                = DDCHS_TASK_ID;
     }
+    #endif
+    #ifdef AIR_MIXER_STREAM_ENABLE
+    sink->taskid                    = DDCHS_TASK_ID;
     #endif
     sink->type                      = SINK_TYPE_AUDIO_DL12;
     sink->buftype                   = BUFFER_TYPE_INTERLEAVED_BUFFER;
@@ -1585,7 +1600,12 @@ SOURCE StreamN9BleSource(void *param)
     if (open_param->stream_in_param.ble.codec_type == BT_BLE_CODEC_LC3)
     {
         #ifdef AIR_BT_LE_LC3_ENABLE
-        LC3I_PLC_MODE_T plc_mode = 2;
+        extern uint32_t g_plc_mode;
+        #if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        LC3I_PLC_MODE_T plc_mode = (g_plc_mode == 0)? LC3I_PLC_STANDARD : LC3I_PLC_ADVANCED;
+        #else
+        LC3I_PLC_MODE_T plc_mode = (g_plc_mode == 0)? LC3I_PLC_STANDARD : LC3I_TPLC;
+        #endif
 #ifdef AIR_BT_BLE_FIX_ADV_PLC
         plc_mode = 1;
 #endif
@@ -1601,7 +1621,7 @@ SOURCE StreamN9BleSource(void *param)
     #ifdef AIR_BT_LE_LC3PLUS_ENABLE
     else if (open_param->stream_in_param.ble.codec_type == BT_BLE_CODEC_LC3PLUS)
     {
-
+           extern uint32_t g_plc_mode;
         /* init lc3plus codec */
            lc3plus_dec_port_config_t lc3plus_dec_config;
            lc3plus_dec_config.sample_bits      = 32;
@@ -1614,7 +1634,7 @@ SOURCE StreamN9BleSource(void *param)
            lc3plus_dec_config.frame_size       = open_param->stream_in_param.ble.frame_payload_length*open_param->stream_in_param.ble.channel_num;
            lc3plus_dec_config.frame_samples    = open_param->stream_in_param.ble.sampling_frequency/1000 * open_param->stream_in_param.ble.frame_ms/1000;
            lc3plus_dec_config.plc_enable       = 1;
-           lc3plus_dec_config.plc_method       = LC3PLUS_PLCMETH_ADV_TDC_NS;
+           lc3plus_dec_config.plc_method       = (g_plc_mode == 0)? LC3PLUS_PLCMETH_STD : LC3PLUS_PLCMETH_ADV_TDC_NS;
            stream_codec_decoder_lc3plus_init(LC3PLUS_DEC_PORT_0, source, &lc3plus_dec_config);
            DSP_MW_LOG_I("[BLE][LC3PLUS_DEC] init %u, %u, %u, %u, %u, %u, %u, %u, %u, %u\r\n", 10,
                        lc3plus_dec_config.sample_bits,
@@ -1735,38 +1755,6 @@ SOURCE StreamGsensorSource(void)
     source = new_source(SOURCE_TYPE_GSENSOR);
     if (source) {
         SourceInit_GSENSOR(source);
-    }
-    return source;
-}
-#endif
-
-#ifdef AIR_DCHS_MODE_ENABLE
-SOURCE StreamUartSource(void *param)
-{
-    SOURCE source = NULL;
-    if (Source_blks[SOURCE_TYPE_UART]) {
-        return Source_blks[SOURCE_TYPE_UART];
-    }
-    source = new_source(SOURCE_TYPE_UART);
-    //cfg param
-    mcu2dsp_open_param_p open_param  = param;
-    source->param.audio.frame_size   = open_param->stream_in_param.afe.frame_size;
-    source->scenario_type            = open_param->audio_scenario_type;
-    source->param.audio.format_bytes = (open_param->stream_in_param.afe.format > HAL_AUDIO_PCM_FORMAT_U16_BE) ? 4 : 2;
-    source->param.audio.rate         = open_param->stream_in_param.afe.sampling_rate;
-    source->param.audio.format       = open_param->stream_in_param.afe.format;
-    source->param.audio.channel_num  = open_param->stream_in_param.afe.sw_channels;
-    source->param.audio.scenario_sub_id = open_param->stream_in_param.data_dl.scenario_type;
-
-    DSP_MW_LOG_I("[DCHS][StreamUartSource] scenario_type = %d,format_bytes=%d, rate=%d, format=%d, frame_number=%d, scenario_sub_id=%d",6,
-                  source->scenario_type,
-                  source->param.audio.format_bytes,
-                  source->param.audio.rate,
-                  source->param.audio.format,
-                  open_param->stream_in_param.afe.frame_number,
-                  source->param.audio.scenario_sub_id);
-    if(source && source->scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL){
-        SourceInit_DCHS_DL(source);
     }
     return source;
 }
@@ -2629,6 +2617,8 @@ static void port_bt_common_init_sink(SINK sink, bt_common_open_param_p open_para
 #endif /* MTK_GAMING_MODE_HEADSET || AIR_GAMING_MODE_DONGLE_ENABLE */
 #if defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
     else if (open_param->scenario_type == AUDIO_TRANSMITTER_BLE_AUDIO_DONGLE) {
+        CONNECTION_IF *con_if = port_audio_transmitter_get_connection_if(open_param->scenario_type,
+                                                                    (audio_transmitter_scenario_sub_id_t)(uint32_t)open_param->scenario_sub_id);
         /* Dongle side, music path, bt sink out case */
         if ((open_param->scenario_sub_id == AUDIO_TRANSMITTER_BLE_AUDIO_DONGLE_MUSIC_USB_IN_0) ||
             (open_param->scenario_sub_id == AUDIO_TRANSMITTER_BLE_AUDIO_DONGLE_MUSIC_USB_IN_1)
@@ -2644,12 +2634,14 @@ static void port_bt_common_init_sink(SINK sink, bt_common_open_param_p open_para
             /* codec config */
             sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.codec_type = open_param->scenario_param.ble_audio_dongle_param.codec_type;
             if (open_param->scenario_param.ble_audio_dongle_param.codec_type == AUDIO_DSP_CODEC_TYPE_LC3) {
+                extern stream_feature_list_t stream_feature_list_ble_audio_dongle_usb_in_broadcast_0[];
+                extern stream_feature_list_t stream_feature_list_ble_audio_dongle_usb_in_broadcast_1[];
                 if (open_param->scenario_sub_id == AUDIO_TRANSMITTER_BLE_AUDIO_DONGLE_MUSIC_USB_IN_0) {
-                    extern stream_feature_list_t stream_feature_list_ble_audio_dongle_usb_in_broadcast_0[];
-                    stream_feature_configure_type(stream_feature_list_ble_audio_dongle_usb_in_broadcast_0, CODEC_ENCODER_LC3_BRANCH, CONFIG_ENCODER);
+                    con_if->pfeature_table = stream_feature_list_ble_audio_dongle_usb_in_broadcast_0;
+                } else if (open_param->scenario_sub_id == AUDIO_TRANSMITTER_BLE_AUDIO_DONGLE_MUSIC_USB_IN_1) {
+                    con_if->pfeature_table = stream_feature_list_ble_audio_dongle_usb_in_broadcast_1;
                 } else {
-                    extern stream_feature_list_t stream_feature_list_ble_audio_dongle_usb_in_broadcast_1[];
-                    stream_feature_configure_type(stream_feature_list_ble_audio_dongle_usb_in_broadcast_1, CODEC_ENCODER_LC3_BRANCH, CONFIG_ENCODER);
+                    stream_feature_configure_type(con_if->pfeature_table, CODEC_ENCODER_LC3_BRANCH, CONFIG_ENCODER_REPLACE);
                 }
 #ifdef PRELOADER_ENABLE
                 if (open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3.frame_interval == 10000) {
@@ -2666,6 +2658,30 @@ static void port_bt_common_init_sink(SINK sink, bt_common_open_param_p open_para
                 sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.codec_param.lc3.frame_interval = open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3.frame_interval;
                 sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.codec_param.lc3.frame_size     = open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3.frame_size;
             }
+#if defined(AIR_BT_LE_LC3PLUS_ENABLE)
+            else if (open_param->scenario_param.ble_audio_dongle_param.codec_type == AUDIO_DSP_CODEC_TYPE_LC3PLUS) {
+                DSP_MW_LOG_I("[ble audio dongle][dl] sink init: lc3plus %d, %d, %d, %d, %d, %d", 6,
+                    open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.sample_rate,
+                    open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.channel_mode,
+                    open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.bit_rate,
+                    open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.frame_interval,
+                    open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.frame_size,
+                    open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.sample_format);
+                extern stream_feature_list_t stream_feature_list_ble_audio_dongle_usb_in_broadcast_0_LC3_P[];
+                if ((open_param->scenario_sub_id == AUDIO_TRANSMITTER_BLE_AUDIO_DONGLE_MUSIC_USB_IN_0) ||
+                   (open_param->scenario_sub_id == AUDIO_TRANSMITTER_BLE_AUDIO_DONGLE_MUSIC_USB_IN_1)) {
+                    con_if->pfeature_table = stream_feature_list_ble_audio_dongle_usb_in_broadcast_0_LC3_P;
+                } else {
+                    stream_feature_configure_type(con_if->pfeature_table, CODEC_ENCODER_LC3PLUS, CONFIG_ENCODER_REPLACE);
+                }
+                sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.codec_param.lc3plus.sample_rate    = open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.sample_rate;
+                sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.codec_param.lc3plus.channel_mode   = open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.channel_mode;
+                sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.codec_param.lc3plus.bit_rate       = open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.bit_rate;
+                sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.codec_param.lc3plus.frame_interval = open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.frame_interval;
+                sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.codec_param.lc3plus.frame_size     = open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.frame_size;
+                sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.codec_param.lc3plus.sample_format  = open_param->scenario_param.ble_audio_dongle_param.codec_param.lc3plus.sample_format;
+            }
+#endif
             /* data config */
             sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.data_period = open_param->scenario_param.ble_audio_dongle_param.period;
             sink_param->scenario_param.usb_in_broadcast_param.bt_out_param.data_timestamp = 0;

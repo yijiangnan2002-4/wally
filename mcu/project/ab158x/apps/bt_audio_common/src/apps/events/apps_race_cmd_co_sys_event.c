@@ -51,7 +51,9 @@
 #endif
 
 #include "apps_events_battery_event.h"
-
+#ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
+#include "apps_detachable_mic.h"
+#endif
 
 
 
@@ -102,7 +104,7 @@ static void app_race_cmd_co_sys_data_received_callback(bool is_critical, uint8_t
                                                    &local_battery, sizeof(int32_t), false);
                     //report shutdown state to master
                     int32_t temp_state = apps_events_battery_get_shutdown_state();
-                    app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_DCHS_NOTIFY_SHUTDONE_STATE,
+                    app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_DCHS_NOTIFY_SHUTDOWN_STATE,
                                                    &temp_state, sizeof(int32_t), false);
                     APPS_LOG_MSGID_I(LOG_TAG"[DCHS_battery] slave report to master local_battery:%d,shutdown_state:%d ", 2, local_battery, temp_state);
 #endif
@@ -117,6 +119,15 @@ static void app_race_cmd_co_sys_data_received_callback(bool is_critical, uint8_t
                     process_done = true;
                     break;
                 }
+#ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
+                case APPS_RACE_CMD_CO_SYS_DUAL_CHIP_EVENT_SYNC_DETACHABLE_MIC_STATUS: {
+                    APPS_LOG_MSGID_I(LOG_TAG"[DETACHABLE_MIC] receive mic state=%d ", 1, cmd_content->data);
+                    voice_mic_type_t mic_type = *(voice_mic_type_t*)cmd_content->data;
+                    detachable_mic_set_mic_type(mic_type);
+                    process_done = true;
+                    break;
+                }
+#endif
                 default:
                     break;
             }
@@ -128,12 +139,12 @@ static void app_race_cmd_co_sys_data_received_callback(bool is_critical, uint8_t
                         if (cmd_content->data) {
                             int32_t temp_battery = *((int32_t *)cmd_content->data);
 //                    memcpy(&temp_battery, cmd_content->data, sizeof(int32_t));
-                            apps_events_update_optimal_battery(temp_battery);
+                            apps_events_battery_update_dual_chip_another_side_battery(temp_battery);
                         }
 
                     }
                     break;
-                    case APPS_EVENTS_INTERACTION_DCHS_NOTIFY_SHUTDONE_STATE: {
+                    case APPS_EVENTS_INTERACTION_DCHS_NOTIFY_SHUTDOWN_STATE: {
                         if (cmd_content->data) {
                             int32_t temp_state = *((int32_t *)cmd_content->data);
                             //judge slave battery state to shutdown

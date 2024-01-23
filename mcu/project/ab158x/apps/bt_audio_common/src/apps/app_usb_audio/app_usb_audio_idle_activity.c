@@ -215,7 +215,7 @@ static void report_usb_plug_status(bool plug_in)
     if (is_plug_in != plug_in) {
         is_plug_in = plug_in;
         if (s_usb_audio_mode) {
-            ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+            ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_USB_PLUG_STATE,
                                 (void *)plug_in, 0, NULL, 0);
         }
@@ -280,7 +280,7 @@ static atci_status_t app_usb_audio_atci_handler(atci_parse_cmd_param_t *parse_cm
     p1 = atoi(param);
     param = strtok(NULL, ",");
     p2 = atoi(param);
-    USB_AUDIO_LOG_I("at commnd: %d,%d", 2, p1, p2);
+    USB_AUDIO_LOG_I("at command: %d,%d", 2, p1, p2);
 #ifdef AIR_USB_AUDIO_IN_ENABLE
     app_audio_trans_mgr_set_mix_ratio(s_usb_in1_handle, p1);
     app_audio_trans_mgr_set_mix_ratio(s_usb_in2_handle, p2);
@@ -399,11 +399,11 @@ static void app_usb_audio_init()
 #ifdef AIR_USB_AUDIO_IN_ENABLE
     usb_audio_cfg.type = APP_AUDIO_TRANS_MGR_USR_USB_IN1;
 #ifndef AIR_USB_AUDIO_IN_MIX_ENABLE
-    usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_SEUDO_DEVICE;
+    usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_PSEUDO_DEVICE;
 #else
     usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_RESOURCE_CTRL;
 #endif
-    usb_audio_cfg.rconfig_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_MUSIC;
+    usb_audio_cfg.rt_config_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_MUSIC;
     usb_audio_cfg.name = "usb_in";
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
     usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_RESOURCE_CTRL;
@@ -425,7 +425,7 @@ static void app_usb_audio_init()
 #else
     usb_audio_cfg.en_side_tone = true;
 #endif
-    usb_audio_cfg.rconfig_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_VOICE;
+    usb_audio_cfg.rt_config_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_VOICE;
     usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_RESOURCE_CTRL;
     usb_audio_cfg.name = "usb_out";
     s_usb_out_handle = app_audio_trans_mgr_register(&usb_audio_cfg);
@@ -433,7 +433,7 @@ static void app_usb_audio_init()
 #endif
 
 #ifdef AIR_USB_AUDIO_IN_AND_OUT_MIX_ENABLE
-    usb_audio_cfg.rconfig_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_MUSIC;
+    usb_audio_cfg.rt_config_type = WIRED_AUDIO_CONFIG_OP_VOL_DB_MUSIC;
     usb_audio_cfg.type = APP_AUDIO_TRANS_MGR_USR_USB_IN_OUT_MIX;
     usb_audio_cfg.en_side_tone = false;
     usb_audio_cfg.ctrl_type = APP_AUDIO_TRANS_MGR_CTRL_TYPE_NONE;
@@ -617,7 +617,7 @@ static bool _proc_apps_internal_events(struct _ui_shell_activity *self,
                     }
                 }
                 if (is_plug_in) {
-                    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                         APPS_EVENTS_INTERACTION_USB_PLUG_STATE,
                                         (void *)en, 0, NULL, 0);
                 }
@@ -634,7 +634,7 @@ static bool _proc_apps_internal_events(struct _ui_shell_activity *self,
 #define MIX_RATIO_GAME_MAX_LEVEL    (0)     /* Gaming is 100%, Chat is 0% */
 #define MIX_RATIO_CHAT_MAX_LEVEL    (20)    /* Gaming is 0%, Chat is 100% */
 #define MIX_RATIO_BALANCED_LEVEL    (10)    /* Gaming is 100%, Chat is 100% */
-void app_usb_audio_mix_rotatry_change(uint8_t mix_arg)
+void app_usb_audio_mix_rotary_change(uint8_t mix_arg)
 {
     uint8_t mix_ratio = (mix_arg <= MIX_RATIO_BALANCED_LEVEL) ?
                         100 : 100 * (MIX_RATIO_CHAT_MAX_LEVEL - mix_arg) / (MIX_RATIO_CHAT_MAX_LEVEL - MIX_RATIO_BALANCED_LEVEL);
@@ -677,14 +677,14 @@ static bool app_usb_handle_rotary_event(
         case KEY_AUDIO_MIX_RATIO_GAME_ADD: {
             if (ULL_MIX_RATIO_GAME_MAX_LEVEL + rotary_data <= s_ratio) {
                 s_ratio -= rotary_data;
-                app_usb_audio_mix_rotatry_change(s_ratio);
+                app_usb_audio_mix_rotary_change(s_ratio);
             }
             break;
         }
         case KEY_AUDIO_MIX_RATIO_CHAT_ADD: {
             if (s_ratio + rotary_data <= ULL_MIX_RATIO_CHAT_MAX_LEVEL) {
                 s_ratio += rotary_data;
-                app_usb_audio_mix_rotatry_change(s_ratio);
+                app_usb_audio_mix_rotary_change(s_ratio);
             }
             break;
         }
@@ -835,15 +835,17 @@ static bool _proc_usb_audio_event_group(
                     app_audio_trans_mgr_stop_audio(get_handle_by_idx(idx));
                 }
             }
-            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_USB_AUDIO, APPS_EVENTS_USB_CONFIG_CHECKER);
-            ui_shell_send_event(false,
-                                EVENT_PRIORITY_HIGH,
-                                EVENT_GROUP_UI_SHELL_USB_AUDIO,
-                                APPS_EVENTS_USB_CONFIG_CHECKER,
-                                NULL,
-                                0,
-                                NULL,
-                                100);
+            if (event_id == APPS_EVENTS_USB_AUDIO_RESET) {
+                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_USB_AUDIO, APPS_EVENTS_USB_CONFIG_CHECKER);
+                ui_shell_send_event(false,
+                                    EVENT_PRIORITY_HIGH,
+                                    EVENT_GROUP_UI_SHELL_USB_AUDIO,
+                                    APPS_EVENTS_USB_CONFIG_CHECKER,
+                                    NULL,
+                                    0,
+                                    NULL,
+                                    100);
+            }
             break;
         }
         case APPS_EVENTS_USB_AUDIO_RESUME: {
@@ -885,7 +887,7 @@ static bool _proc_usb_audio_event_group(
         }
         case APPS_EVENTS_USB_AUDIO_VOLUME: {
             app_events_usb_volume_t *vol = (app_events_usb_volume_t *)extra_data;
-            app_audio_trans_mgrs_set_db(get_handle_by_port(vol->port_type, vol->port_num), vol->left_db, vol->right_db);
+            app_audio_trans_mgr_set_db(get_handle_by_port(vol->port_type, vol->port_num), vol->left_db, vol->right_db);
 #ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
             /* back usb out volume due to it will be reset. */
             if (get_idx_by_port(vol->port_type, vol->port_num) == APP_USB_AUDIO_IDX_AUDIO_OUT) {
@@ -933,7 +935,7 @@ static bool _proc_usb_audio_event_group(
 
             if (channel_info->channel_nums > 0 && s_channels[idx] != channel_info->channel_nums) {
                 s_channels[idx] = channel_info->channel_nums;
-                USB_AUDIO_LOG_I("usr=%d set chennel to=%d", 2, idx, s_channels[idx]);
+                USB_AUDIO_LOG_I("usr=%d set channel to=%d", 2, idx, s_channels[idx]);
                 /* set sample size -> set channels -> start. */
                 void *handle = get_handle_by_port(channel_info->port_type, channel_info->port_num);
                 __check_and_update_config(idx, handle);
@@ -1144,7 +1146,7 @@ bool app_usb_out_is_open()
 
 void app_usb_audio_enable(bool en)
 {
-    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                         APPS_EVENTS_INTERACTION_USB_AUDIO_EN,
                         (void *)en, 0, NULL, 0);
 }

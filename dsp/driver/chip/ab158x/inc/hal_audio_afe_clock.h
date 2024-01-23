@@ -47,8 +47,6 @@ typedef enum {
     AFE_APLL2 = 2,  /* 48base */
 } afe_apll_source_t;
 
-void hal_audio_afe_clock_on(void);
-void hal_audio_afe_clock_off(void);
 #if 0//modify for ab1568
 void hal_audio_afe_i2s_clock_on(afe_i2s_num_t i2s_num);
 void hal_audio_afe_i2s_clock_off(afe_i2s_num_t i2s_num);

@@ -539,6 +539,28 @@ atci_status_t atci_cmd_hdlr_pmu(atci_parse_cmd_param_t *parse_cmd)
                 /* ATCI will help append "OK" at the end of response buffer  */
                 response->response_flag |= ATCI_RESPONSE_FLAG_APPEND_OK;
                 response->response_len = strlen((const char *) response->response_buf);
+            }else if(strncmp(parse_cmd->string_ptr, "AT+EPMUREG=ZC_TEST_WO_PG", strlen("AT+EPMUREG=ZC_TEST_WO_PG")) == 0){
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) 
+                hal_pmu_buck_thd_test_wo_pg();
+#elif defined(AIR_BTA_IC_PREMIUM_G3)
+#if defined(AIR_BTA_PMIC_LP)
+                hal_pmu_buck_thd_test_wo_pg();
+#endif
+#endif
+                /* ATCI will help append "OK" at the end of response buffer  */
+                response->response_flag |= ATCI_RESPONSE_FLAG_APPEND_OK;
+                response->response_len = strlen((const char *) response->response_buf);
+            }else if(strncmp(parse_cmd->string_ptr, "AT+EPMUREG=ZC_TEST", strlen("AT+EPMUREG=ZC_TEST")) == 0){
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) 
+                hal_pmu_buck_thd_test();
+#elif defined(AIR_BTA_IC_PREMIUM_G3)
+#if defined(AIR_BTA_PMIC_LP)
+                hal_pmu_buck_thd_test();
+#endif
+#endif
+                /* ATCI will help append "OK" at the end of response buffer  */
+                response->response_flag |= ATCI_RESPONSE_FLAG_APPEND_OK;
+                response->response_len = strlen((const char *) response->response_buf);
             }else {
                 /*invalide parameter, return "ERROR"*/
                 STRNCPY_PMU((char *) response->response_buf, "ERROR\r\n");

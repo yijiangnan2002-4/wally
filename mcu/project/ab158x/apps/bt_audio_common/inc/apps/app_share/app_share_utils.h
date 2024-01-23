@@ -86,7 +86,7 @@
 
 typedef bt_mcsync_share_state_t app_share_mode_sta_t;
 
-/* The middleware will disable page scan when enter share mode successed.
+/* The middleware will disable page scan when enter share mode successful.
  * The middleware will also enable page scan when no SP connected and
  * disable it again when SP connected.
 */

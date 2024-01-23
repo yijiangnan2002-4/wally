@@ -199,6 +199,11 @@ void uart_set_baudrate(UART_REGISTER_T *uartx, uint32_t actual_baudrate)
     if ((actual_baudrate >= 3000000) && (actual_baudrate != 8666000)) {
         uartx->GUARD = 0x12;    /* delay 2 bits per byte. */
     }
+
+    if (actual_baudrate == 8666000) {
+        uartx->GUARD = 0x11;    /* delay 1 bits per byte. */
+    }
+
 }
 
 void uart_set_format(UART_REGISTER_T *uartx,

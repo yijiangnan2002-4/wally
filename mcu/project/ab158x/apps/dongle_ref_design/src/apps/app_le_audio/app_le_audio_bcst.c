@@ -50,6 +50,13 @@
 #include "bt_le_audio_msglog.h"
 #include "bt_customer_config.h"
 
+#ifdef AIR_LE_AUDIO_TMAP_ENABLE
+#include "ble_tmas_def.h"
+#endif
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+#include "ble_gmas_def.h"
+#endif
+
 #ifdef AIR_LE_AUDIO_BA_ENABLE
 #include "app_le_audio_ba.h"
 #endif
@@ -74,6 +81,8 @@ const uint8_t g_lea_bcst_pa_metadata[] = {
 
 uint8_t g_lea_bcst_pa_metadata_len = sizeof(g_lea_bcst_pa_metadata);
 bool g_lea_bcst_pa_is_include_meatadata = false;
+
+uint8_t g_lea_bcst_config_bis_num = 2;
 
 extern app_le_audio_ctrl_t g_lea_ctrl;
 
@@ -144,6 +153,13 @@ static bt_status_t app_le_audio_bcst_config_extend_adv(void)
     ea_data.data_length = 7;
 #endif
 
+#ifdef AIR_LE_AUDIO_TMAP_ENABLE
+    ea_data.data_length += 6;
+#endif
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    ea_data.data_length += 5;
+#endif
+
     if (NULL == (ea_data.data = pvPortMalloc(ea_data.data_length))) {
         LE_AUDIO_MSGLOG_I("[APP][B] config_extend_adv, malloc fail", 0);
         return ret;
@@ -177,6 +193,27 @@ static bt_status_t app_le_audio_bcst_config_extend_adv(void)
     memcpy(&ea_data.data[idx], &broadcast_id, 3);
     app_le_audio_bcst_set_id(broadcast_id);
     idx += 3;
+#ifdef AIR_LE_AUDIO_TMAP_ENABLE
+    /* Length */
+    ea_data.data[idx++] = 0x05;
+    /* Type */
+    ea_data.data[idx++] = BT_GAP_LE_AD_TYPE_SERVICE_DATA;
+    /* Value */
+    ea_data.data[idx++] = (BT_SIG_UUID16_TMAS & 0x00FF);
+    ea_data.data[idx++] = ((BT_SIG_UUID16_TMAS & 0xFF00) >> 8);
+    ea_data.data[idx++] = (BLE_TMAP_ROLE_MASK_BMS & 0x00FF);
+    ea_data.data[idx++] = ((BLE_TMAP_ROLE_MASK_BMS & 0xFF00) >> 8);
+#endif
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    /* Length */
+    ea_data.data[idx++] = 0x04;
+    /* Type */
+    ea_data.data[idx++] = BT_GAP_LE_AD_TYPE_SERVICE_DATA;
+    /* Value */
+    ea_data.data[idx++] = (BT_SIG_UUID16_GMAS & 0x00FF);
+    ea_data.data[idx++] = ((BT_SIG_UUID16_GMAS & 0xFF00) >> 8);
+    ea_data.data[idx++] = BLE_GMAP_ROLE_MASK_BGS;
+#endif
 #ifdef AIR_LE_AUDIO_PBP_ENABLE
     /* Length */
     ea_data.data[idx++] = name_len + 1;
@@ -199,8 +236,19 @@ static uint8_t app_le_audio_bcst_get_periodic_adv_data_len(void)
 {
     uint8_t pa_len = 42;
 
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+    if (g_lea_bcst_qos_params.sdu_size == 190 || g_lea_bcst_qos_params.sdu_size == 160) {
+        pa_len += 3;
+    }
+#endif
+
     if (true == g_lea_bcst_pa_is_include_meatadata) {
         pa_len += g_lea_bcst_pa_metadata_len;
+    }
+
+    if (g_lea_bcst_config_bis_num == 1) {
+        g_lea_bcst_ctrl.bis_num = g_lea_bcst_config_bis_num;
+        pa_len -= 8;
     }
 
     return pa_len;
@@ -209,6 +257,7 @@ static uint8_t app_le_audio_bcst_get_periodic_adv_data_len(void)
 static uint8_t app_le_audio_bcst_get_periodic_adv_data(uint8_t *p_pa, uint8_t pa_len)
 {
     uint8_t acc_len = 0;
+    uint8_t pa_level_3_len = 0;
 
     uint8_t pa_level_1[] = {
         41,     /* Length */
@@ -253,18 +302,49 @@ static uint8_t app_le_audio_bcst_get_periodic_adv_data(uint8_t *p_pa, uint8_t pa
     memcpy(&p_pa[0], pa_level_1, sizeof(pa_level_1));
     acc_len += sizeof(pa_level_1);
 
+    if (g_lea_bcst_ctrl.bis_num == 1) {
+        pa_level_2[0] = g_lea_bcst_ctrl.bis_num;
+    }
+
     memcpy(&p_pa[acc_len], pa_level_2, sizeof(pa_level_2));
     acc_len += sizeof(pa_level_2);
 
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+    if (g_lea_bcst_qos_params.sdu_size == 190 || g_lea_bcst_qos_params.sdu_size == 160) {
+        uint8_t lc3plus_cbr_id[AUDIO_CODEC_ID_SIZE] = CODEC_ID_LC3PLUS_CBR;
+        uint8_t tmp_len = sizeof(pa_level_1), lc3plus_codec_len = CODEC_CONFIGURATION_LEN_LC3PLUSHR_FRAME_DURATION + 1;
+
+        p_pa[0] += lc3plus_codec_len;
+        memcpy(&p_pa[tmp_len + 1], lc3plus_cbr_id, AUDIO_CODEC_ID_SIZE);
+        p_pa[tmp_len + 6] += lc3plus_codec_len;
+        p_pa[acc_len - 1] = CODEC_CONFIGURATION_LEN_LC3PLUSHR_FRAME_DURATION;
+        p_pa[acc_len] = CODEC_CONFIGURATION_TYPE_LC3PLUSHR_FRAME_DURATION;
+        p_pa[acc_len + 1] = FRAME_DURATIONS_LC3PLUS_10_MS;
+        p_pa[acc_len + 2] = 0x00;
+        acc_len += lc3plus_codec_len;
+    }
+#endif
+
     if (true == g_lea_bcst_pa_is_include_meatadata) {
+        /* GAME Metadata */
         p_pa[0] += g_lea_bcst_pa_metadata_len;
         p_pa[acc_len - 1] = g_lea_bcst_pa_metadata_len;
         memcpy(&p_pa[acc_len], g_lea_bcst_pa_metadata, g_lea_bcst_pa_metadata_len);
         acc_len += g_lea_bcst_pa_metadata_len;
+        /* GAME Presentation delay (10000) */
+        p_pa[4] = 0x10;
+        p_pa[5] = 0x27;
+        p_pa[6] = 0x00;
     }
 
-    memcpy(&p_pa[acc_len], pa_level_3, sizeof(pa_level_3));
-    acc_len += sizeof(pa_level_3);
+    pa_level_3_len = sizeof(pa_level_3);
+    if (g_lea_bcst_ctrl.bis_num == 1) {
+        p_pa[0] -= 8;
+        pa_level_3_len -= 8;
+    }
+
+    memcpy(&p_pa[acc_len], pa_level_3, pa_level_3_len);
+    acc_len += pa_level_3_len;
 
     LE_AUDIO_MSGLOG_I("[APP][B] get_periodic_adv_data, acc_len:0x%x, pa_len:0x%x", 2, acc_len, pa_len);
     return acc_len;

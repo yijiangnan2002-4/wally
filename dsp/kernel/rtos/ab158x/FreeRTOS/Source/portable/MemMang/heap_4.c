@@ -485,3 +485,173 @@ void prvPortDumpHeapInfo(void)
 #endif /* MTK_SUPPORT_HEAP_DEBUG */
 /*-----------------------------------------------------------*/
 
+#include "FreeRTOS.h"
+#include "portmacro.h"
+#include "assert.h"
+
+//#define HEAP_LEAK_SELF_CHECK_DEBUG
+#ifdef HEAP_LEAK_SELF_CHECK_DEBUG
+    #define heap_leak_dbg_printf(format,...)        printf(format, ##__VA_ARGS__)
+#else
+    #define heap_leak_dbg_printf(format,...)
+#endif
+
+#define HEAP_LEAK_RESERVE_SIZE 1024*13
+#define TASK_IDLE_GAP_VALUE    100
+//#define HEAP_LEAK_MIPS_MEASURE
+
+extern uint32_t * air_record_task_array[32] ;
+extern uint32_t air_record_task_number ;
+//static TaskStatus_t *  pxTaskStatusArrayOri = NULL;
+//static TaskStatus_t *  pxTaskStatusArrayCur = NULL;
+typedef struct{
+    uint32_t pxTopOfStack;
+    uint32_t exec_return;
+}stack_info_t;
+
+static stack_info_t ori_stack_info[32];
+static uint32_t oriHeapRemainSize = 0;
+static uint32_t oriRecordFlag = TRUE;
+
+int countZeros(unsigned int num) {
+    int count = 0;
+    int i;
+
+    for (i = 31; i >= 0; i--) {
+        if ((num & (1 << i)) == 0) {
+            count++;
+        }
+    }
+
+    return count;
+}
+void vHeapLeakSelfCheck(void){
+    uint32_t uxArraySize = 0;
+
+    uint32_t idx = 0;
+    uint32_t curPxTopOfStack = 0;
+    //uint32_t stackUsed = 0;
+    uint32_t stackDiff = 0;
+    //uint32_t stackSize = 0;
+    uint32_t bitmap = 0xffffffff;
+    uint32_t idle_task_number = 0;
+    
+#ifdef HEAP_LEAK_MIPS_MEASURE
+    uint32_t t0,t1,t2,t3;
+#endif
+
+#ifdef HEAP_LEAK_MIPS_MEASURE
+    hal_gpt_get_free_run_count(0, &t0);
+#endif
+
+    /* Get system task total number */
+    uxArraySize = uxTaskGetNumberOfTasks();
+   
+    /* total task number should equal, we should not delete task*/
+    if (uxArraySize != air_record_task_number) {
+        heap_leak_dbg_printf("uxArraySize = %d,air_record_task_number = %d\r\n",
+                             (unsigned int)uxArraySize,(unsigned int)air_record_task_number);
+    }
+
+    /* just record task information when power on */
+    if( oriRecordFlag == TRUE){
+        for (idx = 0; idx < air_record_task_number; idx++){
+            ori_stack_info[idx].pxTopOfStack= uxTaskGetPxTopOfStack((TaskHandle_t)air_record_task_array[idx]);
+            ori_stack_info[idx].exec_return = *((uint32_t *)(ori_stack_info[idx].pxTopOfStack +0x20));
+        }
+        oriHeapRemainSize =  xPortGetFreeHeapSize();
+        mp_dump_status(ucHeap);
+        oriRecordFlag = FALSE;
+    }
+#ifdef HEAP_LEAK_MIPS_MEASURE
+    hal_gpt_get_free_run_count(0, &t1);
+#endif
+
+    /* check stack diff to judge system idle */
+    heap_leak_dbg_printf("[heap_leak]*************************<Task Stack Information>*********************\r\n");
+    for (idx = 0; idx < air_record_task_number; idx++){
+        if(0 == strncmp("IDLE",pcTaskGetName((TaskHandle_t)air_record_task_array[idx]),4)){
+            bitmap &= ~(1 << (31 - idx) );
+            continue;
+        }
+        curPxTopOfStack = uxTaskGetPxTopOfStack((TaskHandle_t)air_record_task_array[idx]);
+
+        /* power on stack <= current stack */
+        if (curPxTopOfStack <= ori_stack_info[idx].pxTopOfStack){
+            stackDiff = ori_stack_info[idx].pxTopOfStack - curPxTopOfStack;
+            heap_leak_dbg_printf("[heap_leak]task name:%s,current pxTopOfStack = 0x%x,ori pxTopOfStack = 0x%x,stack diff:0x%x\r\n"
+                                , pcTaskGetName((TaskHandle_t)air_record_task_array[idx])
+                                ,(unsigned int)curPxTopOfStack
+                                ,(unsigned int)ori_stack_info[idx].pxTopOfStack
+                                ,(unsigned int)stackDiff);
+        }else{
+            /* it means cur stack used less space,stack diff is 0 */
+            stackDiff = 0;
+            heap_leak_dbg_printf("[heap_leak]less stack,task name:%s,current pxTopOfStack = 0x%x,ori pxTopOfStack = 0x,%xstack diff:0x%x\r\n"
+                                , pcTaskGetName((TaskHandle_t)air_record_task_array[idx])
+                                ,(unsigned int)curPxTopOfStack
+                                ,(unsigned int)ori_stack_info[idx].pxTopOfStack
+                                ,(unsigned int)stackDiff);
+        }
+
+        /* this task idle,if stack diff <= TASK_IDLE_GAP_VALUE */
+        if (stackDiff <= TASK_IDLE_GAP_VALUE){
+            bitmap &= ~(1 << (31 - idx) );
+        }
+    }
+
+#ifdef HEAP_LEAK_MIPS_MEASURE
+    hal_gpt_get_free_run_count(0, &t2);
+#endif
+
+	idle_task_number = countZeros(bitmap);
+
+    heap_leak_dbg_printf("[heap_leak]air_record_task_number = %d,idle_task_number = %d\r\n",(unsigned int)air_record_task_number,(unsigned int)idle_task_number);
+
+    heap_leak_dbg_printf("[heap_leak]*************************<Heap Information>*********************");
+
+    heap_leak_dbg_printf("[heap_leak]oriHeapRemainSize = %d,curHeapRemainSize = %d",(unsigned int)oriHeapRemainSize,(unsigned int)xPortGetFreeHeapSize());
+
+    /* we consider it as system idle mode */
+    if (air_record_task_number == idle_task_number){
+        heap_leak_dbg_printf("[heap_leak]*************************<system enter in idle mode>*********************\r\n");
+        uint32_t curHeapRemainSize =xPortGetFreeHeapSize();
+        /* we need check heap status */
+        if(oriHeapRemainSize > curHeapRemainSize ){
+            if ((oriHeapRemainSize - curHeapRemainSize) >= HEAP_LEAK_RESERVE_SIZE){
+                assert("<Heap Leak occurs>" && 0);
+            }
+        }
+    }else{
+        heap_leak_dbg_printf("[heap_leak]*************************<system is busy>*********************\r\n");
+    }
+    //extern uint32_t hal_gpt_delay_ms(uint32_t ms);
+    //hal_gpt_delay_ms(10);
+    
+#ifdef HEAP_LEAK_MIPS_MEASURE
+    hal_gpt_get_free_run_count(0, &t3);
+    printf("[heap_leak]first time:%dus,calc time:%dus,judge time:%dus",(unsigned int)(t1-t0),(unsigned int)(t2-t1),(unsigned int)(t3-t2));
+#endif
+}
+
+uint32_t g_tmp_enable_heak_leak = 0;
+void vHeapLeakSelfCheckHook(void){
+    extern exception_config_mode_t exception_config_mode ;
+    //uint32_t irq_mask = 0;
+
+    /*at cmd set this value as 1 */
+    if (1 == g_tmp_enable_heak_leak){
+        /* we need get task stack information,so we need disable irq */
+        //hal_nvic_save_and_set_interrupt_mask(&irq_mask);
+        vTaskSuspendAll();
+        
+        if (!exception_config_mode.exception_mode_t.wdt_reset_mode) {
+            vHeapLeakSelfCheck();
+        }
+
+        /* enable irq */
+        //hal_nvic_restore_interrupt_mask(irq_mask);
+        xTaskResumeAll();
+    }
+}
+/*-----------------------------------------------------------*/

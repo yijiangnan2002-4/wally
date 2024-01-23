@@ -104,7 +104,14 @@ hal_audio_status_t hal_audio_start_stream_in(hal_audio_active_type_t active_type
 #else
         open_param->stream_in_param.afe.format          = HAL_AUDIO_PCM_FORMAT_S16_LE;
 #endif
+
+#ifdef AIR_UL_FIX_SAMPLING_RATE_48K
+        open_param->stream_in_param.afe.sampling_rate   = 48000;
+#elif defined(AIR_UL_FIX_SAMPLING_RATE_32K)
+        open_param->stream_in_param.afe.sampling_rate   = 32000;
+#else
         open_param->stream_in_param.afe.sampling_rate   = g_stream_in_sample_rate;
+#endif
         open_param->stream_in_param.afe.irq_period      = 10;
         //open_param.stream_in_param.afe.frame_size      = 256; // Warning: currently fixed @ 480 in DSP
 #if(MTK_RECORD_INTERLEAVE_ENABLE)
@@ -114,7 +121,7 @@ hal_audio_status_t hal_audio_start_stream_in(hal_audio_active_type_t active_type
             open_param->stream_in_param.afe.frame_size      = 256;
         }
 #else
-        open_param->stream_in_param.afe.frame_size      = g_wwe_mode != WWE_MODE_NONE ? 160 : 240;
+        open_param->stream_in_param.afe.frame_size      = 160;
 #endif
 
 #ifdef AIR_UL_FIX_RESOLUTION_32BIT
@@ -136,6 +143,24 @@ hal_audio_status_t hal_audio_start_stream_in(hal_audio_active_type_t active_type
 #else
         open_param->stream_out_param.record.interleave = false;
 #endif
+
+        if ((open_param->stream_in_param.afe.sampling_rate == 16000) || (open_param->stream_in_param.afe.sampling_rate == 32000)
+            || (open_param->stream_in_param.afe.sampling_rate == 48000) || (open_param->stream_in_param.afe.sampling_rate == 96000)) {
+            if (open_param->stream_in_param.afe.sampling_rate == 16000) {
+                open_param->stream_in_param.afe.frame_size = 160;
+            } else if (open_param->stream_in_param.afe.sampling_rate == 32000) {
+                open_param->stream_in_param.afe.frame_size = 320;
+            } else if (open_param->stream_in_param.afe.sampling_rate == 48000) {
+                open_param->stream_in_param.afe.frame_size = 480;
+            } else if (open_param->stream_in_param.afe.sampling_rate == 96000) {
+                open_param->stream_in_param.afe.frame_size = 960;
+            }
+
+            log_hal_msgid_info("[RECORD]sampling_rate: %u, frame_size: %u", 2, open_param->stream_in_param.afe.sampling_rate, open_param->stream_in_param.afe.frame_size);
+        } else {
+            log_hal_msgid_error("[RECORD]Not support sampling_rate: %u", 1, open_param->stream_in_param.afe.sampling_rate);
+        }
+
         hal_audio_reset_share_info(open_param->stream_out_param.record.p_share_info);
 
         p_param_share = hal_audio_dsp_controller_put_paramter(open_param, sizeof(mcu2dsp_open_param_t), msg_type);

@@ -74,21 +74,21 @@
  *    @code
  *       ret = bt_pbapc_get_num_of_phonebook_objects(handle, type);
  *    @endcode
- *  - Step2: #bt_app_event_callback() is triggered by the #BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_IND event, if there is data received from a remote device.
- *  - Step3: #bt_app_event_callback() is triggered by the #BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_CNF event, as a result of a call to the function #bt_pbapc_get_num_of_phonebook_objects().
+ *  - Step2: #bt_app_event_callback() is triggered by the #BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_IND event, if there is data received from a remote device.
+ *  - Step3: #bt_app_event_callback() is triggered by the #BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_CNF event, as a result of a call to the function #bt_pbapc_get_num_of_phonebook_objects().
  *   - Sample code:
  *     @code
  *        bt_status_t bt_app_event_callback(bt_msg_type_t msg, bt_status_t status, void *buff)
  *        {
  *            switch (event_id)
  *            {
- *                 case BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_IND:
+ *                 case BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_IND:
  *                 {
  *                     bt_pbapc_get_num_of_phonebook_objects_ind_t *ind = (bt_pbapc_get_num_of_phonebook_objects_ind_t *)buff;
  *                      // Show the number of phonebook objects.
  *                     break;
  *                 }
- *                 case BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_CNF:
+ *                 case BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_CNF:
  *                 {
  *                     bt_pbapc_get_num_of_phonebook_objects_cnf_t *cnf = (bt_pbapc_get_num_of_phonebook_objects_cnf_t *)buff;
  *                     // Check the response.
@@ -104,7 +104,7 @@
  *     @code
  *        ret = bt_pbapc_get_phonebook_objects(handle, offset,  type);
  *     @endcode
- *   - Step2: #bt_app_event_callback() is triggered by the #BT_PBAPC_GET_PHOENBOOK_OBJECTS_IND event, if there is data received from a remote device.
+ *   - Step2: #bt_app_event_callback() is triggered by the #BT_PBAPC_GET_PHONEBOOK_OBJECTS_IND event, if there is data received from a remote device.
  *   - Step3: #bt_app_event_callback() is triggered by the #BT_PBAPC_GET_PHONEBOOK_OBJECTS_CNF event, as a result of a call to the function #bt_pbapc_get_phonebook_objects().
  *    - Sample code:
  *     @code
@@ -112,7 +112,7 @@
  *        {
  *            switch (event_id)
  *            {
- *                 case BT_PBAPC_GET_PHOENBOOK_OBJECTS_IND:
+ *                 case BT_PBAPC_GET_PHONEBOOK_OBJECTS_IND:
  *                 {
  *                     bt_pbapc_get_phonebook_objects_ind_t *ind = (bt_pbapc_get_phonebook_objects_ind_t *)buff;
  *                      // Show the name and number of phonebook objects.
@@ -162,7 +162,7 @@
  *    @code
  *       ret = bt_pbapc_pull_vcard_entry(handle,  index);
  *    @endcode
- *  - Step2: #bt_app_event_callback() is triggered by the #BT_PBAPC_GET_PHOENBOOK_OBJECTS_IND event, if there is data received from a remote device.
+ *  - Step2: #bt_app_event_callback() is triggered by the #BT_PBAPC_GET_PHONEBOOK_OBJECTS_IND event, if there is data received from a remote device.
  *  - Step3: #bt_app_event_callback() is triggered by the #BT_PBAPC_GET_PHONEBOOK_OBJECTS_CNF event, as a result of a call to the function #bt_pbapc_pull_vcard_entry().
  *   - Sample code:
  *    @code
@@ -170,7 +170,7 @@
  *       {
  *           switch (event_id)
  *           {
- *                case BT_PBAPC_GET_PHOENBOOK_OBJECTS_IND:
+ *                case BT_PBAPC_GET_PHONEBOOK_OBJECTS_IND:
  *                {
  *                     bt_pbapc_get_phonebook_objects_ind_t *ind = (bt_pbapc_get_phonebook_objects_ind_t *)buff;
  *                      // Show the name and number of phonebook objects.
@@ -223,13 +223,30 @@
  */
 
 #define BT_PBAPC_CONNECT_CNF                          (BT_MODULE_PBAPC|0x01) /**< The connection confirmation event, a result of the connection establishment initiated by the local device, with #bt_pbapc_connect_cnf_t as the payload in the callback function.*/
-#define BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_IND  (BT_MODULE_PBAPC|0x02) /**< The indication event of getting the number of missed call objects from the remote device, with #bt_pbapc_get_number_of_phonebook_objects_ind_t as the payload in the callback function.*/
-#define BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_CNF  (BT_MODULE_PBAPC|0x03) /**< The confirmation event as a result of the completion of getting the number of missed call objects from the remote device, with #bt_pbapc_get_number_of_phonebook_objects_cnf_t as the payload in the callback function.*/
-#define BT_PBAPC_GET_PHOENBOOK_OBJECTS_IND            (BT_MODULE_PBAPC|0x04) /**< The indication event of getting a missed call object from the remote device, with #bt_pbapc_get_phonebook_objects_ind_t as the payload in the callback function.*/
+#define BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_IND  (BT_MODULE_PBAPC|0x02) /**< The indication event of getting the number of missed call objects from the remote device, with #bt_pbapc_get_number_of_phonebook_objects_ind_t as the payload in the callback function.*/
+#define BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_CNF  (BT_MODULE_PBAPC|0x03) /**< The confirmation event as a result of the completion of getting the number of missed call objects from the remote device, with #bt_pbapc_get_number_of_phonebook_objects_cnf_t as the payload in the callback function.*/
+#define BT_PBAPC_GET_PHONEBOOK_OBJECTS_IND            (BT_MODULE_PBAPC|0x04) /**< The indication event of getting a missed call object from the remote device, with #bt_pbapc_get_phonebook_objects_ind_t as the payload in the callback function.*/
 #define BT_PBAPC_GET_PHONEBOOK_OBJECTS_CNF            (BT_MODULE_PBAPC|0x05) /**< The confirmation event as a result of the completion of getting the missed call object from the remote device, with #bt_pbapc_get_phonebook_objects_cnf_t as the payload in the callback function.*/
 #define BT_PBAPC_GET_CALLER_NAME_IND                  (BT_MODULE_PBAPC|0x06) /**< The indication event of getting the caller name object from the remote device, with #bt_pbapc_get_caller_name_ind_t pas the payload in the callback function.*/
 #define BT_PBAPC_GET_CALLER_NAME_CNF                  (BT_MODULE_PBAPC|0x07) /**< The confirmation event as a result of the completion of getting the caller name object from the remote device, with #bt_pbapc_get_caller_name_cnf_t as the payload in the callback function.*/
 #define BT_PBAPC_DISCONNECT_IND                       (BT_MODULE_PBAPC|0x08) /**< The disconnection indication event, initiated by a local or a remote device, with #bt_pbapc_disconnect_ind_t as the payload in the callback function. */
+
+/**
+* @deprecated Use #BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_IND instead.
+*/
+#define BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_IND  (BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_IND) /**< This event will be phased out and removed in the next SDK major version. Do not use. */
+
+/**
+* @deprecated Use #BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_CNF instead.
+*/
+#define BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_CNF  (BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_CNF) /**< This event will be phased out and removed in the next SDK major version. Do not use. */
+
+/**
+* @deprecated Use #BT_PBAPC_GET_PHONEBOOK_OBJECTS_IND instead.
+*/
+#define BT_PBAPC_GET_PHOENBOOK_OBJECTS_IND            (BT_PBAPC_GET_PHONEBOOK_OBJECTS_IND) /**< This event will be phased out and removed in the next SDK major version. Do not use. */
+
+
 /**
  * @brief The following macros define the type of phonebook objects.
  */
@@ -260,14 +277,14 @@ typedef struct {
 } bt_pbapc_disconnect_ind_t;
 
 /**
- * @brief This structure defines the data type of the parameter in the callback for #BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_CNF event.
+ * @brief This structure defines the data type of the parameter in the callback for #BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_CNF event.
  */
 typedef struct {
     uint32_t handle;                         /**< PBAPC handle. */
 } bt_pbapc_get_number_of_phonebook_objects_cnf_t;
 
 /**
- * @brief This structure defines the data type of the parameter in the callback for #BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_IND event.
+ * @brief This structure defines the data type of the parameter in the callback for #BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_IND event.
  */
 typedef struct {
     uint32_t handle;                         /**< PBAPC handle. */
@@ -292,7 +309,7 @@ typedef struct {
 } bt_pbapc_phonebook_objects_t;
 
 /**
- *  @brief This structure defines the data type of the parameter in the callback for #BT_PBAPC_GET_PHOENBOOK_OBJECTS_IND event.
+ *  @brief This structure defines the data type of the parameter in the callback for #BT_PBAPC_GET_PHONEBOOK_OBJECTS_IND event.
  */
 typedef struct {
     uint32_t handle;                         /**< PBAPC handle. */
@@ -342,7 +359,7 @@ bt_status_t bt_pbapc_connect(uint32_t *handle, const bt_bd_addr_t *address);
 
 /**
  * @brief               This function gets the number of phonebook objects of type Missed Calls History or Main Phonebook of the specified remote device.
- *                      The #BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_IND & #BT_PBAPC_GET_NUMBER_OF_PHOENBOOK_OBJECTS_CNF event is sent to the upper layer with the connection result.
+ *                      The #BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_IND & #BT_PBAPC_GET_NUMBER_OF_PHONEBOOK_OBJECTS_CNF event is sent to the upper layer with the connection result.
  * @param[in] handle is the identifier of the remote device.
  * @param[in] type   is the type of phonebook objects.
  * @return              #BT_STATUS_SUCCESS, the operation completed successfully.
@@ -353,7 +370,7 @@ bt_status_t bt_pbapc_get_num_of_phonebook_objects(uint32_t handle, bt_pbapc_phon
 
 /**
  * @brief               This function gets the phonebook objects of type Missed Calls History or Main Phone Book of the specified remote device.
- *                      #BT_PBAPC_GET_PHOENBOOK_OBJECTS_IND and #BT_PBAPC_GET_PHONEBOOK_OBJECTS_CNF events are sent to the upper layer with the connection result.
+ *                      #BT_PBAPC_GET_PHONEBOOK_OBJECTS_IND and #BT_PBAPC_GET_PHONEBOOK_OBJECTS_CNF events are sent to the upper layer with the connection result.
  * @param[in]  handle   is the identifier of the remote device.
  * @param[in]  offset    is the start offset.
  * @param[in]  type      is the type of phonebook objects.
@@ -376,7 +393,7 @@ bt_status_t bt_pbapc_get_caller_name_by_number(uint32_t handle, uint8_t *number)
 
 /**
  * @brief               This function pulls a specific vCard object from the specified remote device.
- *                      The #BT_PBAPC_GET_PHOENBOOK_OBJECTS_IND and #BT_PBAPC_GET_PHONEBOOK_OBJECTS_CNF events are sent to the upper layer with the connection result.
+ *                      The #BT_PBAPC_GET_PHONEBOOK_OBJECTS_IND and #BT_PBAPC_GET_PHONEBOOK_OBJECTS_CNF events are sent to the upper layer with the connection result.
  * @param[in] handle   is the identifier of the remote device.
  * @param[in] index     is the index of phonebook objects.
  * @return              #BT_STATUS_SUCCESS, the operation completed successfully.

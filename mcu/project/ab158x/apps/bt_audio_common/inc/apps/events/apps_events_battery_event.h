@@ -79,7 +79,7 @@ battery_event_shutdown_state_t calculate_shutdown_state(int32_t voltage);
 int32_t apps_events_battery_get_current_battery();
 battery_event_shutdown_state_t apps_events_battery_get_shutdown_state();
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_MASTER_ENABLE)
-void apps_events_update_optimal_battery(int32_t cur_battery);
+void apps_events_battery_update_dual_chip_another_side_battery(int32_t battery);
 //
 void apps_events_shutdown_by_slave_battery(int32_t shutdown_state);
 //

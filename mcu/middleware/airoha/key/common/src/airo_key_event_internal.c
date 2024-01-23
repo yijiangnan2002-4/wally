@@ -151,7 +151,7 @@ const airo_key_state_confg_t key_next_state = {
     /*release_3_temp*/      {19, key_state_release_3_temp,   AIRO_KEY_RELEASE,       KEY_CHECK_CLICK(3), NO_ACTION,  NO_ACTION,  SUPPORT_PRESS_RELEASE,  NO_ACTION},
     /*triple_click_1*/      {20, key_state_triple_click_1,   AIRO_KEY_TRIPLE_CLICK,  NO_ACTION,          3,          1,  SUPPORT_MULTIPLE_CLICK, NO_ACTION},
     /*triple_click_1_dumy*/ {21, key_state_triple_click_1,   NO_ACTION,              NO_ACTION,          NO_ACTION,  NO_ACTION,  NO_ACTION,              TIME_SILENCE},
-    /*release_3*/           {22, key_state_release_3,        NO_ACTION,              NO_ACTION,          NO_ACTION,  NO_ACTION,  NO_ACTION,              NO_ACTION},
+    /*release_3*/           {22, key_state_release_3,        NO_ACTION,              NO_ACTION,          NO_ACTION,  NO_ACTION,  NO_ACTION,              TIME_RELEASE},
     /*long_1_temp*/         {23, key_state_long_1_temp,      AIRO_KEY_LONG_PRESS_1,  KEY_CHECK_LONG(1),  1,          NO_ACTION,  SUPPORT_LONG_LEVEL,     NO_ACTION},
     /*long_1*/              {24, key_state_long_1,           NO_ACTION,              NO_ACTION,          NO_ACTION,  NO_ACTION,  NO_ACTION,              TIME_LONG2},
     /*long_2_temp*/         {25, key_state_long_2_temp,      AIRO_KEY_LONG_PRESS_2,  KEY_CHECK_LONG(2),  2,          NO_ACTION,  SUPPORT_LONG_LEVEL,     NO_ACTION},
@@ -164,7 +164,7 @@ const airo_key_state_confg_t key_next_state = {
     /*invalid*/             {31, key_state_invalid,          AIRO_KEY_INVALID,       NO_ACTION,          NO_ACTION,  NO_ACTION,  NO_ACTION,              NO_ACTION},
     /*dummy_click*/         {32, key_state_dummy_click,      NO_ACTION,              NO_ACTION,          NO_ACTION,  NO_ACTION,  NO_ACTION,              TIME_SILENCE},
     /*dummy_press*/         {33, key_state_dummy_press,      AIRO_KEY_PRESS,         NO_ACTION,          NO_ACTION,  NO_ACTION,  SUPPORT_PRESS_RELEASE,  NO_ACTION},
-    /*dummy_release*/       {34, key_state_dummy_release,    AIRO_KEY_RELEASE,       NO_ACTION,          NO_ACTION,  1,  SUPPORT_PRESS_RELEASE,  NO_ACTION},
+    /*dummy_release*/       {34, key_state_dummy_release,    AIRO_KEY_RELEASE,       NO_ACTION,          NO_ACTION,  1,          SUPPORT_PRESS_RELEASE,  NO_ACTION},
 };
 
 // row: current state, column: next state
@@ -193,7 +193,7 @@ const uint32_t key_state_machine_table[key_state_max][KEY_ACTION_MAX] = {
     /*19:key_state_release_3_temp*/{AIRO_KEY_NULL,                          AIRO_KEY_NULL,                                 AIRO_KEY_NULL,                             AIRO_KEY_NULL,                             (uint32_t) &key_next_state.triple_click_1,   (uint32_t) &key_next_state.release_3, AIRO_KEY_NULL},
     /*20:key_state_release*/       {AIRO_KEY_NULL,                          AIRO_KEY_NULL,                                 AIRO_KEY_NULL,                             AIRO_KEY_NULL,                             AIRO_KEY_NULL,                               AIRO_KEY_NULL,                        (uint32_t) &key_next_state.idle},
 //if multiple click >3, the column 0 shoubld be next press_4, the column 3 should be triple_click_2
-    /*21:key_state_release_3*/     {AIRO_KEY_NULL,                          AIRO_KEY_NULL,                                 (uint32_t) &key_next_state.release,        AIRO_KEY_NULL,                             AIRO_KEY_NULL,                               AIRO_KEY_NULL,                        AIRO_KEY_NULL},
+    /*21:key_state_release_3*/     {(uint32_t) &key_next_state.dummy_press, AIRO_KEY_NULL,                                 (uint32_t) &key_next_state.release,        (uint32_t) &key_next_state.triple_click_1, AIRO_KEY_NULL,                               AIRO_KEY_NULL,                        AIRO_KEY_NULL},
     /*22:key_state_long_1_temp*/   {AIRO_KEY_NULL,                          AIRO_KEY_NULL,                                 (uint32_t) &key_next_state.release,        AIRO_KEY_NULL,                             (uint32_t) &key_next_state.long_repeat_temp, (uint32_t) &key_next_state.long_1,    AIRO_KEY_NULL},
     /*23:key_state_long_1*/        {AIRO_KEY_NULL,                          (uint32_t) &key_next_state.long_2_temp,        (uint32_t) &key_next_state.release,        AIRO_KEY_NULL,                             AIRO_KEY_NULL,                               AIRO_KEY_NULL,                        AIRO_KEY_NULL},
     /*24:key_state_long_2_temp*/   {AIRO_KEY_NULL,                          AIRO_KEY_NULL,                                 (uint32_t) &key_next_state.release,        AIRO_KEY_NULL,                             (uint32_t) &key_next_state.long_repeat_temp, (uint32_t) &key_next_state.long_2,    AIRO_KEY_NULL},

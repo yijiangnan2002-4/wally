@@ -86,16 +86,16 @@ uint8_t apps_set_touch_control_enable(uint8_t isEnable, bool isApp)
     return ret;
 }
 
-bool apps_touch_key_status_update_notify(uint8_t isEnable, bool isAppnotify)
+bool apps_touch_key_status_update_notify(uint8_t isEnable, bool isAppNotify)
 {
     bool ret = false;
 
-    APPS_LOG_MSGID_I(LOG_TAG" send UI shell event to notify app touch key status update: isEnable=%d, isApp=%d. ", 2, isEnable, isAppnotify);
+    APPS_LOG_MSGID_I(LOG_TAG" send UI shell event to notify app touch key status update: isEnable=%d, isApp=%d. ", 2, isEnable, isAppNotify);
     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_TOUCH_KEY, APPS_TOUCH_KEY_STATUS_UPDATE);
     ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_TOUCH_KEY,
                         APPS_TOUCH_KEY_STATUS_UPDATE, NULL, 0, NULL, 0);
 #if defined(MTK_RACE_CMD_ENABLE)
-    if (isAppnotify) {
+    if (isAppNotify) {
         uint8_t channel_id;
         RACE_ERRCODE race_notify_ret;
         uint32_t serial_port;

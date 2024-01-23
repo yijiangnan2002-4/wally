@@ -52,13 +52,13 @@ enum {
     EVENT_ID_LE_AUDIO_ADV_TIMER = 0,                    /**<  0. LE AUDIO ADV Timer ID. */
     EVENT_ID_LE_AUDIO_START_ADV,                        /**<  LE AUDIO Start ADV ID. */
     EVENT_ID_LE_AUDIO_STOP_ADV,                         /**<  LE AUDIO Stop ADV ID. */
-    EVENT_ID_LE_AUDIO_RESTART_ADV,                      /**<  LE AUDIO Restart ADV ID. */
+    EVENT_ID_LE_AUDIO_GENERAL_ADV_FOR_TEST,             /**<  LE AUDIO Restart General ADV for low power testing. */
     EVENT_ID_LE_AUDIO_CONTROL_ADV_DATA,                 /**<  LE AUDIO Control ADV Data Event. */
     EVENT_ID_LE_AUDIO_SYNC_INFO,                        /**<  5. LE AUDIO Synchronize the ADV state and connection. */
     EVENT_ID_LE_AUDIO_SYNC_DISCONNECT_PARAM,            /**<  LE AUDIO Synchronize disconnect_parameter. */
-    EVENT_ID_LE_AUDIO_RESET_DONGLE_BUSY_EVENT,
-    EVENT_ID_LE_AUDIO_DELAY_RESTART_ADV,
-    EVENT_ID_LE_AUDIO_SYNC_CONNECT_ADDR,
+    EVENT_ID_LE_AUDIO_RESET_DONGLE_BUSY_EVENT,          /**<  LE AUDIO Reset Dongle busy flag. */
+    EVENT_ID_LE_AUDIO_DELAY_RESTART_ADV,                /**<  Unused. */
+    EVENT_ID_LE_AUDIO_SYNC_CONNECT_ADDR,                /**<  LE AUDIO Synchronize connect_addr. */
 
     EVENT_ID_LE_AUDIO_BIS_START_STREAMING,              /**<  10. LE AUDIO BIS start streaming. */
     EVENT_ID_LE_AUDIO_BIS_STOP_STREAMING,               /**<  LE AUDIO BIS stop streaming. */
@@ -78,12 +78,18 @@ enum {
     EVENT_ID_LEA_FORCE_UPDATE_ADV,                      /**<  25. Force Update ADV. */
     EVENT_ID_LEA_ALLOW_SET_RSL,                         /**<  Allow to set RSL after LE GAP SRV handle done. */
     EVENT_ID_LEA_CHANGE_ADV_SUB_MODE,                   /**<  Event of ADV sub mode change. */
-    EVENT_ID_LEA_EVO_ADV_FAST_TIMEOUT,                  /**<  Event of Intel EVO ADV fast interval timeout. */
+    EVENT_ID_LEA_ADV_FAST_TIMEOUT,                      /**<  Event of ADV fast interval timeout. */
     EVENT_ID_LEA_SYNC_HFP_CONTEXT,                      /**<  Sync HFP context for MTK HFP AT CMD feature. */
     EVENT_ID_LE_AUDIO_DISCONNECT_DONE,                  /**<  30. Notify LE Audio disconnect done. */
     EVENT_ID_LEA_SYNC_FEATURE_STATE,                    /**<  Sync feature state to peer. */
     EVENT_ID_LEA_CLOSE_LID_ACTION,                      /**<  Event of close lid action. */
     EVENT_ID_LEA_SYNC_RECONNECT_TARGETED_ADDR,          /**<  Sync LE AUDIO remove unactive addr. */
+    EVENT_ID_LEA_CANCEL_ADV_RECONNECT_FLAG,             /**<  Event of cancel reconnect flag on ADV. */
+    EVENT_ID_LEA_SET_FEATURE_MODE,                      /**<  35. LEA set feature mode. */
+    EVENT_ID_LEA_HANDLE_AIRD_READY,                     /**<  Event to handle AIRD Ready for LEA Dongle. */
+    EVENT_ID_LEA_RESET_LEA_DONGLE,                      /**<  Event to reset LEA Dongle. */
+    EVENT_ID_LEA_DISCOVERY_INFO,                        /**<  Event to discovery info. */
+    EVENT_ID_LEA_GET_ADDR_RESOLUTION_INFO,              /**<  Event to get addr resolution from BT task. */
 };
 
 #ifdef __cplusplus

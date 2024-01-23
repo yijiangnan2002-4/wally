@@ -707,11 +707,7 @@ VOID Sink_Audio_Buffer_Ctrl(SINK sink, BOOL isEnabled)
             mem_size = sink->param.audio.buffer_size * afe_number;
             if (sink->param.audio.AfeBlkControl.u4asrcflag) {
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-            if (sink->param.audio.channel_num == 4) {
                 mem_size += sink->param.audio.AfeBlkControl.u4asrc_buffer_size * afe_number;
-            } else {
-                mem_size += sink->param.audio.AfeBlkControl.u4asrc_buffer_size;
-            }
 #else
             mem_size += sink->param.audio.AfeBlkControl.u4asrc_buffer_size;
 #endif
@@ -773,17 +769,8 @@ VOID Sink_Audio_Buffer_Ctrl(SINK sink, BOOL isEnabled)
             }*/
             if (sink->param.audio.AfeBlkControl.u4asrcflag) {
                 sink->streamBuffer.BufferInfo.startaddr[afe_number % BUFFER_INFO_CH_NUM] = mem_ptr;
-#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-                if (sink->param.audio.channel_num == 4) {
-                    mem_ptr += sink->param.audio.AfeBlkControl.u4asrc_buffer_size * afe_number;
-                } else {
-                    mem_ptr += sink->param.audio.AfeBlkControl.u4asrc_buffer_size;
-                }
-#else
                 mem_ptr += sink->param.audio.AfeBlkControl.u4asrc_buffer_size;
-#endif
             }
-#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
             DSP_MW_LOG_I("[MULTI][Sink Common] scenario_type:%d sink buffer addr:0x%x sink_type:%d mem_size:%d u4asrcflag flag:%d mem_ptr:0x%x u4asrc_size:%d afe_number %d\n", 8,
                sink->param.audio.mem_handle.scenario_type,
                sink->param.audio.AfeBlkControl.phys_buffer_addr,
@@ -794,17 +781,6 @@ VOID Sink_Audio_Buffer_Ctrl(SINK sink, BOOL isEnabled)
                sink->param.audio.AfeBlkControl.u4asrc_buffer_size,
                afe_number
                );
-#else
-             DSP_MW_LOG_I("[Sink Common] scenario_type:%d sink buffer addr:0x%x sink_type:%d mem_size:%d u4asrcflag flag:%d mem_ptr:0x%x u4asrc_size:%d\n", 7,
-                sink->param.audio.mem_handle.scenario_type,
-                sink->param.audio.AfeBlkControl.phys_buffer_addr,
-                sink->type,
-                mem_size,
-                sink->param.audio.AfeBlkControl.u4asrcflag,
-                mem_ptr,
-                sink->param.audio.AfeBlkControl.u4asrc_buffer_size
-                );
-#endif
             for (i = 0; ((i < afe_number) && (i < BUFFER_INFO_CH_NUM)) ; i++) {
                 sink->streamBuffer.BufferInfo.startaddr[i] = mem_ptr;
                 mem_ptr += sink->streamBuffer.BufferInfo.length;
@@ -868,7 +844,7 @@ VOID Sink_Audio_BufferInfo_Rst(SINK sink, U32 offset)
     uint32_t afe_prefill;
     channel_num = sink->param.audio.channel_num;
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-    if (sink->param.audio.channel_num == 4) {
+    if (sink->param.audio.channel_num > 2) {
         channel_num = 2;
     }
 #endif
@@ -895,15 +871,15 @@ VOID Sink_Audio_BufferInfo_Rst(SINK sink, U32 offset)
             source->param.n9ble.prefill_us = 0;
             if (source->param.n9ble.context_type == BLE_CONTENT_TYPE_ULL_BLE) {
                 /* ULL */
-                prefill_us = (source->param.n9ble.codec_type == BT_BLE_CODEC_ULD) ? 1320 : (source->param.n9ble.is_lightmode) ? 4600 : 2000;
+                prefill_us = (source->param.n9ble.codec_type == BT_BLE_CODEC_ULD) ? 1500 : (source->param.n9ble.is_lightmode) ? 4600 : 2000;
             } else {
                 /* LE AUDIO */
                 prefill_us = g_n9_ble_dl_ll_flag ? 3000 : (source->param.n9ble.context_type == BLE_CONTEXT_GAME) ? 5000 : (sink->param.audio.period == 10) ? 10000 : 15000;
             }
             if (sink->param.audio.AfeBlkControl.u4asrcflag) {
-                afe_prefill = prefill_us * (sink->param.audio.src_rate * sink->param.audio.format_bytes * sink->param.audio.channel_num) / 1000000;
+                afe_prefill = prefill_us * (sink->param.audio.src_rate * sink->param.audio.format_bytes * sink->param.audio.channel_num / 100) / 10000;
             } else {
-                afe_prefill = prefill_us * (sink->param.audio.rate * sink->param.audio.format_bytes * sink->param.audio.channel_num) / 1000000;
+                afe_prefill = prefill_us * (sink->param.audio.rate * sink->param.audio.format_bytes * sink->param.audio.channel_num / 100) / 10000;
             }
             #ifdef AIR_DCHS_MODE_ENABLE
             if (dchs_get_device_mode() != DCHS_MODE_SINGLE) {
@@ -942,10 +918,10 @@ VOID Sink_Audio_BufferInfo_Rst(SINK sink, U32 offset)
             afe_prefill = (sink->param.audio.rate * sink->param.audio.format_bytes * sink->param.audio.channel_num * (sink->param.audio.period + DCHS_DL_USB_IN_PREFILL_FOR_DCHS)) / 1000;
             DSP_MW_LOG_I("[DCHS DL]usb in afe_prefill = %d bytes", 1, afe_prefill);
         }
-        if(sink->param.audio.mem_handle.scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL){
-            SOURCE dchs_dl_source = Source_blks[SOURCE_TYPE_UART];;
+        if(sink->param.audio.mem_handle.scenario_type == AUDIO_SCENARIO_TYPE_MIXER_STREAM){
+            SOURCE dchs_dl_source = Source_blks[SOURCE_TYPE_MIXER];;
             audio_scenario_type_t data_scenario_type = (audio_scenario_type_t)dchs_dl_source->param.audio.scenario_sub_id;
-            U32 prefill_ms = (data_scenario_type == AUDIO_SCENARIO_TYPE_BLE_DL ? DCHS_DL_SINK_LEAUDIO_PREFILL_MS : DCHS_DL_SINK_PREFILL_MS); //le audio in slave,need uart relay twice,need double uart relay delay
+            U32 prefill_ms = DCHS_DL_SINK_PREFILL_MS; //le audio in slave,need uart relay twice,need double uart relay delay
             afe_prefill = prefill_ms * (sink->param.audio.rate / 1000) * sink->param.audio.format_bytes * sink->param.audio.channel_num; //prefill for uart relay delay
             DSP_MW_LOG_I("[DCHS DL]sink afe_prefill = %d bytes, scenario_type = %d", 2, afe_prefill, data_scenario_type);
         }
@@ -975,47 +951,39 @@ VOID Sink_Audio_BufferInfo_Rst(SINK sink, U32 offset)
         }
 #endif /* AIR_WIRELESS_MIC_RX_ENABLE */
 #if defined(AIR_WIRED_AUDIO_ENABLE) && !defined(AIR_DCHS_MODE_ENABLE)
+        uint32_t sink_prefill_ratio;
         if (sink->param.audio.mem_handle.scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_MAINSTREAM) {
-            uint32_t usb_in_prefill_size;
-#if defined(AIR_USB_IN_PREFILL_SIZE)
-            usb_in_prefill_size = 100 + AIR_USB_IN_PREFILL_SIZE;
-#else
-            usb_in_prefill_size = 150;
-#endif
+            sink_prefill_ratio = 100 + WIRED_AUDIO_USB_IN_PREFILL_SIZE;
 #if defined(AIR_USB_IN_LATENCY_LOW)
             /* Use DL3 path for pbuf config, prefill with 32 bytes */
             AFE_SET_REG(AFE_MEMIF_PBUF_SIZE, 0, 3 << 10); //reduce pbuffer
             AFE_SET_REG(AFE_MEMIF_MINLEN, 1, 0xF000);//reduce pbuffer size
             /* Don't use HWSRC, and prefill with 1.5 * frame time(3ms, 1ms) + AFE Pbuf prefill (32 byte) */
-            afe_prefill = (sink->param.audio.format_bytes * sink->param.audio.channel_num * sink->param.audio.count * usb_in_prefill_size) / 100 + 32;
+            afe_prefill = (sink->param.audio.format_bytes * sink->param.audio.channel_num * sink->param.audio.count * sink_prefill_ratio) / 100 + 32;
 #else
             /* Don't use HWSRC, and prefill with 1.5 * frame time(3ms, 1ms) + AFE Pbuf prefill (208 byte) */
-            afe_prefill = (sink->param.audio.format_bytes * sink->param.audio.channel_num * sink->param.audio.count * usb_in_prefill_size) / 100 + 208;
+            afe_prefill = (sink->param.audio.format_bytes * sink->param.audio.channel_num * sink->param.audio.count * sink_prefill_ratio) / 100 + 208;
 #endif
         } else if (sink->param.audio.mem_handle.scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_IN) {
-            uint32_t line_in_prefill_size;
-#if defined(AIR_LINE_IN_PREFILL_SIZE)
-            line_in_prefill_size = 100 + AIR_LINE_IN_PREFILL_SIZE;
-#else
-            line_in_prefill_size = 200;
-#endif
+            sink_prefill_ratio = 100 + WIRED_AUDIO_LINE_IN_PREFILL_SIZE;
 #if defined(AIR_LINE_IN_LATENCY_LOW) || defined(AIR_LINE_IN_LATENCY_MEDIUM)
             /* Use DL3 path for pbuf config, prefill with 32 bytes */
             AFE_SET_REG(AFE_MEMIF_PBUF_SIZE, 0, 3 << 10); //reduce pbuffer
             AFE_SET_REG(AFE_MEMIF_MINLEN, 1, 0xF000);//reduce pbuffer size
             /* Don't use HWSRC, and prefill with 2 * frame time(2.67ms, 1.33ms, 0.67ms) + AFE Pbuf prefill (32 byte) */
-            afe_prefill = (sink->param.audio.format_bytes * sink->param.audio.channel_num * sink->param.audio.count * line_in_prefill_size) / 100 + 32;
+            afe_prefill = (sink->param.audio.format_bytes * sink->param.audio.channel_num * sink->param.audio.count * sink_prefill_ratio) / 100 + 32;
 #else
             /* Don't use HWSRC, and prefill with 2 * frame time(2.67ms, 1.33ms, 0.67ms) + AFE Pbuf prefill (208 byte) */
-            afe_prefill = (sink->param.audio.format_bytes * sink->param.audio.channel_num * sink->param.audio.count * line_in_prefill_size) / 100 + 208;
+            afe_prefill = (sink->param.audio.format_bytes * sink->param.audio.channel_num * sink->param.audio.count * sink_prefill_ratio) / 100 + 208;
 #endif
         }
         else if ((sink->param.audio.mem_handle.scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_OUT) || (sink->param.audio.mem_handle.scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER)) {
+            sink_prefill_ratio = 100 + WIRED_AUDIO_LINE_OUT_PREFILL_SIZE;
             /* Use DL12 path for pbuf config, prefill with 32 bytes */
             //AFE_SET_REG(AFE_MEMIF_PBUF_SIZE, 0, 3 << 8); //reduce pbuffer
             //AFE_SET_REG(AFE_MEMIF_MINLEN, 1, 0xF0);//reduce pbuffer size
             /* Don't use HWSRC, and prefill with 1 * frame time(15ms) + process time(5ms) + AFE Pbuf prefill (208 byte) */
-            afe_prefill = sink->param.audio.format_bytes * sink->param.audio.channel_num * (sink->param.audio.count + (sink->param.audio.rate * 50) / 10000) + 208;
+            afe_prefill = (sink->param.audio.format_bytes * sink->param.audio.channel_num * sink->param.audio.count * sink_prefill_ratio) / 100 + 208;
         }
 #endif
         afe_prefill &= (~7UL);//Alignment
@@ -1896,7 +1864,7 @@ void Sink_Audio_ExtAmpOff_Control_Callback(BOOL SilenceFlag)
     }
 
     if(gpio != 0XFF){
-        U32 out = 0;
+        hal_gpio_data_t out = 0;
         hal_gpio_get_output(gpio,&out);
         if(out){
             ExtAmpOff_SilenceFlag = FALSE;
@@ -1967,6 +1935,58 @@ ATTR_TEXT_IN_IRAM BOOL Sink_Audio_WirelessMic_WriteBuffer (SINK sink, U8 *src_ad
 }
 #endif
 
+ATTR_TEXT_IN_IRAM_LEVEL_2 void Sink_Audio_UnderflowCheck(SINK sink, U32 base_addr, U32 write_addr)
+{
+    /* Alpha Stage: only support single output, dl1~dl12 without hwsrc */
+    hal_audio_current_offset_parameter_t get_current_offset = {0};
+    bool is_memory_find = false;
+    hal_audio_memory_selection_t memory_search;
+    for (memory_search = HAL_AUDIO_MEMORY_DL_DL1 ; memory_search <= HAL_AUDIO_MEMORY_DL_DL12 ; memory_search <<= 1) {
+        if (sink->param.audio.mem_handle.memory_select & memory_search) {
+            is_memory_find = true;
+            break;
+        }
+    }
+    if (is_memory_find) {
+        get_current_offset.memory_select = memory_search;
+        get_current_offset.pure_agent_with_src = false;
+        hal_audio_get_value((hal_audio_get_value_parameter_t *)&get_current_offset, HAL_AUDIO_GET_MEMORY_OUTPUT_CURRENT_OFFSET);
+        if (base_addr == get_current_offset.base_address) {
+            U32 cur_ro = get_current_offset.offset;
+            U32 pre_ro = sink->streamBuffer.BufferInfo.ReadOffset + base_addr;
+            bool check_flag = false;
+            if (cur_ro > pre_ro) {
+                /* pre_ro < wo < cur_ro */
+                if ((write_addr >= pre_ro) && (write_addr <= cur_ro)) {
+                    check_flag = true;
+                }
+            } else if (cur_ro < pre_ro) {
+                /*  wo < cur_ro < pre_ro < wo */
+                if ((write_addr >= pre_ro) || (write_addr <= cur_ro)) {
+                    check_flag = true;
+                }
+            }
+            if (check_flag)  {
+                DSP_MW_LOG_E("ERROR: Sink_Audio_WriteBuffer scenario[%d] mips is not enough, agent %d ro 0x%x > wo 0x%x pre 0x%x", 5,
+                    sink->scenario_type,
+                    get_current_offset.memory_select,
+                    get_current_offset.offset,
+                    write_addr,
+                    pre_ro
+                    );
+            }
+        }
+    }
+    // DSP_MW_LOG_I("TEST: Sink_Audio_WriteBuffer scenario[%d] mips is not enough, agent %d ro 0x%x > wo 0x%x base 0x%x 0x%x", 6,
+    //     sink->scenario_type,
+    //     get_current_offset.memory_select,
+    //     get_current_offset.offset,
+    //     write_addr,
+    //     get_current_offset.base_address,
+    //     base_addr
+    //     );
+}
+
 ATTR_TEXT_IN_IRAM_LEVEL_2 BOOL Sink_Audio_WriteBuffer (SINK sink, U8 *src_addr, U32 length)
 {
     TRANSFORM transform = sink->transform;
@@ -1996,7 +2016,10 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 BOOL Sink_Audio_WriteBuffer (SINK sink, U8 *src_addr, 
         if ((callback_ptr->EntryPara.out_ptr[2] != NULL )&& (callback_ptr->EntryPara.out_ptr[3] != NULL ))
         {
             channel_num = 4;
-            //DSP_MW_LOG_I("[MULTI] actual 4 ch",0);
+            if ((callback_ptr->EntryPara.out_ptr[4] != NULL)&& (callback_ptr->EntryPara.out_ptr[5] != NULL)) {
+                channel_num = 6;
+            }
+            //DSP_MW_LOG_I("[MULTI_STREAM] actual channel_num %d", 1, channel_num);
         }
 #endif
 
@@ -2062,6 +2085,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 BOOL Sink_Audio_WriteBuffer (SINK sink, U8 *src_addr, 
 
     if ((sink->buftype != BUFFER_TYPE_INTERLEAVED_BUFFER) || (channel_num == 1)) {
         for (i = 0; i < channel_num; i++) {
+            Sink_Audio_UnderflowCheck(sink, (U32)sink->streamBuffer.BufferInfo.startaddr[channel_sel], (U32)(sink->streamBuffer.BufferInfo.startaddr[channel_sel] + writeOffset));
             DSP_D2C_BufferCopy(sink->streamBuffer.BufferInfo.startaddr[channel_sel] + writeOffset,
                                src_addr,
                                length,
@@ -2109,16 +2133,14 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 BOOL Sink_Audio_WriteBuffer (SINK sink, U8 *src_addr, 
         for (i = 0; i < channel_num; i += 2) {
 #if 1
             copy_offset = 0;
-#ifdef AIR_AUDIO_I2S_SLAVE_TDM_ENABLE
             writeOffset = sink->streamBuffer.BufferInfo.WriteOffset;
-#endif
             while (length > copy_offset) {
                 unwrap_size = sink->streamBuffer.BufferInfo.length - writeOffset;
                 copy_size = MIN((length - copy_offset), unwrap_size >> 1);
                 if (sink->param.audio.format_bytes == 4) {
                     #ifdef AIR_DCHS_MODE_ENABLE
                     //dchs dl right R ch data need L ch out
-                    if(sink->scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL && dchs_get_device_mode() == DCHS_MODE_RIGHT){
+                    if(sink->scenario_type == AUDIO_SCENARIO_TYPE_MIXER_STREAM && dchs_get_device_mode() == DCHS_MODE_RIGHT){
                         memset(L_and_R_ch, 0, copy_size);
                         DSP_D2I_BufferCopy_32bit((U32 *)(sink->streamBuffer.BufferInfo.startaddr[channel_sel] + writeOffset),
                                              (U32 *)((U8 *)callback_ptr->EntryPara.out_ptr[i + 1] + copy_offset),
@@ -2126,11 +2148,15 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 BOOL Sink_Audio_WriteBuffer (SINK sink, U8 *src_addr, 
                                              (U32)copy_size >> 2);
                     }else
                     #endif
+                    {
+                        Sink_Audio_UnderflowCheck(sink, (U32)sink->streamBuffer.BufferInfo.startaddr[channel_sel], (U32)(sink->streamBuffer.BufferInfo.startaddr[channel_sel] + writeOffset));
                         DSP_D2I_BufferCopy_32bit((U32 *)(sink->streamBuffer.BufferInfo.startaddr[channel_sel] + writeOffset),
-                                             (U32 *)((U8 *)callback_ptr->EntryPara.out_ptr[i] + copy_offset),
-                                             (U32 *)((U8 *)callback_ptr->EntryPara.out_ptr[i + 1] + copy_offset),
-                                             (U32)copy_size >> 2);
+                                            (U32 *)((U8 *)callback_ptr->EntryPara.out_ptr[i] + copy_offset),
+                                            (U32 *)((U8 *)callback_ptr->EntryPara.out_ptr[i + 1] + copy_offset),
+                                            (U32)copy_size >> 2);
+                    }
                 } else {
+                    Sink_Audio_UnderflowCheck(sink, (U32)sink->streamBuffer.BufferInfo.startaddr[channel_sel], (U32)(sink->streamBuffer.BufferInfo.startaddr[channel_sel] + writeOffset));
                     DSP_D2I_BufferCopy_16bit((U16 *)(sink->streamBuffer.BufferInfo.startaddr[channel_sel] + writeOffset),
                                              (U16 *)(callback_ptr->EntryPara.out_ptr[i] + copy_offset),
                                              (U16 *)(callback_ptr->EntryPara.out_ptr[i + 1] + copy_offset),
@@ -2159,15 +2185,15 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 BOOL Sink_Audio_WriteBuffer (SINK sink, U8 *src_addr, 
                             LOG_AUDIO_DUMP((U8 *)(sink->streamBuffer.BufferInfo.startaddr[channel_sel] + writeOffset), copy_size * 2, AUDIO_DCHS_DL_DATA_SOURCE);
                         }
                     }
-                    if(sink->scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL && dchs_get_device_mode() == DCHS_MODE_RIGHT){
+                    if(sink->scenario_type == AUDIO_SCENARIO_TYPE_MIXER_STREAM && dchs_get_device_mode() == DCHS_MODE_RIGHT){
                         dsp_uart_tx(UART_DL,(U8 *)(callback_ptr->EntryPara.out_ptr[i] + copy_offset), copy_size);
                         LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[i] + copy_offset), copy_size, AUDIO_DCHS_DL_RIGHT_SINK_L);
                         LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[i+1] + copy_offset), copy_size, AUDIO_DCHS_DL_RIGHT_SINK_R);
                     }
-                    if(sink->scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL && dchs_get_device_mode() == DCHS_MODE_LEFT){
+                    if(sink->scenario_type == AUDIO_SCENARIO_TYPE_MIXER_STREAM && dchs_get_device_mode() == DCHS_MODE_LEFT){
                         LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[i] + copy_offset), copy_size, AUDIO_DCHS_DL_LEFT_SINK_L);
                     }
-                    if(sink->scenario_type != AUDIO_SCENARIO_TYPE_DCHS_UART_DL){
+                    if(sink->scenario_type != AUDIO_SCENARIO_TYPE_MIXER_STREAM){
                         LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[i] + copy_offset), copy_size, AUDIO_DCHS_DL_OTHER_SCENARIO_DATA);
                     }
                 }
@@ -2242,6 +2268,16 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 BOOL Sink_Audio_WriteBuffer (SINK sink, U8 *src_addr, 
                 LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[i + 1] + copy_offset), (U32)(copy_size), SINK_COMMON_OUT_R);
                 LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[i] + copy_offset), (U32)(copy_size), SINK_OUT1);
                 LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[i + 1] + copy_offset), (U32)(copy_size), SINK_OUT2);
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+                if (i == 0) {
+                    LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[0] + copy_offset), (U32)(copy_size), AUDIO_MULTIPLE_STREAM_OUT_0);
+                    LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[1] + copy_offset), (U32)(copy_size), AUDIO_MULTIPLE_STREAM_OUT_1);
+                    LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[2] + copy_offset), (U32)(copy_size), AUDIO_MULTIPLE_STREAM_OUT_2);
+                    LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[3] + copy_offset), (U32)(copy_size), AUDIO_MULTIPLE_STREAM_OUT_3);
+                    LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[4] + copy_offset), (U32)(copy_size), AUDIO_MULTIPLE_STREAM_OUT_4);
+                    LOG_AUDIO_DUMP((U8 *)(callback_ptr->EntryPara.out_ptr[5] + copy_offset), (U32)(copy_size), AUDIO_MULTIPLE_STREAM_OUT_5);
+                }
+#endif
 #endif
 
                 writeOffset = (writeOffset + (copy_size << 1)) % sink->streamBuffer.BufferInfo.length;
@@ -2260,15 +2296,15 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 BOOL Sink_Audio_WriteBuffer (SINK sink, U8 *src_addr, 
         }
     }
 
-#ifdef AIR_DCHS_MODE_ENABLE
-    if(sink->scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL){
+#ifdef AIR_MIXER_STREAM_ENABLE
+    if(sink->scenario_type == AUDIO_SCENARIO_TYPE_MIXER_STREAM){
         U32  hw_current_read_idx = AFE_GET_REG(AFE_DL12_CUR);
         U32  dl_base_addr = AFE_GET_REG(AFE_DL12_BASE);
         U16  hw_ro = hw_current_read_idx - dl_base_addr;
         U32  sw_ro = sink->streamBuffer.BufferInfo.ReadOffset;
         U32  sw_wo = sink->streamBuffer.BufferInfo.WriteOffset;
         if ((OFFSET_OVERFLOW_CHK(sw_ro, hw_ro, sw_wo) && (sink->streamBuffer.BufferInfo.bBufferIsFull == FALSE))) {
-            DSP_MW_LOG_W("[DCHS DL][WriteBuffer]DL12 under run:hw_ro:%d sw_ro:%d sw_wo:%d =====", 3, hw_ro, sw_ro, sw_wo);
+            DSP_MW_LOG_W("[Mixer Stream][WriteBuffer]DL12 under run:hw_ro:%d sw_ro:%d sw_wo:%d =====", 3, hw_ro, sw_ro, sw_wo);
         }
     }
 #endif
@@ -2381,32 +2417,18 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 BOOL Sink_Audio_FlushBuffer(SINK sink, U32 amount)
         }
     }
 #else
-    #ifdef AIR_DCHS_MODE_ENABLE
-    if(dchs_get_device_mode() == DCHS_MODE_RIGHT){
-        if (sink->type == SINK_TYPE_VP_AUDIO) {
-            if(dchs_dl_check_hwsrc_enable(LOCAL_SCENARIO_2)){
-                dchs_dl_update_hwsrc_input_wrpnt(LOCAL_SCENARIO_2, sink->streamBuffer.BufferInfo.WriteOffset);
-            }
-        } else {
-            if(dchs_dl_check_hwsrc_enable(LOCAL_SCENARIO_1)){
-                dchs_dl_update_hwsrc_input_wrpnt(LOCAL_SCENARIO_1, sink->streamBuffer.BufferInfo.WriteOffset);
-            }
-        }
-    }
-    //scenario write sink buf,resume dchs dl task
-    if(sink->scenario_type != AUDIO_SCENARIO_TYPE_DCHS_UART_DL){
-        dchs_dl_resume_dchs_task();
-    }
-    #endif
     //modify for ab1568
     if (sink->param.audio.mem_handle.memory_select & (HAL_AUDIO_MEMORY_DL_SRC1) ||
         sink->param.audio.mem_handle.pure_agent_with_src) {
 //#if (AFE_REGISTER_ASRC_IRQ)
 #ifdef ENABLE_HWSRC_CLKSKEW
-        if ((ClkSkewMode_g == CLK_SKEW_V2) && (sink->param.audio.mem_handle.memory_select != HAL_AUDIO_MEMORY_DL_DL2)) {
+        if ((sink->param.audio.clk_skew_mode == CLK_SKEW_V2) && (sink->param.audio.mem_handle.memory_select != HAL_AUDIO_MEMORY_DL_DL2)) {
             if (afe_get_asrc_irq_is_enabled(AFE_MEM_ASRC_1, ASM_IER_IBUF_EMPTY_INTEN_MASK) == false) { //modify for clock skew
                     // afe_set_asrc_irq_enable(AFE_MEM_ASRC_1, false);
-                    hal_src_set_irq_enable(AFE_MEM_ASRC_1, true);
+                    afe_src_configuration_t src_configuration;
+                    memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
+                    src_configuration.id = AFE_MEM_ASRC_1;
+                    hal_src_set_irq_enable(&src_configuration, true);
                 //DSP_MW_LOG_I("asrc Sink_Audio_FlushBuffer asrc_irq_is_enabled %d",2,afe_get_asrc_irq_is_enabled(AFE_MEM_ASRC_1, ASM_IER_IBUF_EMPTY_INTEN_MASK));
             }
         } else {
@@ -2566,6 +2588,9 @@ BOOL AudioAfeConfiguration(stream_config_type type, U32 value)
                 return FALSE;
             }
             break;
+        case AUDIO_SINK_HWSRC_TYPE:
+            gAudioCtrl.Afe.AfeDLSetting.hwsrc_type = value;
+            break;
 #if 0
         case AUDIO_SINK_IRQ_COUNT:
             if (value < IRQ_COUNT_MAX);
@@ -2578,6 +2603,9 @@ BOOL AudioAfeConfiguration(stream_config_type type, U32 value)
         case AUDIO_SINK_DEVICE1:
             gAudioCtrl.Afe.AfeDLSetting.audio_device1 = value;
             break;
+        case AUDIO_SINK_DEVICE2:
+            gAudioCtrl.Afe.AfeDLSetting.audio_device2 = value;
+            break;
         case AUDIO_SINK_CHANNEL:
             gAudioCtrl.Afe.AfeDLSetting.stream_channel = value;
             break;
@@ -2589,6 +2617,9 @@ BOOL AudioAfeConfiguration(stream_config_type type, U32 value)
             break;
         case AUDIO_SINK_INTERFACE1:
             gAudioCtrl.Afe.AfeDLSetting.audio_interface1 = value;
+            break;
+        case AUDIO_SINK_INTERFACE2:
+            gAudioCtrl.Afe.AfeDLSetting.audio_interface2 = value;
             break;
         case AUDIO_SINK_HW_GAIN:
             gAudioCtrl.Afe.AfeDLSetting.hw_gain = value;
@@ -2738,11 +2769,12 @@ BOOL AudioAfeConfiguration(stream_config_type type, U32 value)
         case AUDIO_SOURCE_HW_GAIN:
             gAudioCtrl.Afe.AfeULSetting.hw_gain = value;
             break;
-#ifdef ENABLE_HWSRC_CLKSKEW
         case AUDIO_SINK_CLKSKEW_MODE:
             Audio_setting->Audio_sink.clkskew_mode = value;
             break;
-#endif
+        case AUDIO_SOURCE_CLKSKEW_MODE:
+            Audio_setting->Audio_source.clkskew_mode = value;
+            break;
 #ifdef AUTO_ERROR_SUPPRESSION
         case AUDIO_SOURCE_MISC_PARMS_I2S_CLK:
             gAudioCtrl.Afe.AfeULSetting.misc_parms.I2sClkSourceType = value;
@@ -2959,24 +2991,37 @@ BOOL AudioAfeConfiguration(stream_config_type type, U32 value)
             gAudioCtrl.Afe.AfeULSetting.dmic_clock_rate[2] = value;
             break;
 #endif
-        case AUDIO_SOURCE_UPDOWN_SAMPLER_ENABLE:
-            gAudioCtrl.Afe.AfeULSetting.with_upwdown_sampler = value;
+#if defined(AIR_BTA_IC_PREMIUM_G3)
+        case AUDIO_SOURCE_ANC_CH_SELECT:
+            gAudioCtrl.Afe.AfeULSetting.anc_ch_select = value;
             break;
-        case AUDIO_SOURCE_PATH_INPUT_RATE:
-            gAudioCtrl.Afe.AfeULSetting.audio_path_input_rate = value;
+#endif
+#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
+        case AUDIO_SOURCE_DEVICE_INPUT_RATE:
+            gAudioCtrl.Afe.AfeULSetting.audio_device_rate[0] = value;
             break;
-        case AUDIO_SOURCE_PATH_OUTPUT_RATE:
-            gAudioCtrl.Afe.AfeULSetting.audio_path_output_rate = value;
+        case AUDIO_SOURCE_DEVICE_INPUT_RATE1:
+            gAudioCtrl.Afe.AfeULSetting.audio_device_rate[1] = value;
             break;
-        case AUDIO_SINK_UPDOWN_SAMPLER_ENABLE:
-            gAudioCtrl.Afe.AfeDLSetting.with_upwdown_sampler = value;
+        case AUDIO_SOURCE_DEVICE_INPUT_RATE2:
+            gAudioCtrl.Afe.AfeULSetting.audio_device_rate[2] = value;
             break;
-        case AUDIO_SINK_PATH_INPUT_RATE:
-            gAudioCtrl.Afe.AfeDLSetting.audio_path_input_rate = value;
+        case AUDIO_SOURCE_DEVICE_INPUT_RATE3:
+            gAudioCtrl.Afe.AfeULSetting.audio_device_rate[3] = value;
             break;
-        case AUDIO_SINK_PATH_OUTPUT_RATE:
-            gAudioCtrl.Afe.AfeDLSetting.audio_path_output_rate = value;
+        case AUDIO_SOURCE_DEVICE_INPUT_RATE4:
+            gAudioCtrl.Afe.AfeULSetting.audio_device_rate[4] = value;
             break;
+        case AUDIO_SOURCE_DEVICE_INPUT_RATE5:
+            gAudioCtrl.Afe.AfeULSetting.audio_device_rate[5] = value;
+            break;
+        case AUDIO_SOURCE_DEVICE_INPUT_RATE6:
+            gAudioCtrl.Afe.AfeULSetting.audio_device_rate[6] = value;
+            break;
+        case AUDIO_SOURCE_DEVICE_INPUT_RATE7:
+            gAudioCtrl.Afe.AfeULSetting.audio_device_rate[7] = value;
+            break;
+#endif
 #ifdef AIR_HFP_DNN_PATH_ENABLE
         case AUDIO_SOURCE_DNN_PATH_ENABLE:
         case AUDIO_SINK_DNN_PATH_ENABLE:
@@ -3265,19 +3310,19 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 BOOL Source_Audio_ReadAudioBuffer(SOURCE source, U8 *d
     }
 
 #ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
-    /*if(source->transform->sink->type == SINK_TYPE_N9SCO)
+    if(source->transform->sink->type == SINK_TYPE_N9SCO)
       {
           if(callback_ptr->EntryPara.in_ptr[0] != NULL)
-              LOG_AUDIO_DUMP((U8*)(callback_ptr->EntryPara.in_ptr[0]), length, SOURCE_IN1);
+              LOG_AUDIO_DUMP((U8*)(callback_ptr->EntryPara.in_ptr[0]), length, AUDIO_HFP_AFE_IN1);
           if(callback_ptr->EntryPara.in_ptr[1] != NULL)
-              LOG_AUDIO_DUMP((U8*)(callback_ptr->EntryPara.in_ptr[1]), length, SOURCE_IN2);
+              LOG_AUDIO_DUMP((U8*)(callback_ptr->EntryPara.in_ptr[1]), length, AUDIO_HFP_AFE_IN2);
           if(callback_ptr->EntryPara.in_ptr[2] != NULL)
-              LOG_AUDIO_DUMP((U8*)(callback_ptr->EntryPara.in_ptr[2]), length, SOURCE_IN3);
+              LOG_AUDIO_DUMP((U8*)(callback_ptr->EntryPara.in_ptr[2]), length, AUDIO_HFP_AFE_IN3);
           if(callback_ptr->EntryPara.in_ptr[3] != NULL)
-              LOG_AUDIO_DUMP((U8*)(callback_ptr->EntryPara.in_ptr[3]), length, SOURCE_IN4);
+              LOG_AUDIO_DUMP((U8*)(callback_ptr->EntryPara.in_ptr[3]), length, AUDIO_HFP_AFE_IN4);
           if(callback_ptr->EntryPara.in_ptr[4] != NULL)
-              LOG_AUDIO_DUMP((U8*)(callback_ptr->EntryPara.in_ptr[4]), length, SOURCE_IN5);
-      }*/
+              LOG_AUDIO_DUMP((U8*)(callback_ptr->EntryPara.in_ptr[4]), length, AUDIO_HFP_AFE_IN5);
+      }
 #endif
 
     return TRUE;

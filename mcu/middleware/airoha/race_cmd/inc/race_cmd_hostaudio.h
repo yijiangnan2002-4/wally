@@ -76,6 +76,9 @@
 #define RACE_MMI_MODULE_AEQ_IP_OPTION       (25)
 #define RACE_MMI_MODULE_AEQ_BYPASS_IP       (26)
 #define RACE_MMI_MODULE_USB_PEQ_GROUP_ID    (27)
+#define RACE_MMI_MODULE_MIC_PEQ_GROUP_ID    (28)
+#define RACE_MMI_MODULE_ADVANCED_RECORD_PEQ_GROUP_ID    (29)
+#define RACE_MMI_MODULE_FIXRATE             (30)
 
 #define AUDIO_PATH_LINE_IN                  (0x01)
 #define AUDIO_PATH_BT                       (0x00)

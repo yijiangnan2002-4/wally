@@ -221,7 +221,7 @@ bool app_ms_teams_set_dongle_fw_version(uint8_t *ver, uint32_t len)
 
 bool app_ms_teams_set_don_to_answer_setting(bool en)
 {
-    app_ms_teams_get_telemetry_info()->don_to_seeting = en;
+    app_ms_teams_get_telemetry_info()->don_to_setting = en;
     return true;
 }
 

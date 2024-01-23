@@ -232,6 +232,24 @@ typedef struct {
     uint32_t cur_write_offset;
     uint32_t pre_read_offset;
     uint32_t cur_read_offset;
+} ull_audio_v2_dongle_i2s_mst_out_info_t;
+
+typedef struct {
+    uint32_t channel_num;
+    uint32_t sample_rate;
+    hal_audio_format_t sample_format;
+    uint32_t frame_size;
+    uint32_t frame_samples;
+    uint32_t frame_interval;
+    uint32_t frame_max_num;
+    uint32_t afe_cur_addr;
+    uint32_t afe_base_addr;
+    uint32_t afe_cur;
+    uint32_t afe_base;
+    uint32_t pre_write_offset;
+    uint32_t cur_write_offset;
+    uint32_t pre_read_offset;
+    uint32_t cur_read_offset;
 } ull_audio_v2_dongle_i2s_slv_out_info_t;
 
 typedef union {
@@ -239,6 +257,7 @@ typedef union {
     ull_audio_v2_dongle_bt_out_info_t bt_out;
     ull_audio_v2_dongle_usb_out_info_t usb_out;
     ull_audio_v2_dongle_line_out_info_t line_out;
+    ull_audio_v2_dongle_i2s_mst_out_info_t i2s_mst_out;
     ull_audio_v2_dongle_i2s_slv_out_info_t i2s_slv_out;
 } ull_audio_v2_dongle_sink_info_t;
 

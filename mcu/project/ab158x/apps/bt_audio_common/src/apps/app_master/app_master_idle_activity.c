@@ -161,10 +161,10 @@ static bool app_dual_chip_master_idle_proc_dual_chip_cmd_group(ui_shell_activity
                     ui_shell_start_activity(self, app_master_transient_activity_proc, activity_priority, local_context, 0);
                 } else if ((local_context->slave_mmi_state != APP_CONNECTED && new_state == APP_CONNECTED)
                            || (local_context->slave_mmi_state == APP_CONNECTED && new_state != APP_CONNECTED)) {
-                    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                         APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN, NULL, 0,
                                         NULL, 0);
-                    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                         APPS_EVENTS_INTERACTION_UPDATE_MMI_STATE, NULL, 0,
                                         NULL, 0);
                 }
@@ -216,7 +216,7 @@ static bool app_dual_chip_master_idle_proc_dual_chip_cmd_group(ui_shell_activity
                     break;
                 }
         */
-        case APPS_RECE_CMD_CO_SYS_DUAL_CHIP_EVENT_SLAVE_POWER_ON: {
+        case APPS_RACE_CMD_CO_SYS_DUAL_CHIP_EVENT_SLAVE_POWER_ON: {
             bool on_off = false;
             const app_bt_state_service_status_t *bt_state = app_bt_connection_service_get_current_status();
             if (APP_BT_STATE_POWER_STATE_ENABLED == bt_state->target_power_state
@@ -226,13 +226,6 @@ static bool app_dual_chip_master_idle_proc_dual_chip_cmd_group(ui_shell_activity
             app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_DUAL_CHIP_CMD, APPS_RACE_CMD_CO_SYS_DUAL_CHIP_EVENT_GET_TIMESTAMP, NULL, 0, false);
             app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_REQUEST_ON_OFF_BT,
                                            &on_off, sizeof(on_off), false);
-
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_MASTER_ENABLE)
-            int32_t local_battery = battery_management_get_battery_property(BATTERY_PROPERTY_CAPACITY);
-            apps_events_update_optimal_battery(local_battery);
-#endif
-
-
 
             break;
         }

@@ -38,6 +38,8 @@
 #include "ui_shell_activity.h"
 
 typedef enum {
+    /* BTA Projects statrt from 0x00 */
+    APPS_USB_MODE_BTA_MIN         = 0x00,
     APPS_USB_MODE_GAMING          = 0,
     APPS_USB_MODE_XBOX            = 1,
     APPS_USB_MODE_ENTERPRISE      = 2,
@@ -51,10 +53,16 @@ typedef enum {
     APPS_USB_MODE_BT_LEA          = 12,
     APPS_USB_MODE_CDC             = 13,
     APPS_USB_MODE_BT_ULL2         = 14,
-    APPS_USB_MODE_3IN1            = 15,
-    APPS_USB_MODE_PURE_GAMING     = 16,
-    APPS_USB_MODE_NV_GAMING       = 17,
-    APPS_USB_MODE_MAX,
+    APPS_USB_MODE_BTA_MAX,
+    /* BTD Projects statrt from 0x80 */
+    APPS_USB_MODE_BTD_MIN         = 0x80,
+    APPS_USB_MODE_3IN1            = 0x80,
+    APPS_USB_MODE_GAMING_MSKB     = 0x81,
+    APPS_USB_MODE_GAMING_MS       = 0x82,
+    APPS_USB_MODE_GAMING_KB       = 0x83,
+    APPS_USB_MODE_GAMING_NVMS     = 0x84,
+    APPS_USB_MODE_OFFICE_MSKB     = 0x85,
+    APPS_USB_MODE_BTD_MAX,
 } app_usb_mode_t;
 
 /**

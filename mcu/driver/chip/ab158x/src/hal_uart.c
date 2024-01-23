@@ -544,6 +544,8 @@ void uart_restore_all_registers(void)
                 uartx->IER_UNION.IER                  = log_para->uart_rg_IER           ;
                 uartx->RXTRIG                         = log_para->uart_rg_RXTRIG        ;
                 uartx->FRACDIV                        = log_para->uart_rg_FRACDIV       ;
+                uartx->RX_TO_CON_UNION.RX_TO_CON      = log_para->uart_rg_RX_TO_CON     ;
+                uartx->RX_TOC_DEST                    = log_para->uart_rg_RX_TO_DEST    ;
 
                 //uartx->FCR_UNION.FCR |=  UART_FCR_CLRT_MASK | UART_FCR_CLRR_MASK; // clear uart hw fifo
                 uartx->EFR_UNION.EFR                  = log_para->uart_rg_EFR           ;
@@ -1444,6 +1446,8 @@ hal_uart_status_t uart_backup_log_para_to_share_buf(hal_uart_port_t uart_port)
     log_para->uart_rg_DMACON     = uartx->DMA_CON_UNION.DMA_CON;
     log_para->uart_rg_RXTRIG     = uartx->RXTRIG;
     log_para->uart_rg_FRACDIV    = uartx->FRACDIV;
+    log_para->uart_rg_RX_TO_CON  = uartx->RX_TO_CON_UNION.RX_TO_CON;
+    log_para->uart_rg_RX_TO_DEST = uartx->RX_TOC_DEST;
     log_para->vdma_rg_tx_COUNT   = dma_tx->VDMA_COUNT;
     log_para->vdma_rg_tx_CON     = dma_tx->VDMA_CON_UNION.VDMA_CON;
     log_para->vdma_rg_tx_PGMADDR = dma_tx->VDMA_PGMADDR;
@@ -1491,6 +1495,8 @@ hal_uart_status_t uart_backup_register(hal_uart_port_t uart_port)
     //uart_backup_para[uart_port].uart_rg_DMACON     = uartx->DMA_CON_UNION.DMA_CON;
     uart_backup_para[uart_port].uart_rg_RXTRIG     = uartx->RXTRIG;
     uart_backup_para[uart_port].uart_rg_FRACDIV    = uartx->FRACDIV;
+    uart_backup_para[uart_port].uart_rg_RX_TO_CON  = uartx->RX_TO_CON_UNION.RX_TO_CON;
+    uart_backup_para[uart_port].uart_rg_RX_TO_DEST = uartx->RX_TOC_DEST;
 
     uart_backup_para[uart_port].vdma_rg_tx_COUNT   = dma_tx->VDMA_COUNT;
     uart_backup_para[uart_port].vdma_rg_tx_CON     = dma_tx->VDMA_CON_UNION.VDMA_CON;
@@ -1534,6 +1540,8 @@ hal_uart_status_t uart_restore_register(hal_uart_port_t uart_port)
     uartx->IER_UNION.IER                  = uart_backup_para[uart_port].uart_rg_IER           ;
     uartx->RXTRIG                         = uart_backup_para[uart_port].uart_rg_RXTRIG        ;
     uartx->FRACDIV                        = uart_backup_para[uart_port].uart_rg_FRACDIV       ;
+    uartx->RX_TO_CON_UNION.RX_TO_CON      = uart_backup_para[uart_port].uart_rg_RX_TO_CON     ;
+    uartx->RX_TOC_DEST                    = uart_backup_para[uart_port].uart_rg_RX_TO_DEST    ;
 
     //uartx->FCR_UNION.FCR |=  UART_FCR_CLRT_MASK | UART_FCR_CLRR_MASK; // clear uart hw fifo
     uartx->EFR_UNION.EFR                  = uart_backup_para[uart_port].uart_rg_EFR           ;

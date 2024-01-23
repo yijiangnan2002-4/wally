@@ -104,8 +104,7 @@ typedef struct {
     bool                         is_trigger_flag;
 } bt_audio_usb_detect_param_t;
 /* Public variables ----------------------------------------------------------*/
-extern bool is_frist_dl_flag;
-extern bool is_frist_ul_flag;
+extern const int16_t g_gain_compensation_table[11];
 /* Private functions ---------------------------------------------------------*/
 #ifdef AIR_BT_AUDIO_DONGLE_LHDC_ENABLE
 static void bt_auio_dongle_check_lhdc_mtu_size(uint32_t mtu_size)
@@ -272,6 +271,14 @@ static void bt_audio_dongle_open_stream_in_usb(audio_transmitter_config_t *confi
     usb_in->frame_samples  = usb_in->sample_rate * usb_in->frame_interval / 1000 / 1000;
     usb_in->frame_size     = usb_in->frame_samples * usb_in->channel_num * audio_dongle_get_usb_format_bytes(source_param->codec_param.pcm.format);
     usb_in->sample_format  = source_param->codec_param.pcm.format;
+
+#if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
+    audio_usb_rx_scenario_latency_debug_init(usb_rx_port,
+                                                payload_size,
+                                                source_param->codec_param.pcm.channel_mode,
+                                                source_param->codec_param.pcm.format);
+#endif
+
     TRANSMITTER_LOG_I("[BT Audio][DL] USB setting: sub_id[%d], codec %u, fs %u, ch %u, format %u, irq %u, pay_load %u, sharebuffer 0x%x, size %d, 0x%x, frame samples %d, frame size %d, format %d\r\n", 13,
                         config->scenario_sub_id,
                         source_param->codec_type,
@@ -341,6 +348,11 @@ static void bt_audio_dongle_open_stream_out_usb(audio_transmitter_config_t *conf
     usb_out->frame_samples  = usb_out->sample_rate * usb_out->frame_interval / 1000 / 1000;
     usb_out->frame_size     = usb_out->frame_samples * usb_out->channel_num * audio_dongle_get_usb_format_bytes(sink_param->codec_param.pcm.format);
     usb_out->sample_format  = sink_param->codec_param.pcm.format;
+
+#if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
+    audio_usb_tx_scenario_latency_debug_init(0, payload_size, sink_param->codec_param.pcm.channel_mode, sink_param->codec_param.pcm.format, 5000);
+#endif
+
     TRANSMITTER_LOG_I("[BT Audio][UL] USB setting: sub_id[%d], codec %u, fs %u, ch %u, format %u, irq %u, pay_load %u, sharebuffer 0x%x, size %d, 0x%x\r\n", 10,
                         config->scenario_sub_id,
                         sink_param->codec_type,
@@ -379,6 +391,9 @@ static void bt_audio_dongle_open_stream_out_bt(audio_transmitter_config_t *confi
     memcpy(sink_info, &(config->scenario_config.bt_audio_dongle_config.dl_info.sink), sizeof(bt_audio_dongle_dl_sink_info_t));
     if (config->scenario_config.bt_audio_dongle_config.dl_info.sink.bt_out.without_bt_link_mode_enable) {
         TRANSMITTER_LOG_I("[BT Audio][DL] enter without_bt_link_mode mode\r\n", 0);
+    }
+    if (!sink_info->bt_out.ts_not_reset_flag) {
+        TRANSMITTER_LOG_I("[BT Audio][DL] reset ts\r\n", 0);
     }
     // BT Classic dongle only support 16bit.
     sink_info->bt_out.sample_format = HAL_AUDIO_PCM_FORMAT_S16_LE;
@@ -704,7 +719,6 @@ void bt_audio_dongle_open_playback(audio_transmitter_config_t *config, mcu2dsp_o
             bt_audio_dongle_open_stream_in_usb(config, open_param);
             /* config dl sink  : bt out */
             bt_audio_dongle_open_stream_out_bt(config, open_param);
-            is_frist_dl_flag = true;
             break;
         /* HFP UL Path */
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0:
@@ -713,7 +727,6 @@ void bt_audio_dongle_open_playback(audio_transmitter_config_t *config, mcu2dsp_o
             bt_audio_dongle_open_stream_in_bt(config, open_param);
             /* config ul sink  : usb out */
             bt_audio_dongle_open_stream_out_usb(config, open_param);
-            is_frist_ul_flag = true;
             break;
 #endif
 #if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
@@ -779,124 +792,190 @@ audio_transmitter_status_t bt_audio_dongle_set_runtime_config_playback(audio_tra
     bt_audio_usb_detect_param_t *detect_param = NULL;
 #endif
     hal_gpt_status_t st = HAL_GPT_STATUS_OK;
+    TRANSMITTER_LOG_I("[BT Audio][DL][config] runtime scenario_sub_id [%d] operation [%d].", 2 ,
+        config->scenario_sub_id,
+        operation
+        );
 
-#ifdef AIR_BT_AUDIO_DONGLE_SILENCE_DETECTION_ENABLE
-    switch (config->scenario_sub_id) {
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_0:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_1:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_2:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_0:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_1:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_2:
-            if ((operation == BT_AUDIO_DONGLE_CONFIG_OP_SILENCE_DETECTION_ENABLE) ||
-                (operation == BT_AUDIO_DONGLE_CONFIG_OP_SILENCE_DETECTION_DISABLE)) {
-                runtime_config_param->config_operation = operation;
-                        TRANSMITTER_LOG_I("[BT Audio][DL][silence_detection] runtime config scenario_sub_id =%d: operation %d.", 2 ,config->scenario_sub_id, operation);
-                ret = AUDIO_TRANSMITTER_STATUS_SUCCESS;
-                return ret;
-            }
-            break;
-        default:
-            break;
-    }
-#endif /*AIR_BT_AUDIO_DONGLE_SILENCE_DETECTION_ENABLE  */
-
-    switch (config->scenario_sub_id) {
+    switch (operation) {
 #ifdef AIR_BT_AUDIO_DONGLE_USB_ENABLE
-        /* DL HFP Path */
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1:
-        /* HFP UL Path */
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_1:
-            switch (operation) {
-                case BT_AUDIO_DONGLE_CONFIG_OP_USB_DETECT_ENABLE:
-                    if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0) ||
-                        (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0)) {
-                        detect_param = &usb_detect_dl[0];
-                    } else if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1) ||
-                        (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1)) {
-                        detect_param = &usb_detect_dl[1];
-                    } else if (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0) {
-                        detect_param = &usb_detect_ul[0];
-                    } else {
-                        detect_param = &usb_detect_ul[1];
-                    }
-                    memset(detect_param, 0, sizeof(bt_audio_usb_detect_param_t));
-                    detect_param->config.timer_period_ms     = temp_config->config.usb_detect.timer_period_ms;
-                    detect_param->config.notify_threshold_ms = temp_config->config.usb_detect.notify_threshold_ms;
-                    detect_param->config.cb                  = temp_config->config.usb_detect.cb;
-                    if (detect_param->timer_handler == 0) {
-                        st = hal_gpt_sw_get_timer(&detect_param->timer_handler);
-                        if (st != HAL_GPT_STATUS_OK) {
-                            TRANSMITTER_LOG_E("[BT Audio][USB] Error: get gpt handle fail %d", 1, st);
-                        }
-                    }
-                    st = hal_gpt_sw_start_timer_ms(detect_param->timer_handler, detect_param->config.timer_period_ms, (hal_gpt_callback_t)bt_audio_usb_irq_detect_gpt_cb, &(config->scenario_sub_id));
-                    if (st != HAL_GPT_STATUS_OK) {
-                        TRANSMITTER_LOG_E("[BT Audio][USB] Error: start gpt timer fail %d", 1, st);
-                    }
-                    TRANSMITTER_LOG_I("[BT Audio][USB] start usb detect sub id %d irq %d threshold %d cb 0x%x", 4,
-                        config->scenario_sub_id,
-                        detect_param->config.timer_period_ms,
-                        detect_param->config.notify_threshold_ms,
-                        detect_param->config.cb
-                        );
-                    break;
-                case BT_AUDIO_DONGLE_CONFIG_OP_USB_DETECT_DISABLE:
-                    if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0) ||
-                        (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0)) {
-                        detect_param = &usb_detect_dl[0];
-                    } else if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1) ||
-                        (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1)) {
-                        detect_param = &usb_detect_dl[1];
-                    } else if (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0) {
-                        detect_param = &usb_detect_ul[0];
-                    } else {
-                        detect_param = &usb_detect_ul[1];
-                    }
-                    if (detect_param->timer_handler != 0) {
-                        st = hal_gpt_sw_stop_timer_ms(detect_param->timer_handler);
-                        if (st != HAL_GPT_STATUS_OK) {
-                            TRANSMITTER_LOG_E("[BT Audio][USB] Error: stop gpt timer fail %d", 1, st);
-                        }
-                        st = hal_gpt_sw_free_timer(detect_param->timer_handler);
-                        if (st != HAL_GPT_STATUS_OK) {
-                            TRANSMITTER_LOG_E("[BT Audio][USB] Error: free gpt timer fail %d", 1, st);
-                        }
-                        detect_param->timer_handler = 0;
-                    }
-                    TRANSMITTER_LOG_I("[BT Audio][USB] stop usb detect sub id %d", 1, config->scenario_sub_id);
-                    break;
-                case BT_AUDIO_DONGLE_CONFIG_OP_SET_MUTE:
-                case BT_AUDIO_DONGLE_CONFIG_OP_SET_UNMUTE:
-                    runtime_config_param->config_operation = operation;
-                    TRANSMITTER_LOG_I("[BT Audio][USB] scenario_sub_id =%d: set mute %d.", 2,
-                                        config->scenario_sub_id,
-                                        operation
-                                        );
-                    ret = AUDIO_TRANSMITTER_STATUS_SUCCESS;
-                    break;
-                default:
-                    break;
+        case BT_AUDIO_DONGLE_CONFIG_OP_USB_DETECT_ENABLE:
+            {
+                switch (config->scenario_sub_id) {
+                        /* DL HFP Path */
+                        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0:
+                        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1:
+                        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0:
+                        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1:
+                        /* HFP UL Path */
+                        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0:
+                        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_1:
+                            if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0) ||
+                                (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0)) {
+                                detect_param = &usb_detect_dl[0];
+                            } else if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1) ||
+                                (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1)) {
+                                detect_param = &usb_detect_dl[1];
+                            } else if (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0) {
+                                detect_param = &usb_detect_ul[0];
+                            } else {
+                                detect_param = &usb_detect_ul[1];
+                            }
+                            memset(detect_param, 0, sizeof(bt_audio_usb_detect_param_t));
+                            detect_param->config.timer_period_ms     = temp_config->config.usb_detect.timer_period_ms;
+                            detect_param->config.notify_threshold_ms = temp_config->config.usb_detect.notify_threshold_ms;
+                            detect_param->config.cb                  = temp_config->config.usb_detect.cb;
+                            if (detect_param->timer_handler == 0) {
+                                st = hal_gpt_sw_get_timer(&detect_param->timer_handler);
+                                if (st != HAL_GPT_STATUS_OK) {
+                                    TRANSMITTER_LOG_E("[BT Audio][USB] Error: get gpt handle fail %d", 1, st);
+                                }
+                            }
+                            st = hal_gpt_sw_start_timer_ms(detect_param->timer_handler, detect_param->config.timer_period_ms, (hal_gpt_callback_t)bt_audio_usb_irq_detect_gpt_cb, &(config->scenario_sub_id));
+                            if (st != HAL_GPT_STATUS_OK) {
+                                TRANSMITTER_LOG_E("[BT Audio][USB] Error: start gpt timer fail %d", 1, st);
+                            }
+                            TRANSMITTER_LOG_I("[BT Audio][USB] start usb detect sub id %d irq %d threshold %d cb 0x%x", 4,
+                                config->scenario_sub_id,
+                                detect_param->config.timer_period_ms,
+                                detect_param->config.notify_threshold_ms,
+                                detect_param->config.cb
+                                );
+                            break;
+                    default:
+                        break;
+                }
             }
             break;
-#endif
-#if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_0:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_1:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_2:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_0:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_1:
-        case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_2:
+        case BT_AUDIO_DONGLE_CONFIG_OP_USB_DETECT_DISABLE:
+            {
+                switch (config->scenario_sub_id) {
+                    /* DL HFP Path */
+                    case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0:
+                    case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1:
+                    case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0:
+                    case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1:
+                    /* HFP UL Path */
+                    case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0:
+                    case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_1:
+                        if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0) ||
+                            (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0)) {
+                            detect_param = &usb_detect_dl[0];
+                        } else if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1) ||
+                            (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1)) {
+                            detect_param = &usb_detect_dl[1];
+                        } else if (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0) {
+                            detect_param = &usb_detect_ul[0];
+                        } else {
+                            detect_param = &usb_detect_ul[1];
+                        }
+                        if (detect_param->timer_handler != 0) {
+                            st = hal_gpt_sw_stop_timer_ms(detect_param->timer_handler);
+                            if (st != HAL_GPT_STATUS_OK) {
+                                TRANSMITTER_LOG_E("[BT Audio][USB] Error: stop gpt timer fail %d", 1, st);
+                            }
+                            st = hal_gpt_sw_free_timer(detect_param->timer_handler);
+                            if (st != HAL_GPT_STATUS_OK) {
+                                TRANSMITTER_LOG_E("[BT Audio][USB] Error: free gpt timer fail %d", 1, st);
+                            }
+                            detect_param->timer_handler = 0;
+                        }
+                        TRANSMITTER_LOG_I("[BT Audio][USB] stop usb detect sub id %d", 1, config->scenario_sub_id);
+                        break;
+                    default:
+                        break;
+                }
+            }
             break;
+#endif /* AIR_BT_AUDIO_DONGLE_USB_ENABLE */
+        case BT_AUDIO_DONGLE_CONFIG_OP_SET_MUTE:
+        case BT_AUDIO_DONGLE_CONFIG_OP_SET_UNMUTE:
+#ifdef AIR_BT_AUDIO_DONGLE_SILENCE_DETECTION_ENABLE
+        case BT_AUDIO_DONGLE_CONFIG_OP_SILENCE_DETECTION_ENABLE:
+        case BT_AUDIO_DONGLE_CONFIG_OP_SILENCE_DETECTION_DISABLE:
+#endif /* AIR_BT_AUDIO_DONGLE_SILENCE_DETECTION_ENABLE */
+            {
+                switch (config->scenario_sub_id) {
+                    /* DL HFP Path */
+                    case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0 ... AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1:
+#if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
+                    case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_0 ... AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_2:
+#endif /* afe in */
+                        runtime_config_param->config_operation = operation;
+                        ret = AUDIO_TRANSMITTER_STATUS_SUCCESS;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            break;
+        case BT_AUDIO_DONGLE_CONFIG_OP_SET_VOLUME_LEVEL:
+            {
+                switch (config->scenario_sub_id) {
+                    /* DL HFP Path */
+                    case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0 ... AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1:
+#if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
+                    case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_0 ... AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_2:
+#endif /* afe in */
+                    {
+                        uint32_t vol_max_level = 0;
+                        uint8_t  vol_ratio     = temp_config->config.vol_config.vol_ratio;
+                        vol_type_t vol_type[4] =  {
+                            VOL_USB_AUDIO_SW_IN, /* USB IN   */
+                            VOL_LINE_IN,         /* LINE IN  */
+                            VOL_A2DP,            /* I2S IN 0 */
+                            VOL_VP               /* I2S IN 1 */
+                            };
+                        uint32_t index = 0;
+                        vol_max_level = bt_sink_srv_ami_get_usb_music_sw_max_volume_level();
+#if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
+                        if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_0) ||
+                            (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_0)) {
+                            index = 1;
+                            vol_max_level = bt_sink_srv_ami_get_lineIN_max_volume_level();
+                        } else if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_1) ||
+                            (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_1)) {
+                            index = 2;
+                            vol_max_level = bt_sink_srv_ami_get_a2dp_max_volume_level();
+                        } else if ((config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_AFE_IN_1) ||
+                            (config->scenario_sub_id == AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_1)) {
+                            index = 3;
+                            vol_max_level = bt_sink_srv_ami_get_vp_max_volume_level();
+                        }
 #endif
+                        bt_audio_dongle_gain_info_t gain_info[BT_AUDIO_VOLUME_CH_MAX] = {0};
+                        for (uint32_t i = 0; i < BT_AUDIO_VOLUME_CH_MAX; i ++) {
+                            if (temp_config->config.vol_config.vol_level[i] == BT_AUDIO_VOLUME_LEVEL_INVALID) {
+                                gain_info[i].ignore_flag = 0x1;
+                            } else if (temp_config->config.vol_config.vol_level[i] == BT_AUDIO_VOLUME_LEVEL_MUTE) {
+                                gain_info[i].mute_flag   = 0x1;
+                            } else {
+                                if (temp_config->config.vol_config.vol_level[i] > vol_max_level) {
+                                    temp_config->config.vol_config.vol_level[i] = vol_max_level;
+                                    TRANSMITTER_LOG_E("[BT Audio][DL] ch %d vol level is %d larger than max level, set to max level %d\r\n", 3,
+                                        i,
+                                        temp_config->config.vol_config.vol_level[i],
+                                        vol_max_level
+                                        );
+                                }
+                                gain_info[i].gain_value = audio_get_gain_out_in_dB(temp_config->config.vol_config.vol_level[i], GAIN_DIGITAL, vol_type[index]);
+                                gain_info[i].gain_value += g_gain_compensation_table[vol_ratio / AUDIO_DONGLE_GAIN_COMPENSATION_STEP_MAX];
+                            }
+                            TRANSMITTER_LOG_I("[BT Audio][DL] set volume ch %d vol ignore %d mute %d gain(0.01dB) %d level %d", 5,
+                                i,
+                                gain_info[i].ignore_flag,
+                                gain_info[i].mute_flag,
+                                gain_info[i].gain_value,
+                                temp_config->config.vol_config.vol_level[i]
+                                );
+                        }
+                        runtime_config_param->config_operation = operation;
+                        memcpy(runtime_config_param->config_param, &gain_info, sizeof(bt_audio_dongle_gain_info_t) * BT_AUDIO_VOLUME_CH_MAX);
+                        ret = AUDIO_TRANSMITTER_STATUS_SUCCESS;
+                    }
+                }
+            }
+            break;
         default:
             break;
     }
@@ -938,16 +1017,13 @@ audio_transmitter_status_t bt_audio_dongle_get_runtime_config(uint8_t scenario_t
 
 void bt_audio_dongle_state_started_handler(uint8_t scenario_sub_id)
 {
+    TRANSMITTER_LOG_I("[BT Audio][sub id %d] state started", 1, scenario_sub_id);
     switch (scenario_sub_id) {
 #ifdef AIR_BT_AUDIO_DONGLE_USB_ENABLE
         /* DL HFP Path */
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0:
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0:
             #if defined(AIR_USB_AUDIO_1_SPK_ENABLE)
-                #if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
-                audio_dongle_usb_rx_handle[0].latency_debug_enable = 0;
-                audio_dongle_usb_rx_handle[0].latency_debug_gpio_pin = HAL_GPIO_13;
-                #endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
                 USB_Audio_Register_Rx_Callback(0, audio_dongle_usb0_rx_cb);
                 TRANSMITTER_LOG_I("[BT Audio] Register audio_dongle_usb0_rx_cb", 0);
             #else
@@ -957,10 +1033,6 @@ void bt_audio_dongle_state_started_handler(uint8_t scenario_sub_id)
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1:
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1:
             #if defined(AIR_USB_AUDIO_2_SPK_ENABLE)
-                #if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
-                audio_dongle_usb_rx_handle[1].latency_debug_enable = 0;
-                audio_dongle_usb_rx_handle[1].latency_debug_gpio_pin = HAL_GPIO_13;
-                #endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
                 USB_Audio_Register_Rx_Callback(1, audio_dongle_usb1_rx_cb);
                 TRANSMITTER_LOG_I("[BT Audio] Register audio_dongle_usb1_rx_cb", 0);
             #else
@@ -971,10 +1043,6 @@ void bt_audio_dongle_state_started_handler(uint8_t scenario_sub_id)
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0:
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_1:
             #if defined(AIR_USB_AUDIO_1_MIC_ENABLE)
-                #if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
-                audio_dongle_usb_tx_handle[0].latency_debug_enable = 0;
-                audio_dongle_usb_tx_handle[0].latency_debug_gpio_pin = HAL_GPIO_13;
-                #endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
                 USB_Audio_Register_Tx_Callback(0, audio_dongle_usb0_tx_cb);
                 TRANSMITTER_LOG_I("[BT Audio] Register audio_dongle_usb0_tx_cb", 0);
             #else
@@ -996,17 +1064,15 @@ void bt_audio_dongle_state_started_handler(uint8_t scenario_sub_id)
     }
 }
 
-void bt_audio_dongle_state_idle_handler(uint8_t scenario_sub_id)
+void bt_audio_dongle_state_stopping_handler(uint8_t scenario_sub_id)
 {
+    TRANSMITTER_LOG_I("[BT Audio][sub id %d] state stopping", 1, scenario_sub_id);
     switch (scenario_sub_id) {
 #ifdef AIR_BT_AUDIO_DONGLE_USB_ENABLE
         /* DL HFP Path */
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0:
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_0:
             #if defined(AIR_USB_AUDIO_1_SPK_ENABLE)
-                #if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
-                audio_dongle_usb_rx_handle[0].latency_debug_enable = 0;
-                #endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
                 USB_Audio_Register_Rx_Callback(0, NULL);
                 TRANSMITTER_LOG_I("[BT Audio] UN-Register audio_dongle_usb0_rx_cb", 0);
             #else
@@ -1016,9 +1082,6 @@ void bt_audio_dongle_state_idle_handler(uint8_t scenario_sub_id)
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1:
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_DL_A2DP_USB_IN_1:
             #if defined(AIR_USB_AUDIO_2_SPK_ENABLE)
-                #if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
-                audio_dongle_usb_rx_handle[1].latency_debug_enable = 0;
-                #endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
                 USB_Audio_Register_Rx_Callback(1, NULL);
                 TRANSMITTER_LOG_I("[BT Audio] UN-Register audio_dongle_usb1_rx_cb", 0);
             #else
@@ -1029,9 +1092,6 @@ void bt_audio_dongle_state_idle_handler(uint8_t scenario_sub_id)
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0:
         case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_1:
             #if defined(AIR_USB_AUDIO_1_MIC_ENABLE)
-                #if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
-                audio_dongle_usb_tx_handle[0].latency_debug_enable = 0;
-                #endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
                 USB_Audio_Register_Tx_Callback(0, NULL);
                 TRANSMITTER_LOG_I("[BT Audio] UN-Register audio_dongle_usb0_tx_cb", 0);
             #else
@@ -1091,9 +1151,9 @@ void bt_audio_dongle_state_starting_handler(uint8_t scenario_sub_id)
     }
 }
 
-void bt_audio_dongle_state_stopping_handler(uint8_t scenario_sub_id)
+void bt_audio_dongle_state_idle_handler(uint8_t scenario_sub_id)
 {
-    TRANSMITTER_LOG_I("[BT Audio][sub id %d] state stop", 1, scenario_sub_id);
+    TRANSMITTER_LOG_I("[BT Audio][sub id %d] state idle", 1, scenario_sub_id);
     hal_dvfs_lock_control(AUDIO_BT_DONGLE_DVFS_LEVEL, HAL_DVFS_UNLOCK);
     switch (scenario_sub_id) {
 #ifdef AIR_BT_AUDIO_DONGLE_USB_ENABLE

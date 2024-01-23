@@ -65,5 +65,6 @@ void wdt_clear_reset_status(wdt_reset_type_t type);
 uint32_t   wdt_get_length(uint32_t channel);
 void    wdt_dump_register(uint32_t channel);
 void    hal_wdt_set_reset_mode(bool cold_reset);
+void    wdt_exception_config_internal_use(uint32_t seconds);
 #endif
 

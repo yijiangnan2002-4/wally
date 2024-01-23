@@ -40,6 +40,7 @@
 #include "hal_audio_internal.h"
 #include "bt_a2dp_codec_internal.h"
 #include "hal_audio_message_struct_common.h"
+#include "fixrate_control.h"
 
 //#define BT_A2DP_BITSTREAM_DUMP_DEBUG
 #if defined(__BT_A2DP_CODEC_AWS_SUPPORT__)
@@ -89,6 +90,7 @@ const bt_codec_sbc_t source_capability_sbc[1] = {
 };
 #endif /*MTK_BT_A2DP_SOURCE_SUPPORT*/
 
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 #define DSP_CODEC_MAX_NUM 3
 
 typedef bt_codec_media_status_t (*bt_a2dp_sink_parse_codec_info_fun)(bt_a2dp_audio_internal_handle_t *internal_handle);
@@ -923,7 +925,7 @@ static bt_codec_media_status_t bt_open_sink_codec(bt_media_handle_t *handle, bt_
     start_param.stream_out_param.afe.aws_flag   =  internal_handle->is_aws;
 
 #ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
-    if ((codec == BT_A2DP_CODEC_VENDOR) && (internal_handle->codec_info.codec_cap.codec.vendor.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID)){
+    if ((codec == BT_A2DP_CODEC_VENDOR) && (internal_handle->codec_info.codec_cap.codec.vendor.codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID)){
         if (internal_handle->sample_rate <= HAL_AUDIO_SAMPLING_RATE_48KHZ) {
             hal_dvfs_lock_control(HAL_AUDIO_DVFS_MEDIUM_SPEED, HAL_DVFS_LOCK);
         } else {
@@ -939,6 +941,7 @@ static bt_codec_media_status_t bt_open_sink_codec(bt_media_handle_t *handle, bt_
     }
 
 #ifdef AIR_DCHS_MODE_ENABLE
+    start_param.stream_out_param.afe.mce_flag   = true; //enable play en
     dchs_cosys_ctrl_cmd_relay(AUDIO_UART_COSYS_DL_START, AUDIO_SCENARIO_TYPE_A2DP , NULL, &start_param);
 #endif
 
@@ -1487,7 +1490,7 @@ static bt_codec_media_status_t bt_a2dp_sink_parse_aac_info(bt_a2dp_audio_interna
 #endif /*MTK_BT_A2DP_AAC_ENABLE*/
 
 #if defined(MTK_AVM_DIRECT)
-#if defined(AIR_BT_A2DP_VENDOR_ENABLE) || defined(AIR_BT_A2DP_VENDOR_2_ENABLE)
+#ifdef AIR_BT_A2DP_VENDOR_CODEC_SUPPORT
 static void vendor_decoder_isr_handler(hal_audio_event_t event, void *data)
 {
     bt_media_handle_t *handle = (bt_media_handle_t *)data;
@@ -1532,7 +1535,7 @@ static bt_codec_media_status_t bt_close_sink_vendor_codec(bt_media_handle_t *han
     hal_audio_service_unhook_callback(AUDIO_MESSAGE_TYPE_BT_AUDIO_DL);
 
 #ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
-    if (internal_handle->codec_info.codec_cap.codec.vendor.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID){
+    if (internal_handle->codec_info.codec_cap.codec.vendor.codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID){
         if (internal_handle->sample_rate <= HAL_AUDIO_SAMPLING_RATE_48KHZ) {
             hal_dvfs_lock_control(HAL_AUDIO_DVFS_MEDIUM_SPEED, HAL_DVFS_UNLOCK);
         } else {
@@ -1674,7 +1677,7 @@ static bt_codec_media_status_t bt_a2dp_sink_parse_vendor_info(bt_a2dp_audio_inte
 }
 #endif /*AIR_BT_A2DP_VENDOR_ENABLE*/
 #endif /*MTK_AVM_DIRECT*/
-
+#endif
 
 #ifdef MTK_BT_A2DP_SOURCE_SUPPORT
 
@@ -1855,6 +1858,7 @@ static bt_codec_media_status_t bt_a2dp_source_parse_sbc_info(bt_a2dp_audio_inter
 }
 
 #endif /*MTK_BT_A2DP_SOURCE_SUPPORT*/
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 #if 0
 // temp before app rate change function ready
 uint32_t sampling_rate_enum_to_value(hal_audio_sampling_rate_t hal_audio_sampling_rate_enum)
@@ -1949,6 +1953,8 @@ uint32_t sbc_frame_size_calc(uint8_t bitpool, uint8_t nrof_subbands, uint8_t nro
 
 #define VEND_MAX_ENCODE_FRAME_SIZE (330)
 
+#define LC3PLUS_MAX_ENCODE_FRAME_SIZE (600)
+
 #ifdef AIR_FEATURE_SINK_MHDT_SUPPORT
 #define VEND_2_MAX_ENCODE_FRAME_SIZE (1314)
 #else
@@ -1981,17 +1987,21 @@ void bt_AM_set_a2dp_AVM_info(avm_share_buf_info_t *p_info, uint32_t samplerate, 
         case BT_A2DP_CODEC_AAC :
             p_info->FrameSampleNum = AAC_FRAME_DECODE_SAMPLE_NUM;
             break;
+#ifdef AIR_BT_A2DP_VENDOR_CODEC_SUPPORT
         case BT_A2DP_CODEC_VENDOR :
-#ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
-            if (codec_cap->codec.vendor.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID){
+            if (codec_cap->codec.vendor.codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID) {
                 p_info->FrameSampleNum = 240 * (samplerate / 44100);
-            } else
-#endif
-            {
-            p_info->FrameSampleNum = 128 * (samplerate / 44100);
+            } else if (codec_cap->codec.vendor.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID) {
+                if (codec_cap->codec.vendor.duration_resolution & 0x20) { //5ms
+                    p_info->FrameSampleNum = 240 * (samplerate / 48000);
+                } else {
+                    p_info->FrameSampleNum = 480 * (samplerate / 48000);
+                }
+            } else {
+                p_info->FrameSampleNum = 128 * (samplerate / 44100);
             }
             break;
-
+#endif
     }
 }
 #endif
@@ -2010,16 +2020,17 @@ uint32_t bt_codec_frame_size(bt_a2dp_codec_type_t codec, const bt_codec_a2dp_aud
         case BT_A2DP_CODEC_AAC:
             frame_size = AAC_MAX_ENCODE_FRAME_SIZE;
             break;
+#ifdef AIR_BT_A2DP_VENDOR_CODEC_SUPPORT
         case BT_A2DP_CODEC_VENDOR:
-#ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
-            if (param->codec_cap.codec.vendor.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID){
+            if (param->codec_cap.codec.vendor.codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID){
                 frame_size = VEND_2_MAX_ENCODE_FRAME_SIZE;
-            }else
-#endif
-            {
+            } else if (param->codec_cap.codec.vendor.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID){
+                frame_size = LC3PLUS_MAX_ENCODE_FRAME_SIZE;
+            } else {
                 frame_size = VEND_MAX_ENCODE_FRAME_SIZE;
             }
             break;
+#endif
         default:
             TASK_LOG_MSGID_E("[A2DP]unknow codec type:0x%x\n",1,codec);
             AUDIO_ASSERT(0);
@@ -2035,7 +2046,7 @@ BT_CODEC_HANDLER_t bt_codec_handlers_table[DSP_CODEC_MAX_NUM] = {
 #else
     {BT_A2DP_CODEC_AAC,    NULL,    NULL,    NULL,    NULL,   NULL,   AUDIO_DSP_CODEC_TYPE_AAC},
 #endif
-#if defined(AIR_BT_A2DP_VENDOR_ENABLE) || defined(AIR_BT_A2DP_VENDOR_2_ENABLE)
+#ifdef AIR_BT_A2DP_VENDOR_CODEC_SUPPORT
     {BT_A2DP_CODEC_VENDOR, bt_a2dp_sink_vendor_play, bt_a2dp_sink_vendor_stop, bt_a2dp_sink_vendor_process, bt_a2dp_sink_vendor_get_ts_ratio,bt_a2dp_sink_parse_vendor_info,AUDIO_DSP_CODEC_TYPE_VENDOR},
 #else
     {BT_A2DP_CODEC_VENDOR, NULL, NULL, NULL, NULL,NULL,AUDIO_DSP_CODEC_TYPE_VENDOR},
@@ -2077,7 +2088,7 @@ bool bt_codec_support(bt_a2dp_codec_type_t codec)
 #ifdef MTK_BT_A2DP_AAC_ENABLE
         || codec == BT_A2DP_CODEC_AAC
 #endif
-#if defined(AIR_BT_A2DP_VENDOR_ENABLE) || defined(AIR_BT_A2DP_VENDOR_2_ENABLE)
+#ifdef AIR_BT_A2DP_VENDOR_CODEC_SUPPORT
         || codec == BT_A2DP_CODEC_VENDOR
 #endif
     ){
@@ -2086,7 +2097,8 @@ bool bt_codec_support(bt_a2dp_codec_type_t codec)
         return false;
     }
 }
-
+#endif
+#if defined(AIR_BT_SINK_MUSIC_ENABLE) || defined(MTK_BT_A2DP_SOURCE_SUPPORT)
 bt_media_handle_t *bt_codec_a2dp_open(bt_codec_a2dp_callback_t bt_a2dp_callback, const bt_codec_a2dp_audio_t *param)
 {
 //    clock_mux_sel(CLK_AUD_BUS_SEL, 1);
@@ -2131,6 +2143,7 @@ bt_media_handle_t *bt_codec_a2dp_open(bt_codec_a2dp_callback_t bt_a2dp_callback,
     handle->get_data_count_function = NULL;
     handle->buffer_info.buffer_base = NULL;
     bt_codec_buffer_function_init(handle);
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     if (internal_handle->codec_info.role == BT_A2DP_SINK) {
         if (bt_codec_support(internal_handle->codec_info.codec_cap.type)) {
             bt_codec_media_status_t result = BT_CODEC_MEDIA_STATUS_OK;
@@ -2206,16 +2219,9 @@ bt_media_handle_t *bt_codec_a2dp_open(bt_codec_a2dp_callback_t bt_a2dp_callback,
                 open_param->stream_out_param.afe.sampling_rate   = hal_audio_sampling_rate_enum_to_value(hal_audio_get_device_out_supported_frequency(open_param->stream_out_param.afe.audio_device, internal_handle->sample_rate));
 #endif
                 //open_param->stream_out_param.afe.sampling_rate   = hal_audio_get_device_out_supported_frequency(HAL_AUDIO_DEVICE_HEADSET,open_param->stream_out_param.afe.stream_out_sampling_rate)
-#if defined (FIXED_SAMPLING_RATE_TO_48KHZ)
-                if (open_param->stream_out_param.afe.stream_out_sampling_rate > 48000 && open_param->stream_out_param.afe.audio_device == HAL_AUDIO_DEVICE_I2S_MASTER) {
-                    open_param->stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
-                } else {
-                open_param->stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
+                if (aud_fixrate_get_downlink_rate(open_param->audio_scenario_type) != FIXRATE_NONE) {
+                    open_param->stream_out_param.afe.sampling_rate = aud_fixrate_get_downlink_rate(open_param->audio_scenario_type);
                 }
-#elif defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
-                open_param->stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
-#endif
-
 
 
 #ifndef AIR_A2DP_PERIODIC_PROCEDURE_V2_EN
@@ -2224,7 +2230,11 @@ bt_media_handle_t *bt_codec_a2dp_open(bt_codec_a2dp_callback_t bt_a2dp_callback,
                 open_param->stream_out_param.afe.irq_period      = 0;
 #endif
                 open_param->stream_out_param.afe.frame_size      = 1024;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE
+                open_param->stream_out_param.afe.frame_number    = 3;
+#else
                 open_param->stream_out_param.afe.frame_number    = 4;
+#endif
                 open_param->stream_out_param.afe.hw_gain         = true;
 
 #ifdef MTK_BT_A2DP_VENDOR_CODEC_BC_ENABLE
@@ -2234,49 +2244,48 @@ bt_media_handle_t *bt_codec_a2dp_open(bt_codec_a2dp_callback_t bt_a2dp_callback,
 #endif
 
 
-
+#if defined(AIR_HWSRC_IN_STREAM_ENABLE) && (defined(AIR_A2DP_DL_STREAM_RATE_FIX_TO_48KHZ) || defined(AIR_A2DP_DL_STREAM_RATE_FIX_TO_96KHZ))
+                open_param->stream_out_param.afe.hwsrc_type      = HAL_AUDIO_HWSRC_IN_STREAM;
+#endif
 #ifdef MTK_BT_A2DP_VENDOR_CODEC_BC_ENABLE
                 if(internal_handle->codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR){
 #if 1   /* ADVDEV16IS-8657 */
 #ifndef AIR_A2DP_PERIODIC_PROCEDURE_V2_EN
                     uint32_t backup_sampling_rate = open_param->stream_out_param.afe.sampling_rate;
-                if (backup_sampling_rate > 96000) {
-                    open_param->stream_out_param.afe.frame_size      = 1024;
-                } else if (backup_sampling_rate > 48000) {
-                    open_param->stream_out_param.afe.frame_size      = 768;
-                } else {
-                    open_param->stream_out_param.afe.frame_size      = 384;
-                }
+                    if (backup_sampling_rate > 96000) {
+                        open_param->stream_out_param.afe.frame_size      = 1024;
+                    } else if (backup_sampling_rate > 48000) {
+                        open_param->stream_out_param.afe.frame_size      = 768;
+                    } else {
+                        open_param->stream_out_param.afe.frame_size      = 384;
+                    }
 #endif /* AIR_A2DP_PERIODIC_PROCEDURE_V2_EN */
-                open_param->stream_out_param.afe.frame_number    = 4;
+                    open_param->stream_out_param.afe.frame_number    = 4;
 #else
-                // To keep 2.66ms * 12 data time inside PCM buffer
-                if (open_param->stream_out_param.afe.sampling_rate > 96000) {
-                    open_param->stream_out_param.afe.frame_size      = 512;
-                } else if (open_param->stream_out_param.afe.sampling_rate > 48000) {
-                    open_param->stream_out_param.afe.frame_size      = 256;
-                } else {
-                    open_param->stream_out_param.afe.frame_size      = 128;
-                }
-                open_param->stream_out_param.afe.frame_number    = 12;
+                    // To keep 2.66ms * 12 data time inside PCM buffer
+                    if (open_param->stream_out_param.afe.sampling_rate > 96000) {
+                        open_param->stream_out_param.afe.frame_size      = 512;
+                    } else if (open_param->stream_out_param.afe.sampling_rate > 48000) {
+                        open_param->stream_out_param.afe.frame_size      = 256;
+                    } else {
+                        open_param->stream_out_param.afe.frame_size      = 128;
+                    }
+                    open_param->stream_out_param.afe.frame_number    = 12;
 #endif  /* ADVDEV16IS-8657 */
-#ifdef ENABLE_HWSRC_CLKSKEW
-                open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V1;
-#endif
+                    open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V1;
                 }else
 #endif /*MTK_BT_A2DP_VENDOR_CODEC_BC_ENABLE*/
                 {
 #ifdef ENABLE_HWSRC_CLKSKEW
+                    open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V2;
+
 #ifdef AIR_HWSRC_IN_STREAM_ENABLE
-                open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V1;
-#else
-                open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V2;
-#ifdef AIR_DCHS_MODE_ENABLE
-                if(dchs_get_device_mode() != DCHS_MODE_SINGLE){
-                    open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V1;
-                }
-#endif
+                    if(open_param->stream_out_param.afe.hwsrc_type == HAL_AUDIO_HWSRC_IN_STREAM) {
+                        open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V1;
+                    }
 #endif /*AIR_HWSRC_IN_STREAM_ENABLE*/
+#else
+                    open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V1;
 #endif /*ENABLE_HWSRC_CLKSKEW*/
                 }
                 if (open_param->stream_out_param.afe.audio_device == HAL_AUDIO_DEVICE_I2S_MASTER) {
@@ -2287,15 +2296,46 @@ bt_media_handle_t *bt_codec_a2dp_open(bt_codec_a2dp_callback_t bt_a2dp_callback,
 #if defined(MTK_EXTERNAL_DSP_NEED_SUPPORT)
                 ami_set_afe_param(STREAM_OUT, internal_handle->sample_rate, true);
 #endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+                //hal_dvfs_lock_control(HAL_DVFS_OPP_HIGH, HAL_DVFS_LOCK);
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE
+                open_param->stream_out_param.afe.audio_device     = HAL_AUDIO_DEVICE_DAC_DUAL;
+                open_param->stream_out_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+                open_param->stream_out_param.afe.audio_device1    = HAL_AUDIO_DEVICE_I2S_MASTER;
+                open_param->stream_out_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_1;
+                open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_NONE;
+                open_param->stream_out_param.afe.audio_interface2 = HAL_AUDIO_DEVICE_NONE;
+                open_param->stream_out_param.afe.memory           |= HAL_AUDIO_MEM3;
+                open_param->stream_out_param.afe.is_low_jitter[0]    = true;
+#elif AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE
+                open_param->stream_out_param.afe.audio_device     = HAL_AUDIO_DEVICE_I2S_MASTER;
+                open_param->stream_out_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+                open_param->stream_out_param.afe.audio_device1    = HAL_AUDIO_DEVICE_I2S_MASTER;
+                open_param->stream_out_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_2;
+                open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_I2S_MASTER;
+                open_param->stream_out_param.afe.audio_interface2 = HAL_AUDIO_INTERFACE_3;
+                open_param->stream_out_param.afe.memory           |= HAL_AUDIO_MEM3|HAL_AUDIO_MEM4;
+#endif
+                TASK_LOG_MSGID_I("out_device0(0x%x), channel(%d), interface0(%d)", 3, open_param->stream_out_param.afe.audio_device, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface);
+                TASK_LOG_MSGID_I("out_device1(0x%x), channel(%d), interface1(%d)", 3, open_param->stream_out_param.afe.audio_device1, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface1);
+                TASK_LOG_MSGID_I("out_device2(0x%x), channel(%d), interface2(%d)", 3, open_param->stream_out_param.afe.audio_device2, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface2);
+                TASK_LOG_MSGID_I("memory(0x%x)", 1, open_param->stream_out_param.afe.memory);
+#endif
                 ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_A2DP, open_param, true);
 
                 p_param_share = hal_audio_dsp_controller_put_paramter(open_param, sizeof(mcu2dsp_open_param_t), AUDIO_MESSAGE_TYPE_BT_AUDIO_DL);
 
                 // Notify to do dynamic download. Use async wait.
                 hal_audio_dsp_controller_send_message(MSG_MCU2DSP_BT_AUDIO_DL_OPEN, bt_codec_handlers_table[index].dsp_codec_type, (uint32_t)p_param_share, false);
+                open_param->stream_in_param.a2dp.p_share_info->codec_config = BT_A2DP_CODEC_VENDOR_CODEC_ID;
 #ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
-                if ((internal_handle->codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) && (internal_handle->codec_info.codec_cap.codec.vendor.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID)){
-                    open_param->stream_in_param.a2dp.p_share_info->codec_config = 1;
+                if ((internal_handle->codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) && (internal_handle->codec_info.codec_cap.codec.vendor.codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID)){
+                    open_param->stream_in_param.a2dp.p_share_info->codec_config = BT_A2DP_CODEC_LHDC_CODEC_ID;
+                }
+#endif
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+                if ((internal_handle->codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) && (internal_handle->codec_info.codec_cap.codec.vendor.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID)){
+                    open_param->stream_in_param.a2dp.p_share_info->codec_config = BT_A2DP_CODEC_LC3PLUS_CODEC_ID;
                 }
 #endif
                 vPortFree(open_param);
@@ -2313,7 +2353,9 @@ bt_media_handle_t *bt_codec_a2dp_open(bt_codec_a2dp_callback_t bt_a2dp_callback,
             }
             return 0;
         }
-    } else {
+    } else
+#endif
+        {
 #ifdef MTK_BT_A2DP_SOURCE_SUPPORT
         /* A2DP source role */
         if (internal_handle->codec_info.codec_cap.type == BT_A2DP_CODEC_SBC) {
@@ -2363,7 +2405,8 @@ bt_media_handle_t *bt_codec_a2dp_open(bt_codec_a2dp_callback_t bt_a2dp_callback,
     handle->state = BT_CODEC_STATE_READY;
     return handle;
 }
-
+#endif
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 bt_codec_media_status_t bt_codec_a2dp_close(bt_media_handle_t *handle)
 {
     bt_a2dp_audio_internal_handle_t *internal_handle = (bt_a2dp_audio_internal_handle_t *) handle;
@@ -2672,3 +2715,4 @@ bt_codec_media_status_t bt_codec_a2dp_set_sw_aac_flag(bool flag)
 {
     return BT_CODEC_MEDIA_STATUS_OK;
 }
+#endif

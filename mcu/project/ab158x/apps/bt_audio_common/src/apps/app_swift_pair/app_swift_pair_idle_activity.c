@@ -38,9 +38,11 @@
 
 #include "app_swift_cust_pair.h"
 
-#include "apps_events_bt_event.h"
+#include "app_bt_state_service.h"
 #include "apps_debug.h"
+#include "apps_events_bt_event.h"
 #include "apps_events_event_group.h"
+#include "apps_events_interaction_event.h"
 
 #include "bt_app_common.h"
 #include "bt_callback_manager.h"
@@ -57,6 +59,12 @@
 #include "bt_system.h"
 #include "multi_ble_adv_manager.h"
 #include "ui_shell_manager.h"
+#ifdef MTK_AWS_MCE_ENABLE
+#include "bt_aws_mce_srv.h"
+#endif
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
+#include "app_le_audio.h"
+#endif
 
 
 
@@ -93,18 +101,23 @@ static void app_swift_pair_get_adv_data(bt_gap_le_set_ext_advertising_data_t *da
         return;
     }
 
+    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
+    uint8_t *addr = (uint8_t *)bt_device_manager_aws_local_info_get_fixed_address();
+#else
     uint8_t *addr = (uint8_t *)bt_device_manager_get_local_address();
+#endif
     if (addr == NULL) {
         //APPS_LOG_MSGID_E(LOG_TAG" get_adv_data, NULL local addr", 0);
         return;
     }
 
 #ifdef APP_SWIFT_PAIR_LE_EDR_SECURE_MODE
-    #define APP_SWIFT_PAIR_MAX_PARAM_LEN        10
+#define APP_SWIFT_PAIR_MAX_PARAM_LEN        10
 #if defined(AIR_TWS_ENABLE) && defined(APP_SWIFT_PAIR_SHOW_TWS_ICON)
-    #define APP_SWIFT_PAIR_MAX_NAME_LEN         (BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM - APP_SWIFT_PAIR_MAX_PARAM_LEN - 4)
+#define APP_SWIFT_PAIR_MAX_NAME_LEN         (BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM - APP_SWIFT_PAIR_MAX_PARAM_LEN - 4)
 #else
-    #define APP_SWIFT_PAIR_MAX_NAME_LEN         (BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM - APP_SWIFT_PAIR_MAX_PARAM_LEN)
+#define APP_SWIFT_PAIR_MAX_NAME_LEN         (BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM - APP_SWIFT_PAIR_MAX_PARAM_LEN)
 #endif
 
     uint8_t data_context[BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM] = {17,                   // Len
@@ -117,7 +130,7 @@ static void app_swift_pair_get_adv_data(bt_gap_le_set_ext_advertising_data_t *da
                                                                        0x18, 0x04, 0x20,     // Cod[3] http://bluetooth-pentest.narod.ru/software/bluetooth_class_of_device-service_generator.html
 #endif
                                                                        'A',                  // Display Name
-                                                                       };
+                                                                      };
 
     const bt_gap_config_t *cust_config = bt_customer_config_get_gap_config();
     if (cust_config != NULL) {
@@ -146,15 +159,20 @@ static void app_swift_pair_get_adv_data(bt_gap_le_set_ext_advertising_data_t *da
 
     memcpy(data->data, data_context, data->data_length);
 
-    APPS_LOG_MSGID_I(LOG_TAG" get_adv_data [LEA/EDR], addr=%02X:%02X:%02X:%02X:%02X:%02X len=%d", 7,
-                     addr[5], addr[4], addr[3], addr[2], addr[1], addr[0], data->data_length);
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
+    APPS_LOG_MSGID_I(LOG_TAG" get_adv_data [LEA/EDR], [%02X] fixed_addr=%08X%04X len=%d",
+                     4, role, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), data->data_length);
+#else
+    APPS_LOG_MSGID_I(LOG_TAG" get_adv_data [LEA/EDR], [%02X] addr=%08X%04X len=%d",
+                     4, role, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), data->data_length);
+#endif
 
 #else
-    #define APP_SWIFT_PAIR_MAX_PARAM_LEN        16
+#define APP_SWIFT_PAIR_MAX_PARAM_LEN        16
 #if defined(AIR_TWS_ENABLE) && defined(APP_SWIFT_PAIR_SHOW_TWS_ICON)
-    #define APP_SWIFT_PAIR_MAX_NAME_LEN         (BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM - APP_SWIFT_PAIR_MAX_PARAM_LEN - 4)
+#define APP_SWIFT_PAIR_MAX_NAME_LEN         (BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM - APP_SWIFT_PAIR_MAX_PARAM_LEN - 4)
 #else
-    #define APP_SWIFT_PAIR_MAX_NAME_LEN         (BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM - APP_SWIFT_PAIR_MAX_PARAM_LEN)
+#define APP_SWIFT_PAIR_MAX_NAME_LEN         (BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM - APP_SWIFT_PAIR_MAX_PARAM_LEN)
 #endif
 
     const bt_gap_config_t *cust_config = bt_customer_config_get_gap_config();
@@ -200,8 +218,8 @@ static void app_swift_pair_get_adv_data(bt_gap_le_set_ext_advertising_data_t *da
 
     memcpy(data->data, data_context, data->data_length);
 
-    APPS_LOG_MSGID_I(LOG_TAG" get_adv_data [EDR only], addr=%02X:%02X:%02X:%02X:%02X:%02X len=%d", 7,
-                     addr[5], addr[4], addr[3], addr[2], addr[1], addr[0], data->data_length);
+    APPS_LOG_MSGID_I(LOG_TAG" get_adv_data [EDR only], [%02X] addr=%08X%04X len=%d",
+                     4, role, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), data->data_length);
 #endif
 }
 
@@ -226,44 +244,9 @@ static void app_swift_pair_get_adv_param(bt_hci_le_set_ext_advertising_parameter
     // Customer configure: need to tune Tx Power of Swift pairing ADV
     adv_param->advertising_tx_power = 0;
 
-#if 0//defined(APP_SWIFT_PAIR_LE_EDR_SECURE_MODE) && defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_LE_AUDIO_DUALMODE_ENABLE)
-    bt_device_manager_le_bonded_info_t infos[1] = {0};
-    uint8_t count = 1;
-    bt_status_t bt_status = bt_device_manager_le_get_bonding_info_by_link_type(BT_GAP_LE_SRV_LINK_TYPE_SWIFT_PAIR, infos, &count);
-    if (bt_status != BT_STATUS_SUCCESS || count == 0) {
-        bt_gap_le_bonding_info_t bond_info;
-#ifdef MTK_AWS_MCE_ENABLE
-        // Only Agent start Swift pairing advertising
-        uint8_t *own_addr = (uint8_t *)bt_device_manager_aws_local_info_get_fixed_address();
-#else
-        uint8_t *own_addr = (uint8_t *)bt_device_manager_get_local_address();
-#endif
-        memset(&bond_info, 0, sizeof(bond_info));
-        bond_info.identity_addr.address.type = BT_ADDR_PUBLIC;
-        memcpy(bond_info.identity_addr.address.addr, own_addr, BT_BD_ADDR_LEN);
-        bond_info.key_security_mode = BT_GAP_LE_SECURITY_BONDED_MASK;
-        memcpy(bond_info.local_key.identity_info.irk, bt_app_common_get_ble_local_irk(), sizeof(bond_info.local_key.identity_info.irk));
-        memset(&bond_info.identity_info.irk, 0xFF, sizeof(bond_info.identity_info.irk));
-        bt_device_manager_le_set_bonding_info_by_addr(&(bond_info.identity_addr.address), &bond_info);
-
-        uint8_t *addr = own_addr;
-        APPS_LOG_MSGID_I(LOG_TAG" get_adv_param, no_bond addr=%02X:%02X:%02X:%02X:%02X:%02X",
-                         6, addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
-        adv_param->peer_address = bond_info.identity_addr.address;
-        adv_param->own_address_type = BT_ADDR_PUBLIC_IDENTITY;
-    } else {
-        bt_gap_le_bonding_info_t *bonded_info = &infos[0].info;
-        if (bonded_info != NULL) {
-            uint8_t *addr = bonded_info->identity_addr.address.addr;
-            APPS_LOG_MSGID_I(LOG_TAG" get_adv_param, bonded addr=%02X:%02X:%02X:%02X:%02X:%02X",
-                             6, addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
-            adv_param->peer_address = bonded_info->identity_addr.address;
-            adv_param->own_address_type = BT_ADDR_RANDOM_IDENTITY;
-        }
-    }
-#elif defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE)
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE)
 #ifdef AIR_TWS_ENABLE
-    adv_param->own_address_type = BT_ADDR_PUBLIC; // BT_ADDR_LE_PUBLIC;
+    adv_param->own_address_type = BT_ADDR_LE_PUBLIC;
 #else
     adv_param->own_address_type = BT_ADDR_PUBLIC;
 #endif
@@ -339,27 +322,27 @@ static uint32_t app_swift_pair_adv_teams_info(multi_ble_adv_info_t *adv_info)
         adv_info->adv_data->data[2] = 0x1A;
         len = 3;
         adv_info->adv_data->data[len] = 0x3;
-        adv_info->adv_data->data[len+1] = 0x2;
-        adv_info->adv_data->data[len+2] = 0x8;
-        adv_info->adv_data->data[len+3] = 0xFE;
+        adv_info->adv_data->data[len + 1] = 0x2;
+        adv_info->adv_data->data[len + 2] = 0x8;
+        adv_info->adv_data->data[len + 3] = 0xFE;
         len += 4;
 
         adv_info->adv_data->data[len] = 0x7;
-        adv_info->adv_data->data[len+1] = 0xFF;
-        adv_info->adv_data->data[len+2] = 0x06;
-        adv_info->adv_data->data[len+3] = 0x00;
-        #if 1
-        adv_info->adv_data->data[len+4] = 0x04;
-        adv_info->adv_data->data[len+5] = 0x01;
-        adv_info->adv_data->data[len+6] = 0x52;
-        adv_info->adv_data->data[len+7] = app_swift_pair_ctx.is_quick_adv ? 0x02 : 0x00;
+        adv_info->adv_data->data[len + 1] = 0xFF;
+        adv_info->adv_data->data[len + 2] = 0x06;
+        adv_info->adv_data->data[len + 3] = 0x00;
+#if 1
+        adv_info->adv_data->data[len + 4] = 0x04;
+        adv_info->adv_data->data[len + 5] = 0x01;
+        adv_info->adv_data->data[len + 6] = 0x52;
+        adv_info->adv_data->data[len + 7] = app_swift_pair_ctx.is_quick_adv ? 0x02 : 0x00;
         //adv_info->adv_data->data[len+7] = 0x02;
-        #else
-        adv_info->adv_data->data[len+4] = 0x00;
-        adv_info->adv_data->data[len+5] = 0x00;
-        adv_info->adv_data->data[len+6] = 0x00;
-        adv_info->adv_data->data[len+7] = 0x00;
-        #endif
+#else
+        adv_info->adv_data->data[len + 4] = 0x00;
+        adv_info->adv_data->data[len + 5] = 0x00;
+        adv_info->adv_data->data[len + 6] = 0x00;
+        adv_info->adv_data->data[len + 7] = 0x00;
+#endif
         len += 8;
 
         adv_info->adv_data->data_length = len;
@@ -382,6 +365,16 @@ static bool app_swift_pair_update_teams_adv()
 
 static bool app_swift_pair_update_adv(void)
 {
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
+    bool visible = app_bt_service_is_visible();
+    bt_aws_mce_srv_link_type_t aws_link = bt_aws_mce_srv_get_link_type();
+    bool is_primary = app_le_audio_is_primary_earbud();
+    if (!visible || !is_primary || aws_link == BT_AWS_MCE_SRV_LINK_NONE) {
+        APPS_LOG_MSGID_E(LOG_TAG" update_adv, fail", 0);
+        return FALSE;
+    }
+#endif
+
     APPS_LOG_MSGID_I(LOG_TAG" update_adv, is_quick_adv=%d", 1, app_swift_pair_ctx.is_quick_adv);
 
     multi_ble_adv_manager_remove_ble_adv(MULTI_ADV_INSTANCE_SWIFT_PAIR, app_swift_pair_adv_info);
@@ -412,7 +405,7 @@ static bool app_swift_pair_start_adv(void)
 #endif
     multi_ble_adv_manager_notify_ble_adv_data_changed(MULTI_ADV_INSTANCE_SWIFT_PAIR);
 
-    APPS_LOG_MSGID_I(LOG_TAG" start_adv", 0);
+    APPS_LOG_MSGID_W(LOG_TAG" start_adv", 0);
     return TRUE;
 }
 
@@ -426,7 +419,7 @@ static bool app_swift_pair_stop_adv(void)
 
     app_swift_pair_ctx.is_quick_adv = FALSE;
 
-    APPS_LOG_MSGID_I(LOG_TAG" stop_adv", 0);
+    APPS_LOG_MSGID_W(LOG_TAG" stop_adv", 0);
     return TRUE;
 }
 
@@ -442,6 +435,27 @@ static bool app_swift_pair_proc_ui_shell_group(ui_shell_activity_t *self, uint32
     }
     return TRUE;
 }
+
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
+static bool app_swift_pair_proc_interaction_group(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
+{
+    if (event_id == APPS_EVENTS_INTERACTION_BT_VISIBLE_NOTIFY) {
+        bool visible = (bool)extra_data;
+        bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+        bt_aws_mce_srv_link_type_t aws_link = bt_aws_mce_srv_get_link_type();
+        bool is_primary = app_le_audio_is_primary_earbud();
+        APPS_LOG_MSGID_I(LOG_TAG" BT_VISIBLE_NOTIFY event, [%02X] visible=%d aws_link=%d is_primary=%d",
+                         4, role, visible, aws_link, is_primary);
+
+        if (visible && aws_link != BT_AWS_MCE_SRV_LINK_NONE && is_primary) {
+            app_swift_pair_start_adv();
+        } else if (!visible) {
+            app_swift_pair_stop_adv();
+        }
+    }
+    return FALSE;
+}
+#endif
 
 static bool app_swift_pair_proc_swift_pair_group(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
 {
@@ -485,21 +499,43 @@ static bool app_swift_pair_proc_bt_cm_group(ui_shell_activity_t *self, uint32_t 
             bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
             bt_bd_addr_t *local_addr = bt_device_manager_get_local_address();
             bool phone_related = (memcmp(remote_update->address, local_addr, sizeof(bt_bd_addr_t)) != 0);
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
+            bool visible = app_bt_service_is_visible();
+            bool is_primary = app_le_audio_is_primary_earbud();
+            bool aws_conntected = (!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->pre_connected_service)
+                                   && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service));
+            bool aws_disconntected = ((BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->pre_connected_service)
+                                      && !(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service));
+#endif
 
             if (BT_AWS_MCE_ROLE_AGENT == role || BT_AWS_MCE_ROLE_NONE == role || BT_AWS_MCE_ROLE_FOLLOWER_1 == role) {
                 if (remote_update->pre_acl_state != BT_CM_ACL_LINK_ENCRYPTED
                     && remote_update->acl_state == BT_CM_ACL_LINK_ENCRYPTED
                     && phone_related) {
-                    APPS_LOG_MSGID_I(LOG_TAG" BT_CM event, Remote connected", 0);
+#if !defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) || !defined(AIR_TWS_ENABLE)
                     app_swift_pair_stop_adv();
+#endif
 #if 0
                     app_swift_pair_update_teams_adv();
 #endif
                 }
             }
+
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
+            if (aws_conntected || aws_disconntected) {
+                APPS_LOG_MSGID_I(LOG_TAG" BT_CM AWS event, [%02X] aws_conn=%d visible=%d is_primary=%d",
+                                 4, role, aws_conntected, visible, is_primary);
+            }
+            if (aws_conntected && is_primary && visible) {
+                app_swift_pair_update_adv();
+            } else if (aws_disconntected) {
+                app_swift_pair_stop_adv();
+            }
+#endif
             break;
         }
 
+#if !defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) || !defined(AIR_TWS_ENABLE)
         case BT_CM_EVENT_VISIBILITY_STATE_UPDATE: {
             bt_cm_visibility_state_update_ind_t *visible_update = (bt_cm_visibility_state_update_ind_t *)extra_data;
             if (NULL == visible_update) {
@@ -516,6 +552,7 @@ static bool app_swift_pair_proc_bt_cm_group(ui_shell_activity_t *self, uint32_t 
             }
             break;
         }
+#endif
         default:
             break;
     }
@@ -549,6 +586,12 @@ bool app_swift_pair_idle_activity_proc(struct _ui_shell_activity *self,
             ret = app_swift_pair_proc_ui_shell_group(self, event_id, extra_data, data_len);
             break;
         }
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
+        case EVENT_GROUP_UI_SHELL_APP_INTERACTION: {
+            ret = app_swift_pair_proc_interaction_group(self, event_id, extra_data, data_len);
+            break;
+        }
+#endif
         case EVENT_GROUP_UI_SHELL_SWIFT_PAIR: {
             ret = app_swift_pair_proc_swift_pair_group(self, event_id, extra_data, data_len);
             break;

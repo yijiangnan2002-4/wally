@@ -32,29 +32,7 @@
  * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
  */
 
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    usbacm_adap.c
- *
- * Project:
- * --------
- *   Maui_Software
- *
- * Description:
- * ------------
- *   This file implements usb adaption layer for UART API
- *
- * Author:
- * -------
- *  Jensen Hu
- *
- *****************************************************************************/
 #ifdef AIR_USB_CDC_ENABLE
-
-#define __USB_COM_PORT_ENABLE__
-#ifdef __USB_COM_PORT_ENABLE__
 
 /* C library */
 #include <string.h>
@@ -522,6 +500,5 @@ void USB2UART_port_init(uint8_t port)
     }
 }
 
-#endif /*__USB_COM_PORT_ENABLE__*/
-
 #endif /* AIR_USB_CDC_ENABLE */
+

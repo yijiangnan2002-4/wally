@@ -66,7 +66,7 @@ typedef enum {
     VP_ITEM_STATE_PLAYING,
     VP_ITEM_STATE_WAIT_SYNC_STOP,
     VP_ITEM_STATE_WAIT_SYNC_PREEMPT,
-    VP_ITEM_STATE_STOPING,
+    VP_ITEM_STATE_STOPPING,
 } voice_prompt_item_state_t;
 
 typedef struct {
@@ -90,7 +90,7 @@ voice_prompt_queue_status_t voice_prompt_queue_replace(voice_prompt_param_t *par
 voice_prompt_queue_status_t voice_prompt_queue_push(voice_prompt_param_t *param, uint16_t id, bool sync_by_peer);
 voice_prompt_queue_status_t voice_prompt_queue_delete(uint8_t list_idx);
 voice_prompt_queue_status_t voice_prompt_queue_delete_by_vp_index(uint32_t vp_index);
-voice_prompt_queue_status_t voice_prompt_queue_delete_by_vp_index_expcur(uint32_t vp_index);
+voice_prompt_queue_status_t voice_prompt_queue_delete_by_vp_index_skip_cur(uint32_t vp_index);
 voice_prompt_queue_status_t voice_prompt_queue_delete_all();
 voice_prompt_queue_status_t voice_prompt_queue_delete_excp(uint8_t list_idx);
 voice_prompt_queue_status_t voice_prompt_queue_delete_by_id(uint16_t id);

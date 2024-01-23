@@ -817,6 +817,12 @@ stream_feature_ctrl_entry_t DSP_FeatureControl[DSP_FEATURE_MAX_NUM] = {
 #else
     //{NULL,              NULL},                                /*0x89 FUNC_HW_VIVID_PT,           */
 #endif
+    {NULL,              NULL},                  /*0x8A FUNC_DL_SW_GAIN,   */
+#ifdef MTK_BT_PEQ_USE_PIC
+    {peq_library_load,  peq_library_unload},    /*0x8B FUNC_LINE_IN_POST_PEQ,             */
+#else
+    {NULL,              NULL},                  /*0x8B FUNC_LINE_IN_POST_PEQ,             */
+#endif
 };
 #endif
 
@@ -1685,35 +1691,47 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 void *stream_function_get_2nd_inout_buffer(void *para)
     return ((DSP_ENTRY_PARA_PTR)para)->out_ptr[1] + ((DSP_ENTRY_PARA_PTR)para)->out_ptr_offset;
 }
 
-void *stream_function_get_3rd_inout_buffer(void *para)
+ATTR_TEXT_IN_IRAM_LEVEL_2 void *stream_function_get_3rd_inout_buffer(void *para)
 {
     return ((DSP_ENTRY_PARA_PTR)para)->out_ptr[2 % CALLBACK_OUTPUT_PORT_MAX_NUM] + ((DSP_ENTRY_PARA_PTR)para)->out_ptr_offset;
 }
 
-void *stream_function_get_4th_inout_buffer(void *para)
+ATTR_TEXT_IN_IRAM_LEVEL_2 void *stream_function_get_4th_inout_buffer(void *para)
 {
     return ((DSP_ENTRY_PARA_PTR)para)->out_ptr[3 % CALLBACK_OUTPUT_PORT_MAX_NUM] + ((DSP_ENTRY_PARA_PTR)para)->out_ptr_offset;
 }
 
-void *stream_function_get_5th_inout_buffer(void *para)
+ATTR_TEXT_IN_IRAM_LEVEL_2 void *stream_function_get_5th_inout_buffer(void *para)
 {
     return ((DSP_ENTRY_PARA_PTR)para)->out_ptr[4 % CALLBACK_OUTPUT_PORT_MAX_NUM] + ((DSP_ENTRY_PARA_PTR)para)->out_ptr_offset;
 }
 
-void *stream_function_get_6th_inout_buffer(void *para)
+ATTR_TEXT_IN_IRAM_LEVEL_2 void *stream_function_get_6th_inout_buffer(void *para)
 {
     return ((DSP_ENTRY_PARA_PTR)para)->out_ptr[5 % CALLBACK_OUTPUT_PORT_MAX_NUM] + ((DSP_ENTRY_PARA_PTR)para)->out_ptr_offset;
 }
 
-void *stream_function_get_7th_inout_buffer(void *para)
+ATTR_TEXT_IN_IRAM_LEVEL_2 void *stream_function_get_7th_inout_buffer(void *para)
 {
     return ((DSP_ENTRY_PARA_PTR)para)->out_ptr[6 % CALLBACK_OUTPUT_PORT_MAX_NUM] + ((DSP_ENTRY_PARA_PTR)para)->out_ptr_offset;
 }
 
-void *stream_function_get_8th_inout_buffer(void *para)
+ATTR_TEXT_IN_IRAM_LEVEL_2 void *stream_function_get_8th_inout_buffer(void *para)
 {
     return ((DSP_ENTRY_PARA_PTR)para)->out_ptr[7 % CALLBACK_OUTPUT_PORT_MAX_NUM] + ((DSP_ENTRY_PARA_PTR)para)->out_ptr_offset;
 }
+
+#ifdef AIR_FULL_ADAPTIVE_ANC_STEREO_ENABLE
+ATTR_TEXT_IN_IRAM_LEVEL_2 void *stream_function_get_9th_inout_buffer(void *para)
+{
+    return ((DSP_ENTRY_PARA_PTR)para)->out_ptr[8 % CALLBACK_OUTPUT_PORT_MAX_NUM] + ((DSP_ENTRY_PARA_PTR)para)->out_ptr_offset;
+}
+
+ATTR_TEXT_IN_IRAM_LEVEL_2 void *stream_function_get_10th_inout_buffer(void *para)
+{
+    return ((DSP_ENTRY_PARA_PTR)para)->out_ptr[9 % CALLBACK_OUTPUT_PORT_MAX_NUM] + ((DSP_ENTRY_PARA_PTR)para)->out_ptr_offset;
+}
+#endif
 
 ATTR_TEXT_IN_IRAM_LEVEL_2 void *stream_function_get_inout_buffer(void *para, uint32_t channel)
 {

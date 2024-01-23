@@ -56,9 +56,9 @@ typedef struct {
 
 void *app_hear_through_race_cmd_handler(ptr_race_pkt_t p_race_package, uint16_t length, uint8_t channel_id);
 
-void app_hear_through_race_cmd_send_get_response(uint16_t config_type, uint8_t *data, uint16_t data_len);
+void app_hear_through_race_cmd_send_get_response(uint16_t config_type, uint8_t result, uint8_t *data, uint16_t data_len);
 
-void app_hear_through_race_cmd_send_set_response(uint16_t config_type, bool success);
+void app_hear_through_race_cmd_send_set_response(uint16_t config_type, uint8_t result);
 
 void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *data, uint16_t data_len);
 

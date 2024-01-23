@@ -108,6 +108,7 @@ typedef struct {
     uint16_t total_channels;
     framesize_adjustor_channel_t *channel;
     uint16_t process_sample_resolution;
+    bool trustInitParam;
     CusFunc_initialize fun_initialize;
     CusFunc_process fun_process;
     uint32_t MemSize;
@@ -136,6 +137,7 @@ typedef struct {
     /* The process_sample_resolution each channel.
         For example if the process_sample_resolution is RESOLUTION_32BIT, it means the process_sample_resolution is 32bit */
     uint16_t process_sample_resolution;
+    bool trustInitParam;
 } framesize_adjustor_config_t;
 
 /* Public macro --------------------------------------------------------------*/

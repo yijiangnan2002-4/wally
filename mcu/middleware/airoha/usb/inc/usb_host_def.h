@@ -36,6 +36,7 @@
 #ifndef __USB_HOST_DEF_H__
 #define __USB_HOST_DEF_H__
 
+#ifdef AIR_USB_HOST_ENABLE
 
 typedef enum {
     USB_HOST_SPEED_HIGH  = 0U,
@@ -61,5 +62,7 @@ typedef enum {
     HOST_ABORT_STATE,
 } HOST_StateTypeDef;
 
+#endif /* AIR_USB_HOST_ENABLE */
 
-#endif
+#endif /* __USB_HOST_DEF_H__ */
+

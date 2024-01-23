@@ -36,6 +36,8 @@
 #ifndef __USB_HOST_DEVICE_OP_H__
 #define __USB_HOST_DEVICE_OP_H__
 
+#ifdef AIR_USB_HOST_ENABLE
+
 /* Control Transfer State machine */
 typedef enum {
     CTRL_IDLE = 0U,
@@ -90,6 +92,7 @@ typedef enum _usb_host_device_enumeration_status {
     USB_HOST_DEV_Status_AppUsed                     /*!< This device has been used by application */
 } usb_host_device_enumeration_status_t;
 
+#endif /* AIR_USB_HOST_ENABLE */
 
+#endif /* __USB_HOST_DEVICE_OP_H__ */
 
-#endif

@@ -66,7 +66,7 @@
 #define ATCI_DEMO
 #endif
 
-#ifndef AIR_PURE_GAMING_ENABLE
+#if !defined (AIR_PURE_GAMING_ENABLE) && !defined(AIR_HID_BT_HOGP_ENABLE)
 #ifndef BT_SINK_DEMO
 #define BT_SINK_DEMO
 #endif

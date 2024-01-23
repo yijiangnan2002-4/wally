@@ -35,6 +35,8 @@
 #ifndef USBAUDIO_DRV_H
 #define USBAUDIO_DRV_H
 
+#ifdef AIR_USB_AUDIO_ENABLE
+
 /* C library */
 #include <stdbool.h>
 #include <stdint.h>
@@ -54,28 +56,8 @@
    Definition will change order : 1.Game 2.Chat */
 //#define USB_AUDIO_INVERSE_SPEAER_ENUM
 
-/* Used to check the Audio TX/RX interval */
-#define USB_AUDIO_TX_TIME_MEASURE
-#define USB_AUDIO_RX_TIME_MEASURE
-
-/* Used to dump audio data for TX/RX */
-#define USB_AUDIO_DUMP_RX1
-#define USB_AUDIO_DUMP_RX2
-#define USB_AUDIO_DUMP_TX1
-
 #define USB_AUDIO_UNUSED_ID         0xFF
 
-/***********************************************
-    USB Audio Alt Interface Setting
-************************************************/
-#define USB_AUDIO_RX1_ALT2_ENABLE
-#define USB_AUDIO_RX1_ALT3_ENABLE
-#define USB_AUDIO_RX2_ALT2_ENABLE
-
-/***********************************************
-    USB Audio TX Alt Interface Setting
-************************************************/
-#define USB_AUDIO_TX1_ALT2_ENABLE
 
 /***********************************************
     USB Audio Alt Interface Setting
@@ -366,9 +348,10 @@ typedef enum {
  *     - bmaControls
  */
 typedef enum {
-    USB_AUDIO_VC_INDIVIUAL   = 0, /**< Enable volume control for each channel */
-    USB_AUDIO_VC_MASTER      = 1, /**< Enable volume control only for master channel */
-    USB_AUDIO_VC_BOTH        = 2, /**< Enable volume control for master and each channel */
+    USB_AUDIO_VC_DISABLE     = -1, /**< Disable volume control */
+    USB_AUDIO_VC_INDIVIUAL   = 0,  /**< Enable volume control for each channel */
+    USB_AUDIO_VC_MASTER      = 1,  /**< Enable volume control only for master channel */
+    USB_AUDIO_VC_BOTH        = 2,  /**< Enable volume control for master and each channel */
 } usb_audio_vc_t;
 
 typedef void (*AUDIO_RX_FUNC)(void);
@@ -469,8 +452,14 @@ typedef struct {
 
 #define USB_AUDIO_1_PORT 0
 #define USB_AUDIO_2_PORT 1
+
 #define USB_AUDIO_RX     0
 #define USB_AUDIO_TX     1
+
+#define USB_AUDIO_ALT0   0
+#define USB_AUDIO_ALT1   1
+#define USB_AUDIO_ALT2   2
+#define USB_AUDIO_ALT3   3
 
 
 /***********************************************
@@ -595,5 +584,7 @@ uint8_t USB_Audio_Get_Spk2_Mute();
 void USB_Audio_Set_Spk1_Mute(bool mute);
 void USB_Audio_Set_Mic1_Mute(bool mute);
 void USB_Audio_Set_Spk2_Mute(bool mute);
+
+#endif /* AIR_USB_AUDIO_ENABLE */
 
 #endif /* USBAUDIO_DRV_H */

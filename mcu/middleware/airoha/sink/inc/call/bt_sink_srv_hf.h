@@ -39,12 +39,17 @@
 #ifdef MTK_BT_TIMER_EXTERNAL_ENABLE
 #include "bt_timer_external.h"
 #endif
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+#include "bt_sink_srv_state_manager.h"
+#endif
+
+#include "project_config.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define BT_SINK_SRV_HF_LINK_NUM 0x03
+#define BT_SINK_SRV_HF_LINK_NUM 0x04
 #define BT_SINK_SRV_HF_CMD_LENGTH 12
 #define BT_SINK_SRV_HF_LONG_CMD_LENGTH 48
 #define BT_SINK_SRV_HF_DIAL_CMD_LENGTH 48
@@ -121,6 +126,7 @@ typedef enum {
     BT_SINK_SRV_HF_FLAG_RECONNECT_SCO   = 0x0080,
     BT_SINK_SRV_HF_FLAG_DISCONNECT_HFP  = 0x0100,
     BT_SINK_SRV_HF_FLAG_DISABLE_SNIFF   = 0x0400,
+    BT_SINK_SRV_HF_FLAG_HOLD_PENDING    = 0x0800,
 } bt_sink_srv_hf_flag_t;
 
 typedef struct {
@@ -132,6 +138,7 @@ typedef struct {
     bt_sink_srv_hf_call_state_t call_state;
     bt_sink_srv_hf_flag_t flag;
     bt_sink_srv_caller_information_t caller;
+    uint8_t active_index;
 } bt_sink_srv_hf_link_context_t;
 
 typedef struct {
@@ -139,6 +146,9 @@ typedef struct {
     bt_sink_srv_hf_link_context_t link;
     void *device;
     uint8_t set_volume;
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+    bt_sink_srv_state_manager_play_count_t play_count;
+#endif
 } bt_sink_srv_hf_context_t;
 
 typedef struct {
@@ -196,7 +206,7 @@ void bt_sink_srv_hf_call_state_change(bt_sink_srv_hf_context_t *bt_sink_srv_hf_c
 void bt_sink_srv_hf_mp_answer(bt_sink_srv_hf_context_t *current_device, bool accept);
 void bt_sink_srv_hf_mp_swap(bt_sink_srv_hf_context_t *active_device, bt_sink_srv_hf_context_t *held_device);
 void bt_sink_srv_hf_mp_state_change(bt_sink_srv_hf_context_t *device);
-void bt_sink_srv_hf_mp_set_sco(bt_sink_srv_hf_context_t *highlight, bt_sink_srv_hf_context_t *device);
+//void bt_sink_srv_hf_mp_set_sco(bt_sink_srv_hf_context_t *highlight, bt_sink_srv_hf_context_t *device);
 void bt_sink_srv_hf_mp_switch_audio(void);
 bt_status_t bt_sink_srv_hf_set_audio_status(uint32_t handle, bt_hfp_audio_status_t status);
 bt_status_t bt_sink_srv_hf_apl_report_battery(uint8_t battery_level);
@@ -223,7 +233,9 @@ bool bt_sink_srv_hf_get_nvdm_data(bt_bd_addr_t *bt_addr, void *data_p, uint32_t 
 bool bt_sink_srv_hf_set_nvdm_data(bt_bd_addr_t *bt_addr, void *data_p, uint32_t size);
 void bt_sink_srv_hf_dial_memory(uint8_t *number);
 void bt_sink_srv_hf_attach_voice_tag();
+bt_sink_srv_hf_context_t *bt_sink_srv_hf_find_other_device_by_call_state(bt_sink_srv_hf_context_t *context, bt_sink_srv_hf_call_state_t call_state);
 
+void bt_sink_srv_hf_hold_special_ext(bt_sink_srv_hf_context_t *conetxt);
 
 #ifdef AIR_FEATURE_SINK_AUDIO_SWITCH_SUPPORT
 bt_status_t bt_sink_srv_hf_audio_switch_handle(bool value);

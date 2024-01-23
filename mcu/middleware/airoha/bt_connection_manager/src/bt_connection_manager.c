@@ -58,6 +58,7 @@
 #include "bt_device_manager_db.h"
 #include "bt_device_manager_internal.h"
 #include "bt_device_manager_power.h"
+#include "bt_device_manager_link_record.h"
 
 #define BT_CM_CHECK_RET_WITH_VALUE_AND_LOG(CHECK_CONDITION, RET_VALUE, LOG_STRING, ...) \
     if (CHECK_CONDITION) {  \
@@ -272,6 +273,16 @@ static void         bt_cm_remote_acl_connected_confirm(bt_cm_remote_device_t *de
     }
 }
 
+static bt_aws_mce_role_t bt_cm_get_current_aws_role_internal(void)
+{
+    bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
+#ifdef MTK_AWS_MCE_ENABLE
+    aws_role = bt_device_manager_aws_local_info_get_role();
+#endif
+    return aws_role;
+}
+
+
 bt_cm_acl_link_state_t bt_cm_get_link_state(bt_bd_addr_t addr);
 static void         bt_cm_handle_link_connected_ind(bt_cm_remote_device_t *device_p, bt_status_t status, bt_gap_link_status_updated_ind_t *param)
 {
@@ -324,7 +335,7 @@ static void         bt_cm_handle_link_connected_ind(bt_cm_remote_device_t *devic
 #ifdef MTK_AWS_MCE_ENABLE
             /* For aws can enable, need set special link and partner side link encrypted. */
             device_p->link_info.link_state = BT_CM_ACL_LINK_ENCRYPTED;
-            if (BT_AWS_MCE_ROLE_AGENT == bt_device_manager_aws_local_info_get_role()) {
+            if (BT_AWS_MCE_ROLE_AGENT == bt_cm_get_current_aws_role_internal()) {
                 /* Update scan mode, when special link connected in agent. */
                 bt_cm_write_scan_mode_internal(BT_CM_COMMON_TYPE_UNKNOW, BT_CM_COMMON_TYPE_UNKNOW);
             } else {
@@ -370,10 +381,10 @@ static void         bt_cm_handle_link_connected_ind(bt_cm_remote_device_t *devic
     }
 }
 
-static bt_bd_addr_t g_bt_cm_delay_reconnect_addr = {0};
-static bt_cm_profile_service_mask_t g_bt_cm_delay_reconnect_profile = 0;
+bt_bd_addr_t g_bt_cm_delay_reconnect_addr = {0};
+bt_cm_profile_service_mask_t g_bt_cm_delay_reconnect_profile = 0;
 
-static void         bt_cm_delay_reconnect_callback(void *params)
+void         bt_cm_delay_reconnect_callback(void *params)
 {
     bt_cm_connect_t reconnect;
     bt_cm_remote_device_t *device_p = bt_cm_find_device(BT_CM_FIND_BY_ADDR, (void *)&g_bt_cm_delay_reconnect_addr);
@@ -382,20 +393,34 @@ static void         bt_cm_delay_reconnect_callback(void *params)
     if (NULL != device_p) {
         reconnect.profile &= ~(device_p->link_info.connected_mask | device_p->link_info.connecting_mask);
     }
+    reconnect.profile &= ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS));
     bt_cmgr_report_id("[BT_CM][I] Delay to reconnect the connected failed profile addr:0x%x, profile:0x%x", 2,
                       *(uint32_t *) & (reconnect.address), reconnect.profile);
     if (BT_CM_PROFILE_SERVICE_MASK_NONE != reconnect.profile) {
         bt_cm_connect(&reconnect);
     }
 }
+static void  bt_cm_active_disconnect_acl_timer_callback(void *params)
+{
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
+    bt_cmgr_report_id("[BT_CM][I] device manager local role is 0x%x", 1, aws_role);
+    if ((BT_AWS_MCE_ROLE_PARTNER != aws_role) && (BT_AWS_MCE_ROLE_CLINET != aws_role)) {
+        if (NULL != params) {
+            bt_cm_remote_device_t *device_p = (bt_cm_remote_device_t *)params;
+            if ((device_p->link_info.handle != 0) && (!bt_cm_is_specail_device(&device_p->link_info.addr))) {
+                if (BT_CM_PROFILE_SERVICE_NONE == ((device_p->link_info.connected_mask | device_p->link_info.connecting_mask | device_p->link_info.disconnecting_mask) & (~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS)))) {
+                    bt_gap_disconnect(device_p->link_info.handle);
+                    bt_cmgr_report_id("[BT_CM][I] ACL no profile timeout", 0);
+                }
+            }
+        }
+    }
+    return;
+}
 
 static void         bt_cm_remote_acl_disconnected_confirm(bt_bd_addr_t address, bt_status_t status)
 {
-#ifdef MTK_AWS_MCE_ENABLE
-    bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
-#else
-    bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
-#endif
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
     bt_cmgr_report_id("[BT_CM][I] device manager local role is 0x%x", 1, aws_role);
     if (g_bt_cm_cnt->connected_dev_num == (BT_AWS_MCE_ROLE_AGENT == aws_role ? 1 : 0)) {
 #ifdef AIR_BT_SOURCE_ENABLE
@@ -411,6 +436,7 @@ static void         bt_cm_remote_acl_disconnected_confirm(bt_bd_addr_t address, 
     {
         bt_cm_write_scan_mode_internal(BT_CM_COMMON_TYPE_UNKNOW, BT_CM_COMMON_TYPE_UNKNOW);
     }
+#ifdef MTK_AWS_MCE_ENABLE
     if (BT_AWS_MCE_ROLE_AGENT == aws_role) {
         bt_cm_remote_device_t *conn_aws_dev = NULL;
         bt_cm_remote_device_t *find_dev = g_bt_cm_cnt->handle_list[BT_CM_LIST_CONNECTED];
@@ -435,6 +461,7 @@ static void         bt_cm_remote_acl_disconnected_confirm(bt_bd_addr_t address, 
             bt_cm_connect(&reconn);
         }
     }
+#endif
     if (g_bt_cm_cfg->link_loss_reconnect_profile != BT_CM_PROFILE_SERVICE_MASK_NONE &&
         (BT_HCI_STATUS_PAGE_TIMEOUT == status || BT_HCI_STATUS_CONNECTION_TIMEOUT == status || BT_HCI_STATUS_CONTROLLER_BUSY == status ||
          BT_HCI_STATUS_LMP_RESPONSE_TIMEOUT_OR_LL_RESPONSE_TIMEOUT == status || BT_HCI_STATUS_CONNECTION_LIMIT_EXCEEDED == status ||
@@ -475,12 +502,10 @@ static void         bt_cm_remote_acl_disconnected_confirm(bt_bd_addr_t address, 
         bt_cm_connection_state_update(NULL);
     }
 }
+extern bool bt_device_manager_link_record_is_connected(bt_bd_addr_t *addr, bt_device_manager_link_t link_type);
 static void         bt_cm_handle_link_disconnected_ind(bt_cm_remote_device_t *device_p, bt_status_t status)
 {
-    bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
-#ifdef MTK_AWS_MCE_ENABLE
-    aws_role = bt_device_manager_aws_local_info_get_role();
-#endif
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();;
     bt_cmgr_report_id("[BT_CM][I] Detach single link, reason: 0x%x, device:0x%x, aws role:0x%x", 3, status, device_p, aws_role);
     BT_CM_CHECK_RET_NO_VALUE_NO_LOG(NULL == device_p);
     bt_cm_remote_info_update_ind_t remote_update = {
@@ -507,13 +532,19 @@ static void         bt_cm_handle_link_disconnected_ind(bt_cm_remote_device_t *de
         bt_cmgr_report_id("[BT_CM][I] page timeout OR controller busy g_bt_cm_delay_reconnect_profile is 0x%x", 1,g_bt_cm_delay_reconnect_profile);
         g_bt_cm_delay_reconnect_profile = device_p->expected_connect_mask;
     }
+    
+    bt_cm_timer_stop(BT_CM_DISCONNECT_TIMER_ID);
     bt_utils_memset(device_p, 0, sizeof(*device_p));
 #ifdef AIR_MULTI_POINT_ENABLE
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
     if (BT_ROLE_HANDOVER_STATE_ONGOING == bt_role_handover_get_state()) {
         bt_cmgr_report_id("[BT_CM][I] Cancel connecting success due to rho, g_bt_cm_rho_flags is 0x%x", 1, g_bt_cm_rho_flags_t);
         g_bt_cm_rho_flags_t &= (~BT_CM_RHO_PREPARE_WAIT_FLAG_CANCEL_CONNECTION);
-        bt_role_handover_reply_prepare_request(BT_ROLE_HANDOVER_MODULE_SINK_CM);
+        g_bt_cm_rho_flags_t &= (~BT_CM_RHO_PREPARE_WAIT_FLAG_DISCONNECT_DEVICE);
+        if (0 == g_bt_cm_rho_flags_t) { 
+            bt_cm_timer_start(BT_CM_AWS_MCE_REPLY_RHO_TIMER_ID, 1, bt_cm_reply_prepare_rho_request, NULL);
+            //bt_role_handover_reply_prepare_request(BT_ROLE_HANDOVER_MODULE_SINK_CM);
+        }
     }
 #endif
 #endif
@@ -541,8 +572,8 @@ static void         bt_cm_handle_link_disconnected_ind(bt_cm_remote_device_t *de
             if ((status & ~BT_CM_AWS_LINK_DISCONNECT_REASON_MASK) == BT_CM_AWS_LINK_DISCONNECT_NORMAL) {
                 bt_cmgr_report_id("[BT_CM][I] partner recive e2 reason disconnect will add sp to connecting list", 0);
                 bt_cm_connect_t conn_dev;
-                bt_bd_addr_t * device_addr = bt_device_manager_remote_get_dev_by_seq_num(1);
-                if (NULL != device_addr) {
+                bt_bd_addr_t * device_addr = bt_device_manager_remote_get_dev_by_seq_num(1);                
+                if (NULL != device_addr && !bt_device_manager_link_record_is_connected(device_addr, BT_DEVICE_MANAGER_LINK_TYPE_LE)) {
                     bt_utils_memcpy(&conn_dev.address, device_addr, sizeof(bt_bd_addr_t));
                     conn_dev.profile = g_bt_cm_cfg->power_on_reconnect_profile & ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS));
                     bt_cm_connect(&conn_dev);
@@ -556,8 +587,8 @@ static void         bt_cm_handle_link_disconnected_ind(bt_cm_remote_device_t *de
         if (remote_update.pre_acl_state > BT_CM_ACL_LINK_CONNECTED &&
             BT_DEVICE_MANAGER_POWER_STATE_ACTIVE == bt_device_manager_power_get_power_state(BT_DEVICE_TYPE_CLASSIC)) {
             /* Update the paired list sequence due to disconnected. */
-            uint8_t connected_dev = bt_cm_get_connected_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 0);
-            bt_device_manager_remote_set_seq_num(remote_update.address, connected_dev + 1);
+            uint32_t connected_dev = bt_cm_get_connected_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 0);
+            bt_device_manager_remote_set_seq_num(remote_update.address, (uint8_t)(connected_dev + 1));
         }
     }
     if (BT_CM_POWER_STATE_ON != bt_cm_power_get_state()) {
@@ -570,11 +601,7 @@ static void         bt_cm_handle_link_update_ind(bt_status_t status, bt_gap_link
 {
     BT_CM_CHECK_RET_NO_VALUE_WITH_LOG(NULL == param, "[BT_CM][E] Param is null", 0);
     bt_cm_remote_device_t *device_p = bt_cm_find_device(BT_CM_FIND_BY_ADDR, (void *)(param->address));
-#ifdef MTK_AWS_MCE_ENABLE
-    bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
-#else
-    bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
-#endif
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
     bt_cmgr_report_id("[BT_CM][I] Link update device:0x%x, link status:0x%x, status:0x%x, handle = 0x%x", 4, device_p, param->link_status, status, param->handle);
     if (!bt_utils_memcmp(param->address, &cancel_connection_addr, sizeof(bt_bd_addr_t))) {
         bt_cm_timer_stop(BT_CM_CANCEL_CONNECT_TIMER_ID);
@@ -588,6 +615,16 @@ static void         bt_cm_handle_link_update_ind(bt_status_t status, bt_gap_link
                 }
             } else if (BT_CM_ACL_LINK_CONNECTED >= device_p->link_info.link_state) {
                 bt_gap_disconnect_with_reason(param->handle, BT_HCI_STATUS_PIN_OR_KEY_MISSING);
+                if (status == BT_HCI_STATUS_DIFFERENT_TRANSACTION_COLLISION) {
+                    bt_cm_memcpy(&g_bt_cm_delay_reconnect_addr, device_p->link_info.addr, sizeof(bt_bd_addr_t));
+                    g_bt_cm_delay_reconnect_profile = (device_p->expected_connect_mask & ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS)));
+                    bt_cm_timer_start(BT_CM_DELAY_RECONNECT_TIMER_ID, 2000, bt_cm_delay_reconnect_callback, NULL);
+                } else if (BT_GAP_LINK_STATUS_CONNECTED_0 == param->link_status && status == BT_HCI_STATUS_REMOTE_USER_TERMINATED_CONNECTION) {
+                    bt_cmgr_report_id("[BT_CM][I] workaround for auth conflict remote will terminated auth", 0);
+                    bt_cm_memcpy(&g_bt_cm_delay_reconnect_addr, device_p->link_info.addr, sizeof(bt_bd_addr_t));
+                    g_bt_cm_delay_reconnect_profile = (device_p->expected_connect_mask & ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS)));
+                    bt_cm_timer_start(BT_CM_DELAY_RECONNECT_TIMER_ID, 600, bt_cm_delay_reconnect_callback, NULL);
+                }
             }
         } else if (BT_STATUS_SUCCESS == status) {
             bt_bd_addr_t temp_addr = {0};
@@ -643,10 +680,11 @@ static void         bt_cm_handle_link_update_ind(bt_status_t status, bt_gap_link
         } else {
 #ifdef AIR_MULTI_POINT_ENABLE
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
+            g_bt_cm_rho_flags_t &= (~BT_CM_RHO_PREPARE_WAIT_FLAG_CANCEL_CONNECTION);
             if (BT_ROLE_HANDOVER_STATE_ONGOING == bt_role_handover_get_state()) {
                 bt_cmgr_report_id("[BT_CM][I] Cancel connecting success due to rho, g_bt_cm_rho_flags_t is 0x%x", 1, g_bt_cm_rho_flags_t);
-                g_bt_cm_rho_flags_t &= (~BT_CM_RHO_PREPARE_WAIT_FLAG_CANCEL_CONNECTION);
-                bt_role_handover_reply_prepare_request(BT_ROLE_HANDOVER_MODULE_SINK_CM);
+                bt_cm_timer_start(BT_CM_AWS_MCE_REPLY_RHO_TIMER_ID, 1, bt_cm_reply_prepare_rho_request, NULL);
+                //bt_role_handover_reply_prepare_request(BT_ROLE_HANDOVER_MODULE_SINK_CM);
             }
 #endif
 #endif
@@ -859,9 +897,9 @@ static bt_status_t  bt_cm_common_callback(bt_msg_type_t msg, bt_status_t status,
     return result;
 }
 
-static uint8_t      bt_cm_get_encrypted_device_number()
+static uint32_t      bt_cm_get_encrypted_device_number()
 {
-    uint8_t count = 0;
+    uint32_t count = 0;
     bt_cm_remote_device_t *device_p = g_bt_cm_cnt->handle_list[BT_CM_LIST_CONNECTED];
     while (NULL != device_p) {
         if (BT_CM_ACL_LINK_CONNECTED < device_p->link_info.link_state && !bt_cm_is_specail_device(&(device_p->link_info.addr))) {
@@ -897,8 +935,8 @@ static bt_cm_remote_device_t *bt_cm_connection_state_machine(bt_cm_remote_device
                     if (device_p->link_info.link_state > BT_CM_ACL_LINK_CONNECTED &&
                         BT_DEVICE_MANAGER_POWER_STATE_ACTIVE == bt_device_manager_power_get_power_state(BT_DEVICE_TYPE_CLASSIC)) {
                         /* Update the paired list sequence due to disconnect. */
-                        uint8_t connected_dev = bt_cm_get_encrypted_device_number();
-                        bt_device_manager_remote_set_seq_num(device_p->link_info.addr, connected_dev);
+                        uint32_t connected_dev = bt_cm_get_encrypted_device_number();
+                        bt_device_manager_remote_set_seq_num(device_p->link_info.addr, (uint8_t)connected_dev);
                     }
                     device_p->link_info.link_state = BT_CM_ACL_LINK_DISCONNECTING;
                     bt_cm_list_remove(BT_CM_LIST_CONNECTED, device_p);
@@ -962,8 +1000,16 @@ static void         bt_cm_connection_state_update(void *param)
 #else
     bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
 #endif
+    uint32_t maximum_remote_num;
     device_p = (NULL != device_p ? device_p : g_bt_cm_cnt->handle_list[BT_CM_LIST_CONNECTED]);
     device_p = (NULL != device_p ? device_p : g_bt_cm_cnt->handle_list[BT_CM_LIST_CONNECTING]);
+#if defined AIR_3_LINK_MULTI_POINT_ENABLE
+    maximum_remote_num = 3;
+#elif defined AIR_MULTI_POINT_ENABLE
+    maximum_remote_num = 2;
+#else
+    maximum_remote_num = 1;
+#endif
     while (NULL != device_p) {
         BT_CM_LOG_CONNECTION_STATUS(device_p);
         bool connect_allow = false;
@@ -977,8 +1023,8 @@ static void         bt_cm_connection_state_update(void *param)
         if ((g_bt_cm_cnt->flags & BT_CM_FLAG_INITIATED) &&
             (BT_DEVICE_MANAGER_POWER_STATE_ACTIVE == power_state || BT_DEVICE_MANAGER_POWER_STATE_ACTIVE_PENDING == power_state) && 
             (true == bt_cm_is_specail_device(&(device_p->link_info.addr)) || (true == bt_cm_is_reconnect_flag && !((BT_AWS_MCE_ROLE_CLINET | BT_AWS_MCE_ROLE_PARTNER) & aws_role))) &&
-            (g_bt_cm_cnt->connected_dev_num < (2 + !!(BT_AWS_MCE_ROLE_AGENT == aws_role)) || device_p->link_info.link_state >= BT_CM_ACL_LINK_CONNECTED)) {
-            connect_allow = true;;
+            (g_bt_cm_cnt->connected_dev_num < (maximum_remote_num + !!(BT_AWS_MCE_ROLE_AGENT == aws_role)) || device_p->link_info.link_state >= BT_CM_ACL_LINK_CONNECTED)) {
+            connect_allow = true;
         }
         for (uint32_t i = 0; i <= BT_CM_PROFILE_SERVICE_MAX; i++) {
             profile = 1 << i;
@@ -1030,11 +1076,8 @@ bt_status_t             bt_cm_write_scan_mode_internal(bt_cm_common_type_t inqui
     BT_CM_CHECK_RET_WITH_VALUE_AND_LOG(NULL == g_bt_cm_cnt, BT_CM_STATUS_FAIL, BT_CM_LOG_CONTEXT_NULL, 0);
     bt_gap_scan_mode_t set_mode = g_bt_cm_cnt->scan_mode;
     bt_gap_scan_mode_t pre_mode = g_bt_cm_cnt->scan_mode;
-    bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
     bt_cm_power_state_t power_state = bt_cm_power_get_state();
-#ifdef MTK_AWS_MCE_ENABLE
-    aws_role = bt_device_manager_aws_local_info_get_role();
-#endif
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
     bt_cmgr_report_id("[BT_CM][I] Scan mode, old:0x%x, new_inquiry:%d, new_page:%d, flags:0x%x, aws_role:0x%x, power_state:%d", 6,
                       g_bt_cm_cnt->scan_mode, inquiry_scan, page_scan, g_bt_cm_cnt->flags, aws_role, power_state);
     BT_CM_CHECK_RET_WITH_VALUE_NO_LOG(BT_CM_POWER_STATE_ON != power_state || ((BT_AWS_MCE_ROLE_CLINET | BT_AWS_MCE_ROLE_PARTNER) & aws_role), ret);
@@ -1139,14 +1182,11 @@ static void         bt_cm_auto_reconnect(bt_cm_auto_reconnect_t reconnect_t)
 {
     bt_cm_connect_t conn_req;
     bt_bd_addr_t   *conn_addr = NULL;
-    uint8_t temp_max_connection_num;
-    uint8_t recon_num;
-#ifdef MTK_AWS_MCE_ENABLE
-    bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
+    uint32_t temp_max_connection_num;
+    uint32_t recon_num;
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
+
     bt_cmgr_report_id("[BT_CM][I] device manager local role is 0x%x", 1, aws_role);
-#else
-    bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
-#endif
     temp_max_connection_num = g_bt_cm_cnt->max_connection_num -
                               (!!(g_bt_cm_cfg->connection_takeover) + !(BT_AWS_MCE_ROLE_NONE == aws_role));
     for (recon_num = 1; recon_num <= temp_max_connection_num; recon_num++) {
@@ -1174,10 +1214,8 @@ bt_bd_addr_t    *bt_cm_get_last_connected_device(void)
 void            bt_cm_power_on_cnf(bt_device_manager_power_status_t status)
 {
     BT_CM_CHECK_RET_NO_VALUE_WITH_LOG(NULL == g_bt_cm_cfg, BT_CM_LOG_CONTEXT_NULL, 0);
-    bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
-#ifdef MTK_AWS_MCE_ENABLE
-    aws_role = bt_device_manager_aws_local_info_get_role();
-#endif
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
+
     bt_cmgr_report_id("[BT_CM][I] BT power on status: 0x%x, aws role 0x%x", 2, status, aws_role);
     BT_CM_CHECK_RET_NO_VALUE_NO_LOG(BT_DEVICE_MANAGER_POWER_STATUS_AIR_PAIRING_START == status);
     bt_gap_write_page_timeout(g_bt_cm_cfg->page_timeout);
@@ -1222,12 +1260,13 @@ void            bt_cm_power_on_cnf(bt_device_manager_power_status_t status)
 #endif
     }
 }
-
+extern void bt_device_manager_link_record_clear(bt_device_manager_link_t link_type);
 void            bt_cm_power_off_cnf(bt_device_manager_power_status_t status)
 {
     bt_cmgr_report_id("[BT_CM][I] BT power off status: 0x%x", 1, status);
     BT_CM_CHECK_RET_NO_VALUE_NO_LOG(BT_DEVICE_MANAGER_POWER_STATUS_AIR_PAIRING_COMPLETE == status);
     bt_cm_notify_power_status(BT_CM_PROFILE_SERVICE_HANDLE_POWER_OFF);
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
     g_bt_cm_cnt->connected_dev_num = 0;
     g_bt_cm_cnt->scan_mode = 0;
     g_bt_cm_cnt->flags = 0;
@@ -1235,6 +1274,9 @@ void            bt_cm_power_off_cnf(bt_device_manager_power_status_t status)
     if (BT_DEVICE_MANAGER_POWER_STATUS_ROLE_RECOVERY != status) {
         g_bt_cm_cnt->handle_list[BT_CM_LIST_CONNECTING] = NULL;
         bt_utils_memset(&(g_bt_cm_cnt->devices_list), 0, sizeof(bt_cm_remote_device_t) * g_bt_cm_cnt->devices_buffer_num);
+    }
+    if (aws_role == BT_AWS_MCE_ROLE_PARTNER) {
+        bt_device_manager_link_record_clear(BT_DEVICE_MANAGER_LINK_TYPE_EDR);
     }
     bt_cm_timer_stop(BT_CM_SWITCH_ROLE_TIMER_ID);
     bt_cm_timer_stop(BT_CM_CONNECTION_TIMER_ID);
@@ -1292,12 +1334,8 @@ void            bt_cm_profile_service_status_notify(bt_cm_profile_service_t prof
     if (!bt_utils_memcmp(&device_p->link_info.addr, &cancel_connection_addr, sizeof(bt_bd_addr_t))) {
         bt_cm_timer_stop(BT_CM_CANCEL_CONNECT_TIMER_ID);
     }
-#ifdef MTK_AWS_MCE_ENABLE
-    bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
     bt_cmgr_report_id("[BT_CM][I] device manager local role is 0x%x", 1, aws_role);
-#else
-    bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
-#endif
     BT_CM_LOG_CONNECTION_STATUS(device_p);
     if (BT_CM_PROFILE_SERVICE_NONE != profile) {
         bt_cm_profile_service_mask_update(device_p, profile, state);
@@ -1335,6 +1373,14 @@ void            bt_cm_profile_service_status_notify(bt_cm_profile_service_t prof
                 bt_cm_switch_role(device_p->link_info.addr, g_bt_cm_cfg->request_role);
             }
         }
+    } else if (BT_CM_PROFILE_SERVICE_STATE_DISCONNECTED == state) {
+        if ((BT_AWS_MCE_ROLE_PARTNER != aws_role) && (BT_AWS_MCE_ROLE_CLINET != aws_role)) {
+            if (!bt_cm_is_specail_device(&device_p->link_info.addr) && profile != BT_CM_PROFILE_SERVICE_CUSTOMIZED_IAP2 && profile != BT_CM_PROFILE_SERVICE_AWS) {
+                if (BT_CM_PROFILE_SERVICE_NONE == ((device_p->link_info.connected_mask | device_p->link_info.connecting_mask | device_p->link_info.disconnecting_mask) & (~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS)))) {
+                    bt_cm_timer_start(BT_CM_DISCONNECT_TIMER_ID, 3000, bt_cm_active_disconnect_acl_timer_callback, (void *)device_p);
+                }
+            }
+        }
     }
     if (BT_CM_PROFILE_SERVICE_NONE != profile && (device_p->link_info.connected_mask != remote_update.pre_connected_service)) {
         remote_update.connected_service = device_p->link_info.connected_mask;
@@ -1365,7 +1411,7 @@ bt_status_t         bt_cm_discoverable(bool discoverable)
     bt_status_t ret = BT_STATUS_SUCCESS;
     bt_utils_mutex_lock();
 #ifdef MTK_AWS_MCE_ENABLE
-    bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
     bt_cmgr_report_id("[BT_CM][I] Discoveralbe request %d, cur role 0x%x", 2, discoverable, aws_role);
     if ((aws_role & 0xF) && discoverable) {
         bt_utils_mutex_unlock();
@@ -1374,7 +1420,8 @@ bt_status_t         bt_cm_discoverable(bool discoverable)
     if (((BT_AWS_MCE_ROLE_CLINET | BT_AWS_MCE_ROLE_PARTNER) & aws_role) && (true == discoverable)) {
         bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_ENABLE, BT_CM_COMMON_TYPE_UNKNOW);
         bt_utils_mutex_unlock();
-        return bt_aws_mce_srv_switch_role(BT_AWS_MCE_ROLE_AGENT);
+        //return bt_aws_mce_srv_switch_role(BT_AWS_MCE_ROLE_AGENT);
+        return ret;
     }
 #endif
     if (true == discoverable) {
@@ -1528,7 +1575,9 @@ bt_status_t         bt_cm_prepare_power_deinit(bool force, bt_device_manager_pow
 
 bt_status_t         bt_cm_connect(const bt_cm_connect_t *param)
 {
+    uint8_t invalid_address[6] = {0};
     BT_CM_CHECK_RET_WITH_VALUE_AND_LOG(NULL == param, BT_CM_STATUS_INVALID_PARAM, "[BT_CM][E] Connect param is NULL", 0);
+    BT_CM_CHECK_RET_WITH_VALUE_AND_LOG(!bt_utils_memcmp(invalid_address, &(param->address), sizeof(invalid_address)), BT_CM_STATUS_INVALID_PARAM, "[BT_CM][E] Connect address is all 0", 0);
     bt_device_manager_power_state_t power_state = bt_device_manager_power_get_power_state(BT_DEVICE_TYPE_CLASSIC);
     BT_CM_CHECK_RET_WITH_VALUE_AND_LOG(BT_DEVICE_MANAGER_POWER_STATE_STANDBY == power_state || BT_DEVICE_MANAGER_POWER_STATE_STANDBY_PENDING == power_state,
                                        BT_CM_STATUS_FAIL, "[BT_CM][E] Current state not in power on", 0);
@@ -1537,8 +1586,7 @@ bt_status_t         bt_cm_connect(const bt_cm_connect_t *param)
                       param->address[5], param->address[4], param->address[3], param->address[2], param->address[1], param->address[0], param->profile);
     bt_utils_mutex_lock();
 
-#ifdef MTK_AWS_MCE_ENABLE
-    bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
     if ((BT_AWS_MCE_ROLE_PARTNER | BT_AWS_MCE_ROLE_CLINET) & aws_role) {
         bt_bd_addr_t *local_addr = bt_device_manager_get_local_address();
         bt_cm_remote_device_t *device_p = bt_cm_find_device(BT_CM_FIND_BY_ADDR, (void *)local_addr);
@@ -1548,7 +1596,6 @@ bt_status_t         bt_cm_connect(const bt_cm_connect_t *param)
             return BT_STATUS_SUCCESS;
         }
     }
-#endif
 
     bt_cm_remote_device_t *device_p = bt_cm_find_device(BT_CM_FIND_BY_ADDR, (void *) & (param->address));
     bt_cm_profile_service_mask_t need_excute_profile = param->profile;
@@ -1606,7 +1653,9 @@ bt_status_t         bt_cm_connect(const bt_cm_connect_t *param)
 
 bt_status_t         bt_cm_disconnect(const bt_cm_connect_t *param)
 {
+    uint8_t invalid_address[6] = {0};
     BT_CM_CHECK_RET_WITH_VALUE_AND_LOG(NULL == param, BT_CM_STATUS_INVALID_PARAM, "[BT_CM][E] Disconnect param is NULL", 0);
+    BT_CM_CHECK_RET_WITH_VALUE_AND_LOG(!bt_utils_memcmp(invalid_address, &(param->address), sizeof(invalid_address)), BT_CM_STATUS_INVALID_PARAM, "[BT_CM][E] Disconnect address is all 0", 0);
     bt_cmgr_report_id("[BT_CM][I] Disconnect address 0x:%02x:%02x:%02x:%02x:%02x:%02x, request profile 0x%04x", 7,
                       param->address[5], param->address[4], param->address[3], param->address[2], param->address[1], param->address[0], param->profile);
 
@@ -1848,16 +1897,12 @@ bt_status_t bt_cm_reconn_is_allow(bool is_allow, bool is_initiate_connect)
     return BT_STATUS_SUCCESS;
 }
 
-bt_status_t bt_cm_set_max_connection_number(uint8_t number, bt_bd_addr_t *keep_list, uint8_t list_size, bool if_recon)
+bt_status_t bt_cm_set_max_connection_number(uint32_t number, bt_bd_addr_t *keep_list, uint32_t list_size, bool if_recon)
 {
 #if 0
     BT_CM_CHECK_RET_WITH_VALUE_AND_LOG(NULL == g_bt_cm_cnt || NULL == g_bt_cm_cfg, BT_STATUS_SUCCESS, BT_CM_LOG_CONTEXT_NULL, 0);
-#ifdef MTK_AWS_MCE_ENABLE
-    bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
-#else
-    bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
-#endif
-    uint8_t req_num = number + !!(g_bt_cm_cfg->connection_takeover) + !!(BT_AWS_MCE_ROLE_NONE != aws_role);
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
+    uint32_t req_num = number + !!(g_bt_cm_cfg->connection_takeover) + !!(BT_AWS_MCE_ROLE_NONE != aws_role);
     bt_cmgr_report_id("[BT_CM][I] Set max connection number:%d, req:%d, cur:%d, list size:%d", 4,
                       number, req_num, g_bt_cm_cnt->max_connection_num, list_size);
     BT_CM_CHECK_RET_WITH_VALUE_AND_LOG(req_num > g_bt_cm_cfg->max_connection_num, BT_STATUS_FAIL,
@@ -1871,7 +1916,7 @@ bt_status_t bt_cm_set_max_connection_number(uint8_t number, bt_bd_addr_t *keep_l
         g_bt_cm_cnt->max_connection_num = req_num;
         bt_cm_connect_t remote_device;
         bt_cm_write_scan_mode_internal(BT_CM_COMMON_TYPE_UNKNOW, BT_CM_COMMON_TYPE_UNKNOW);
-        for (uint8_t index = 1; index <= number; index++) {
+        for (uint32_t index = 1; index <= number; index++) {
             bt_bd_addr_t *remote = bt_device_manager_remote_get_dev_by_seq_num(index);
             if (NULL == remote) {
                 break;
@@ -1881,9 +1926,9 @@ bt_status_t bt_cm_set_max_connection_number(uint8_t number, bt_bd_addr_t *keep_l
             bt_cm_connect(&remote_device);
         }
     } else {
-        uint8_t use_number = 0;
+        uint32_t use_number = 0;
         bt_bd_addr_t *local_addr = bt_device_manager_get_local_address();
-        for (uint8_t index = 0; index < g_bt_cm_cfg->max_connection_num; index++) {
+        for (uint32_t index = 0; index < g_bt_cm_cfg->max_connection_num; index++) {
             if (BT_CM_ACL_LINK_PENDING_CONNECT <= g_bt_cm_cfg->devices_list[index].link_info.link_state) {
                 use_number++;
             }
@@ -1891,11 +1936,11 @@ bt_status_t bt_cm_set_max_connection_number(uint8_t number, bt_bd_addr_t *keep_l
         if (req_num < use_number) {
 
         }
-        for (uint8_t index = 0; index < g_bt_cm_cfg->max_connection_num; index++) {
+        for (uint32_t index = 0; index < g_bt_cm_cfg->max_connection_num; index++) {
             if (BT_CM_ACL_LINK_PENDING_CONNECT <= g_bt_cm_cfg->devices_list[index].link_info.link_state) {
                 use_number++;
                 if (bt_utils_memcmp(local_addr, g_bt_cm_cfg->devices_list[index].link_info.addr, sizeof(bt_bd_addr_t))) {
-                    for (uint8_t i = 0; i < list_size; i++) {
+                    for (uint32_t i = 0; i < list_size; i++) {
                         if (bt_utils_memcmp(keep_list[i], g_bt_cm_cfg->devices_list[index].link_info.addr, sizeof(bt_bd_addr_t))) {
 
                         }
@@ -1932,11 +1977,7 @@ bt_status_t bt_cm_set_max_connection_number(uint8_t number, bt_bd_addr_t *keep_l
     bt_cm_connect_t remote_device = {0};
     uint32_t index = 0;
     bt_bd_addr_t connecting_device = {0};
-#ifdef MTK_AWS_MCE_ENABLE
-    bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
-#else
-    bt_aws_mce_role_t aws_role = BT_AWS_MCE_ROLE_NONE;
-#endif
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
     if (BT_AWS_MCE_ROLE_PARTNER != aws_role) {
         if (g_bt_cm_cnt->max_connection_num > number) {
             if (bt_cm_get_connecting_devices(BT_CM_PROFILE_SERVICE_MASK_ALL, NULL, 0) + bt_cm_get_connected_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 0) +
@@ -1975,10 +2016,10 @@ bt_status_t bt_cm_set_max_connection_number(uint8_t number, bt_bd_addr_t *keep_l
                     }
                 }
             }
-            g_bt_cm_cnt->max_connection_num = number;
+            g_bt_cm_cnt->max_connection_num = (uint8_t)number;
             bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_UNKNOW, BT_CM_COMMON_TYPE_ENABLE);
         } else if (g_bt_cm_cnt->max_connection_num < number) {
-            g_bt_cm_cnt->max_connection_num = number;
+            g_bt_cm_cnt->max_connection_num = (uint8_t)number;
             bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_UNKNOW, BT_CM_COMMON_TYPE_ENABLE);
             if (if_recon) {
                 bt_bd_addr_t connected_addr;
@@ -1999,7 +2040,7 @@ bt_status_t bt_cm_set_max_connection_number(uint8_t number, bt_bd_addr_t *keep_l
             }
         }
     } else {
-        g_bt_cm_cnt->max_connection_num = number;
+        g_bt_cm_cnt->max_connection_num = (uint8_t)number;
     }
     return BT_STATUS_SUCCESS;
 }
@@ -2022,16 +2063,13 @@ void bt_cm_cancel_connect_timeout_callback(void *param)
     return;
 }
 
-void bt_cm_power_on_reconnect(uint8_t reconnect_num)
+void bt_cm_power_on_reconnect(uint32_t reconnect_num)
 {
-#ifdef MTK_AWS_MCE_ENABLE
-    bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
-#else
-    bt_aws_mce_role_t role = BT_AWS_MCE_ROLE_NONE;
-#endif
+    bt_aws_mce_role_t aws_role = bt_cm_get_current_aws_role_internal();
+
     bt_cmgr_report_id("[BT_CM][I] [APP_CONN][Reconnect] [%02X] bt_cm_power_on_reconnect, max_cm_num=%d reconnect_num=%d takeover=%d",
-                      4, role, g_bt_cm_cnt->max_connection_num, reconnect_num, g_bt_cm_cfg->connection_takeover);
-    if (reconnect_num != 1 && reconnect_num != 2) {
+                      4, aws_role, g_bt_cm_cnt->max_connection_num, reconnect_num, g_bt_cm_cfg->connection_takeover);
+    if (reconnect_num > 3 || reconnect_num < 1) {
         return;
     }
     bt_cm_connect_t conn_req = {0};

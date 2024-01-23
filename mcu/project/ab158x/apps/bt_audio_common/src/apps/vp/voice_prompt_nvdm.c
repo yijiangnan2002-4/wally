@@ -68,7 +68,7 @@ static uint8_t *voice_prompt_nvdm_get_data(uint32_t NVKey)
 
         pBuffer = (uint8_t *)pvPortMalloc(len);
         if (pBuffer == NULL) {
-            VP_LOG_MSGID_E(LOG_TAG "Error: malloc for langbuffer fail, need size: %d.", 1, len);
+            VP_LOG_MSGID_E(LOG_TAG "Error: malloc for lang buffer fail, need size: %d.", 1, len);
             break;
         }
 
@@ -169,7 +169,7 @@ static bool voice_prompt_nvdm_get_file_id(uint8_t *pTable, uint8_t evtNum, uint8
     }
 
     if (!found) {
-        VP_LOG_MSGID_E(LOG_TAG" Error: Counldn't found file id with VpId: 0x%x.", 1, VpId);
+        VP_LOG_MSGID_E(LOG_TAG" Error: Couldn't found file id with VpId: 0x%x.", 1, VpId);
         return false;
     }
     return true;
@@ -188,7 +188,7 @@ void voice_prompt_nvdm_init()
     uint16_t rofsFileID = 0;
 
     if (giSInited == 1) {
-        //VP_LOG_MSGID_I(LOG_TAG" VP nvdm has inited. cur lang: 0x%x ", 1,
+        //VP_LOG_MSGID_I(LOG_TAG" VP nvdm has init. cur lang: 0x%x ", 1,
         //               gAppVpCtl.langInfo[gAppVpCtl.pSelPara->langId].langCodec);
         return ;
     }
@@ -267,7 +267,7 @@ bool voice_prompt_nvdm_find_vp_file(uint8_t VpId, uint16_t *fileId)
     uint8_t i = 0;
 
     if (giSInited != 1) {
-        //VP_LOG_MSGID_E(LOG_TAG" Error: VP NVDM has not been initilized.", 0);
+        //VP_LOG_MSGID_E(LOG_TAG" Error: VP NVDM has not been initialized.", 0);
         return false;
     }
 
@@ -320,7 +320,7 @@ void voice_prompt_nvdm_deinit()
 bool voice_prompt_nvdm_get_current_lang(uint8_t *langId)
 {
     if (giSInited != 1) {
-        //VP_LOG_MSGID_E(LOG_TAG" Error: VP NVDM has not been initilized.", 0);
+        //VP_LOG_MSGID_E(LOG_TAG" Error: VP NVDM has not been initialized.", 0);
         return false;
     }
 
@@ -331,12 +331,12 @@ bool voice_prompt_nvdm_get_current_lang(uint8_t *langId)
 bool voice_prompt_nvdm_set_current_lang(uint8_t index)
 {
     if (giSInited != 1) {
-        //VP_LOG_MSGID_E(LOG_TAG" Error: VP NVDM has not been initilized.", 0);
+        //VP_LOG_MSGID_E(LOG_TAG" Error: VP NVDM has not been initialized.", 0);
         return false;
     }
 
     if (index >= gAppVpCtl.langCnt) {
-        VP_LOG_MSGID_E(LOG_TAG" Error: invalide lang index: 0x%x", 1, index);
+        VP_LOG_MSGID_E(LOG_TAG" Error: invalid lang index: 0x%x", 1, index);
         return false;
     }
 

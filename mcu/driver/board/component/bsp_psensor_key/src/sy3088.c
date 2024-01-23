@@ -251,7 +251,7 @@ bool sy3088_get_sensor_status(sy3088_status_t *status)
     switch (context.status) {
         case PXS_STATUS_INIT:
             if (pxs_data < low_threshold) {
-                /* in the Far Away state，and the state is stable，sampling the PXS data and calculating the average as the background noise(also called optical crosstalk) */
+                /* in the Far Away state, and the state is stable, sampling the PXS data and calculating the average as the background noise(also called optical crosstalk) */
                 if (sy3088_pxs_data.is_stable) {
                     context.baseline = sy3088_pxs_data.average;
 

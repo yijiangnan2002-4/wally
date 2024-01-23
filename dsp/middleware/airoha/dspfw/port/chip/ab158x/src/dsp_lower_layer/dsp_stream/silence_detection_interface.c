@@ -314,25 +314,32 @@ void Sink_Audio_SilenceDetection(VOID* SrcBuf, U16 CopySize, SINK sink)
     #if defined(AIR_NLE_ENABLE) || defined(AIR_RESET_SDM_ENABLE)
     if (
     #if defined(AIR_BTA_IC_PREMIUM_G2)
-        ((afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG) ||
-         (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB))
-        && (!hal_audio_agent_user_count[HAL_AUDIO_AGENT_DEVICE_ANC])
+        (!hal_audio_agent_user_count[HAL_AUDIO_AGENT_DEVICE_ANC])
         && (!hal_audio_agent_user_count[HAL_AUDIO_AGENT_DEVICE_SIDETONE])
     #else
-        ((afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG2) ||
-         (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB) ||
-         (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG3))
-        && (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_DEVICE_ANC))
+        (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_DEVICE_ANC))
         && (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_DEVICE_SIDETONE))
     #endif
     ) {
+        #ifdef AIR_RESET_SDM_ENABLE
+            SD_Parameter.NvKey.RSDM_isEnable = TRUE;
+        #endif
+        if (
+        #if defined(AIR_BTA_IC_PREMIUM_G2)
+            ((afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG) ||
+             (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB))
+
+        #else
+            ((afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG2) ||
+             (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB) ||
+             (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG3))
+        #endif
+        ) {
         #ifdef AIR_NLE_ENABLE
             Sink_Audio_NLE_Enable(TRUE);
             SD_Parameter.NvKey.NLE_TH_dB = NLE_Silence_DetectTH_dB;
         #endif
-        #ifdef AIR_RESET_SDM_ENABLE
-            SD_Parameter.NvKey.RSDM_isEnable = TRUE;
-        #endif
+        }
             if (((afe_digital_gain[AFE_HW_DIGITAL_GAIN1].register_value == 0) || (afe_digital_gain[AFE_HW_DIGITAL_GAIN1].register_value == 0xFFFFFFFF)) &&
                        ((afe_digital_gain[AFE_HW_DIGITAL_GAIN2].register_value == 0) || (afe_digital_gain[AFE_HW_DIGITAL_GAIN2].register_value == 0xFFFFFFFF)) &&
                        ((afe_digital_gain[AFE_HW_DIGITAL_GAIN3].register_value == 0) || (afe_digital_gain[AFE_HW_DIGITAL_GAIN3].register_value == 0xFFFFFFFF)))

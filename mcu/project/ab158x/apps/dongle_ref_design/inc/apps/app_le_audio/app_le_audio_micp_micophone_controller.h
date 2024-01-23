@@ -32,8 +32,8 @@
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
 
-#ifndef __APP_LE_AUDIO_MICP_MICOPHONE_CONTROLLER_H__
-#define __APP_LE_AUDIO_MICP_MICOPHONE_CONTROLLER_H__
+#ifndef __APP_LE_AUDIO_MICP_MICROPHONE_CONTROLLER_H__
+#define __APP_LE_AUDIO_MICP_MICROPHONE_CONTROLLER_H__
 
 #ifdef AIR_LE_AUDIO_ENABLE
 
@@ -92,5 +92,5 @@ bt_status_t app_le_audio_micp_control_active_device(app_le_audio_micp_operate_t 
 bt_status_t app_le_audio_micp_control_device(app_le_audio_micp_operate_t operate, void *parameter);
 
 #endif /* AIR_LE_AUDIO_ENABLE */
-#endif /* __APP_LE_AUDIO_MICP_MICOPHONE_CONTROLLER_H__ */
+#endif /* __APP_LE_AUDIO_MICP_MICROPHONE_CONTROLLER_H__ */
 

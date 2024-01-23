@@ -149,6 +149,15 @@ static void audio_anc_monitor_update_nvkey_id_by_anc_type(audio_anc_monitor_scen
         g_anc_monitor_ed_nvkey_id_by_anc_type = NVID_DSP_ALG_ANC_ENVIRONMENT_DETECTION_SW_VIVID_PT;
         #endif
 #endif
+#ifdef AIR_CUSTOMIZED_LLF_ENABLE
+    } else if (anc_type == AUDIO_ANC_MONI_SCENARIO_TYPE_LLF) { // LLF
+        #ifdef AIR_ANC_WIND_DETECTION_ENABLE
+            g_anc_monitor_wind_nvkey_id_by_anc_type = NVID_DSP_ALG_ANC_WIND_DET_LLF;
+        #endif
+        #ifdef AIR_ANC_ENVIRONMENT_DETECTION_ENABLE
+            g_anc_monitor_ed_nvkey_id_by_anc_type = NVID_DSP_ALG_ANC_ENVIRONMENT_DETECTION_LLF;
+        #endif
+#endif
     } else {
         TRANSMITTER_LOG_E("[ANC_Monitor]audio_anc_monitor_update_nvkey_id_by_anc_type type:%d ", 1, anc_type);
         assert(0);
@@ -263,7 +272,7 @@ void audio_anc_monitor_anc_init(void)
 
 }
 
-static void audio_anc_monitor_get_anc_status(uint8_t *enable, audio_anc_monitor_scenario_type_t *anc_type, uint32_t *misc1, uint32_t *misc2)
+void audio_anc_monitor_get_anc_status(uint8_t *enable, audio_anc_monitor_scenario_type_t *anc_type, uint32_t *misc1, uint32_t *misc2)
 {
     uint8_t                            anc_enable;
     audio_anc_control_filter_id_t      anc_current_filter_id;
@@ -343,15 +352,26 @@ static void audio_anc_monitor_get_anc_status(uint8_t *enable, audio_anc_monitor_
     }
     #endif
 
+    #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
     if ((anc_enable != 0) && ((anc_current_type & 0xFFFF0000) == AUDIO_ANC_CONTROL_TYPE_PT_HA_PSAP)) {
         //Enable PSAP/HA
         local_anc_type = AUDIO_ANC_MONI_SCENARIO_TYPE_HA_PSAP;
     }
+    #endif
 
+    #ifdef AIR_HEARTHROUGH_VIVID_PT_ENABLE
     if ((anc_enable != 0) && ((anc_current_type & 0xFFFF0000) == AUDIO_ANC_CONTROL_TYPE_PT_SW_VIVID)) {
         //Enable SW vivid PT
         local_anc_type = AUDIO_ANC_MONI_SCENARIO_TYPE_SW_VIVID_PT;
     }
+    #endif
+
+    #ifdef AIR_CUSTOMIZED_LLF_ENABLE
+    if ((anc_enable != 0) && ((anc_current_type & 0xFFFF0000) == AUDIO_ANC_CONTROL_TYPE_LLF)) {
+        //Enable LLF
+        local_anc_type = AUDIO_ANC_MONI_SCENARIO_TYPE_LLF;
+    }
+    #endif
 
     if (anc_type != NULL) {
         *anc_type = local_anc_type;
@@ -508,9 +528,7 @@ void audio_anc_monitor_adaptive_anc_stream_enable(bool enable)
             audio_anc_monitor_anc_callback(AUDIO_ANC_CONTROL_EVENT_OFF, AUDIO_ANC_CONTROL_CB_LEVEL_ALL);
 
             /* disable Adaptive ANC Stream , reset extend gain. */
-            audio_anc_control_extend_ramp_cap_t init_ramp_cap;
-            init_ramp_cap.extend_gain_1 = 0;
-            init_ramp_cap.extend_gain_2 = 0;
+            audio_anc_control_extend_ramp_cap_t init_ramp_cap = {0};
             init_ramp_cap.gain_type = AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE;
             anc_ret = audio_anc_control_set_extend_gain(init_ramp_cap.gain_type, &init_ramp_cap, NULL);
             init_ramp_cap.gain_type = AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_USER_UNAWARE;
@@ -832,9 +850,7 @@ void audio_wind_detection_enable(bool enable)
     audio_anc_monitor_set_info(AUDIO_ANC_MONITOR_SET_WIND_DETECT_ENABLE, (uint32_t)enable);
     if(!enable) {
         audio_anc_control_result_t anc_ret = AUDIO_ANC_CONTROL_EXECUTION_NONE;
-        audio_anc_control_extend_ramp_cap_t init_ramp_cap;
-        init_ramp_cap.extend_gain_1 = 0;
-        init_ramp_cap.extend_gain_2 = 0;
+        audio_anc_control_extend_ramp_cap_t init_ramp_cap = {0};
         init_ramp_cap.gain_type = AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE;
         anc_ret = audio_anc_control_set_extend_gain(init_ramp_cap.gain_type, &init_ramp_cap, NULL);
         if(anc_ret != 0) {
@@ -1047,9 +1063,7 @@ void audio_environment_detection_enable(bool enable)
     audio_anc_monitor_set_info(AUDIO_ANC_MONITOR_SET_ENVIRONMENT_DETECTION_ENABLE, (uint32_t)enable);
     if(!enable) {
         audio_anc_control_result_t anc_ret = AUDIO_ANC_CONTROL_EXECUTION_NONE;
-        audio_anc_control_extend_ramp_cap_t init_ramp_cap;
-        init_ramp_cap.extend_gain_1 = 0;
-        init_ramp_cap.extend_gain_2 = 0;
+        audio_anc_control_extend_ramp_cap_t init_ramp_cap = {0};
         init_ramp_cap.gain_type = AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION;
         anc_ret = audio_anc_control_set_extend_gain(init_ramp_cap.gain_type, &init_ramp_cap, NULL);
         if(anc_ret != 0) {

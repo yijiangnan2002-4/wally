@@ -49,7 +49,9 @@
 #include "race_cmd_dsprealtime.h"
 #include "bt_connection_manager_internal.h"
 #ifdef MTK_BT_DUO_ENABLE
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 #include "bt_sink_srv_music.h"
+#endif
 #endif
 #ifdef AIR_MCSYNC_SHARE_ENABLE
 #include "race_cmd_share_mode.h"
@@ -61,6 +63,7 @@
 #include "race_event.h"
 #endif
 #include "peq_setting.h"
+#include "fixrate_control.h"
 ////////////////////////////////////////////////////////////////////////////////
 // Constant Definitions ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -416,6 +419,7 @@ void race_mmi_get_passthru_gain(uint8_t *gain, uint8_t *status)
 }
 
 #ifdef MTK_BT_DUO_ENABLE
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 static void race_mmi_get_game_mode(uint8_t *game_mode, uint8_t *status)
 {
     uint32_t count = 0;
@@ -434,6 +438,7 @@ static void race_mmi_get_game_mode(uint8_t *game_mode, uint8_t *status)
     }
 
 }
+#endif
 #endif
 
 /**
@@ -594,6 +599,15 @@ static void race_mmi_get_share_mode_sta(uint8_t *share_mode_sta, uint8_t *status
     }
 }
 #endif
+void race_mmi_set_fix_rate(uint8_t ctl,uint8_t *status)
+{
+    if (ctl == TRUE) {
+        aud_fixrate_set_bypass_fix_rate (TRUE);
+    } else {
+        aud_fixrate_set_bypass_fix_rate (FALSE);
+    }
+    *status = (uint8_t)RACE_ERRCODE_SUCCESS;
+}
 
 /**
  * RACE_MMI_SET_ENUM_HDR
@@ -635,6 +649,12 @@ void *RACE_MMI_SET_ENUM_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
             case RACE_MMI_MODULE_USB_PEQ_GROUP_ID:
                 race_mmi_set_peq_group_id(pCmd->parameters[0], &pEvt->status, AM_USB_IN_PEQ);
                 break;
+            case RACE_MMI_MODULE_MIC_PEQ_GROUP_ID:
+                race_mmi_set_peq_group_id(pCmd->parameters[0], &pEvt->status, AM_MIC_PEQ);
+                break;
+            case RACE_MMI_MODULE_ADVANCED_RECORD_PEQ_GROUP_ID:
+                race_mmi_set_peq_group_id(pCmd->parameters[0], &pEvt->status, AM_ADVANCED_RECORD_PEQ);
+                break;
             case RACE_MMI_MODULE_VP_SET:
                 race_mmi_set_vp_group_id(pCmd->parameters[0], &pEvt->status);
                 break;
@@ -667,6 +687,9 @@ void *RACE_MMI_SET_ENUM_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
                 race_mmi_set_share_mode(pCmd->parameters[0], &pEvt->status);
                 break;
 #endif
+            case RACE_MMI_MODULE_FIXRATE:
+                race_mmi_set_fix_rate(pCmd->parameters[0], &pEvt->status);
+                break;
             default:
                 break;
         }
@@ -766,6 +789,7 @@ void *RACE_MMI_GET_ENUM_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
         }
 
 #ifdef MTK_BT_DUO_ENABLE
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
         case RACE_MMI_MODULE_GAME_MODE:
             pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)RACE_MMI_GET_ENUM, (uint16_t)sizeof(RACE_MMI_GET_ENUM_EVT_STRU), channel_id);
             if (pEvt) {
@@ -773,6 +797,7 @@ void *RACE_MMI_GET_ENUM_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
                 race_mmi_get_game_mode(&pEvt->data[0], &pEvt->status);
             }
             break;
+#endif
 #endif
 
             /**
@@ -995,6 +1020,4 @@ void race_cmd_hostaudio_cosys_relay_set_cmd_callback(bool is_critical, uint8_t *
 }
 
 #endif
-
 #endif /* RACE_HOSTAUDIO_CMD_ENABLE */
-

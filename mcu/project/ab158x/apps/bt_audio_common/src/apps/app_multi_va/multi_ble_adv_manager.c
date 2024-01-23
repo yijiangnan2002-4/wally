@@ -1862,6 +1862,9 @@ void multi_ble_adv_manager_init(void)
 
 #ifdef AIR_SWIFT_PAIR_ENABLE
     s_multi_adv_data[MULTI_ADV_INSTANCE_SWIFT_PAIR].m_get_adv_cb = multi_adv_manager_get_swift_pair_adv_data_cb;
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
+    s_multi_adv_data[MULTI_ADV_INSTANCE_SWIFT_PAIR].m_conn_handle_not_rho = true;
+#endif
 #endif
 #ifdef AIR_TILE_ENABLE
     s_multi_adv_data[MULTI_ADV_INSTANCE_TILE].m_get_adv_cb = multi_adv_manager_get_tile_adv_data_cb;

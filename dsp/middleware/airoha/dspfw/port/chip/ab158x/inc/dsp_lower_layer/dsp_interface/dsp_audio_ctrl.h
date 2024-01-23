@@ -99,6 +99,8 @@ extern DSP_AUDIO_CTRL_t gAudioCtrl;
  ******************************************************************************/
 extern VOID DSP_CTRL_Initialization(VOID);
 extern VOID DSP_CTRL_ChangeStatus(AU_DSP_STATUS_LIST_t Component, AU_DSP_STATUS_CH_t Stat);
-
+#if (defined AIR_BTA_IC_PREMIUM_G2) || (defined AIR_BTA_IC_STEREO_HIGH_G3)
+extern VOID DSP_CTRL_AudioMicBiasControl(hal_ccni_message_t msg, hal_ccni_message_t *ack);
+#endif
 #endif /* __DSP_AUDIOCTRL_H__ */
 

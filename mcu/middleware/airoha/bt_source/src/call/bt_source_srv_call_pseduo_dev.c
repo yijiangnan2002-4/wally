@@ -91,6 +91,7 @@ static void bt_source_srv_call_psd_slience_detection_callback(bt_audio_notify_ev
 void bt_source_srv_call_psd_audio_transmitter_callback(audio_transmitter_event_t event, void *data, void *user_data)
 {
     LOG_MSGID_I(source_srv, "[AG][PSD] audio transmitter callback event = %02x", 1, event);
+    bt_source_srv_mutex_lock();
     bt_source_srv_call_pseduo_dev_t *device = (bt_source_srv_call_pseduo_dev_t *)user_data;
     static uint32_t play_number = 0;
     switch (event) {
@@ -121,6 +122,7 @@ void bt_source_srv_call_psd_audio_transmitter_callback(audio_transmitter_event_t
         default:
             break;
     }
+    bt_source_srv_mutex_unlock();
 }
 
 bool bt_source_srv_call_psd_is_ready(void *device)

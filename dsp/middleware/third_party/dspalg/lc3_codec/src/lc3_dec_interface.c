@@ -239,12 +239,20 @@ VOID LC3_Tab_Dec_MemInit (VOID* para,LC3I_Param *param){
             lc3_memory = (LC3_INSTANCE_PTR) preloader_pisplit_malloc_memory( PRELOADER_D_HIGH_PERFORMANCE , sizeof(LC3_INSTANCE));
             DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Common_Init()",0);
             /*Table Common*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+            lc3i_tab_common_size = LC3PLUSN_Tab_Common_Get_MemSize();
+#else
             lc3i_tab_common_size = LC3I_Tab_Common_Get_MemSize();
+#endif
             DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Common_Init() lc3i_tab_common_size %d",1, lc3i_tab_common_size);
 
             lc3i_tab_common_size = (lc3i_tab_common_size + 7) / 8 * 8;
             p_lc3i_tab_common = (void*) preloader_pisplit_malloc_memory( PRELOADER_D_HIGH_PERFORMANCE , lc3i_tab_common_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+            ret = LC3PLUSN_Tab_Common_Init(p_lc3i_tab_common);
+#else
             ret = LC3I_Tab_Common_Init(p_lc3i_tab_common);
+#endif
             if (ret != LC3_OK) {
                 DSP_MW_LOG_E("[lc3][fail] LC3I_Tab_Common_Init() %d", 1, ret);
                 return;
@@ -252,14 +260,22 @@ VOID LC3_Tab_Dec_MemInit (VOID* para,LC3I_Param *param){
             DSP_MW_LOG_I("[lc3][dec][enc] LC3I_Tab_Common_Init() Done 0x%08x",1,p_lc3i_tab_common);
         }
 
-        DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Dec_Init()",0);
+        DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Dec_Init() frame_ms %d sr %d,",2,param->frame_ms,param->sr);
         /*Table Dec*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        lc3i_tab_dec_size = LC3PLUSN_Tab_Dec_Get_MemSize(param);
+#else
         lc3i_tab_dec_size = LC3I_Tab_Dec_Get_MemSize(param);
+#endif
         lc3i_tab_dec_size = (lc3i_tab_dec_size + 7) / 8 * 8;
         DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Dec_Init()lc3i_tab_dec_size %d",1, lc3i_tab_dec_size);
 
         p_lc3i_tab_dec = (void*) preloader_pisplit_malloc_memory( PRELOADER_D_HIGH_PERFORMANCE , lc3i_tab_dec_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Tab_Dec_Init(p_lc3i_tab_common, p_lc3i_tab_dec, param);
+#else
         ret = LC3I_Tab_Dec_Init(p_lc3i_tab_common, p_lc3i_tab_dec, param);
+#endif
         if (ret != LC3_OK) {
             DSP_MW_LOG_E("[lc3][fail] LC3I_Tab_Dec_Init() %d", 1, ret);
             return;
@@ -268,17 +284,27 @@ VOID LC3_Tab_Dec_MemInit (VOID* para,LC3I_Param *param){
 
         /*Decoder Working Buffer*/
         DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() ch %d sr %d frame_ms %d plcmeth %d ",4, lc3_param_encdec[0].ch, lc3_param_encdec[0].sr, lc3_param_encdec[0].frame_ms, lc3_param_encdec[0].plcmeth);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        lc3i_dec_size = LC3PLUSN_Dec_Get_MemSize(lc3_param_encdec[0].ch, lc3_param_encdec[0].sr, lc3_param_encdec[0].frame_ms, lc3_param_encdec[0].plcmeth);
+#else
         lc3i_dec_size = LC3I_Dec_Get_MemSize(lc3_param_encdec[0].ch, lc3_param_encdec[0].sr, lc3_param_encdec[0].frame_ms, lc3_param_encdec[0].plcmeth);
+#endif
         lc3i_dec_size = (lc3i_dec_size + 7) / 8 * 8;
         DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() lc3i_dec_size %d",1, lc3i_dec_size);
         p_lc3i_dec = (void*) preloader_pisplit_malloc_memory( PRELOADER_D_HIGH_PERFORMANCE , lc3i_dec_size);
         DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() bps %d sr %d ch %d frame_ms %d delay %d plcmeth %d",6, lc3_param_encdec[0].bps, lc3_param_encdec[0].sr, lc3_param_encdec[0].ch, lc3_param_encdec[0].frame_ms, lc3_param_encdec[0].delay, lc3_param_encdec[0].plcmeth);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Dec_Init(p_lc3i_dec, lc3_param_encdec[0].bps, lc3_param_encdec[0].sr, lc3_param_encdec[0].ch, lc3_param_encdec[0].frame_ms, lc3_param_encdec[0].delay, lc3_param_encdec[0].plcmeth, 0);
+#else
         ret = LC3I_Dec_Init(p_lc3i_dec, lc3_param_encdec[0].bps, lc3_param_encdec[0].sr, lc3_param_encdec[0].ch, lc3_param_encdec[0].frame_ms, lc3_param_encdec[0].delay, lc3_param_encdec[0].plcmeth);
+#endif
         if (ret != LC3_OK) {
             DSP_MW_LOG_E("[lc3][fail] LC3I_Dec_Init() %d", 1, ret);
             return;
         }
+#ifndef AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE
         DSP_MW_LOG_I("[lc3] LC3I_Get_Version : %x",1,LC3I_Get_Version());
+#endif
         DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() Done 0x%08x",1, p_lc3i_dec);
 
         lc3_memory->lc3_dec_memory.MemoryCheck = LC3_DEC_VALID_MEMORY_CHECK_VALUE;
@@ -418,6 +444,7 @@ bool stream_codec_decoder_lc3_initialize(void *para)
     LC3I_Param lc3_param;
     lc3_param.frame_ms = frame_interval;
     lc3_param.sr = sample_rate;
+    DSP_MW_LOG_I("[lc3][dec] frame_ms %d, sr %d",2,lc3_param.frame_ms,lc3_param.sr);
     LC3_Tab_Dec_MemInit (para, &lc3_param);
     //DSP_MW_LOG_I("[lc3][XT] alg %X, p_mem %X, p_tmp %X",3,lc3_MEM_PTR[0].alg,lc3_MEM_PTR[0].p_mem,lc3_MEM_PTR[0].p_tmp);
 
@@ -440,7 +467,9 @@ bool stream_codec_decoder_lc3_initialize(void *para)
     }
 
     lc3_memory->lc3_dec_memory.InitDone = true;
+#ifndef AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE
     DSP_MW_LOG_I("[lc3] LC3I_Get_Version : %x",1,LC3I_Get_Version());
+#endif
     DSP_MW_LOG_I("[lc3][dec] stream_codec_decoder_lc3_initialize() exit", 0);
     return false;
 }
@@ -531,10 +560,17 @@ ATTR_TEXT_IN_IRAM bool stream_codec_decoder_lc3_process(void *para)
             configASSERT(0);
         }
 #endif
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Dec_Prcs(p_lc3i_dec, p_lc3i_tab_common,
+                            input_buffer + i * bit_stream_size,
+                            left_buffer + i * g_lc3_frame_sample * channel_number,
+                            bit_stream_size, packet_lost_st, bad_frame_indicator, &lc3_FFTx);
+#else
         ret = LC3I_Dec_Prcs(p_lc3i_dec, p_lc3i_tab_common,
                             input_buffer + i * bit_stream_size,
                             left_buffer + i * g_lc3_frame_sample * channel_number,
                             bit_stream_size, packet_lost_st, bad_frame_indicator, &lc3_FFTx);
+#endif
         if ((ret != LC3_OK) && (packet_lost_st == 0)) {
             DSP_MW_LOG_E("[lc3][dec][fail] LC3_Dec_Prcs() %d PLC : %d SEQ: %d", 3, ret, packet_lost_st, stream_ptr->source->param.n9ble.seq_num + i);
             //configASSERT(0);
@@ -547,7 +583,11 @@ ATTR_TEXT_IN_IRAM bool stream_codec_decoder_lc3_process(void *para)
 #endif
 
         /* L/R and resolution adjustment if needed */
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        LC3PLUSN_Dec_Get_Param(p_lc3i_dec, &curr_frame_sample_count, &look_ahead_delay);
+#else
         LC3I_Dec_Get_Param(p_lc3i_dec, &curr_frame_sample_count, &look_ahead_delay);
+#endif
         frame_sample_count += curr_frame_sample_count;
         //DSP_MW_LOG_I("[lc3] ret %d, frame_length %d, packet_lost_st %d, curr_frame_sample_count %d", 4, ret, stream_ptr->source->param.n9ble.frame_length, packet_lost_st, curr_frame_sample_count);
     }

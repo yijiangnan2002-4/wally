@@ -42,20 +42,24 @@
 #include "bt_hci.h"
 #include "ui_shell_activity.h"
 
-#define LE_AUDIO_COD 0x244404               /* Default BT COD(Class Of Device) refer to BT spec. Enable LE Audio bit. */
-#define LE_AUDIO_COD_DISABLE_LEA 0x240404   /* Default BT COD(Class Of Device) refer to BT spec. Disable LE Audio bit. */
+#define LE_AUDIO_COD                           0x244404   /* Default BT COD(Class Of Device) refer to BT spec. Enable LE Audio bit. */
+#define LE_AUDIO_COD_DISABLE_LEA               0x240404   /* Default BT COD(Class Of Device) refer to BT spec. Disable LE Audio bit. */
+
+#define BT_SIG_AD_TYPE_APPEARANCE_EARBUD       0x0941
+#define BT_SIG_AD_TYPE_APPEARANCE_HEADSET      0x0942
+#define BT_SIG_AD_TYPE_APPEARANCE_SPEAKER      0x0845
 
 void app_le_audio_init(void);
 
 bool app_le_audio_set_feature_mode(uint8_t feature_mode);
-
-void app_le_audio_reset(void);
 
 bool app_le_audio_get_addr(bool local_or_peer, uint8_t *type, uint8_t *addr);
 
 bool app_le_audio_is_connected(void);
 
 bool app_le_audio_is_clear_adv_data(void);
+
+bool app_le_audio_is_cis_streaming(void);
 
 #ifdef MTK_AWS_MCE_ENABLE
 bool app_le_audio_is_primary_earbud(void);

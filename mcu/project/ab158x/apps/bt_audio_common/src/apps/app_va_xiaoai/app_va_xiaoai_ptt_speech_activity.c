@@ -55,7 +55,7 @@
 
 #define LOG_TAG           "[XIAOAI_VA][PTT]"
 
-bool app_va_xiaoai_ptt_sppech_activity_proc_ui_shell_group(ui_shell_activity_t *self,
+bool app_va_xiaoai_ptt_speech_activity_proc_ui_shell_group(ui_shell_activity_t *self,
                                                            uint32_t event_id,
                                                            void *extra_data,
                                                            size_t data_len)
@@ -91,7 +91,7 @@ bool app_va_xiaoai_ptt_sppech_activity_proc_ui_shell_group(ui_shell_activity_t *
     return TRUE;
 }
 
-bool app_va_xiaoai_ptt_sppech_activity_proc(struct _ui_shell_activity *self,
+bool app_va_xiaoai_ptt_speech_activity_proc(struct _ui_shell_activity *self,
                                             uint32_t event_group,
                                             uint32_t event_id,
                                             void *extra_data,
@@ -100,7 +100,7 @@ bool app_va_xiaoai_ptt_sppech_activity_proc(struct _ui_shell_activity *self,
     bool ret = FALSE;
     switch (event_group) {
         case EVENT_GROUP_UI_SHELL_SYSTEM: {
-            ret = app_va_xiaoai_ptt_sppech_activity_proc_ui_shell_group(self, event_id, extra_data, data_len);
+            ret = app_va_xiaoai_ptt_speech_activity_proc_ui_shell_group(self, event_id, extra_data, data_len);
             break;
         }
         case EVENT_GROUP_UI_SHELL_APP_INTERACTION: {

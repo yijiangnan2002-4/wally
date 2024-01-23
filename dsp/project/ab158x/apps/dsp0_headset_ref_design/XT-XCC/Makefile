@@ -100,6 +100,11 @@ MTK_SWLA_ENABLE                       := y
 # 2a2d, AFE driver
 MTK_AUDIO_SUPPORT_MULTIPLE_MICROPHONE := y
 LINE_IN_PURE_FOR_AMIC_CLASS_G_HQA     := y
+# multiple stream out
+ifeq ($(AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE),y)
+AIR_ECHO_PATH_FIRST_ENABLE            ?= y
+AIR_ECHO_PATH_SECOND_ENABLE           ?= n
+endif
 # HFP
 MTK_BT_HFP_FORWARDER_ENABLE           := y
 ifeq ($(IC_CONFIG),ab157x)
@@ -141,8 +146,8 @@ endif
 MTK_BT_A2DP_MSBC_USE_PIC              ?= y
 # Voice DRC module
 # To do : It can be enable after the feature is changed to PIC
-ifeq ($(IC_CONFIG),ab157x)
-AIR_VOICE_DRC_ENABLE                  := y
+ifeq ($(IC_TYPE),ab1571d)
+AIR_VOICE_DRC_ENABLE                  := n
 else
 AIR_VOICE_DRC_ENABLE                  := y
 endif
@@ -154,9 +159,14 @@ endif
 AIR_FIXED_RATIO_SRC                   ?= y
 
 # Sidetone
+ifeq ($(IC_TYPE),ab1571d)
+AIR_SIDETONE_ENABLE                   ?= n
+ENABLE_SIDETONE_RAMP_TIMER            ?= n
+else
 AIR_SIDETONE_ENABLE                   ?= y
-
 ENABLE_SIDETONE_RAMP_TIMER            ?= y
+endif
+
 # Low power level
 MTK_LOWPOWER_LEVEL                    := 2
 
@@ -404,12 +414,12 @@ AIR_BT_CLK_SKEW_ENABLE = y
 MTK_BT_CLK_SKEW_USE_PIC = y
 
 # Load Clk Skew Lib From Source Code or Object File
-CLKSKEW_LIB = $(strip $(ROOTDIR))/middleware/airoha/dspalg/clk_skew_protected/module.mk
-ifeq ($(CLKSKEW_LIB), $(wildcard $(CLKSKEW_LIB)))
-MTK_BT_CLK_SKEW_LOAD_ENABLE           := y
-else
+#CLKSKEW_LIB = $(strip $(ROOTDIR))/middleware/airoha/dspalg/clk_skew_protected/module.mk
+#ifeq ($(CLKSKEW_LIB), $(wildcard $(CLKSKEW_LIB)))
+#MTK_BT_CLK_SKEW_LOAD_ENABLE           := y
+#else
 MTK_BT_CLK_SKEW_LOAD_ENABLE           := n
-endif
+#endif
 
 ifeq ($(AIR_BT_HFP_ENABLE),y)
 AIR_SOFTWARE_GAIN_ENABLE              := y
@@ -458,6 +468,14 @@ AIR_LE_AUDIO_DONGLE_ENABLE            := n
 AIR_BT_CODEC_BLE_V2_ENABLED           := n
 MTK_BT_A2DP_LC3_USE_PIC               := n
 MTK_BT_A2DP_LC3_USE_LIGHT_PIC         := n
+endif
+LC3PLUS_CODEC_LIB = $(strip $(ROOTDIR))/middleware/third_party/dspalg/lc3plus_codec/module.mk
+ifeq ($(LC3PLUS_CODEC_LIB), $(wildcard $(LC3PLUS_CODEC_LIB)))
+ifeq ($(AIR_AUDIO_LC3PLUS_CODEC_ENABLE),y)
+AIR_BT_LE_LC3PLUS_ENABLE              := y
+AIR_BT_LE_LC3PLUS_USE_PIC             := y
+AIR_BT_LE_LC3PLUS_USE_ALL_MODE        := n
+endif
 endif
 AIR_MULTI_MIC_STREAM_ENABLE           := n
 AIR_DONGLE_AFE_IN_TYPE                ?= NONE
@@ -551,6 +569,12 @@ endif
 ifeq ($(AIR_AUDIO_ULD_CODEC_ENABLE),y)
 AIR_AUDIO_ULD_DECODE_ENABLE           := y
 AIR_AUDIO_ULD_DECODE_USE_PIC_ENABLE   := y
+AIR_BLE_FIXED_RATIO_SRC_ENABLE        := y
+endif
+else
+ifeq ($(AIR_AUDIO_LC3PLUS_CODEC_ENABLE),y)
+AIR_BT_LE_LC3PLUS_ENABLE              := y
+AIR_BT_LE_LC3PLUS_USE_PIC             := y
 endif
 endif
 
@@ -725,17 +749,27 @@ endif
 
 # dual chip mixing
 ifeq ($(AIR_DUAL_CHIP_MIXING_MODE),master)
+ifeq ($(AIR_DUAL_CHIP_AUDIO_INTERFACE),uart)
+else
 AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE := y
 AIR_WIRED_AUDIO_ENABLE                := y
 AIR_AUDIO_HW_LOOPBACK_ENABLE          := y
 AIR_DUAL_CHIP_NR_ON_MASTER_ENABLE     := y
-AIR_AUDIO_DETACHABLE_MIC_ENABLE       := y
+AIR_HWSRC_RX_TRACKING_ENABLE          := y
 endif
+endif
+
 ifeq ($(AIR_DUAL_CHIP_MIXING_MODE),slave)
+ifeq ($(AIR_DUAL_CHIP_AUDIO_INTERFACE),uart)
+else
 AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE := y
 AIR_WIRED_AUDIO_ENABLE                := y
 AIR_AUDIO_HW_LOOPBACK_ENABLE          := y
 AIR_DUAL_CHIP_NR_ON_MASTER_ENABLE     := y
+AIR_HWSRC_RX_TRACKING_ENABLE          := y
+AIR_HWSRC_TX_TRACKING_ENABLE          := y
+AIR_DUAL_CHIP_I2S_ENABLE              := y
+endif
 endif
 
 ifeq ($(AIR_WIRED_AUDIO_ENABLE),y)
@@ -809,10 +843,17 @@ AIR_BT_CODEC_BLE_ENABLED              := n
 AIR_BT_LE_LC3_ENABLE                  := n
 MTK_BT_A2DP_LC3_USE_PIC               := n
 MTK_BT_A2DP_LC3_USE_LIGHT_PIC         := n
-AIR_BLE_FIXED_RATIO_SRC_ENABLE        := n
+AIR_BLE_FIXED_RATIO_SRC_ENABLE        ?= n
 endif
 endif
 
+# A2DP
+LC3PLUS_CODEC_LIB = $(strip $(ROOTDIR))/middleware/third_party/dspalg/lc3plus_codec/module.mk
+ifeq ($(LC3PLUS_CODEC_LIB), $(wildcard $(LC3PLUS_CODEC_LIB)))
+ifeq ($(AIR_AUDIO_LC3PLUS_CODEC_ENABLE),y)
+AIR_BT_A2DP_LC3PLUS_ENABLE           := y
+endif
+endif
 
 ##$(error "Error: $(AIR_LE_AUDIO_ENABLE), $(AIR_BT_CODEC_BLE_V2_ENABLED), $(AIR_BT_CODEC_BLE_ENABLED),")
 
@@ -1198,15 +1239,6 @@ endif
 
 #
 ifeq ($(AIR_HWSRC_ON_MAIN_STREAM_ENABLE),y)
-ifeq ($(AIR_HWSRC_IN_STREAM_ENABLE),y)
-	$(warning "Error: [Conflict feature option] To enable AIR_HWSRC_ON_MAIN_STREAM_ENABLE must not support AIR_HWSRC_IN_STREAM_ENABLE")
-	@echo "Error: [Conflict feature option] To enable AIR_HWSRC_ON_MAIN_STREAM_ENABLE must not support AIR_HWSRC_IN_STREAM_ENABLE";
-	@set -e; exit 2;
-endif
-endif
-
-#
-ifeq ($(AIR_HWSRC_ON_MAIN_STREAM_ENABLE),y)
 ifneq ($(AIR_HWSRC_CLKSKEW_ENABLE),y)
 	$(warning "Error: [Conflict feature option] To enable AIR_HWSRC_ON_MAIN_STREAM_ENABLE must support AIR_HWSRC_CLKSKEW_ENABLE")
 	@echo "Error: [Conflict feature option] To enable AIR_HWSRC_ON_MAIN_STREAM_ENABLE must support AIR_HWSRC_CLKSKEW_ENABLE";
@@ -1251,6 +1283,35 @@ ifneq ($(AIR_HWSRC_ON_MAIN_STREAM_ENABLE),y)
 ifneq ($(AIR_HWSRC_IN_STREAM_ENABLE),y)
 	$(warning "Error: [Conflict feature option] To enable AIR_DOWNLINK_RATE = 96k must support AIR_HWSRC_ON_MAIN_STREAM_ENABLE")
 	@echo "Error: [Conflict feature option] To enable AIR_DOWNLINK_RATE = 96k must support AIR_HWSRC_ON_MAIN_STREAM_ENABLE";
+	@set -e; exit 2;
+endif
+endif
+endif
+
+#check sampling rate config
+ifeq ($(AIR_DOWNLINK_RATE),48k)
+ifeq ($(AIR_A2DP_DL_STREAM_RATE_FIX),96k)
+	$(warning "Error: [Conflict feature option] If AIR_DOWNLINK_RATE and AIR_A2DP_DL_STREAM_RATE_FIX are enabled at the same time, AIR_DOWNLINK_RATE and AIR_A2DP_DL_STREAM_RATE_FIX need to be equal")
+	@echo "Error: [Conflict feature option] If AIR_DOWNLINK_RATE and AIR_A2DP_DL_STREAM_RATE_FIX are enabled at the same time, AIR_DOWNLINK_RATE and AIR_A2DP_DL_STREAM_RATE_FIX need to be equal";
+	@set -e; exit 2;
+endif
+endif
+
+#check sampling rate config
+ifeq ($(AIR_DOWNLINK_RATE),96k)
+ifeq ($(AIR_A2DP_DL_STREAM_RATE_FIX),48k)
+	$(warning "Error: [Conflict feature option] If AIR_DOWNLINK_RATE and AIR_A2DP_DL_STREAM_RATE_FIX are enabled at the same time, AIR_DOWNLINK_RATE and AIR_A2DP_DL_STREAM_RATE_FIX need to be equal")
+	@echo "Error: [Conflict feature option] If AIR_DOWNLINK_RATE and AIR_A2DP_DL_STREAM_RATE_FIX are enabled at the same time, AIR_DOWNLINK_RATE and AIR_A2DP_DL_STREAM_RATE_FIX need to be equal";
+	@set -e; exit 2;
+endif
+endif
+
+#check sampling rate config
+ifeq ($(AIR_DOWNLINK_RATE), 48k)
+ifeq ($(findstring y,$(AIR_BT_A2DP_LHDC_ENABLE) $(AIR_BT_A2DP_VENDOR_1_ENABLE)),y)
+ifeq ($(IC_CONFIG), ab157x)
+	$(warning "Error: [Conflict feature option] Hi-Res Codec is enabled, AIR_DOWNLINK_RATE should be 96k")
+	@echo "Error: [Conflict feature option] Hi-Res Codec is enabled, AIR_DOWNLINK_RATE should be 96k";
 	@set -e; exit 2;
 endif
 endif

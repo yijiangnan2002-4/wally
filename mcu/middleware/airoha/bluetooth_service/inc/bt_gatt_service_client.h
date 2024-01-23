@@ -108,9 +108,20 @@ typedef uint8_t bt_gatt_srv_client_action_t;                                    
 /**
  * @brief Define the GATT service client event.
  */
-#define BT_GATT_SRV_CLIENT_EVENT_READ_VALUE_COMPLTETE                  0x00         /**< This event indicates the read value is complete with #bt_gatt_srv_client_read_value_complete_t as the payload. */
-#define BT_GATT_SRV_CLIENT_EVENT_WRITE_CCCD_COMPLTETE                  0x01         /**< This event indicates the write CCCD is complete with payload is NULL. */
+#define BT_GATT_SRV_CLIENT_EVENT_READ_VALUE_COMPLETE                   0x00         /**< This event indicates the read value is complete with #bt_gatt_srv_client_read_value_complete_t as the payload. */
+#define BT_GATT_SRV_CLIENT_EVENT_WRITE_CCCD_COMPLETE                   0x01         /**< This event indicates the write CCCD is complete with payload as NULL. */
 typedef uint8_t bt_gatt_srv_client_event_t;                                         /**< The event type. */
+
+/**
+ * @deprecated Use #BT_GATT_SRV_CLIENT_EVENT_READ_VALUE_COMPLETE instead.
+ */
+#define BT_GATT_SRV_CLIENT_EVENT_READ_VALUE_COMPLTETE              (BT_GATT_SRV_CLIENT_EVENT_READ_VALUE_COMPLETE)    /**< This event will be phased out and removed in the next SDK major version. Do not use. */
+
+/**
+ * @deprecated Use #BT_GATT_SRV_CLIENT_EVENT_WRITE_CCCD_COMPLETE instead.
+ */
+#define BT_GATT_SRV_CLIENT_EVENT_WRITE_CCCD_COMPLTETE              (BT_GATT_SRV_CLIENT_EVENT_WRITE_CCCD_COMPLETE)    /**< This event will be phased out and removed in the next SDK major version. Do not use. */
+
 
 /**
  * @brief Define the enable type.
@@ -193,7 +204,7 @@ bt_status_t bt_gatt_srv_client_init(void);
 
 /**
  * @brief                       This function sends an action to the GATT service client.
- * @param[in] action            is the GATT servce client action.
+ * @param[in] action            is the GATT service client action.
  * @param[in] parameter         is the parameter of the action.
  * @param[in] length            is the length of the parameter.
  * @return                      #BT_STATUS_SUCCESS, the action is sent successfully.

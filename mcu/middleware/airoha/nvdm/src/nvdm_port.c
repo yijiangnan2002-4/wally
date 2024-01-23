@@ -605,7 +605,6 @@ bool nvdm_port_send_queue(void)
 
     return true;
 }
-
 bool nvdm_request_gc_in_daemon(const void *para)
 {
     BaseType_t ret;
@@ -622,7 +621,6 @@ bool nvdm_port_send_queue(void)
 {
     return false;
 }
-
 bool nvdm_req_gc_in_daemon(const void *para)
 {
     return false;
@@ -726,33 +724,43 @@ static nvdm_partition_cfg_t cfg_array[] = {
         NVDM_PORT_DAT_ITEM_COUNT
     },
 };
-#define MVDM_PARTITION_NUMBER (sizeof(cfg_array)/sizeof(nvdm_partition_cfg_t))
 
+static  uint32_t MVDM_PARTITION_NUMBER = 0;
 
-nvdm_partition_cfg_t *nvdm_port_load_partition_info(uint32_t *partition_num)
+nvdm_partition_cfg_t *nvdm_port_load_partition_info(uint32_t *total_partition_num)
 {
-    uint32_t idx;
-    for (idx = 0; idx < MVDM_PARTITION_NUMBER; idx++) {
-        switch (idx) {
-            case 0:
-                cfg_array[idx].base_addr = ROM_NVDM_BASE;
-                cfg_array[idx].peb_count = ROM_NVDM_LENGTH / NVDM_PORT_PEB_SIZE;
-                break;
-            case 1:
-                cfg_array[idx].base_addr = ROM_NVDM_OU_BASE;
-                cfg_array[idx].peb_count = ROM_NVDM_OU_LENGTH / NVDM_PORT_PEB_SIZE;
-                break;
-            default:
-#ifndef __EXT_BOOTLOADER__
-                LOG_MSGID_E(nvdm, "cfg_array error( %u <-> %u)\r\n", 2, idx, MVDM_PARTITION_NUMBER);
-#else
-                bl_print(LOG_ERROR, "cfg_array error( %u <-> %u)\r\n", idx, MVDM_PARTITION_NUMBER);
-#endif
-                nvdm_port_must_assert();
-                break;
-        }
+    uint32_t partition_num = 0;
+    uint32_t avail_len = 0;
+
+    /* nvdm partition info be defined in memory_map.h in project inc/ folder */
+#ifdef ROM_NVDM_BASE
+    avail_len = ROM_NVDM_LENGTH;
+    if (0 != avail_len) {
+        cfg_array[partition_num].base_addr = ROM_NVDM_BASE;
+        cfg_array[partition_num].peb_count = ROM_NVDM_LENGTH / NVDM_PORT_PEB_SIZE;
+        partition_num++;
     }
-    *partition_num = MVDM_PARTITION_NUMBER;
+#endif
+
+#ifdef ROM_NVDM_OU_BASE
+    avail_len = ROM_NVDM_OU_LENGTH;
+    if (0 != avail_len) {
+        cfg_array[partition_num].base_addr = ROM_NVDM_OU_BASE;
+        cfg_array[partition_num].peb_count = ROM_NVDM_OU_LENGTH / NVDM_PORT_PEB_SIZE;
+        partition_num++;
+    }
+#endif
+
+    /*if not partition for nvdm the print error log*/
+    if (partition_num == 0) {
+#ifndef __EXT_BOOTLOADER__
+        LOG_MSGID_E(nvdm, "nvdm_port_load_partition_info: No partition found for nvdm", 0);
+#else
+        bl_print(LOG_ERROR, "nvdm_port_load_partition_info: No partition found for nvdm\r\n");
+#endif
+    }
+    MVDM_PARTITION_NUMBER = partition_num;
+    *total_partition_num  = partition_num;
     return cfg_array;
 }
 

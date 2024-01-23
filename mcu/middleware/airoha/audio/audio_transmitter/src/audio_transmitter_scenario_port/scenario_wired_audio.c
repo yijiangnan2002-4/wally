@@ -39,6 +39,9 @@
 #include "audio_dump.h"
 #endif
 #include "bsp_audio_ext_codec.h"
+#include "scenario_dongle_common.h"
+#include "fixrate_control.h"
+
 #define WIRED_AUDIO_UNUSED(x)  ((void)(x))
 
 //#define AIR_WIRED_AUDIO_UT_DEBUG_ENABLE
@@ -187,291 +190,6 @@ static bool usb_audio_usb_out_started_flag = 0;
 static void usb_audio_rx_cb_wired_audio_0(void);
 static void usb_audio_rx_cb_wired_audio_1(void);
 static void usb_audio_tx_cb_wired_audio_0(void);
-
-#if WIRED_AUDIO_USB_DEBUG_LANTENCY
-
-//#define WIRED_AUDIO_USB_IN_DEBUG_THRESHOLD 6000
-//#define WIRED_AUDIO_USB_OUT_DEBUG_HIGH_THRESHOLD 2000
-//#define WIRED_AUDIO_USB_OUT_DEBUG_LOW_THRESHOLD -600
-
-typedef struct {
-    hal_gpio_pin_t latency_debug_gpio_pin;
-    uint16_t latency_debug_enable;
-    int32_t latency_debug_low_threshold;
-    int32_t latency_debug_high_threshold;
-    int16_t latency_debug_last_sample;
-    uint16_t latency_debug_last_level;
-    uint32_t frame_size;
-    audio_codec_param_t usb_param;
-} wired_audio_usb_latency_handle_t;
-
-static int32_t g_wired_audio_usb_tx_threshlod_size;
-static wired_audio_usb_latency_handle_t g_wired_audio_usb_rx_handle[MAX_WIRED_AUDIO_USB_RX_EP_NUMBER];
-static wired_audio_usb_latency_handle_t g_wired_audio_usb_tx_handle[MAX_WIRED_AUDIO_USB_RX_EP_NUMBER];
-
-void wired_audio_usb_latency_debug_control(bool is_rx, uint32_t port, bool is_enable, uint32_t gpio_num, int32_t low_threshold, int32_t high_threshold)
-{
-    wired_audio_usb_latency_handle_t *p_usb_latency_handle;
-
-    if (is_rx == true) {
-        p_usb_latency_handle = &g_wired_audio_usb_rx_handle[port];
-    } else {
-        p_usb_latency_handle = &g_wired_audio_usb_tx_handle[port];
-    }
-
-    if (is_enable) {
-        p_usb_latency_handle->latency_debug_enable = 1;
-        if (is_rx == false) {
-            g_wired_audio_usb_tx_threshlod_size = high_threshold;
-        }
-    } else {
-        p_usb_latency_handle->latency_debug_enable = 0;
-    }
-    p_usb_latency_handle->latency_debug_last_level = 0;
-    p_usb_latency_handle->latency_debug_last_sample = 0;
-    p_usb_latency_handle->latency_debug_gpio_pin = gpio_num;
-    p_usb_latency_handle->latency_debug_low_threshold = low_threshold;
-    p_usb_latency_handle->latency_debug_high_threshold = high_threshold;
-
-    hal_gpio_init(gpio_num);
-    hal_pinmux_set_function(gpio_num, 0);
-    hal_gpio_set_direction(gpio_num, HAL_GPIO_DIRECTION_OUTPUT);
-    hal_gpio_set_output(p_usb_latency_handle->latency_debug_gpio_pin, HAL_GPIO_DATA_LOW);
-}
-
-static void wired_audio_usb_rx_latency_debug(wired_audio_usb_latency_handle_t *handle, uint8_t *source_buf)
-{
-    int16_t *start_address = NULL;
-    uint32_t current_level = 0;
-    uint32_t i;
-    int16_t current_sample;
-    int16_t next_sample;
-
-    if (handle->latency_debug_enable)
-    {
-        if (handle->usb_param.pcm.format == HAL_AUDIO_PCM_FORMAT_S16_LE)
-        {
-            current_level = handle->latency_debug_last_level;
-            start_address = (int16_t *)source_buf;
-
-            WIRED_AUDIO_LOG_MSGID_I("[USB_IN][usb_irq] latency debug info %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d", 13,
-                            handle->latency_debug_enable,
-                            handle->latency_debug_last_level,
-                            handle->latency_debug_last_sample,
-                            handle->frame_size,
-                            handle->latency_debug_gpio_pin,
-                            handle->usb_param.pcm.sample_rate,
-                            handle->usb_param.pcm.channel_mode,
-                            handle->usb_param.pcm.format,
-                            handle->usb_param.pcm.frame_interval,
-                            *start_address,
-                            source_buf[0],
-                            source_buf[1],
-                            source_buf[2]);
-
-            if ((*start_address > handle->latency_debug_last_sample) &&
-                (*start_address - handle->latency_debug_last_sample > handle->latency_debug_high_threshold))
-            {
-                current_level = 1;
-            }
-            else if ((*start_address < handle->latency_debug_last_sample) &&
-                    (handle->latency_debug_last_sample - *start_address > handle->latency_debug_high_threshold))
-            {
-                current_level = 0;
-            }
-            for (i = 0; i < (handle->frame_size / (2 * handle->usb_param.pcm.channel_mode) - 1); i++)
-            {
-                current_sample  = *((int16_t *)(source_buf+i*(2*handle->usb_param.pcm.channel_mode)));
-                next_sample     = *((int16_t *)(source_buf+(i+1)*(2*handle->usb_param.pcm.channel_mode)));
-                if ((current_sample > next_sample) &&
-                    (current_sample - next_sample > handle->latency_debug_high_threshold))
-                {
-                    current_level = 0;
-                    break;
-                }
-                else if ((current_sample < next_sample) &&
-                        (next_sample - current_sample > handle->latency_debug_high_threshold))
-                {
-                    current_level = 1;
-                    break;
-                }
-                else
-                {
-                }
-            }
-
-            WIRED_AUDIO_LOG_MSGID_I("[USB_IN][usb_irq] latency debug current_level %d", 1, current_level);
-
-            handle->latency_debug_last_sample = *((int16_t *)(source_buf + 2 * handle->usb_param.pcm.channel_mode * (handle->frame_size/(2*handle->usb_param.pcm.channel_mode)-1)));
-            if (current_level != handle->latency_debug_last_level)
-            {
-                hal_gpio_set_output(handle->latency_debug_gpio_pin, current_level);
-                handle->latency_debug_last_level = current_level;
-            }
-        }
-        else if (handle->usb_param.pcm.format == HAL_AUDIO_PCM_FORMAT_S24_LE)
-        {
-            current_level = handle->latency_debug_last_level;
-            start_address    = (int16_t *)(source_buf+1); // drop the low 8bit
-
-            WIRED_AUDIO_LOG_MSGID_I("[USB_IN][usb_irq] latency debug info %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d", 13,
-                            handle->latency_debug_enable,
-                            handle->latency_debug_last_level,
-                            handle->latency_debug_last_sample,
-                            handle->frame_size,
-                            handle->latency_debug_gpio_pin,
-                            handle->usb_param.pcm.sample_rate,
-                            handle->usb_param.pcm.channel_mode,
-                            handle->usb_param.pcm.format,
-                            handle->usb_param.pcm.frame_interval,
-                            *start_address,
-                            source_buf[0],
-                            source_buf[1],
-                            source_buf[2]);
-
-            if ((*start_address > handle->latency_debug_last_sample) &&
-                (*start_address - handle->latency_debug_last_sample > handle->latency_debug_high_threshold))
-            {
-                current_level = 1;
-            }
-            else if ((*start_address < handle->latency_debug_last_sample) &&
-                    (handle->latency_debug_last_sample - *start_address > handle->latency_debug_high_threshold))
-            {
-                current_level = 0;
-            }
-            for (i = 0; i < handle->frame_size/(3*handle->usb_param.pcm.channel_mode)-1; i++)
-            {
-                current_sample  = *((int16_t *)(source_buf+i*(3*handle->usb_param.pcm.channel_mode)+1)); // drop the low 8bit
-                next_sample     = *((int16_t *)(source_buf+(i+1)*(3*handle->usb_param.pcm.channel_mode)+1)); // drop the low 8bit
-                if ((current_sample > next_sample) &&
-                    (current_sample - next_sample) > handle->latency_debug_high_threshold)
-                {
-                    current_level = 0;
-                    break;
-                }
-                else if ((current_sample < next_sample) &&
-                        (next_sample - current_sample > handle->latency_debug_high_threshold))
-                {
-                    current_level = 1;
-                    break;
-                }
-                else
-                {
-                }
-            }
-
-            WIRED_AUDIO_LOG_MSGID_I("[USB_IN][usb_irq] latency debug current_level %d", 1, current_level);
-
-            handle->latency_debug_last_sample = *((int16_t *)(source_buf + 3 * handle->usb_param.pcm.channel_mode * (handle->frame_size/(3*handle->usb_param.pcm.channel_mode)-1) + 1));
-            if (current_level != handle->latency_debug_last_level)
-            {
-                hal_gpio_set_output(handle->latency_debug_gpio_pin, current_level);
-                handle->latency_debug_last_level = current_level;
-            }
-        }
-    }
-}
-
-#ifdef AIR_USB_AUDIO_1_MIC_ENABLE
-static void wired_audio_usb_tx_latency_debug(wired_audio_usb_latency_handle_t *handle, uint8_t *source_buf)
-{
-    int16_t *start_address = (int16_t *)source_buf;
-    uint32_t current_level = 0;
-    uint32_t i;
-    int32_t sample_value = 0;
-    uint16_t frame_samples;
-    uint16_t channel_num;
-    uint16_t resolution_size;
-
-    if (handle->latency_debug_enable)
-    {
-        if (handle->usb_param.pcm.channel_mode == 1)
-        {
-            channel_num = 1;
-        }
-        else
-        {
-            channel_num = 2;
-        }
-        if (handle->usb_param.pcm.format == HAL_AUDIO_PCM_FORMAT_S16_LE) {
-            resolution_size = 2;
-        } else if (handle->usb_param.pcm.format == HAL_AUDIO_PCM_FORMAT_S24_LE) {
-            resolution_size = 3;
-        } else {
-            resolution_size = 2;
-        }
-        frame_samples = handle->frame_size / resolution_size / channel_num;
-        if(resolution_size == 2){
-            for (i = 0; i < frame_samples; i++) {
-                sample_value += (*(start_address + i*channel_num) / frame_samples);
-            }
-            WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][usb_irq] latency debug %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d", 13,
-                    handle->latency_debug_enable,
-                    handle->latency_debug_last_level,
-                    handle->frame_size,
-                    handle->latency_debug_gpio_pin,
-                    handle->usb_param.pcm.sample_rate,
-                    handle->usb_param.pcm.channel_mode,
-                    handle->usb_param.pcm.format,
-                    handle->usb_param.pcm.frame_interval,
-                    start_address[0],
-                    start_address[1],
-                    start_address[2],
-                    start_address[3],
-                    sample_value);
-        } else if (resolution_size == 3){
-            uint32_t data0=0, data1, data2;
-            uint32_t dest_buf[4]={0};
-            for (i = 0; i < frame_samples / 4; i++) {
-                data0 = *((uint32_t *)source_buf+i*3+0);
-                data1 = *((uint32_t *)source_buf+i*3+1);
-                data2 = *((uint32_t *)source_buf+i*3+2);
-                dest_buf[0] = ((data0&0x00ffffff)<<8);
-                dest_buf[1] = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
-                dest_buf[2] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
-                dest_buf[3] = ((data2&0xffffff00));
-                sample_value = sample_value + ((int32_t)dest_buf[0] + (int32_t)dest_buf[1] + (int32_t)dest_buf[2] + (int32_t)dest_buf[3])/frame_samples;
-            }
-            sample_value = sample_value/0x10000;
-            WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][usb_irq] latency debug %d, %d, %d, %d, %d, %d, %d, %d, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, %d, %d, %d, %d, %d", 18,
-                            handle->latency_debug_enable,
-                            handle->latency_debug_last_level,
-                            handle->frame_size,
-                            handle->latency_debug_gpio_pin,
-                            handle->usb_param.pcm.sample_rate,
-                            handle->usb_param.pcm.channel_mode,
-                            handle->usb_param.pcm.format,
-                            handle->usb_param.pcm.frame_interval,
-                            source_buf[0],
-                            source_buf[1],
-                            source_buf[2],
-                            source_buf[3],
-                            data0,
-                            dest_buf[0],
-                            dest_buf[1],
-                            dest_buf[2],
-                            dest_buf[3],
-                            sample_value);
-        }
-
-        if (sample_value >= g_wired_audio_usb_tx_threshlod_size)
-        {
-            current_level = 1;
-            g_wired_audio_usb_tx_threshlod_size = handle->latency_debug_low_threshold;
-        }
-        else
-        {
-            current_level = 0;
-            g_wired_audio_usb_tx_threshlod_size = handle->latency_debug_high_threshold;
-        }
-        if (current_level != handle->latency_debug_last_level) {
-            hal_gpio_set_output(handle->latency_debug_gpio_pin, current_level);
-            handle->latency_debug_last_level = current_level;
-        }
-    }
-}
-#endif /* WIRED_AUDIO_USB_DEBUG_LANTENCY */
-#endif
 
 #ifdef AIR_WIRED_AUDIO_UT_DEBUG_ENABLE
 
@@ -701,14 +419,13 @@ static void internal_usb_audio_rx_cb_wired_audio(uint32_t ep_number)
         if (available_data_size % rx_cell_size) {
             memset(p_source_buf + BLK_HEADER_SIZE, 0, rx_cell_size);
         }
+#if WIRED_AUDIO_USB_DEBUG_LANTENCY
+        audio_usb_rx_scenario_latency_debug(ep_number, p_source_buf + BLK_HEADER_SIZE);
+#endif
         hal_audio_buf_mgm_get_write_data_done(p_dsp_info, rx_cell_size + BLK_HEADER_SIZE);
 
 #ifdef AIR_AUDIO_DUMP_ENABLE
         //LOG_AUDIO_DUMP((uint8_t *)(p_source_buf + BLK_HEADER_SIZE), rx_cell_size, AUDIO_CPD_OUT_L);
-#endif
-
-#if WIRED_AUDIO_USB_DEBUG_LANTENCY
-        wired_audio_usb_rx_latency_debug(&g_wired_audio_usb_rx_handle[ep_number], p_source_buf + BLK_HEADER_SIZE);
 #endif
 
         /* Query the latest size in the USB buffer */
@@ -769,7 +486,7 @@ static void usb_audio_tx_cb_wired_audio_0(void)
     /* Check whether need to switch to the next DSP frame */
     if (s_usb_out_voice_data == NULL) {
         hal_audio_buf_mgm_get_data_buffer(p_dsp_info, &s_usb_out_voice_data, &g_saved_voice_data_len);
-        s_voice_data_len = WIRED_AUDIO_UL_PROCESS_PERIOD * g_usb_tx_cell_size;
+        s_voice_data_len = WIRED_AUDIO_USB_OUT_PROCESS_PERIOD * g_usb_tx_cell_size;
         s_usb_out_voice_data += sizeof(audio_transmitter_block_header_t);
         if (g_saved_voice_data_len == 0) {
             WIRED_AUDIO_LOG_MSGID_E("[USB_OUT][usb_irq] Not data in AVM share buffer, send silence data, p_dsp_info 0x%08x, read_offset %d, write_offset %d, bBufferIsFull %d", 4, (uint32_t)p_dsp_info, p_dsp_info->read_offset, p_dsp_info->write_offset, p_dsp_info->bBufferIsFull);
@@ -816,7 +533,7 @@ static void usb_audio_tx_cb_wired_audio_0(void)
         USB_Audio_TX_SendData(0, g_usb_tx_cell_size, s_usb_out_voice_data + s_voice_data_offset);
         //LOG_AUDIO_DUMP(s_usb_out_voice_data + s_voice_data_offset, g_usb_tx_cell_size, USB_AUDIO_TX1);
 #if WIRED_AUDIO_USB_DEBUG_LANTENCY
-        wired_audio_usb_tx_latency_debug(&g_wired_audio_usb_tx_handle[0], s_usb_out_voice_data + s_voice_data_offset);
+        audio_usb_tx_scenario_latency_debug(0, s_usb_out_voice_data + s_voice_data_offset);
 #endif
     }
 #endif
@@ -889,14 +606,6 @@ static void line_out_external_device_config(audio_transmitter_config_t *config, 
 #endif
 #endif
         is_ext_dac_initialized = true;
-    } else if (config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER) {
-#if 0
-#ifndef AIR_BTA_IC_PREMIUM_G2
-        open_param->stream_out_param.afe.with_upwdown_sampler     = true;
-        open_param->stream_out_param.afe.audio_path_input_rate    = open_param->stream_out_param.afe.sampling_rate;
-        open_param->stream_out_param.afe.audio_path_output_rate   = config->scenario_config.wired_audio_config.line_out_config.codec_param.pcm.sample_rate;
-#endif
-#endif
     }
 }
 
@@ -932,8 +641,13 @@ void line_out_stream_out_afe_config(audio_transmitter_config_t *config, uint8_t 
 
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)
     if (scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_OUT) {
-        open_param->stream_out_param.afe.stream_out_sampling_rate = open_param->stream_in_param.afe.sampling_rate;
-        open_param->stream_out_param.afe.sampling_rate = open_param->stream_in_param.afe.sampling_rate;
+        if (config != NULL) {
+            open_param->stream_out_param.afe.stream_out_sampling_rate = config->scenario_config.wired_audio_config.line_out_config.codec_param.pcm.sample_rate;
+            open_param->stream_out_param.afe.sampling_rate = open_param->stream_out_param.afe.stream_out_sampling_rate;
+        } else {
+            open_param->stream_out_param.afe.stream_out_sampling_rate = open_param->stream_in_param.afe.sampling_rate;
+            open_param->stream_out_param.afe.sampling_rate = open_param->stream_in_param.afe.sampling_rate;
+        }
     } else if (scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER) {
         #if defined(AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
         open_param->stream_out_param.afe.stream_out_sampling_rate = 96000;
@@ -944,13 +658,16 @@ void line_out_stream_out_afe_config(audio_transmitter_config_t *config, uint8_t 
         #endif
     }
 #else
-
-    open_param->stream_out_param.afe.stream_out_sampling_rate = open_param->stream_in_param.afe.sampling_rate;
-
-    open_param->stream_out_param.afe.sampling_rate = open_param->stream_in_param.afe.sampling_rate;
+    if (config != NULL) {
+        open_param->stream_out_param.afe.stream_out_sampling_rate = config->scenario_config.wired_audio_config.line_out_config.codec_param.pcm.sample_rate;
+        open_param->stream_out_param.afe.sampling_rate = open_param->stream_out_param.afe.stream_out_sampling_rate;
+    } else {
+        open_param->stream_out_param.afe.stream_out_sampling_rate = open_param->stream_in_param.afe.sampling_rate;
+        open_param->stream_out_param.afe.sampling_rate = open_param->stream_in_param.afe.sampling_rate;
+    }
 #endif
-    open_param->stream_out_param.afe.irq_period = WIRED_AUDIO_UL_PROCESS_PERIOD;
-    open_param->stream_out_param.afe.frame_size = (WIRED_AUDIO_UL_PROCESS_PERIOD * open_param->stream_out_param.afe.sampling_rate) / 1000;
+    open_param->stream_out_param.afe.irq_period = WIRED_AUDIO_LINE_OUT_PROCESS_PERIOD;
+    open_param->stream_out_param.afe.frame_size = (WIRED_AUDIO_LINE_OUT_PROCESS_PERIOD * open_param->stream_out_param.afe.sampling_rate) / 1000;
     open_param->stream_out_param.afe.frame_number = 3;
     open_param->stream_out_param.afe.hw_gain = false;
     ///TODO: should call API instead of using code flow here.
@@ -989,7 +706,6 @@ static uint8_t wired_audio_get_sample_size(hal_audio_format_t format)
 
 void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *config, mcu2dsp_open_param_t *open_param)
 {
-    uint32_t dl_process_period;
     audio_codec_pcm_t *pcm;
     sysram_status_t status;
     DSP_FEATURE_TYPE_LIST AudioFeatureList_wired_audio[3] = {FUNC_END};
@@ -1011,8 +727,7 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
         }
 
 #if WIRED_AUDIO_USB_DEBUG_LANTENCY
-        g_wired_audio_usb_tx_handle[0].frame_size = g_usb_tx_cell_size;
-        memcpy(&g_wired_audio_usb_tx_handle[0].usb_param, &config->scenario_config.wired_audio_config.usb_out_config.codec_param, sizeof(audio_codec_param_t));
+        audio_usb_tx_scenario_latency_debug_init(0, g_usb_tx_cell_size, pcm->channel_mode, pcm->format, 5000);
 #endif
 
         /* Config the feature list */
@@ -1046,9 +761,17 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
             voice_mic_type_t mic_cur_type = hal_audio_query_voice_mic_type();
             WIRED_AUDIO_LOG_MSGID_I("[USB_OUT]Wired line out mic_cur_type: 0x%x", 1, mic_cur_type);
             if (mic_cur_type == VOICE_MIC_TYPE_FIXED) {
-                AudioFeatureList_wired_audio[0] = FUNC_GAMING_HEADSET;
+                if (config->scenario_config.wired_audio_config.usb_out_config.is_with_swb == true) {
+                    AudioFeatureList_wired_audio[0] = FUNC_RX_NR_SWB;
+                } else {
+                    AudioFeatureList_wired_audio[0] = FUNC_RX_NR;
+                }
             } else if (mic_cur_type == VOICE_MIC_TYPE_DETACHABLE) {
-                AudioFeatureList_wired_audio[0] = FUNC_GAMING_BOOM_MIC;
+                if (config->scenario_config.wired_audio_config.usb_out_config.is_with_swb == true) {
+                    AudioFeatureList_wired_audio[0] = FUNC_SWB_BOOM_MIC;
+                } else {
+                    AudioFeatureList_wired_audio[0] = FUNC_WB_BOOM_MIC;
+                }
             } else {
                 WIRED_AUDIO_LOG_MSGID_E("[USB_OUT]Wired line out no this mic type - (%d)\r\n", 1, mic_cur_type);
                 configASSERT(0);
@@ -1068,19 +791,25 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
             open_param->stream_in_param.afe.memory          = HAL_AUDIO_MEM1;
             open_param->stream_in_param.afe.format          = config->scenario_config.wired_audio_config.usb_out_config.codec_param.pcm.format;
             open_param->stream_in_param.afe.sampling_rate   = config->scenario_config.wired_audio_config.usb_out_config.codec_param.pcm.sample_rate;
-            open_param->stream_in_param.afe.irq_period      = WIRED_AUDIO_UL_PROCESS_PERIOD;
+            open_param->stream_in_param.afe.irq_period      = WIRED_AUDIO_USB_OUT_PROCESS_PERIOD;
             open_param->stream_in_param.afe.frame_size      = (open_param->stream_in_param.afe.irq_period * open_param->stream_in_param.afe.sampling_rate) / 1000;
-            config->scenario_config.wired_audio_config.usb_out_config.codec_param.pcm.frame_interval = WIRED_AUDIO_UL_PROCESS_PERIOD * 1000;
+            config->scenario_config.wired_audio_config.usb_out_config.codec_param.pcm.frame_interval = WIRED_AUDIO_USB_OUT_PROCESS_PERIOD * 1000;
         } else if(config->scenario_config.wired_audio_config.usb_out_config.is_with_ecnr == true) {
             open_param->stream_in_param.afe.memory          = HAL_AUDIO_MEM1 | HAL_AUDIO_MEM3;
             open_param->stream_in_param.afe.format          = HAL_AUDIO_PCM_FORMAT_S16_LE;
+#if defined(AIR_UL_FIX_SAMPLING_RATE_32K)
+            open_param->stream_in_param.afe.sampling_rate   = 32000;
+#elif defined(AIR_UL_FIX_SAMPLING_RATE_48K)
+            open_param->stream_in_param.afe.sampling_rate   = 48000;
+#else
             if (config->scenario_config.wired_audio_config.usb_out_config.is_with_swb == true) {
                 open_param->stream_in_param.afe.sampling_rate   = 32000;
             } else {
                 open_param->stream_in_param.afe.sampling_rate   = 16000;
             }
-            open_param->stream_in_param.afe.irq_period      = WIRED_AUDIO_UL_PROCESS_PERIOD;
-            open_param->stream_in_param.afe.frame_size      = (WIRED_AUDIO_UL_PROCESS_PERIOD * open_param->stream_in_param.afe.sampling_rate) / 1000;
+#endif
+            open_param->stream_in_param.afe.irq_period      = WIRED_AUDIO_USB_OUT_PROCESS_PERIOD;
+            open_param->stream_in_param.afe.frame_size      = (WIRED_AUDIO_USB_OUT_PROCESS_PERIOD * open_param->stream_in_param.afe.sampling_rate) / 1000;
         }
         open_param->stream_in_param.afe.frame_number    = 6;
         open_param->stream_in_param.afe.hw_gain         = false;
@@ -1090,9 +819,9 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
             open_param->stream_out_param.data_ul.max_payload_size = open_param->stream_in_param.afe.frame_size * config->scenario_config.wired_audio_config.usb_out_config.codec_param.pcm.channel_mode
                                                                     * (wired_audio_get_sample_size(config->scenario_config.wired_audio_config.usb_out_config.codec_param.pcm.format));
         } else if(config->scenario_config.wired_audio_config.usb_out_config.is_with_ecnr == true) {
-            open_param->stream_out_param.data_ul.max_payload_size = (WIRED_AUDIO_USB_OUT_MAX_SAMPLE_RATE * WIRED_AUDIO_UL_PROCESS_PERIOD * WIRED_AUDIO_USB_OUT_MAX_SAMPLE_BYTES * WIRED_AUDIO_USB_OUT_MAX_CHANNEL) / 1000;
+            open_param->stream_out_param.data_ul.max_payload_size = WIRED_AUDIO_USB_OUT_MAX_USB_FRAME_SIZE * WIRED_AUDIO_USB_OUT_PROCESS_PERIOD;
         }
-        open_param->stream_out_param.data_ul.scenario_param.wired_audio_param.codec_param.pcm.frame_interval = WIRED_AUDIO_UL_PROCESS_PERIOD * 1000;
+        open_param->stream_out_param.data_ul.scenario_param.wired_audio_param.codec_param.pcm.frame_interval = WIRED_AUDIO_USB_OUT_PROCESS_PERIOD * 1000;
         open_param->stream_out_param.data_ul.scenario_type = config->scenario_type;
         open_param->stream_out_param.data_ul.scenario_sub_id = config->scenario_sub_id;
         open_param->stream_out_param.data_ul.p_share_info = hal_audio_query_audio_transmitter_share_info(WIRED_AUDIO_USB_OUT_AVM_BUFFER_INDEX);
@@ -1135,6 +864,7 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
                                     g_usb_tx_cell_size);
     } else if ((config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_0) || (config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_1)) {
         uint32_t usb_cell_size;
+        uint32_t dl_process_period;
 
         /* Parameter check */
         pcm = &(config->scenario_config.wired_audio_config.usb_in_config.codec_param.pcm);
@@ -1158,20 +888,15 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
         }
 
 #if WIRED_AUDIO_USB_DEBUG_LANTENCY
-        if (config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_0) {
-            g_wired_audio_usb_rx_handle[0].frame_size = g_usb_rx_0_cell_size;
-            memcpy(&g_wired_audio_usb_rx_handle[0].usb_param, &config->scenario_config.wired_audio_config.usb_in_config.codec_param, sizeof(audio_codec_param_t));
-        } else if (config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_1) {
-            g_wired_audio_usb_rx_handle[1].frame_size = g_usb_rx_1_cell_size;
-            memcpy(&g_wired_audio_usb_rx_handle[1].usb_param, &config->scenario_config.wired_audio_config.usb_in_config.codec_param, sizeof(audio_codec_param_t));
-        }
+        audio_usb_rx_scenario_latency_debug_init(config->scenario_sub_id - AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_0,
+                                                    usb_cell_size, pcm->channel_mode, pcm->format);
 #endif
 
 #if defined(AIR_DCHS_MODE_ENABLE)
         if (pcm->sample_rate >= 96000) {
-            dl_process_period = WIRED_AUDIO_DL_PROCESS_HIGH_RES_PERIOD;
+            dl_process_period = WIRED_AUDIO_USB_IN_PROCESS_PERIOD / 2;
         } else {
-            dl_process_period = WIRED_AUDIO_DL_PROCESS_PERIOD;
+            dl_process_period = WIRED_AUDIO_USB_IN_PROCESS_PERIOD;
         }
 #else
         dl_process_period = WIRED_AUDIO_USB_IN_PROCESS_PERIOD;
@@ -1251,7 +976,7 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
         open_param->param.stream_out = STREAM_OUT_AFE;
         WIRED_AUDIO_LOG_MSGID_I("[USB_IN] stream_out %d, STREAM_OUT_AFE %d, STREAM_OUT_VIRTUAL %d",3,open_param->param.stream_out,STREAM_OUT_AFE,STREAM_OUT_VIRTUAL);
         open_param->stream_out_param.afe.memory = HAL_AUDIO_MEM3;
-        open_param->stream_out_param.afe.format = pcm->format;
+        open_param->stream_out_param.afe.format = HAL_AUDIO_PCM_FORMAT_S24_LE; /* Always fix to 32bit during stream process */
 #ifdef AIR_DCHS_MODE_ENABLE
         open_param->stream_out_param.afe.stream_out_sampling_rate = pcm->sample_rate;
         open_param->stream_out_param.afe.sampling_rate = pcm->sample_rate;
@@ -1332,13 +1057,13 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
             if (config->scenario_config.wired_audio_config.line_out_config.is_with_swb == true) {
                 AudioFeatureList_wired_audio[0] = FUNC_RX_NR_SWB;
             } else {
-                AudioFeatureList_wired_audio[0] = FUNC_GAMING_HEADSET;
+                AudioFeatureList_wired_audio[0] = FUNC_RX_NR;
             }
         } else if (mic_cur_type == VOICE_MIC_TYPE_DETACHABLE) {
             if (config->scenario_config.wired_audio_config.line_out_config.is_with_swb == true) {
                 AudioFeatureList_wired_audio[0] = FUNC_SWB_BOOM_MIC;
             } else {
-                AudioFeatureList_wired_audio[0] = FUNC_GAMING_BOOM_MIC;
+                AudioFeatureList_wired_audio[0] = FUNC_WB_BOOM_MIC;
             }
         } else {
             WIRED_AUDIO_LOG_MSGID_E("[LINE_OUT]Wired line out no this mic type - (%d)\r\n", 1, mic_cur_type);
@@ -1364,13 +1089,24 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
         open_param->stream_in_param.afe.format          = HAL_AUDIO_PCM_FORMAT_S16_LE;
 
         if (config->scenario_config.wired_audio_config.line_out_config.is_with_swb == true) {
-            open_param->stream_in_param.afe.sampling_rate   = 32000;
+            open_param->stream_in_param.afe.stream_process_sampling_rate   = 32000;
         } else {
-            open_param->stream_in_param.afe.sampling_rate   = 16000;
+            open_param->stream_in_param.afe.stream_process_sampling_rate   = 16000;
         }
+#if defined(AIR_UL_FIX_SAMPLING_RATE_32K)
+        open_param->stream_in_param.afe.sampling_rate = 32000;
+#elif defined(AIR_UL_FIX_SAMPLING_RATE_48K)
+        open_param->stream_in_param.afe.sampling_rate = 48000;
+#else
+        if (config->scenario_config.wired_audio_config.line_out_config.is_with_swb == true) {
+            open_param->stream_in_param.afe.sampling_rate = 32000;
+        } else {
+            open_param->stream_in_param.afe.sampling_rate = 16000;
+        }
+#endif
 
-        open_param->stream_in_param.afe.irq_period      = WIRED_AUDIO_UL_PROCESS_PERIOD;
-        open_param->stream_in_param.afe.frame_size      = (WIRED_AUDIO_UL_PROCESS_PERIOD * open_param->stream_in_param.afe.sampling_rate) / 1000;
+        open_param->stream_in_param.afe.irq_period      = WIRED_AUDIO_LINE_OUT_PROCESS_PERIOD;
+        open_param->stream_in_param.afe.frame_size      = (WIRED_AUDIO_LINE_OUT_PROCESS_PERIOD * open_param->stream_in_param.afe.sampling_rate) / 1000;
         open_param->stream_in_param.afe.frame_number    = 3;
         open_param->stream_in_param.afe.hw_gain         = false;
 
@@ -1432,13 +1168,6 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
         TRANSMITTER_LOG_I("[DEBUG] audio_nvdm_HW_config.audio_scenario.Audio_Linein_Output_I2S_Interface=0x%X", 1, audio_nvdm_HW_config.audio_scenario.Audio_Linein_Output_I2S_Interface);
         #endif
 
-        /* Calculate refer value for later init */
-        if (pcm->sample_rate >= 96000) {
-            dl_process_period = WIRED_AUDIO_DL_PROCESS_HIGH_RES_PERIOD;
-        } else {
-            dl_process_period = WIRED_AUDIO_DL_PROCESS_PERIOD;
-        }
-
         /* Config the feature list */
 #ifdef MTK_LINEIN_PEQ_ENABLE
         AudioFeatureList_wired_audio[0] = FUNC_PEQ_LINEIN;
@@ -1466,7 +1195,7 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
 #else
             open_param->stream_in_param.afe.memory = HAL_AUDIO_MEM1;
 #endif
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
         } else if (config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN) {
             open_param->stream_in_param.afe.memory = HAL_AUDIO_MEM1;
 #endif
@@ -1476,18 +1205,18 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
         pcm = &(config->scenario_config.wired_audio_config.line_in_config.codec_param.pcm);
         open_param->stream_in_param.afe.format = pcm->format;
         open_param->stream_in_param.afe.sampling_rate = pcm->sample_rate;
-        if (config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN) {
-#ifdef AIR_DCHS_MODE_ENABLE
-            open_param->stream_in_param.afe.irq_period = dl_process_period;
-            open_param->stream_in_param.afe.frame_size = (dl_process_period * pcm->sample_rate) / 1000;
-#else
-            open_param->stream_in_param.afe.irq_period = 0;
-            open_param->stream_in_param.afe.frame_size = (((WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES * pcm->sample_rate) / 48000) / 8) * 8; /* about 2.67ms */
-#endif
+#if defined(AIR_DCHS_MODE_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
+        if (pcm->sample_rate >= 96000) {
+            open_param->stream_in_param.afe.irq_period = WIRED_AUDIO_LINE_IN_HIRES_PROCESS_TIME;
+            open_param->stream_in_param.afe.frame_size = (WIRED_AUDIO_LINE_IN_HIRES_PROCESS_TIME * pcm->sample_rate) / 1000;
         } else {
-            open_param->stream_in_param.afe.irq_period = dl_process_period;
-            open_param->stream_in_param.afe.frame_size = (dl_process_period * pcm->sample_rate) / 1000;
+            open_param->stream_in_param.afe.irq_period = WIRED_AUDIO_LINE_IN_PROCESS_TIME;
+            open_param->stream_in_param.afe.frame_size = (WIRED_AUDIO_LINE_IN_PROCESS_TIME * pcm->sample_rate) / 1000;
         }
+#else
+        open_param->stream_in_param.afe.irq_period = 0;
+        open_param->stream_in_param.afe.frame_size = (((WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES * pcm->sample_rate) / 48000) / 8) * 8; /* about 2.67ms */
+#endif
         open_param->stream_in_param.afe.frame_number = 3;
         open_param->stream_in_param.afe.hw_gain = false;
         if (open_param->stream_in_param.afe.audio_device == HAL_AUDIO_DEVICE_I2S_MASTER) {
@@ -1529,7 +1258,7 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
         /* Config the structure of stream out */
         hal_audio_get_stream_out_setting_config(AU_DSP_LINEIN, &(open_param->stream_out_param));
         open_param->stream_out_param.afe.stream_channel = HAL_AUDIO_DIRECT;
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
         if (config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN) {
             open_param->stream_out_param.afe.memory = HAL_AUDIO_MEM1;
         } else {
@@ -1539,13 +1268,12 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
         open_param->stream_out_param.afe.memory = HAL_AUDIO_MEM3;
 #endif
         open_param->stream_out_param.afe.format = pcm->format;
-#if defined (FIXED_SAMPLING_RATE_TO_48KHZ)
-        open_param->stream_out_param.afe.sampling_rate = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
-#elif defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
-        open_param->stream_out_param.afe.sampling_rate = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
-#else
-        open_param->stream_out_param.afe.sampling_rate = pcm->sample_rate;
-#endif
+        if (aud_fixrate_get_downlink_rate(open_param->audio_scenario_type) == FIXRATE_NONE) {
+            open_param->stream_out_param.afe.sampling_rate = pcm->sample_rate;
+        } else {
+            open_param->stream_out_param.afe.sampling_rate = aud_fixrate_get_downlink_rate(open_param->audio_scenario_type);
+        }
+
 #ifdef AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE
         if(config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_SLAVE) {
             //Fix AUX-out at 48KHz
@@ -1554,18 +1282,18 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
 
 #endif
         open_param->stream_out_param.afe.stream_out_sampling_rate = open_param->stream_out_param.afe.sampling_rate;
-        if (config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN) {
-#ifdef AIR_DCHS_MODE_ENABLE
-            open_param->stream_out_param.afe.irq_period = dl_process_period;
-            open_param->stream_out_param.afe.frame_size = dl_process_period * (open_param->stream_out_param.afe.sampling_rate / 1000);
-#else
-            open_param->stream_out_param.afe.irq_period = 0;
-            open_param->stream_out_param.afe.frame_size = (((WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES * open_param->stream_out_param.afe.sampling_rate) / 48000) / 8) * 8; /* about 2.67ms */
-#endif
+#if defined(AIR_DCHS_MODE_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
+        if (pcm->sample_rate >= 96000) {
+            open_param->stream_out_param.afe.irq_period = WIRED_AUDIO_LINE_IN_HIRES_PROCESS_TIME;
+            open_param->stream_out_param.afe.frame_size = WIRED_AUDIO_LINE_IN_HIRES_PROCESS_TIME * (open_param->stream_out_param.afe.sampling_rate / 1000);
         } else {
-            open_param->stream_out_param.afe.irq_period = dl_process_period;
-            open_param->stream_out_param.afe.frame_size = dl_process_period * (open_param->stream_out_param.afe.sampling_rate / 1000);
+            open_param->stream_out_param.afe.irq_period = WIRED_AUDIO_LINE_IN_PROCESS_TIME;
+            open_param->stream_out_param.afe.frame_size = WIRED_AUDIO_LINE_IN_PROCESS_TIME * (open_param->stream_out_param.afe.sampling_rate / 1000);
         }
+#else
+        open_param->stream_out_param.afe.irq_period = 0;
+        open_param->stream_out_param.afe.frame_size = (((WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES * open_param->stream_out_param.afe.sampling_rate) / 48000) / 8) * 8; /* about 2.67ms */
+#endif
         open_param->stream_out_param.afe.frame_number = 3;
         open_param->stream_out_param.afe.hw_gain = true;
 #ifdef AIR_AUDIO_MIXER_GAIN_ENABLE
@@ -1606,7 +1334,37 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
 
         /* Config the external LINE out device */
         line_in_external_device_config(config, open_param);
-
+#if defined(AIR_HWSRC_IN_STREAM_ENABLE)
+        open_param->stream_out_param.afe.hwsrc_type      = HAL_AUDIO_HWSRC_IN_STREAM;
+#endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+        //hal_dvfs_lock_control(HAL_DVFS_OPP_HIGH, HAL_DVFS_LOCK);
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE
+        open_param->stream_out_param.afe.audio_device     = HAL_AUDIO_DEVICE_DAC_DUAL;
+        open_param->stream_out_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+        open_param->stream_out_param.afe.audio_device1    = HAL_AUDIO_DEVICE_I2S_MASTER;
+        open_param->stream_out_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_1;
+        open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_NONE;
+        open_param->stream_out_param.afe.audio_interface2 = HAL_AUDIO_DEVICE_NONE;
+        open_param->stream_out_param.afe.memory           |= HAL_AUDIO_MEM1;
+        open_param->stream_out_param.afe.is_low_jitter[0]    = true;
+#elif AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE
+        //open_param->stream_in_param.afe.frame_size = 512;
+        //open_param->stream_out_param.afe.frame_size = 512;
+        open_param->stream_out_param.afe.audio_device     = HAL_AUDIO_DEVICE_I2S_MASTER;
+        open_param->stream_out_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+        open_param->stream_out_param.afe.audio_device1    = HAL_AUDIO_DEVICE_I2S_MASTER;
+        open_param->stream_out_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_2;
+        open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_I2S_MASTER;
+        //open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_DAC_DUAL;
+        open_param->stream_out_param.afe.audio_interface2 = HAL_AUDIO_INTERFACE_3;
+        open_param->stream_out_param.afe.memory           |= HAL_AUDIO_MEM1|HAL_AUDIO_MEM4;
+#endif
+        WIRED_AUDIO_LOG_MSGID_I("out_device0(0x%x), channel(%d), interface0(0x%x)", 3, open_param->stream_out_param.afe.audio_device, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface);
+        WIRED_AUDIO_LOG_MSGID_I("out_device1(0x%x), channel(%d), interface1(0x%x)", 3, open_param->stream_out_param.afe.audio_device1, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface1);
+        WIRED_AUDIO_LOG_MSGID_I("out_device2(0x%x), channel(%d), interface2(0x%x)", 3, open_param->stream_out_param.afe.audio_device2, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface2);
+        WIRED_AUDIO_LOG_MSGID_I("memory(0x%x)", 1, open_param->stream_out_param.afe.memory);
+#endif
         WIRED_AUDIO_LOG_MSGID_I("[LINE_IN] init: type %d, sub_id %d, codec_type %d, sample_rate = %d, channel %d, format %d, afe sample_rate %d, afe stream_sample_rate %d, afe format %d", 9,
                                     config->scenario_type,
                                     config->scenario_sub_id,
@@ -1621,7 +1379,7 @@ void audio_transmitter_wired_audio_open_playback(audio_transmitter_config_t *con
         open_param->param.stream_in = STREAM_IN_VIRTUAL;
         open_param->param.stream_out = STREAM_OUT_VIRTUAL;
 
-        open_param->stream_in_param.virtual_param.virtual_mem_size = (WIRED_AUDIO_DL_PROCESS_PERIOD * WIRED_AUDIO_UL_MAX_SAMPLE_RATE) / 1000 * 4;
+        open_param->stream_in_param.virtual_param.virtual_mem_size = (WIRED_AUDIO_USB_IN_PROCESS_PERIOD * WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE) / 1000 * 4;
     }
 
     if (AudioFeatureList_wired_audio[0] != FUNC_END) {
@@ -1661,20 +1419,13 @@ void audio_transmitter_wired_audio_start_playback(audio_transmitter_config_t *co
     #ifdef AIR_DCHS_MODE_ENABLE
     audio_scenario_type_t scenario_type = AUDIO_SCENARIO_TYPE_COMMON;
     if (config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN){
-        start_param->stream_out_param.afe.mce_flag = true; //enable play en
         scenario_type = AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_IN;
     }else if(config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_0){
-        start_param->stream_out_param.afe.mce_flag = true; //enable play en
         scenario_type = AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_0;
     }else if(config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_OUT){
         scenario_type = AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_OUT;
     }else if(config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_OUT){
         scenario_type = AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_OUT;
-    }
-    extern bool dchs_dl_check_vp_exist_flag(void);
-    if(dchs_dl_check_vp_exist_flag()){
-        start_param->stream_out_param.afe.mce_flag = false; // dchs flow exist, no need play en
-        WIRED_AUDIO_LOG_MSGID_I("[DCHS DL]dchs vp exist, wired audio no need play en", 0);
     }
     dchs_cosys_ctrl_cmd_relay(AUDIO_UART_COSYS_UL_START, scenario_type, NULL, start_param);
     dchs_cosys_ctrl_cmd_relay(AUDIO_UART_COSYS_DL_START, scenario_type, NULL, start_param);
@@ -1716,7 +1467,9 @@ const static int16_t gain_compensation_table[GAIN_COMPENSATION_STEP + 1] = {
 };
 
 extern void bt_sink_srv_am_set_volume(bt_sink_srv_am_stream_type_t in_out, bt_sink_srv_audio_setting_vol_info_t *vol_info);
-
+#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
+bool g_usb_out_vad_enable = false;
+#endif
 audio_transmitter_status_t wired_audio_set_runtime_config_playback(audio_transmitter_config_t *config, audio_transmitter_runtime_config_type_t runtime_config_type, audio_transmitter_runtime_config_t *runtime_config, mcu2dsp_audio_transmitter_runtime_config_param_t *runtime_config_param)
 {
     vol_gain_t vol_gain = {0};
@@ -1827,7 +1580,7 @@ audio_transmitter_status_t wired_audio_set_runtime_config_playback(audio_transmi
             digital_gain = vol.vol.lineIN_vol.vol_out.digital;
             analog_gain = vol.vol.lineIN_vol.vol_out.analog_L;
 
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
             if (config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN) {
                 hal_audio_set_stream_out_volume(HAL_AUDIO_STREAM_OUT1, digital_gain, analog_gain);
             } else {
@@ -1860,6 +1613,15 @@ audio_transmitter_status_t wired_audio_set_runtime_config_playback(audio_transmi
                                                 runtime_config->wired_audio_runtime_config.vol_db.vol_db[i],
                                                 vol_gain.gain[i]);
                 }
+                #ifdef AIR_MUTE_MIC_DETECTION_ENABLE
+                if(config->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_OUT){
+                    if(vol_gain.gain[0] <= -9600){
+                        g_usb_out_vad_enable = true;
+                    } else {
+                        g_usb_out_vad_enable = false;
+                    }
+                }
+                #endif
             } else {
                 /* Always keep all channels to same gain */
                 volume_level = runtime_config->wired_audio_runtime_config.vol_level.vol_level[0];
@@ -1964,7 +1726,7 @@ void wired_audio_state_started_handler(uint8_t scenario_sub_id)
         WIRED_AUDIO_LOG_MSGID_I("[USB_OUT] started", 0);
 #ifdef AIR_MUTE_MIC_DETECTION_ENABLE
         audio_volume_monitor_param_t param = {0};
-        param.cb = NULL;
+        param.cb = mute_mic_detection;
         param.volume_len = 1;
         param.ch = 1;
         param.user_data  = NULL;
@@ -2169,7 +1931,7 @@ void audio_transmitter_wired_audio_main_stream_open_start_playback(void)
 
     uint32_t dl_process_period = WIRED_AUDIO_USB_IN_PROCESS_PERIOD; // ms for low latency.
 
-    open_param->stream_in_param.virtual_param.virtual_mem_size = (dl_process_period * WIRED_AUDIO_UL_MAX_SAMPLE_RATE) / 1000 * 4;
+    open_param->stream_in_param.virtual_param.virtual_mem_size = (dl_process_period * WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE) / 1000 * 4;
 
     /* Config the structure of stream out, same with USB IN */
     open_param->stream_out_param.afe.memory = HAL_AUDIO_MEM3;
@@ -2184,6 +1946,7 @@ void audio_transmitter_wired_audio_main_stream_open_start_playback(void)
 #ifdef ENABLE_HWSRC_CLKSKEW
     open_param->stream_out_param.afe.clkskew_mode = CLK_SKEW_V1;
 #endif
+
 
 #ifdef AIR_WIRED_AUDIO_SUB_STREAM_ENABLE
         // hal_gpio_init(3);
@@ -2200,6 +1963,36 @@ void audio_transmitter_wired_audio_main_stream_open_start_playback(void)
     }
 #endif
     hal_audio_get_stream_out_setting_config(AU_DSP_AUDIO, &open_param->stream_out_param);
+
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+            //hal_dvfs_lock_control(HAL_DVFS_OPP_HIGH, HAL_DVFS_LOCK);
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE
+            open_param->stream_out_param.afe.audio_device     = HAL_AUDIO_DEVICE_DAC_DUAL;
+            open_param->stream_out_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+            open_param->stream_out_param.afe.audio_device1    = HAL_AUDIO_DEVICE_I2S_MASTER;
+            open_param->stream_out_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_1;
+            open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_NONE;
+            open_param->stream_out_param.afe.audio_interface2 = HAL_AUDIO_DEVICE_NONE;
+            open_param->stream_out_param.afe.memory           |= HAL_AUDIO_MEM1;
+            open_param->stream_out_param.afe.is_low_jitter[0]    = true;
+#elif AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE
+            //open_param->stream_in_param.afe.frame_size = 512;
+            //open_param->stream_out_param.afe.frame_size = 512;
+            open_param->stream_out_param.afe.audio_device     = HAL_AUDIO_DEVICE_I2S_MASTER;
+            open_param->stream_out_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+            open_param->stream_out_param.afe.audio_device1    = HAL_AUDIO_DEVICE_I2S_MASTER;
+            open_param->stream_out_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_2;
+            open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_I2S_MASTER;
+            //open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_DAC_DUAL;
+            open_param->stream_out_param.afe.audio_interface2 = HAL_AUDIO_INTERFACE_3;
+            open_param->stream_out_param.afe.memory           |= HAL_AUDIO_MEM1|HAL_AUDIO_MEM4;
+#endif
+            WIRED_AUDIO_LOG_MSGID_I("out_device0(0x%x), channel(%d), interface0(0x%x)", 3, open_param->stream_out_param.afe.audio_device, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface);
+            WIRED_AUDIO_LOG_MSGID_I("out_device1(0x%x), channel(%d), interface1(0x%x)", 3, open_param->stream_out_param.afe.audio_device1, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface1);
+            WIRED_AUDIO_LOG_MSGID_I("out_device2(0x%x), channel(%d), interface2(0x%x)", 3, open_param->stream_out_param.afe.audio_device2, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface2);
+            WIRED_AUDIO_LOG_MSGID_I("memory(0x%x)", 1, open_param->stream_out_param.afe.memory);
+#endif
+
     ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_WIRED_AUDIO_MAINSTREAM, open_param, true);
 
     if ((open_param->stream_out_param.afe.audio_device == HAL_AUDIO_DEVICE_I2S_MASTER)||(open_param->stream_out_param.afe.audio_device1 == HAL_AUDIO_DEVICE_I2S_MASTER)) {

@@ -325,6 +325,8 @@ typedef uint8_t bt_gap_le_smp_pairing_method_t;    /**< The final pairing method
 #define BT_GAP_LE_RPA_ROTAION_IND                  (BT_MODULE_GAP | 0x0038)    /**< RPA rotaion with #bt_gap_le_rpa_rotation_ind_t. */
 #define BT_GAP_LE_HANDLE_UPDATE                    (BT_MODULE_GAP | 0x0039)    /**< After RHO done the hci handle will be updated with #bt_gap_le_handle_update_t */
 #define BT_GAP_LE_ULL_PSEUDO_LINK_CONNECT_IND      (BT_MODULE_GAP | 0x003A)    /**< Connect indication with #bt_gap_le_connection_ind_t, indicates a ULL connection is created. */
+#define BT_GAP_LE_ENABLE_SUBRATE_CNF               (BT_MODULE_GAP | 0x003B)    /**< Enable LE subrate confirmation with NULL payload. */
+#define BT_GAP_LE_SUBRATE_CHANGE_IND               (BT_MODULE_GAP | 0x003C)    /**< Indicate that a LE connection subrate update procedure has completed and some parameters of the specified connection have been changed with #bt_gap_le_subrate_change_ind_t. */
 
 #define BT_GAP_LE_SET_PRIVACY_MODE_CNF             (BT_MODULE_GAP | 0x0060)    /**< Set privacy mode confirmation with NULL payload. */
 
@@ -899,6 +901,19 @@ typedef struct {
 } bt_gap_le_handle_update_t;
 
 /**
+ *  @brief This structure defines the LE link subrate change in the callback for #BT_GAP_LE_SUBRATE_CHANGE_IND event.
+ */
+BT_PACKED(
+typedef struct {
+    uint8_t     status;                 /**< The result of enabling subrate. */
+    bt_handle_t connection_handle;      /**< Connection handle. */
+    uint16_t    subrate_factor;         /**< Subrate factor. */
+    uint16_t    peripheral_latency;     /**< Peripheral latency. */
+    uint16_t    continuation_number;    /**< Continuation number. */
+    uint16_t    supervision_timeout;    /**< Supervison timeout . */
+}) bt_gap_le_subrate_change_ind_t;
+
+/**
  * @}
  */
 
@@ -1374,6 +1389,13 @@ bt_status_t bt_gap_le_set_adv_public_address(bt_hci_cmd_vendor_le_set_adv_public
  */
 bt_gap_le_local_key_t *bt_gap_le_get_local_key_by_handle(bt_handle_t handle);
 
+/**
+ * @brief     This function is used to enable LE subrate.
+ * @param[in] conn_handle   is the connection handle.
+ * @param[in] param         is the subrate parameters set.
+ * @return    #BT_STATUS_SUCCESS, the operation completed successfully, otherwise it failed.
+ */
+bt_status_t bt_gap_le_enable_subrate(bt_handle_t conn_handle, bt_hci_le_subrate_t *param);
 BT_EXTERN_C_END
 
 /**

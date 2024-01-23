@@ -165,99 +165,107 @@ typedef enum {
     HAL_AUDIO_AGENT_MEMORY_VUL3                     = 6,
     HAL_AUDIO_AGENT_MEMORY_AWB                      = 7,
     HAL_AUDIO_AGENT_MEMORY_AWB2                     = 8,
-    HAL_AUDIO_AGENT_MEMORY_UL_MAX                   = HAL_AUDIO_AGENT_MEMORY_AWB2,
+    HAL_AUDIO_AGENT_MEMORY_VUL_SPDIF                = 9,
+    HAL_AUDIO_AGENT_MEMORY_UL_MAX                   = HAL_AUDIO_AGENT_MEMORY_VUL_SPDIF,
 
-    HAL_AUDIO_AGENT_MEMORY_SRC_MIN                  = 9,
+    HAL_AUDIO_AGENT_MEMORY_SRC_MIN                  = 10,
     HAL_AUDIO_AGENT_MEMORY_SRC1                     = HAL_AUDIO_AGENT_MEMORY_SRC_MIN,
-    HAL_AUDIO_AGENT_MEMORY_SRC2                     = 10,
+    HAL_AUDIO_AGENT_MEMORY_SRC2                     = 11,
     HAL_AUDIO_AGENT_MEMORY_SRC_MAX                  = HAL_AUDIO_AGENT_MEMORY_SRC2,
 
     /* block interfrace */
-    HAL_AUDIO_AGENT_BLOCK_HWGAIN_MIN                = 11,
+    HAL_AUDIO_AGENT_BLOCK_HWGAIN_MIN                = 12,
     HAL_AUDIO_AGENT_BLOCK_HWGAIN1                   = HAL_AUDIO_AGENT_BLOCK_HWGAIN_MIN,
-    HAL_AUDIO_AGENT_BLOCK_HWGAIN2                   = 12,
-    HAL_AUDIO_AGENT_BLOCK_HWGAIN3                   = 13,
-    HAL_AUDIO_AGENT_BLOCK_HWGAIN4                   = 14,
+    HAL_AUDIO_AGENT_BLOCK_HWGAIN2                   = 13,
+    HAL_AUDIO_AGENT_BLOCK_HWGAIN3                   = 14,
+    HAL_AUDIO_AGENT_BLOCK_HWGAIN4                   = 15,
     HAL_AUDIO_AGENT_BLOCK_HWGAIN_MAX                = HAL_AUDIO_AGENT_BLOCK_HWGAIN4,
 
-    HAL_AUDIO_AGENT_BLOCK_UPDN_MIN                  = 15,
-    HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01               = HAL_AUDIO_AGENT_BLOCK_UPDN_MIN,
-    HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23               = 16,
-    HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_CONFIGURE     = 17,
-    HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01             = 18,
-    HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_CONFIGURE   = 19,
-    HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23             = 20,
-    HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_CONFIGURE   = 21,
-    HAL_AUDIO_AGENT_BLOCK_UPDN_MAX                  = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23,
+    HAL_AUDIO_AGENT_BLOCK_UPDN_MIN                  = 16,
+    HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_L             = HAL_AUDIO_AGENT_BLOCK_UPDN_MIN,
+    HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_R             = 17,
+    HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L             = 18,
+    HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R             = 19,
+    HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L_CONFIGURE   = 20,
+    HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R_CONFIGURE   = 21,
+    HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_L           = 22,
+    HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_R           = 23,
+    HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_L           = 24,
+    HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_R           = 25,
+    HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_L_CONFIGURE = 26,
+    HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_R_CONFIGURE = 27,
+    HAL_AUDIO_AGENT_BLOCK_UPDN_MAX                  = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_R_CONFIGURE,
 
     /* device interfrace */
-    HAL_AUDIO_AGENT_DEVICE_MIN                      = 22,
+    HAL_AUDIO_AGENT_DEVICE_MIN                      = 28,
     HAL_AUDIO_AGENT_DEVICE_I2S_SLAVE_MIN            = HAL_AUDIO_AGENT_DEVICE_MIN,
     HAL_AUDIO_AGENT_DEVICE_I2S0_SLAVE_TX            = HAL_AUDIO_AGENT_DEVICE_I2S_SLAVE_MIN,
-    HAL_AUDIO_AGENT_DEVICE_I2S1_SLAVE_TX            = 23,
-    HAL_AUDIO_AGENT_DEVICE_I2S2_SLAVE_TX            = 24,
-    HAL_AUDIO_AGENT_DEVICE_I2S0_SLAVE_RX            = 25,
-    HAL_AUDIO_AGENT_DEVICE_I2S1_SLAVE_RX            = 26,
-    HAL_AUDIO_AGENT_DEVICE_I2S2_SLAVE_RX            = 27,
+    HAL_AUDIO_AGENT_DEVICE_I2S1_SLAVE_TX            = 29,
+    HAL_AUDIO_AGENT_DEVICE_I2S2_SLAVE_TX            = 30,
+    HAL_AUDIO_AGENT_DEVICE_I2S0_SLAVE_RX            = 31,
+    HAL_AUDIO_AGENT_DEVICE_I2S1_SLAVE_RX            = 32,
+    HAL_AUDIO_AGENT_DEVICE_I2S2_SLAVE_RX            = 33,
     HAL_AUDIO_AGENT_DEVICE_I2S_SLAVE_MAX            = HAL_AUDIO_AGENT_DEVICE_I2S2_SLAVE_RX,
 
-    HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MIN           = 28,
+    HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MIN           = 34,
     HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_DUAL_TX      = HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MIN,
-    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_DUAL_TX      = 29,
-    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_DUAL_TX      = 30,
-    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_DUAL_TX      = 31,
-    HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_L_TX         = 32,
-    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_L_TX         = 33,
-    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_L_TX         = 34,
-    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_L_TX         = 35,
-    HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_R_TX         = 36,
-    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_R_TX         = 37,
-    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_R_TX         = 38,
-    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_R_TX         = 39,
-    HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_DUAL_RX      = 40,
-    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_DUAL_RX      = 41,
-    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_DUAL_RX      = 42,
-    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_DUAL_RX      = 43,
-    HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_L_RX         = 44,
-    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_L_RX         = 45,
-    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_L_RX         = 46,
-    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_L_RX         = 47,
-    HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_R_RX         = 48,
-    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_R_RX         = 49,
-    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_R_RX         = 50,
-    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_R_RX         = 51,
+    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_DUAL_TX      = 35,
+    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_DUAL_TX      = 36,
+    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_DUAL_TX      = 37,
+    HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_L_TX         = 38,
+    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_L_TX         = 39,
+    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_L_TX         = 40,
+    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_L_TX         = 41,
+    HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_R_TX         = 42,
+    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_R_TX         = 43,
+    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_R_TX         = 44,
+    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_R_TX         = 45,
+    HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_DUAL_RX      = 46,
+    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_DUAL_RX      = 47,
+    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_DUAL_RX      = 48,
+    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_DUAL_RX      = 49,
+    HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_L_RX         = 50,
+    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_L_RX         = 51,
+    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_L_RX         = 52,
+    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_L_RX         = 53,
+    HAL_AUDIO_AGENT_DEVICE_I2S0_MASTER_R_RX         = 54,
+    HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_R_RX         = 55,
+    HAL_AUDIO_AGENT_DEVICE_I2S2_MASTER_R_RX         = 56,
+    HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_R_RX         = 57,
     HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MAX           = HAL_AUDIO_AGENT_DEVICE_I2S3_MASTER_R_RX,
 
-    HAL_AUDIO_AGENT_DEVICE_ADDA_MIN                 = 52,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_MIN                 = 58,
     HAL_AUDIO_AGENT_DEVICE_ADDA_DL1                 = HAL_AUDIO_AGENT_DEVICE_ADDA_MIN,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_DUAL            = 53,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL2_DUAL            = 54,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL3_DUAL            = 55,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL4_DUAL            = 56,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_L               = 57,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL2_L               = 58,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL3_L               = 59,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL4_L               = 60,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_R               = 61,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL2_R               = 62,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL3_R               = 63,
-    HAL_AUDIO_AGENT_DEVICE_ADDA_UL4_R               = 64,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_DUAL            = 59,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL2_DUAL            = 60,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL3_DUAL            = 61,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL4_DUAL            = 62,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_L               = 63,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL2_L               = 64,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL3_L               = 65,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL4_L               = 66,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_R               = 67,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL2_R               = 68,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL3_R               = 69,
+    HAL_AUDIO_AGENT_DEVICE_ADDA_UL4_R               = 70,
     HAL_AUDIO_AGENT_DEVICE_ADDA_MAX                 = HAL_AUDIO_AGENT_DEVICE_ADDA_UL4_R,
 
-    HAL_AUDIO_AGENT_DEVICE_SIDETONE                 = 65,
-    HAL_AUDIO_AGENT_DEVICE_ANC                      = 66,
-    HAL_AUDIO_AGENT_DEVICE_VAD                      = 67,
-    HAL_AUDIO_AGENT_DEVICE_VOW                      = 68,
+    HAL_AUDIO_AGENT_DEVICE_SIDETONE                 = 71,
+    HAL_AUDIO_AGENT_DEVICE_ANC                      = 72,
+    HAL_AUDIO_AGENT_DEVICE_VAD                      = 73,
+    HAL_AUDIO_AGENT_DEVICE_VOW                      = 74,
     HAL_AUDIO_AGENT_DEVICE_MAX                      = HAL_AUDIO_AGENT_DEVICE_VOW,
 
-    HAL_AUDIO_AGENT_DEVICE_INPUT                    = 69,
-    HAL_AUDIO_AGENT_DEVICE_OUTPUT                   = 70,
-    HAL_AUDIO_AGENT_DEVICE_TDM_RX                   = 71,
-    HAL_AUDIO_AGENT_DEVICE_TDM_TX                   = 72,
+    HAL_AUDIO_AGENT_DEVICE_INPUT                    = 75,
+    HAL_AUDIO_AGENT_DEVICE_OUTPUT                   = 76,
+    HAL_AUDIO_AGENT_DEVICE_TDM_RX                   = 77,
+    HAL_AUDIO_AGENT_DEVICE_TDM_TX                   = 78,
+    HAL_AUDIO_AGENT_DEVICE_SPDIF_RX                 = 79,
 
-    HAL_AUDIO_AGENT_NUMBERS                         = 73,
-    HAL_AUDIO_AGENT_MEMORY_NUMBERS                  = HAL_AUDIO_AGENT_MEMORY_SRC_MAX-HAL_AUDIO_AGENT_MEMORY_DL_MIN+1,
-    HAL_AUDIO_AGENT_DEVICE_NUMBERS                  = HAL_AUDIO_AGENT_DEVICE_MAX-HAL_AUDIO_AGENT_DEVICE_MIN+1,
+
+    HAL_AUDIO_AGENT_NUMBERS                         = 80,
+    HAL_AUDIO_AGENT_MEMORY_NUMBERS                  = HAL_AUDIO_AGENT_MEMORY_SRC_MAX - HAL_AUDIO_AGENT_MEMORY_DL_MIN + 1,
+    HAL_AUDIO_AGENT_DEVICE_NUMBERS                  = HAL_AUDIO_AGENT_DEVICE_MAX - HAL_AUDIO_AGENT_DEVICE_MIN + 1,
     HAL_AUDIO_AGENT_ERROR                           = 0xFF,
 } hal_audio_agent_t;
 
@@ -296,37 +304,16 @@ typedef enum {
     HAL_AUDIO_DEVICE_AGENT_DEVICE_TDM_RX                   = 18,
     HAL_AUDIO_DEVICE_AGENT_DEVICE_TDM_TX                   = 19,
 
-    HAL_AUDIO_DEVICE_AGENT_NUMBERS                         = 20,
-    HAL_AUDIO_DEVICE_AGENT_MEMORY_NUMBERS                  = HAL_AUDIO_AGENT_MEMORY_SRC_MAX-HAL_AUDIO_AGENT_MEMORY_DL_MIN+1,
-    HAL_AUDIO_DEVICE_AGENT_DEVICE_NUMBERS                  = HAL_AUDIO_AGENT_DEVICE_MAX-HAL_AUDIO_AGENT_DEVICE_MIN+1,
-    HAL_AUDIO_DEVICE_AGENT_ERROR                           = 0xFF,
+    HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC1                   = 20,
+    HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC2                   = 21,
+    HAL_AUDIO_DEVICE_AGENT_DEVICE_AFE                      = 22,
+    HAL_AUDIO_DEVICE_AGENT_DEVICE_SPDIF_RX                 = 23,
+
+    HAL_AUDIO_DEVICE_AGENT_NUMBERS                         = 24,
+    HAL_AUDIO_DEVICE_AGENT_MEMORY_NUMBERS                  = HAL_AUDIO_AGENT_MEMORY_SRC_MAX - HAL_AUDIO_AGENT_MEMORY_DL_MIN + 1,
+    HAL_AUDIO_DEVICE_AGENT_DEVICE_NUMBERS                  = HAL_AUDIO_AGENT_DEVICE_MAX - HAL_AUDIO_AGENT_DEVICE_MIN + 1,
+    HAL_AUDIO_DEVICE_AGENT_ERROR                           = 0xFFFFFFFF,
 } hal_audio_device_agent_t;
-
-typedef enum {
-/* memory interfrace */
-    HAL_AUDIO_SUB_AGENT_MIN                      = 0,
-    HAL_AUDIO_AFE_CLOCK_AFE                      = HAL_AUDIO_SUB_AGENT_MIN,
-    HAL_AUDIO_AFE_CLOCK_I2S0                     = 1,
-    HAL_AUDIO_AFE_CLOCK_I2S1                     = 2,
-    HAL_AUDIO_AFE_CLOCK_I2S2                     = 3,
-    HAL_AUDIO_AFE_CLOCK_I2S3                     = 4,
-    HAL_AUDIO_AFE_CLOCK_22M                      = 5,
-    HAL_AUDIO_AFE_CLOCK_24M                      = 6,
-    HAL_AUDIO_AFE_CLOCK_APLL                     = 7,
-    HAL_AUDIO_AFE_CLOCK_APLL2                    = 8,
-    HAL_AUDIO_AFE_CLOCK_ADC_COMMON               = 9,
-    HAL_AUDIO_AFE_CLOCK_ADC23                    = 10,
-    HAL_AUDIO_AFE_CLOCK_ADC45                    = 11,
-    HAL_AUDIO_AFE_CLOCK_ANC                      = 12,
-    HAL_AUDIO_AFE_CLOCK_ADC_HIRES                = 13,
-    HAL_AUDIO_AFE_CLOCK_DAC                      = 14,
-    HAL_AUDIO_AFE_CLOCK_DAC_HIRES                = 15,
-    HAL_AUDIO_AFE_CLOCK_I2S_SLV_HCLK             = 16,
-    HAL_AUDIO_AFE_CONTROL_ADDA                   = 17,
-
-    HAL_AUDIO_SUB_AGENT_NUMBERS                  = 18,
-    HAL_AUDIO_SUB_AGENT_ERROR                    = 0xFF,
-} hal_audio_sub_agent_t;
 
 typedef struct {
     audio_scenario_type_t component_type;
@@ -498,10 +485,14 @@ typedef enum  {
 } afe_tick_align_downsampler_t;
 
 typedef enum {
-    AFE_UPDOWN_SAMPLER_UP_CH01 = 0,
-    AFE_UPDOWN_SAMPLER_UP_CH23,
-    AFE_UPDOWN_SAMPLER_DOWN_CH01,
-    AFE_UPDOWN_SAMPLER_DOWN_CH23,
+    AFE_UPDOWN_SAMPLER_UP_CH01_L = 0,
+    AFE_UPDOWN_SAMPLER_UP_CH01_R,
+    AFE_UPDOWN_SAMPLER_UP_CH23_L,
+    AFE_UPDOWN_SAMPLER_UP_CH23_R,
+    AFE_UPDOWN_SAMPLER_DOWN_CH01_L,
+    AFE_UPDOWN_SAMPLER_DOWN_CH01_R,
+    AFE_UPDOWN_SAMPLER_DOWN_CH23_L,
+    AFE_UPDOWN_SAMPLER_DOWN_CH23_R,
 } afe_updown_sampler_id_t;
 
 
@@ -555,6 +546,7 @@ typedef struct {
     hal_audio_src_clk_skew_mode_t clkskew_mode;
 #endif
     uint16_t out_frame_size;
+    hal_audio_afe_hwsrc_type_t    hwsrc_type;
 } afe_src_configuration_t, *afe_src_configuration_p;
 
 typedef struct {
@@ -567,10 +559,8 @@ typedef struct {
 typedef struct {
     uint32_t input_rate;
     uint32_t output_rate;
-    uint32_t non_integer_multiple_rate;
     hal_audio_path_interconnection_tick_source_t tick_align;
     bool is_echo_configure_input;
-    bool is_non_integer_multiple;
 } afe_updown_configuration_t, *afe_updown_configuration_p;
 
 
@@ -585,15 +575,14 @@ typedef struct {
 
 
 /* Audio SRAM structure */
-typedef struct
-{
+typedef struct {
     uint32_t                sram_addr;
     hal_audio_agent_t       user;
+    audio_scenario_type_t   component_type;
 } hal_audio_memory_sram_block_t, *hal_audio_memory_sram_block_p;
 
 typedef union {
-    struct
-    {
+    struct {
         int16_t    channel_l;
         int16_t    channel_r;
     } channel_counter;
@@ -602,8 +591,7 @@ typedef union {
 } afe_analog_channel_control_t, *afe_analog_channel_control_p;
 
 /* hal audio sidetone control structure */
-typedef struct
-{
+typedef struct {
     HAL_AUDIO_TIMER_HANDLE                  timer_handle;
     hal_audio_closure_entry                 sidetone_stop_done_entry;
     hal_audio_path_interconnection_input_t  input_interconn_select;
@@ -621,12 +609,10 @@ typedef struct
 } hal_audio_sidetone_control_t;
 
 /* hal audio vad control structure */
-typedef struct
-{
+typedef struct {
     HAL_AUDIO_TIMER_HANDLE          timer_handle;
 } hal_audio_vad_control_t;
-typedef struct
-{
+typedef struct {
     hal_audio_memory_sram_block_t   block[HAL_AUDIO_MEMORY_SRAM_BLOCK_NUMBER];
     OS_STRU_SEMAPHORE               semaphore;
     OS_STRU_SEMAPHORE_PTR           semaphore_ptr;
@@ -635,8 +621,7 @@ typedef struct
 } hal_audio_memory_sram_control_t, *hal_audio_memory_sram_control_p;
 
 /* hal audio amp control structure */
-typedef struct
-{
+typedef struct {
     uint32_t                        output_gpio;
     hal_audio_handler_entry         notice_off_handler;
     afe_device_delay_parameter_t    delay_handle;
@@ -645,8 +630,7 @@ typedef struct
 } hal_audio_amp_control_t;
 
 /* hal audio vow control structure */
-typedef struct
-{
+typedef struct {
     HAL_AUDIO_TIMER_HANDLE          timer_handle;
     hal_audio_vow_mode_t            vow_mode;
     uint32_t                        stable_noise;
@@ -688,6 +672,9 @@ int hal_audio_device_semaphore_give(HAL_AUDIO_SEMAPHO_HANDLE xSemaphore);
 bool hal_audio_device_set_agent(hal_audio_device_parameter_t *handle, hal_audio_control_t device, hal_audio_control_status_t control);
 void hal_audio_enter_criticl_section(void);
 void hal_audio_exit_criticl_section(void);
+bool hal_audio_status_get_agent_status(hal_audio_agent_t agent);
+bool hal_audio_status_get_agent_of_type_status(hal_audio_agent_t agent, audio_scenario_type_t type);
+audio_scenario_type_t hal_audio_status_get_type_of_agent(hal_audio_agent_t agent);
 /*******************************************************************************************
 *                                       Memory agent                                       *
 ********************************************************************************************/

@@ -45,7 +45,7 @@
 #include "dsp_sdk.h"
 
 /* Public define -------------------------------------------------------------*/
-#define SW_SRC_PORT_MAX         3
+#define SW_SRC_PORT_MAX         5
 
 /* Public typedef ------------------------------------------------------------*/
 typedef enum {
@@ -91,6 +91,7 @@ typedef struct {
     void *owner;
     DSP_STREAMING_PARA_PTR stream;
     SW_SRC_MODE mode;
+    int32_t port_index;
     uint32_t channel_num;
     stream_resolution_t in_res;
     uint32_t in_sampling_rate;
@@ -111,6 +112,7 @@ typedef struct {
 /* Public macro --------------------------------------------------------------*/
 /* Public variables ----------------------------------------------------------*/
 /* Public functions ----------------------------------------------------------*/
+extern int get_Blisrc_version(void);
 extern int Blisrc_GetBufferSize(unsigned int *p_internal_buf_size_in_byte,
                                 unsigned int *p_temp_buf_size_in_byte,
                                 Blisrc_Param *p_param);
@@ -125,6 +127,7 @@ extern int Blisrc_Process(Blisrc_Handle *p_handle,
                           unsigned int *p_ou_byte_cnt);
 extern int Blisrc_Reset(Blisrc_Handle *p_handle);
 extern sw_src_port_t *stream_function_sw_src_get_port(void *owner);
+extern sw_src_port_t *stream_function_sw_src_get_multi_port(void *owner);
 extern void stream_function_sw_src_init(sw_src_port_t *port, sw_src_config_t *config);
 extern void stream_function_sw_src_deinit(sw_src_port_t *port);
 extern bool stream_function_sw_src_initialize(void *para);

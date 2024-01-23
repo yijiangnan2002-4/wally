@@ -148,7 +148,7 @@ static const hal_audio_path_interconnection_output_t hal_audio_path_output_table
     AUDIO_INTERCONNECTION_OUTPUT_O23,   /* HAL_AUDIO_INTERCONN_SELECT_OUTPUT_MEMORY_AWB2_CH2        = 27, */
 };
 
-#if defined(MTK_MULTI_MIC_STREAM_ENABLE) || defined(AIR_ADAPTIVE_EQ_ENABLE)
+#if defined(AIR_MULTI_MIC_STREAM_ENABLE) || defined(AIR_ADAPTIVE_EQ_ENABLE)
 hal_audio_path_user_counter_t   hal_audio_path_memory_ul_duplicate[AUDIO_INTERCONNECTION_OUTPUT_O25 - AUDIO_INTERCONNECTION_OUTPUT_O16 + 1];
 #endif
 #ifdef AIR_AUDIO_PATH_CUSTOMIZE_ENABLE
@@ -162,7 +162,7 @@ hal_audio_path_user_counter_t *hal_audio_path_get_user_counter(hal_audio_path_in
 {
     hal_audio_path_user_counter_t *user_counter = NULL;
     UNUSED(output);
-#if defined(MTK_MULTI_MIC_STREAM_ENABLE) || defined(AIR_ADAPTIVE_EQ_ENABLE)
+#if defined(AIR_MULTI_MIC_STREAM_ENABLE) || defined(AIR_ADAPTIVE_EQ_ENABLE)
     if ((output >= AUDIO_INTERCONNECTION_OUTPUT_O16) && (output <= AUDIO_INTERCONNECTION_OUTPUT_O25)) {
         user_counter = &hal_audio_path_memory_ul_duplicate[output - AUDIO_INTERCONNECTION_OUTPUT_O16];
     }
@@ -490,7 +490,96 @@ void audio_hw_loopback_echo_enable(bool enable)
 }
 #endif
 
-static uint32_t updown_sampler_connection_select = 0;
+hal_audio_path_interconnection_input_t hal_audio_updown_set_connection(hal_audio_path_interconnection_input_t input_port, audio_scenario_type_t type, afe_updown_configuration_t *updown_configuration, hal_audio_control_status_t control)
+{
+    HAL_AUDIO_LOG_INFO("#hal_audio_updown_set_connection# input_port %d,type %d,input_rate %d,output_rate %d,control %d", 5, input_port, type, updown_configuration->input_rate, updown_configuration->output_rate, control);
+
+    hal_audio_path_interconnection_output_t upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O33;
+    hal_audio_path_interconnection_input_t upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I39;
+    afe_updown_sampler_id_t updown_id = AFE_UPDOWN_SAMPLER_UP_CH01_L;
+
+    uint64_t dn_ch01_l = ((uint64_t)AFE_READ(AFE_CONN32_1)) << 32 | AFE_READ(AFE_CONN32);
+    uint64_t dn_ch01_r = ((uint64_t)AFE_READ(AFE_CONN33_1)) << 32 | AFE_READ(AFE_CONN33);
+    uint64_t up_ch01_l = ((uint64_t)AFE_READ(AFE_CONN36_1)) << 32 | AFE_READ(AFE_CONN36);
+    uint64_t up_ch01_r = ((uint64_t)AFE_READ(AFE_CONN37_1)) << 32 | AFE_READ(AFE_CONN37);
+    // check input port
+    uint64_t bit_position = ((uint64_t) 1 << input_port);
+
+    if (control) {
+        if (updown_configuration->input_rate < updown_configuration->output_rate) {
+            //Up sampler
+            if (!up_ch01_l) {
+                updown_id = AFE_UPDOWN_SAMPLER_UP_CH01_L;
+                upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O36;
+                upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I42;
+            } else if ((!up_ch01_r) && (hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH01_L) == updown_configuration->input_rate)
+                       && (hal_updown_get_output_rate(AFE_UPDOWN_SAMPLER_UP_CH01_L) == updown_configuration->output_rate)) {
+                updown_id = AFE_UPDOWN_SAMPLER_UP_CH01_R;
+                upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O37;
+                upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I43;
+            } else { // each up sampler has only 2 channel
+                HAL_AUDIO_LOG_ERROR("[interconn] UpSampler is not enough! updownsampler: up_ch01_r:%d", 1, up_ch01_r);
+                AUDIO_ASSERT(false);
+            }
+        } else {
+            //Down sampler
+            if (!dn_ch01_l) {
+                updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01_L;
+                upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O32;
+                upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I38;
+            } else if ((!dn_ch01_r) && (hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_DOWN_CH01_L) == updown_configuration->input_rate)
+                       && (hal_updown_get_output_rate(AFE_UPDOWN_SAMPLER_DOWN_CH01_L) == updown_configuration->output_rate)) {
+                updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01_R;
+                upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O33;
+                upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I39;
+            } else { // each down sampler has only 2 channel
+                HAL_AUDIO_LOG_ERROR("[interconn] DownSampler is not enough! updownsampler: dn_ch01_r:%d", 1, dn_ch01_r);
+                AUDIO_ASSERT(false);
+            }
+            //hal_tick_align_set_memory_agent(input_port_memory_select, HAL_AUDIO_PATH_TICK_SOURCE_DOWN_SAMPLER_OUTPUT_CH0, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
+        }
+    } else {
+        if (updown_configuration->input_rate < updown_configuration->output_rate) {
+            //Up sampler
+            if ((bit_position & up_ch01_r) && hal_audio_status_get_agent_of_type_status(HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_R, type)) {
+                upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O37;
+                upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I43;
+                updown_id = AFE_UPDOWN_SAMPLER_UP_CH01_R;
+            } else if ((bit_position & up_ch01_l) && hal_audio_status_get_agent_of_type_status(HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_L, type)) {
+                upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O36;
+                upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I42;
+                updown_id = AFE_UPDOWN_SAMPLER_UP_CH01_L;
+            } else {
+                HAL_AUDIO_LOG_ERROR("[interconn] UpSampler configuratrion is wrong! bit_position:%d, up_ch01_r:%d, up_ch01_l:%d, use_r:%d, use_l:%d", 5,
+                                    bit_position, up_ch01_r, up_ch01_l, hal_audio_status_get_agent_of_type_status(HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_R, type),
+                                    hal_audio_status_get_agent_of_type_status(HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_L, type));
+                AUDIO_ASSERT(false);
+            }
+        } else {
+            //Down sampler
+            if ((bit_position & dn_ch01_r) && hal_audio_status_get_agent_of_type_status(HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_R, type)) {
+                upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O33;
+                upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I39;
+                updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01_R;
+            } else if ((bit_position & dn_ch01_l) && hal_audio_status_get_agent_of_type_status(HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_L, type)) {
+                upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O32;
+                upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I38;
+                updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01_L;
+            } else {
+                HAL_AUDIO_LOG_ERROR("[interconn] DownSampler configuratrion is wrong! bit_position:%d, dn_ch01_r:%d, dn_ch01_l:%d, use_r:%d, use_l:%d", 5,
+                                    bit_position, dn_ch01_r, dn_ch01_l, hal_audio_status_get_agent_of_type_status(HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_R, type),
+                                    hal_audio_status_get_agent_of_type_status(HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_L, type));
+                AUDIO_ASSERT(false);
+            }
+        }
+
+    }
+    hal_audio_updown_set_agent(updown_configuration, updown_id, type, control);
+    hal_audio_path_set_interconnection(control ? AUDIO_INTERCONNECTION_CONNECT : AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, input_port, upwdown_sampler_input_port);
+    input_port = upwdown_sampler_output_port;
+    return input_port;
+}
+
 bool hal_audio_path_set_connection(hal_audio_path_parameter_t *handle, hal_audio_control_status_t control)
 {
     hal_audio_path_interconnection_input_t input_port;
@@ -536,258 +625,49 @@ bool hal_audio_path_set_connection(hal_audio_path_parameter_t *handle, hal_audio
         }
 #ifdef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
         if (input_port == AUDIO_INTERCONNECTION_INPUT_I40) {
-            #if (HAL_AUDIO_PATH_ECHO_CONNECTION_MODE == 0)
-                //Enable up/downSample
-                afe_updown_configuration_t updown_configuration;
-                updown_configuration.input_rate = hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH23);
-                updown_configuration.output_rate = handle->audio_output_rate[connection_select];
-                updown_configuration.non_integer_multiple_rate = hal_audio_updown_get_non_integer_multiple_rate(updown_configuration.input_rate, updown_configuration.output_rate);
-                updown_configuration.is_non_integer_multiple = false;
-                updown_configuration.is_echo_configure_input = false;
-                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23, handle->scenario_type, control);
-                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23, handle->scenario_type, control);
-                hal_tick_align_set_memory_agent(HAL_AUDIO_MEMORY_UL_AWB2, HAL_AUDIO_PATH_TICK_SOURCE_DOWN_SAMPLER_OUTPUT_CH2, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
-            #endif
-        }
-        #ifdef AIR_3RD_PARTY_AUDIO_PLATFORM_ENABLE
-        if (input_port == AUDIO_INTERCONNECTION_INPUT_I38) {
-            #if (HAL_AUDIO_PATH_ECHO_CONNECTION_MODE == 0)
-                //Enable up/downSample
-                afe_updown_configuration_t updown_configuration;
-                updown_configuration.input_rate = hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_DOWN_CH01);
-                if (updown_configuration.input_rate < 16000) {
-                    updown_configuration.input_rate = 48000;
-                }
-                updown_configuration.output_rate = handle->audio_output_rate[connection_select];
-                updown_configuration.non_integer_multiple_rate = hal_audio_updown_get_non_integer_multiple_rate(updown_configuration.input_rate, updown_configuration.output_rate);
-                updown_configuration.is_non_integer_multiple = false;
-                updown_configuration.is_echo_configure_input = false;
-                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH01, handle->scenario_type, control);
-                //hal_tick_align_set_memory_agent(HAL_AUDIO_MEMORY_UL_AWB2, HAL_AUDIO_PATH_TICK_SOURCE_DOWN_SAMPLER_OUTPUT_CH0, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
-            #endif
-        }
-        #endif
-#endif
-        if (handle->with_updown_sampler[connection_select]) {
-            hal_audio_path_interconnection_output_t upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O33;
-            hal_audio_path_interconnection_input_t upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I39;
-            afe_updown_sampler_id_t updown_id;
+#if (HAL_AUDIO_PATH_ECHO_CONNECTION_MODE == 0)
+            //Enable up/downSample
             afe_updown_configuration_t updown_configuration;
-
-            updown_configuration.input_rate = handle->audio_input_rate[connection_select];
-            updown_configuration.output_rate = handle->audio_output_rate[connection_select];
-            updown_configuration.tick_align = tick_source;
+            updown_configuration.input_rate = hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH23_L);
+            updown_configuration.output_rate = hal_audio_updown_get_non_integer_multiple_rate(hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH23_L), handle->audio_output_rate[connection_sequence]);
             updown_configuration.is_echo_configure_input = false;
-            updown_configuration.is_non_integer_multiple = false;
-            updown_configuration.non_integer_multiple_rate = false;
-            // disconnect up_down sample
-            if (control == 0) {
-                updown_sampler_connection_select--;
-                uint64_t dn_ch01_l = ((uint64_t)AFE_READ(AFE_CONN32_1)) << 32 | AFE_READ(AFE_CONN32);
-                uint64_t dn_ch01_r = ((uint64_t)AFE_READ(AFE_CONN33_1)) << 32 | AFE_READ(AFE_CONN33);
-
-                uint64_t up_ch01_l = ((uint64_t)AFE_READ(AFE_CONN36_1)) << 32 | AFE_READ(AFE_CONN36);
-                uint64_t up_ch01_r = ((uint64_t)AFE_READ(AFE_CONN37_1)) << 32 | AFE_READ(AFE_CONN37);
-
-                // check input port
-                uint64_t bit_position = ((uint64_t) 1 << input_port);
-                HAL_AUDIO_LOG_INFO("[Interconn] bit_position:0x%x, dn_01 L:0x%x R:0x%x, up_01 L:0x%x R:0x%x", 5, bit_position, dn_ch01_l, dn_ch01_r, up_ch01_l, up_ch01_r);
-                if (((handle->audio_input_rate[connection_select] >= handle->audio_output_rate[connection_select])&&(handle->audio_input_rate[connection_select] % handle->audio_output_rate[connection_select] != 0))||((handle->audio_input_rate[connection_select] < handle->audio_output_rate[connection_select])&&(handle->audio_output_rate[connection_select] % handle->audio_input_rate[connection_select] == 0))) {
-                    if (bit_position & up_ch01_r) {
-                        upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O37;
-                        upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I43;
-                        updown_id = AFE_UPDOWN_SAMPLER_UP_CH01;
-                    } else if (bit_position & up_ch01_l) {
-                        upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O36;
-                        upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I42;
-                        updown_id = AFE_UPDOWN_SAMPLER_UP_CH01;
-                    } else {
-                        goto WITHOUT_UPSAMPLER;
-                    }
-                    if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH01) && !(updown_sampler_connection_select%2)) {
-                        hal_audio_updown_set_agent(&updown_configuration, updown_id, handle->scenario_type, control);
-                    }
-                    HAL_AUDIO_LOG_INFO("[interconn 2] disconnect updn id:%d, input_port %d, upwdown_sampler_input_port %d", 3, updown_id, input_port, upwdown_sampler_input_port);
-                    hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, upwdown_sampler_input_port);
-                    input_port = upwdown_sampler_output_port;
-                    bit_position = ((uint64_t) 1 << input_port);
-                    if (handle->audio_input_rate[connection_select] % handle->audio_output_rate[connection_select] != 0) {
-                        if (bit_position & dn_ch01_r) {
-                            upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O33;
-                            upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I39;
-                            updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01;
-                        } else if (bit_position & dn_ch01_l) {
-                            upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O32;
-                            upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I38;
-                            updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01;
-                        }
-                        if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01) && !(updown_sampler_connection_select%2)) {
-                            hal_audio_updown_set_agent(&updown_configuration, updown_id, handle->scenario_type, control);
-                        }
-                        HAL_AUDIO_LOG_INFO("[interconn 1] disconnect updn id:%d, input_port %d, upwdown_sampler_input_port %d", 3, updown_id, input_port, upwdown_sampler_input_port);
-                        hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, upwdown_sampler_input_port);
-                        input_port = upwdown_sampler_output_port;
-                    }
-                }else {
-                    if (bit_position & dn_ch01_r) {
-                        upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O33;
-                        upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I39;
-                        updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01;
-                    } else if (bit_position & dn_ch01_l) {
-                        upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O32;
-                        upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I38;
-                        updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01;
-                    } else {
-                        goto WITHOUT_DOWNSAMPLER;
-                    }
-                    if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01) && !(updown_sampler_connection_select%2)) {
-                        hal_audio_updown_set_agent(&updown_configuration, updown_id, handle->scenario_type, control);
-                    }
-                    HAL_AUDIO_LOG_INFO("[interconn 1] disconnect updn id:%d, input_port %d, upwdown_sampler_input_port %d", 3, updown_id, input_port, upwdown_sampler_input_port);
-                    hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, upwdown_sampler_input_port);
-                    input_port = upwdown_sampler_output_port;
-                    bit_position = ((uint64_t) 1 << input_port);
-                    if (handle->audio_input_rate[connection_select] % handle->audio_output_rate[connection_select] != 0) {
-                        if (bit_position & up_ch01_r) {
-                            upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O37;
-                            upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I42;
-                            updown_id = AFE_UPDOWN_SAMPLER_UP_CH01;
-                        } else if (bit_position & up_ch01_l) {
-                            upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O36;
-                            upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I43;
-                            updown_id = AFE_UPDOWN_SAMPLER_UP_CH01;
-                        }
-                        if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH01) && !(updown_sampler_connection_select%2)) {
-                            hal_audio_updown_set_agent(&updown_configuration, updown_id, handle->scenario_type, control);
-                        }
-                        HAL_AUDIO_LOG_INFO("[interconn 2] disconnect updn id:%d, input_port %d, upwdown_sampler_input_port %d", 3, updown_id, input_port, upwdown_sampler_input_port);
-                        hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, upwdown_sampler_input_port);
-                        input_port = upwdown_sampler_output_port;
-                    }
+            hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23_L, handle->scenario_type, control);
+            updown_configuration.input_rate = hal_audio_updown_get_non_integer_multiple_rate(hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH23_L), handle->audio_output_rate[connection_sequence]);
+            updown_configuration.output_rate = handle->audio_output_rate[connection_select];
+            hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23_L, handle->scenario_type, control);
+#endif
+        } else {
+#endif
+            if (handle->with_updown_sampler[connection_select]) {
+                if ((handle->audio_input_rate[connection_select] < 8000) || (handle->audio_input_rate[connection_select] > 192000) ||
+                    (handle->audio_output_rate[connection_select] < 8000) || (handle->audio_output_rate[connection_select] > 192000) ||
+                    (handle->audio_input_rate[connection_select] % 8000 != 0) || (handle->audio_output_rate[connection_select] % 8000 != 0)
+                   ) {
+                    HAL_AUDIO_LOG_ERROR("Wrong updown path rate: input_rate:%d, output_rate:%d", 2,
+                                        handle->audio_input_rate[connection_select], handle->audio_input_rate[connection_select]);
+                    AUDIO_ASSERT(false);
                 }
-            } else {
-                if ((handle->audio_input_rate[connection_select] % handle->audio_output_rate[connection_select] == 0)||(handle->audio_output_rate[connection_select] % handle->audio_input_rate[connection_select] == 0)) {
+                afe_updown_configuration_t updown_configuration;
+                updown_configuration.tick_align = tick_source;
+                updown_configuration.is_echo_configure_input = false;
+                if ((handle->audio_input_rate[connection_select] % handle->audio_output_rate[connection_select] == 0) || (handle->audio_output_rate[connection_select] % handle->audio_input_rate[connection_select] == 0)) {
                     // Note: Only support single connection. Multi channel should be implemented by user.
-                    if (handle->audio_input_rate[connection_select] >= handle->audio_output_rate[connection_select]) {
-                        //Down sampler
-                        updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01;
-                        if ((updown_sampler_connection_select+1 + control) > 3) { // each down sampler has only 2 channel
-                            HAL_AUDIO_LOG_WARNING("[interconn] Warining: DownSampler single channel is not enough!!", 0);
-                            goto WITHOUT_DOWNSAMPLER;
-                        } else {
-                            upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O32;
-                            upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I38;
-                            hal_tick_align_set_memory_agent(input_port_memory_select, HAL_AUDIO_PATH_TICK_SOURCE_DOWN_SAMPLER_OUTPUT_CH0, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
-                        }
-
-                    } else {
-                        //Up sampler
-                        updown_id = AFE_UPDOWN_SAMPLER_UP_CH01;
-                        if ((updown_sampler_connection_select+1 + control) > 3) { // each up sampler has only 2 channel
-                            HAL_AUDIO_LOG_WARNING("[interconn] Warining: UpSampler single channel is not enough!!", 0);
-                            goto WITHOUT_UPSAMPLER;
-                        } else {
-                            upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O36;
-                            upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I42;
-                        }
-                    }
-                    if (!(updown_sampler_connection_select%2)) {
-                        hal_audio_updown_set_agent(&updown_configuration, updown_id, handle->scenario_type, control);
-                    }
-                    if ((updown_sampler_connection_select+1 + control) % 2) {
-                        upwdown_sampler_input_port++;
-                        upwdown_sampler_output_port++;
-                    }
-                    hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, upwdown_sampler_input_port);
-                    input_port = upwdown_sampler_output_port;
+                    updown_configuration.input_rate = handle->audio_input_rate[connection_select];
+                    updown_configuration.output_rate = handle->audio_output_rate[connection_select];
+                    input_port = hal_audio_updown_set_connection(input_port, handle->scenario_type, &updown_configuration, control);
                 } else {
-                    updown_configuration.is_non_integer_multiple = true;
-                    updown_configuration.non_integer_multiple_rate = hal_audio_updown_get_non_integer_multiple_rate(handle->audio_input_rate[connection_select], handle->audio_output_rate[connection_select]);
-                    if (handle->audio_input_rate[connection_select] >= handle->audio_output_rate[connection_select]) {
-                        //Up sampler
-                        updown_id = AFE_UPDOWN_SAMPLER_UP_CH01;
-                        if ((updown_sampler_connection_select+1 + control) > 3) { // each up sampler has only 2 channel
-                            HAL_AUDIO_LOG_WARNING("[interconn] Warining: UpSampler single channel is not enough!!", 0);
-                            goto WITHOUT_UPSAMPLER;
-                        } else {
-                            upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O36;
-                            upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I42;
-                        }
-                        if (!(updown_sampler_connection_select%2)) {
-                            hal_audio_updown_set_agent(&updown_configuration, updown_id, handle->scenario_type, control);
-                        }
-                        if ((updown_sampler_connection_select+1 + control) % 2) {
-                            upwdown_sampler_input_port++;
-                            upwdown_sampler_output_port++;
-                        }
-                        hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, upwdown_sampler_input_port);
-                        input_port = upwdown_sampler_output_port;
-
-                        //Down sampler
-                        updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01;
-                        if ((updown_sampler_connection_select+1 + control) > 3) { // each down sampler has only 2 channel
-                            HAL_AUDIO_LOG_WARNING("[interconn] Warining: DownSampler single channel is not enough!!", 0);
-                            goto WITHOUT_DOWNSAMPLER;
-                        } else {
-                            upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O32;
-                            upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I38;
-                            hal_tick_align_set_memory_agent(input_port_memory_select, HAL_AUDIO_PATH_TICK_SOURCE_DOWN_SAMPLER_OUTPUT_CH0, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
-                        }
-                        if (!(updown_sampler_connection_select%2)) {
-                            hal_audio_updown_set_agent(&updown_configuration, updown_id, handle->scenario_type, control);
-                        }
-                        if ((updown_sampler_connection_select+1 + control) % 2) {
-                            upwdown_sampler_input_port++;
-                            upwdown_sampler_output_port++;
-                        }
-                        hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, upwdown_sampler_input_port);
-                        input_port = upwdown_sampler_output_port;
-                    } else {
-                        //Down sampler
-                        updown_id = AFE_UPDOWN_SAMPLER_DOWN_CH01;
-                        if ((updown_sampler_connection_select+1 + control) > 3) { // each down sampler has only 2 channel
-                            HAL_AUDIO_LOG_WARNING("[interconn] Warining: DownSampler single channel is not enough!!", 0);
-                            goto WITHOUT_DOWNSAMPLER;
-                        } else {
-                            upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O32;
-                            upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I38;
-                            hal_tick_align_set_memory_agent(input_port_memory_select, HAL_AUDIO_PATH_TICK_SOURCE_DOWN_SAMPLER_OUTPUT_CH0, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
-                        }
-                        if (!(updown_sampler_connection_select%2)) {
-                            hal_audio_updown_set_agent(&updown_configuration, updown_id, handle->scenario_type, control);
-                        }
-                        if ((updown_sampler_connection_select+1 + control) % 2) {
-                            upwdown_sampler_input_port++;
-                            upwdown_sampler_output_port++;
-                        }
-                        hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, upwdown_sampler_input_port);
-                        input_port = upwdown_sampler_output_port;
-
-                        //Up sampler
-                        updown_id = AFE_UPDOWN_SAMPLER_UP_CH01;
-                        if ((updown_sampler_connection_select+1 + control) > 3) { // each up sampler has only 2 channel
-                                HAL_AUDIO_LOG_WARNING("[interconn] Warining: UpSampler single channel is not enough!!", 0);
-                                goto WITHOUT_UPSAMPLER;
-                        } else {
-                            upwdown_sampler_input_port = AUDIO_INTERCONNECTION_OUTPUT_O36;
-                            upwdown_sampler_output_port = AUDIO_INTERCONNECTION_INPUT_I42;
-                        }
-                        if (!(updown_sampler_connection_select%2)) {
-                            hal_audio_updown_set_agent(&updown_configuration, updown_id, handle->scenario_type, control);
-                        }
-                        if ((updown_sampler_connection_select+1 + control) % 2) {
-                            upwdown_sampler_input_port++;
-                            upwdown_sampler_output_port++;
-                        }
-                        hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, upwdown_sampler_input_port);
-                        input_port = upwdown_sampler_output_port;
-                    }
+                    updown_configuration.input_rate = handle->audio_input_rate[connection_select];
+                    updown_configuration.output_rate = hal_audio_updown_get_non_integer_multiple_rate(handle->audio_input_rate[connection_select], handle->audio_output_rate[connection_select]);
+                    input_port = hal_audio_updown_set_connection(input_port, handle->scenario_type, &updown_configuration, control);
+                    updown_configuration.input_rate = hal_audio_updown_get_non_integer_multiple_rate(handle->audio_input_rate[connection_select], handle->audio_output_rate[connection_select]);
+                    updown_configuration.output_rate = handle->audio_output_rate[connection_select];
+                    input_port = hal_audio_updown_set_connection(input_port, handle->scenario_type, &updown_configuration, control);
                 }
-                updown_sampler_connection_select++;
             }
         }
-WITHOUT_UPSAMPLER:
-WITHOUT_DOWNSAMPLER:
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+            handle->with_hw_gain = false;
+#endif
 
         if (handle->with_hw_gain) {
             hal_audio_path_interconnection_output_t hw_gain_input_port;
@@ -798,7 +678,7 @@ WITHOUT_DOWNSAMPLER:
             } else {
                 gain_select = AFE_HW_DIGITAL_GAIN1;
             }
-            if (!(connection_select%2)) {
+            if (!(connection_select % 2)) {
                 hal_audio_hardware_gain_set_agent(gain_select, handle->audio_output_rate[connection_select], handle->scenario_type, control);
             }
             hal_tick_align_set_hw_gain(gain_select, tick_source, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
@@ -833,45 +713,91 @@ WITHOUT_DOWNSAMPLER:
             //Connect echo path to AWB2 data input with down sampler
 #ifndef AIR_AUDIO_PATH_CUSTOMIZE_ENABLE
 #if (HAL_AUDIO_PATH_ECHO_CONNECTION_MODE == 0)
-            hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, AUDIO_INTERCONNECTION_OUTPUT_O38 + (input_port % 2));
-            #ifdef AIR_3RD_PARTY_AUDIO_PLATFORM_ENABLE
-            hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, AUDIO_INTERCONNECTION_OUTPUT_O32 + (input_port % 2));
-            #endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+#ifdef AIR_ECHO_PATH_FIRST_ENABLE
+            if (input_port == AUDIO_INTERCONNECTION_INPUT_I18) {
+                hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, AUDIO_INTERCONNECTION_OUTPUT_O38);
+            }
+#endif
+#ifdef AIR_ECHO_PATH_SECOND_ENABLE
+            if (input_port != AUDIO_INTERCONNECTION_INPUT_I20) {
+                hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, AUDIO_INTERCONNECTION_OUTPUT_O38);
+            }
+#endif
+#else
+            if (!(input_port % 2)) {
+                hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, AUDIO_INTERCONNECTION_OUTPUT_O38);
+            }
+#ifdef AIR_ECHO_PATH_STEREO_ENABLE
+            else {
+                hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, AUDIO_INTERCONNECTION_OUTPUT_O39);
+            }
+#endif
+#endif
+#ifdef AIR_3RD_PARTY_AUDIO_PLATFORM_ENABLE
+            hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, AUDIO_INTERCONNECTION_OUTPUT_O32);
+#endif
             afe_updown_configuration_t updown_configuration;
-            updown_configuration.input_rate = handle->audio_output_rate[connection_select];
-            updown_configuration.tick_align = tick_source;
-            updown_configuration.is_echo_configure_input = true; //modify for leo
-            updown_configuration.output_rate = 0;
-            updown_configuration.is_non_integer_multiple = false;
-            updown_configuration.non_integer_multiple_rate = 0;
-            if (!(connection_select%2)) {
-                //Up sampler23
-                if (hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23, handle->scenario_type, control)) {
-                    //hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23, control);
-                    hal_audio_path_set_interconnection(connection_state, model_connection_channel, AUDIO_INTERCONNECTION_INPUT_I44, AUDIO_INTERCONNECTION_OUTPUT_O34);
-                    #ifndef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
-                    hal_tick_align_set_memory_agent(HAL_AUDIO_MEMORY_UL_AWB2, HAL_AUDIO_PATH_TICK_SOURCE_DOWN_SAMPLER_OUTPUT_CH2, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
-                    hal_audio_path_set_interconnection(connection_state, model_connection_channel, AUDIO_INTERCONNECTION_INPUT_I40, AUDIO_INTERCONNECTION_OUTPUT_O22);
-                    #endif
+            audio_scenario_type_t ul_type = AUDIO_SCEANRIO_TYPE_NO_USE;
+            uint32_t echo_up_input_rate, echo_up_output_rate, echo_dn_input_rate, echo_dn_output_rate;
+            bool ul_enable = false;
+            if (!connection_select) {
+                if (control && hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_L)) {
+                    ul_type = hal_audio_status_get_type_of_agent(HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_L);
+                    echo_up_input_rate = hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH23_L);
+                    echo_up_output_rate = hal_updown_get_output_rate(AFE_UPDOWN_SAMPLER_UP_CH23_L);
+                    echo_dn_input_rate = hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_DOWN_CH23_L);
+                    echo_dn_output_rate = hal_updown_get_output_rate(AFE_UPDOWN_SAMPLER_DOWN_CH23_L);
+                    updown_configuration.is_echo_configure_input = false;
+                    hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23_L, ul_type, false);
+                    hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23_L, ul_type, false);
+                    ul_enable = true;
                 }
             }
-            #ifdef AIR_3RD_PARTY_AUDIO_PLATFORM_ENABLE
-                updown_configuration.input_rate = handle->audio_output_rate[connection_select];
-                updown_configuration.tick_align = tick_source;
-                updown_configuration.is_echo_configure_input = true; //modify for leo
-                updown_configuration.output_rate = 0;
-                updown_configuration.is_non_integer_multiple = false;
-                updown_configuration.non_integer_multiple_rate = 0;
-                if (!(connection_select%2)) {                    //Dn sampler01
-                    hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH01, handle->scenario_type, control);
+            updown_configuration.input_rate = handle->audio_output_rate[connection_select];
+            updown_configuration.tick_align = tick_source;
+            updown_configuration.is_echo_configure_input = true;
+            updown_configuration.output_rate = 0;
+            if (!connection_select) {
+                //Up sampler23
+                if (hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23_L, handle->scenario_type, control)) {
+                    //hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23_L, control);
+                    hal_audio_path_set_interconnection(connection_state, model_connection_channel, AUDIO_INTERCONNECTION_INPUT_I44, AUDIO_INTERCONNECTION_OUTPUT_O34);
+#ifdef AIR_ECHO_PATH_STEREO_ENABLE
+                    hal_audio_path_set_interconnection(connection_state, model_connection_channel, AUDIO_INTERCONNECTION_INPUT_I45, AUDIO_INTERCONNECTION_OUTPUT_O35);
+#endif
+#ifndef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
+                    hal_tick_align_set_memory_agent(HAL_AUDIO_MEMORY_UL_AWB2, HAL_AUDIO_PATH_TICK_SOURCE_DOWN_SAMPLER_OUTPUT_CH2, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
+                    hal_audio_path_set_interconnection(connection_state, model_connection_channel, AUDIO_INTERCONNECTION_INPUT_I40, AUDIO_INTERCONNECTION_OUTPUT_O22);
+#endif
                 }
-            #endif
+                if (ul_enable) {
+                    echo_up_input_rate = hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH23_L);
+                    updown_configuration.is_echo_configure_input = false;
+                    updown_configuration.input_rate = echo_up_input_rate;
+                    updown_configuration.output_rate = hal_audio_updown_get_non_integer_multiple_rate(echo_up_input_rate, echo_dn_output_rate);
+                    hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23_L, ul_type, true);
+                    updown_configuration.input_rate = hal_audio_updown_get_non_integer_multiple_rate(echo_up_input_rate, echo_dn_output_rate);
+                    updown_configuration.output_rate = echo_dn_output_rate;
+                    hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23_L, ul_type, true);
+                    ul_enable = false;
+                }
+            }
+#ifdef AIR_3RD_PARTY_AUDIO_PLATFORM_ENABLE
+            updown_configuration.input_rate = handle->audio_output_rate[connection_select];
+            updown_configuration.tick_align = tick_source;
+            updown_configuration.is_echo_configure_input = true;
+            updown_configuration.output_rate = 0;
+            if (!connection_select) {                    //Dn sampler01
+                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH01, handle->scenario_type, control);
+            }
+#endif
 #endif
 #endif
             hal_tick_align_set_memory_agent(input_port_memory_select, tick_source, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
 #endif
         } else if (output_port_memory_select & HAL_AUDIO_MEMORY_UL_MASK) {
-            hal_tick_align_set_memory_agent(output_port_memory_select, (handle->with_updown_sampler[connection_select])? HAL_AUDIO_PATH_TICK_SOURCE_DOWN_SAMPLER_OUTPUT_CH0 : tick_source, with_i2s_slave_connection&&(control==HAL_AUDIO_CONTROL_ON));
+            hal_tick_align_set_memory_agent(output_port_memory_select, (handle->with_updown_sampler[connection_select]) ? HAL_AUDIO_PATH_TICK_SOURCE_DOWN_SAMPLER_OUTPUT_CH0 : tick_source, with_i2s_slave_connection && (control == HAL_AUDIO_CONTROL_ON));
         }
         hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, output_port);
         if ((handle->connection_number == 1) && (handle->with_dl_deq_mixer)) {
@@ -879,8 +805,12 @@ WITHOUT_DOWNSAMPLER:
             hal_audio_path_set_interconnection(connection_state, model_connection_channel, input_port, output_port);
         }
     }
+    #if defined(AIR_DCHS_MODE_ENABLE) || defined(AIR_MIXER_STREAM_ENABLE)
     #ifdef AIR_DCHS_MODE_ENABLE
     if (dchs_get_device_mode() != DCHS_MODE_SINGLE && (input_port_memory_select & HAL_AUDIO_MEMORY_DL_DL1 || input_port_memory_select & HAL_AUDIO_MEMORY_DL_DL2 || input_port_memory_select & HAL_AUDIO_MEMORY_DL_DL3))
+    #else
+    if (input_port_memory_select & HAL_AUDIO_MEMORY_DL_DL1 || input_port_memory_select & HAL_AUDIO_MEMORY_DL_DL2 || input_port_memory_select & HAL_AUDIO_MEMORY_DL_DL3)
+    #endif
     {
         //disconnect dl1
         hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, model_connection_channel, AUDIO_INTERCONNECTION_INPUT_I18, AUDIO_INTERCONNECTION_OUTPUT_O12);

@@ -36,6 +36,7 @@
 #include "hal_audio_clock.h"
 #include "hal_audio_register.h"
 #include "hal_audio_control.h"
+#include "hal_audio_driver.h"
 #if 0//2822 clock control on CM4, modify for ab1568
 #include "hal_spm.h"
 #endif
@@ -44,18 +45,12 @@
 
 #define HAL_AUDIO_CLOCK_CONTROL
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Variables Declaration //////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-static int16_t afe_clock_src_counter;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Functiion Declaration //////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern bool hal_audio_sub_component_id_resource_management(hal_audio_device_agent_t device_agent, hal_audio_sub_agent_t sub_agent, bool control);
 extern bool hal_audio_status_get_all_agent_status();
-extern void hal_src_set_irq_enable(afe_mem_asrc_id_t asrc_id, bool enable);
 
 void hal_audio_clock_initialize(void)
 {
@@ -272,12 +267,10 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void hal_audio_clock_enable_adc3(hal_audio_device_
             AFE_SET_REG(AUDIO_TOP_CON0, 0 << AUDIO_TOP_CON0_PDN_ADC3_POS, AUDIO_TOP_CON0_PDN_ADC3_MASK);
             AFE_SET_REG(AUDIO_TOP_CON1, 0 << AUDIO_TOP_CON1_PDN_ADDA6_POS, AUDIO_TOP_CON1_PDN_ADDA6_MASK);
             hal_nvic_restore_interrupt_mask(mask);
-            hal_audio_clock_enable_adc(device_agent, enable);
         } else {
             AFE_SET_REG(AUDIO_TOP_CON1, 1 << AUDIO_TOP_CON1_PDN_ADDA6_POS, AUDIO_TOP_CON1_PDN_ADDA6_MASK);
             AFE_SET_REG(AUDIO_TOP_CON0, 1 << AUDIO_TOP_CON0_PDN_ADC3_POS, AUDIO_TOP_CON0_PDN_ADC3_MASK);
             hal_nvic_restore_interrupt_mask(mask);
-            hal_audio_clock_enable_adc(device_agent, enable);
         }
         HAL_AUDIO_LOG_INFO("[Audio Agent] DSP - HAL_AUDIO_AFE_CLOCK_ADC45:%d", 1, enable);
     } else {
@@ -294,12 +287,10 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void hal_audio_clock_enable_adc2(hal_audio_device_
             AFE_SET_REG(AUDIO_TOP_CON0, 0 << AUDIO_TOP_CON0_PDN_ADC2_POS, AUDIO_TOP_CON0_PDN_ADC2_MASK);
             AFE_SET_REG(AUDIO_TOP_CON1, 0 << AUDIO_TOP_CON1_PDN_ADDA2_POS, AUDIO_TOP_CON1_PDN_ADDA2_MASK);
             hal_nvic_restore_interrupt_mask(mask);
-            hal_audio_clock_enable_adc(device_agent, enable);
         } else {
             AFE_SET_REG(AUDIO_TOP_CON1, 1 << AUDIO_TOP_CON1_PDN_ADDA2_POS, AUDIO_TOP_CON1_PDN_ADDA2_MASK);
             AFE_SET_REG(AUDIO_TOP_CON0, 1 << AUDIO_TOP_CON0_PDN_ADC2_POS, AUDIO_TOP_CON0_PDN_ADC2_MASK);
             hal_nvic_restore_interrupt_mask(mask);
-            hal_audio_clock_enable_adc(device_agent, enable);
         }
         HAL_AUDIO_LOG_INFO("[Audio Agent] DSP - HAL_AUDIO_AFE_CLOCK_ADC23:%d", 1, enable);
     } else {
@@ -469,24 +460,24 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void hal_audio_clock_enable_dac_hires(hal_audio_de
     }
 }
 
-ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void hal_audio_clock_enable_src(bool enable)
+ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void hal_audio_clock_enable_src(afe_mem_asrc_id_t asrc_id, bool enable)
 {
-    HAL_AUDIO_LOG_INFO("[HWSRC]hal_audio_clock_enable_src:%d",1, enable);
     uint32_t mask;
-    hal_nvic_save_and_set_interrupt_mask(&mask);
-    if (enable) {
-        afe_clock_src_counter++;
-        if (afe_clock_src_counter == 1) {
-            hal_nvic_restore_interrupt_mask(mask);
-            AFE_SET_REG(AUDIO_TOP_CON1, 0 << AUDIO_TOP_CON1_PDN_DRAM_BRIDGE_POS, AUDIO_TOP_CON1_PDN_DRAM_BRIDGE_MASK);
-            HAL_AUDIO_LOG_INFO("[Audio Agent] DSP - HAL_AUDIO_AFE_CLOCK_SRC_COMMON:%d", 1, enable);
-        } else {
-            hal_nvic_restore_interrupt_mask(mask);
-        }
+    hal_audio_device_agent_t device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC1;
+    if (asrc_id == AFE_MEM_ASRC_1) {
+        device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC1;
+    } else if (asrc_id == AFE_MEM_ASRC_2) {
+        device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC2;
     } else {
-        afe_clock_src_counter--;
-        if (afe_clock_src_counter == 0) {
+        HAL_AUDIO_LOG_ERROR(" SRC id is wrong = %d", 1, asrc_id);
+        AUDIO_ASSERT(0);
+    }
+    hal_nvic_save_and_set_interrupt_mask(&mask);
+    if (hal_audio_sub_component_id_resource_management(device_agent, HAL_AUDIO_AFE_CLOCK_SRC_COMMON, enable)) {
+        if (enable) {
+            AFE_SET_REG(AUDIO_TOP_CON1, 0 << AUDIO_TOP_CON1_PDN_DRAM_BRIDGE_POS, AUDIO_TOP_CON1_PDN_DRAM_BRIDGE_MASK);
             hal_nvic_restore_interrupt_mask(mask);
+        } else {
 #ifdef ENABLE_HWSRC_ON_MAIN_STREAM
             U32 loop_count = 0;
             while ((AFE_GET_REG(MEM_ASRC_TOP_MON0) & 0xF) != 7) {
@@ -503,87 +494,117 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void hal_audio_clock_enable_src(bool enable)
             //HAL_AUDIO_LOG_INFO(" SRC JUMP loop_count = %d", 1, loop_count);
 #endif
             AFE_SET_REG(AUDIO_TOP_CON1, 1 << AUDIO_TOP_CON1_PDN_DRAM_BRIDGE_POS, AUDIO_TOP_CON1_PDN_DRAM_BRIDGE_MASK); //BTA-39732 HWSRC hang issue
-            HAL_AUDIO_LOG_INFO("[Audio Agent] DSP - HAL_AUDIO_AFE_CLOCK_SRC_COMMON:%d", 1, enable);
-        } else if (afe_clock_src_counter < 0) {
-            afe_clock_src_counter = 0;
-            hal_nvic_restore_interrupt_mask(mask);
-        } else {
             hal_nvic_restore_interrupt_mask(mask);
         }
+        HAL_AUDIO_LOG_INFO("[Audio Agent] DSP - HAL_AUDIO_AFE_CLOCK_SRC_COMMON:%d", 1, enable);
+    } else {
+        hal_nvic_restore_interrupt_mask(mask);
     }
 }
 
-void hal_audio_clock_enable_src1(bool enable)
+void hal_audio_clock_enable_src1(afe_mem_asrc_id_t asrc_id, bool enable)
 {
-    HAL_AUDIO_LOG_INFO("[HWSRC]hal_audio_clock_enable_src1:%d",1, enable);
-    uint32_t mask;
-    if (enable) {
-        hal_nvic_save_and_set_interrupt_mask(&mask);
-        AFE_SET_REG(AUDIO_TOP_CON1, 0 << AUDIO_TOP_CON1_PDN_ASRC1_POS, AUDIO_TOP_CON1_PDN_ASRC1_MASK);
-        hal_src_set_irq_enable(AFE_MEM_ASRC_1, false);
-        hal_nvic_restore_interrupt_mask(mask);
+    hal_audio_device_agent_t device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC1;
+    if (asrc_id == AFE_MEM_ASRC_1) {
+        device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC1;
+    } else if (asrc_id == AFE_MEM_ASRC_2) {
+        device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC2;
     } else {
+        HAL_AUDIO_LOG_ERROR(" SRC id is wrong = %d", 1, asrc_id);
+        AUDIO_ASSERT(0);
+    }
+    uint32_t mask;
+    hal_nvic_save_and_set_interrupt_mask(&mask);
+    if (hal_audio_sub_component_id_resource_management(device_agent, HAL_AUDIO_AFE_CLOCK_SRC1, enable)) {
+        if (enable) {
+            AFE_SET_REG(AUDIO_TOP_CON1, 0 << AUDIO_TOP_CON1_PDN_ASRC1_POS, AUDIO_TOP_CON1_PDN_ASRC1_MASK);
+            afe_src_configuration_t src_configuration;
+            memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
+            src_configuration.id = AFE_MEM_ASRC_1;
+            hal_src_set_irq_enable(&src_configuration, false);
+            hal_nvic_restore_interrupt_mask(mask);
+        } else {
 #ifdef ENABLE_HWSRC_ON_MAIN_STREAM
-        U32 loop_count = 0;
-        while ((AFE_GET_REG(ASM_OUT_BUF_MON0) & 0xFF) != 0XF1) {
-            if ((loop_count%5) == 0) {
-                HAL_AUDIO_LOG_INFO("DSP - src1 28bit loop_count:%d, 0x1018:0x%x, 0x101C:0x%x, 0x1150:0x%x, 0x1140:0x%x, 0x1160:0x%x, 0x1170:0x%x, 0x11E8:0x%x, 0x11EC:0x%x, 0x11F8:0x%x, 0x11FC:0x%x, 0x0010:0x%x,0x0FDC:0x%x,0x1100:0x%x,0x0000:0x%x,0x0004:0x%x,0x1120:0x%x,0x1124:0x%x,0x1128:0x%x,0x112C:0x%x", 20, loop_count,
+            U32 loop_count = 0;
+            while ((AFE_GET_REG(ASM_OUT_BUF_MON0) & 0xFF) != 0XF1) {
+                if ((loop_count % 5) == 0) {
+                    HAL_AUDIO_LOG_INFO("DSP - src1 28bit loop_count:%d, 0x1018:0x%x, 0x101C:0x%x, 0x1150:0x%x, 0x1140:0x%x, 0x1160:0x%x, 0x1170:0x%x, 0x11E8:0x%x, 0x11EC:0x%x, 0x11F8:0x%x, 0x11FC:0x%x, 0x0010:0x%x,0x0FDC:0x%x,0x1100:0x%x,0x0000:0x%x,0x0004:0x%x,0x1120:0x%x,0x1124:0x%x,0x1128:0x%x,0x112C:0x%x", 20, loop_count,
                                        AFE_GET_REG(MEM_ASRC_TOP_MON0), AFE_GET_REG(MEM_ASRC_TOP_MON1), AFE_GET_REG(ASM_CH01_IBUF_WRPNT), AFE_GET_REG(ASM_CH01_IBUF_RDPNT), AFE_GET_REG(ASM_CH01_OBUF_WRPNT), AFE_GET_REG(ASM_CH01_OBUF_RDPNT),
                                        AFE_GET_REG(ASM_IN_BUF_MON0), AFE_GET_REG(ASM_IN_BUF_MON1), AFE_GET_REG(ASM_OUT_BUF_MON0), AFE_GET_REG(ASM_OUT_BUF_MON1), AFE_GET_REG(AFE_DAC_CON0), AFE_GET_REG(AFE_AUDIO_BT_SYNC_MON2), AFE_GET_REG(ASM_GEN_CONF), AFE_GET_REG(AUDIO_TOP_CON0), AFE_GET_REG(AUDIO_TOP_CON1),
                                        AFE_GET_REG(ASM_FREQUENCY_0), AFE_GET_REG(ASM_FREQUENCY_1), AFE_GET_REG(ASM_FREQUENCY_2), AFE_GET_REG(ASM_FREQUENCY_3));
+                }
+                if (loop_count >= 200 && loop_count % 100 == 0) {
+                    HAL_AUDIO_LOG_INFO("DSP - src1 28bit loop_count:%d, 0x1018:0x%x, 0x101C:0x%x, 0x1150:0x%x, 0x1140:0x%x, 0x1160:0x%x, 0x1170:0x%x, 0x11E8:0x%x, 0x11EC:0x%x, 0x11F8:0x%x, 0x11FC:0x%x, 0x0010:0x%x,0x0FDC:0x%x,0x1100:0x%x,0x0000:0x%x,0x0004:0x%x,0x1120:0x%x,0x1124:0x%x,0x1128:0x%x,0x112C:0x%x", 20, loop_count,
+                                       AFE_GET_REG(MEM_ASRC_TOP_MON0), AFE_GET_REG(MEM_ASRC_TOP_MON1), AFE_GET_REG(ASM_CH01_IBUF_WRPNT), AFE_GET_REG(ASM_CH01_IBUF_RDPNT), AFE_GET_REG(ASM_CH01_OBUF_WRPNT), AFE_GET_REG(ASM_CH01_OBUF_RDPNT),
+                                       AFE_GET_REG(ASM_IN_BUF_MON0), AFE_GET_REG(ASM_IN_BUF_MON1), AFE_GET_REG(ASM_OUT_BUF_MON0), AFE_GET_REG(ASM_OUT_BUF_MON1), AFE_GET_REG(AFE_DAC_CON0), AFE_GET_REG(AFE_AUDIO_BT_SYNC_MON2), AFE_GET_REG(ASM_GEN_CONF), AFE_GET_REG(AUDIO_TOP_CON0), AFE_GET_REG(AUDIO_TOP_CON1),
+                                       AFE_GET_REG(ASM_FREQUENCY_0), AFE_GET_REG(ASM_FREQUENCY_1), AFE_GET_REG(ASM_FREQUENCY_2), AFE_GET_REG(ASM_FREQUENCY_3));
+                    assert(FALSE);
+                }
+                loop_count++;
+                HAL_AUDIO_DELAY_US(10);
             }
-            if (loop_count >= 200 && loop_count % 100 == 0) {
-                HAL_AUDIO_LOG_INFO("DSP - src1 28bit loop_count:%d, 0x1018:0x%x, 0x101C:0x%x, 0x1150:0x%x, 0x1140:0x%x, 0x1160:0x%x, 0x1170:0x%x, 0x11E8:0x%x, 0x11EC:0x%x, 0x11F8:0x%x, 0x11FC:0x%x, 0x0010:0x%x,0x0FDC:0x%x,0x1100:0x%x,0x0000:0x%x,0x0004:0x%x,0x1120:0x%x,0x1124:0x%x,0x1128:0x%x,0x112C:0x%x", 20, loop_count,
-                                   AFE_GET_REG(MEM_ASRC_TOP_MON0), AFE_GET_REG(MEM_ASRC_TOP_MON1), AFE_GET_REG(ASM_CH01_IBUF_WRPNT), AFE_GET_REG(ASM_CH01_IBUF_RDPNT), AFE_GET_REG(ASM_CH01_OBUF_WRPNT), AFE_GET_REG(ASM_CH01_OBUF_RDPNT),
-                                   AFE_GET_REG(ASM_IN_BUF_MON0), AFE_GET_REG(ASM_IN_BUF_MON1), AFE_GET_REG(ASM_OUT_BUF_MON0), AFE_GET_REG(ASM_OUT_BUF_MON1), AFE_GET_REG(AFE_DAC_CON0), AFE_GET_REG(AFE_AUDIO_BT_SYNC_MON2), AFE_GET_REG(ASM_GEN_CONF), AFE_GET_REG(AUDIO_TOP_CON0), AFE_GET_REG(AUDIO_TOP_CON1),
-                                   AFE_GET_REG(ASM_FREQUENCY_0), AFE_GET_REG(ASM_FREQUENCY_1), AFE_GET_REG(ASM_FREQUENCY_2), AFE_GET_REG(ASM_FREQUENCY_3));
-                assert(FALSE);
-            }
-            loop_count++;
-            HAL_AUDIO_DELAY_US(10);
-        }
-        HAL_AUDIO_LOG_INFO(" SRC1 JUMP loop_count = %d", 1, loop_count);
+            hal_nvic_restore_interrupt_mask(mask);
+            HAL_AUDIO_LOG_INFO(" SRC1 JUMP loop_count = %d", 1, loop_count);
 #endif
-        AFE_SET_REG(AUDIO_TOP_CON1, 1 << AUDIO_TOP_CON1_PDN_ASRC1_POS, AUDIO_TOP_CON1_PDN_ASRC1_MASK);
-        HAL_AUDIO_DELAY_US(5);
-        AFE_SET_REG(MEM_ASRC_TOP_CON0, 1 << MEM_ASRC_TOP_CON0_MASM1_RST_POS, MEM_ASRC_TOP_CON0_MASM1_RST_MASK);
-        AFE_SET_REG(MEM_ASRC_TOP_CON0, 0 << MEM_ASRC_TOP_CON0_MASM1_RST_POS, MEM_ASRC_TOP_CON0_MASM1_RST_MASK);
+            AFE_SET_REG(AUDIO_TOP_CON1, 1 << AUDIO_TOP_CON1_PDN_ASRC1_POS, AUDIO_TOP_CON1_PDN_ASRC1_MASK);
+            HAL_AUDIO_DELAY_US(5);
+            AFE_SET_REG(MEM_ASRC_TOP_CON0, 1 << MEM_ASRC_TOP_CON0_MASM1_RST_POS, MEM_ASRC_TOP_CON0_MASM1_RST_MASK);
+            AFE_SET_REG(MEM_ASRC_TOP_CON0, 0 << MEM_ASRC_TOP_CON0_MASM1_RST_POS, MEM_ASRC_TOP_CON0_MASM1_RST_MASK);
+        }
+        HAL_AUDIO_LOG_INFO("[Audio Agent] DSP - HAL_AUDIO_AFE_CLOCK_SRC1:%d", 1, enable);
+    } else {
+        hal_nvic_restore_interrupt_mask(mask);
     }
-    HAL_AUDIO_LOG_INFO("[Audio Agent] DSP - HAL_AUDIO_AFE_CLOCK_SRC1:%d", 1, enable);
     HAL_AUDIO_DELAY_US(5);
 }
 
-void hal_audio_clock_enable_src2(bool enable)
+void hal_audio_clock_enable_src2(afe_mem_asrc_id_t asrc_id, bool enable)
 {
-    HAL_AUDIO_LOG_INFO("[HWSRC]hal_audio_clock_enable_src2:%d",1, enable);
-    uint32_t mask;
-    if (enable) {
-        hal_nvic_save_and_set_interrupt_mask(&mask);
-        AFE_SET_REG(AUDIO_TOP_CON1, 0 << AUDIO_TOP_CON1_PDN_ASRC2_POS, AUDIO_TOP_CON1_PDN_ASRC2_MASK);
-        hal_src_set_irq_enable(AFE_MEM_ASRC_2, false);
-        hal_nvic_restore_interrupt_mask(mask);
+    hal_audio_device_agent_t device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC1;
+    if (asrc_id == AFE_MEM_ASRC_1) {
+        device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC1;
+    } else if (asrc_id == AFE_MEM_ASRC_2) {
+        device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC2;
     } else {
-#ifdef ENABLE_HWSRC_ON_MAIN_STREAM
-        U32 loop_count = 0;
-        while ((AFE_GET_REG(ASM2_OUT_BUF_MON0) & 0xFF) != 0XF1) {
-            if (loop_count >= 200 && loop_count % 100 == 0) {
-                HAL_AUDIO_LOG_INFO("DSP - src2 28bit loop_count:%d, 0x1018:0x%x, 0x101C:0x%x, 0x1250:0x%x, 0x1240:0x%x, 0x1260:0x%x, 0x1270:0x%x, 0x12F8:0x%x, 0x12FC:0x%x, 0x12F8:0x%x, 0x12FC:0x%x, 0x0010:0x%x,0x0FDC:0x%x,0x1200:0x%x,0x0000:0x%x,0x0004:0x%x,0x1220:0x%x,0x1224:0x%x,0x1228:0x%x,0x122C:0x%x", 20, loop_count,
-                                   AFE_GET_REG(MEM_ASRC_TOP_MON0), AFE_GET_REG(MEM_ASRC_TOP_MON1), AFE_GET_REG(ASM2_CH01_IBUF_WRPNT), AFE_GET_REG(ASM2_CH01_IBUF_RDPNT), AFE_GET_REG(ASM2_CH01_OBUF_WRPNT), AFE_GET_REG(ASM2_CH01_OBUF_RDPNT),
-                                   AFE_GET_REG(ASM2_IN_BUF_MON0), AFE_GET_REG(ASM2_IN_BUF_MON1),AFE_GET_REG(ASM2_OUT_BUF_MON0), AFE_GET_REG(ASM2_OUT_BUF_MON1), AFE_GET_REG(AFE_DAC_CON0), AFE_GET_REG(AFE_AUDIO_BT_SYNC_MON2), AFE_GET_REG(ASM2_GEN_CONF), AFE_GET_REG(AUDIO_TOP_CON0), AFE_GET_REG(AUDIO_TOP_CON1),
-                                   AFE_GET_REG(ASM2_FREQUENCY_0), AFE_GET_REG(ASM2_FREQUENCY_1), AFE_GET_REG(ASM2_FREQUENCY_2), AFE_GET_REG(ASM2_FREQUENCY_3));
-                assert(FALSE);
-            }
-            loop_count++;
-            HAL_AUDIO_DELAY_US(10);
-        }
-        HAL_AUDIO_LOG_INFO(" SRC2 JUMP loop_count = %d", 1, loop_count);
-#endif
-        AFE_SET_REG(AUDIO_TOP_CON1, 1 << AUDIO_TOP_CON1_PDN_ASRC2_POS, AUDIO_TOP_CON1_PDN_ASRC2_MASK);
-        HAL_AUDIO_DELAY_US(5);
-        AFE_SET_REG(MEM_ASRC_TOP_CON0, 1 << MEM_ASRC_TOP_CON0_MASM2_RST_POS, MEM_ASRC_TOP_CON0_MASM2_RST_MASK);
-        AFE_SET_REG(MEM_ASRC_TOP_CON0, 0 << MEM_ASRC_TOP_CON0_MASM2_RST_POS, MEM_ASRC_TOP_CON0_MASM2_RST_MASK);
+        HAL_AUDIO_LOG_ERROR(" SRC id is wrong = %d", 1, asrc_id);
+        AUDIO_ASSERT(0);
     }
-    HAL_AUDIO_LOG_INFO("[Audio Agent] DSP - HAL_AUDIO_AFE_CLOCK_SRC2:%d", 1, enable);
+    uint32_t mask;
+    hal_nvic_save_and_set_interrupt_mask(&mask);
+    if (hal_audio_sub_component_id_resource_management(device_agent, HAL_AUDIO_AFE_CLOCK_SRC2, enable)) {
+        if (enable) {
+            AFE_SET_REG(AUDIO_TOP_CON1, 0 << AUDIO_TOP_CON1_PDN_ASRC2_POS, AUDIO_TOP_CON1_PDN_ASRC2_MASK);
+            afe_src_configuration_t src_configuration;
+            memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
+            src_configuration.id = AFE_MEM_ASRC_2;
+            hal_src_set_irq_enable(&src_configuration, false);
+            hal_nvic_restore_interrupt_mask(mask);
+        } else {
+#ifdef ENABLE_HWSRC_ON_MAIN_STREAM
+            U32 loop_count = 0;
+            while ((AFE_GET_REG(ASM2_OUT_BUF_MON0) & 0xFF) != 0XF1) {
+                if (loop_count >= 200 && loop_count % 100 == 0) {
+                    HAL_AUDIO_LOG_INFO("DSP - src2 28bit loop_count:%d, 0x1018:0x%x, 0x101C:0x%x, 0x1250:0x%x, 0x1240:0x%x, 0x1260:0x%x, 0x1270:0x%x, 0x12F8:0x%x, 0x12FC:0x%x, 0x12F8:0x%x, 0x12FC:0x%x, 0x0010:0x%x,0x0FDC:0x%x,0x1200:0x%x,0x0000:0x%x,0x0004:0x%x,0x1220:0x%x,0x1224:0x%x,0x1228:0x%x,0x122C:0x%x", 20, loop_count,
+                                       AFE_GET_REG(MEM_ASRC_TOP_MON0), AFE_GET_REG(MEM_ASRC_TOP_MON1), AFE_GET_REG(ASM2_CH01_IBUF_WRPNT), AFE_GET_REG(ASM2_CH01_IBUF_RDPNT), AFE_GET_REG(ASM2_CH01_OBUF_WRPNT), AFE_GET_REG(ASM2_CH01_OBUF_RDPNT),
+                                       AFE_GET_REG(ASM2_IN_BUF_MON0), AFE_GET_REG(ASM2_IN_BUF_MON1), AFE_GET_REG(ASM2_OUT_BUF_MON0), AFE_GET_REG(ASM2_OUT_BUF_MON1), AFE_GET_REG(AFE_DAC_CON0), AFE_GET_REG(AFE_AUDIO_BT_SYNC_MON2), AFE_GET_REG(ASM2_GEN_CONF), AFE_GET_REG(AUDIO_TOP_CON0), AFE_GET_REG(AUDIO_TOP_CON1),
+                                       AFE_GET_REG(ASM2_FREQUENCY_0), AFE_GET_REG(ASM2_FREQUENCY_1), AFE_GET_REG(ASM2_FREQUENCY_2), AFE_GET_REG(ASM2_FREQUENCY_3));
+                    assert(FALSE);
+                }
+                loop_count++;
+                HAL_AUDIO_DELAY_US(10);
+            }
+            //HAL_AUDIO_LOG_INFO(" SRC2 JUMP loop_count = %d", 1, loop_count);
+#endif
+            AFE_SET_REG(AUDIO_TOP_CON1, 1 << AUDIO_TOP_CON1_PDN_ASRC2_POS, AUDIO_TOP_CON1_PDN_ASRC2_MASK);
+            HAL_AUDIO_DELAY_US(5);
+            AFE_SET_REG(MEM_ASRC_TOP_CON0, 1 << MEM_ASRC_TOP_CON0_MASM2_RST_POS, MEM_ASRC_TOP_CON0_MASM2_RST_MASK);
+            AFE_SET_REG(MEM_ASRC_TOP_CON0, 0 << MEM_ASRC_TOP_CON0_MASM2_RST_POS, MEM_ASRC_TOP_CON0_MASM2_RST_MASK);
+            hal_nvic_restore_interrupt_mask(mask);
+        }
+        HAL_AUDIO_LOG_INFO("[Audio Agent] DSP - HAL_AUDIO_AFE_CLOCK_SRC2:%d", 1, enable);
+    } else {
+        hal_nvic_restore_interrupt_mask(mask);
+    }
     HAL_AUDIO_DELAY_US(5);
 }
 
@@ -591,25 +612,27 @@ void hal_audio_clock_enable_src2(bool enable)
 
 ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void hal_audio_afe_set_enable(bool enable)
 {
-    if (!hal_audio_status_get_all_agent_status()) {
-        uint32_t mask;
-        hal_nvic_save_and_set_interrupt_mask(&mask);
+    uint32_t mask;
+    hal_nvic_save_and_set_interrupt_mask(&mask);
+    if (hal_audio_sub_component_id_resource_management(HAL_AUDIO_DEVICE_AGENT_DEVICE_AFE, HAL_AUDIO_AFE_CLOCK_AFE, enable)) {
         if (enable) {
-                //Default clock setting
-                AFE_WRITE(AUDIO_TOP_CON0, AUDIO_TOP_CON0_PDN_ALL_MASK);
-                AFE_WRITE(AUDIO_TOP_CON1, AUDIO_TOP_CON1_PDN_ALL_MASK);
-                //Enable clock
-                AFE_SET_REG(AUDIO_TOP_CON0, 0 << AUDIO_TOP_CON0_PDN_AFE_POS, AUDIO_TOP_CON0_PDN_AFE_MASK);
-                //hal_audio_clock_enable_afe(enable);
-                AFE_SET_REG(AFE_DAC_CON0, 1 << AFE_DAC_CON0_AFE_ON_POS, AFE_DAC_CON0_AFE_ON_MASK);
+            //Default clock setting
+            AFE_WRITE(AUDIO_TOP_CON0, AUDIO_TOP_CON0_PDN_ALL_MASK);
+            AFE_WRITE(AUDIO_TOP_CON1, AUDIO_TOP_CON1_PDN_ALL_MASK);
+            //Enable clock
+            AFE_SET_REG(AUDIO_TOP_CON0, 0 << AUDIO_TOP_CON0_PDN_AFE_POS, AUDIO_TOP_CON0_PDN_AFE_MASK);
+            //hal_audio_clock_enable_afe(enable);
+            AFE_SET_REG(AFE_DAC_CON0, 1 << AFE_DAC_CON0_AFE_ON_POS, AFE_DAC_CON0_AFE_ON_MASK);
         } else {
-                AFE_SET_REG(AFE_DAC_CON0, 0 << AFE_DAC_CON0_AFE_ON_POS, AFE_DAC_CON0_AFE_ON_MASK);
-                //Disable clock
-                //hal_audio_clock_enable_afe(enable);
-                AFE_SET_REG(AUDIO_TOP_CON0, 1 << AUDIO_TOP_CON0_PDN_AFE_POS, AUDIO_TOP_CON0_PDN_AFE_MASK);
+            AFE_SET_REG(AFE_DAC_CON0, 0 << AFE_DAC_CON0_AFE_ON_POS, AFE_DAC_CON0_AFE_ON_MASK);
+            //Disable clock
+            //hal_audio_clock_enable_afe(enable);
+            AFE_SET_REG(AUDIO_TOP_CON0, 1 << AUDIO_TOP_CON0_PDN_AFE_POS, AUDIO_TOP_CON0_PDN_AFE_MASK);
         }
         hal_nvic_restore_interrupt_mask(mask);
         HAL_AUDIO_LOG_INFO("[Audio Agent] DSP - Hal Audio AFE control:%d", 1, enable);
+    } else {
+        hal_nvic_restore_interrupt_mask(mask);
     }
 }
 /*

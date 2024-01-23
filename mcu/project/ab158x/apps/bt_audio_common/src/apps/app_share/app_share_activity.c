@@ -102,7 +102,7 @@ static bool _proc_ui_shell_group(struct _ui_shell_activity *self, uint32_t event
 #endif
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN, NULL, 0, NULL, 0);
-            voice_prompt_play_vp_successed();
+            voice_prompt_play_vp_succeed();
             if (ctx->ble_adv_paused) {
                 multi_ble_adv_manager_resume_ble_adv();
                 ctx->ble_adv_paused = false;
@@ -163,7 +163,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         case KEY_SWITCH_AUDIO_PATH:
         case KEY_3WAY_HOLD_ACTIVE_ACCEPT_OTHER: {
             bt_mcsync_share_role_t role = bt_mcsync_share_get_role();
-            APPS_LOG_MSGID_I(TAG"recevice key: %d, role:%d.", 2, action, role);
+            APPS_LOG_MSGID_I(TAG"receive key: %d, role:%d.", 2, action, role);
             if ((role & BT_MCSYNC_SHARE_ROLE_SHARE) && (role & BT_MCSYNC_SHARE_ROLE_PARTNER)) {
                 /* Notice: only 1 byte could be sent to agent, so the action value must not be bigger than 0xff */
                 app_share_send_key_code_to_agent((uint8_t)(0xff & action));
@@ -212,7 +212,7 @@ static bool _proc_apps_internal_events(ui_shell_activity_t *self,
             app_share_mode_sta_update();
             app_share_mode_sta_t new_sta = ctx->current_sta;
             if (new_sta == BT_MCSYNC_SHARE_STATE_SHARING && old_sta != new_sta) {
-                voice_prompt_play_vp_successed();
+                voice_prompt_play_vp_succeed();
             }
             /* If the state become to normal, finish self to exit share mode completely. */
             if (new_sta == BT_MCSYNC_SHARE_STATE_NORMAL) {
@@ -348,7 +348,7 @@ bool app_share_activity(ui_shell_activity_t *self,
                     return;
                 }
                 uint32_t conn_devs = bt_cm_get_connected_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 2);
-                /* Enable page scan to allowe the SP connect whil no SP connected. */
+                /* Enable page scan to allowed the SP connect while no SP connected. */
                 if (conn_devs == 0) {
                     enable_page_scan();
                 } else {

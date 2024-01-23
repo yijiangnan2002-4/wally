@@ -261,7 +261,7 @@ static bool app_ms_teams_idle_teams_ev_proc(struct _ui_shell_activity *self, uin
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN, NULL, 0,
                                 NULL, 0);
-            bt_bd_addr_t* addr = (bt_bd_addr_t *)bt_app_common_get_local_random_addr();
+            bt_bd_addr_t* addr = bt_device_manager_get_local_address();
             apps_dongle_sync_event_send_extra(EVENT_GROUP_UI_SHELL_MS_TEAMS, ev, addr, sizeof(bt_bd_addr_t));
             break;
         }
@@ -687,8 +687,9 @@ bool app_ms_teams_idle_activity_proc(struct _ui_shell_activity *self,
                 s_teams_race_link_nums = s_teams_race_link_nums > 2 ? 2 : s_teams_race_link_nums;
                 ms_teams_send_action(MS_TEAMS_ACTION_TEAMS_CLIENT_CONNECTED, NULL, 0);
                 if (s_teams_connected) {
-                    bt_bd_addr_t* addr = (bt_bd_addr_t*)bt_app_common_get_local_random_addr();
-                    apps_dongle_sync_event_send_extra(EVENT_GROUP_UI_SHELL_MS_TEAMS, (MS_TEAMS_CONNECTED << 16) & 0xFFFF0000, addr, sizeof(bt_bd_addr_t));
+                    bt_bd_addr_t* addr = (bt_bd_addr_t*)bt_device_manager_get_local_address();
+                    apps_dongle_sync_event_send_extra_by_address(EVENT_GROUP_UI_SHELL_MS_TEAMS, (MS_TEAMS_CONNECTED << 16) & 0xFFFF0000, addr, sizeof(bt_bd_addr_t), (bt_bd_addr_t*)extra_data);
+                    //apps_dongle_sync_event_send_extra(EVENT_GROUP_UI_SHELL_MS_TEAMS, (MS_TEAMS_CONNECTED << 16) & 0xFFFF0000, addr, sizeof(bt_bd_addr_t));
                 } else {
                     apps_dongle_sync_event_send(EVENT_GROUP_UI_SHELL_MS_TEAMS, (MS_TEAMS_DISCONNECTED << 16) & 0xFFFF0000);
                 }

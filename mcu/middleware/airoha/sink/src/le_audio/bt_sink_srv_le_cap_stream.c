@@ -89,6 +89,8 @@
 #define CALCULATE_AVM_SIZE(len,bn,ft)    ((AVM_BUFFER_HEADER_SIZE + (len)) * ((bn) * (ft) + 3))
 #define CALCULATE_BIS_AVM_SIZE(len,bn,pto,nse,irc)    ((2 + ((nse)/(bn) - (irc)) * (pto)) * (AVM_BUFFER_HEADER_SIZE + (len)) * (bn))
 #define LE_AUDIO_BUFFER_COUNT 2
+#define ABR_SDU_PDU_SIZE    (400)
+
 
 #define BT_PBP_UUID16_PUBLIC_BROADCAST_ANNOUNCEMENTS_SERVICE    0x1856      /**< Public Broadcast Announcement Service UUID. */
 #define BT_GAP_LE_AD_TYPE_BROADCAST_NAME                        0x30        /**< Broadcast Name, Public broadcast Profile */
@@ -224,7 +226,6 @@ static bt_sink_srv_cap_stream_bmr_scan_info_t g_default_bmr_scan_info_deprecated
 static bt_sink_srv_cap_stream_bmr_scan_list_t *g_bmr_scan_list = NULL;
 static bt_sink_srv_cap_stream_send_ase_streaming_state_data_t g_ase_streaming_timer_data[CAP_MAX_CIS_NUM];
 static bool g_broadcast_keep_pa = true;
-static uint8_t g_broadcast_big_info_retry = 0;
 static bool g_broadcast_retry_scan_with_white_list = false;
 
 extern bool g_cap_am_switch_suspending;
@@ -396,6 +397,11 @@ static void bt_sink_srv_cap_stream_callback(uint8_t event_id, void *p_msg)
         case BLE_BAP_ASE_UPDATE_METADATA_IND:
             bt_sink_srv_cap_stream_ase_update_metadata_ind_handler((ble_bap_ase_update_metadata_ind_t *)p_msg);
             break;
+
+        case BLE_BAP_ASE_READY_IND:
+            le_audio_sink_inform_app(BT_SINK_SRV_CAP_EVENT_ASE_READY, (bt_sink_srv_cap_event_ase_ready_t *)p_msg);
+            //bt_sink_srv_event_callback(BT_SINK_SRV_EVENT_LE_ASE_READY, p_msg, sizeof(bt_sink_srv_le_ase_ready_t));
+            break;
 #endif
         /*Broadcast*/
         case BLE_BAP_BASE_BROADCAST_AUDIO_ANNOUNCEMENTS_IND: {
@@ -491,7 +497,6 @@ static void bt_sink_srv_cap_stream_callback(uint8_t event_id, void *p_msg)
         }
         case BLE_BAP_BASE_PERIODIC_ADV_TERNIMATE_IND:
         case BLE_BAP_BASE_PERIODIC_ADV_TERMINATE_CNF:
-            g_broadcast_big_info_retry = 0;
             g_default_bmr_scan_info.sync_handle = BT_HANDLE_INVALID;
             bt_sink_srv_cap_inform_app(BT_SINK_SRV_CAP_EVENT_BASE_PERIODIC_ADV_TERMINATE, p_msg);
 #if defined (AIR_LE_AUDIO_BIS_ENABLE) && defined (MTK_RACE_CMD_ENABLE) && !defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
@@ -500,7 +505,6 @@ static void bt_sink_srv_cap_stream_callback(uint8_t event_id, void *p_msg)
             break;
 
         case BLE_BAP_BASE_BIG_TERNIMATE_IND:
-            g_broadcast_big_info_retry = 0;
             le_audio_log("[CAP][stream] BLE_BAP_BASE_BIG_TERNIMATE_IND, BIG handle:0x%x", 1, ((ble_bap_big_terminate_ind_t *)p_msg)->big_handle);
 #if defined (AIR_LE_AUDIO_BIS_ENABLE) && defined (MTK_RACE_CMD_ENABLE) && !defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
             if (((ble_bap_big_terminate_ind_t *)p_msg)->reason == BT_HCI_STATUS_CONNECTION_TERMINATED_DUE_TO_MIC_FAILURE) {
@@ -512,7 +516,6 @@ static void bt_sink_srv_cap_stream_callback(uint8_t event_id, void *p_msg)
             break;
 
         case BLE_BAP_BASE_BIG_TERMINATE_CNF:
-            g_broadcast_big_info_retry = 0;
             bt_sink_srv_cap_inform_app(BT_SINK_SRV_CAP_EVENT_BASE_BIG_TERMINATE_CFM, NULL);
 #if defined (AIR_LE_AUDIO_BIS_ENABLE) && defined (MTK_RACE_CMD_ENABLE) && !defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
             race_le_audio_notify_big_terminated_ind(0);
@@ -573,6 +576,12 @@ static void bt_sink_srv_cap_stream_callback(uint8_t event_id, void *p_msg)
                     bt_sink_srv_cap_stream_scan_broadcast_source_ex(&scan_param);
                 }
             }
+            break;
+        }
+        case BLE_BAP_BASE_BASS_REMOVE_SOURCE_IND: {
+            ble_bap_bass_remove_source_ind_t *ind = (ble_bap_bass_remove_source_ind_t *)p_msg;
+            le_audio_log("[CAP][stream] Remove source, source_id:%d", 1, ind->source_id);
+            memset(&g_default_bmr_scan_info.bms_address, 0, sizeof(bt_addr_t));
             break;
         }
         case BLE_BAP_BASE_SCAN_STOPPPED_IND:
@@ -661,6 +670,8 @@ static bool bt_sink_srv_cap_stream_set_ase_link(bt_handle_t connect_handle, uint
                 gp_cap_stream_link_info[link_index].ase_info[ase_index].sub_state = CAP_INVALID_UINT8;
                 gp_cap_stream_link_info[link_index].ase_info[ase_index].next_sub_state = CAP_INVALID_UINT8;
                 gp_cap_stream_link_info[link_index].ase_info[ase_index].cis_handle = BT_HANDLE_INVALID;
+                gp_cap_stream_link_info[link_index].ase_info[ase_index].cig_id = 0xFF;
+                gp_cap_stream_link_info[link_index].ase_info[ase_index].cis_id = 0xFF;
                 gp_cap_stream_link_info[link_index].ase_info[ase_index].iso_interval = 0;
                 gp_cap_stream_link_info[link_index].ase_info[ase_index].bn_m_to_s = 0;
                 gp_cap_stream_link_info[link_index].ase_info[ase_index].bn_s_to_m = 0;
@@ -1454,7 +1465,11 @@ static bool bt_sink_srv_cap_stream_set_avm_buffer(bt_handle_t connect_handle)
                         //hal_audio_set_le_audio_avm_buf_size(AUDIO_MESSAGE_TYPE_BLE_AUDIO_UL, 0);
 
                         if (sink_ase_1->bn_m_to_s && sink_ase_1->ft_m_to_s) {
-                            fix_size = bt_pka_get_CIS_Required_AVM_size(sink_ase_1->maximum_sdu_size, sink_ase_1->max_pdu_m_to_s, sink_ase_1->ft_m_to_s, sink_ase_1->bn_m_to_s, 0);
+                            if (ABR_SDU_PDU_SIZE == sink_ase_1->maximum_sdu_size) {
+                                fix_size = bt_pka_get_CIS_Required_AVM_size(ABR_SDU_PDU_SIZE, ABR_SDU_PDU_SIZE, sink_ase_1->ft_m_to_s, sink_ase_1->bn_m_to_s, 0);
+                            } else {
+                                fix_size = bt_pka_get_CIS_Required_AVM_size(sink_ase_1->maximum_sdu_size, sink_ase_1->max_pdu_m_to_s, sink_ase_1->ft_m_to_s, sink_ase_1->bn_m_to_s, 0);
+                            }
                             hal_audio_set_le_audio_avm_buf_size(AUDIO_MESSAGE_TYPE_BLE_AUDIO_DL, fix_size);
                         } else {
                             return false;
@@ -1475,14 +1490,22 @@ static bool bt_sink_srv_cap_stream_set_avm_buffer(bt_handle_t connect_handle)
                         //hal_audio_set_le_audio_avm_buf_size(AUDIO_MESSAGE_TYPE_BLE_AUDIO_UL, 0);
 
                         if (sink_ase_1->bn_m_to_s && sink_ase_1->ft_m_to_s) {
-                            fix_size = bt_pka_get_CIS_Required_AVM_size(sink_ase_1->maximum_sdu_size, sink_ase_1->max_pdu_m_to_s, sink_ase_1->ft_m_to_s, sink_ase_1->bn_m_to_s, 0);
+                            if (ABR_SDU_PDU_SIZE == sink_ase_1->maximum_sdu_size) {
+                                fix_size = bt_pka_get_CIS_Required_AVM_size(ABR_SDU_PDU_SIZE, ABR_SDU_PDU_SIZE, sink_ase_1->ft_m_to_s, sink_ase_1->bn_m_to_s, 0);
+                            } else {
+                                fix_size = bt_pka_get_CIS_Required_AVM_size(sink_ase_1->maximum_sdu_size, sink_ase_1->max_pdu_m_to_s, sink_ase_1->ft_m_to_s, sink_ase_1->bn_m_to_s, 0);
+                            }
                             hal_audio_set_le_audio_avm_buf_size(AUDIO_MESSAGE_TYPE_BLE_AUDIO_DL, fix_size);
                         } else {
                             return false;
                         }
 
                         if (sink_ase_2->bn_m_to_s && sink_ase_2->ft_m_to_s) {
-                            fix_size = bt_pka_get_CIS_Required_AVM_size(sink_ase_2->maximum_sdu_size, sink_ase_2->max_pdu_m_to_s, sink_ase_2->ft_m_to_s, sink_ase_2->bn_m_to_s, 0);
+                            if (ABR_SDU_PDU_SIZE == sink_ase_2->maximum_sdu_size) {
+                                fix_size = bt_pka_get_CIS_Required_AVM_size(ABR_SDU_PDU_SIZE, ABR_SDU_PDU_SIZE, sink_ase_2->ft_m_to_s, sink_ase_2->bn_m_to_s, 0);
+                            } else {
+                                fix_size = bt_pka_get_CIS_Required_AVM_size(sink_ase_2->maximum_sdu_size, sink_ase_2->max_pdu_m_to_s, sink_ase_2->ft_m_to_s, sink_ase_2->bn_m_to_s, 0);
+                            }
                             hal_audio_set_le_audio_avm_buf_size(AUDIO_MESSAGE_TYPE_BLE_AUDIO_SUB_DL, fix_size);
                         } else {
                             return false;
@@ -1556,7 +1579,11 @@ static bool bt_sink_srv_cap_stream_set_avm_buffer(bt_handle_t connect_handle)
                     //hal_audio_set_le_audio_avm_buf_size(AUDIO_MESSAGE_TYPE_BLE_AUDIO_UL, 0);
 
                     if (sink_ase_1->bn_m_to_s && sink_ase_1->ft_m_to_s) {
-                        fix_size = bt_pka_get_CIS_Required_AVM_size(sink_ase_1->maximum_sdu_size, sink_ase_1->max_pdu_m_to_s, sink_ase_1->ft_m_to_s, sink_ase_1->bn_m_to_s, 0);
+                        if (ABR_SDU_PDU_SIZE == sink_ase_1->maximum_sdu_size) {
+                            fix_size = bt_pka_get_CIS_Required_AVM_size(ABR_SDU_PDU_SIZE, ABR_SDU_PDU_SIZE, sink_ase_1->ft_m_to_s, sink_ase_1->bn_m_to_s, 0);
+                        } else {
+                            fix_size = bt_pka_get_CIS_Required_AVM_size(sink_ase_1->maximum_sdu_size, sink_ase_1->max_pdu_m_to_s, sink_ase_1->ft_m_to_s, sink_ase_1->bn_m_to_s, 0);
+                        }
                         hal_audio_set_le_audio_avm_buf_size(AUDIO_MESSAGE_TYPE_BLE_AUDIO_DL, fix_size);
                     } else {
                         return false;
@@ -1687,6 +1714,12 @@ static void bt_sink_srv_cap_stream_state_notify_handler(ble_bap_ase_state_notify
             } else if (cis_handle == BT_HANDLE_INVALID || cis_handle == 0) {
                 ble_bap_codec_config_response(p_msg->connect_handle, p_msg->ase_id, RESPONSE_CODE_SUCCESS, ERROR_REASON_NO_ERROR);
             }
+        } else if (p_msg->ase_state == ASE_STATE_CODEC_CONFIGURED) {
+            bt_sink_srv_cap_stream_ase_info_t *p_ase_info = bt_sink_srv_cap_stream_get_ase_link(p_msg->connect_handle, p_msg->ase_id);
+            if (NULL != p_ase_info) {
+                p_ase_info->cig_id = 0xFF;
+                p_ase_info->cis_id = 0xFF;
+            }
         }
 
         if (direction == AUDIO_DIRECTION_SINK) {
@@ -1756,7 +1789,10 @@ static void bt_sink_srv_cap_stream_ase_enabling_ind_handler(ble_bap_ase_enable_i
                 if (ase_id_list.num_of_ase && AUDIO_DIRECTION_SINK == bt_sink_srv_cap_stream_get_ase_direction(p_msg->connect_handle, ase_id_list.ase_id[0])) {
                     le_audio_log("[CAP][stream] DL only mode has already enabled, switch psedev and change to DL+UL mode", 0);
                     bt_sink_srv_cap_stream_remove_all_cis_data_path(p_msg->connect_handle);
-                    bt_sink_srv_cap_am_switch_psedev(mode);
+                    if (!bt_sink_srv_cap_am_switch_psedev(mode)) {
+                        bt_sink_srv_cap_am_audio_start(mode);
+                    }
+
                 } else {
                     bt_sink_srv_cap_am_audio_start(mode);
                 }
@@ -2127,7 +2163,6 @@ static void bt_sink_srv_cap_stream_cis_disconnected_notify_handler(ble_bap_cis_d
 static void bt_sink_srv_cap_stream_ase_releasing_ind_handler(ble_bap_ase_release_check_ind_t *p_msg)
 {
     uint8_t state = bt_sink_srv_cap_stream_get_ase_state(p_msg->connect_handle, p_msg->ase_id);
-    uint8_t direction = bt_sink_srv_cap_stream_find_streaming_ase_direction(p_msg->connect_handle, p_msg->ase_id);
     bt_sink_srv_cap_stream_send_ase_streaming_state_timer_stop(p_msg->connect_handle);
     uint8_t i = 0, processing_sink_ase_count = 0, processing_source_ase_count = 0;
     uint8_t processing_sink_ase_list[CAP_MAX_ASE_NUM] = {0}, processing_source_ase = 0;
@@ -2173,6 +2208,7 @@ static void bt_sink_srv_cap_stream_ase_releasing_ind_handler(ble_bap_ase_release
 #endif
 
             } else if (p_msg->is_last_ase) {
+                uint8_t direction = bt_sink_srv_cap_stream_find_streaming_ase_direction(p_msg->connect_handle, false);
 
                 bt_sink_srv_cap_stream_remove_all_cis_data_path(p_msg->connect_handle);
 
@@ -2954,7 +2990,6 @@ bool bt_sink_srv_cap_stream_hold_call(bt_handle_t connect_handle)
 {
     bool status = true;
     /*Check call state*/
-    ble_tbs_call_index_t incoming_call = bt_le_audio_sink_call_check_state(connect_handle, BLE_CCP_GTBS_INDEX, BLE_TBS_STATE_INCOMING);
     ble_tbs_call_index_t active_call = bt_le_audio_sink_call_check_state(connect_handle, BLE_CCP_GTBS_INDEX, BLE_TBS_STATE_ACTIVE);
 
     bt_le_audio_sink_call_action_param_t le_param;
@@ -2965,9 +3000,6 @@ bool bt_sink_srv_cap_stream_hold_call(bt_handle_t connect_handle)
 
     if (BLE_TBS_INVALID_CALL_INDEX != active_call) {
         buf[1] = active_call;
-        bt_le_audio_sink_send_action(connect_handle, BT_LE_AUDIO_SINK_ACTION_CALL_HOLD, &le_param);
-    } else if (BLE_TBS_INVALID_CALL_INDEX != incoming_call) {
-        buf[1] = incoming_call;
         bt_le_audio_sink_send_action(connect_handle, BT_LE_AUDIO_SINK_ACTION_CALL_HOLD, &le_param);
     } else {
         status = false;
@@ -3135,6 +3167,18 @@ bt_handle_t bt_sink_srv_cap_stream_get_service_ble_link(void)
 bt_handle_t bt_sink_srv_cap_stream_get_ble_link_with_cis_established(void)
 {
     return g_cap_stream_service_info.le_handle_with_cis_established;
+}
+
+bool bt_sink_srv_cap_stream_is_cis_streaming(bt_handle_t le_handle)
+{
+    bt_handle_t cis_list[MAX_CIS_NUM] = {BT_HANDLE_INVALID, BT_HANDLE_INVALID};
+    uint8_t cis_num = bt_sink_srv_cap_stream_get_cis_list(le_handle, cis_list);
+
+    if (cis_num) {
+        return true;
+    }
+
+    return false;
 }
 
 bt_handle_t bt_sink_srv_cap_get_ble_link_by_streaming_mode(bt_sink_srv_cap_am_mode mode)
@@ -3779,11 +3823,7 @@ void bt_sink_srv_cap_stream_broadcast_enabling_response(bool is_accept)
         ble_bap_start_broadcast_reception(big_info->sync_handle, big_info->big_handle, big_info->num_bis, big_info->bis_indices);
 
     } else {
-        g_broadcast_big_info_retry++;
-        if (g_broadcast_big_info_retry > MAX_BIG_INFO_RETRY_NUM) {
-            le_audio_log("[CAP][stream] big info retry count:%x", 1, g_broadcast_big_info_retry);
-            ble_bap_stop_syncing_to_periodic_advertising(big_info->sync_handle);
-        }
+        le_audio_log("[CAP][stream] big info retry, keep pa", 0);
         ble_bap_clear_big_info(big_info->big_handle);
         bt_sink_srv_cap_stream_clear_service_big(big_info->big_handle);
     }
@@ -3817,6 +3857,7 @@ bool bt_sink_srv_cap_stream_is_broadcast_mute(void)
 
 bool bt_sink_srv_cap_stream_set_broadcast_volume(bt_sink_srv_am_volume_level_out_t volume)
 {
+    le_audio_log("[CAP][stream] set_broadcast_volume, curr:%d tar:%d", 2, g_broadcast_volume, volume);
     if ((volume < AUD_VOL_OUT_MAX) && (volume != g_broadcast_volume)) {
         g_broadcast_volume = volume;
         bt_sink_srv_le_volume_set_volume(BT_SINK_SRV_LE_STREAM_TYPE_OUT, volume);

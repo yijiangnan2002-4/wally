@@ -121,7 +121,7 @@ void bt_device_manager_test_mode_init(void)
 bt_status_t bt_device_manager_test_mode_register_callback(bt_device_manager_test_mode_notify_callback_t callback)
 {
     bt_status_t status = BT_STATUS_SUCCESS;
-    uint8_t i = 0;
+    uint32_t i = 0;
     bt_dmgr_report_id("[BT_DM][I]register test mode nofitfy callback", 0);
 
     if (callback == NULL) {
@@ -145,7 +145,7 @@ bt_status_t bt_device_manager_test_mode_register_callback(bt_device_manager_test
 bt_status_t bt_device_manager_test_mode_deregister_callback(bt_device_manager_test_mode_notify_callback_t callback)
 {
     bt_status_t status = BT_STATUS_SUCCESS;
-    uint8_t i = 0;
+    uint32_t i = 0;
     bt_dmgr_report_id("[BT_DM][I]deregister test mode nofitfy callback", 0);
 
     if (callback == NULL) {
@@ -169,7 +169,7 @@ bt_status_t bt_device_manager_test_mode_deregister_callback(bt_device_manager_te
 static bt_status_t bt_device_manager_test_mode_callback_handler(bt_device_manager_test_mode_event_t event_id, void *param)
 {
     bt_status_t status = BT_STATUS_SUCCESS;
-    uint8_t i = 0;
+    uint32_t i = 0;
     bt_dmgr_report_id("[BT_DM][I]bt_device_manager_test_mode_callback_handler, evt_id=%d", 1, event_id);
     if (param == NULL) {
         return BT_STATUS_FAIL;

@@ -53,8 +53,9 @@ log_create_module(SPM, PRINT_LEVEL_INFO);
 
 static int hw_latency_time_32k;
 
-void spm_irq_handler()
+void spm_irq_handler(hal_nvic_irq_t irq_number)
 {
+    (void)irq_number;
     SPM_SET_DSP0_SW_STATE(0xF);
     *SPM_PCM_SW_INT_CLEAR_DSP = 1;
 }

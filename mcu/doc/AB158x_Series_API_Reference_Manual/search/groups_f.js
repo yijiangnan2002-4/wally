@@ -32,6 +32,7 @@ var searchData=
   ['struct',['Struct',['../group___bluetooth_services___a_w_s___m_c_e___report__struct.html',1,'']]],
   ['struct',['Struct',['../group___bluetooth_services___b_t___g_a_t_t___s_r_v___c_l_i_e_n_t__struct.html',1,'']]],
   ['struct',['Struct',['../group___bluetooth_services___sink__struct.html',1,'']]],
+  ['struct',['Struct',['../group___bluetooth_services___source__struct.html',1,'']]],
   ['spp',['SPP',['../group___bluetooth_s_p_p.html',1,'']]],
   ['struct',['Struct',['../group__bsp__led__struct.html',1,'']]],
   ['struct',['Struct',['../group___b_t__device__manager___service__struct.html',1,'']]],

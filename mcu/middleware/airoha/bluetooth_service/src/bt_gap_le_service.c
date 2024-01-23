@@ -383,9 +383,9 @@ static void bt_gap_le_srv_remove_all_stopped_adv(void);
 static void bt_gap_le_srv_reset_all_context(void);
 static bt_status_t bt_gap_le_srv_stop_all_adv(void);
 static void bt_gap_le_srv_disconn_first_connection(bt_gap_le_srv_disable_ble_reason_t reason);
-static uint8_t bt_gap_le_srv_get_connected_dev_num_int(void);
+static uint32_t bt_gap_le_srv_get_connected_dev_num_int(void);
 #if defined(MTK_AWS_MCE_ENABLE) && defined (BT_ROLE_HANDOVER_WITH_SPP_BLE)
-static uint8_t bt_gap_le_srv_get_connected_rho_dev_num_int(void);
+static uint32_t bt_gap_le_srv_get_connected_rho_dev_num_int(void);
 static void bt_gap_le_srv_reset_all_context_with_rho(void);
 #endif
 static bt_status_t bt_gap_le_srv_rho_request_by_handle(bt_handle_t handle);
@@ -439,7 +439,7 @@ static void bt_gap_le_srv_rho_disable_ble_cnf(void)
 
 static bt_status_t bt_gap_le_srv_rho_allowed_cb(const bt_bd_addr_t *addr)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bool has_adv = false;
     bt_status_t status = BT_STATUS_SUCCESS;
     for (i = 0; i < g_le_adv_max; i++) {
@@ -487,13 +487,13 @@ static bt_status_t bt_gap_le_srv_rho_get_data_cb(const bt_bd_addr_t *addr, void 
         return BT_STATUS_FAIL;
     }
 #endif
-    uint8_t i;
+    uint32_t i = 0;
     if (data == NULL) {
         bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] RHO get data = NULL", 0);
         return BT_STATUS_FAIL;
     }
     if ((g_rho_header.connected_dev_num) && (addr == NULL)) {
-        uint8_t index = 0;
+        uint32_t index = 0;
         bt_gap_le_srv_rho_header_t *rho_head = (bt_gap_le_srv_rho_header_t *)data;
         bt_gap_le_srv_rho_cntx_t *rho_cntx = (bt_gap_le_srv_rho_cntx_t *)(rho_head + 1);
         rho_head->connected_dev_num = g_rho_header.connected_dev_num;
@@ -531,7 +531,7 @@ static void bt_gap_le_srv_rho_status_cb(const bt_bd_addr_t *addr, bt_aws_mce_rol
 
 static bt_status_t bt_gap_le_srv_rho_update_cb(bt_role_handover_update_info_t *info)
 {
-    uint8_t j;
+    uint32_t j = 0;
     bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] RHO update data", 0);
     if (info && (BT_AWS_MCE_ROLE_PARTNER == info->role)) {
         if ((info->length > 0) && (info->data)) {//copy data to context
@@ -581,7 +581,7 @@ static void bt_gap_le_srv_rho_disable_ble_cnf(void)
 
 static bt_status_t bt_gap_le_srv_rho_allowed_cb(const bt_bd_addr_t *addr)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bool has_adv = false;
     bt_status_t status = BT_STATUS_SUCCESS;
     for (i = 0; i < g_le_adv_max; i++) {
@@ -905,9 +905,9 @@ static bt_gap_le_srv_error_t ble_gap_le_srv_generate_data_int(const bt_gap_le_sr
     return BT_GAP_LE_SRV_SUCCESS;
 }
 
-static uint8_t bt_gap_le_srv_find_unused_instance(void)
+static uint32_t bt_gap_le_srv_find_unused_instance(void)
 {
-    uint8_t i;
+    uint32_t i = 0;
     for (i = 0; i < g_le_adv_max; i++) {
         if (0 == g_le_adv_info[i].instance) {
             bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] found unused instance %d ", 1, i + 1);
@@ -920,8 +920,7 @@ static uint8_t bt_gap_le_srv_find_unused_instance(void)
 
 static bt_gap_le_srv_adv_info_t *bt_gap_le_srv_find_adv_info_by_instance(const uint8_t instance)
 {
-    uint8_t i;
-    for (i = 0; i < g_le_adv_max; i++) {
+    for (uint32_t i = 0; i < g_le_adv_max; i++) {
         if (instance == g_le_adv_info[i].instance) {
             bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] Found instance %d adv info, index is %d", 2, instance, i);
             return (bt_gap_le_srv_adv_info_t *)(&g_le_adv_info[i]);
@@ -933,8 +932,7 @@ static bt_gap_le_srv_adv_info_t *bt_gap_le_srv_find_adv_info_by_instance(const u
 
 static bt_gap_le_srv_conn_cntx_t *bt_gap_le_srv_get_conn_cntx_by_handle(const bt_handle_t conn_handle)
 {
-    uint8_t i;
-    for (i = 0; i < g_le_conn_max; i++) {
+    for (uint32_t i = 0; i < g_le_conn_max; i++) {
         if (conn_handle == g_le_conn_cntx[i].connection_handle) {
             return (bt_gap_le_srv_conn_cntx_t *)(&(g_le_conn_cntx[i]));
         }
@@ -945,7 +943,7 @@ static bt_gap_le_srv_conn_cntx_t *bt_gap_le_srv_get_conn_cntx_by_handle(const bt
 
 static bt_gap_le_srv_conn_cntx_t *bt_gap_le_srv_get_conn_cntx_by_local_addr(bt_addr_t *addr, bool is_local_addr)
 {
-    uint8_t i;
+    uint32_t i = 0;
     if (is_local_addr) {
         for (i = 0; i < g_le_conn_max; i++) {
             if (0 == bt_gap_le_srv_memcmp(&(g_le_conn_cntx[i].conn_info.local_addr), addr, sizeof(bt_addr_t))) {
@@ -963,9 +961,9 @@ static bt_gap_le_srv_conn_cntx_t *bt_gap_le_srv_get_conn_cntx_by_local_addr(bt_a
     return NULL;
 }
 
-static uint8_t bt_gap_le_srv_get_connected_dev_num_int(void)
+static uint32_t bt_gap_le_srv_get_connected_dev_num_int(void)
 {
-    uint8_t i, dev_num = 0;
+    uint32_t i, dev_num = 0;
     for (i = 0; i < g_le_conn_max; i++) {
         if (g_le_conn_cntx[i].connection_handle) {
             dev_num++;
@@ -976,9 +974,9 @@ static uint8_t bt_gap_le_srv_get_connected_dev_num_int(void)
 }
 
 #if defined(MTK_AWS_MCE_ENABLE) && defined (BT_ROLE_HANDOVER_WITH_SPP_BLE)
-static uint8_t bt_gap_le_srv_get_connected_rho_dev_num_int(void)
+static uint32_t bt_gap_le_srv_get_connected_rho_dev_num_int(void)
 {
-    uint8_t i, dev_num = 0;
+    uint32_t i, dev_num = 0;
     for (i = 0; i < g_le_conn_max; i++) {
         if ((g_le_conn_cntx[i].connection_handle) && (g_le_conn_cntx[i].conn_info.attribute & BT_GAP_LE_SRV_LINK_ATTRIBUTE_NEED_RHO)) {
             dev_num++;
@@ -1443,9 +1441,8 @@ static bt_status_t bt_gap_le_srv_gap_event_callback(bt_msg_type_t msg, bt_status
                     }
 #endif
                     if (BT_STATUS_SUCCESS == status) {
-                        uint8_t i;
                         //notify callback to all app
-                        for (i = 0; i < g_le_adv_max; i++) {
+                        for (uint32_t i = 0; i < g_le_adv_max; i++) {
                             if (g_le_adv_info[i].instance) {
                                 bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] Cleared instance %d adv info", 1, g_le_adv_info[i].instance);
                                 bt_gap_le_srv_adv_event_handler(&g_le_adv_info[i], BT_GAP_LE_SRV_ADV_REMOVED, BT_STATUS_SUCCESS);
@@ -1507,9 +1504,8 @@ static bt_status_t bt_gap_le_srv_gap_event_callback(bt_msg_type_t msg, bt_status
             /* update connection handle after RHO. */
             bt_gap_le_handle_update_t *update = (bt_gap_le_handle_update_t *)buff;
             bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] GAP update LE connection handle,num = %d", 1, update->num);
-            uint8_t i = 0;
             bt_gap_le_srv_memset(g_handle_table, 0, g_le_conn_max * sizeof(bt_gap_le_srv_handle_table_t));
-            for (i = 0; i < update->num; i++) {
+            for (uint32_t i = 0; i < update->num; i++) {
                 g_handle_table[i].new_conn_handle = update->new_handles[i];
                 g_handle_table[i].old_conn_handle = update->old_handles[i];
                 bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] GAP update LE connection index = %d, old handle = %02x,new handle = %02x", 3, \
@@ -1575,11 +1571,10 @@ static void bt_gap_le_srv_store_local_random_address(bt_bd_addr_t *addr)
     BT_GAP_LE_SRV_CHECK_RET_WITH_LOG((NULL == addr), "[BLE_GAP_SRV][E] Random address is NULL", 0);
     memcpy(&g_ble_random_addr, addr, sizeof(bt_bd_addr_t));
 #ifdef AIR_REPLACE_NVDM_WITH_NVKEY
-    int8_t i;
     uint8_t buffer[18] = {0};
     nvkey_status_t status = NVKEY_STATUS_ERROR;
     /* save address to NVDM */
-    for (i = 0; i < 6; ++i) {
+    for (uint32_t i = 0; i < 6; ++i) {
         snprintf((char *)buffer + 2 * i, 3, "%02X", (*addr)[i]);
     }
     status = nvkey_write_data(NVID_BT_HOST_LE_SRV_RANDOM_ADDRESS, buffer, strlen((char *)buffer));
@@ -1689,9 +1684,8 @@ static bool bt_gap_le_srv_validate_conn_params(bt_gap_le_srv_conn_params_t *para
 
 static void bt_gap_le_srv_disconn_first_connection(bt_gap_le_srv_disable_ble_reason_t reason)
 {
-    uint8_t i;
     bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] Try disconnect all connections, reason = %02x", 1, reason);
-    for (i = 0; i < g_le_conn_max ; i++) {
+    for (uint32_t i = 0; i < g_le_conn_max ; i++) {
         if ((g_le_conn_cntx[i].connection_handle) && ((((reason == BT_GAP_LE_SRV_DISABLE_BLE_REASON_ROLE_RECOVERY) &&
                                                         (g_le_conn_cntx[i].conn_info.attribute & BT_GAP_LE_SRV_LINK_ATTRIBUTE_NEED_RHO))) || (reason != BT_GAP_LE_SRV_DISABLE_BLE_REASON_ROLE_RECOVERY))) {
             bt_hci_cmd_disconnect_t disconnect_para = {
@@ -1799,8 +1793,7 @@ static void bt_gap_le_srv_reset_all_context(void)
 #if defined(MTK_AWS_MCE_ENABLE) && defined (BT_ROLE_HANDOVER_WITH_SPP_BLE)
 static void bt_gap_le_srv_reset_all_context_with_rho(void)
 {
-    uint8_t i = 0;
-    for (i = 0; i < g_le_conn_max; i++) {
+    for (uint32_t i = 0; i < g_le_conn_max; i++) {
         if (g_le_conn_cntx[i].conn_info.attribute & BT_GAP_LE_SRV_LINK_ATTRIBUTE_NEED_RHO) {
             bt_gap_le_srv_memset(&g_le_conn_cntx[i], 0x0, sizeof(bt_gap_le_srv_conn_cntx_t));
         }
@@ -1849,10 +1842,10 @@ static bt_status_t  bt_gap_le_srv_system_callback(bt_msg_type_t msg, bt_status_t
     return BT_STATUS_SUCCESS;
 }
 
-static void bt_gap_le_srv_adv_cntx_init(uint8_t adv_num)
+static void bt_gap_le_srv_adv_cntx_init(uint32_t adv_num)
 {
     bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] Adv cntx Init, adv num is %d", 1, adv_num);
-    uint8_t adv_max_num = adv_num ? adv_num : 1;
+    uint32_t adv_max_num = adv_num ? adv_num : 1;
     if (NULL != g_le_adv_info) {
         bt_gap_le_srv_memory_free(g_le_adv_info);
         g_le_adv_info = NULL;
@@ -1876,10 +1869,10 @@ static void bt_gap_le_srv_adv_cntx_deinit(void)
     }
 }
 
-static void bt_gap_le_srv_conn_buf_init(uint8_t conn_num)
+static void bt_gap_le_srv_conn_buf_init(uint32_t conn_num)
 {
     bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] Conn buff init, conn num is %d", 1, conn_num);
-    uint8_t device_max_num = conn_num ? conn_num : 1;
+    uint32_t device_max_num = conn_num ? conn_num : 1;
     if (NULL != g_le_conn_cntx) {
         bt_gap_le_srv_memory_free(g_le_conn_cntx);
         g_le_conn_cntx = NULL;
@@ -2079,10 +2072,10 @@ bt_gap_le_srv_error_t bt_gap_le_srv_get_available_instance(uint8_t *instance)
 {
     //first to get an empty instance buffer
     bt_gap_le_srv_mutex_lock();
-    uint8_t free_int = bt_gap_le_srv_find_unused_instance();
+    uint32_t free_int = bt_gap_le_srv_find_unused_instance();
     if (free_int) {//found free instance
         *instance = free_int;
-        g_le_adv_info[free_int - 1].instance = free_int;
+        g_le_adv_info[free_int - 1].instance = (uint8_t)free_int;
         bt_gap_le_srv_mutex_unlock();
         return BT_GAP_LE_SRV_SUCCESS;
     }
@@ -2914,6 +2907,7 @@ bt_handle_t bt_gap_le_srv_get_conn_handle_by_address(const bt_bd_addr_t *address
     uint32_t i = 0;
     bt_bd_addr_t default_address = {0};
     bt_handle_t connection_handle = 0;
+    bt_device_manager_le_bonded_info_t *bond_info = NULL;
     for (i = 0; i < g_le_conn_max; i++) {
         if ((0 == bt_gap_le_srv_memcmp(&(g_le_conn_cntx[i].conn_info.peer_addr.addr), address, sizeof(bt_bd_addr_t))) ||\
             ((0 == bt_gap_le_srv_memcmp(&(g_le_conn_cntx[i].peer_rpa), address, sizeof(bt_bd_addr_t))) &&\
@@ -2921,6 +2915,15 @@ bt_handle_t bt_gap_le_srv_get_conn_handle_by_address(const bt_bd_addr_t *address
             connection_handle = g_le_conn_cntx[i].connection_handle;
         }
     }
+
+    if ((connection_handle == 0) && ((bond_info = bt_device_manager_le_get_bonding_info_by_addr_ext((bt_bd_addr_t *)address)) != NULL)) {
+        for (i = 0; i < g_le_conn_max; i++) {
+            if (0 == bt_gap_le_srv_memcmp(&(g_le_conn_cntx[i].conn_info.peer_addr.addr), bond_info->info.identity_addr.address.addr, sizeof(bt_bd_addr_t))) {
+                connection_handle = g_le_conn_cntx[i].connection_handle;
+            }
+        }
+    }
+
     bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] get connection handle:%02x by remote address %02x:%02x:%02x:%02x:%02x:%02x", 7, connection_handle,
                                                    (*address)[0], (*address)[1], (*address)[2], (*address)[3], (*address)[4], (*address)[5]);
     bt_gap_le_srv_mutex_unlock();
@@ -3023,15 +3026,14 @@ static bt_gap_le_srv_error_t bt_gap_le_srv_disable_ble_by_internal(bt_gap_le_srv
 uint8_t bt_gap_le_srv_get_connected_dev_num(void)
 {
     bt_gap_le_srv_mutex_lock();
-    uint8_t dev_num = bt_gap_le_srv_get_connected_dev_num_int();
+    uint32_t dev_num = bt_gap_le_srv_get_connected_dev_num_int();
     bt_gap_le_srv_mutex_unlock();
-    return dev_num;
+    return (uint8_t)dev_num;
 }
 
 void bt_gap_le_srv_dump_conn_info_list(void)
 {
-    uint8_t i;
-    for (i = 0; i < g_le_conn_max; i++) {
+    for (uint32_t i = 0; i < g_le_conn_max; i++) {
         if (g_le_conn_cntx[i].connection_handle) {
             bt_gap_le_srv_report_id("[BLE_GAP_SRV][I]Conn Info[%d]: [Addr type: %x] %02x-%02x-%02x-%02x-%02x-%02x [0x%04x] [Slave? %d]", 10,
                                     i, g_le_conn_cntx[i].conn_info.peer_addr.type,
@@ -3045,8 +3047,7 @@ void bt_gap_le_srv_dump_conn_info_list(void)
 
 void bt_gap_le_srv_dump_adv_info_list(void)
 {
-    uint8_t i;
-    for (i = 0; i < g_le_adv_max; i++) {
+    for (uint32_t i = 0; i < g_le_adv_max; i++) {
         if (g_le_adv_info[i].instance) {
             bt_gap_le_srv_report_id("[BLE_GAP_SRV][I]adv Info[%d]: [instance: %d, configured: %d, state %d, sub_state: %d]", 5,
                                     i, g_le_adv_info[i].instance, g_le_adv_info[i].configured,
@@ -3067,8 +3068,7 @@ bt_gap_le_srv_error_t bt_gap_le_srv_get_link_attribute_register(bt_gap_le_srv_ge
 
 bt_handle_t bt_gap_le_srv_get_handle_by_old_handle(bt_handle_t old_handle)
 {
-    uint8_t i = 0;
-    for (i = 0; i < g_le_conn_max; i++) {
+    for (uint32_t i = 0; i < g_le_conn_max; i++) {
         if (g_handle_table[i].old_conn_handle == old_handle) {
             bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] get new handle:%02x by old handle:%02x", 2, g_handle_table[i].new_conn_handle, old_handle);
             return g_handle_table[i].new_conn_handle;
@@ -3080,8 +3080,7 @@ bt_handle_t bt_gap_le_srv_get_handle_by_old_handle(bt_handle_t old_handle)
 
 bt_gap_le_srv_link_attribute_t bt_gap_le_srv_get_link_attribute_by_handle(bt_handle_t handle)
 {
-    uint8_t i = 0;
-    for (i = 0; i < g_le_conn_max; i++) {
+    for (uint32_t i = 0; i < g_le_conn_max; i++) {
         if (g_le_conn_cntx[i].connection_handle == handle) {
             bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] connection link attributre= %02x by handle = %02x", 2, g_le_conn_cntx[i].conn_info.attribute, handle);
             return g_le_conn_cntx[i].conn_info.attribute;
@@ -3092,12 +3091,11 @@ bt_gap_le_srv_link_attribute_t bt_gap_le_srv_get_link_attribute_by_handle(bt_han
 }
 static bt_status_t bt_gap_le_srv_rho_request_by_handle(bt_handle_t handle)
 {
-    uint8_t i = 0;
     if ((handle == 0x0000) || (handle == BT_HANDLE_INVALID)) {
         bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] connection handle is 0x0000", 0);
         return BT_STATUS_SUCCESS;
     }
-    for (i = 0; i < g_le_conn_max; i++) {
+    for (uint32_t i = 0; i < g_le_conn_max; i++) {
         if (g_le_conn_cntx[i].connection_handle == handle) {
             if (g_le_conn_cntx[i].conn_info.attribute & BT_GAP_LE_SRV_LINK_ATTRIBUTE_NOT_NEED_RHO) {
                 return BT_STATUS_FAIL;
@@ -3114,11 +3112,10 @@ bt_gap_le_srv_error_t bt_gap_le_srv_get_conn_handle_by_addr_ext(bt_handle_t *han
     BT_GAP_LE_SRV_CHECK_RET_WITH_VALUE_LOG((NULL == addr),
                                            0xFFFF, "[BLE_GAP_SRV][E] Get conn handle array, addr is wrong ", 0);
     bt_gap_le_srv_mutex_lock();
-    uint8_t buffer_size = *count;
-    uint8_t handle_cnt = 0;
-    uint8_t i = 0;
+    uint32_t buffer_size = *count;
+    uint32_t handle_cnt = 0;
     if (is_local_addr) {
-        for (i = 0; i < g_le_conn_max; i++) {
+        for (uint32_t i = 0; i < g_le_conn_max; i++) {
             if (0 == bt_gap_le_srv_memcmp(&(g_le_conn_cntx[i].conn_info.local_addr), addr, sizeof(bt_addr_t))) {
                 handle_list[handle_cnt] = g_le_conn_cntx[i].connection_handle;
                 handle_cnt++;
@@ -3128,7 +3125,7 @@ bt_gap_le_srv_error_t bt_gap_le_srv_get_conn_handle_by_addr_ext(bt_handle_t *han
             }
         }
     } else {
-        for (i = 0; i < g_le_conn_max; i++) {
+        for (uint32_t i = 0; i < g_le_conn_max; i++) {
             if (0 == bt_gap_le_srv_memcmp(&(g_le_conn_cntx[i].conn_info.peer_addr), addr, sizeof(bt_addr_t))) {
                 handle_list[handle_cnt] = g_le_conn_cntx[i].connection_handle;
                 handle_cnt++;
@@ -3349,6 +3346,8 @@ static bt_status_t bt_gap_le_srv_set_scan_by_internel(bool is_enable)
         } else {
             bt_gap_le_srv_report_id("[BLE_GAP_SRV][I] restart scan set by interval over duration, tick count = %02x, duration_count = %02x", 2,
                                     bt_os_layer_get_system_tick(), scan_context.param.duration_count);
+            scan_context.param.enable.duration = 0x0010;  /* 160ms */
+            status = bt_gap_le_set_extended_scan(&scan_context.param.parameter, &scan_context.param.enable);
         }
     } else {
         bt_gap_le_srv_set_extended_scan_enable_t enable;
@@ -3741,6 +3740,15 @@ static bt_status_t bt_gap_le_srv_connect_state_none_handle(bt_gap_le_srv_connect
     bt_status_t status = BT_STATUS_FAIL;
     switch(event) {
         case BT_GAP_LE_SRV_CONNECT_EVENT_START: {
+
+            if ((le_srv_context.flag & BT_GAP_LE_SRV_FLAG_PREPARE_SET_RSL) || (le_srv_context.flag & BT_GAP_LE_SRV_FLAG_PREPARE_SET_WHITE_LIST)) {
+                BT_GAP_LE_SRV_SET_FLAG(context, BT_GAP_LE_SRV_CONNECT_FLAG_RESTART);
+                bt_gap_le_srv_memcpy(&context->wl_connect_parameter, parameter, sizeof(bt_gap_le_srv_create_connection_t));
+                bt_gap_le_srv_report_id("[BLE_GAP_SRV][CONN] connect state none rsl/white list is ongoing", 0);
+                status = BT_STATUS_SUCCESS;
+                break;
+            }
+
             status = bt_gap_le_connect((bt_gap_le_srv_create_connection_t *)parameter);
             if (status == BT_STATUS_SUCCESS) {
                 bt_gap_le_srv_memcpy(&context->wl_connect_parameter, parameter, sizeof(bt_gap_le_srv_create_connection_t));

@@ -81,6 +81,13 @@ typedef enum {
 #define RACE_DONGLE_CONTROL_REMOTE            0x2CA1
 #define RACE_DONGLE_GET_REMOTE_RSSI           0x2CA8
 
+#ifdef AIR_PURE_GAMING_ENABLE
+#define RACE_SET_REPORT_RATE    0x3010
+#define RACE_GET_REPORT_RATE        0x3011
+#define RACE_CRYSTAL_TRIM_SET_CAP_LOCAL        0x3032
+#define RACE_SET_KEYREMAPPING_PATTERN        0x3040
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // TYPE DEFINITIONS ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

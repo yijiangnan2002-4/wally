@@ -55,6 +55,7 @@
 #define DSP_WAITING_THD (0x7FFFFFFF)
 #define isr_samples_cnt_buffer_size (4)
 #define CLK_SEW_MOVING_AV_ORDER 64
+#define UL_SAMPLE_CNT_PER_ISR (4)
 
 typedef enum {
     CLK_SKEW_DL,
@@ -94,6 +95,7 @@ typedef struct dsp_clock_skew_ctrl_s {
     U16 FrameSize;
     BOOL Initialized;
     S16 InterruptHandleCnt;
+    S16 InterruptHandleCnt_PerInterrupt;
     U16 UL_Prev_Polarity;
     S16 UL_Pol_Change_Samples;
     S32 IsrDriftAcc;
@@ -103,6 +105,8 @@ typedef struct dsp_clock_skew_ctrl_s {
     S16 DataQue_16[8];
     BOOL PollingFlag;
     S32  isr_interval;//unit : 0.1ms
+    skew_ctrl_t_ptr working_buffer;
+    U8 *temp_buffer;
     clkskew_mode_t ClkSkewMode;
 } DSP_CLOCK_SKEW_CTRL_t;
 
@@ -167,15 +171,8 @@ typedef struct dsp_clock_skew_ecdc_ctrl_s {
     S64 drift_acc;
     S32 cp_samples;
     S32 afe_interval_cnt;
+    S32 ecdcComSample26M_remainder;
     DSP_CLK_SEW_MOVING_AV_t moving_av;
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-    U32 cnt;
-    S32 isr_drift_acc;
-    U32 isr_bt_clk_prev;
-    U32 isr_bt_clk_next;
-    U16 isr_bt_phase_prev;
-    U16 isr_bt_phase_next;
-#endif
 } DSP_CLOCK_SKEW_ECDC_CTRL_t;
 
 typedef struct dsp_clock_skew_debug_s {
@@ -206,6 +203,7 @@ typedef struct dsp_clock_skew_setup_s {
     BOOL rcdc_slow_adjustment_en;
     BOOL calibrate_isr_en;
     BOOL calibrat_isr_debug_en;
+    BOOL with_src;
     S32  compensate_th_pos;
     S32  compensate_th_neg;
     U32  debug_interval_s;//debug log interval
@@ -223,7 +221,10 @@ typedef struct dsp_clock_skew_param_s {
     DSP_CLOCK_SKEW_DEBUG_t      ClkSkewDebug;
 } DSP_CLOCK_SKEW_PARAM_t;
 
-#define DSP_CLK_SKEW_MEMSIZE(MaxChannelNum,MaxBytesPerFrame,PcdcEnable) ((((sizeof(DSP_CLOCK_SKEW_PARAM_t) + (MaxBytesPerFrame + DSP_RCDC_MAX_SAMPLE_DEVIATION * 4)) + 8)&0xFFFFFFF0) + (sizeof(skew_ctrl_t)*MaxChannelNum*(PcdcEnable + 1)) + 100)
+//#define DSP_CLK_SKEW_MEMSIZE(MaxChannelNum,MaxBytesPerFrame,PcdcEnable) ((((sizeof(DSP_CLOCK_SKEW_PARAM_t) + (MaxBytesPerFrame + DSP_RCDC_MAX_SAMPLE_DEVIATION * 4)) + 8)&0xFFFFFFF0) + (sizeof(skew_ctrl_t)*MaxChannelNum*(PcdcEnable + 1)) + 100)
+
+#define DSP_CLK_SKEW_MEMSIZE (sizeof(DSP_CLOCK_SKEW_PARAM_t))
+
 extern CLK_SKEW_FS_t clk_skew_fs_converter(stream_samplerate_t fs_in);
 void Clock_Skew_Initialize(void *para, DSP_CLOCK_SKEW_SETUP_t* ClkSkewSetup, S32 ini_asi);
 BOOL Clock_Skew_ECDC_Initialize(void *para, CLK_SKEW_DIRECTION_TYPE_t clk_skew_dir);
@@ -232,11 +233,7 @@ S16 Clock_Skew_Get_Comp_Bytes(SOURCE source, SINK sink);
 bool pcdc_asi_threshold_counter(SOURCE source, SINK sink, U32 sample_size, int fs);
 void pcdc_asi_count_init(SOURCE source, SINK sink, U32 add_amount, S32 sample_rate);
 void Clock_Skew_Offset_Update(BT_CLOCK_OFFSET_SCENARIO type, SOURCE source, SINK sink);
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-void Clock_Skew_Isr_Time_Update(SOURCE source, SINK sink, U32 bt_clk_next,U16 bt_phase_next);
-#else
 void Clock_Skew_Isr_Time_Update(SOURCE source, SINK sink, U32 clk_next, U32 default_samples_cnt);
-#endif
 void Clock_Skew_Samples_Cnt_Update(SOURCE source, SINK sink, U16 samples_cnt);
 BOOL Clock_Skew_HWSRC_Is_Enable(SOURCE source, SINK sink);
 BOOL Clock_Skew_ECDC_Is_Enable(SOURCE source, SINK sink);

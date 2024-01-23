@@ -48,7 +48,10 @@
 #include "bt_type.h"
 #include "anc_control_api.h"
 #include "app_hear_through_storage.h"
-
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+#include "hal_audio_internal.h"
+#include "audio_set_driver.h"
+#endif /* AIR_DAC_MODE_RUNTIME_CHANGE */
 
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
 
@@ -211,6 +214,10 @@ typedef struct {
 typedef struct {
     bool                init_done;
     bool                user_switch;
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+    bool                is_hearing_test_mode;
+    uint32_t            dac_mode_before_hearing_test_mode;
+#endif /* AIR_DAC_MODE_RUNTIME_CHANGE */
     notify              notify_handler;
     uint8_t             feedback_detection_channel;
     uint32_t            stored_mic_input_path;
@@ -274,6 +281,7 @@ ATTR_LOG_STRING_LIB app_hearing_aid_type_string[][APP_HEARING_AID_CHAR_LOG_MAX_L
     "HA_TRIAL_RUN",                 // 0x001D
     "HA_MIC_CALIBRATION_MODE",      // 0x001E
     "HA_MIC_CALIBRATION_DATA",      // 0x001F
+    "HA_HEARING_TEST_MODE",         // 0x0020
 };
 
 ATTR_LOG_STRING_LIB app_hearing_aid_execute_where_string[][APP_HEARING_AID_CHAR_LOG_MAX_LEN] = {
@@ -472,7 +480,7 @@ bool app_hearing_aid_utils_handle_get_combine_response(uint16_t type,
                                                        uint16_t *combine_response_len)
 {
     if (app_hearing_aid_utils_get_combine_response_checker(response, response_len, combine_response, combine_response_len) == false) {
-        APPS_LOG_MSGID_E(APP_HA_UTILS_TAG"[app_hearing_aid_utils_get_role] Parameter error, type : 0x%04x, response : 0x%x, response_len : %d, combine_response : 0x%x, combine_response_len : 0x%x",
+        APPS_LOG_MSGID_E(APP_HA_UTILS_TAG"[get_combine_response] Parameter error, type : 0x%04x, response : 0x%x, response_len : %d, combine_response : 0x%x, combine_response_len : 0x%x",
                             5,
                             type,
                             response,
@@ -875,13 +883,13 @@ bool app_hearing_aid_utils_get_feedback_detection(app_hear_through_request_t *re
         get_fb_status = audio_anc_psap_control_detect_feedback();
     }
     APPS_LOG_MSGID_I(APP_HA_UTILS_TAG"[app_hearing_aid_utils_get_feedback_detection] role : %d, channel : 0x%02x, l_enable : %d, r_enable : %d, enable : %d, status : %d",
-                     6,
-                     role,
-                     channel,
-                     l_enable,
-                     r_enable,
-                     enable,
-                     get_fb_status);
+                        6,
+                        role,
+                        channel,
+                        l_enable,
+                        r_enable,
+                        enable,
+                        get_fb_status);
 
     if ((enable == true) && (get_fb_status == AUDIO_PSAP_STATUS_SUCCESS)) {
         app_ha_utils_context.feedback_detection_channel = channel;
@@ -994,6 +1002,15 @@ bool app_hearing_aid_utils_get_mic_calibration_data(app_hear_through_request_t *
     audio_psap_status_t psap_status = audio_anc_psap_control_get_mic_cal_data((uint32_t *)response_len, response);
     return (psap_status == AUDIO_PSAP_STATUS_SUCCESS) ? true : false;
 }
+
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+bool app_hearing_aid_utils_get_hearing_test_mode(app_hear_through_request_t *request, uint8_t *response, uint16_t *response_len)
+{
+    response[0] = app_ha_utils_context.is_hearing_test_mode;
+    *response_len = sizeof(uint8_t);
+    return true;
+}
+#endif /* AIR_DAC_MODE_RUNTIME_CHANGE */
 
 /**=====================================================================================*/
 /** Set function handler                                                                */
@@ -1243,6 +1260,11 @@ bool app_hearing_aid_utils_set_mix_mode_total_setting(uint8_t *parameter)
 
     audio_psap_status_t status = audio_anc_psap_control_set_mix_mode((psap_scenario_mix_mode_t *)parameter, role);
 
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+    hal_audio_status_send_update_dac_mode_event_to_am(HAL_AUDIO_HA_DAC_FLAG_A2DP_MIX_MODE, ((psap_scenario_mix_mode_t *)parameter)->a2dp_mix_mode_switch);
+    hal_audio_status_send_update_dac_mode_event_to_am(HAL_AUDIO_HA_DAC_FLAG_SCO_MIX_MODE, ((psap_scenario_mix_mode_t *)parameter)->sco_mix_mode_switch);
+#endif
+
     bool mix_mode_changed = false;
     app_mix_mode_t *mix_mode = (app_mix_mode_t *)parameter;
 
@@ -1446,18 +1468,18 @@ bool app_hearing_aid_utils_set_trial_run(uint8_t *parameter)
     app_hearing_aid_trial_run_payload_t *trial_run_payload = (app_hearing_aid_trial_run_payload_t *)parameter;
 
     APPS_LOG_MSGID_I(APP_HA_UTILS_TAG"[app_hearing_aid_utils_set_trial_run] role : %d, target_role : %d, ID : 0x%04x, length : 0x%04x",
-                     4,
-                     role,
-                     trial_run_payload->channel,
-                     trial_run_payload->trial_run_id,
-                     trial_run_payload->trial_run_param_len);
+                        4,
+                        role,
+                        trial_run_payload->channel,
+                        trial_run_payload->trial_run_id,
+                        trial_run_payload->trial_run_param_len);
 
     if (((role == AUDIO_PSAP_DEVICE_ROLE_LEFT) && (trial_run_payload->channel == APP_HA_CHANNEL_L))
         || ((role == AUDIO_PSAP_DEVICE_ROLE_RIGHT) && (trial_run_payload->channel == APP_HA_CHANNEL_R))
         || (trial_run_payload->channel == 0x03)) {
         status = audio_anc_psap_control_trial_run(trial_run_payload->trial_run_id,
-                                                 trial_run_payload->trial_run_param_len,
-                                                 parameter + sizeof(app_hearing_aid_trial_run_payload_t));
+                                                    trial_run_payload->trial_run_param_len,
+                                                    parameter + sizeof(app_hearing_aid_trial_run_payload_t));
     }
 
     return (status == AUDIO_PSAP_STATUS_SUCCESS) ? true : false;
@@ -1471,6 +1493,72 @@ bool app_hearing_aid_utils_set_mic_calibration_mode(uint8_t *parameter)
 
     return (psap_status == AUDIO_PSAP_STATUS_SUCCESS) ? true : false;
 }
+
+//#if (defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE))
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+bool app_hearing_aid_utils_set_hearing_test_mode(uint8_t *parameter)
+{
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+    bool enable = parameter[0];
+
+    APPS_LOG_MSGID_I(APP_HA_UTILS_TAG"[app_hearing_aid_utils_set_hearing_test_mode] control hearing test mode : %d, current mode : %d",
+                        2,
+                        enable,
+                        app_ha_utils_context.is_hearing_test_mode);
+
+    if (enable == app_ha_utils_context.is_hearing_test_mode) {
+        return true;
+    }
+
+    app_ha_utils_context.is_hearing_test_mode = enable;
+#endif
+#if 0
+    if (enable == true) {
+        // enable hearing test mode
+
+        app_ha_utils_context.dac_mode_before_hearing_test_mode = hal_audio_status_get_dac_mode();
+        APPS_LOG_MSGID_I(APP_HA_UTILS_TAG"[app_hearing_aid_utils_set_hearing_test_mode] Enter hearing test mode, DAC mode : 0x%02x",
+                            1,
+                            app_ha_utils_context.dac_mode_before_hearing_test_mode);
+
+        if (app_ha_utils_context.dac_mode_before_hearing_test_mode == 0x04) {
+            bool change_dac_result = hal_audio_status_change_dac_mode(0x02);
+            if (change_dac_result == true) {
+                app_ha_utils_context.is_hearing_test_mode = true;
+            } else {
+                APPS_LOG_MSGID_E(APP_HA_UTILS_TAG"[app_hearing_aid_utils_set_hearing_test_mode] Enter hearing test mode failed", 0);
+                return false;
+            }
+        } else {
+            app_ha_utils_context.is_hearing_test_mode = true;
+        }
+    } else {
+        // disable hearing test mode
+        APPS_LOG_MSGID_I(APP_HA_UTILS_TAG"[app_hearing_aid_utils_set_hearing_test_mode] Exit hearing test mode, DAC mode : 0x%02x",
+                            1,
+                            app_ha_utils_context.dac_mode_before_hearing_test_mode);
+
+        if (app_ha_utils_context.dac_mode_before_hearing_test_mode == 0x04) {
+            bool change_dac_result = hal_audio_status_change_dac_mode(0x04);
+            if (change_dac_result == true) {
+                app_ha_utils_context.is_hearing_test_mode = false;
+            } else {
+                APPS_LOG_MSGID_E(APP_HA_UTILS_TAG"[app_hearing_aid_utils_set_hearing_test_mode] Exit hearing test mode failed", 0);
+                return false;
+            }
+        } else {
+            app_ha_utils_context.is_hearing_test_mode = false;
+        }
+    }
+#endif
+
+//#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+    hal_audio_status_send_update_dac_mode_event_to_am(HAL_AUDIO_HA_DAC_FLAG_HEARING_TEST, app_ha_utils_context.is_hearing_test_mode);
+//#endif /* AIR_DAC_MODE_RUNTIME_CHANGE */
+
+    return true;
+}
+#endif
 
 uint32_t app_hearing_aid_utils_get_mic_calibration_data_combine_response_len()
 {
@@ -2250,9 +2338,9 @@ bool app_hearing_aid_utils_is_ha_running()
     status = audio_anc_psap_control_get_status(&ha_enable_status);
 
     APPS_LOG_MSGID_I(APP_HA_UTILS_TAG"[app_hearing_aid_utils_is_ha_running] status : %d, enable_status : %d",
-                     2,
-                     status,
-                     ha_enable_status);
+                        2,
+                        status,
+                        ha_enable_status);
 
     if ((status == AUDIO_PSAP_STATUS_SUCCESS) && (ha_enable_status == true)) {
         return true;
@@ -2545,11 +2633,11 @@ bool app_hearing_aid_utils_mix_table_to_enable(app_hearing_aid_state_table_t *ta
     mp_test_mode = app_hearing_aid_utils_is_mp_test_mode();
 
     APPS_LOG_MSGID_I(APP_HA_UTILS_TAG"[app_hearing_aid_utils_mix_table_to_enable] ha_switch : %d, pure_tone_generator : %d, mp_test_mode : %d, where : %d",
-                     4,
-                     ha_switch,
-                     pure_tone_generator,
-                     mp_test_mode,
-                     where);
+                        4,
+                        ha_switch,
+                        pure_tone_generator,
+                        mp_test_mode,
+                        where);
 
     if ((ha_switch == false) && (mp_test_mode == false)) {
         *need_execute = true;
@@ -3452,6 +3540,11 @@ bool app_hearing_aid_utils_is_drc_enable(bool a2dp_streaming, bool sco_streaming
     }
 
     return false;
+}
+
+bool app_hearing_aid_utils_is_sco_mix_mode_on()
+{
+    return app_ha_utils_context.ha_mix_mode.sco_mix_mode_switch;
 }
 
 void app_hearing_aid_utils_sync_runtime_parameters(uint8_t *parameter, uint16_t parameter_len)

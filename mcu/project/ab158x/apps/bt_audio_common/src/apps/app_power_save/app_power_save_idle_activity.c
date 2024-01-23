@@ -117,7 +117,7 @@ static app_power_saving_target_mode_t anc_get_power_saving_target_mode_func(void
         target_mode = APP_POWER_SAVING_TARGET_MODE_NORMAL;
 #endif
     }
-    APPS_LOG_MSGID_I(LOG_TAG" [POWER_SAVING] anc_traget_mode=%d", 1, target_mode);
+    APPS_LOG_MSGID_I(LOG_TAG" [POWER_SAVING] anc_target_mode=%d", 1, target_mode);
     return target_mode;
 }
 #endif
@@ -145,7 +145,7 @@ static app_power_saving_target_mode_t audio_out_get_power_saving_target_mode_fun
         target_mode =  APP_POWER_SAVING_TARGET_MODE_NORMAL;
     }
 
-    APPS_LOG_MSGID_I(LOG_TAG" [POWER_SAVING] audio_out_traget_mode=%d, audio_working = %d", 2, target_mode, s_audio_working);
+    APPS_LOG_MSGID_I(LOG_TAG" [POWER_SAVING] audio_out_target_mode=%d, audio_working = %d", 2, target_mode, s_audio_working);
 
     return target_mode;
 }
@@ -178,6 +178,9 @@ static bool app_power_saving_idle_proc_ui_shell_group(ui_shell_activity_t *self,
             app_power_save_utils_register_get_mode_callback(audio_out_get_power_saving_target_mode_func);
 #endif
             local_context->bt_sink_srv_state = APP_POWER_SAVING_BT_OFF;
+#ifdef AIR_LE_AUDIO_ENABLE
+            local_context->le_sink_srv_state = APP_POWER_SAVING_BT_DISCONNECTED;
+#endif
             app_power_saving_idle_state_proc(self);
             break;
         }
@@ -316,7 +319,7 @@ static bool app_power_saving_idle_dual_chip_cmd_proc(ui_shell_activity_t *self, 
 {
     bool ret = false;
     switch (event_id) {
-        case APPS_RECE_CMD_CO_SYS_DUAL_CHIP_EVENT_SILENCE_DETECT: {
+        case APPS_RACE_CMD_CO_SYS_DUAL_CHIP_EVENT_SILENCE_DETECT: {
             bool silence = *(bool *)extra_data;
             app_power_save_utils_slave_silence_detect(silence);
             break;

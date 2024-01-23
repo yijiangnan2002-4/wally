@@ -75,6 +75,7 @@
 #define IN_SAMPLE_RATE_32KHZ    32
 #define IN_SAMPLE_RATE_44_1KHZ  44
 #define IN_SAMPLE_RATE_48KHZ    48
+#define IN_SAMPLE_RATE_96KHZ    96
 
 /**************************************************************************************************
 * Structure
@@ -117,6 +118,8 @@ uint8_t app_le_audio_get_sample_freq(uint8_t in_smaple_rate)
             return CODEC_CONFIGURATION_SAMPLING_FREQ_44_1KHZ;
         case IN_SAMPLE_RATE_48KHZ:
             return CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ;
+        case IN_SAMPLE_RATE_96KHZ:
+            return CODEC_CONFIGURATION_SAMPLING_FREQ_96KHZ;
     }
     return APP_LE_AUDIO_SAMPLING_FREQ_INVALID;
 }
@@ -136,6 +139,8 @@ uint32_t app_le_audio_convert_sample_freq(uint8_t sampling_freq)
             return 44100;
         case CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ:
             return 48000;
+        case CODEC_CONFIGURATION_SAMPLING_FREQ_96KHZ:
+            return 96000;
         default:
             break;
     }
@@ -241,6 +246,18 @@ void app_le_audio_timer_handle_timer_expired_event(TimerHandle_t timer_handle)
     }
 }
 
+void app_le_audio_timer_handle_stop_timer_event(TimerHandle_t timer_handle)
+{
+    app_le_audio_timer_info_struct *timer_info = app_le_audio_timer_get_timer_info_by_timer_handle(timer_handle);
+
+    if (timer_info) {
+        LE_AUDIO_MSGLOG_I("[APP] stop timer. handle:%x", 1, timer_handle);
+        xTimerStop(timer_info->timer_handle, 0);
+        xTimerDelete(timer_info->timer_handle, 0);
+        app_le_audio_timer_reset_timer_info(timer_info);
+    }
+}
+
 
 void app_le_audio_timer_callback(TimerHandle_t timer_handle)
 {
@@ -294,12 +311,25 @@ bt_status_t app_le_audio_timer_start(TimerHandle_t *timer_handle, uint32_t timer
 void app_le_audio_timer_stop(TimerHandle_t timer_handle)
 {
     app_le_audio_timer_info_struct *timer_info = app_le_audio_timer_get_timer_info_by_timer_handle(timer_handle);
-
+    //UI Shell maybe processing timer expired event, BT Task calls this API will interrupt the process.
+    //So it need change task
+/**
     if (timer_info) {
         LE_AUDIO_MSGLOG_I("[APP] stop timer. handle:%x", 1, timer_handle);
         xTimerStop(timer_info->timer_handle, 0);
         xTimerDelete(timer_info->timer_handle, 0);
         app_le_audio_timer_reset_timer_info(timer_info);
+    }
+**/
+    if (timer_info) {
+        ui_shell_send_event(TRUE,
+                            EVENT_PRIORITY_HIGH,
+                            EVENT_GROUP_UI_SHELL_LE_AUDIO,
+                            APP_LE_AUDIO_EVENT_STOP_TIMER,
+                            timer_handle,
+                            0,
+                            NULL,
+                            0);
     }
 }
 
@@ -312,6 +342,10 @@ bool app_le_audio_handle_idle_le_audio_event(ui_shell_activity_t *self, uint32_t
     switch (event_id) {
         case APP_LE_AUDIO_EVENT_TIMER_EXPIRED: {
             app_le_audio_timer_handle_timer_expired_event((TimerHandle_t) extra_data);
+            break;
+        }
+        case APP_LE_AUDIO_EVENT_STOP_TIMER: {
+            app_le_audio_timer_handle_stop_timer_event((TimerHandle_t) extra_data);
             break;
         }
 #ifdef AIR_LE_AUDIO_UNICAST_ENABLE
@@ -394,6 +428,45 @@ bt_status_t app_le_audio_start_streaming_port(app_le_audio_stream_port_t port)
     app_le_audio_ucst_ctrl_t *ucst_ctrl = app_le_audio_ucst_get_ctrl();
 
     if (APP_LE_AUDIO_MODE_UCST == mode) {
+#ifndef AIR_VOLUME_CONTROL_BY_DONGLE
+        //Speaker maybe colsed when enable ASE and volume will not send to earphone.
+        //So need to send volume to earphone when Speaker opened.
+        uint8_t volume, mute;
+        bt_status_t result = BT_STATUS_FAIL;
+        if (APP_LE_AUDIO_STREAM_PORT_SPK_0 == port) {
+            result = app_le_audio_usb_get_volume(APP_LE_AUDIO_USB_PORT_SPK_0, &volume, &mute);
+        }
+        else if (APP_LE_AUDIO_STREAM_PORT_SPK_1 == port) {
+            result = app_le_audio_usb_get_volume(APP_LE_AUDIO_USB_PORT_SPK_1, &volume, &mute);
+        }
+        /*
+        else if (APP_LE_AUDIO_STREAM_PORT_LINE_IN == port) {
+            result = app_le_audio_line_in_get_volume(&volume, &mute);
+        }
+        else if (APP_LE_AUDIO_STREAM_PORT_I2S_IN == port) {
+            result = app_le_audio_i2s_in_get_volume(&volume, &mute);
+        }
+        */
+        if (BT_STATUS_SUCCESS == result) {
+            app_le_audio_ucst_link_info_t *p_info = NULL;
+            uint8_t link_idx;
+
+            for (link_idx = 0; link_idx < APP_LE_AUDIO_UCST_LINK_MAX_NUM; link_idx++) {
+                if (NULL == (p_info = app_le_audio_ucst_get_link_info_by_idx(link_idx))) {
+                    continue;
+                }
+
+                if ((BT_HANDLE_INVALID == p_info->handle) || (APP_LE_AUDIO_UCST_LINK_STATE_CONFIG_ASE_CODEC > p_info->curr_state)) {
+                    //Prevent Service Discovery from being interrupted
+                    continue;
+                }
+
+                app_le_audio_vcp_set_volume_state(p_info->handle, volume, mute);
+            }
+        }
+
+#endif
+
         if (APP_LE_AUDIO_UCST_PAUSE_STREAM_ALL <= app_le_audio_ucst_get_pause_stream_flag()) {
             return BT_STATUS_SUCCESS;
         }

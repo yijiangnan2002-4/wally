@@ -59,28 +59,19 @@
 
 #define APP_VA_XIAOAI_MAJOR_ID      0x01
 #define APP_VA_XIAOAI_MINOR_ID      0x01
-#else
-#define APP_VA_XIAOAI_VID           0x5A4D
-#define APP_VA_XIAOAI_PID           0xEA0E
 
-#define APP_VA_XIAOAI_VERSION       0x1102
+/* Customer configure option: MIUI Fast_Connect Product ID (24 bits). */
+#define APP_MIUI_FC_PRODUCT_ID     {APP_VA_XIAOAI_MAJOR_ID, APP_VA_XIAOAI_MINOR_ID, 0x00}
 
-#define APP_VA_XIAOAI_DEVICE_TYPE   0          /* 0 - invalid, device_type/color 1~15. */
-
-#define APP_VA_XIAOAI_MAJOR_ID      0x10
-#define APP_VA_XIAOAI_MINOR_ID      0x11
 #endif
 
-#define APP_VA_XIAOAI_SLIENCE_OTA_TIMER          (10 * 60 * 1000)   // 10 min when both close lid
+#define APP_VA_XIAOAI_SILENCE_OTA_TIMER          (10 * 60 * 1000)   // 10 min when both close lid
 
 #define APP_VA_XIAOAI_HIGH_BLE_CONN_INTERVAL     165
 #define APP_VA_XIAOAI_LOW_BLE_CONN_INTERVAL      25
 
 
 #ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
-
-/* Customer configure option: MIUI Fast_Connect Product ID (24 bits). */
-#define APP_MIUI_FC_PRODUCT_ID     {APP_VA_XIAOAI_MAJOR_ID, APP_VA_XIAOAI_MINOR_ID, 0x00}
 
 /* Customer configure option: MIUI Fast_Connect secp256r1 private ID (32Bytes - 256bits). */
 #define APP_MIUI_FC_PRIVATE_KEY    {                        \

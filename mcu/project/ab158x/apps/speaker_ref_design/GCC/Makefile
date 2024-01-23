@@ -94,6 +94,8 @@ ifeq ($(AIR_BT_ROLE_HANDOVER_SERVICE_ENABLE), y)
 APPS_AUTO_TRIGGER_RHO       		= y
 # Do RHO press key on partner
 APPS_TRIGGER_RHO_BY_KEY     		= y
+# HW IO
+AIR_AUDIO_BIAS_CONTROL_BY_TOOL        := y
 endif
 
 # ANC module
@@ -164,6 +166,7 @@ MTK_AWS_MCE_ENABLE                  = y
 MTK_BT_SPEAKER_ENABLE               = y
 
 AIR_GATTC_DISCOVERY_ENHANCE_ENABLE  = y
+AIR_GATT_SRV_CLIENT_ENABLE          = y
 #ifeq ($(MTK_AWS_MCE_ENABLE),y)
 #MTK_AWS_MCE_ROLE_RECOVERY_ENABLE = y
 #endif
@@ -235,6 +238,12 @@ endif
 
 # Support MIC Loopback AT command
 LINE_IN_PURE_FOR_AMIC_CLASS_G_HQA = y
+
+# Support multiple stream out
+ifeq ($(AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE), y)
+AIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE        ?= n
+AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE             ?= y
+endif
 
 # ANC User Trigger module
 USER_TRIGGER_FF_CODE = $(strip $(SOURCE_DIR))/middleware/airoha/audio/user_trigger_adaptive_ff/readme.txt
@@ -729,14 +738,7 @@ ifeq ($(AIR_MUX_BT_HID_ENABLE), y)
 CFLAGS += -DAIR_MUX_BT_HID_ENABLE
 endif
 
-# BT Takeover
-ifeq ($(AIR_BT_TAKEOVER_ENABLE),y)
-CFLAGS += -DAIR_BT_TAKEOVER_ENABLE
 
-CFLAGS += -DAPP_CONN_MGR_RECONNECT_CONTROL
-CFLAGS += -DAPP_CONN_MGR_RECONNECT_SAVE_LAST_TWO_DEVICE
-#CFLAGS += -DAPP_CONN_MGR_RECONNECT_ONLY_ONE
-endif
 
 ifeq ($(AIR_WIRELESS_MIC_ENABLE), y)
 CFLAGS += -DAIR_WIRELESS_MIC_ENABLE
@@ -781,6 +783,23 @@ endif
 # Cust Pairing
 ifeq ($(AIR_CUST_PAIR_ENABLE),y)
 include $(SOURCE_DIR)/middleware/airoha/cust_pair/module.mk
+endif
+
+# bt_audio_common path
+ifneq ($(wildcard $(strip $(SOURCE_DIR))/project/ab157x_ab158x/),)
+APP_COMMON_PATH := project/ab157x_ab158x/apps/bt_audio_common
+endif
+
+ifneq ($(wildcard $(strip $(SOURCE_DIR))/project/ab15xx/),)
+APP_COMMON_PATH := project/ab15xx/apps/bt_audio_common
+endif
+
+# This option is used to enable microphone bias control by Airoha tool for AB157x SDK3.10.0
+#  y: enable config tool bias configuration
+#  n: disable tool configuration and configure by SW code
+# Please check the bias configuration by Airoha Tool if the option is enabled
+ifeq ($(AIR_AUDIO_BIAS_CONTROL_BY_TOOL), y)
+CFLAGS += -DAIR_AUDIO_BIAS_CONTROL_BY_TOOL
 endif
 
 #######################################################
@@ -1012,6 +1031,10 @@ endif
 MOD_EXTRA = BUILD_DIR=$(BUILD_DIR) OUTPATH=$(OUTPATH) PROJ_PATH=$(PROJ_PATH) IC_CONFIG=$(IC_CONFIG)
 
 checkoption:
+# Check MCU include shared option or not
+# Shared optin is a option that MCU and DSP are both used, but should ONLY defined in DSP feature.mk
+	$(SOURCE_DIR)/tools/scripts/build/shared_option_checker.sh $(SOURCE_DIR) $(BOARD) $(FEATURE) >&2
+
 # USB : check the dependency of USB Audio/HID option
 ifneq ($(AIR_USB_AUDIO_VERSION),none)
 ifneq ($(AIR_USB_ENABLE),y)
@@ -1057,9 +1080,9 @@ endif
 
 # fota related files
 ifeq ($(AIR_FOTA_VIA_RACE_CMD_ENABLE),y)
-ifneq ($(AIR_FOTA_ENABLE),y)
-	$(warning "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE")
-	@echo "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE";
+ifneq ($(AIR_FOTA_ENABLE)_$(AIR_RACE_CMD_ENABLE),y_y)
+	$(warning "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE/AIR_RACE_CMD_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE/AIR_RACE_CMD_ENABLE";
 	@set -e; exit 2;
 endif
 endif

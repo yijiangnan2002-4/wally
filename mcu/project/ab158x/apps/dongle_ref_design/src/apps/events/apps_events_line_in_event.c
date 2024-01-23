@@ -149,18 +149,35 @@ static atci_status_t _line_in_vol_atci(atci_parse_cmd_param_t *parse_cmd)
                 app_ull_dongle_change_linein_volume_level(true);
 #endif
                 vol->vol_action = APP_LINE_IN_VOL_UP;
+                param = strchr(param, ',');
+                param++;
+                //sscanf(param, "%lu,", &vol->vol_level);
+                vol->vol_level = (uint8_t)strtoul(param, NULL, 10);
+                param = strchr(param, ',');
+                param++;
+                vol->vol_src = (uint8_t)strtoul(param, NULL, 10);
                 response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
             } else if (0 == memcmp("down",param, strlen("down"))) {
 #ifdef AIR_ULL_DONGLE_LINE_IN_ENABLE
                 app_ull_dongle_change_linein_volume_level(false);
 #endif
                 vol->vol_action = APP_LINE_IN_VOL_DOWN;
+                param = strchr(param, ',');
+                param++;
+                //sscanf(param, "%lu,", &vol->vol_level);
+                vol->vol_level = (uint8_t)strtoul(param, NULL, 10);
+                param = strchr(param, ',');
+                param++;
+                vol->vol_src = (uint8_t)strtoul(param, NULL, 10);
                 response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
             } else if (0 == memcmp("level",param, strlen("level"))) {
                 vol->vol_action = APP_LINE_IN_VOL_SET;
                 param = strchr(param, ',');
                 param++;
                 vol->vol_level = (uint8_t)strtoul(param, NULL, 10);
+                param = strchr(param, ',');
+                param++;
+                vol->vol_src = (uint8_t)strtoul(param, NULL, 10);
                 response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
             } else {
                 response.response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
@@ -168,9 +185,9 @@ static atci_status_t _line_in_vol_atci(atci_parse_cmd_param_t *parse_cmd)
                 vol = NULL;
             }
             if (response.response_flag == ATCI_RESPONSE_FLAG_APPEND_OK) {
-                APPS_LOG_MSGID_I(TAG" _line_in_vol_atci: action:%d, level=%d.", 2, vol->vol_action, vol->vol_level);
+                APPS_LOG_MSGID_I(TAG" _line_in_vol_atci: action:%d, level=%d,src=%d.", 3, vol->vol_action, vol->vol_level, vol->vol_src);
                 ui_shell_status_t status = ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_LINE_IN,
-                                                            APPS_EVENTS_INTERACTION_LINE_IN_VOLUME, (void *)vol, sizeof(app_line_in_volume_t), NULL, 0);
+                                                               APPS_EVENTS_INTERACTION_LINE_IN_VOLUME, (void *)vol, sizeof(app_line_in_volume_t), NULL, 0);
                 if (UI_SHELL_STATUS_OK != status) {
                     response.response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
                     vPortFree(vol);

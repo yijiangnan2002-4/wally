@@ -47,6 +47,7 @@
 /********************************REQ DEFINE START********************************/
 typedef struct {
     uint8_t fota_mode;
+    uint8_t address[6];
 } PACKED race_lpcomm_fota_start_req_struct;
 
 typedef struct {

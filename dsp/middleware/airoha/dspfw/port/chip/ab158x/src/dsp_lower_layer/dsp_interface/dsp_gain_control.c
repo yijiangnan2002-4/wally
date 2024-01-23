@@ -47,7 +47,9 @@
 #if defined(AIR_AUDIO_VOLUME_MONITOR_ENABLE)
 #include "volume_estimator_interface.h"
 #endif
-
+#if defined(AIR_BT_CODEC_BLE_ENABLED) && defined(AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE)
+#include "stream_n9ble.h"
+#endif
 /******************************************************************************
  * Definitions
  ******************************************************************************/
@@ -1302,6 +1304,11 @@ void DSP_GC_MuteInput(hal_ccni_message_t msg, hal_ccni_message_t *ack)
         if ((type == HAL_AUDIO_STREAM_IN_SCENARIO_HFP) || (type == HAL_AUDIO_STREAM_IN_SCENARIO_BLE_CALL)) {
             DSP_MW_LOG_I("Call_UL_SW_Gain_Mute_control %d", 1, enable);
             g_call_mute_flag = enable;
+#if defined(AIR_BT_CODEC_BLE_ENABLED) && defined(AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE)
+            if(type == HAL_AUDIO_STREAM_IN_SCENARIO_BLE_CALL){
+                N9Ble_UL_Set_SW_Gain_Mute(enable);
+            }
+#endif
             return;
         }
 #endif

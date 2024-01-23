@@ -35,11 +35,6 @@
 #include "bt_sink_srv_state_manager.h"
 #include "bt_sink_srv_state_manager_internal.h"
 
-static void bt_sink_srv_state_manager_get_device_state(
-    bt_sink_srv_state_manager_context_t *context,
-    bt_sink_srv_state_manager_device_t *device,
-    bt_sink_srv_device_state_t *device_state);
-
 static bt_status_t default_bt_sink_srv_get_config(
     bt_sink_srv_get_config_t type,
     bt_sink_srv_get_config_param_t *param,
@@ -70,13 +65,13 @@ bt_status_t bt_sink_srv_state_manager_get_config(
 
             /* 1. Find device. */
             current_device = bt_sink_srv_state_manager_get_device_by_psedev(
-                context,
-                (audio_src_srv_handle_t *)current_psedev);
+                                 context,
+                                 (audio_src_srv_handle_t *)current_psedev);
 
             reject_device = bt_sink_srv_state_manager_get_device(
-                context,
-                param->get_reject_config.type,
-                &param->get_reject_config.address);
+                                context,
+                                param->get_reject_config.type,
+                                &param->get_reject_config.address);
 
             bt_sink_srv_report_id("[Sink][StaMgr]get reject config, current_device: 0x%x reject_device: 0x%x",
                                   2, current_device, reject_device);
@@ -112,21 +107,20 @@ bt_status_t bt_sink_srv_state_manager_get_config(
             break;
         }
 
-        case BT_SINK_SRV_GET_SUSPEND_CONFIG:
-        {
+        case BT_SINK_SRV_GET_SUSPEND_CONFIG: {
             bt_sink_srv_get_suspend_config_param_t config_param = {0};
             bt_sink_srv_state_manager_device_t *suspend_device = NULL;
             bt_sink_srv_state_manager_device_t *coming_device = NULL;
 
             /* 1. Find device. */
             suspend_device = bt_sink_srv_state_manager_get_device(
-                context,
-                param->get_suspend_config.type,
-                &param->get_suspend_config.address);
+                                 context,
+                                 param->get_suspend_config.type,
+                                 &param->get_suspend_config.address);
 
             coming_device = bt_sink_srv_state_manager_get_device_by_psedev(
-                context,
-                param->get_suspend_config.suspend_handle);
+                                context,
+                                param->get_suspend_config.suspend_handle);
 
             bt_sink_srv_report_id("[Sink][StaMgr]get suspend config, suspend_device: 0x%x coming_device: 0x%x",
                                   2, suspend_device, coming_device);
@@ -165,16 +159,15 @@ bt_status_t bt_sink_srv_state_manager_get_config(
             break;
         }
 
-        case BT_SINK_SRV_GET_RESUME_CONFIG:
-        {
+        case BT_SINK_SRV_GET_RESUME_CONFIG: {
             bt_sink_srv_get_resume_config_param_t config_param = {0};
             bt_sink_srv_state_manager_device_t *resume_device = NULL;
 
             /* 1. Find device. */
             resume_device = bt_sink_srv_state_manager_get_device(
-                context,
-                param->get_resume_config.type,
-                &param->get_resume_config.address);
+                                context,
+                                param->get_resume_config.type,
+                                &param->get_resume_config.address);
 
             bt_sink_srv_report_id("[Sink][StaMgr]get resume config, resume_device: 0x%x",
                                   1, resume_device);
@@ -205,7 +198,7 @@ bt_status_t bt_sink_srv_state_manager_get_config(
     return status;
 }
 
-static void bt_sink_srv_state_manager_get_device_state(
+void bt_sink_srv_state_manager_get_device_state(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_state_manager_device_t *device,
     bt_sink_srv_device_state_t *device_state)
@@ -236,7 +229,7 @@ static bt_status_t default_bt_sink_srv_get_config(
             /* If 2nd call  try to interrupt 1st call,  transfer call audio to SP. */
             if (BT_SINK_SRV_STATE_MANAGER_IS_CALL_STATE(param->reject_config_param.reject_device_state.call_state) ||
                 BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED != param->reject_config_param.reject_device_state.sco_state) {
-                config->reject_config.reject_operation |= BT_SINK_SRV_INTERRUPT_OPERATION_TRANSFER_CALL_AUDIO; 
+                config->reject_config.reject_operation |= BT_SINK_SRV_INTERRUPT_OPERATION_TRANSFER_CALL_AUDIO;
                 if (BT_SINK_SRV_DEVICE_LE == param->reject_config_param.reject_device_state.type) {
                     config->reject_config.will_reject_resume = true; /* LE should resume because cannnot transfer call audio. */
                 }
@@ -278,4 +271,3 @@ static bt_status_t default_bt_sink_srv_get_config(
 
     return BT_STATUS_SUCCESS;
 }
-

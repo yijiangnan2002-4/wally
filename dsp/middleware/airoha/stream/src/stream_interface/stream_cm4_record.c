@@ -56,6 +56,9 @@ bool CM4_Record_air_dump = false;
 U8   CM4_Record_air_dump_scenario = 0;
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
 bool CM4_Record_leakage_enable = false;
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+bool MCU_Record_fanc_comp_enable = false;
+#endif
 #endif
 bool CM4_Record_flag = false;
 

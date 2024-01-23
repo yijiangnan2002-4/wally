@@ -42,8 +42,8 @@
  *
  */
 
-#ifndef __APP_SHARE_IDLE_ACTIVITY_H__
-#define __APP_SHARE_IDLE_ACTUVITY_H__
+#ifndef __APP_SHARE_ACTIVITY_H__
+#define __APP_SHARE_ACTIVITY_H__
 
 #include "ui_shell_activity.h"
 

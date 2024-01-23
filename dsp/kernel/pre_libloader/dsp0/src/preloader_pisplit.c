@@ -215,7 +215,12 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ preloader_pisplit_error_handling_t preloader_pispl
 
         multi_pool_temp[0].mp_start_address = preloader_pisplit_pools[i].pool_start;
         multi_pool_temp[0].mp_size_in_bytes = (unsigned int)preloader_pisplit_pools[i].pool_end - (unsigned int)preloader_pisplit_pools[i].pool_start;
-        multi_pool_temp[0].mp_aligned_rule = PRELOADER_MEMORY_ALIGNMENT;
+
+        if (((uint32_t)preloader_pisplit_pools[i].pool_start >= SYSRAM_BASE) && ((uint32_t)preloader_pisplit_pools[i].pool_start <= (SYSRAM_BASE + SYSRAM_LENGTH))) {
+            multi_pool_temp[0].mp_aligned_rule = PRELOADER_MEMORY_ALIGNMENT_64;
+        } else {
+            multi_pool_temp[0].mp_aligned_rule = PRELOADER_MEMORY_ALIGNMENT;
+        }
 #ifdef PRELOADER_ENABLE_DSP0_LOAD_FOR_DSP1
         if (is_dsp1_memory(multi_pool_temp[0].mp_start_address)) {
             preloader_dsp0_lock_dsp1_sleep_and_dcm();
@@ -473,7 +478,7 @@ preloader_pisplit_error_handling_t preloader_pisplit_load(preloader_pisplit_hand
 #ifdef MTK_SUPPORT_HEAP_DEBUG
         pxBlock = mp_get_block_to_free(alloc_info.buffer, &(((MultiPoolHeaderLink_t *)alloc_info.pool_start)->xStart), ((MultiPoolHeaderLink_t *)alloc_info.pool_start)->xPoolAlignment);
         if (pxBlock != NULL) {
-            pxBlock->xMallocLinkRegAddr = (uint32_t)__builtin_return_address(0);
+            pxBlock->xMallocLinkRegAddr = (uint32_t)p_handle->p_pi_library;
         }
 #endif
         p_handle->code_memory_heap = alloc_info.pool_start;
@@ -498,7 +503,7 @@ preloader_pisplit_error_handling_t preloader_pisplit_load(preloader_pisplit_hand
 #ifdef MTK_SUPPORT_HEAP_DEBUG
         pxBlock = mp_get_block_to_free(alloc_info.buffer, &(((MultiPoolHeaderLink_t *)alloc_info.pool_start)->xStart), ((MultiPoolHeaderLink_t *)alloc_info.pool_start)->xPoolAlignment);
         if (pxBlock != NULL) {
-            pxBlock->xMallocLinkRegAddr = (uint32_t)__builtin_return_address(0);
+            pxBlock->xMallocLinkRegAddr = (uint32_t)p_handle->p_pi_library;
         }
 #endif
         p_handle->data_memory_heap = alloc_info.pool_start;

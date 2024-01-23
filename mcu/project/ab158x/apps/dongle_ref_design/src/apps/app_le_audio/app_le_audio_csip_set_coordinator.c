@@ -45,7 +45,10 @@
 #include "bt_le_audio_msglog.h"
 #include "app_dongle_connection_common.h"
 #include "bt_device_manager_le.h"
+#include "bt_device_manager.h"
 
+#include "app_le_audio_aird.h"
+#include "app_dongle_session_manager.h"
 
 /**************************************************************************************************
 * Define
@@ -63,6 +66,8 @@
 * Variable
 **************************************************************************************************/
 static bt_addr_t g_lea_ucst_waiting_conn_addr = {0};
+static bt_addr_t g_lea_ucst_waiting_create_connection_addr = {0};
+static bool g_lea_ucst_waiting_cancel_create_connection = false;
 static uint8_t g_lea_ucst_waiting_conn_group = APP_LE_AUDIO_UCST_GROUP_ID_INVALID;
 static bool g_lea_ucst_waiting_conn_flag = false;
 static bool g_lea_ucst_waiting_disconn_flag = false;
@@ -87,12 +92,14 @@ extern app_le_audio_ctrl_t g_lea_ctrl;
 extern app_le_audio_ucst_ctrl_t g_lea_ucst_ctrl;
 extern app_le_audio_ucst_link_info_t g_lea_ucst_link_info[APP_LE_AUDIO_UCST_LINK_MAX_NUM];
 extern app_le_audio_ucst_cis_info_t g_lea_ucst_cis_info[APP_LE_AUDIO_UCST_CIS_MAX_NUM];
+extern app_dongle_session_manager_lea_handle_t *g_lea_ucst_session_manager_cb;
 
 extern bt_status_t ble_csip_discover_coordinated_set(bool enable);
 extern bt_status_t ble_csip_set_by_sirk(bt_key_t sirk);
 extern bt_status_t bt_gap_le_srv_set_extended_scan(bt_gap_le_srv_set_extended_scan_parameters_t *param, bt_gap_le_srv_set_extended_scan_enable_t *enable, void *callback);
 extern void bt_app_common_at_cmd_print_report(char *string);
 extern bt_status_t ble_tbs_switch_device_completed(void);
+extern bool app_lea_dongle_customer_check_adv_data(bt_gap_le_ext_advertising_report_ind_t *ind);
 
 static bt_status_t app_le_audio_ucst_update_connection_parameter(bt_handle_t handle, uint16_t interval, uint16_t ce_len);
 static void app_le_audio_ucst_increase_connection_config_speed_timer_callback(TimerHandle_t timer_handle, void *user_data);
@@ -117,7 +124,20 @@ static bool app_le_audio_ucst_check_connect_coordinated_set_ex(app_le_audio_ucst
 static void app_le_audio_ucst_check_connect_coordinated_set(app_le_audio_ucst_link_info_t *p_info);
 static bool app_le_audio_ucst_check_bond_and_not_in_white_list(const bt_addr_t *addr);
 static bool app_le_audio_ucst_disconnect_device_by_idx(uint8_t link_idx);
+static bt_hci_disconnect_reason_t app_le_audio_ucst_get_disconnect_reason(const bt_addr_t *addr);
 
+#if _MSC_VER >= 1500
+#pragma comment(linker, "/alternatename:app_lea_dongle_customer_check_adv_data=default_app_lea_dongle_customer_check_adv_data")
+#elif defined(__GNUC__) || defined(__ICCARM__) || defined(__CC_ARM)
+#pragma weak app_lea_dongle_customer_check_adv_data = default_app_lea_dongle_customer_check_adv_data
+#else
+#error "Unsupported Platform"
+#endif
+
+bool default_app_lea_dongle_customer_check_adv_data(bt_gap_le_ext_advertising_report_ind_t *ind)
+{
+    return true;
+}
 
 /**************************************************************************************************
 * Static Functions
@@ -151,6 +171,7 @@ static void app_le_audio_ucst_print_lea_adv_addr(bt_addr_t *addr)
 
 static bool app_le_audio_ucst_is_lea_adv(bt_gap_le_ext_advertising_report_ind_t *adv_report)
 {
+    bt_hci_disconnect_reason_t disconnect_reason;
     uint16_t i = 0;
     uint8_t announcement_type;
     bool ret = false;
@@ -161,12 +182,20 @@ static bool app_le_audio_ucst_is_lea_adv(bt_gap_le_ext_advertising_report_ind_t 
             (adv_report->data[i + 2] == (BT_GATT_UUID16_ASCS_SERVICE & 0xFF)) &&
             (adv_report->data[i + 3] == ((BT_GATT_UUID16_ASCS_SERVICE & 0xFF00) >> 8))) {
             announcement_type = adv_report->data[i + 4];
+            disconnect_reason = app_le_audio_ucst_get_disconnect_reason(&adv_report->address);
             if ((APP_LE_AUDIO_GENERAL_ANNOUNCEMENT == announcement_type)&&(true == app_le_audio_ucst_is_bonded_device(&adv_report->address, false))) {
-                ret = false;
+                if (0 == disconnect_reason) {//dongle is plugged in or AT CMD to select device
+                    ret = true;
+                }
             }
             else {
                 ret = true;
             }
+
+            if (BT_HCI_STATUS_REMOTE_TERMINATED_CONNECTION_DUE_TO_LOW_RESOURCES == disconnect_reason) {
+                ret = false;
+            }
+
             LE_AUDIO_MSGLOG_I("[APP] is_lea_adv, YES! announcement:%d ret:%d", 2, announcement_type, ret);
             break;
         }
@@ -956,9 +985,9 @@ static void app_le_audio_ucst_le_connection_timer_callback(TimerHandle_t timer_h
         link_info->le_connection_timer_handle = NULL;
         app_le_audio_ucst_reset_link_info(link_idx);
         bt_gap_le_srv_cancel_connection();
-        if (APP_LE_AUDIO_UCST_SCAN_NONE == g_lea_ucst_ctrl.curr_scan) {
-            app_le_audio_ucst_connect_coordinated_set(false);
-        }
+        //if (APP_LE_AUDIO_UCST_SCAN_NONE == g_lea_ucst_ctrl.curr_scan) {
+        //    app_le_audio_ucst_connect_coordinated_set(false);
+        //}
     }
 }
 /*
@@ -1581,6 +1610,11 @@ void app_le_audio_ucst_handle_adv_report_ind(bt_status_t ret, bt_gap_le_ext_adve
         return;
     }
 
+    if (!app_lea_dongle_customer_check_adv_data(ind)) {
+        /* Not found the target customer adv data in ADV */
+        return;
+    }
+
     /* upper layer scan device */
     if (APP_LE_AUDIO_UCST_CONN_LEA_DEVICE == g_lea_ucst_ctrl.curr_conn) {
         if (ind->event_type & BT_GAP_LE_EXT_ADV_REPORT_EVT_MASK_DIRECTED) {
@@ -1600,6 +1634,10 @@ void app_le_audio_ucst_handle_adv_report_ind(bt_status_t ret, bt_gap_le_ext_adve
     /* connect bonded device */
     if ((APP_LE_AUDIO_UCST_CONN_BONDED_DEVICE == g_lea_ucst_ctrl.curr_conn) ||
         (APP_LE_AUDIO_UCST_CONN_CS_AND_BONDED_DEVICE == g_lea_ucst_ctrl.curr_conn)) {
+        if (!app_le_audio_ucst_is_lea_adv(ind)) {
+            /* ignore not le audio device */
+            return;
+        }
         if (app_le_audio_ucst_is_bonded_device(&ind->address, true)) {
             app_le_audio_ucst_print_lea_adv_addr(&ind->address);
 #ifdef AIR_LE_AUDIO_MULTI_DEVICE_ENABLE
@@ -1706,10 +1744,18 @@ void app_le_audio_ucst_handle_connect_ind(bt_status_t ret, bt_gap_le_connection_
     if ((BT_STATUS_SUCCESS != ret) || (BT_HANDLE_INVALID == ind->connection_handle)) {
         LE_AUDIO_MSGLOG_I("[APP][U] LE_CONNECT_IND failed, handle:%x ret:%x curr_conn:%x", 3, ind->connection_handle, ret, g_lea_ucst_ctrl.curr_conn);
         app_le_audio_ucst_reset_link_info(link_idx);
+        if ((0x02 == ret) && (0x0000 == ind->connection_handle)) {
+            // cancel_create_connection maybe sent by GAP layer automatically.
+            if (g_lea_ucst_waiting_cancel_create_connection) {
+                app_le_audio_ucst_handle_cancel_create_connection_cnf(ret, ind);
+            }
+            return;
+        }
 
         switch (g_lea_ucst_ctrl.curr_conn) {
             case APP_LE_AUDIO_UCST_CONN_LEA_DEVICE: {
                 g_lea_ucst_ctrl.curr_conn = APP_LE_AUDIO_UCST_CONN_NONE;
+                app_le_audio_ucst_find_device();
                 break;
             }
             case APP_LE_AUDIO_UCST_CONN_BONDED_DEVICE: {
@@ -1905,12 +1951,16 @@ void app_le_audio_ucst_handle_disconnect_ind(bt_status_t ret, bt_gap_le_disconne
     if (APP_LE_AUDIO_UCST_LINK_MAX_NUM <= i) {
         g_lea_ucst_ctrl.release = false;
     }
+    if (g_lea_ucst_session_manager_cb) {
+        g_lea_ucst_session_manager_cb->lea_session_disconnected(ind->connection_handle);
+    }
 
     if (g_lea_ucst_waiting_disconn_flag) {
         g_lea_ucst_waiting_disconn_flag = FALSE;
         LE_AUDIO_MSGLOG_I("[APP] DISCONNECT_IND, delete_device", 0);
         app_le_audio_ucst_reset_link_info(link_idx);
         app_le_audio_ucst_check_delete_group_device();
+        app_le_audio_ucst_check_close_audio_stream();
         if (g_lea_ucst_callback) {
             g_lea_ucst_callback(APP_DONGLE_LE_RACE_EVT_DISCONNECT_IND, APP_DONGLE_LE_RACE_SINK_DEVICE_LEA, &evt);
         }
@@ -1925,6 +1975,7 @@ void app_le_audio_ucst_handle_disconnect_ind(bt_status_t ret, bt_gap_le_disconne
                           g_lea_ucst_bonded_list.device[bond_idx].in_white_list);
 
         g_lea_ucst_bonded_list.device[bond_idx].link_idx = APP_LE_AUDIO_UCST_LINK_IDX_INVALID;
+        g_lea_ucst_bonded_list.device[bond_idx].reason = ind->reason;   /**< Disconnect reason. */
 #if 0
         if (BT_HCI_STATUS_REMOTE_TERMINATED_CONNECTION_DUE_TO_LOW_RESOURCES == ind->reason) {
             g_lea_ucst_bonded_list.device[bond_idx].in_white_list = false;
@@ -1943,6 +1994,7 @@ void app_le_audio_ucst_handle_disconnect_ind(bt_status_t ret, bt_gap_le_disconne
 
     if (g_lea_ucst_waiting_conn_flag) {
         g_lea_ucst_waiting_conn_flag = false;
+        app_le_audio_ucst_check_close_audio_stream();
         LE_AUDIO_MSGLOG_I("[APP] DISCONNECT_IND, connect_device other device", 0);
         app_le_audio_ucst_connect_device(&g_lea_ucst_waiting_conn_addr);
         g_lea_ucst_waiting_conn_group = APP_LE_AUDIO_UCST_GROUP_ID_INVALID;
@@ -1966,6 +2018,7 @@ void app_le_audio_ucst_handle_disconnect_ind(bt_status_t ret, bt_gap_le_disconne
 
     LE_AUDIO_MSGLOG_I("[APP] DISCONNECT_IND, mode: %x %x", 2, g_lea_ctrl.curr_mode, g_lea_ctrl.next_mode);
     if (APP_LE_AUDIO_MODE_DISABLE == g_lea_ctrl.next_mode) {
+        app_le_audio_ucst_check_close_audio_stream();
         if (0 != link_num) {
             app_le_audio_ucst_disconnect_all_device();
 
@@ -1989,6 +2042,9 @@ void app_le_audio_ucst_handle_disconnect_ind(bt_status_t ret, bt_gap_le_disconne
             app_le_audio_start_broadcast();
             app_le_audio_ucst_scan_and_reconnect_device(bond_idx);
         }
+        else {
+            app_le_audio_ucst_check_close_audio_stream();
+        }
         if (g_lea_ucst_callback) {
             g_lea_ucst_callback(APP_DONGLE_LE_RACE_EVT_DISCONNECT_IND, APP_DONGLE_LE_RACE_SINK_DEVICE_LEA, &evt);
         }
@@ -2000,6 +2056,9 @@ void app_le_audio_ucst_handle_disconnect_ind(bt_status_t ret, bt_gap_le_disconne
         if ((APP_LE_AUDIO_UCST_STREAM_STATE_IDLE == g_lea_ucst_ctrl.curr_stream_state) &&
             (APP_LE_AUDIO_UCST_STREAM_STATE_IDLE == g_lea_ucst_ctrl.next_stream_state)) {
             app_le_audio_ucst_scan_and_reconnect_device(bond_idx);
+        }
+        else {
+            app_le_audio_ucst_check_close_audio_stream();
         }
         if (g_lea_ucst_callback) {
             g_lea_ucst_callback(APP_DONGLE_LE_RACE_EVT_DISCONNECT_IND, APP_DONGLE_LE_RACE_SINK_DEVICE_LEA, &evt);
@@ -2142,6 +2201,7 @@ void app_le_audio_ucst_handle_connection_update_ind(bt_status_t ret, bt_gap_le_c
         if (p_info->next_interval == ind->conn_interval) {
             p_info->next_interval = 0;
         }
+        app_le_audio_ucst_create_cis();
     }
     else {
         p_info->next_interval = 0;
@@ -2259,6 +2319,30 @@ static bool app_le_audio_ucst_is_bonded_device(const bt_addr_t *addr, bool check
     }
 
     return false;
+}
+
+static bt_hci_disconnect_reason_t app_le_audio_ucst_get_disconnect_reason(const bt_addr_t *addr)
+{
+    uint8_t i;
+    bt_device_manager_le_bonded_info_t * p_bonded_info = NULL;
+
+    if (0 == g_lea_ucst_bonded_list.num) {
+        return BT_HCI_STATUS_SUCCESS;
+    }
+    p_bonded_info = bt_device_manager_le_get_bonding_info_by_addr_ext((bt_bd_addr_t *)&addr->addr);
+
+
+    for (i = 0; i < g_lea_ucst_bonded_list.num; i++) {
+        if ((0 != g_lea_ucst_bonded_list.device[i].group_size) &&
+            ((0 == memcmp(&(g_lea_ucst_bonded_list.device[i].addr), addr, sizeof(bt_addr_t))) ||
+            ((NULL != p_bonded_info) && (0 == memcmp(&(g_lea_ucst_bonded_list.device[i].addr), &p_bonded_info->bt_addr, sizeof(bt_addr_t)))))){
+
+            LE_AUDIO_MSGLOG_I("[APP] disconnect_reason:0x%x!", 1, g_lea_ucst_bonded_list.device[i].reason);
+            return g_lea_ucst_bonded_list.device[i].reason;
+        }
+    }
+
+    return BT_HCI_STATUS_SUCCESS;
 }
 
 static bool app_le_audio_ucst_check_bond_and_not_in_white_list(const bt_addr_t *addr)
@@ -2689,6 +2773,7 @@ void app_le_audio_ucst_set_active_group(uint8_t group)
                                 APP_LE_AUDIO_EVENT_ACTIVE_DEVICE_CHANGED, NULL, 0,
                                 NULL, 0);
             ble_tbs_switch_device_completed();
+            app_le_audio_ucst_start();
         } else {
             g_lea_ucst_ctrl.next_group = group;
             app_le_audio_ucst_stop(true);
@@ -3380,6 +3465,11 @@ bt_status_t app_le_audio_ucst_check_adv_data(bt_gap_le_ext_advertising_report_in
         return BT_STATUS_FAIL;
     }
 
+    if (!app_lea_dongle_customer_check_adv_data(ind)) {
+        /* Not found the target customer adv data in ADV */
+        return BT_STATUS_FAIL;
+    }
+
     if (ind->event_type & BT_GAP_LE_EXT_ADV_REPORT_EVT_MASK_DIRECTED) {
         if (!app_le_audio_ucst_is_bonded_device(&ind->address, false)) {
             /* ignore unknown device */
@@ -3542,11 +3632,13 @@ void app_le_audio_ucst_check_group_device_bond(const bt_addr_t *addr)
 
     for (i = 0; i < g_lea_ucst_bonded_list.num; i++) {
         p_bond = &g_lea_ucst_bonded_list.device[i];
+        p_bond->reason = BT_HCI_STATUS_SUCCESS;
         if (0 == memcmp(&(p_bond->addr), addr, sizeof(bt_addr_t))) {
             if (1 < p_bond->group_size) {
                 for (j = 0; j < g_lea_ucst_bonded_list.num; j++) {
                     if ((i != j) && (p_bond->group_id == g_lea_ucst_bonded_list.device[j].group_id)) {
                         g_lea_ucst_bonded_list.device[j].in_white_list = true;
+                        g_lea_ucst_bonded_list.device[j].reason = BT_HCI_STATUS_SUCCESS;
                         app_le_audio_ucst_add_white_list(&g_lea_ucst_bonded_list.device[j].addr);
                     }
                 }
@@ -3627,14 +3719,15 @@ bt_status_t app_le_audio_ucst_connect_device(const bt_addr_t *addr)
     bt_bd_addr_t empty_addr = {0};
     bt_status_t ret = BT_STATUS_FAIL;
     uint8_t link_idx;
+    uint8_t i;
     app_le_audio_ucst_link_info_t *link_info_connecting = app_le_audio_ucst_find_connecting_link_info_by_peer_addr(addr, NULL);
-    app_le_audio_ucst_link_info_t *link_info = app_le_audio_ucst_get_available_link_info_for_new_le_connection(&link_idx);
+    app_le_audio_ucst_link_info_t *link_info = NULL;
 
     bt_hci_cmd_le_create_connection_t param = {
         .le_scan_interval = 0x10,
         .le_scan_window = 0x10,
         .initiator_filter_policy = BT_HCI_CONN_FILTER_ASSIGNED_ADDRESS,
-        .own_address_type = BT_ADDR_PUBLIC,
+        .own_address_type = APP_LE_AUDIO_DONGLE_ADDR_TYPE,
         .conn_interval_min = 0x0008,
         .conn_interval_max = 0x0018,
         .conn_latency = 0x0000,
@@ -3658,6 +3751,24 @@ bt_status_t app_le_audio_ucst_connect_device(const bt_addr_t *addr)
                           addr->addr[0]);
         return BT_STATUS_SUCCESS;
     }
+
+    /* check cancel connection */
+    for (i = 0; APP_LE_AUDIO_UCST_LINK_MAX_NUM > i ; i++) {
+        link_info = &g_lea_ucst_link_info[i];
+
+        if ((BT_HANDLE_INVALID == link_info->handle) &&
+            (NULL != link_info->le_connection_timer_handle)) {
+            app_le_audio_timer_stop(link_info->le_connection_timer_handle);
+            link_info->le_connection_timer_handle = NULL;
+            app_le_audio_ucst_reset_link_info(i);
+            g_lea_ucst_waiting_cancel_create_connection = true;
+            memcpy(&g_lea_ucst_waiting_create_connection_addr, addr, sizeof(bt_addr_t));
+            LE_AUDIO_MSGLOG_I("[APP][U] connect_device, busy", 0);
+            return bt_gap_le_srv_cancel_connection();
+        }
+    }
+
+    link_info = app_le_audio_ucst_get_available_link_info_for_new_le_connection(&link_idx);
 
     if (!link_info) {
         /* Link full. Or there is LE connection on-going and new connection will make link full. */
@@ -3734,6 +3845,17 @@ void app_le_audio_ucst_cancel_create_connection(void)
     }
 }
 
+void app_le_audio_ucst_handle_cancel_create_connection_cnf(bt_status_t ret, void *ind)
+{
+    LE_AUDIO_MSGLOG_I("[APP][U] cancel_create_connection_cnf", 0);
+
+    if (g_lea_ucst_waiting_cancel_create_connection) {
+        g_lea_ucst_waiting_cancel_create_connection = false;
+        app_le_audio_ucst_connect_device(&g_lea_ucst_waiting_create_connection_addr);
+        memset(&g_lea_ucst_waiting_create_connection_addr, 0, sizeof(bt_addr_t));
+    }
+}
+
 //Disconnect ACL or CIS
 bt_status_t app_le_audio_ucst_disconnect(bt_handle_t handle)
 {
@@ -3749,6 +3871,24 @@ bt_status_t app_le_audio_ucst_disconnect(bt_handle_t handle)
     param.reason = BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST;
     ret = bt_gap_le_disconnect(&param);
     LE_AUDIO_MSGLOG_I("[APP][U] disconnect, handle:%x ret:%x", 2, param.connection_handle, ret);
+
+    return ret;
+}
+
+bt_status_t app_le_audio_ucst_disconnect_with_reason(bt_handle_t handle, bt_hci_disconnect_reason_t reason)
+{
+    bt_status_t ret;
+    bt_hci_cmd_disconnect_t param;
+
+    if (BT_HANDLE_INVALID == handle) {
+        LE_AUDIO_MSGLOG_I("[APP][U] disconnect, invalid handle", 0);
+        return BT_STATUS_FAIL;
+    }
+
+    param.connection_handle = handle;
+    param.reason = reason;
+    ret = bt_gap_le_disconnect(&param);
+    LE_AUDIO_MSGLOG_I("[APP][U] disconnect, handle:%x reason:%x ret:%x", 3, param.connection_handle, reason, ret);
 
     return ret;
 }
@@ -3893,6 +4033,19 @@ app_le_audio_ucst_link_info_t *app_le_audio_ucst_get_link_info_by_addr(bt_addr_t
     return NULL;
 }
 
+const bt_bd_addr_t *app_le_audio_csip_get_dongle_addr(bt_addr_type_t *addr_type)
+{
+    if (addr_type) {
+        *addr_type = APP_LE_AUDIO_DONGLE_ADDR_TYPE;
+    }
+
+#if (APP_LE_AUDIO_DONGLE_ADDR_TYPE == BT_ADDR_PUBLIC)
+    return bt_device_manager_get_local_address();
+#else
+    return bt_app_common_get_local_random_addr();
+#endif
+
+}
 
 void app_le_audio_csip_handle_power_on(void)
 {
@@ -4083,10 +4236,10 @@ bt_status_t app_le_audio_ucst_update_connection_interval(app_le_audio_ucst_link_
     if ((p_info == NULL) || (BT_HANDLE_INVALID == p_info->handle)) {
         return ret;
     }
-
-    if (APP_LE_AUDIO_CONN_INTERVAL_CONFIG == interval) {
-        ce_len = 0x0003;
-    }
+    // Delete for BTA-51532
+    //if (APP_LE_AUDIO_CONN_INTERVAL_CONFIG == interval) {
+    //    ce_len = 0x0003;
+    //}
 
     if (((interval != p_info->curr_interval) &&
          (interval != p_info->next_interval)) ||
@@ -4219,6 +4372,9 @@ bool app_le_audio_ucst_is_connection_update_request_accepted(bt_handle_t handle,
     connection_parameter->interval_max,
     connection_parameter->slave_latency,
     connection_parameter->timeout_multiplier);
+    if (app_le_audio_aird_is_connected(handle)) {
+        return true;
+    }
 
     return false;
 }

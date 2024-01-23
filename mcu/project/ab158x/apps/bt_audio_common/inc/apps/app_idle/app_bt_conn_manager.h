@@ -55,10 +55,11 @@ extern "C" {
 typedef enum {
     APP_CONN_MGR_EVENT_SYNC_APP_CONN_EVENT = 0,
     APP_CONN_MGR_EVENT_RECONNECT_TIME_OUT,
-    APP_CONN_MGR_EVENT_PARTNER_RECONNECT_LEA
 } app_conn_manager_event_t;
 
 bool app_bt_conn_mgr_is_dongle(uint8_t *addr);
+
+uint8_t app_bt_conn_mgr_get_edr_num(void);
 
 bool app_bt_conn_mgr_is_support_emp(void);
 
@@ -66,15 +67,16 @@ bool app_bt_conn_manager_allow_le_adv(void);
 
 bool app_bt_conn_manager_check_exist_link(bool check_edr, uint8_t *addr);
 
+void app_bt_conn_mgr_update_lea_reconnect_type(void);
+
+bool app_bt_conn_mgr_is_connecting_edr(void);
 void app_bt_conn_mgr_reconnect_edr(void);
-bt_status_t app_bt_conn_mgr_disconnect_edr(uint8_t *addr);
+bt_status_t app_bt_conn_mgr_disconnect_edr(uint8_t *addr, bool keep_aws);
 void app_bt_conn_mgr_enable_edr(bool enable);
 void app_bt_conn_mgr_enable_edr_profile(bool enable);
 
 #ifdef APP_CONN_MGR_RECONNECT_CONTROL
 void app_bt_conn_mgr_active_reconnect_edr(void);
-bool app_bt_conn_mgr_is_reconnecting(void);
-void app_bt_conn_mgr_lea_restart_reconnect_adv(void);
 #endif
 
 /**

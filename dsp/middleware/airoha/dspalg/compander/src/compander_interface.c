@@ -1457,11 +1457,17 @@ static bool Audio_CPD_Algorithm_Init(void *para, AU_CPD_CTRL_t *ctrl, U16 recove
 #ifdef AIR_ULL_AUDIO_V2_DONGLE_ENABLE
     ctrl->sample_base = CPD_AU_FRAME_SIZE_8;
 #endif
-#if defined(MTK_BT_A2DP_VENDOR_2_ENABLE)
+#ifdef MTK_BT_A2DP_VENDOR_2_ENABLE
     if (stream_function_get_decoder_type(para) == CODEC_DECODER_VENDOR_2) {
         ctrl->sample_base = CPD_AU_FRAME_SIZE_8;
     }
 #endif
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+    if (stream_function_get_decoder_type(para) == CODEC_DECODER_LC3PLUS) {
+        ctrl->sample_base = CPD_AU_FRAME_SIZE_8;
+    }
+#endif
+
     // set the process unit (samples)
     switch (ctrl->sample_base) {
         case CPD_AU_FRAME_SIZE_8:  // fallthrough
@@ -1537,7 +1543,7 @@ bool stream_function_drc_audio3_initialize(void *para)
     Au3CpdMemoryPtr->positive_gain = (S32)positive_gain_nvkey.au_positive_gain;
 
     aud_cpd3_ctrl.phase_id = 0;
-    return Audio_CPD_Algorithm_Init(para, &aud_cpd3_ctrl, CPD3_AU_RECOVERY_GAIN, Au3CpdMemoryPtr, NVKEY_DSP_PARA_LINE_AU_CPD);
+    return Audio_CPD_Algorithm_Init(para, &aud_cpd3_ctrl, CPD_AU_RECOVERY_GAIN, Au3CpdMemoryPtr, NVKEY_DSP_PARA_LINE_AU_CPD);
 }
 
 bool stream_function_adaptive_eq_drc_initialize(void *para)

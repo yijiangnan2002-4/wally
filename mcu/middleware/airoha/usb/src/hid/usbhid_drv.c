@@ -209,6 +209,33 @@ const uint8_t report_mux2_dscr[] = {
 };
 
 /**
+ * Endpoint In/Out Report
+ *
+ * This is a simple example report for Interrupt IN/OUT endpoint.
+ *
+ * IN  Report - ID:0x2E, LEN:64
+ * OUT Report - ID:0x2F, LEN:64
+ */
+const uint8_t report_epio_dscr[] = {
+    0x06, 0x14, 0xFF,                           // Usage Page (Vendor Defined 0xFF14)
+    0x09, 0x01,                                 // Usage (0x01)
+    0xA1, 0x01,                                 // Collection (Application)
+    0x15, 0x00,                                 //   Logical Minimum (0)
+    0x26, 0xFF, 0x00,                           //   Logical Maximum (255)
+    0x85, USB_HID_EPIO_RX_REPORT_ID,            //   Report ID (46)
+    0x09, 0x00,                                 //   Usage (0x00)
+    0x75, 0x08,                                 //   Report Size (8)
+    0x95, 0x3F,                                 //   Report Count (63)
+    0x91, 0x02,                                 //   Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+    0x85, USB_HID_EPIO_TX_REPORT_ID,            //   Report ID (47)
+    0x09, 0x00,                                 //   Usage (0x00)
+    0x75, 0x08,                                 //   Report Size (8)
+    0x95, 0x3F,                                 //   Report Count (63)
+    0x81, 0x02,                                 //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+    0xC0,                                       // End Collection
+};
+
+/**
  * report for Audio Control
  */
 const uint8_t report_ac_dscr[] = {
@@ -284,7 +311,7 @@ const uint8_t report_telephony_dscr[] = {
     0x81, 0x22,        // Input (Data,Value,Absolute,Bit Field)
     0x09, 0x2F,        // Usage (Phone Mute)
     0x95, 0x01,        // Report Count (1)
-    0x81, 0x06,        // Input (Data,Value,Relative,Bit Field)
+    0x81, 0x22,        // Input (Data,Value,Relative,Bit Field)
     0x09, 0x24,        // Usage (Redial)
     0x09, 0x21,        // Usage (Flash)
     0x09, 0x97,        // Usage (Line Busy Tone)
@@ -681,14 +708,16 @@ const uint8_t report_gmouse_nv_dscr[] = {
 
 const uint8_t report_gkeyboard_dscr[] = {
 /**
- * Workaround for BTD project. (2023.08.16)
+ * Workaround for BTD project. (2023.11.16)
  * TODO: unify kb report format in diff sdk projects
  */
-#if defined(AIR_PURE_GAMING_MS_ENABLE) && defined(AIR_PURE_GAMING_KB_ENABLE)
+#if defined(AIR_PURE_GAMING_KB_ENABLE)
+#define KB_USE_BITMAP_FORMAT
+#elif defined(AIR_PURE_GAMING_MS_ENABLE)
 #define KB_USE_ARRAY_FORMAT
-#elif defined(AIR_PURE_GAMING_MS_ENABLE) && !defined(AIR_PURE_GAMING_KB_ENABLE)
-#define KB_USE_ARRAY_FORMAT
-#elif !defined(AIR_PURE_GAMING_MS_ENABLE) && defined(AIR_PURE_GAMING_KB_ENABLE)
+#elif defined(AIR_PURE_GAMING_MS_KB_ENABLE)
+#define KB_USE_BITMAP_FORMAT
+#elif defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
 #define KB_USE_BITMAP_FORMAT
 #else
 #define KB_USE_ARRAY_FORMAT
@@ -786,23 +815,139 @@ const uint8_t report_gkeyboard_dscr[] = {
 #endif
 };
 
-/**
- * NOTE: This array should order by dscr_type
- */
+const uint8_t report_office_ms_dscr[] = {
+#ifdef USB_HID_OFFICE_MS_ENABLE
+    0x05, 0x01,                             // Usage Page (Generic Desktop Ctrls)
+    0x09, 0x02,                             // Usage (Mouse)
+    0xA1, 0x01,                             // Collection (Application)
+    0x85, USB_HID_OFFICE_MS_REPORT_ID,      //   Report ID (2)
+    0x09, 0x01,                             //   Usage (Pointer)
+    0xA1, 0x00,                             //   Collection (Physical)
+    0x05, 0x09,                             //     Usage Page (Button)
+    0x19, 0x01,                             //     Usage Minimum (0x01)
+    0x29, 0x10,                             //     Usage Maximum (0x10)
+    0x15, 0x00,                             //     Logical Minimum (0)
+    0x25, 0x01,                             //     Logical Maximum (1)
+    0x95, 0x10,                             //     Report Count (16)
+    0x75, 0x01,                             //     Report Size (1)
+    0x81, 0x02,                             //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+    0x05, 0x01,                             //     Usage Page (Generic Desktop Ctrls)
+    0x16, 0x01, 0xF8,                       //     Logical Minimum (-2047)
+    0x26, 0xFF, 0x07,                       //     Logical Maximum (2047)
+    0x75, 0x0C,                             //     Report Size (12)
+    0x95, 0x02,                             //     Report Count (2)
+    0x09, 0x30,                             //     Usage (X)
+    0x09, 0x31,                             //     Usage (Y)
+    0x81, 0x06,                             //     Input (Data,Var,Rel,No Wrap,Linear,Preferred State,No Null Position)
+    0x15, 0x81,                             //     Logical Minimum (-127)
+    0x25, 0x7F,                             //     Logical Maximum (127)
+    0x75, 0x08,                             //     Report Size (8)
+    0x95, 0x01,                             //     Report Count (1)
+    0x09, 0x38,                             //     Usage (Wheel)
+    0x81, 0x06,                             //     Input (Data,Var,Rel,No Wrap,Linear,Preferred State,No Null Position)
+    0x05, 0x0C,                             //     Usage Page (Consumer)
+    0x0A, 0x38, 0x02,                       //     Usage (AC Pan)
+    0x95, 0x01,                             //     Report Count (1)
+    0x81, 0x06,                             //     Input (Data,Var,Rel,No Wrap,Linear,Preferred State,No Null Position)
+    0xC0,                                   //   End Collection
+    0xC0,                                   // End Collection
+    // 69 bytes
+#endif
+};
+
+const uint8_t report_office_kb_dscr[] = {
+#ifdef USB_HID_OFFICE_KB_ENABLE
+    0x05, 0x01,                             // Usage Page (Generic Desktop Ctrls)
+    0x09, 0x06,                             // Usage (Keyboard)
+    0xA1, 0x01,                             // Collection (Application)
+    0x85, USB_HID_OFFICE_KB_REPORT_ID,      //   Report ID (1)
+    0x05, 0x07,                             //   Usage Page (Kbrd/Keypad)
+    0x19, 0xE0,                             //   Usage Minimum (0xE0)
+    0x29, 0xE7,                             //   Usage Maximum (0xE7)
+    0x15, 0x00,                             //   Logical Minimum (0)
+    0x25, 0x01,                             //   Logical Maximum (1)
+    0x75, 0x01,                             //   Report Size (1)
+    0x95, 0x08,                             //   Report Count (8)
+    0x81, 0x02,                             //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+    0x95, 0x05,                             //   Report Count (5)
+    0x05, 0x08,                             //   Usage Page (LEDs)
+    0x19, 0x01,                             //   Usage Minimum (Num Lock)
+    0x29, 0x05,                             //   Usage Maximum (Kana)
+    0x91, 0x02,                             //   Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+    0x95, 0x01,                             //   Report Count (1)
+    0x75, 0x03,                             //   Report Size (3)
+    0x91, 0x01,                             //   Output (Const,Array,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+    0x95, 0x06,                             //   Report Count (6)
+    0x75, 0x08,                             //   Report Size (8)
+    0x15, 0x00,                             //   Logical Minimum (0)
+    0x26, 0xA4, 0x00,                       //   Logical Maximum (164)
+    0x05, 0x07,                             //   Usage Page (Kbrd/Keypad)
+    0x19, 0x00,                             //   Usage Minimum (0x00)
+    0x2A, 0xA4, 0x00,                       //   Usage Maximum (0xA4)
+    0x81, 0x00,                             //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+    0xC0,                                   // End Collection
+    // 59 bytes
+#endif
+};
+
+const uint8_t report_consumer_dscr[] = {
+#ifdef USB_HID_CONSUMER_ENABLE
+    0x05, 0x0C,                             // Usage Page (Consumer)
+    0x09, 0x01,                             // Usage (Consumer Control)
+    0xA1, 0x01,                             // Collection (Application)
+    0x85, USB_HID_CONSUMER_REPORT_ID,       //   Report ID (5)
+    0x19, 0x00,                             //   Usage Minimum (Unassigned)
+    0x2A, 0xFF, 0x0F,                       //   Usage Maximum (0x0FFF)
+    0x15, 0x00,                             //   Logical Minimum (0)
+    0x26, 0xFF, 0x0F,                       //   Logical Maximum (4095)
+    0x95, 0x02,                             //   Report Count (2)
+    0x75, 0x10,                             //   Report Size (16)
+    0x81, 0x00,                             //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+    0x09, 0x02,                             //   Usage (Numeric Key Pad)
+    0xA1, 0x02,                             //   Collection (Logical)
+    0x05, 0x09,                             //     Usage Page (Button)
+    0x19, 0x01,                             //     Usage Minimum (0x01)
+    0x29, 0x0A,                             //     Usage Maximum (0x0A)
+    0x15, 0x01,                             //     Logical Minimum (1)
+    0x25, 0x0A,                             //     Logical Maximum (10)
+    0x95, 0x01,                             //     Report Count (1)
+    0x75, 0x08,                             //     Report Size (8)
+    0x81, 0x40,                             //     Input (Data,Array,Abs,No Wrap,Linear,Preferred State,Null State)
+    0xC0,                                   //   End Collection
+    0xC0,                                   // End Collection
+    // 46 bytes
+#endif
+};
+
+#define REPORT_DSCR_STRUCT(NAME, DSCR)          \
+    [USB_REPORT_DSCR_TYPE_ ## NAME] = {         \
+        .type = USB_REPORT_DSCR_TYPE_ ## NAME,  \
+        .name = #NAME,                          \
+        .dscr = (void*)DSCR,                    \
+        .length = sizeof(DSCR),                 \
+        .enable = false,                        \
+        .hid_port = USB_HID_MAX_DEVICE_NUM,     \
+        .gen_func = NULL                        \
+    }
+
 static usb_hid_report_dscr_hdlr_t usb_hid_report_dscrs[USB_REPORT_DSCR_TYPE_NUM] = {
-    {USB_REPORT_DSCR_TYPE_AC,        "AC",          report_ac_dscr,        sizeof(report_ac_dscr),        false},
-    {USB_REPORT_DSCR_TYPE_MUX,       "MUX",         report_mux_dscr,       sizeof(report_mux_dscr),       false},
-    {USB_REPORT_DSCR_TYPE_TEAMS,     "TEAMS",       report_teams_dscr,     sizeof(report_teams_dscr),     false},
-    {USB_REPORT_DSCR_TYPE_TELEPHONY, "TETELEPHONY", report_telephony_dscr, sizeof(report_telephony_dscr), false},
-    {USB_REPORT_DSCR_TYPE_KEYBOARD,  "KEYBOARD",    report_keyboard_dscr,  sizeof(report_keyboard_dscr),  false},
-    {USB_REPORT_DSCR_TYPE_GYROMETER, "GYROMETER",   report_gyrometer_dscr, sizeof(report_gyrometer_dscr), false},
-    {USB_REPORT_DSCR_TYPE_SENSOR,    "SENSOR",      report_sensor_dscr,    sizeof(report_sensor_dscr),    false},
-    {USB_REPORT_DSCR_TYPE_CFU,       "CFU",         report_cfu_dscr,       sizeof(report_cfu_dscr),       false},
-    {USB_REPORT_DSCR_TYPE_CUSTOMER,  "CUSTOMER",    report_customer_dscr,  sizeof(report_customer_dscr),  false},
-    {USB_REPORT_DSCR_TYPE_GMOUSE,    "GMOUSE",      report_gmouse_dscr,    sizeof(report_gmouse_dscr),    false},
-    {USB_REPORT_DSCR_TYPE_GKEYBOARD, "GKEYBOARD",   report_gkeyboard_dscr, sizeof(report_gkeyboard_dscr), false},
-    {USB_REPORT_DSCR_TYPE_GMOUSE_NV, "GMOUSE_NV",   report_gmouse_nv_dscr, sizeof(report_gmouse_nv_dscr), false},
-    {USB_REPORT_DSCR_TYPE_MUX2,       "MUX2",       report_mux2_dscr,      sizeof(report_mux2_dscr),      false},
+    REPORT_DSCR_STRUCT(AC,          report_ac_dscr),
+    REPORT_DSCR_STRUCT(MUX,         report_mux_dscr),
+    REPORT_DSCR_STRUCT(TEAMS,       report_teams_dscr),
+    REPORT_DSCR_STRUCT(TELEPHONY,   report_telephony_dscr),
+    REPORT_DSCR_STRUCT(KEYBOARD,    report_keyboard_dscr),
+    REPORT_DSCR_STRUCT(GYROMETER,   report_gyrometer_dscr),
+    REPORT_DSCR_STRUCT(SENSOR,      report_sensor_dscr),
+    REPORT_DSCR_STRUCT(CFU,         report_cfu_dscr),
+    REPORT_DSCR_STRUCT(CUSTOMER,    report_customer_dscr),
+    REPORT_DSCR_STRUCT(GMOUSE,      report_gmouse_dscr),
+    REPORT_DSCR_STRUCT(GKEYBOARD,   report_gkeyboard_dscr),
+    REPORT_DSCR_STRUCT(GMOUSE_NV,   report_gmouse_nv_dscr),
+    REPORT_DSCR_STRUCT(MUX2,        report_mux2_dscr),
+    REPORT_DSCR_STRUCT(OFFICE_MS,   report_office_ms_dscr),
+    REPORT_DSCR_STRUCT(OFFICE_KB,   report_office_kb_dscr),
+    REPORT_DSCR_STRUCT(CONSUMER,    report_consumer_dscr),
+    REPORT_DSCR_STRUCT(EPIO,        report_epio_dscr),
 };
 
 /*****************************************************************************
@@ -854,6 +999,16 @@ void usb_hid_device_enable(uint8_t portmask)
     }
 }
 
+void usb_hid_out_ep_enable(uint8_t port, bool enable)
+{
+    if (port >= USB_HID_MAX_DEVICE_NUM) {
+        assert(0 && "Port number exceeds USB_HID_MAX_DEVICE_NUM.");
+        return;
+    }
+
+     g_UsbHids[port].out_ep_enable = enable;
+}
+
 void usb_hid_report_enable(uint8_t port, usb_hid_report_dscr_type_t* list, uint8_t len)
 {
     usb_hid_report_dscr_type_t dscr_type;
@@ -898,6 +1053,7 @@ void usb_hid_set_interval(uint8_t port, usb_hid_ep_interval_t interval)
     }
 
     g_UsbHids[port].in_interval = interval;
+    g_UsbHids[port].out_interval = interval;
 }
 
 void usb_hid_set_protocol_code(uint8_t port, usb_hid_protocol_code_t protocol_code)
@@ -967,6 +1123,17 @@ static uint8_t usb_hid_interval_calculate(usb_hid_ep_interval_t interval, bool h
     return bInterval;
 }
 
+uint8_t usb_hid_set_report_dscr_gen_func(usb_hid_report_dscr_type_t report_type, usb_hid_report_dscr_gen_func_t gen_func)
+{
+    if(report_type >= USB_REPORT_DSCR_TYPE_NUM) {
+        assert(0 && "usb_hid_set_report_dscr_gen_func report_type >= USB_REPORT_DSCR_TYPE_NUM");
+        return USB_HID_MAX_DEVICE_NUM;
+    }
+
+    usb_hid_report_dscrs[report_type].gen_func = gen_func;
+    return 0;
+}
+
 /*****************************************************************************
  * Status Functions
  *****************************************************************************/
@@ -992,6 +1159,10 @@ static uint32_t usb_hid_convert_ms_to_timer_count(uint32_t ms)
 ATTR_TEXT_IN_TCM static uint8_t usb_hid_ep_tx(uint8_t port, uint8_t* data, uint16_t len)
 {
     uint8_t ep_tx_id;
+
+    if(USB_Get_Device_State() != DEVSTATE_CONFIG) {
+        return USB_HID_IS_NOT_READY;
+    }
 
     if (port >= USB_HID_MAX_DEVICE_NUM) {
         return USB_HID_PORT_INVIALD;
@@ -1024,7 +1195,8 @@ ATTR_TEXT_IN_TCM static uint8_t usb_hid_ep_tx(uint8_t port, uint8_t* data, uint1
 
 ATTR_TEXT_IN_TCM uint8_t usb_hid_tx_non_blocking(uint8_t port, uint8_t* data, uint16_t len)
 {
-    uint8_t ret;
+    USB_HID_Status_t ret = USB_HID_STATUS_OK;
+
     ret = usb_hid_ep_tx(port, data, len);
 
 #if 0
@@ -1032,7 +1204,7 @@ ATTR_TEXT_IN_TCM uint8_t usb_hid_tx_non_blocking(uint8_t port, uint8_t* data, ui
         LOG_MSGID_E(USBHID, "usb_hid_tx_non_blocking failed. status[%d].", 1, ret);
         }
 
-    uint8_t ep_tx_id = g_UsbHids[port].data_ep_in_id;
+    uint8_t ep_tx_id __unused = g_UsbHids[port].data_ep_in_id;
     LOG_HEXDUMP_I(USBHID, "usb_hid_tx_non_blocking EP_%02d IN len:%2d", data, len, ep_tx_id, len);
 #endif
 
@@ -1501,7 +1673,6 @@ uint8_t USB_MUX_Port_Select(uint8_t report_id)
         return USB_MUX_PORT1;
     }
 
-    LOG_MSGID_E(USBHID, "USB_MUX_Port_Select Fail!", 0);
     return USB_MUX_PORT_UNUSE;
 }
 
@@ -1604,7 +1775,7 @@ void USB_HID_Ep0_DispatchData(void)
 
     /* HID report callback */
     if (index == USB_HID_HANDLER_MAX_NUM) {
-        /* Depen on report ID to send data to Race or CFU */
+        /* Depend on report ID to send data to Race or CFU */
         usb_mux_port = USB_MUX_Port_Select(usb_rx[USB_HID_AIR_REPORT_ID_INDEX]);
 
         if (usb_mux_port != USB_MUX_PORT_UNUSE) {
@@ -1771,12 +1942,12 @@ static void USB_HID_Ep0_Command(Usb_Ep0_Status *pep0state, Usb_Command *pcmd)
 
             if (USB_HID_REPORT_MAX_LEN < usb_report_length) {
                 /**
-                 * NOTE: 
+                 * NOTE:
                  *   USB_HID_REPORT_MAX_LEN must bigger than the USB HID report size.
                  *   Modify it in "usbhid_drv.h".
                  *   It may increase SRAM cost.
                  */
-                assert("USB_HID_REPORT_MAX_LEN < usb_report_length" && 0);
+                assert("Set Report - USB_HID_REPORT_MAX_LEN < usb_report_length" && 0);
             }
 
             /* 1. USB interrupt for cmd 2. Wait for USB interrupt of data */
@@ -1800,16 +1971,26 @@ static void USB_HID_Ep0_Command(Usb_Ep0_Status *pep0state, Usb_Command *pcmd)
 
             if (USB_HID_REPORT_MAX_LEN < usb_report_length) {
                 /**
-                 * NOTE: 
+                 * NOTE:
                  *   USB_HID_REPORT_MAX_LEN must bigger than the USB HID report size.
                  *   Modify it in "usbhid_drv.h".
                  *   It may increase SRAM cost.
                  */
-                assert("USB_HID_REPORT_MAX_LEN < usb_report_length" && 0);
+                assert("Get Report - USB_HID_REPORT_MAX_LEN < usb_report_length" && 0);
             }
 
-            // /* Clear usb_tx buffer */
-            // memset(usb_tx, 0, sizeof(usb_tx));
+#ifdef FREERTOS_ENABLE
+            /* Clear usb_tx buffer
+               1. Clear in the begining of case :
+                  - Considering USB-DFU in the bootloader without FreeRTOS,
+                    clearing in this situation can lead to data being mistakenly cleared,
+                    which is related to the process.
+               2. Clear in the end of case      :
+                  - Clearing here would be in USB Idle mode, which would cause no data to
+                    be fetched in USB TX mode, thus sending out erroneous data of all zeros
+            */
+            memset(usb_tx, 0, sizeof(usb_tx));
+#endif
 
             USB_HID_Ep0_SendData();
 
@@ -1826,7 +2007,7 @@ static void USB_HID_Ep0_Command(Usb_Ep0_Status *pep0state, Usb_Command *pcmd)
              * Data          0 = Boot Protocol
              *               1 = Report Protocol
              */
-            LOG_MSGID_I(USBHID, "USB_HID_BREQUEST_GET_PROTOCOL", 0);
+            LOG_MSGID_I(USBHID, "USB_HID_Ep0_Command USB_HID_BREQUEST_GET_PROTOCOL", 0);
             USB_Generate_EP0Data(&gUsbDevice.ep0info, &gUsbDevice.cmd, &usbhid->protocol, 1);
             break;
         case USB_HID_BREQUEST_SET_PROTOCOL:
@@ -1841,7 +2022,7 @@ static void USB_HID_Ep0_Command(Usb_Ep0_Status *pep0state, Usb_Command *pcmd)
              * Data          x
              */
             usbhid->protocol = wValueL;
-            LOG_MSGID_I(USBHID, "USB_HID_BREQUEST_SET_PROTOCOL if:%d proc:%d ", 2, if_id, gUsbDevice.cmd.wValue & 0x00FF);
+            LOG_MSGID_I(USBHID, "USB_HID_Ep0_Command USB_HID_BREQUEST_SET_PROTOCOL if:%d proc:%d ", 2, if_id, gUsbDevice.cmd.wValue & 0x00FF);
             break;
         default:
             bError = true;
@@ -1938,6 +2119,84 @@ static void USB_HID_IntrIn_Reset(void)
 {
 };
 
+/* When PC return ACK, handle HID intr pipe state machine */
+static void USB_HID_IntrOut_Hdr(uint8_t port)
+{
+    uint8_t i;
+    uint16_t rxlen;
+    uint8_t rxdata[64];
+    uint8_t ep_out_id;
+    usb_hid_handler_callback cb = NULL;
+
+    if(port >= USB_HID_MAX_DEVICE_NUM) {
+        return;
+    }
+
+    ep_out_id = g_UsbHids[port].data_ep_out_id;
+
+    /* Read data from fifo */
+    rxlen = hal_usb_get_rx_packet_length(ep_out_id);
+    if (rxlen > sizeof(rxdata)) {
+        assert(0 && "rxlen > sizeof(rxdata)");
+    }
+    hal_usb_read_endpoint_fifo(ep_out_id, rxlen, rxdata);
+
+    /* HID handler dispatch the part of report */
+    for (i = 0; i < USB_HID_HANDLER_MAX_NUM; i++) {
+        /* According to report ID and send data to module*/
+        if (usb_hid_rx_handlers[i].report_id == rxdata[0]) {
+            if(usb_hid_rx_handlers[i].handler_callback) {
+                cb = usb_hid_rx_handlers[i].handler_callback;
+            }
+            break;
+        }
+    }
+
+#if 1
+    LOG_HEXDUMP_I(USBHID, "USB_HID_IntrOut_Hdr out ep:%d len:%2d cb:0x%08x", rxdata, rxlen, ep_out_id, rxlen, cb);
+#endif
+
+    if (cb) {
+        cb(rxdata, rxlen);
+    }
+
+#if 0
+    /**
+     * Loopback test
+     */
+    if (rxdata[0] == USB_HID_EPIO_TX_REPORT_ID) {
+        rxdata[0] = USB_HID_EPIO_RX_REPORT_ID;
+        usb_hid_tx_non_blocking(port, rxdata, rxlen);
+    }
+#endif
+
+    hal_usb_set_endpoint_rx_ready(ep_out_id);
+};
+
+void USB_HID0_IntrOut_Hdr() { USB_HID_IntrOut_Hdr(0); }
+void USB_HID1_IntrOut_Hdr() { USB_HID_IntrOut_Hdr(1); }
+void USB_HID2_IntrOut_Hdr() { USB_HID_IntrOut_Hdr(2); }
+void USB_HID3_IntrOut_Hdr() { USB_HID_IntrOut_Hdr(3); }
+void USB_HID4_IntrOut_Hdr() { USB_HID_IntrOut_Hdr(4); }
+void USB_HID5_IntrOut_Hdr() { USB_HID_IntrOut_Hdr(5); }
+void USB_HID6_IntrOut_Hdr() { USB_HID_IntrOut_Hdr(6); }
+void USB_HID7_IntrOut_Hdr() { USB_HID_IntrOut_Hdr(7); }
+
+const hal_usb_driver_interrupt_handler_t usb_hid_intr_out_funcs[8] = {
+    USB_HID0_IntrOut_Hdr,
+    USB_HID1_IntrOut_Hdr,
+    USB_HID2_IntrOut_Hdr,
+    USB_HID3_IntrOut_Hdr,
+    USB_HID4_IntrOut_Hdr,
+    USB_HID5_IntrOut_Hdr,
+    USB_HID6_IntrOut_Hdr,
+    USB_HID7_IntrOut_Hdr,
+};
+
+static void USB_HID_IntrOut_Reset(void)
+{
+};
+
 /******************************************************************************
  * USB HID Descriptor Serialize functions
  *****************************************************************************/
@@ -2015,7 +2274,7 @@ static void usb_hid_report_gen(uint8_t port)
     void *ptr = usbhid->report_dscr;
     uint32_t len = 0;
 
-    /* Check total length of dscrs */
+    /* Gen dscr & Check total length of dscrs */
     for (uint8_t i = 0; i < USB_REPORT_DSCR_TYPE_NUM; i++) {
         if (usbhid->report_en_list[i] == true) {
             hdlr = &(usb_hid_report_dscrs[i]);
@@ -2025,6 +2284,12 @@ static void usb_hid_report_gen(uint8_t port)
                 // temp work around for test, need to patch
                 // assert(0 && "Report is already used by another port.");
             }
+            if (hdlr->gen_func) {
+                hdlr->length = hdlr->gen_func(hdlr->dscr);
+                LOG_MSGID_I(USBHID, "usb_hid_report_gen report descript type[%d] called gen_func[0x%08x], length is [%d]",
+                            3, i, hdlr->gen_func, hdlr->length);
+            }
+
             len += hdlr->length;
         }
     }
@@ -2051,7 +2316,8 @@ static void usb_hid_report_gen(uint8_t port)
 
 void USB_HID_If_Create(void *ifname, uint8_t port)
 {
-    uint8_t ep_id;
+    uint8_t ep_in_id;
+    uint8_t ep_out_id;
     uint8_t if_id;
     uint8_t *dscr_out;
     size_t len = 0;
@@ -2074,6 +2340,9 @@ void USB_HID_If_Create(void *ifname, uint8_t port)
     usbhid->if_dscr     = &s_hid_resource[port].if_dscr;
     usbhid->hid_dscr    = &s_hid_resource[port].hid_dscr;
     usbhid->ep_in_dscr  = &s_hid_resource[port].ep_in_dscr;
+    if (usbhid->out_ep_enable) {
+        usbhid->ep_out_dscr = &s_hid_resource[port].ep_out_dscr;
+    }
 
 #ifdef USB_HID_SUPPORT_IDLE_RATE
     /* Set and Clear idle value */
@@ -2095,9 +2364,13 @@ void USB_HID_If_Create(void *ifname, uint8_t port)
 
     /* Get resource number and register to gUsbDevice */
     usbhid->if_info = USB_Get_Interface_Number(&if_id);
-    usbhid->ep_in_info = USB_Get_Intr_Tx_Ep(&ep_id);
+    usbhid->ep_in_info = USB_Get_Intr_Tx_Ep(&ep_in_id);
     usbhid->data_interface_id = if_id;
-    usbhid->data_ep_in_id = ep_id;
+    usbhid->data_ep_in_id = ep_in_id;
+    if (usbhid->out_ep_enable) {
+        usbhid->ep_out_info = USB_Get_Intr_Rx_Ep(&ep_out_id);
+        usbhid->data_ep_out_id = ep_out_id;
+    }
 
     /* Record interface name */
     usbhid->if_info->interface_name_ptr = (char *)ifname;
@@ -2106,11 +2379,14 @@ void USB_HID_If_Create(void *ifname, uint8_t port)
     memcpy(usbhid->if_dscr,  &hid_if_template_dscr, sizeof(usb_hid_dscr_interface_t));
     memcpy(usbhid->hid_dscr, &hid_template_dscr,    sizeof(usb_hid_dscr_hid_t)      );
     memcpy(usbhid->ep_in_dscr, &hid_ep_template_dscr, sizeof(usb_hid_dscr_endpoint_t) );
+    if (usbhid->out_ep_enable) {
+        memcpy(usbhid->ep_out_dscr, &hid_ep_template_dscr, sizeof(usb_hid_dscr_endpoint_t));
+    }
 
     /* Set if_dscr */
     usbhid->if_dscr->bInterfaceNumber = if_id;
     usbhid->if_dscr->bAlternateSetting = 0;
-    usbhid->if_dscr->bNumEndpoints = 1;
+    usbhid->if_dscr->bNumEndpoints = 1 + (uint8_t)(usbhid->out_ep_enable);
 
     switch (usbhid->protocol_code) {
         case USB_HID_PROTOCOL_CODE_NONE: {
@@ -2141,11 +2417,21 @@ void USB_HID_If_Create(void *ifname, uint8_t port)
     usbhid->hid_dscr->cont_dscrs[0].wDescriptorLength = usbhid->report_dscr_length;
 
     /* Set ep_in_dscr */
-    usbhid->ep_in_dscr->bEndpointAddress = (USB_EP_DIR_IN | ep_id);    /*InPipe*/
+    usbhid->ep_in_dscr->bEndpointAddress = (USB_EP_DIR_IN | ep_in_id);    /*InPipe*/
     usbhid->ep_in_dscr->bInterval = usb_hid_interval_calculate(usbhid->in_interval, hal_usb_is_high_speed());
+
+    /* Set ep_out_dscr */
+    if (usbhid->out_ep_enable) {
+        usbhid->ep_out_dscr->bEndpointAddress = (USB_EP_DIR_OUT | ep_out_id);
+        LOG_MSGID_I(USBHID, "USB_HID_If_Create bEndpointAddress[%d]", 1, usbhid->ep_out_dscr->bEndpointAddress);
+        usbhid->ep_out_dscr->bInterval = usb_hid_interval_calculate(usbhid->out_interval, hal_usb_is_high_speed());
+    }
 
     /* Related endpoint info and class specific command handler */
     usbhid->if_info->ep_info[0] = usbhid->ep_in_info;
+    if (usbhid->out_ep_enable) {
+        usbhid->if_info->ep_info[1] = usbhid->ep_out_info;
+    }
     usbhid->if_info->if_class_specific_hdlr = USB_HID_Ep0_Command;
 
     /* generate hid interface and store length */
@@ -2161,15 +2447,37 @@ void USB_HID_If_Create(void *ifname, uint8_t port)
     len += usb_hid_dscr_endpoint_serialize(usbhid->ep_in_dscr, dscr_out + len, USB_MAX_CLASS_EPDESC_LENGTH - len);
     usbhid->ep_in_info->epdscr_size = len;
 
+    /* generate hid endpoint out dscr and store length */
+    if (usbhid->out_ep_enable) {
+        dscr_out = usbhid->ep_out_info->epdesc.classep;
+        len = 0;
+        len += usb_hid_dscr_endpoint_serialize(usbhid->ep_out_dscr, dscr_out + len, USB_MAX_CLASS_EPDESC_LENGTH - len);
+        usbhid->ep_out_info->epdscr_size = len;
+    }
+
+    /* EP IN callback */
 #ifdef AIR_NVIDIA_REFLEX_ENABLE
-    hal_usb_register_driver_callback(HAL_USB_DRV_HDLR_EP_PRE_TX, ep_id, usb_hid_preintr_in_funcs[port]);
+    hal_usb_register_driver_callback(HAL_USB_DRV_HDLR_EP_PRE_TX, ep_in_id, usb_hid_preintr_in_funcs[port]);
 #endif
-    hal_usb_register_driver_callback(HAL_USB_DRV_HDLR_EP_TX, ep_id, usb_hid_intr_in_funcs[port]);
+    hal_usb_register_driver_callback(HAL_USB_DRV_HDLR_EP_TX, ep_in_id, usb_hid_intr_in_funcs[port]);
     usbhid->ep_in_info->ep_reset = USB_HID_IntrIn_Reset;
 
+    /* EP OUT callback */
+    if (usbhid->out_ep_enable) {
+        hal_usb_register_driver_callback(HAL_USB_DRV_HDLR_EP_RX, ep_out_id, usb_hid_intr_out_funcs[port]);
+        usbhid->ep_out_info->ep_reset = USB_HID_IntrOut_Reset;
+    }
+
     /* Endpoint descriptor */
-    usbhid->ep_in_info->ep_status.epin_status.byEP = ep_id;
+    usbhid->ep_in_info->ep_status.epin_status.byEP = ep_in_id;
     usbhid->ep_in_info->ep_status.epin_status.nBytesLeft = USB_EP_NODATA;
+
+    /* Endpoint OUT descriptor */
+    if (usbhid->out_ep_enable) {
+        usbhid->ep_out_info->ep_status.epout_status.byEP = ep_out_id;
+        usbhid->ep_out_info->ep_status.epout_status.nBuffLen = USB_EP_NODATA;
+        usbhid->ep_out_info->ep_status.epout_status.nBytesRecv = USB_EP_NODATA;
+    }
 
     check_hid_report(usbhid->report_dscr, usbhid->report_dscr_length);
 
@@ -2242,6 +2550,10 @@ void USB_HID_If_Enable(uint8_t port)
 
     /* Non-DMA */
     hal_usb_enable_tx_endpoint(usbhid->data_ep_in_id, HAL_USB_EP_TRANSFER_INTR, HAL_USB_EP_USE_NO_DMA, true);
+    if (usbhid->out_ep_enable) {
+        LOG_MSGID_E(USBHID, "USB_HID_If_Enable ep:%d", 1, usbhid->data_ep_out_id);
+        hal_usb_enable_rx_endpoint(usbhid->data_ep_out_id, HAL_USB_EP_TRANSFER_INTR, HAL_USB_EP_USE_NO_DMA, true);
+    }
 }
 
 void USB_HID_If_Speed_Reset(bool b_other_speed, uint8_t port)
@@ -2665,4 +2977,41 @@ uint8_t usb_hid_chk_suspend_and_rmwk(void)
     return suspend;
 }
 
+#if defined(AIR_HID_BT_HOGP_ENABLE)
+/**
+ * NOTE: Temp API for HOGP merge
+ *       Must be removed before SDK release
+ */
+void usb_hid_send_LB_keyboard_report(LogiBolt_Keyboard_t* pReport)
+{
+    uint8_t port;
+
+    pReport->report_ID = USB_HID_OFFICE_KB_REPORT_ID;
+    port = usb_hid_find_port_by_report(USB_REPORT_DSCR_TYPE_OFFICE_KB);
+    if (port != USB_HID_MAX_DEVICE_NUM) {
+        usb_hid_tx_non_blocking(port, (uint8_t*)pReport, sizeof(*pReport));
+    }
+
+#if 0
+    LOG_HEXDUMP_I(USBHID, "usb_hid_send_LB_keyboard_report", pReport, sizeof(*pReport));
+#endif
+}
+
+void usb_hid_send_LB_mouse_report(LogiBolt_Mouse_t* pReport)
+{
+    uint8_t port;
+
+    pReport->report_ID = USB_HID_OFFICE_MS_REPORT_ID;
+    port = usb_hid_find_port_by_report(USB_REPORT_DSCR_TYPE_OFFICE_MS);
+    if (port != USB_HID_MAX_DEVICE_NUM) {
+        usb_hid_tx_non_blocking(port, (uint8_t*)pReport, sizeof(*pReport));
+    }
+
+#if 0
+    LOG_HEXDUMP_I(USBHID, "usb_hid_send_LB_mouse_report", pReport, sizeof(*pReport));
+#endif
+}
+#endif
+
 #endif /* AIR_USB_HID_ENABLE */
+

@@ -84,16 +84,32 @@ void app_le_audio_idle_i2s_in_event_proc(ui_shell_activity_t *self, uint32_t eve
     if (extra_data == NULL) {
         return;
     }
-    app_i2s_in_det_t* i2s_in_param = (app_i2s_in_det_t *)extra_data;
-    LE_AUDIO_MSGLOG_I("[APP][I2S] i2s_in_event_proc, event_id:%x, extra_data.i2s_state = %d, i2s_device = %x i2s_interface = %x i2s_famart = %x", 5,
-                    event_id, i2s_in_param->i2s_state, i2s_in_param->i2s_device, i2s_in_param->i2s_interface, i2s_in_param->i2s_famart);
-
+    bt_status_t status = BT_STATUS_FAIL;
+    LE_AUDIO_MSGLOG_I("[APP][I2S] i2s_in_event_proc, event_id:%x", 1, event_id);
     switch (event_id) {
         case APPS_EVENTS_I2S_IN_STATUS_CHANGE: {
+            app_i2s_in_det_t* i2s_in_param = (app_i2s_in_det_t *)extra_data;
+            LE_AUDIO_MSGLOG_I("[APP][I2S] i2s_in_event_proc, i2s_in_param.i2s_state = %d, i2s_device = %x i2s_interface = %x i2s_famart = %x", 4,
+                    i2s_in_param->i2s_state, i2s_in_param->i2s_device, i2s_in_param->i2s_interface, i2s_in_param->i2s_famart);
+
             if (i2s_in_param->i2s_state) {
                 app_le_audio_i2s_in_start(i2s_in_param);
             } else {
                 app_le_audio_i2s_in_stop();
+            }
+            break;
+        }
+        case APPS_EVENTS_I2S_IN_VOLUME_CHANGE: {
+            app_i2s_in_vol_t* i2s_in_vol = (app_i2s_in_vol_t *)extra_data;
+            LE_AUDIO_MSGLOG_I("[APP][I2S] i2s_in_event_proc, i2s_in_vol.vol_port:%d, vol_action:%d, vol_level:%d, vol_src:%d", 4,
+                    i2s_in_vol->vol_port, i2s_in_vol->vol_action, i2s_in_vol->vol_level, i2s_in_vol->vol_src);
+            if (i2s_in_vol->vol_src == APP_I2S_IN_VOL_SRC && i2s_in_vol->vol_action == APP_I2S_IN_VOL_SET) {
+                LE_AUDIO_MSGLOG_I("[APP][I2S] i2s_in_event_proc, set i2s volume level:%d", 1, i2s_in_vol->vol_level);
+                status = app_le_audio_set_audio_transmitter_volume_level(APP_LE_AUDIO_STREAM_PORT_LINE_IN, i2s_in_vol->vol_level, i2s_in_vol->vol_level);
+                if (status != BT_STATUS_SUCCESS) {
+                    LE_AUDIO_MSGLOG_W("[APP][I2S] i2s_in_event_proc, set i2s volume level fail, status:%d", 1, status);
+                    return;
+                }
             }
             break;
         }

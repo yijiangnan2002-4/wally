@@ -232,7 +232,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_1 VOID dsp_stream_task(VOID)
     while (1) {
         task_parameter_ptr->entry(task_parameter_ptr);
 
-#if defined(AIR_LD_NR_ENABLE) || defined(AIR_HEARTHROUGH_VIVID_PT_ENABLE)         
+#if defined(AIR_LD_NR_ENABLE) || defined(AIR_HEARTHROUGH_VIVID_PT_ENABLE)
         if (task_id == DPR_TASK_ID){
 #if defined(AIR_LD_NR_ENABLE)
             if (ld_nr_bg_entry) {
@@ -245,7 +245,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_1 VOID dsp_stream_task(VOID)
             }
 #endif
         }
-#endif        
+#endif
         dsp_stream_suspend_request(task_parameter_ptr);
     }
 }
@@ -434,12 +434,29 @@ DSP_CALLBACK_PTR dsp_stream_get_callback(SOURCE source, SINK sink)
  */
 ATTR_TEXT_IN_IRAM_LEVEL_1 BOOL dsp_stream_check_callback_status(dsp_stream_task_pointer_t task_parameter_ptr)
 {
-    U8 i;
+    U32 i, stream_end;
+    DSP_STREAMING_PARA_PTR stream_ptr;
+    DSP_CALLBACK_STATUS status;
+
     for (i = 0 ; i < task_parameter_ptr->stream_number ; i++) {
-        if (((task_parameter_ptr->stream_ptr[i].callback.Status != CALLBACK_SUSPEND) &&
-             (task_parameter_ptr->stream_ptr[i].callback.Status != CALLBACK_DISABLE) &&
-             (task_parameter_ptr->stream_ptr[i].callback.Status != CALLBACK_WAITEND)) ||
-            (task_parameter_ptr->stream_ptr[i].streamingStatus == STREAMING_END)) {
+        stream_ptr = &(task_parameter_ptr->stream_ptr[i]);
+        status = stream_ptr->callback.Status;
+        if (stream_ptr->streamingStatus == STREAMING_END) {
+#ifdef AIR_AUDIO_HARDWARE_ENABLE
+            if ((stream_ptr->sink->type == SINK_TYPE_AUDIO) &&(stream_ptr->sink->param.audio.irq_exist) &&(Audio_setting->Audio_sink.Zero_Padding_Cnt > 0)) {
+                stream_end = 0;
+            } else
+#endif
+            {
+                stream_end = 1;
+            }
+        } else {
+            stream_end = 0;
+        }
+        if (((status != CALLBACK_SUSPEND) &&
+             (status != CALLBACK_DISABLE) &&
+             (status!= CALLBACK_WAITEND)) ||
+            stream_end) {
             return FALSE;
         }
     }
@@ -597,7 +614,7 @@ const stream_task_config_t stream_task_config_table[DSP_STREAM_TASK_MAX_NUMBER+1
 
 #if defined(AIR_GAMING_MODE_DONGLE_ENABLE) || defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_WIRELESS_MIC_RX_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_ENABLE)
     {STREAM_TASK_AV,        "DAV_TASK",         0x1800 / sizeof(StackType_t),          TASK_PRIORITY_SOFT_REALTIME,   NO_OF_AV_STREAM,     DAV_TASK_MAX_RUNTIME},        /* DAV     */
-#elif defined(AIR_WIRED_AUDIO_ENABLE) && !defined(AIR_DCHS_MODE_ENABLE)
+#elif defined(AIR_WIRED_AUDIO_ENABLE) && !defined(AIR_DCHS_MODE_ENABLE) && !defined(AIR_MIXER_STREAM_ENABLE)
     {STREAM_TASK_AV,        "DAV_TASK",         0x2D00 / sizeof(StackType_t),          TASK_PRIORITY_SOFT_REALTIME,   NO_OF_AV_STREAM,     DAV_TASK_MAX_RUNTIME},        /* DAV     */
 #else
     {STREAM_TASK_AV,        "DAV_TASK",         0x2D00 / sizeof(StackType_t),          TASK_PRIORITY_NORMAL,          NO_OF_AV_STREAM,     DAV_TASK_MAX_RUNTIME},        /* DAV     */
@@ -612,8 +629,8 @@ const stream_task_config_t stream_task_config_table[DSP_STREAM_TASK_MAX_NUMBER+1
 #ifdef AIR_AUDIO_I2S_SLAVE_TDM_TASK_ENABLE
     {STREAM_TASK_TDM,       "DTDM_TASK",        0x1400 / sizeof(StackType_t),          TASK_PRIORITY_HIGH,            NO_OF_TDM_STREAM,    DTDM_TASK_MAX_RUNTIME},       /* TDM     */
 #endif
-#ifdef AIR_DCHS_MODE_ENABLE
-    {STREAM_TASK_DCHS,      "DDCHS_TASK",       0x1000 / sizeof(StackType_t),          TASK_PRIORITY_HIGH,            NO_OF_DCHS_STREAM,   DDCHS_TASK_MAX_RUNTIME},      /* DCHS    */
+#if defined AIR_DCHS_MODE_ENABLE || defined AIR_MIXER_STREAM_ENABLE
+    {STREAM_TASK_DCHS,      "DDCHS_TASK",       0x1000 / sizeof(StackType_t),          TASK_PRIORITY_HARD_REALTIME,            NO_OF_DCHS_STREAM,   DDCHS_TASK_MAX_RUNTIME},      /* DCHS    */
 #endif
 
     //don't modify below

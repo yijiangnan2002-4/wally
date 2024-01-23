@@ -54,15 +54,15 @@ const apps_config_configurable_event_status_table_t s_key_config_event_sta_maps[
     },
     {
         KEY_VOICE_UP,
-        (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE)
-        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING)
+        (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE)
+        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING)
         | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
         | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
     {
         KEY_VOICE_DN,
-        (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE)
-        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING)
+        (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE)
+        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING)
         | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
         | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
@@ -87,16 +87,16 @@ const apps_config_configurable_event_status_table_t s_key_config_event_sta_maps[
     {
 
         KEY_SWITCH_ANC_AND_PASSTHROUGH,
-        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALLACTIVE)
-        | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_INCOMING)
-        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING)
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALL_ACTIVE)
+        | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_INCOMING)
+        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING)
         | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY) | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
 #else
     {
         KEY_SWITCH_ANC_AND_PASSTHROUGH,
-        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALLACTIVE)
-        | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO)
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALL_ACTIVE)
+        | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO)
         | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY) | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
 #endif
@@ -138,8 +138,8 @@ const apps_config_configurable_event_status_table_t s_key_config_event_sta_maps[
     {
         KEY_GSOUND_RELEASE,
         (1 << APP_CONNECTED) | (1 << APP_A2DP_PLAYING) | (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE)
-        | (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING)
-        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL)
+        | (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING)
+        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL)
         | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
         | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
@@ -151,8 +151,8 @@ const apps_config_configurable_event_status_table_t s_key_config_event_sta_maps[
     {
         KEY_POWER_OFF,
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING)
-        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
-        | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
+        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
+        | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
         | (1 << APP_STATE_FIND_ME) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
         | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA)
     },
@@ -162,16 +162,16 @@ const apps_config_configurable_event_status_table_t s_key_config_event_sta_maps[
     },
     {
         KEY_PASS_THROUGH,
-        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALLACTIVE)
-        | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_INCOMING)
-        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING)
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALL_ACTIVE)
+        | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_INCOMING)
+        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING)
         | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY) | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA)
     },
     {
         KEY_ANC,
-        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALLACTIVE)
-        | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_INCOMING)
-        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING)
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALL_ACTIVE)
+        | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_INCOMING)
+        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING)
         | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY) | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA)
     },
     {
@@ -228,7 +228,7 @@ const apps_config_key_event_map_t temp_key_release_configs[] = {
         EINT_KEY_2,
         KEY_GSOUND_RELEASE,
         (1 << APP_CONNECTED) | (1 << APP_A2DP_PLAYING) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING)
-        | (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO)
+        | (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO)
     },
 #endif
     {
@@ -274,7 +274,7 @@ const apps_config_key_event_map_t temp_key_short_click_configs[] = {
     {
         DEVICE_KEY_POWER,
         KEY_END_CALL,
-        (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_HFP_OUTGOING) | (1 << APP_STATE_HELD_ACTIVE)
+        (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_HFP_OUTGOING) | (1 << APP_STATE_HELD_ACTIVE)
     },
 #ifndef MULTI_VA_SUPPORT_COMPETITION
     {
@@ -286,15 +286,15 @@ const apps_config_key_event_map_t temp_key_short_click_configs[] = {
     {
         EINT_KEY_0,
         KEY_VOICE_UP,
-        (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE)
-        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING)
+        (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE)
+        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING)
         | (1 << APP_STATE_HELD_ACTIVE)
     },
     {
         EINT_KEY_1,
         KEY_VOICE_DN,
-        (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE)
-        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING)
+        (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE)
+        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING)
         | (1 << APP_STATE_HELD_ACTIVE)
     },
 };
@@ -315,7 +315,7 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
     {
         DEVICE_KEY_POWER,
         KEY_ONHOLD_CALL,
-        (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_STATE_HELD_ACTIVE)
+        (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_STATE_HELD_ACTIVE)
     },
     {
         DEVICE_KEY_POWER,
@@ -419,8 +419,8 @@ const apps_config_key_event_map_t temp_key_long_press3_configs[] = {
         DEVICE_KEY_POWER,
         KEY_POWER_OFF,
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING)
-        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
-        | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
+        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
+        | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
         | (1 << APP_STATE_FIND_ME)
     },
 #endif
@@ -526,8 +526,8 @@ const static apps_config_configurable_table_t default_configurable_table[] = {
         DEVICE_KEY_POWER,
         KEY_POWER_OFF,
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING)
-        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
-        | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
+        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
+        | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
         | (1 << APP_STATE_FIND_ME)
     },
 #endif
@@ -539,8 +539,8 @@ const static apps_config_configurable_table_t left_configurable_table[] = {
         APPS_CONFIG_KEY_DOUBLE_CLICK,
         DEVICE_KEY_POWER,
         KEY_SWITCH_ANC_AND_PASSTHROUGH,
-        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALLACTIVE)
-        | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALL_ACTIVE)
+        | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
     },
     {
         APPS_CONFIG_KEY_TRIPLE_CLICK,
@@ -565,8 +565,8 @@ const static apps_config_configurable_table_t left_configurable_table[] = {
         DEVICE_KEY_POWER,
         KEY_POWER_OFF,
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING)
-        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
-        | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
+        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
+        | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
         | (1 << APP_STATE_FIND_ME)
     },
 #endif
@@ -604,8 +604,8 @@ const static apps_config_configurable_table_t ama_configurable_table[] = {
         DEVICE_KEY_POWER,
         KEY_POWER_OFF,
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING)
-        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
-        | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
+        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
+        | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
         | (1 << APP_STATE_FIND_ME)
     },
 };

@@ -32,30 +32,10 @@
  * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
  */
 
-
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    usbms_state.h
- *
- * Project:
- * --------
- *   Maui_Software
- *
- * Description:
- * ------------
- *    This file intends for usb mass storage state machine definitions
- *
- * Author:
- * -------
- *   Jensen Hu
- *   CJung Chen
- *
- *****************************************************************************/
-
 #ifndef USBMS_STATE_H
 #define USBMS_STATE_H
+
+#ifdef AIR_USB_MSC_ENABLE
 
 /* USB Middleware includes */
 #include "kal_data_types.h"
@@ -91,5 +71,7 @@ extern void USB_Ms_State_Main(USB_Ms_State event, usb_ms_rec_done_conf_struct *l
 extern void USB_Ms_Sort_Protect_Items(uint32_t *data_item, uint32_t *second_data_item);
 #endif
 
-#endif // USBMS_STATE_H
+#endif /* AIR_USB_MSC_ENABLE */
+
+#endif /* USBMS_STATE_H */
 

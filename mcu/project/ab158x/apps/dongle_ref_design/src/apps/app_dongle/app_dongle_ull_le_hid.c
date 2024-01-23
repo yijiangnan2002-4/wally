@@ -40,6 +40,7 @@
 #include "apps_debug.h"
 #include "bt_type.h"
 #include "bt_gap_le.h"
+#include "bt_gap_le_service.h"
 #include "bt_system.h"
 #include "bt_callback_manager.h"
 #include "nvkey.h"
@@ -53,13 +54,8 @@
 #include "app_le_audio_air.h"
 #endif
 
-#ifdef AIR_QC_DONGLE_ENABLE
-#include "bt_ull_le_hid_device_manager.h"
-#include "bt_ull_le_hid_conn_service.h"
-#endif
 #include "bt_gattc.h"
 #include "bt_avm.h"
-
 #ifdef MTK_BT_TIMER_EXTERNAL_ENABLE
 #include "bt_timer_external.h"
 #endif
@@ -91,7 +87,7 @@
 
 
 #define APP_DONGLE_ULL_LE_HID_STATE_NONE                            0x00
-#define APP_DONGLE_ULL_LE_HID_STATE_WATING                          0x01
+#define APP_DONGLE_ULL_LE_HID_STATE_WAITING                          0x01
 #define APP_DONGLE_ULL_LE_HID_STATE_START_SCAN                      0x02
 #define APP_DONGLE_ULL_LE_HID_STATE_STOP_SCAN                       0x03
 typedef uint8_t app_dongle_ull_le_hid_state_t;
@@ -136,11 +132,11 @@ typedef uint8_t app_dongle_ull_le_hid_connection_mode_t;
 #ifdef MTK_BT_TIMER_EXTERNAL_ENABLE
 #define APP_DONGLE_ULL_LE_HID_FAST_PAIRING_TIMER BT_ULL_LE_HID_FAST_PAIRING_MODE_TIMER_ID
 #define APP_DONGLE_ULL_LE_HID_FACTORY_TEST_TIMER BT_ULL_LE_HID_FACTORY_TEST_MODE_TIMER_ID
-#define APP_DONGLE_ULL_LE_HID_CREAT_CIS_TIMER    BT_ULL_LE_HID_CREAT_CIS_MODE_TIMER_ID
+#define APP_DONGLE_ULL_LE_HID_CREATE_CIS_TIMER    BT_ULL_LE_HID_CREAT_CIS_MODE_TIMER_ID
 #else
 #define APP_DONGLE_ULL_LE_HID_FAST_PAIRING_TIMER                          0x00
 #define APP_DONGLE_ULL_LE_HID_FACTORY_TEST_TIMER                          0x01
-#define APP_DONGLE_ULL_LE_HID_CREAT_CIS_TIMER                             0x02
+#define APP_DONGLE_ULL_LE_HID_CREATE_CIS_TIMER                            0x02
 #endif
 
 /** AT CMD for test***/
@@ -228,8 +224,11 @@ bt_status_t app_dongle_ull_le_hid_start_factory_test(void);
 void app_dongle_ull_le_hid_stop_fast_pair(void);
 void app_dongle_ull_le_hid_stop_reconnect(void);
 void app_dongle_ull_le_hid_stop_factory_test(void);
+#if defined (AIR_PURE_GAMING_MS_ENABLE) || defined (AIR_PURE_GAMING_KB_ENABLE)
+void app_dongle_ull_le_hid_ep_rx(bt_ull_user_data_t *evt);
+#endif
 
-#if defined (AIR_PURE_GAMING_MS_ENABLE) || defined (AIR_QC_DONGLE_ENABLE)
+#if defined (AIR_PURE_GAMING_ENABLE)
 extern bt_status_t bt_ull_le_hid_dm_enter_test_mode(bt_ull_le_hid_srv_device_t device_type);
 extern bt_status_t bt_ull_le_hid_dm_exit_test_mode(bt_ull_le_hid_srv_device_t device_type);
 #endif
@@ -238,6 +237,8 @@ extern bt_status_t bt_ull_le_hid_dm_exit_test_mode(bt_ull_le_hid_srv_device_t de
 extern void app_bt_state_service_set_bt_on_off(bool on, bool classic_off, bool need_do_rho, bool for_system_off);
 #endif
 extern void bt_ull_le_hid_conn_srv_set_cis_connection_timeout(uint16_t conn_timeout);
+extern bt_status_t bt_gap_le_srv_set_extended_scan(bt_gap_le_srv_set_extended_scan_parameters_t *param, bt_gap_le_srv_set_extended_scan_enable_t *enable, void *callback);
+extern void bt_ull_le_hid_conn_srv_set_create_cis_timeout(uint16_t create_cis_timeout);
 
 static void *app_dongle_ull_le_hid_memcpy(void *dest, const void *src, uint32_t size)
 {
@@ -472,7 +473,7 @@ static void app_dongle_ull_le_hid_clear_link(bt_handle_t handle)
     APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_clear_link, handle: %x", 1, handle);
 }
 
-static app_dongle_ull_le_hid_link_t *app_dongle_ull_le_hid_get_link_by_dt(uint8_t device_type)
+static app_dongle_ull_le_hid_link_t *app_dongle_ull_le_hid_get_link_by_dt(bt_ull_le_hid_srv_device_t device_type)
 {
     app_dongle_ull_le_hid_contex_t *ctx = app_dongle_ull_le_hid_get_ctx();
     uint8_t i = 0;
@@ -638,7 +639,7 @@ bt_status_t app_dongle_ull_le_hid_start_up(void)
     uint8_t mouse_count = 0;
 
 #ifdef AIR_PURE_GAMING_ENABLE
-#if defined (AIR_PURE_GAMING_MS_ENABLE) || defined (AIR_QC_DONGLE_ENABLE)
+#if defined (AIR_PURE_GAMING_MS_ENABLE)
     mouse_count = bt_ull_le_hid_srv_get_bonded_device_num(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
 #elif defined (AIR_PURE_GAMING_KB_ENABLE)
     keyboard_count = bt_ull_le_hid_srv_get_bonded_device_num(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
@@ -655,7 +656,7 @@ bt_status_t app_dongle_ull_le_hid_start_up(void)
     APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_start_up, aud_count: %d, kb_count: %d, ms_count: %d", 3, \
         audio_device_count, keyboard_count, mouse_count);
     if (!audio_device_count && !keyboard_count && !mouse_count) {
-        app_dongle_ull_le_hid_set_curr_state(APP_DONGLE_ULL_LE_HID_STATE_WATING);
+        app_dongle_ull_le_hid_set_curr_state(APP_DONGLE_ULL_LE_HID_STATE_WAITING);
         return status;
     }
 
@@ -687,7 +688,6 @@ bt_status_t app_dongle_ull_le_hid_start_up(void)
         } else {
             APPS_LOG_MSGID_E(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_start_up, HS no link source!", 0);
         }
-
     }
     if (keyboard_count) {
         kb_info = app_dongle_ull_le_hid_get_empty_link();
@@ -706,7 +706,6 @@ bt_status_t app_dongle_ull_le_hid_start_up(void)
         } else {
             APPS_LOG_MSGID_E(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_start_up, KB no link source!", 0);
         }
-
     }
     if (mouse_count) {
         ms_info = app_dongle_ull_le_hid_get_empty_link();
@@ -777,15 +776,17 @@ static void app_dongle_ull_le_hid_bt_power_on_hdl(void)
     bt_ull_le_hid_srv_action(BT_ULL_ACTION_LE_HID_SET_SCENARIO, &ctx->scenario, sizeof(bt_ull_le_hid_srv_app_scenario_t));
     bt_ull_le_hid_srv_action(BT_ULL_ACTION_LE_HID_SET_IDLE_TIME, &ctx->idle_time, sizeof(bt_ull_le_hid_srv_idle_time_t));
 #ifndef USB_SUSPEND_BT_PF_PO_SUPPORT
-    extern void bt_ull_le_hid_conn_srv_set_create_cis_timeout(uint16_t create_cis_timeout);
     bt_ull_le_hid_conn_srv_set_create_cis_timeout(0);
 #endif
 
 #ifdef AIR_PURE_GAMING_ENABLE
     bt_ull_le_hid_conn_srv_set_cis_connection_timeout(100);
 
-#ifdef AIR_QC_DONGLE_ENABLE
+#if defined (AIR_QC_DONGLE_MS_ENABLE)
     bt_ull_le_hid_dm_enter_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
+    app_dongle_ull_le_hid_start_up();
+#elif defined (AIR_QC_DONGLE_KB_ENABLE)
+    bt_ull_le_hid_dm_enter_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
     app_dongle_ull_le_hid_start_up();
 #else
     bool exist = app_dongle_ull_le_hid_any_bonded_device_exist();
@@ -835,7 +836,7 @@ static bt_status_t app_dongle_ull_le_hid_enable_scan(bool wl_enable)
         .params_phy_coded = NULL,
     };
     param.scanning_filter_policy = wl_enable ? BT_HCI_SCAN_FILTER_ACCEPT_ONLY_ADVERTISING_PACKETS_IN_WHITE_LIST : BT_HCI_SCAN_FILTER_ACCEPT_ALL_ADVERTISING_PACKETS;
-    if (BT_STATUS_SUCCESS != (status = bt_gap_le_set_extended_scan(&param, &enable))) {
+    if (BT_STATUS_SUCCESS != (status = bt_gap_le_srv_set_extended_scan(&param, &enable, NULL))) {
         APPS_LOG_MSGID_E(APP_DONGLE_HID_LOG_TAG"Enable scan failed, status:%x", 1, status);
         if (BT_STATUS_OUT_OF_MEMORY == status) {
             assert(0);
@@ -855,7 +856,7 @@ static bt_status_t app_dongle_ull_le_hid_disable_scan(void)
         .duration = 0,
         .period = 0
     };
-    if (BT_STATUS_SUCCESS != (status = bt_gap_le_set_extended_scan(NULL, &enable))) {
+    if (BT_STATUS_SUCCESS != (status = bt_gap_le_srv_set_extended_scan(NULL, &enable, NULL))) {
         APPS_LOG_MSGID_E(APP_DONGLE_HID_LOG_TAG"disable adv scan failed, status:%x", 1, status);
         if (BT_STATUS_OUT_OF_MEMORY == status) {
             assert(0);
@@ -1058,7 +1059,6 @@ static void app_dongle_ull_le_hid_scan_cnf_handler(bt_status_t status)
     }
 
     if (BT_STATUS_SUCCESS != status) {
-
         if (mask & APP_DONGLE_ULL_LE_HID_SCAN_STATE_ENABLING) {
             app_dongle_ull_le_hid_clear_scan_state_mask(APP_DONGLE_ULL_LE_HID_SCAN_STATE_ENABLING);
             if (APP_DONGLE_ULL_LE_HID_STATE_STOP_SCAN == next_state) {
@@ -1120,7 +1120,7 @@ static void app_dongle_ull_le_hid_scan_cnf_handler(bt_status_t status)
     APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"scan cnf, mask1: 0x%x, mask2: 0x%x, next_action: 0x%x", 3, mask, ctx->scan.state_mask, next_state);
 }
 
-static uint8_t app_dongle_ull_le_hid_parse_adv_data(bt_gap_le_ext_advertising_report_ind_t *adv)
+static bt_ull_le_hid_srv_device_t app_dongle_ull_le_hid_parse_adv_data(bt_gap_le_ext_advertising_report_ind_t *adv)
 {
     uint16_t len_offset = 0;
     uint8_t device_type = BT_ULL_LE_HID_SRV_DEVICE_NONE;
@@ -1185,7 +1185,7 @@ bt_status_t app_dongle_ull_le_hid_connect_internal(bt_addr_t *addr)
     };
     app_dongle_ull_le_hid_memcpy(&(param.peer_address), addr, sizeof(bt_addr_t));
 
-    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"connect_device, addrType:%x addr:%02x:%02x:%02x:%02x:%02x:%02x", 7,
+    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"connect_device, addrType:%x, addr:%02x:%02x:%02x:%02x:%02x:%02x", 7,
                       param.peer_address.type,
                       param.peer_address.addr[5],
                       param.peer_address.addr[4],
@@ -1200,7 +1200,7 @@ bt_status_t app_dongle_ull_le_hid_connect_internal(bt_addr_t *addr)
     if (BT_STATUS_SUCCESS != status) {
         app_dongle_ull_le_hid_set_curr_state(APP_DONGLE_ULL_LE_HID_STATE_NONE);
     }
-    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"connect_device, status is 0x%4x", 1, status);
+    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"connect_device, status is 0x%x", 1, status);
     return status;
 }
 
@@ -1221,9 +1221,39 @@ static bt_status_t app_dongle_ull_le_disconnect_internal(bt_handle_t handle)
 
     return status;
 }
+
+static bool app_dongle_ull_le_hid_need_fast_pair(bt_ull_le_hid_srv_device_t dev_type)
+{
+#if defined (AIR_PURE_GAMING_MS_ENABLE)
+    if (dev_type == BT_ULL_LE_HID_SRV_DEVICE_MOUSE) {
+        APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_need_fast_pair mouse", 0);
+        return true;
+    }
+#elif defined (AIR_PURE_GAMING_KB_ENABLE)
+    if (dev_type == BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD) {
+        APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_need_fast_pair keyboard", 0);
+        return true;
+    }
+#elif defined (AIR_PURE_GAMING_MS_KB_ENABLE)
+    if (dev_type == BT_ULL_LE_HID_SRV_DEVICE_MOUSE || 
+        dev_type == BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD) {
+        APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_need_fast_pair 2in1 dev_type(%d)", 1, dev_type);
+        return true;
+    }
+#else
+    if (dev_type == BT_ULL_LE_HID_SRV_DEVICE_MOUSE || 
+        dev_type == BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD ||
+        dev_type == BT_ULL_LE_HID_SRV_DEVICE_HEADSET) {
+        APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_need_fast_pair 3in1 dev_type(%d)", 1, dev_type);
+        return true;
+    }
+#endif
+    return false;
+}
+
 static void app_dongle_ull_le_hid_adv_report_hdl(bt_status_t status, bt_gap_le_ext_advertising_report_ind_t *data)
 {
-    uint8_t device_type;
+    bt_ull_le_hid_srv_device_t device_type = BT_ULL_LE_HID_SRV_DEVICE_NONE;
     bt_status_t bt_status = BT_STATUS_FAIL;
     app_dongle_ull_le_hid_contex_t *ctx = app_dongle_ull_le_hid_get_ctx();
     if (BT_STATUS_SUCCESS != status || !data) {
@@ -1239,11 +1269,12 @@ static void app_dongle_ull_le_hid_adv_report_hdl(bt_status_t status, bt_gap_le_e
             return;
         } else if (data->rssi >= APP_DONGLE_ULL_LE_HID_FAST_PAIRING_RSSI_THRESHOLD) {
             device_type = app_dongle_ull_le_hid_parse_adv_data(data);
-            if (BT_ULL_LE_HID_SRV_DEVICE_NONE != device_type) {
+            bool need_pair_flag = app_dongle_ull_le_hid_need_fast_pair(device_type);
+            if (need_pair_flag) {
                 bt_addr_t connect_addr = {0};
                 app_dongle_ull_le_hid_memcpy(&connect_addr, &data->address, sizeof(bt_addr_t));
-                APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"Find fast pairing adv, dt: ", 1, device_type);
-                bt_status = app_dongle_ull_le_hid_connect_device(device_type, &connect_addr);
+                APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"Find fast pairing adv, dt: %d", 1, device_type);
+                bt_status = app_dongle_ull_le_hid_connect_device(device_type, &connect_addr, true);
                 if (BT_STATUS_SUCCESS == bt_status || BT_STATUS_PENDING == bt_status) {
                     app_dongle_ull_le_hid_stop_fast_pair();
                 }
@@ -1319,7 +1350,7 @@ static void app_dongle_ull_le_hid_adv_report_hdl(bt_status_t status, bt_gap_le_e
 
 }
 
-bt_status_t app_dongle_ull_le_hid_connect_device(bt_ull_le_hid_srv_device_t device_type, bt_addr_t *addr)
+bt_status_t app_dongle_ull_le_hid_connect_device(bt_ull_le_hid_srv_device_t device_type, bt_addr_t *addr, bool is_fast_pair)
 {
     bt_status_t status = BT_STATUS_SUCCESS;
     app_dongle_ull_le_hid_link_t *link = app_dongle_ull_le_hid_get_link_by_dt(device_type);
@@ -1337,8 +1368,8 @@ bt_status_t app_dongle_ull_le_hid_connect_device(bt_ull_le_hid_srv_device_t devi
     }
     app_dongle_ull_le_hid_memset(link, 0 , sizeof(app_dongle_ull_le_hid_link_t));
     bool is_bond = bt_ull_le_hid_srv_is_bonded_device(device_type, addr);
-    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_connect_device, Start Connect dt: %d! bond: %d", 2, device_type, is_bond);
-    if (is_bond) {
+    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_connect_device, Start Connect dt: %d! bond: %d, fast_pair:%d", 3, device_type, is_bond, is_fast_pair);
+    if (is_bond && !is_fast_pair) {
         uint8_t len = sizeof(bt_ull_le_hid_srv_conn_params_t) + sizeof(bt_addr_t) - 1;
         bt_ull_le_hid_srv_conn_params_t *audio_sink = app_dongle_ull_le_hid_memory_alloc(len);
         assert( "out of memory!!" && (audio_sink != NULL));
@@ -1368,7 +1399,6 @@ bt_status_t app_dongle_ull_le_hid_connect_device(bt_ull_le_hid_srv_device_t devi
         if (BT_STATUS_SUCCESS != status) {
             link->link_state = APP_DONGLE_ULL_LE_HID_CONN_STATE_DISCONNECTED;
             link->device_type = BT_ULL_LE_HID_SRV_DEVICE_NONE;
-
         } else {
             app_dongle_ull_le_hid_memcpy(&link->peer_addr, addr, sizeof(bt_addr_t));
         }
@@ -1376,7 +1406,7 @@ bt_status_t app_dongle_ull_le_hid_connect_device(bt_ull_le_hid_srv_device_t devi
     return status;
 }
 
-bt_status_t app_dongle_ull_le_hid_disconnect_all_device(uint8_t reason)
+bt_status_t app_dongle_ull_le_hid_disconnect_all_device(bt_hci_disconnect_reason_t reason)
 {
     bt_status_t status = BT_STATUS_SUCCESS;
     APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_disconnect_all_device, disconnect reason: %d!", 2, reason);
@@ -1386,7 +1416,7 @@ bt_status_t app_dongle_ull_le_hid_disconnect_all_device(uint8_t reason)
     app_dongle_ull_le_hid_link_t *kb = app_dongle_ull_le_hid_get_link_by_dt(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
     if (ms) {
         if (APP_DONGLE_ULL_LE_HID_CONN_STATE_CONNECTED <= ms->link_state) {
-            status = app_dongle_ull_le_hid_disconnect_device(BT_ULL_LE_HID_SRV_DEVICE_MOUSE, reason,&ms->peer_addr);
+            status = app_dongle_ull_le_hid_disconnect_device(BT_ULL_LE_HID_SRV_DEVICE_MOUSE, reason, &ms->peer_addr);
         } else if (APP_DONGLE_ULL_LE_HID_CONN_STATE_CONNECTING == ms->link_state && reason != BT_HCI_STATUS_UNSPECIFIED_ERROR) {
             status = app_dongle_ull_le_hid_cancel_connect(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
         }
@@ -1455,7 +1485,7 @@ static void app_dongle_ull_le_hid_acl_connected_hdl(bt_status_t status, bt_gap_l
     }
     app_dongle_ull_le_hid_contex_t *ctx = app_dongle_ull_le_hid_get_ctx();
 
-    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"acl_connected_hdl, status: %x, cur_state: %x, dt: %d, handle: %d, is creating", 5, \
+    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"acl_connected_hdl, status: %x, cur_state: %x, dt: %d, handle: %d, is creating: %d", 5, \
          status, cur_state, link->device_type, ind->connection_handle, ctx->state.is_connecting);
     if (ctx->state.is_connecting) {
         ctx->state.is_connecting = false;
@@ -1477,7 +1507,7 @@ static void app_dongle_ull_le_hid_acl_connected_hdl(bt_status_t status, bt_gap_l
             link->link_state = APP_DONGLE_ULL_LE_HID_CONN_STATE_CONNECTED;
             link->link_mode = APP_DONGLE_ULL_LE_HID_LINK_MODE_OVER_ACL;
             app_dongle_ull_le_hid_memcpy(&link->peer_addr, &ind->peer_addr, sizeof(bt_addr_t));
-            APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"HID LE CONNECTED!!, status: %x, dt: %d", 2, status, link->device_type);
+            APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"HID LE CONNECTED!, status: %x, dt: %d", 2, status, link->device_type);
         }
     }
 }
@@ -1489,8 +1519,8 @@ static void app_dongle_ull_le_hid_acl_disconnect_hdl(bt_status_t status, bt_gap_
     if (!link || !ind) {
         return;
     }
-     APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"HID LE ACL DISCONNECTED!, status: %x, dt: %d, mode: %d, state: %d, dt: %d, bond: %d", 6, \
-         status, link->device_type, link->link_mode, link->link_state, link->device_type, link->is_bond);
+    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"HID LE ACL DISCONNECTED!, status: %x, dt: %d, mode: %d, state: %d, bond: %d", 5, \
+         status, link->device_type, link->link_mode, link->link_state, link->is_bond);
     uint8_t temp_state = link->link_state;
     if (BT_STATUS_SUCCESS != status) {
         if (APP_DONGLE_ULL_LE_HID_LINK_MODE_OVER_ACL == link->link_mode && \
@@ -1523,7 +1553,7 @@ static void app_dongle_ull_le_hid_acl_disconnect_hdl(bt_status_t status, bt_gap_
                     create_connection.keyboard = connect;
                     break;
                 }
-                case BT_ULL_LE_HID_SRV_DEVICE_MOUSE:{
+                case BT_ULL_LE_HID_SRV_DEVICE_MOUSE: {
                     create_connection.mouse = connect;
                     break;
                 }
@@ -1548,6 +1578,7 @@ static void app_dongle_ull_le_hid_acl_disconnect_hdl(bt_status_t status, bt_gap_
             app_dongle_ull_le_hid_memory_free(connect);
             return;
         }
+
         if (APP_DONGLE_ULL_LE_HID_LINK_MODE_OVER_ACL == link->link_mode) {
             bt_addr_t reconnect_addr;
             uint8_t dt = link->device_type;
@@ -1578,7 +1609,7 @@ static void app_dongle_ull_le_hid_acl_disconnect_hdl(bt_status_t status, bt_gap_
                 dis_ind.ret = status;
                 dis_ind.group_id = 0xFF;
                 dis_ind.group_size = 0;
-                memcpy(&(dis_ind.peer_addr), &reconnect_addr, sizeof(bt_addr_t));
+                app_dongle_ull_le_hid_memcpy(&dis_ind.peer_addr, &reconnect_addr, sizeof(bt_addr_t));
                 app_dongle_le_race_sink_device_t type = APP_DONGLE_LE_RACE_SINK_DEVICE_NONE;
                 switch (link->device_type) {
                     case BT_ULL_LE_HID_SRV_DEVICE_HEADSET: {
@@ -1606,6 +1637,29 @@ static void app_dongle_ull_le_hid_acl_disconnect_hdl(bt_status_t status, bt_gap_
         }
     }
 }
+
+#if defined (AIR_PURE_GAMING_MS_KB_ENABLE)
+static void app_dongle_ull_le_hid_2in1_usb_suspend_handle(bt_ull_le_hid_srv_device_t device_type)
+{
+    if (device_type == BT_ULL_LE_HID_SRV_DEVICE_MOUSE) {
+        app_dongle_ull_le_hid_link_t *kb_link_info = app_dongle_ull_le_hid_get_link_by_dt(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+        if (kb_link_info != NULL && APP_DONGLE_ULL_LE_HID_CONN_STATE_CONNECTED <= kb_link_info->link_state) {
+            APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"srv_connection_complete_hdl, exist KB connection(%d)", 1, kb_link_info->link_state);
+        } else {
+            app_dongle_ull_le_hid_start_timer(APP_DONGLE_ULL_LE_HID_CREATE_CIS_TIMER, g_app_hid_establish_wait, app_dongle_ull_le_hid_create_cis_timeout_hdl, 0);
+            app_bt_state_service_set_bt_on_off(false, false, true, false);
+        }
+    } else if (device_type == BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD) {
+        app_dongle_ull_le_hid_link_t *ms_link_info = app_dongle_ull_le_hid_get_link_by_dt(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
+        if (ms_link_info != NULL && APP_DONGLE_ULL_LE_HID_CONN_STATE_CONNECTED <= ms_link_info->link_state) {
+            APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"srv_connection_complete_hdl, exist MS connection(%d)", 1, ms_link_info->link_state);
+        } else {
+            app_dongle_ull_le_hid_start_timer(APP_DONGLE_ULL_LE_HID_CREATE_CIS_TIMER, g_app_hid_establish_wait, app_dongle_ull_le_hid_create_cis_timeout_hdl, 0);
+            app_bt_state_service_set_bt_on_off(false, false, true, false);
+        }
+    }
+}
+#endif
 
 static void app_dongle_ull_le_hid_srv_connection_complete_hdl(bt_ull_le_hid_srv_connected_ind_t *evt)
 {
@@ -1651,7 +1705,7 @@ static void app_dongle_ull_le_hid_srv_connection_complete_hdl(bt_ull_le_hid_srv_
                 connect_ind.ret = evt->status;
                 connect_ind.group_id = 0xFF;
                 connect_ind.group_size = 0;
-                memcpy(&(connect_ind.peer_addr), &(evt->peer_addr), sizeof(bt_addr_t));
+                app_dongle_ull_le_hid_memcpy(&connect_ind.peer_addr, &evt->peer_addr, sizeof(bt_addr_t));
                 app_dongle_le_race_sink_device_t type = APP_DONGLE_LE_RACE_SINK_DEVICE_NONE;
                 switch (evt->device_type) {
                     case BT_ULL_LE_HID_SRV_DEVICE_HEADSET: {
@@ -1676,10 +1730,14 @@ static void app_dongle_ull_le_hid_srv_connection_complete_hdl(bt_ull_le_hid_srv_
                 g_ull_le_hid_callback(APP_DONGLE_LE_RACE_EVT_CONNECT_IND, type, &connect_ind);
             }
 
-            if(evt->status == BT_HCI_STATUS_DIRECTED_ADVERTISING_TIMEOUT){ // for usb suspend
-                app_dongle_ull_le_hid_start_timer(APP_DONGLE_ULL_LE_HID_CREAT_CIS_TIMER, g_app_hid_establish_wait, app_dongle_ull_le_hid_create_cis_timeout_hdl, 0);
+            if(evt->status == BT_HCI_STATUS_DIRECTED_ADVERTISING_TIMEOUT) { // for usb suspend
+#if defined (AIR_PURE_GAMING_MS_KB_ENABLE)
+                app_dongle_ull_le_hid_2in1_usb_suspend_handle(evt->device_type);
+#else
+                app_dongle_ull_le_hid_start_timer(APP_DONGLE_ULL_LE_HID_CREATE_CIS_TIMER, g_app_hid_establish_wait, app_dongle_ull_le_hid_create_cis_timeout_hdl, 0);
 #ifdef USB_SUSPEND_BT_PF_PO_SUPPORT
                 app_bt_state_service_set_bt_on_off(false, false, true, false);
+#endif
 #endif
             }
             return;
@@ -1708,10 +1766,10 @@ static void app_dongle_ull_le_hid_srv_connection_complete_hdl(bt_ull_le_hid_srv_
 #if defined (AIR_PURE_GAMING_MS_ENABLE)
         bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
 #elif defined (AIR_PURE_GAMING_KB_ENABLE)
-        //bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+        bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
 #elif defined (AIR_PURE_GAMING_MS_KB_ENABLE)
-        //bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
-        //bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
+        bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+        bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
 #endif
 
 #else
@@ -1730,7 +1788,6 @@ static void app_dongle_ull_le_hid_srv_connection_complete_hdl(bt_ull_le_hid_srv_
     {
         hal_nvic_set_priority(USB_IRQn, USB_SW_IRQ_PRIORITY);
         APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"srv_connection_complete_hdl, lower USB priority!", 0);
-
     }
     else
     {
@@ -1739,7 +1796,7 @@ static void app_dongle_ull_le_hid_srv_connection_complete_hdl(bt_ull_le_hid_srv_
     }
 #endif /* defined(AIR_PURE_GAMING_ENABLE) && defined(AIR_NVIDIA_REFLEX_ENABLE) */
 
-#ifdef AIR_PURE_GAMING_ENABLE
+#if defined(AIR_PURE_GAMING_ENABLE)
     // If usb suspend, call usb resume api
     usb_hid_chk_suspend_and_rmwk();
 #endif
@@ -1758,26 +1815,21 @@ static void app_dongle_ull_le_hid_srv_disconnected_hdl(bt_ull_le_hid_srv_disconn
         return;
     }
 
-    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"HID service disconnect hdl! status: %d, handle: %d, link_mode: %d, link_state: %x, dt: %d", 5, \
-        evt->status, evt->handle, link->link_mode, link->link_state, evt->device_type);
+    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"HID service disconnect hdl! status: 0x%X, handle: 0x%X, link_mode: 0x%X, link_state: 0x%X, dt: 0x%X, reason: 0x%X", 6, \
+        evt->status, evt->handle, link->link_mode, link->link_state, evt->device_type, evt->reason);
     if (BT_STATUS_SUCCESS != evt->status || BT_HANDLE_INVALID == evt->handle || BT_ULL_LE_HID_SRV_DEVICE_NONE == evt->device_type) {
         return;
     }
 
-    // Add release packet to USB
-    #define HID_PACKET_LEN (7)
-    uint8_t ms_data[HID_PACKET_LEN] = { BT_HID_REPORT_ID_MS, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t kb_data[HID_PACKET_LEN] = { BT_HID_REPORT_ID_KB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-    if (BT_HCI_STATUS_UNSPECIFIED_ERROR != evt->reason)
-    {
-        uint8_t port = USB_HID_MAX_DEVICE_NUM;
+    if (BT_HCI_STATUS_UNSPECIFIED_ERROR != evt->reason) {
         if (evt->device_type == BT_ULL_LE_HID_SRV_DEVICE_MOUSE 
             || evt->device_type == BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD) {
-            port = usb_hid_find_port_by_report(USB_REPORT_DSCR_TYPE_GMOUSE);
-            usb_hid_tx_non_blocking(port, ms_data, HID_PACKET_LEN);
-            port = usb_hid_find_port_by_report(USB_REPORT_DSCR_TYPE_GKEYBOARD);
-            usb_hid_tx_non_blocking(port, kb_data, HID_PACKET_LEN);
+            app_usb_utils_hid_ms_release_pkt();
+#if defined(AIR_PURE_GAMING_MS_ENABLE)
+            app_usb_utils_hid_kb_release_pkt();
+#else
+            app_usb_utils_hid_nkey_release_pkt();
+#endif
         }
     }
 
@@ -1805,7 +1857,6 @@ static void app_dongle_ull_le_hid_srv_disconnected_hdl(bt_ull_le_hid_srv_disconn
             assert("out of memory!" && (NULL != reconnect));
             reconnect->list_num = 0x01;
             reconnect->device_type = evt->device_type;
-            extern void bt_ull_le_hid_conn_srv_set_create_cis_timeout(uint16_t create_cis_timeout);
             if(BT_HCI_STATUS_UNSPECIFIED_ERROR == evt->reason){
                 //for usb suspend
                 bt_ull_le_hid_conn_srv_set_create_cis_timeout(g_app_hid_create_cis_timeout);
@@ -1857,7 +1908,7 @@ static void app_dongle_ull_le_hid_srv_disconnected_hdl(bt_ull_le_hid_srv_disconn
             dis_ind.ret = status;
             dis_ind.group_id = 0xFF;
             dis_ind.group_size = 0;
-            memcpy(&(dis_ind.peer_addr), &reconnect_addr, sizeof(bt_addr_t));
+            app_dongle_ull_le_hid_memcpy(&dis_ind.peer_addr, &reconnect_addr, sizeof(bt_addr_t));
             app_dongle_le_race_sink_device_t type = APP_DONGLE_LE_RACE_SINK_DEVICE_NONE;
             switch (evt->device_type) {
                 case BT_ULL_LE_HID_SRV_DEVICE_HEADSET: {
@@ -1919,16 +1970,10 @@ static bt_status_t app_dongle_ull_le_hid_host_event_callback(bt_msg_type_t msg, 
 {
     switch (msg) {
         case BT_POWER_ON_CNF: {
-#ifdef AIR_PURE_GAMING_MS_ENABLE
-            app_key_remap_timer_start();
-#endif
             app_dongle_ull_le_hid_bt_power_on_hdl();
             break;
         }
         case BT_POWER_OFF_CNF: {
-#ifdef AIR_PURE_GAMING_MS_ENABLE
-            app_key_remap_timer_stop();
-#endif
             app_dongle_ull_le_hid_bt_power_off_hdl();
             break;
 
@@ -2125,7 +2170,7 @@ static void app_dongle_ull_le_hid_hid_srv_service_connected_hdl(bt_ull_le_hid_sr
         connect_ind.ret = evt->status;
         connect_ind.group_id = 0xFF;
         connect_ind.group_size = 0;
-        memcpy(&(connect_ind.peer_addr), &(link->peer_addr), sizeof(bt_addr_t));
+        app_dongle_ull_le_hid_memcpy(&connect_ind.peer_addr, &link->peer_addr, sizeof(bt_addr_t));
         app_dongle_le_race_sink_device_t type = APP_DONGLE_LE_RACE_SINK_DEVICE_NONE;
         switch (link->device_type) {
             case BT_ULL_LE_HID_SRV_DEVICE_HEADSET: {
@@ -2150,10 +2195,15 @@ static void app_dongle_ull_le_hid_hid_srv_service_connected_hdl(bt_ull_le_hid_sr
         g_ull_le_hid_callback(APP_DONGLE_LE_RACE_EVT_CONNECT_IND, type, &connect_ind);
     }
 
+#if defined(AIR_PURE_GAMING_KB_ENABLE)
+    if (evt->status == BT_STATUS_SUCCESS) {
+        app_usb_utils_hid_output_cache_send();
+    }
+#endif
 }
 void app_dongle_ull_le_hid_srv_event_callback(bt_ull_event_t event, void *param, uint32_t param_len)
 {
-    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"hid_srv_event_callback event: %x", 1, event);
+    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"hid_srv_event_callback event: 0x%X", 1, event);
     switch (event) {
         case BT_ULL_EVENT_LE_HID_CONNECTED_IND: {
             bt_ull_le_hid_srv_connected_ind_t *evt = (bt_ull_le_hid_srv_connected_ind_t *)param;
@@ -2169,30 +2219,30 @@ void app_dongle_ull_le_hid_srv_event_callback(bt_ull_event_t event, void *param,
             bt_ull_le_hid_srv_bonding_complete_ind_t *evt = (bt_ull_le_hid_srv_bonding_complete_ind_t *)param;
             app_dongle_ull_le_hid_srv_bonding_complete_hdl(evt);
             break;
-
         }
         case BT_ULL_EVENT_LE_STREAMING_START_IND: {
             break;
-
         }
         case BT_ULL_EVENT_LE_STREAMING_STOP_IND: {
             break;
-
         }
         case BT_ULL_EVENT_LE_HID_SWITCH_LINK_MODE_IND: {
             bt_ull_le_hid_srv_switch_link_mode_ind_t *evt = (bt_ull_le_hid_srv_switch_link_mode_ind_t *)param;
             app_dongle_ull_le_hid_srv_switch_link_hdl(evt);
             break;
-
         }
         case BT_ULL_EVENT_LE_HID_SERVICE_CONNECTED_IND: {
             bt_ull_le_hid_srv_service_connected_ind_t *evt = (bt_ull_le_hid_srv_service_connected_ind_t *)param;
             app_dongle_ull_le_hid_hid_srv_service_connected_hdl(evt);
             break;
         }
+#if defined (AIR_PURE_GAMING_MS_ENABLE) || defined (AIR_PURE_GAMING_KB_ENABLE)
         case BT_ULL_EVENT_USER_DATA_IND: {
+            bt_ull_user_data_t *evt = (bt_ull_user_data_t *)param;
+            app_dongle_ull_le_hid_ep_rx(evt);
             break;
         }
+#endif
         case BT_ULL_EVENT_LE_HID_INPUT_REPORT_IND: {
             break;
         }
@@ -2243,7 +2293,7 @@ bt_status_t app_dongle_ull_le_hid_cancel_create_connection(void)
     return status;
 }
 
-static bt_status_t app_dongle_ull_le_hid_cancel_connect(uint8_t device_type) {
+static bt_status_t app_dongle_ull_le_hid_cancel_connect(bt_ull_le_hid_srv_device_t device_type) {
     app_dongle_ull_le_hid_link_t *link = app_dongle_ull_le_hid_get_link_by_dt(device_type);
     bt_status_t status = BT_STATUS_FAIL;
     if (link) {
@@ -2284,12 +2334,12 @@ void app_dongle_ull_le_hid_factory_test_timeout_hdl(uint32_t timer_id, uint32_t 
     bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
 #elif defined (AIR_PURE_GAMING_KB_ENABLE)
     app_dongle_ull_le_hid_cancel_connect(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
-    //bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+    bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
 #elif defined (AIR_PURE_GAMING_MS_KB_ENABLE)
     app_dongle_ull_le_hid_cancel_connect(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
     app_dongle_ull_le_hid_cancel_connect(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
-    //bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
-    //bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
+    bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+    bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
 #endif
 
 #else
@@ -2341,7 +2391,6 @@ void app_dongle_ull_le_hid_fast_pairing_timeout_hdl(uint32_t timer_id, uint32_t 
 void app_dongle_ull_le_hid_create_cis_timeout_hdl(uint32_t timer_id, uint32_t data)
 {
     bt_status_t status = BT_STATUS_FAIL;
-    extern void bt_ull_le_hid_conn_srv_set_create_cis_timeout(uint16_t create_cis_timeout);
     bt_ull_le_hid_conn_srv_set_create_cis_timeout(g_app_hid_create_cis_timeout);
 #ifdef USB_SUSPEND_BT_PF_PO_SUPPORT
     app_bt_state_service_set_bt_on_off(true, false, true, false);
@@ -2410,10 +2459,10 @@ bt_status_t app_dongle_ull_le_hid_start_factory_test(void)
 #if defined (AIR_PURE_GAMING_MS_ENABLE)
     bt_ull_le_hid_dm_enter_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
 #elif defined (AIR_PURE_GAMING_KB_ENABLE)
-    //bt_ull_le_hid_dm_enter_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+    bt_ull_le_hid_dm_enter_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
 #elif defined (AIR_PURE_GAMING_MS_KB_ENABLE)
-    //bt_ull_le_hid_dm_enter_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
-    //bt_ull_le_hid_dm_enter_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+    bt_ull_le_hid_dm_enter_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
+    bt_ull_le_hid_dm_enter_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
 #endif
 
 #else
@@ -2498,12 +2547,12 @@ void app_dongle_ull_le_hid_stop_factory_test(void)
     bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
 #elif defined (AIR_PURE_GAMING_KB_ENABLE)
     app_dongle_ull_le_hid_cancel_connect(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
-    //bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+    bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
 #elif defined (AIR_PURE_GAMING_MS_KB_ENABLE)
     app_dongle_ull_le_hid_cancel_connect(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
     app_dongle_ull_le_hid_cancel_connect(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
-    //bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
-    //bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
+    bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD);
+    bt_ull_le_hid_dm_exit_test_mode(BT_ULL_LE_HID_SRV_DEVICE_MOUSE);
 #endif
 
 #else
@@ -2554,7 +2603,7 @@ void app_dongle_ull_le_hid_get_device_list_handler(uint8_t race_channel, app_don
         assert(0);
     }
     if (link_num > 0 && link) {
-        memcpy(&response->devices_list[position].addr, &link->peer_addr, sizeof(bt_addr_t));
+        app_dongle_ull_le_hid_memcpy(&response->devices_list[position].addr, &link->peer_addr, sizeof(bt_addr_t));
         response->devices_list[position].device_id = race_get_device_id_by_conn_address(&link->peer_addr.addr);
         response->devices_list[position].group_id = 0x01;
         response->devices_list[position].role = app_le_audio_air_get_role(&link->peer_addr);
@@ -2599,7 +2648,6 @@ void app_dongle_ull_le_hid_get_paired_list_handler(uint8_t race_channel, app_don
             key_board->list_num = keyboard_count;
             key_board->device_type = BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD;
             bt_ull_le_hid_srv_get_bonded_device_list(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD, keyboard_count, (bt_addr_t *)&key_board->peer_addr_list);
-
             link_num = keyboard_count;
             break;
         }
@@ -2630,21 +2678,21 @@ void app_dongle_ull_le_hid_get_paired_list_handler(uint8_t race_channel, app_don
     for(i = 0; i < link_num; i++){
         if(audio_sink){
             app_dongle_ull_le_hid_print_addr((bt_addr_t *)&audio_sink->peer_addr_list[i*sizeof(bt_addr_t)]);
-            memcpy(&response->devices_list[i].addr, &audio_sink->peer_addr_list[i*sizeof(bt_addr_t)], sizeof(bt_addr_t));
+            app_dongle_ull_le_hid_memcpy(&response->devices_list[i].addr, &audio_sink->peer_addr_list[i*sizeof(bt_addr_t)], sizeof(bt_addr_t));
             response->devices_list[i].device_id = race_get_device_id_by_conn_address(&((bt_addr_t *)&audio_sink->peer_addr_list[i*sizeof(bt_addr_t)])->addr);
             response->devices_list[i].group_id = 0x01;
             response->devices_list[i].role = app_le_audio_air_get_role((bt_addr_t *)&audio_sink->peer_addr_list[i*sizeof(bt_addr_t)]);
         }
         if(key_board){
             app_dongle_ull_le_hid_print_addr((bt_addr_t *)&key_board->peer_addr_list[i*sizeof(bt_addr_t)]);
-            memcpy(&response->devices_list[i].addr, &key_board->peer_addr_list[i*sizeof(bt_addr_t)], sizeof(bt_addr_t));
+            app_dongle_ull_le_hid_memcpy(&response->devices_list[i].addr, &key_board->peer_addr_list[i*sizeof(bt_addr_t)], sizeof(bt_addr_t));
             response->devices_list[i].device_id = race_get_device_id_by_conn_address(&((bt_addr_t *)&key_board->peer_addr_list[i*sizeof(bt_addr_t)])->addr);
             response->devices_list[i].group_id = 0x01;
             response->devices_list[i].role = app_le_audio_air_get_role((bt_addr_t *)&key_board->peer_addr_list[i*sizeof(bt_addr_t)]);
         }
         if(mouse){
             app_dongle_ull_le_hid_print_addr((bt_addr_t *)&mouse->peer_addr_list[i*sizeof(bt_addr_t)]);
-            memcpy(&response->devices_list[i].addr, &mouse->peer_addr_list[i*sizeof(bt_addr_t)], sizeof(bt_addr_t));
+            app_dongle_ull_le_hid_memcpy(&response->devices_list[i].addr, &mouse->peer_addr_list[i*sizeof(bt_addr_t)], sizeof(bt_addr_t));
             response->devices_list[i].device_id = race_get_device_id_by_conn_address(&((bt_addr_t *)&mouse->peer_addr_list[i*sizeof(bt_addr_t)])->addr);
             response->devices_list[i].group_id = 0x01;
             response->devices_list[i].role = app_le_audio_air_get_role((bt_addr_t *)&mouse->peer_addr_list[i*sizeof(bt_addr_t)]);
@@ -2668,9 +2716,20 @@ void app_dongle_ull_le_hid_get_paired_list_handler(uint8_t race_channel, app_don
     }
 }
 
+void app_dongle_ull_le_hid_delete_device_info(bt_ull_le_hid_srv_device_t device_type, bt_addr_t *addr)
+{
+    bt_ull_le_hid_dm_delete_device_info(device_type, addr);
+}
+
+void app_dongle_ull_le_hid_delete_device_by_dev_type(bt_ull_le_hid_srv_device_t cur_dev_type, bt_addr_t *addr)
+{
+    app_dongle_ull_le_hid_cancel_connect(cur_dev_type);
+    app_dongle_ull_le_hid_delete_device_info(cur_dev_type, addr);
+}
+
 void app_dongle_ull_le_hid_delete_device(app_dongle_le_race_sink_device_t device_type, bt_addr_t *addr)
 {
-    app_dongle_le_race_sink_device_t cur_dev_type= APP_DONGLE_LE_RACE_SINK_DEVICE_NONE;
+    bt_ull_le_hid_srv_device_t cur_dev_type = BT_ULL_LE_HID_SRV_DEVICE_NONE;
     APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG" app_dongle_ull_le_hid_delete_device, device_type 0x%x", 1, device_type);
     switch (device_type) {
         case APP_DONGLE_LE_RACE_SINK_DEVICE_HID_AUDIO_HS: {
@@ -2689,8 +2748,7 @@ void app_dongle_ull_le_hid_delete_device(app_dongle_le_race_sink_device_t device
             break;
         }
     }
-    app_dongle_ull_le_hid_cancel_connect(cur_dev_type);
-    bt_ull_le_hid_dm_delete_device_info(cur_dev_type, addr);
+    app_dongle_ull_le_hid_delete_device_by_dev_type(cur_dev_type, addr);
 }
 
 void app_dongle_ull_le_hid_get_device_status_handler(uint8_t race_channel, app_dongle_le_race_sink_device_t device_type,
@@ -2708,13 +2766,13 @@ void app_dongle_ull_le_hid_get_device_status_handler(uint8_t race_channel, app_d
     if (response != NULL) {
         if (link_info) {
             response->status = 0;
-            memcpy(&response->addr, &link_info->peer_addr, sizeof(bt_addr_t));
+            app_dongle_ull_le_hid_memcpy(&response->addr, &link_info->peer_addr, sizeof(bt_addr_t));
             response->device_id = race_get_device_id_by_conn_address(&response->addr.addr);
             response->group_id = 0x01;
             response->role = app_le_audio_air_get_role(&response->addr);
         } else {
             response->status = APP_DONGLE_LE_RACE_GET_STATUS_NOT_CONNECTED_STATUS;
-            memcpy(&response->addr, &cmd->addr, sizeof(bt_addr_t));
+            app_dongle_ull_le_hid_memcpy(&response->addr, &cmd->addr, sizeof(bt_addr_t));
             response->device_id = 0xFF;
             response->group_id = 0xFF;
             response->role = 0xFF;
@@ -2802,15 +2860,119 @@ bt_status_t app_dongle_ull_le_hid_fota_lock(bool lock)
     return status;
 }
 
-bt_ull_le_hid_srv_app_scenario_t app_dongle_ull_le_get_scenario_from_ctx()
+ATTR_TEXT_IN_TCM bt_ull_le_hid_srv_app_scenario_t app_dongle_ull_le_get_scenario_from_ctx()
 {
-    app_dongle_ull_le_hid_contex_t *ctx = app_dongle_ull_le_hid_get_ctx();
-    return ctx->scenario;
+    return g_app_dongle_ull_le_hid_ctx.scenario;
 }
 
 void app_dongle_ull_le_hid_stop_create_cis_timer(void)
 {
-    app_dongle_ull_le_hid_stop_timer(APP_DONGLE_ULL_LE_HID_CREAT_CIS_TIMER);
+    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_stop_create_cis_timer set cis timeout to 0", 0);
+    bt_ull_le_hid_conn_srv_set_create_cis_timeout(0);
+    app_dongle_ull_le_hid_stop_timer(APP_DONGLE_ULL_LE_HID_CREATE_CIS_TIMER);
 }
+
+void app_dongle_ull_le_clear_bond_info_by_device_type(bt_ull_le_hid_srv_device_t cur_device_type)
+{
+    extern bt_addr_t *bt_ull_le_hid_dm_addr_by_device_type(bt_ull_le_hid_srv_device_t cur_device_type);
+    bt_addr_t *bt_addr = bt_ull_le_hid_dm_addr_by_device_type(cur_device_type);
+    app_dongle_ull_le_hid_delete_device_by_dev_type(cur_device_type, bt_addr);
+}
+
+#if defined (AIR_PURE_GAMING_MS_ENABLE) || defined (AIR_PURE_GAMING_KB_ENABLE)
+void app_dongle_ull_le_hid_ep_rx(bt_ull_user_data_t *evt)
+{
+    // data from DUT, need to send to PC by USB
+    if (evt == NULL) {
+        return;
+    }
+
+    uint16_t len = evt->user_data_length;
+    uint8_t *data = evt->user_data;
+
+    LOG_HEXDUMP_I(apps, "app_dongle_ull_le_hid_ep_rx data: ", data, len);
+
+    if (data[0] != USB_HID_EPIO_TX_REPORT_ID || len != USB_HID_EPIO_TX_REPORT_LEN) {
+        APPS_LOG_MSGID_E(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_ep_rx para error: id(0x%X), len(0x%X)", 2, data[0], len);
+        return;
+    }
+
+    uint8_t port = usb_hid_find_port_by_report(USB_REPORT_DSCR_TYPE_EPIO);
+    if (port != USB_HID_MAX_DEVICE_NUM) {
+        uint8_t tx_status = usb_hid_tx_non_blocking(port, data, len);
+        if (tx_status != USB_HID_STATUS_OK) {
+            APPS_LOG_MSGID_E(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_ep_rx fail: %d", 1, tx_status);
+        }
+    }
+}
+
+void app_dongle_ull_le_hid_ep_tx(uint8_t *data, uint32_t len)
+{
+    // data from PC, need to send to DUT by BT
+    bt_ull_le_hid_srv_device_t device_type = 0;
+#if defined (AIR_PURE_GAMING_MS_ENABLE)
+    device_type = BT_ULL_LE_HID_SRV_DEVICE_MOUSE;
+#elif defined (AIR_PURE_GAMING_KB_ENABLE)
+    device_type = BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD;
+#else
+    return;
+#endif
+    
+    app_dongle_ull_le_hid_link_t *link_info = app_dongle_ull_le_hid_get_link_by_dt(device_type);
+    if (link_info == NULL) {
+        return;
+    }
+
+    APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_ep_tx: DUT address(0x%X 0x%X 0x%X 0x%X 0x%X 0x%X)", 6, \
+        link_info->peer_addr.addr[0], \
+        link_info->peer_addr.addr[1], \
+        link_info->peer_addr.addr[2], \
+        link_info->peer_addr.addr[3], \
+        link_info->peer_addr.addr[4], \
+        link_info->peer_addr.addr[5]);
+
+    bt_ull_user_data_t tx_data;
+    memcpy(&tx_data.remote_address, &link_info->peer_addr.addr, sizeof(bt_bd_addr_t));
+    tx_data.user_data = data;
+    tx_data.user_data_length = len;
+    bt_status_t ret = bt_ull_le_hid_srv_action(BT_ULL_ACTION_TX_USER_DATA, &tx_data, sizeof(tx_data));
+    if (ret != BT_STATUS_SUCCESS) {
+        APPS_LOG_MSGID_E(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_ep_tx fail: 0x%X", 1, ret);
+    }
+}
+
+#include "apps_events_event_group.h"
+#include "apps_events_usb_event.h"
+void app_dongle_ull_le_hid_ep_cb(uint8_t *data, uint32_t len)
+{
+    // data from PC, need to send to DUT by BT
+    if (data == NULL) {
+        return;
+    }
+
+    if (data[0] != USB_HID_EPIO_RX_REPORT_ID || len != USB_HID_EPIO_RX_REPORT_LEN) {
+        return;
+    }
+
+    LOG_HEXDUMP_I(apps, "app_dongle_ull_le_hid_ep_cb data: ", data, len);
+    
+    void *extra_data = pvPortMalloc(len);
+    if (extra_data == NULL) {
+        APPS_LOG_MSGID_I(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_ep_cb: malloc fail", 0);
+        return;
+    }
+    memcpy(extra_data, data, len);
+    ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_USB_AUDIO,
+                    APPS_EVENTS_USB_HID_EP_TX, extra_data, len, NULL, 0);
+}
+
+void app_dongle_ull_le_hid_ep_tx_reg(void)
+{
+    USB_HID_HANDLER_t ret = usb_hid_handler_rx_register(USB_HID_EPIO_RX_REPORT_ID, USB_HID_EPIO_REPORT_LEN, app_dongle_ull_le_hid_ep_cb);
+    if (ret != USB_HID_HANDLER_STATUS_OK) {
+        APPS_LOG_MSGID_E(APP_DONGLE_HID_LOG_TAG"app_dongle_ull_le_hid_ep_tx_reg fail: %d", 1, ret);
+    }
+}
+#endif
 
 #endif

@@ -141,29 +141,109 @@ ATTR_TEXT_IN_FAST_MEM mux_status_t mux_rx_ll(mux_handle_t handle, mux_buffer_t *
 
     vdma_get_available_receive_bytes(uart_rx_ch[MUX_LL_PORT_2_UART_PORT(handle_to_port(handle))], &vd_len);
 
-    RB_LOG_I("[mux_rx_ll] [%02x] expect size=%d real size=%d, ud_len=%d, vd_len=%d acc_cnt=%u damount=%u bt_clk=%uus", 8, rxbuf->uid, buffer->buf_size, *receive_done_data_len,\
-        mux_ringbuffer_data_length(&user_config->rxbuf), vd_len, rxbuf->access_count, rxbuf->data_amount, mux_get_bt_clock_count());
+    RB_LOG_I("[mux_rx_ll] [%02x] expect size=%d real size=%d, ud_len=%d, vd_len=%d acc_cnt=%u damount=%u uwm=%u bt_clk=%uus", 9, rxbuf->uid, buffer->buf_size, *receive_done_data_len,\
+        mux_ringbuffer_data_length(rxbuf), vd_len, rxbuf->access_count, rxbuf->data_amount, rxbuf->water_mark, mux_get_bt_clock_count());
 
     return MUX_STATUS_OK;
 }
 
+ATTR_TEXT_IN_FAST_MEM bool mux_ll_uart_notify_mcu(mux_ll_message_t message, void * param)
+{
+    hal_ccni_status_t status;
+    bool norify_status = true;
+    uint32_t count = 0;
+    uint32_t msg_array[2] = {0};
+    msg_array[0] = message;
+    msg_array[1] = (uint32_t)param;
+    do {
+        status = hal_ccni_set_event(CCNI_DSP0_TO_CM4_LL_UART, (hal_ccni_message_t*)msg_array);
+        if(status == HAL_CCNI_STATUS_BUSY) {
+            hal_gpt_delay_us(100);
+            count++;
+        }
+        if (count > 10) {
+            norify_status = false;
+            break;   //wait a while and exit if it is overtime.
+        }
+    } while(status == HAL_CCNI_STATUS_BUSY);
+
+    return norify_status;
+}
 
 ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_notify_mcu_ready_to_write(mux_ll_user_config_t * user_config, uint32_t write_len)
 {
-    hal_ccni_status_t ret;
-    uint32_t msg_array[2] = {0};
+    uint32_t param;
     uint32_t ud_len = mux_ringbuffer_data_length(&user_config->txbuf);
 
-    msg_array[0] = (user_config->txbuf.uid << 16) | ud_len;
-    ret = hal_ccni_set_event(CCNI_DSP0_TO_CM4_LL_UART, (hal_ccni_message_t*)msg_array);
-    if (HAL_CCNI_STATUS_OK != ret) {
-        RB_LOG_D("DSP CCNI send fail, return=%d, uid=%02x ud_len=%u write_len=%u", 4, ret, \
+    param = (user_config->txbuf.uid << 16) | ud_len;
+    if (!mux_ll_uart_notify_mcu(MUX_LL_MSG_READY_TO_WRITE, (void*)param)) {
+        RB_LOG_D("DSP CCNI send fail, uid=%02x ud_len=%u write_len=%u", 3, \
             user_config->txbuf.uid, ud_len, write_len);
-    } else {
-        RB_LOG_D("DSP CCNI send ok", 0);
     }
 }
 
+ATTR_TEXT_IN_FAST_MEM bool mux_ll_uart_is_tx_blocking(mux_ringbuffer_t *txbuf)
+{
+    return ((g_uart_regbase[txbuf->port_idx]->MCR_UNION.MCR & 0x10000) == 0x10000);
+}
+
+ATTR_TEXT_IN_FAST_MEM mux_status_t mux_tx_ll_with_silence(mux_handle_t handle, const mux_buffer_t buffers[], uint32_t buffers_counter, uint32_t *send_done_data_len)
+{
+    mux_ringbuffer_t *txbuf;
+    mux_ll_user_config_t *user_config;
+    mux_status_t mux_status = MUX_STATUS_OK;
+    uint32_t uid;
+    uint32_t i;
+    uint32_t start_tick;
+    uint32_t elapse_tick = 0;
+    uint32_t payload_size = 0;
+    uint32_t silence_write_done;
+    uid = handle_to_user_id(handle);
+    user_config = (mux_ll_user_config_t *)&g_mux_ll_config->user_config[uid];
+    txbuf = &user_config->txbuf;
+
+    if (user_config->tx_silence_enable) {
+        //step1: Judge whether need add silence
+        if (txbuf->drop_count > 0) {
+            silence_write_done = mux_ringbuffer_write_silence_st(txbuf, txbuf->drop_count);
+            RB_LOG_W("[mux_tx_ll] [%02x] add silence data %u bytes, total=%u ", 3, txbuf->uid, silence_write_done, txbuf->drop_count);
+            if (silence_write_done != txbuf->drop_count) {
+                if (mux_ll_uart_is_tx_blocking(txbuf)) {
+                    RB_LOG_W("[mux_tx_ll] [%02x] the other side maybe crash!", 1, txbuf->uid);
+                } else {
+                    RB_LOG_W("[mux_tx_ll] [%02x] tx silence fail, silence data=%u", 2, txbuf->uid, txbuf->drop_count);
+                    // assert(0 && "tx silience fail!!");
+                }
+                txbuf->drop_count -= silence_write_done;
+            } else {
+                txbuf->drop_count = 0;
+            }
+        }
+
+        //step2: while loop to send with timeout
+        /* Calculate total size of payload */
+        for (i = 0; i < buffers_counter; i++) {
+            payload_size += buffers[i].buf_size;
+        }
+        start_tick = mux_get_gpt_tick_count();
+        while (user_config->tx_silence_timeout > elapse_tick) {
+            if(mux_ringbuffer_free_space(txbuf) >= payload_size) {
+                break;
+            }
+            elapse_tick = mux_get_tick_elapse(start_tick);
+        }
+
+        if (user_config->tx_silence_timeout > elapse_tick) {//not timeout
+            mux_status = mux_tx_ll(handle, buffers, buffers_counter, send_done_data_len);
+            txbuf->drop_count += (payload_size - *send_done_data_len);
+        } else {
+            txbuf->drop_count += payload_size;
+        }
+    } else {
+        return mux_tx_ll(handle, buffers, buffers_counter, send_done_data_len);
+    }
+    return mux_status;
+}
 ATTR_TEXT_IN_FAST_MEM mux_status_t mux_tx_ll(mux_handle_t handle, const mux_buffer_t buffers[], uint32_t buffers_counter, uint32_t *send_done_data_len)
 {
     mux_ringbuffer_t *txbuf;
@@ -172,6 +252,7 @@ ATTR_TEXT_IN_FAST_MEM mux_status_t mux_tx_ll(mux_handle_t handle, const mux_buff
     uint32_t uid;
     uint32_t i;
     uint32_t vd_len = 0;
+    uint32_t payload_size = 0;
 
 #ifdef MUX_LL_UART_RB_DUMP_ENABLE
     uint32_t expected_total_size = 0;
@@ -191,7 +272,18 @@ ATTR_TEXT_IN_FAST_MEM mux_status_t mux_tx_ll(mux_handle_t handle, const mux_buff
         return MUX_STATUS_ERROR_NOT_INIT;
     }
 
+    /* Calculate total size of payload */
+    for (i = 0; i < buffers_counter; i++) {
+        payload_size += buffers[i].buf_size;
+    }
 
+    vdma_get_available_receive_bytes(uart_tx_ch[MUX_LL_PORT_2_UART_PORT(handle_to_port(handle))], &vd_len);
+
+    if (g_mux_ll_config->device_mode == DCHS_MODE_SINGLE) {
+        RB_LOG_W("[mux_tx_ll] bypass, uid=%02x send_len=%d ud_len=%d vd_len=%d dev_mode=%u", 5, txbuf->uid, payload_size, mux_ringbuffer_data_length(txbuf), vd_len, g_mux_ll_config->device_mode);
+        *send_done_data_len = payload_size;
+        return MUX_STATUS_OK;
+    }
     for (i = 0; i < buffers_counter; i++) {
         pbuf = &buffers[i];
             send_len += mux_ringbuffer_write(txbuf, pbuf->p_buf, pbuf->buf_size);
@@ -208,12 +300,10 @@ ATTR_TEXT_IN_FAST_MEM mux_status_t mux_tx_ll(mux_handle_t handle, const mux_buff
     txbuf->data_amount += send_len;
     *send_done_data_len = send_len;
 
-    vdma_get_available_receive_bytes(uart_tx_ch[MUX_LL_PORT_2_UART_PORT(handle_to_port(handle))], &vd_len);
-
     mux_ll_uart_notify_mcu_ready_to_write(user_config, send_len);
 
-    RB_LOG_I("[mux_tx_ll] [%02x] write_len=%d ud_len=%d vd_len=%d MCR=0x%x acc_cnt=%u damount=%u bt_clk=%uus", 8, txbuf->uid, send_len, mux_ringbuffer_data_length(txbuf), \
-    vd_len, g_uart_regbase[1]->MCR_UNION.MCR, txbuf->access_count, txbuf->data_amount, mux_get_bt_clock_count());
+    RB_LOG_I("[mux_tx_ll] [%02x] write_len=%d ud_len=%d vd_len=%d MCR=0x%x acc_cnt=%u damount=%u uwm=%u bt_clk=%uus", 9, txbuf->uid, send_len, mux_ringbuffer_data_length(txbuf), \
+    vd_len, g_uart_regbase[1]->MCR_UNION.MCR, txbuf->access_count, txbuf->data_amount, txbuf->water_mark, mux_get_bt_clock_count());
 
     return MUX_STATUS_OK;
 }
@@ -265,14 +355,12 @@ ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_rx_event_from_mcu_handler(hal_ccni_event_
 mux_status_t mux_control_ll(mux_handle_t handle, mux_ctrl_cmd_t command, mux_ctrl_para_t *para)
 {
     uint32_t uid;
-    // uint32_t port_idx;
-    // uint32_t rl_tx_pkt_len;
     mux_ll_user_config_t *user_config;
+    mux_ll_user_timeout_with_silence_t * timeout_with_silence;
     uid = handle_to_user_id(handle);
 
     user_config = (mux_ll_user_config_t *)&g_mux_ll_config->user_config[uid];
     switch(command) {
-
     case MUX_CMD_GET_LL_USER_RX_BUFFER_DATA_SIZE:
         para->mux_ll_user_rx_data_len = mux_ringbuffer_data_length(&user_config->rxbuf);
         if (para->mux_ll_user_rx_data_len == 0) {
@@ -284,19 +372,14 @@ mux_status_t mux_control_ll(mux_handle_t handle, mux_ctrl_cmd_t command, mux_ctr
         RB_LOG_I("[mux_control_ll] uid[%02u] tx_ud_len:%u", 2, uid, para->mux_ll_user_tx_free_len);
         break;
     case MUX_CMD_SET_LL_USER_TX_PKT_LEN:
-        // if (user_config->txbuf.flags & MUX_RB_FLAG_DATA_4TO3) {
-        //     rl_tx_pkt_len = para->mux_ll_user_tx_pkt_len >> 2;
-        //     rl_tx_pkt_len = (rl_tx_pkt_len << 1) + rl_tx_pkt_len;
-        // } else {
-        //     rl_tx_pkt_len = para->mux_ll_user_tx_pkt_len;
-        // }
-        // RB_LOG_I("[mux_control_ll] uid[%02u] rl_tx_pkt_len:%u", 2, uid, rl_tx_pkt_len);
-        // g_mux_ll_config->uart_tx_threshold = RB_MIN(rl_tx_pkt_len + g_mux_ll_config->tx_pkt_head_tail_len, g_mux_ll_config->uart_tx_threshold) - 1;
-        // g_mux_ll_config->uart_rx_threshold = RB_MAX(rl_tx_pkt_len + g_mux_ll_config->tx_pkt_head_tail_len, g_mux_ll_config->uart_rx_threshold) - 1;
-        // user_config->uattr.tx_pkt_len = para->mux_ll_user_tx_pkt_len;
-        // port_idx = MUX_LL_PORT_2_UART_PORT(handle_to_port(handle));
-        // vdma_set_threshold(uart_tx_ch[port_idx], g_mux_ll_config->uart_tx_threshold);
-        // vdma_set_threshold(uart_rx_ch[port_idx], g_mux_ll_config->uart_rx_threshold);
+        break;
+    case MUX_CMD_SET_LL_USER_TIMEOUT_WITH_SILENCE:
+        RB_LOG_W("[mux_control_ll] uid[%02u] set time with silence", 1, uid);
+        timeout_with_silence = (mux_ll_user_timeout_with_silence_t*)para;
+        user_config->tx_silence_timeout = timeout_with_silence->tx_timeout;
+        user_config->rx_silence_enable = timeout_with_silence->rx_enable;
+        user_config->tx_silence_enable = timeout_with_silence->tx_enable;
+        user_config->rx_silence_drop_max = timeout_with_silence->rx_drop_max;
         break;
     default:
         break;
@@ -316,7 +399,7 @@ mux_status_t mux_query_ll_user_handle(mux_port_t port, const char *user_name, mu
         return MUX_STATUS_ERROR_PARAMETER;
     }
 
-    ll_user_count = sizeof(g_mux_ll_config->user_config) / sizeof(g_mux_ll_config->user_config[0]);
+    ll_user_count = g_mux_ll_config->user_count;
 
     for (i = 0; i < ll_user_count; i++) {
         mux_ll_user_config = (mux_ll_user_config_t *)&g_mux_ll_config->user_config[i];
@@ -347,15 +430,44 @@ mux_ringbuffer_t * mux_query_ll_user_buffer(mux_handle_t handle, bool is_rx)
 
 void mux_clear_ll_user_buffer(mux_handle_t handle, bool is_rx)
 {
+    uint32_t uid = handle_to_user_id(handle);
+    mux_ll_user_config_t *user_config = NULL;
     mux_ringbuffer_t *rb;
+    uint32_t mask;
+    uint32_t count = 0;
+    uint32_t local_msg_status = 0;
+    uint32_t data_size;
 
-    LOG_MSGID_I(common, "[mux_clear_ll_user_buffer] handle=0x%x is_rx=%d", 2, handle, is_rx);
-
+    user_config = (mux_ll_user_config_t *)&g_mux_ll_config->user_config[uid];
     rb = mux_query_ll_user_buffer(handle, is_rx);
-    if (rb) {
-        mux_ringbuffer_reset(rb);
-    } else {
-        RB_LOG_E("Handle error:0x%x", 1, handle);
+    if (!rb) {
+        RB_LOG_E("[mux_clear_ll_user_buffer] Handle error:0x%x", 1, handle);
+        return;
+    }
+    data_size = mux_ringbuffer_data_length(rb);
+    if (data_size == 0) {
+        LOG_MSGID_I(common, "[mux_clear_ll_user_buffer] DSP trigger clear: handle=0x%x is_rx=%d, buffer empty", 3, handle, is_rx);
+        return;
+    }
+
+    local_msg_status = (is_rx) ? (1) : (1 << 1);
+
+    port_mux_cross_local_enter_critical(&mask);
+    user_config->msg_status |= local_msg_status;
+    port_mux_cross_local_exit_critical(mask);
+
+    LOG_MSGID_I(common, "[mux_clear_ll_user_buffer] DSP trigger clear: handle=0x%x is_rx=%d, msg_status=0x%x", 3, handle, is_rx, user_config->msg_status);
+
+    if (!mux_ll_uart_notify_mcu(MUX_LL_MSG_CLEAR_USER_BUFFER, (void*)(local_msg_status | (uid << 8)))) {
+        RB_LOG_D("DSP CCNI send fail, uid=%02x clear [%d] buffer fail", 2, uid, is_rx);
+    }
+
+    while ((user_config->msg_status & local_msg_status) != 0) {
+        hal_gpt_delay_us(10);
+        if (count++ > 200) {
+            assert(0 && "mux_clear_ll_user_buffer timeout");
+            break;
+        }
     }
 }
 

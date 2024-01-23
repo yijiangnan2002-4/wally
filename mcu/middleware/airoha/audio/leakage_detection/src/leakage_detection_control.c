@@ -44,6 +44,9 @@
 #ifdef MTK_AWS_MCE_ENABLE
 #include "bt_aws_mce_report.h"
 #include "bt_sink_srv_common.h"
+#ifdef AIR_LE_AUDIO_ENABLE
+#include "bt_sink_srv_le_volume.h"
+#endif
 #endif
 
 log_create_module(leakage_detection, PRINT_LEVEL_INFO);
@@ -67,11 +70,20 @@ uint32_t g_leakage_compensation_no_response_duration = 7000000;
 extern audio_dsp_leakage_compensation_report_param_t leakage_compensation_info;
 S8 g_record_lc_id = 0;
 bool g_leakage_compensation_status = 0;
-//int16_t g_record_LC_data[LD_FRAME_SIZE];
 extern uint16_t g_stream_in_code_type;
 bool g_leakage_detection_mute_flag = false;
 bool g_leakage_detection_prepare_flag = false;
+bool audio_anc_leakage_detection_get_ul_status(void);
 
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+extern audio_dsp_fadp_anc_compensation_report_param_t fadp_anc_compensation_info;
+S8 g_record_fanc_comp_id = 0;
+bool g_fadp_anc_compensation_status = 0;
+bool g_fadp_anc_compensation_mute_flag = false;
+bool g_fadp_anc_compensation_prepare_flag = false;
+int16_t g_record_fadp_anc_comp_data[160];
+int16_t g_record_LC_data[LD_FRAME_SIZE];
+#endif
 
 /*===================
 *                 sync control
@@ -198,7 +210,16 @@ audio_anc_leakage_detection_execution_t audio_anc_leakage_detection_control(audi
     switch (event_id) {
         case AUDIO_LEAKAGE_DETECTION_CONTROL_EVENT_MUSIC_MUTE:
         case AUDIO_LEAKAGE_DETECTION_CONTROL_EVENT_MUSIC_UNMUTE: {
+#ifdef AIR_LE_AUDIO_ENABLE
+            if (ami_hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_BLE_DL)) {
+                bt_sink_srv_le_volume_set_mute_ex(BT_SINK_SRV_LE_STREAM_TYPE_OUT, arg->extend_param, true);
+                hal_audio_mute_stream_out(arg->extend_param, HAL_AUDIO_STREAM_OUT1);
+            } else {
+                hal_audio_mute_stream_out(arg->extend_param, HAL_AUDIO_STREAM_OUT1);
+            }
+#else
             hal_audio_mute_stream_out(arg->extend_param, HAL_AUDIO_STREAM_OUT1);
+#endif
             audio_anc_leakage_detection_set_mute_status(arg->extend_param);
             audio_anc_leakage_detection_callback_service(event_id, AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS);
             break;
@@ -207,10 +228,17 @@ audio_anc_leakage_detection_execution_t audio_anc_leakage_detection_control(audi
         case AUDIO_LEAKAGE_DETECTION_CONTROL_EVENT_START: {
             audio_anc_leakage_compensation_set_status(1);
             anc_leakage_compensation_callback_t callback = (anc_leakage_compensation_callback_t)(arg->extend_param);
-            if (callback == NULL) {
-                audio_anc_leakage_compensation_start(anc_leakage_detection_racecmd_callback);
+            if (audio_anc_leakage_detection_get_ul_status() == false) {
+                if (callback == NULL) {
+                    audio_anc_leakage_compensation_start(anc_leakage_detection_racecmd_callback);
+                } else {
+                    audio_anc_leakage_compensation_start((anc_leakage_compensation_callback_t)callback);
+                }
             } else {
-                audio_anc_leakage_compensation_start((anc_leakage_compensation_callback_t)callback);
+                LEAKAGE_DETECTION_LOG_I("[RECORD_LC] START event terminate due to UL scenarios exist", 0);
+                audio_anc_leakage_compensation_set_status(0);
+                audio_anc_leakage_compensation_terminate();
+                return AUDIO_LEAKAGE_DETECTION_EXECUTION_FAIL;
             }
             break;
         }
@@ -221,7 +249,32 @@ audio_anc_leakage_detection_execution_t audio_anc_leakage_detection_control(audi
             }
             break;
         }
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+        case AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_MUSIC_MUTE:
+        case AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_MUSIC_UNMUTE: {
+            hal_audio_mute_stream_out(arg->extend_param, HAL_AUDIO_STREAM_OUT1);
+            audio_fadp_anc_compensation_set_mute_status(arg->extend_param);
+            audio_anc_leakage_detection_callback_service(event_id, AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS);
+            break;
+        }
 
+        case AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_START: {
+            audio_fadp_anc_compensation_set_status(1);
+            anc_leakage_compensation_callback_t callback = (anc_leakage_compensation_callback_t)(arg->extend_param);
+                if (callback == NULL) {
+                    audio_fadp_anc_compensation_start(anc_fadp_compensation_racecmd_callback);
+                } else {
+                    audio_fadp_anc_compensation_start((anc_leakage_compensation_callback_t)callback);
+                }
+            break;
+        }
+        case AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_STOP: {
+            if (audio_fadp_anc_compensation_get_status() == 1) {
+                audio_fadp_anc_compensation_terminate();
+            }
+            break;
+        }
+#endif
         default:
             return AUDIO_LEAKAGE_DETECTION_EXECUTION_FAIL;
     }
@@ -232,6 +285,7 @@ audio_anc_leakage_detection_execution_t audio_anc_leakage_detection_sync_control
 {
     audio_anc_leakage_detection_execution_t ret = AUDIO_LEAKAGE_DETECTION_EXECUTION_NONE;
     uint32_t sync_mode = LD_DIRECT;
+
     if (arg->target_device == TO_ITSELF) {
         ret = audio_anc_leakage_detection_control(event_id, arg);
     } else {
@@ -362,7 +416,11 @@ int32_t audio_anc_read_leakage_compensation_parameters_nvdm(void)
     }
     if (nvkey_length == length) {
         status = flash_memory_read_nvdm_data(NVKEY_DSP_PARA_LEAKAGE_COMPENSATION, (uint8_t *)&leakage_compensation_param, &length);
-        LEAKAGE_DETECTION_LOG_I("[RECORD_LC]read nvkey id:0x%x, status:%d, ld_thrd:0x%x, RXIN_TXREF_DELAY:0x%x, DIGITAL_GAIN:0x%x", 5, NVKEY_DSP_PARA_LEAKAGE_COMPENSATION, status, leakage_compensation_param.ld_thrd, leakage_compensation_param.RXIN_TXREF_DELAY, leakage_compensation_param.DIGITAL_GAIN);
+        if (status == NVDM_STATUS_NAT_OK) {
+            LEAKAGE_DETECTION_LOG_I("[RECORD_LC]read nvkey ld_thrd:0x%x, RXIN_TXREF_DELAY:0x%x, DIGITAL_GAIN:0x%x", 3, leakage_compensation_param.ld_thrd, leakage_compensation_param.RXIN_TXREF_DELAY, leakage_compensation_param.DIGITAL_GAIN);
+        } else {
+            LEAKAGE_DETECTION_LOG_E("[RECORD_LC] Read Nvkey data Fail id:0x%x, status:%d ", 2, NVKEY_DSP_PARA_LEAKAGE_COMPENSATION, status);
+        }
     } else {
         LEAKAGE_DETECTION_LOG_E("[RECORD_LC] Wrong nvkey length, use default value instead. read_len:%d, nv_len:%d", 2, nvkey_length, length);
     }
@@ -398,7 +456,7 @@ void audio_anc_leakage_compensation_CCNI_callback(hal_audio_event_t event, void 
 
 void audio_anc_leakage_compensation_AM_notify_callback(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am_cb_msg_class_t msg_id, bt_sink_srv_am_cb_sub_msg_t sub_msg, void *parm)
 {
-    LEAKAGE_DETECTION_LOG_I("[RECORD_LC]AM_CB, aud_id:%x, msg_id:%x, sub_msg:%x; Error case:(0,2),(3,x)", aud_id, msg_id, sub_msg);
+    LEAKAGE_DETECTION_LOG_I("[RECORD_LC]AM_CB, aud_id:%d, msg_id:%d, sub_msg:%d", 3, aud_id, msg_id, sub_msg);
     if (msg_id == AUD_SELF_CMD_REQ) {
         if (sub_msg == AUD_CMD_FAILURE) {
             //Start Record Request Fail because HFP exist. /*Reject Request.*/
@@ -431,10 +489,15 @@ void audio_anc_leakage_compensation_anc_callback(audio_anc_control_event_t event
             }
 
             audio_anc_leakage_detection_sync_para_t arg;
+#ifdef MTK_AWS_MCE_ENABLE
             arg.target_device = TO_BOTH;
             arg.extend_param = 0;
             anc_res = audio_anc_leakage_detection_sync_control(AUDIO_LEAKAGE_DETECTION_CONTROL_EVENT_START, &arg);
-
+#else
+            arg.target_device = TO_ITSELF;
+            arg.extend_param = 0;
+            anc_res = audio_anc_leakage_detection_timer_service(LD_SYNC_LATENCY, AUDIO_LEAKAGE_DETECTION_CONTROL_EVENT_START, &arg);
+#endif
             if (anc_res != AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) {
 
                 //LEAKAGE_DETECTION_LOG_I("[RECORD_LC] anc_sync_control fail:%d", 1, anc_res);
@@ -544,7 +607,11 @@ void audio_anc_leakage_compensation_terminate(void)
     }
 
     //unmute music
+#ifdef AIR_LE_AUDIO_ENABLE
+    bt_sink_srv_le_volume_set_mute_ex(BT_SINK_SRV_LE_STREAM_TYPE_OUT, false, true);
+#endif
     hal_audio_mute_stream_out(false, HAL_AUDIO_STREAM_OUT1);
+
     audio_anc_leakage_detection_set_mute_status(false);
     g_leakage_detection_prepare_flag = false;
 }
@@ -576,7 +643,11 @@ audio_anc_leakage_detection_execution_t audio_anc_leakage_detection_mute_music(b
     LEAKAGE_DETECTION_LOG_I("[RECORD_LC] audio_anc_leakage_detection_mute_music, mute:%d", 1, is_mute);
 
     audio_anc_leakage_detection_sync_para_t arg;
+#ifdef MTK_AWS_MCE_ENABLE
     arg.target_device = TO_BOTH;
+#else
+    arg.target_device = TO_ITSELF;
+#endif
     arg.extend_param = (uint32_t)is_mute;
     if (is_mute) {
         anc_res = audio_anc_leakage_detection_sync_control(AUDIO_LEAKAGE_DETECTION_CONTROL_EVENT_MUSIC_MUTE, &arg);
@@ -587,10 +658,31 @@ audio_anc_leakage_detection_execution_t audio_anc_leakage_detection_mute_music(b
     return anc_res;
 }
 
+bool audio_anc_leakage_detection_get_ul_status(void)
+{
+    bool state = false;
+    //bt_sink_srv_cap_am_mode bt_sink_mode = bt_sink_srv_cap_am_get_current_mode();
+
+    if (/*bt_sink_srv_cap_am_is_lea_streaming(true) || LEA UL streaming*/
+        (ami_hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_BLE_UL)) || /*BLE UL streaming*/
+        /*(bt_sink_mode <= CAP_AM_UNICAST_CALL_MODE_END) || BLE UL streaming*/
+        /* bt_sink_srv_call_psd_get_playing_state() */
+        (ami_hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_HFP_UL))) { /*HFP UL streaming*/
+        state = true;
+    }
+
+    LEAKAGE_DETECTION_LOG_I("[RECORD_LC]audio_anc_leakage_detection_get_ul_status: %d", 1, state);
+
+    return state;
+}
+
 audio_anc_leakage_detection_execution_t audio_anc_leakage_detection_prepare(anc_leakage_compensation_callback_t callback)
 {
     audio_anc_leakage_detection_execution_t anc_res = AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS;
-    if (audio_anc_leakage_compensation_get_status() || audio_anc_leakage_detection_get_mute_status() || g_leakage_detection_prepare_flag) {
+    if (audio_anc_leakage_compensation_get_status() ||
+        audio_anc_leakage_detection_get_mute_status() ||
+        audio_anc_leakage_detection_get_ul_status() ||
+        g_leakage_detection_prepare_flag) {
         LEAKAGE_DETECTION_LOG_I("[RECORD_LC]audio_anc_leakage_detection_start, reject due to LD is happenings, g_leakage_compensation_status:%d, mute_flag:%d, prepare_flag:%d", 3, g_leakage_compensation_status, g_leakage_detection_mute_flag, g_leakage_detection_prepare_flag);
         anc_res = AUDIO_LEAKAGE_DETECTION_EXECUTION_NOT_ALLOWED;
         return anc_res;
@@ -612,7 +704,14 @@ audio_anc_leakage_detection_execution_t audio_anc_leakage_detection_prepare(anc_
         return AUDIO_ANC_CONTROL_EXECUTION_NOT_ALLOWED;
     }
 #else
-    return AUDIO_ANC_CONTROL_EXECUTION_NOT_ALLOWED;
+    leakage_compensation_info.api_callback = (callback == NULL) ? audio_anc_leakage_compensation_cb : callback;
+    LEAKAGE_DETECTION_LOG_I("[RECORD_LC][debug]audio_anc_leakage_detection_prepare, leakage_compensation_info.api_callback:0x%x, callback:0x%x", 2, leakage_compensation_info.api_callback, callback);
+    #ifndef AIR_ANC_FIT_DETECTION_SRC_A2DP_ENABLE
+        g_leakage_detection_prepare_flag = true;
+        anc_res = audio_anc_leakage_detection_mute_music(true);
+    #else
+        anc_res = audio_anc_leakage_detection_start(leakage_compensation_info.api_callback);
+    #endif
 #endif
 
     return anc_res;
@@ -624,9 +723,12 @@ void audio_anc_leakage_detection_init(void)
     g_leakage_detection_sync_control.sync_time = LD_SYNC_LATENCY;
     g_leakage_detection_sync_control.timer_available = 1;
 
+#ifdef MTK_AWS_MCE_ENABLE
     if (bt_aws_mce_report_register_callback(BT_AWS_MCE_REPORT_MODULE_LEAKAGE_DET, bt_aws_mce_report_LD_callback) != BT_STATUS_SUCCESS) {
         //LEAKAGE_DETECTION_LOG_E("[RECORD_LC]failed to register aws mce report callback\r\n", 0);
     }
+#endif
+
     if (g_LD_timer == NULL) {
         g_LD_timer = xTimerCreate("LDTimer", (LD_SYNC_LATENCY / portTICK_PERIOD_MS), pdFALSE, 0, audio_anc_leakage_detection_timer_callback);
     }
@@ -773,7 +875,7 @@ audio_anc_leakage_detection_execution_t audio_anc_leakage_detection_resume_anc(v
     return anc_ret;
 
 }
-
+#ifdef MTK_AWS_MCE_ENABLE
 void audio_anc_leakage_detection_send_aws_mce_race_ch_id(uint8_t race_ch_id)
 {
     audio_anc_leakage_detection_execution_t res = AUDIO_LEAKAGE_DETECTION_EXECUTION_NONE;
@@ -785,7 +887,7 @@ void audio_anc_leakage_detection_send_aws_mce_race_ch_id(uint8_t race_ch_id)
     //     LEAKAGE_DETECTION_LOG_E("[RECORD_LC]send race ch id Fail", 0);
     }
 }
-
+#endif
 void audio_anc_leakage_detection_set_mute_status(bool mute)
 {
     LEAKAGE_DETECTION_LOG_I("[RECORD_LC]audio_anc_leakage_detection_set_mute_status, mute:%d\r\n", 1, mute);
@@ -797,4 +899,475 @@ bool audio_anc_leakage_detection_get_mute_status(void)
     LEAKAGE_DETECTION_LOG_I("[RECORD_LC]audio_anc_leakage_detection_get_mute_status, mute:%d\r\n", 1, g_leakage_detection_mute_flag);
     return g_leakage_detection_mute_flag;
 }
+
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+void audio_fadp_anc_compensation_mute_music_callback(audio_anc_leakage_detection_control_event_t event_id, audio_anc_leakage_detection_execution_t result)
+{
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD] mute music callback - event:%d result:%d, fadp_anc_compensation_info.api_callback:0x%x", 3, event_id, result, fadp_anc_compensation_info.api_callback);
+
+    if (event_id == AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_MUSIC_MUTE) {
+        audio_anc_leakage_detection_execution_t anc_res = audio_fadp_anc_compensation_send_start(fadp_anc_compensation_info.api_callback);
+        if (anc_res != AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) {
+            LEAKAGE_DETECTION_LOG_E("[RECORD_SzD] audio_fadp_anc_compensation_send_start fail:%d", 1, anc_res);
+            audio_fadp_anc_compensation_terminate();
+        }
+        g_fadp_anc_compensation_prepare_flag = false;
+    } else if (event_id == AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_MUSIC_UNMUTE) {
+    }
+}
+
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_mute_music(bool is_mute)
+{
+    audio_anc_leakage_detection_execution_t anc_res = AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS;
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD] audio_fadp_anc_compensation_mute_music, mute:%d", 1, is_mute);
+
+    audio_anc_leakage_detection_sync_para_t arg;
+
+    arg.target_device = TO_ITSELF;
+    arg.extend_param = (uint32_t)is_mute;
+    if (is_mute) {
+        anc_res = audio_anc_leakage_detection_control(AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_MUSIC_MUTE, &arg);
+    } else {
+        anc_res = audio_anc_leakage_detection_control(AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_MUSIC_UNMUTE, &arg);
+    }
+
+    return anc_res;
+}
+
+void audio_fadp_anc_compensation_init(void)
+{
+    if (g_LD_timer == NULL) {
+        g_LD_timer = xTimerCreate("LDTimer", (LD_SYNC_LATENCY / portTICK_PERIOD_MS), pdFALSE, 0, audio_anc_leakage_detection_timer_callback);
+        if (g_LD_timer == NULL) {
+            LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]leakage_detection_init: create timer failed\n", 0);
+        }
+    }
+
+    audio_anc_leakage_detection_execution_t anc_res = AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS;
+    anc_res |= audio_anc_leakage_detection_control_register_callback((audio_anc_leakage_detection_control_callback_t) audio_fadp_anc_compensation_mute_music_callback,
+                                                                     AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_MUSIC_UNMUTE | AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_MUSIC_MUTE,
+                                                                     AUDIO_LEAKAGE_DETECTION_CONTROL_CB_LEVEL_ALL);
+
+    if (anc_res != AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) {
+        LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]audio_anc_leakage_detection_control_register_callback FAIL", 0);
+    }
+
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]fadp_anc_compensation_init done\n", 0);
+}
+
+void audio_fadp_anc_compensation_register_vp_start_callback(anc_leakage_compensation_callback_t callback)
+{
+    audio_fadp_anc_compensation_init();
+
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]audio_anc_leakage_detection_register_vp_start_callback", 0);
+    fadp_anc_compensation_info.vp_start_callback = callback;
+}
+
+int32_t audio_fadp_anc_compensation_parameters_nvdm(void)
+{
+    uint32_t nvkey_length_alg, nvkey_length_mag;
+    uint32_t length = sizeof(mcu2dsp_szd_param_t);
+    sysram_status_t status = 0;
+    mcu2dsp_szd_param_t fadp_anc_compensation_param;
+    void *p_param_share;
+
+#if 1
+    if (NVDM_STATUS_NAT_OK == flash_memory_query_nvdm_data_length(NVKEY_DSP_PARA_SZ_DET_ALG, &nvkey_length_alg)) {
+        flash_memory_read_nvdm_data(NVKEY_DSP_PARA_SZ_DET_ALG, (uint8_t *)&fadp_anc_compensation_param.szd_nvkey_alg, &nvkey_length_alg);
+    } else {
+        LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]Failded to Read SZD Para, Para ID = [0x%04x]", 1, NVKEY_DSP_PARA_SZ_DET_ALG);
+    }
+
+    if (NVDM_STATUS_NAT_OK == flash_memory_query_nvdm_data_length(NVKEY_DSP_PARA_SZ_DET_MAG_1, &nvkey_length_mag)) {
+        flash_memory_read_nvdm_data(NVKEY_DSP_PARA_SZ_DET_MAG_1, (uint8_t *)&fadp_anc_compensation_param.szd_nvkey_mag_1, &nvkey_length_mag);
+    } else {
+        LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]Failded to Read SZD MAG_1, Para ID = [0x%04x]", 1, NVKEY_DSP_PARA_SZ_DET_MAG_1);
+    }
+
+    if (NVDM_STATUS_NAT_OK == flash_memory_query_nvdm_data_length(NVKEY_DSP_PARA_SZ_DET_MAG_2, &nvkey_length_mag)) {
+        flash_memory_read_nvdm_data(NVKEY_DSP_PARA_SZ_DET_MAG_2, (uint8_t *)&fadp_anc_compensation_param.szd_nvkey_mag_2, &nvkey_length_mag);
+    } else {
+        LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]Failded to Read SZD MAG_2, Para ID = [0x%04x]", 1, NVKEY_DSP_PARA_SZ_DET_MAG_1);
+    }
+
+    if (NVDM_STATUS_NAT_OK == flash_memory_query_nvdm_data_length(NVKEY_DSP_PARA_SZ_DET_MAG_3, &nvkey_length_mag)) {
+        flash_memory_read_nvdm_data(NVKEY_DSP_PARA_SZ_DET_MAG_3, (uint8_t *)&fadp_anc_compensation_param.szd_nvkey_mag_3, &nvkey_length_mag);
+    } else {
+        LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]Failded to Read SZD MAG_3, Para ID = [0x%04x]", 1, NVKEY_DSP_PARA_SZ_DET_MAG_1);
+    }
+#else
+    status =  flash_memory_query_nvdm_data_length(NVKEY_DSP_PARA_SZ_DET_ALG, &nvkey_length);
+
+    if (status || !nvkey_length) {
+        LEAKAGE_DETECTION_LOG_E("[RECORD_SzD] Read Nvkey length Fail id:0x%x, status:%d ", 2, NVKEY_DSP_PARA_FADP_ANC_COMPENSATION, status);
+    }
+    if (nvkey_length == length) {
+        status = flash_memory_read_nvdm_data(NVKEY_DSP_PARA_SZ_DET_ALG, (uint8_t *)&fadp_anc_compensation_param, &length);
+        if (status == NVDM_STATUS_NAT_OK) {
+            LEAKAGE_DETECTION_LOG_I("[RECORD_SzD] Read nvkey DELAY:0x%x, A2DP_THRD:0x%x, OPTION:0x%x, SZ1:0x%x, SZ2:0x%x, SZ3:0x%x", 6,
+                                                                                                    fadp_anc_compensation_param.DELAY,
+                                                                                                    fadp_anc_compensation_param.A2DP_THRD,
+                                                                                                    fadp_anc_compensation_param.OPTION,
+                                                                                                    fadp_anc_compensation_param.SZ_MAG[0][3],
+                                                                                                    fadp_anc_compensation_param.SZ_MAG[1][3],
+                                                                                                    fadp_anc_compensation_param.SZ_MAG[2][3]);
+        } else {
+            LEAKAGE_DETECTION_LOG_E("[RECORD_SzD] Read Nvkey data Fail id:0x%x, status:%d ", 2, NVKEY_DSP_PARA_FADP_ANC_COMPENSATION, status);
+        }
+    } else {
+        LEAKAGE_DETECTION_LOG_E("[RECORD_SzD] Wrong nvkey length, use default value instead. read_len:%d, nv_len:%d", 2, nvkey_length, length);
+    }
+#endif
+
+    p_param_share = hal_audio_dsp_controller_put_paramter(&fadp_anc_compensation_param, length, AUDIO_MESSAGE_TYPE_RECORD);
+    hal_audio_dsp_controller_send_message(MSG_MCU2DSP_RECORD_FANC_COMP_SET_PARAM, 0, (uint32_t)p_param_share, true);
+
+    return ((int32_t)status);
+}
+
+void audio_fadp_anc_compensation_CCNI_callback(hal_audio_event_t event, void *data)
+{
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][CALLBACK]CCNI event %d\r\n", 1, event);
+    switch (event) {
+        case HAL_AUDIO_EVENT_ERROR:
+            LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][CALLBACK]HAL_AUDIO_EVENT_ERROR\r\n", 0);
+            break;
+
+        case HAL_AUDIO_EVENT_DATA_NOTIFICATION:
+            if (g_stream_in_code_type == AUDIO_DSP_CODEC_TYPE_FADP_ANC_COMP) {
+                for (uint16_t i = 0; i < 4 ; i++) {
+                    if (RECORD_CONTROL_EXECUTION_SUCCESS == audio_record_control_read_data(&g_record_fadp_anc_comp_data, (sizeof(int16_t) * 160))) {
+                        //LOG_AUDIO_DUMP(g_record_Rdemo_data, sizeof(int16_t) * 128, VOICE_TX_MIC_3);
+                    } else {
+                        LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][CALLBACK]read stream in failed\r\n", 0);
+                    }
+                }
+            }
+
+            break;
+    }
+}
+
+void audio_fadp_anc_compensation_AM_notify_callback(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am_cb_msg_class_t msg_id, bt_sink_srv_am_cb_sub_msg_t sub_msg, void *parm)
+{
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]AM_CB, aud_id:%d, msg_id:%d, sub_msg:%d", 3, aud_id, msg_id, sub_msg);
+    if (msg_id == AUD_SELF_CMD_REQ) {
+        if (sub_msg == AUD_CMD_FAILURE) {
+            //Start Record Request Fail because HFP exist. /*Reject Request.*/
+            audio_fadp_anc_compensation_terminate();
+        }
+    } else if (msg_id == AUD_SUSPEND_BY_IND) {
+        if (sub_msg == AUD_SUSPEND_BY_HFP) {
+            //Suspend record because HFP interrupt.
+            LEAKAGE_DETECTION_LOG_I("[RECORD_SzD] Suspend record by HFP interrupt", 0);
+            audio_fadp_anc_compensation_terminate();
+        }
+    }
+}
+
+void audio_fadp_anc_compensation_cb(uint16_t leakage_status)
+{
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD] Warning! fadp anc compensation middleware callback", 0);
+    audio_fadp_anc_compensation_stop();
+}
+
+void audio_fadp_anc_compensation_anc_callback(audio_anc_control_event_t event_id, audio_anc_control_result_t result)
+{
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD] ANC callback - event:%d result:%d", 2, event_id, result);
+
+    switch (event_id) {
+        case AUDIO_ANC_CONTROL_EVENT_OFF: {
+            audio_anc_leakage_detection_execution_t anc_res;
+            anc_res = (audio_anc_leakage_detection_execution_t)audio_anc_control_deregister_callback((audio_anc_control_callback_t) audio_fadp_anc_compensation_anc_callback);
+            if (anc_res != AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) {
+                LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]audio_anc_deregister_callback Fail", 0);
+            }
+
+            audio_anc_leakage_detection_sync_para_t arg;
+            arg.target_device = TO_ITSELF;
+            arg.extend_param = 0;
+            anc_res = audio_anc_leakage_detection_timer_service(LD_SYNC_LATENCY, AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_START, &arg);
+
+            if (anc_res != AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) {
+
+                LEAKAGE_DETECTION_LOG_I("[RECORD_SzD] anc_sync_control fail:%d", 1, anc_res);
+                audio_fadp_anc_compensation_terminate();
+            } else {
+                //open vp after anc off
+                if (fadp_anc_compensation_info.vp_start_callback != NULL) {
+                    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]fadp_anc_compensation_info.vp_start_callback", 0);
+                    fadp_anc_compensation_info.vp_start_callback(0);
+                }
+            }
+            break;
+        }
+
+        case AUDIO_ANC_CONTROL_EVENT_ON: {
+            audio_anc_leakage_detection_execution_t anc_res = (audio_anc_leakage_detection_execution_t)audio_anc_control_deregister_callback((audio_anc_control_callback_t) audio_fadp_anc_compensation_anc_callback);
+            if (anc_res != AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) {
+                LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]audio_anc_deregister_callback Fail", 0);
+            }
+
+            //unmute dl
+            anc_res = audio_fadp_anc_compensation_mute_music(false);
+            if (anc_res != AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) {
+                LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]audio_fadp_anc_compensation_mute_music return Fail", 0);
+            }
+        }
+
+    }
+
+}
+
+void audio_fadp_anc_compensation_start(anc_leakage_compensation_callback_t callback)
+{
+    int32_t status;
+
+    status = audio_fadp_anc_compensation_parameters_nvdm();
+
+    if (status == 0) {
+        if (fadp_anc_compensation_info.enable == 1) {
+            LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]FADP ANC compensation start error: already enable, STOP first", 0);
+            fadp_anc_compensation_info.api_callback = anc_fadp_compensation_racecmd_callback;
+            audio_fadp_anc_compensation_stop();
+        }
+
+        //initialize
+        fadp_anc_compensation_info.enable = 1;
+        fadp_anc_compensation_info.calibration_status = 0;
+        fadp_anc_compensation_info.api_callback = (callback == NULL) ? audio_fadp_anc_compensation_cb : callback;
+        LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][debug]audio_fadp_anc_compensation_start, fadp_anc_compensation_info.api_callback:0x%x, callback:0x%x, g_reocrd_id:%d", 3, fadp_anc_compensation_info.api_callback, callback, g_record_fanc_comp_id);
+
+        /* Enable ANC FF only for testing */
+        //audio_anc_control_enable(AUDIO_ANC_CONTROL_FILTER_ID_ANC_1, AUDIO_ANC_CONTROL_TYPE_FF, NULL);
+
+        /*Request AM*/
+        if (g_record_fanc_comp_id == 0) {
+            record_encoder_cability_t encoder_capability;
+            encoder_capability.codec_type = AUDIO_DSP_CODEC_TYPE_FADP_ANC_COMP;
+            encoder_capability.bit_rate = ENCODER_BITRATE_16KBPS;
+            g_record_fanc_comp_id = audio_record_control_enabling_encoder_init(audio_fadp_anc_compensation_CCNI_callback,
+                                                                               NULL,
+                                                                               audio_fadp_anc_compensation_AM_notify_callback,
+                                                                               &encoder_capability);
+            if (g_record_fanc_comp_id < 0) {
+                LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]FADP ANC compensation start, can not get g_reocrd_id %d", 1, g_record_fanc_comp_id);
+                fadp_anc_compensation_info.api_callback(5);
+                return;
+            } else {
+                LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]FADP ANC compensation start, codec_type:%d, g_reocrd_id %d", 2, encoder_capability.codec_type, g_record_fanc_comp_id);
+            }
+        }
+
+        if (audio_record_control_start(g_record_fanc_comp_id) != RECORD_CONTROL_EXECUTION_SUCCESS) {
+            LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]FADP ANC compensation start fail, audio_record_control_start fail", 0);
+            audio_fadp_anc_compensation_terminate();
+        }
+    } else {
+        LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]Leakage compensation start fail, nvdm_status:%d", 2, status);
+        fadp_anc_compensation_info.api_callback(5);
+    }
+}
+
+void audio_fadp_anc_compensation_stop(void)
+{
+    fadp_anc_compensation_info.enable = 0;
+    fadp_anc_compensation_info.api_callback = audio_fadp_anc_compensation_cb;
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][debug]audio_fadp_anc_compensation_stop, status:%d, g_record_fanc_comp_id:%d, fadp_anc_compensation_info.api_callback:0x%x\r\n", 3, fadp_anc_compensation_info.calibration_status, g_record_fanc_comp_id, fadp_anc_compensation_info.api_callback);
+
+    if (g_record_fanc_comp_id != 0) {
+        audio_record_control_stop(g_record_fanc_comp_id);
+    }
+    audio_fadp_anc_compensation_set_status(0);/*set 0 before turn on ANC*/
+    audio_anc_leakage_detection_callback_service(AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_STOP, AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS);
+}
+
+void audio_fadp_anc_compensation_szd_stop(void)
+{
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][debug]audio_fadp_anc_compensation_szd_stop\r\n", 0);
+
+    if (g_record_fanc_comp_id != 0) {
+        audio_record_control_stop(g_record_fanc_comp_id);
+    }
+    audio_anc_leakage_detection_callback_service(AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_STOP, AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS);
+}
+
+void audio_fadp_anc_compensation_fanc_stop(uint16_t result)
+{
+    audio_anc_control_result_t anc_ret = AUDIO_ANC_CONTROL_EXECUTION_NONE;
+
+    if (result == LD_STATUS_FANC_PASS) {
+        LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][debug]LD_STATUS_FANC_PASS\r\n", 0);
+        typedef struct {
+            uint8_t rw_filter;
+            uint8_t *filter;
+        } user_trigger_adaptive_ff_rw_anc_filter;
+        user_trigger_adaptive_ff_rw_anc_filter rw_filter_cmd;
+
+        /* Request to backup FIR coef.*/
+        rw_filter_cmd.rw_filter = 4;
+        rw_filter_cmd.filter = NULL;
+        anc_ret = audio_anc_control_command_handler(AUDIO_ANC_CONTROL_SOURCE_FROM_UTFF, AUDIO_ANC_CONTROL_EVENT_FADP_REQUEST, &rw_filter_cmd);
+    }
+
+    /* Stop FADP ANC Compensation.*/
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][debug]audio_fadp_anc_compensation_fanc_stop result:%d, ret:%d, status:%d, g_record_fanc_comp_id:%d, fadp_anc_compensation_info.api_callback:0x%x\r\n", 5, result, anc_ret, fadp_anc_compensation_info.calibration_status, g_record_fanc_comp_id, fadp_anc_compensation_info.api_callback);
+    fadp_anc_compensation_info.enable = 0;
+    fadp_anc_compensation_info.api_callback = audio_fadp_anc_compensation_cb;
+
+    /* Turn off ANC*/
+    //audio_anc_control_disable(NULL);
+
+    audio_fadp_anc_compensation_set_status(0);/*set 0 before turn on ANC*/
+    audio_anc_leakage_detection_callback_service(AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_FANC_STOP, AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS);
+}
+
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_send_start(anc_leakage_compensation_callback_t callback)
+{
+    audio_anc_leakage_detection_execution_t anc_res = AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS;
+    uint8_t anc_enable;
+    uint8_t anc_filter_id;
+    uint8_t anc_type;
+
+    //move register callback here because fanc compensation start after ANC disable callback
+    fadp_anc_compensation_info.api_callback = (callback == NULL) ? audio_fadp_anc_compensation_cb : callback;
+
+    /*turn off ANC if needed*/
+    audio_anc_control_get_status(&anc_enable, &anc_filter_id, (audio_anc_control_type_t *)&anc_type, NULL, NULL, NULL);
+
+    fadp_anc_compensation_info.anc_enable    = anc_enable;
+    fadp_anc_compensation_info.anc_filter_id = anc_filter_id;
+    fadp_anc_compensation_info.anc_type      = anc_type;
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][debug]audio_fadp_anc_compensation_send_start, fadp_anc_compensation_info.api_callback:0x%x, callback:0x%x, anc_enable:%d anc_type:%d", 4,
+                                                                                        fadp_anc_compensation_info.api_callback,
+                                                                                        callback,
+                                                                                        fadp_anc_compensation_info.anc_enable,
+                                                                                        fadp_anc_compensation_info.anc_type);
+
+    if (fadp_anc_compensation_info.anc_enable) {
+        anc_res = (audio_anc_leakage_detection_execution_t)audio_anc_control_register_callback((audio_anc_control_callback_t) audio_fadp_anc_compensation_anc_callback, AUDIO_ANC_CONTROL_EVENT_OFF, CB_LEVEL_ALL);
+        if (anc_res != AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) {
+            LEAKAGE_DETECTION_LOG_E("[RECORD_SzD]audio_anc_register_callback Fail", 0);
+            return anc_res;
+        }
+        anc_res = audio_anc_control_disable(NULL);
+        return anc_res;
+    } else {
+        audio_anc_leakage_detection_sync_para_t arg;
+        arg.target_device = TO_ITSELF;
+        arg.extend_param = (uint32_t)callback;
+
+        //anc_res = audio_anc_leakage_detection_sync_control(AUDIO_LEAKAGE_DETECTION_CONTROL_EVENT_START, &arg);
+        anc_res = audio_anc_leakage_detection_timer_service(LD_SYNC_LATENCY, AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_START, &arg);
+
+        if (anc_res == AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) {
+            //open vp
+            if (fadp_anc_compensation_info.vp_start_callback != NULL) {
+                LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]fadp_anc_compensation_info.vp_start_callback", 0);
+                fadp_anc_compensation_info.vp_start_callback(0);
+            } else {
+                LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]fadp_anc_compensation_info.vp_start_callback == NULL", 0);
+            }
+        }
+            return anc_res;
+    }
+}
+
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_send_stop(void)
+{
+    audio_anc_leakage_detection_sync_para_t arg;
+    arg.target_device = TO_ITSELF;
+    arg.extend_param = 0;
+
+    return audio_anc_leakage_detection_control(AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_STOP, &arg);
+}
+
+void audio_fadp_anc_compensation_set_status(bool status)
+{
+    g_fadp_anc_compensation_status = status;
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]audio_fadp_anc_compensation_set_status = %d", 1, status);
+}
+
+bool audio_fadp_anc_compensation_get_status(void)
+{
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]audio_fadp_anc_compensation_get_status = %d", 1, g_fadp_anc_compensation_status);
+    return g_fadp_anc_compensation_status;
+}
+
+void audio_fadp_anc_compensation_set_mute_status(bool mute)
+{
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]audio_fadp_anc_compensation_set_mute_status, mute:%d\r\n", 1, mute);
+    g_fadp_anc_compensation_mute_flag = mute;
+}
+
+bool audio_fadp_anc_compensation_get_mute_status(void)
+{
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]audio_fadp_anc_compensation_get_mute_status, mute:%d\r\n", 1, g_leakage_detection_mute_flag);
+    return g_fadp_anc_compensation_mute_flag;
+}
+
+void audio_fadp_anc_compensation_set_anc_status_disable(void)
+{
+    fadp_anc_compensation_info.anc_enable = 0;
+    fadp_anc_compensation_info.anc_filter_id = 0;
+    fadp_anc_compensation_info.anc_type = 0;
+
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]audio_fadp_anc_compensation_set_anc_status_disable\r\n", 0);
+}
+
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_resume_anc(void)
+{
+    audio_fadp_anc_compensation_set_anc_status_disable();
+    return AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS;
+}
+
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_resume_dl(void)
+{
+    audio_anc_leakage_detection_execution_t anc_ret;
+    anc_ret = audio_fadp_anc_compensation_resume_anc();
+
+    if (audio_fadp_anc_compensation_get_mute_status()) {
+        //unmute music directly
+        audio_fadp_anc_compensation_mute_music(false);
+        return anc_ret;
+    } else {
+        return AUDIO_LEAKAGE_DETECTION_EXECUTION_CANCELLED;
+    }
+}
+
+void audio_fadp_anc_compensation_terminate(void)
+{
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][debug]audio_fadp_anc_compensation_terminate, fadp_anc_compensation_info.api_callback:0x%x\r\n", 1, fadp_anc_compensation_info.api_callback);
+    if (fadp_anc_compensation_info.api_callback != NULL) {
+        fadp_anc_compensation_info.api_callback(LD_STATUS_TERMINATE);
+    } else {
+        audio_fadp_anc_compensation_cb(LD_STATUS_TERMINATE);
+    }
+
+    //unmute music
+    hal_audio_mute_stream_out(false, HAL_AUDIO_STREAM_OUT1);
+    audio_fadp_anc_compensation_set_mute_status(false);
+    g_fadp_anc_compensation_prepare_flag = false;
+}
+
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_prepare(anc_leakage_compensation_callback_t callback)
+{
+    audio_anc_leakage_detection_execution_t anc_res = AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS;
+
+    if (audio_fadp_anc_compensation_get_status() || audio_fadp_anc_compensation_get_mute_status() || g_fadp_anc_compensation_prepare_flag) {
+        LEAKAGE_DETECTION_LOG_I("[RECORD_SzD]reject due to SzD is happenings, status:%d, mute_flag:%d, prepare_flag:%d", 3,
+                                 g_fadp_anc_compensation_status, g_fadp_anc_compensation_mute_flag, g_fadp_anc_compensation_prepare_flag);
+        anc_res = AUDIO_LEAKAGE_DETECTION_EXECUTION_NOT_ALLOWED;
+        return anc_res;
+    }
+
+    fadp_anc_compensation_info.api_callback = (callback == NULL) ? audio_fadp_anc_compensation_cb : callback;
+    LEAKAGE_DETECTION_LOG_I("[RECORD_SzD][debug]audio_fadp_anc_compensation_prepare, fadp_anc_compensation_info.api_callback:0x%x, callback:0x%x", 2, fadp_anc_compensation_info.api_callback, callback);
+
+    g_fadp_anc_compensation_prepare_flag = true;
+    anc_res = audio_fadp_anc_compensation_mute_music(true);
+
+    return anc_res;
+}
+#endif
 

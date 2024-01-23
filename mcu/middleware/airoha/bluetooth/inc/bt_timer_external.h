@@ -159,6 +159,7 @@ typedef int32_t bt_timer_ext_status_t;
 #endif
 #define BT_SINK_SRV_STA_TIMER_ID                          (BT_TIMER_EXT_GROUP_SINK(45))
 #define BT_SINK_SRV_VP_DETECT_TEMER                   (BT_TIMER_EXT_GROUP_SINK(46))
+
 #define BT_SINK_SRV_HF_HOLD_TIMER_ID_START                      (BT_TIMER_EXT_GROUP_SINK(48))
 #define BT_SINK_SRV_HF_HOLD_TIMER_ID_END                        (BT_TIMER_EXT_GROUP_SINK(50))
 #define BT_SINK_SRV_MUSIC_RHO_PENDING_CHECKING_TIMER_ID         (BT_TIMER_EXT_GROUP_SINK(51))
@@ -170,6 +171,8 @@ typedef int32_t bt_timer_ext_status_t;
 #define BT_SINK_SRV_CAP_AM_REJECT_TIMER              (BT_TIMER_EXT_GROUP_SINK(52))
 #endif
 
+#define BT_SINK_SRV_RESUME_SRC_WAITING_TIMER                   (BT_TIMER_EXT_GROUP_SINK(52))
+
 
 #ifdef MTK_BT_CM_SUPPORT
 #define BT_CM_CONNECTION_TIMER_ID                           (BT_TIMER_EXT_GROUP_CM(1))
@@ -179,6 +182,9 @@ typedef int32_t bt_timer_ext_status_t;
 #define BT_CM_AWS_MCE_STATE_UPDATE_TIMER_ID               (BT_TIMER_EXT_GROUP_CM(7))
 #define BT_CM_CANCEL_CONNECT_TIMER_ID                       (BT_TIMER_EXT_GROUP_CM(5))
 #define BT_CM_AWS_MCE_CONNECTABLE_TIMER_ID                  (BT_TIMER_EXT_GROUP_CM(8))
+#define BT_CM_DISCONNECT_TIMER_ID                           (BT_TIMER_EXT_GROUP_CM(9))
+#define BT_CM_AWS_MCE_RETRY_TIMER_ID                        (BT_TIMER_EXT_GROUP_CM(10))
+#define BT_CM_AWS_MCE_REPLY_RHO_TIMER_ID                    (BT_TIMER_EXT_GROUP_CM(11))
 #endif
 #define BT_DM_PAIRED_INFOR_SYNC_TIMER_ID                    (BT_TIMER_EXT_GROUP_CM(6))
 
@@ -239,6 +245,7 @@ typedef int32_t bt_timer_ext_status_t;
 #define BT_SOURCE_SRV_AVRCP_CONNECTION_TIMER_ID              (BT_TIMER_EXT_GROUP_SOURCE(3))
 #define BT_SOURCE_SRV_CALL_AUDIO_STOP_TIMER_ID               (BT_TIMER_EXT_GROUP_SOURCE(4))
 #define BT_SOURCE_SRV_MUSIC_DETECT_MEDIA_DATA_TIMER_ID       (BT_TIMER_EXT_GROUP_SOURCE(5))
+#define BT_SOURCE_SRV_A2DP_CONNECTION_TIMER_ID               (BT_TIMER_EXT_GROUP_SOURCE(6))
 #endif
 
 #define BT_GATTC_DISCOVERY_TIMER_ID                                    (BT_TIMER_EXT_GROUP_GATTC(1))

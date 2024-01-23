@@ -137,7 +137,7 @@ static bool app_call_rx_eq_type_local_set(app_call_rx_eq_type_t type, uint32_t t
     }
 #endif
     s_app_rx_eq_context.call_rx_eq_type = type;
-
+    app_call_rx_eq_type_save();
 #ifdef AIR_BT_AUDIO_SYNC_ENABLE
     bt_sink_srv_am_audio_sync_capability_t cap = {0};
 #endif
@@ -254,11 +254,6 @@ static bool app_rx_eq_proc_ui_shell_group(ui_shell_activity_t *self, uint32_t ev
             voice_set_RX_EQ_mode(MCU2DSP_SYNC_REQUEST_HFP, s_app_rx_eq_context.call_rx_eq_type);
             voice_set_RX_EQ_mode(MCU2DSP_SYNC_REQUEST_BLE, s_app_rx_eq_context.call_rx_eq_type);
 #endif
-            break;
-        }
-        case EVENT_ID_SHELL_SYSTEM_ON_DESTROY: {
-            APPS_LOG_MSGID_I(LOG_TAG", destroy", 0);
-            app_call_rx_eq_type_save();
             break;
         }
 

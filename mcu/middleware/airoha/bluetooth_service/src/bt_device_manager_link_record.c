@@ -46,6 +46,8 @@
 #include "bt_aws_mce_srv.h"
 #endif
 #include "bt_callback_manager.h"
+#include "nvkey.h"
+#include "nvkey_id_list.h"
 
 #if _MSC_VER >= 1500
 #pragma comment(linker, "/alternatename:_bt_device_manager_link_record_takeover_callback=_default_bt_device_manager_link_record_takeover_callback")
@@ -55,6 +57,8 @@
 #error "Unsupported Platform"
 #endif
 
+#define BT_DM_LINK_RECORD_INVALID_VALUE (0xFFFFFFFF)
+
 static uint8_t g_dm_link_record_buffer_size = 2;
 static bt_device_manager_link_record_t g_dm_link_record_cnt;
 
@@ -63,15 +67,15 @@ static void         default_bt_device_manager_link_record_takeover_callback(cons
     bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] BT Address:0x%x take over, user need implement it", 1, *(uint32_t*)(&item->remote_addr));
 }
 
-static uint8_t      bt_device_manager_link_record_find(bt_device_manager_link_t link_type, bt_bd_addr_t *remote_addr)
+static uint32_t      bt_device_manager_link_record_find(bt_device_manager_link_t link_type, bt_bd_addr_t *remote_addr)
 {
-    for (uint8_t i = 0; i < g_dm_link_record_cnt.connected_num; i++) {
+    for (uint32_t i = 0; i < g_dm_link_record_cnt.connected_num; i++) {
         if (!memcmp(&g_dm_link_record_cnt.connected_device[i].remote_addr, remote_addr, sizeof(bt_bd_addr_t)) &&
             link_type == g_dm_link_record_cnt.connected_device[i].link_type) {
             return i;
         }
     }
-    return 0xFF;
+    return BT_DM_LINK_RECORD_INVALID_VALUE;
 }
 
 #ifdef MTK_AWS_MCE_ENABLE
@@ -105,7 +109,7 @@ static void         bt_device_manager_link_record_sync_info_partner()
 
 static void         bt_device_manager_link_record_add(bt_bd_addr_t *address, bt_device_manager_link_t link_type, bt_addr_type_t bd_type)
 {
-    if (0xFF != bt_device_manager_link_record_find(link_type, address)) {
+    if (BT_DM_LINK_RECORD_INVALID_VALUE != bt_device_manager_link_record_find(link_type, address)) {
         bt_dmgr_report_id("[BT_DM][LINK_RECORD][E] Duplicated connected event ", 0);
         return;
     }
@@ -113,9 +117,21 @@ static void         bt_device_manager_link_record_add(bt_bd_addr_t *address, bt_
         bt_dmgr_report_id("[BT_DM][LINK_RECORD][E] Context full !!!", 0);
         return;
     }
+    bt_device_manager_link_record_item_t temp_cntx[BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM - 1];
+    /* Remove the disconnected one from  disconnected part to connected part. */
+    for (uint32_t index = g_dm_link_record_cnt.connected_num; index < BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM; index++) {
+        if (!memcmp(&g_dm_link_record_cnt.connected_device[index].remote_addr, address, sizeof(bt_bd_addr_t)) &&
+            link_type == g_dm_link_record_cnt.connected_device[index].link_type) {
+            memcpy(&temp_cntx, &(g_dm_link_record_cnt.connected_device[index + 1]), 
+                sizeof(bt_device_manager_link_record_item_t) * (BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM - g_dm_link_record_cnt.connected_num - 1));
+            memcpy(&(g_dm_link_record_cnt.connected_device[index]), &temp_cntx, 
+                sizeof(bt_device_manager_link_record_item_t) * (BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM - g_dm_link_record_cnt.connected_num - 1));
+            memset(&(g_dm_link_record_cnt.connected_device[BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM - 1]), 0, sizeof(bt_device_manager_link_record_item_t));
+            break;
+        }
+    }
     g_dm_link_record_cnt.connected_num++;
     bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] Device:0x%x type:0x%x add, now num:%d", 3, *(uint32_t*)address, link_type, g_dm_link_record_cnt.connected_num);
-    bt_device_manager_link_record_item_t temp_cntx[BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM - 1];
     memcpy(&temp_cntx, &(g_dm_link_record_cnt.connected_device), sizeof(temp_cntx));
     memcpy(&g_dm_link_record_cnt.connected_device[1],&temp_cntx, sizeof(temp_cntx));
     g_dm_link_record_cnt.connected_device[0].link_type = link_type;
@@ -128,19 +144,31 @@ static void         bt_device_manager_link_record_add(bt_bd_addr_t *address, bt_
 
 static void         bt_device_manager_link_record_delete(bt_device_manager_link_t link_type, bt_bd_addr_t *address)
 {
-    uint8_t found_index = bt_device_manager_link_record_find(link_type, address);
+    uint32_t found_index = bt_device_manager_link_record_find(link_type, address);
     bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] Device:0x%x type:0x%x deleted, before num:%d, found_index:%d", 4,
         *(uint32_t*)address, link_type, g_dm_link_record_cnt.connected_num, found_index);
-    if (0xFF == found_index) {
+    if (BT_DM_LINK_RECORD_INVALID_VALUE == found_index || !(g_dm_link_record_cnt.connected_num)) {
         return;
     }
-    for (uint8_t i = found_index; i < g_dm_link_record_cnt.connected_num - 1; i++) {
+    bt_device_manager_link_record_item_t temp_delete = g_dm_link_record_cnt.connected_device[found_index];
+    for (uint32_t i = found_index; i < g_dm_link_record_cnt.connected_num - 1; i++) {
         g_dm_link_record_cnt.connected_device[i] = g_dm_link_record_cnt.connected_device[i+1];
     }
+    /*Make the disconnected devices list follow by connected devices list sequential for Application request. */
+    g_dm_link_record_cnt.connected_device[g_dm_link_record_cnt.connected_num - 1] = temp_delete;
+
     g_dm_link_record_cnt.connected_num--;
 
 }
-
+void bt_device_manager_link_record_clear(bt_device_manager_link_t link_type)
+{
+    bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] link record clear %d", 1, link_type);
+    for (uint32_t i = 0; i < g_dm_link_record_cnt.connected_num; i++) {
+        if (link_type == g_dm_link_record_cnt.connected_device[i].link_type) {
+            bt_device_manager_link_record_delete(g_dm_link_record_cnt.connected_device[i].link_type, &(g_dm_link_record_cnt.connected_device[i].remote_addr));
+        }
+    }
+}
 static bt_status_t  bt_device_manager_link_record_gap_event_callback(bt_msg_type_t msg, bt_status_t status, void *buff)
 {
     if (NULL == buff || BT_GAP_LE_BONDING_COMPLETE_IND != msg) {
@@ -195,7 +223,11 @@ static bt_status_t  bt_device_manager_link_record_cm_event_callback(bt_cm_event_
     if (true == bt_cm_is_specail_device(&(remote_update->address))) {
         return BT_STATUS_SUCCESS;
     }
+#ifdef AIR_BT_LINKRECORD_ENCRYPTED
+    if (remote_update->pre_acl_state != BT_CM_ACL_LINK_ENCRYPTED && remote_update->acl_state == BT_CM_ACL_LINK_ENCRYPTED) {
+#else
     if (remote_update->pre_acl_state < BT_CM_ACL_LINK_CONNECTED && remote_update->acl_state >= BT_CM_ACL_LINK_CONNECTED) {
+#endif
         /* Classic BT connected. */
         bt_device_manager_link_record_add(&remote_update->address, BT_DEVICE_MANAGER_LINK_TYPE_EDR, BT_ADDR_PUBLIC);
 #ifdef MTK_AWS_MCE_ENABLE
@@ -225,6 +257,7 @@ const bt_device_manager_link_record_t *
 }
 
 #ifdef MTK_AWS_MCE_ENABLE
+
 void                bt_device_manager_link_record_aws_update_context(const bt_device_manager_link_record_t *src)
 {
     if (NULL == src) {
@@ -232,27 +265,124 @@ void                bt_device_manager_link_record_aws_update_context(const bt_de
         return;
     }
     bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] Dst connected:%d, Src connected:%d", 2, g_dm_link_record_cnt.connected_num, src->connected_num);
-    uint8_t src_num = src->connected_num;
-    uint8_t dst_num = g_dm_link_record_cnt.connected_num;
-    uint8_t src_index = 0, dst_index = 0;
+    bt_bd_addr_t empt_addr = {0};
     bt_device_manager_link_record_item_t dst_cntx[BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM];
     memcpy(&dst_cntx, &g_dm_link_record_cnt.connected_device[0], sizeof(dst_cntx));
-
+    uint32_t dst_num = g_dm_link_record_cnt.connected_num;
+    uint32_t record_index = 0;
+    uint32_t dst_index = 0;
     g_dm_link_record_cnt.connected_num = 0;
-    while (src_index < src_num || dst_index < dst_num) {
-        if (src_index < src_num && BT_DEVICE_MANAGER_LINK_TYPE_LE != src->connected_device[src_index].link_type) {
-            g_dm_link_record_cnt.connected_device[g_dm_link_record_cnt.connected_num++] = src->connected_device[src_index++];
+    for (uint32_t t = 0; t < dst_num; t++) {
+        if (g_dm_link_record_cnt.connected_device[t].link_type == BT_DEVICE_MANAGER_LINK_TYPE_LE) {
+            g_dm_link_record_cnt.connected_num++;
+        }
+    }
+    for (uint32_t i = 0; i < src->connected_num; i++) {
+        if(src->connected_device[i].link_type == BT_DEVICE_MANAGER_LINK_TYPE_EDR) {
+            g_dm_link_record_cnt.connected_num++;
+        }
+    }
+    while (record_index < BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM) {
+        if (!memcmp(&(src->connected_device[record_index].remote_addr), &empt_addr, sizeof(bt_bd_addr_t))) {
+            g_dm_link_record_cnt.connected_device[record_index] = dst_cntx[record_index];
+            record_index++;
             continue;
         }
-        if (dst_index < dst_num && BT_DEVICE_MANAGER_LINK_TYPE_LE == dst_cntx[dst_index].link_type) {
-            g_dm_link_record_cnt.connected_device[g_dm_link_record_cnt.connected_num++] = dst_cntx[dst_index];
+        if (BT_DEVICE_MANAGER_LINK_TYPE_LE != src->connected_device[record_index].link_type) {
+            g_dm_link_record_cnt.connected_device[record_index] = src->connected_device[record_index];
+            record_index++;
+            continue;
         }
-        src_index++;
-        dst_index++;
+        while(dst_index < BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM) {
+            if (dst_cntx[dst_index].link_type == BT_DEVICE_MANAGER_LINK_TYPE_LE) {
+                g_dm_link_record_cnt.connected_device[record_index] = dst_cntx[dst_index];
+                record_index++;
+                dst_index++;
+                break;
+            } 
+            dst_index++;
+        }
+        if (dst_index >= BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM) {
+            /* partner le recird less than agent*/
+            bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] partner le recird less than agent", 0);
+            g_dm_link_record_cnt.connected_device[record_index] = dst_cntx[record_index];
+            record_index++;
+        }
     }
     bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] Connected num %d after merged", 1, g_dm_link_record_cnt.connected_num);
 }
 #endif
+
+
+uint32_t bt_device_manager_link_record_get_connected_num(bt_device_manager_link_t type, bt_bd_addr_t *addr_list, uint32_t list_num)
+{
+    uint32_t count = 0;
+    uint32_t index = 0;
+    while (index < g_dm_link_record_cnt.connected_num) {
+        if (type == g_dm_link_record_cnt.connected_device[index].link_type) {
+            count++;
+            if (addr_list != NULL && 0 != list_num) {
+                bt_utils_memcpy(&(addr_list[count - 1]), &(g_dm_link_record_cnt.connected_device[index].remote_addr), sizeof(bt_bd_addr_t));
+                if (count == list_num) {
+                    break;
+                }
+            }
+        }
+        index++;
+    }
+    bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] get type %d , counted %d", 2, type, count);
+    return count;
+}
+
+static void bt_link_record_flash_complete_cb(nvkey_status_t status, void *user_data)
+{
+    //LOG_MSGID_I(BT_HID_SRV, "[HID][SRV] Non-blocking flush db result:%d, index:%d", 2,
+      //          status, (uint32_t)user_data);
+}
+
+
+bool bt_device_manager_link_record_save_nvkey()
+{
+    int32_t result = -1000;
+    uint32_t index = 1;
+    result = (int32_t)nvkey_write_data_non_blocking(NVID_BT_HOST_LINK_RECORD_INFO,(uint8_t *)&g_dm_link_record_cnt,
+                                                    sizeof(bt_device_manager_link_record_t), bt_link_record_flash_complete_cb, (const void *)index);
+    if (0 != result) {
+        bt_dmgr_report_id("[BT_DM][DB][E] Storage write fail, result: %d", 1, result);
+        return false;
+    }
+    return true;
+}
+
+
+
+bool bt_device_manager_link_record_restore_nvkey()
+{
+    int32_t result = -1000;
+    uint32_t size = sizeof(bt_device_manager_link_record_t);
+    result = (int32_t)nvkey_read_data(NVID_BT_HOST_LINK_RECORD_INFO, (uint8_t *)&g_dm_link_record_cnt, &size);
+    g_dm_link_record_cnt.connected_num = 0;
+    if (0 != result) {
+        bt_dmgr_report_id("[BT_DM][DB][E] Storage write fail, result: %d", 1, result);
+        return false;
+    }
+    return true;
+}
+
+bool bt_device_manager_link_record_is_connected(bt_bd_addr_t *addr, bt_device_manager_link_t link_type)
+{
+    bool ret = false;
+    for (uint32_t i = 0; i < g_dm_link_record_cnt.connected_num; i++) {
+        bt_device_manager_link_record_item_t device_p = g_dm_link_record_cnt.connected_device[i];
+        if (NULL != addr && !memcmp(addr, &(device_p.remote_addr), sizeof(bt_bd_addr_t)) && link_type == device_p.link_type) {
+            ret = true;
+        }
+    }
+    
+    bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] addr is connect %d", 1, ret);
+    return ret;
+}
+
 
 void                bt_device_manager_link_record_set_max_num(uint8_t size)
 {

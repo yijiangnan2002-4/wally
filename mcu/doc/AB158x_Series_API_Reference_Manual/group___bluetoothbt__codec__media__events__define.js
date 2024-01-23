@@ -1,6 +1,8 @@
 var group___bluetoothbt__codec__media__events__define =
 [
-    [ "BT_A2DP_CODEC_VENDOR_2_CODEC_ID", "group___bluetoothbt__codec__media__events__define.html#ga086965dc3008ced255aaf6225234dce5", null ],
+    [ "BT_A2DP_CODEC_LC3PLUS_CODEC_ID", "group___bluetoothbt__codec__media__events__define.html#gaedc5d886d43a42d04e64fdb75924ca53", null ],
+    [ "BT_A2DP_CODEC_LHDC_CODEC_ID", "group___bluetoothbt__codec__media__events__define.html#gab6b242480a600f27e64acadc57f0741b", null ],
+    [ "BT_A2DP_CODEC_VENDOR_CODEC_ID", "group___bluetoothbt__codec__media__events__define.html#ga8d42c91a81df8f2599bdcb4316303369", null ],
     [ "BT_CODEC_MEDIA_EVENT_START", "group___bluetoothbt__codec__media__events__define.html#gaaea43c991893e4da90a0a7313024bebd", null ],
     [ "bt_codec_aws_clock_skew_status_t", "group___bluetoothbt__codec__media__events__define.html#gada1fa8601e8e5cf295100fb9aa5c35fb", [
       [ "BT_CODEC_AWS_CLOCK_SKEW_STATUS_IDLE", "group___bluetoothbt__codec__media__events__define.html#ggada1fa8601e8e5cf295100fb9aa5c35fbafcc3cb5c819d30fa0645c4b2e10c6a9f", null ],

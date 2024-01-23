@@ -78,6 +78,8 @@
 
 #include "app_le_audio_ccp_call_control_server.h"
 
+#include "app_dongle_session_manager.h"
+
 /**************************************************************************************************
 * Define
 **************************************************************************************************/
@@ -102,6 +104,19 @@ static bool g_lea_test_mode = false;
 #ifdef AIR_LE_AUDIO_BA_ENABLE
 extern bt_status_t ble_bap_gap_event_callback(bt_msg_type_t msg, bt_status_t status, void *buff);
 #endif
+extern void app_lea_dongle_customer_init(void);
+
+#if _MSC_VER >= 1500
+#pragma comment(linker, "/alternatename:app_lea_dongle_customer_init=default_app_lea_dongle_customer_init")
+#elif defined(__GNUC__) || defined(__ICCARM__) || defined(__CC_ARM)
+#pragma weak app_lea_dongle_customer_init = default_app_lea_dongle_customer_init
+#else
+#error "Unsupported Platform"
+#endif
+
+void default_app_lea_dongle_customer_init(void)
+{
+}
 
 /**************************************************************************************************
 * Static Functions
@@ -125,6 +140,25 @@ static bool app_le_audio_handle_idle_interaction_event(ui_shell_activity_t *self
 {
     return false;
 }
+
+#ifdef AIR_LE_AUDIO_UNICAST_ENABLE
+static bool app_le_audio_handle_idle_session_manager_event(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
+{
+    /* UI shell internal event must process by this activity, so default is true. */
+    bool ret = true;
+    switch (event_id) {
+        case APP_DONGLE_SESSION_MGR_RESTART: {
+            if (APP_LE_AUDIO_MODE_UCST == g_lea_ctrl.curr_mode) {
+                app_le_audio_ucst_stop(true);
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    return ret;
+}
+#endif
 
 static void app_le_audio_handle_bt_power_on_cnf(void)
 {
@@ -396,6 +430,10 @@ bool app_le_audio_idle_activity_proc(ui_shell_activity_t *self,
 #ifdef AIR_LE_AUDIO_UNICAST_ENABLE
         case EVENT_GROUP_UI_SHELL_USB_HID_CALL: {
             ret = app_le_audio_handle_idle_usb_hid_call_event(self, event_id, extra_data, data_len);
+            break;
+        }
+        case EVENT_GROUP_UI_SHELL_APP_SESSION_MANAGER: {
+            app_le_audio_handle_idle_session_manager_event(self, event_id, extra_data, data_len);
             break;
         }
 #endif
@@ -709,7 +747,8 @@ void app_le_audio_init(void)
 #ifdef AIR_LE_AUDIO_BA_ENABLE
     app_le_audio_ba_init();
 #endif
-}
 
+    app_lea_dongle_customer_init();
+}
 #endif  /* AIR_LE_AUDIO_ENABLE */
 

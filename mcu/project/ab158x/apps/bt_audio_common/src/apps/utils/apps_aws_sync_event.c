@@ -265,6 +265,16 @@ static void apps_aws_sync_execute_future_sync_event_locally(bool from_isr,
                         actual_delay_ms);
 }
 
+/**
+ * @brief Check is under sniff mode or not.
+ */
+extern bool bt_gap_check_connection_sniff_state(bt_bd_addr_t *address);
+
+/**
+ * @brief AWS future sync event delay timeout under sniff mode.
+ */
+#define APP_AWS_SYNC_FUTURE_EVENT_TIMEOUT_UNDER_SNIFF_MODE      (600)
+
 bt_status_t apps_aws_sync_send_future_sync_event(bool from_isr,
                                                     uint32_t event_group,
                                                     uint32_t event_id,
@@ -331,6 +341,43 @@ bt_status_t apps_aws_sync_send_future_sync_event(bool from_isr,
 
         memset((void *)(&(future_event->target_clock)), 0, sizeof(bt_clock_t));
 
+        /**
+         * @brief Fix issue - 51128
+         * Root cause:
+         *  If the device wish to send data under sniff mode, should exist sniff mode firstly.
+         *  But exist sniff mode will cause about 500ms delay, so when partner received this packet the time has been already phased out.
+         *  Then the agent and partner is out of sync for the packet.
+         * Solution:
+         *  If device under sniff mode, enlarge the delay timeout for this sync event to make sure agent and partner execute at the same time.
+         */
+        bt_bd_addr_t aws_connected_address = {0};
+        bool is_sniff_mode = false;
+        uint32_t aws_connected_device = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS),
+                                                                    &aws_connected_address,
+                                                                    1);
+
+        if (aws_connected_device >= 1) {
+            /**
+             * @brief Check is under sniff mode or not
+             */
+            is_sniff_mode = bt_gap_check_connection_sniff_state(&aws_connected_address);
+        }
+
+        APPS_LOG_MSGID_I(LOG_TAG"[apps_aws_sync_send_future_sync_event] aws connected address : 0x%02x:%02x:%02x:%02x:%02x:%02x, aws_connected : %d, sniff_mode : %d",
+                            8,
+                            aws_connected_address[0],
+                            aws_connected_address[1],
+                            aws_connected_address[2],
+                            aws_connected_address[3],
+                            aws_connected_address[4],
+                            aws_connected_address[5],
+                            aws_connected_device,
+                            is_sniff_mode);
+
+        if (is_sniff_mode == true) {
+            delay_ms = APP_AWS_SYNC_FUTURE_EVENT_TIMEOUT_UNDER_SNIFF_MODE;
+        }
+
         if (delay_ms > 0) {
             bt_clock_t target_bt_clk = {0};
             bt_status_t get_bt_clock_result = bt_sink_srv_bt_clock_addition(&target_bt_clk, 0, delay_ms * 1000);
@@ -385,7 +432,7 @@ bt_status_t apps_aws_sync_send_future_sync_event(bool from_isr,
         future_event = NULL;
     }
 
-    return BT_STATUS_SUCCESS;
+    return ret;
 }
 
 void apps_aws_sync_handle_future_sync_event(uint8_t *data, uint32_t data_len)

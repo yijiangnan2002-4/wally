@@ -240,7 +240,11 @@ int32_t writeRawDiskData(NOR_FLASH_DISK_Data *D, uint32_t addr, uint8_t *data_pt
 
 
     if (result != FLASH_DISK_DONE) {
-        return RAW_DISK_ERR_PROG_FAIL;
+        if (result == RESULT_PROGRAM_CHECK_ERR) {
+            result = RAW_DISK_ERR_PROG_USER_DATA_CHANGED_FAIL;
+        } else {
+            return RAW_DISK_ERR_PROG_FAIL;
+        }
     }
     return RAW_DISK_ERR_NONE;
 
@@ -431,6 +435,8 @@ hal_flash_status_t get_rawdisk_error_code(int32_t ori_err_code)
         //    log_hal_msgid_error("write 0 to 1 -> wrote data changed during writing\r\n", 0);
         //}
         return HAL_FLASH_STATUS_ERROR_PROG_FAIL;
+    } else if (ori_err_code == RAW_DISK_ERR_PROG_USER_DATA_CHANGED_FAIL ) {
+        return HAL_FLASH_STATUS_ERROR;
     } else if (ori_err_code == RAW_DISK_ERR_ERASE_FAIL) {
         return HAL_FLASH_STATUS_ERROR_ERASE_FAIL;
     } else if (ori_err_code == HAL_FLASH_STATUS_ERROR_LOCKED) { //mutex lock
@@ -500,7 +506,7 @@ ATTR_TEXT_IN_TCM void sfc_isr(hal_nvic_irq_t irq_number)
         if (sfc_interrupted_by_ch2_or_ch3 == false) {
             sfc_interrupted_by_ch2_or_ch3 = true;
             dsp_wait_us_start = 0;
-            dsp_wait_us_end =0;
+            dsp_wait_us_end = 0;
             hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &dsp_wait_us_start);
         }
         //sfc_timer_flag = false;
@@ -567,7 +573,6 @@ hal_flash_status_t hal_flash_erase(uint32_t start_address, hal_flash_block_t blo
         return HAL_FLASH_STATUS_ERROR_WRONG_ADDRESS;
     }
 
-
     if (HAL_FLASH_BLOCK_4K == block) {
         length = 0x1000;
         if ((start_address & 0xFFF) != 0) {
@@ -605,8 +610,16 @@ hal_flash_status_t hal_flash_erase(uint32_t start_address, hal_flash_block_t blo
 
     //verify erased area is 0xFF
 #ifdef HAL_CACHE_MODULE_ENABLED
-    address = hal_cache_cacheable_to_noncacheable(start_address | HAL_FLASH_BASE_ADDRESS);
+    start_address = start_address | HAL_FLASH_BASE_ADDRESS;
+    if(hal_cache_is_cacheable(start_address)) {
+        address = hal_cache_cacheable_to_noncacheable(start_address);
+    } else {
+        address = start_address;
+    }
+#else
+    address = start_address | HAL_FLASH_BASE_ADDRESS;
 #endif
+
     notempty = 0;
     for(i = 0;i<length; i+=4) {
         if(*((volatile uint32_t *)((address+i))) != 0xffffffff){
@@ -697,7 +710,7 @@ hal_flash_status_t hal_flash_write(uint32_t address, const uint8_t *data, uint32
     if (hal_core_status_read(HAL_CORE_MCU) == HAL_CORE_ACTIVE) {
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &write_count_e);
         hal_gpt_get_duration_count(write_count_s, write_count_e, &write_time);
-        log_hal_msgid_info("[hal_flash_write] address=0x%x, length = %d ,w_time = %d, suspend = %d, DSP_IRQ = %d result ok!\r\n", 5, 
+        log_hal_flash_msgid_info_mask("[hal_flash_write] address=0x%x, length = %d ,w_time = %d, suspend = %d, DSP_IRQ = %d result ok!\r\n", 5, 
                         address, length, write_time, sf_program_suspend, sf_wait_count_check_ready_and_resume);
     }
     return HAL_FLASH_STATUS_OK;
@@ -897,7 +910,7 @@ hal_flash_status_t hal_flash_otp_lock_bank(OTP_BANK_enum bank)
     NOR_FLASH_DISK_Data *D = ENTIRE_DISK_DRIVER_DATA;
     int32_t result;
     result = SF_DAL_OTPLock_blank(D->MTDData, bank);
-    if(result != 0) {
+    if (result != 0) {
         result = HAL_FLASH_STATUS_ERROR_LOCKED;
     }
     return result;

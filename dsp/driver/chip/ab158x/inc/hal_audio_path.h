@@ -205,7 +205,7 @@ typedef enum {
 
 
 typedef struct {
-    hal_audio_path_interconnection_input_t input_port : 16;
+    hal_audio_path_interconnection_input_t input_port;
     int16_t duplicate_count;
 } hal_audio_path_user_counter_t;
 

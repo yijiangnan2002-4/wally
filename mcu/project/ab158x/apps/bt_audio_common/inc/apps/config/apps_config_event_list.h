@@ -69,6 +69,8 @@ typedef enum {
                                                         use the action to trigger voice assistant. */
     KEY_WAKE_UP_VOICE_ASSISTANT_NOTIFY = 0x0022, /**< Notify user the press time is enough to trigger voice assistant. */
     KEY_INTERRUPT_VOICE_ASSISTANT = 0x0023,       /**< Interrupt the voice assistant. */
+    KEY_ULL_UL_VOL_UP = 0x0024,               /**< ULL UL Volume up. */
+    KEY_ULL_UL_VOL_DN = 0x0025,               /**< ULL UL Volume down. */
 
     KEY_REDIAL_LAST_CALL = 0x0034,          /**< Redail last call. */
     KEY_CANCEL_OUT_GOING_CALL = 0x0037,     /**< Cancel outgoing call. */
@@ -110,7 +112,7 @@ typedef enum {
 
     KEY_ANC_GAIN = 0x00A0,              /**< ANC Gain change */
     KEY_ANC_ON = 0x00A1,                /**< ANC ON */
-    KEY_PASSTHOUGH_ON = 0x00A2,         /**< Passthrough ON */
+    KEY_PASSTHROUGH_ON = 0x00A2,         /**< Passthrough ON */
     KEY_ANC_OFF = 0x00A3,               /**< ANC and Passthrough OFF */
     KEY_GAMEMODE_ON = 0x00A4,           /**< Game mode off. */
     KEY_GAMEMODE_OFF = 0x00A5,          /**< Game mode on. */
@@ -131,7 +133,6 @@ typedef enum {
     KEY_AMA_STOP = 0x0107,              /**< AMA tap trigger mode, stop recording audio. */
     KEY_AMA_MEDIA_CONTROL = 0x0108,
 
-    KEY_ANLOG_IN_EAR = 0x0109,          /**< Use key to simulate in ear detection, only for debug */
     KEY_RHO_TO_AGENT = 0x010A,          /**< Do RHO to make Agent switch to the pressed side. */
     KEY_RESET_LINK_KEY = 0x010B,        /**< Clear link key. */
 

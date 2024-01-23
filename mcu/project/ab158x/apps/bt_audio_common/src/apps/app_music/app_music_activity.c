@@ -230,7 +230,7 @@ static bool app_music_check_and_end_music(struct _ui_shell_activity *self, void 
 
     /*
      * while the phone paused music, the sink server will report this event with at least 3 seconds delay.
-     * so, it's possiable that this activity will receive the music playing request before the sink event.
+     * so, it's possible that this activity will receive the music playing request before the sink event.
      * In this case, may means that the old Agent send pause action and finished the shell activity, but
      * the new Agent not recv the SINK_SRV event about the music paused status.
      */
@@ -259,7 +259,7 @@ static bool app_music_proc_apps_internal_events(ui_shell_activity_t *self,
 
     switch (event_id) {
         case APPS_EVENTS_INTERACTION_UPDATE_MMI_STATE: {
-
+         apps_music_local_context_t *local_context = (apps_music_local_context_t *)self->local_context;
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
             if (app_music_get_ull_is_streaming()) {
 #ifdef AIR_MS_GIP_ENABLE
@@ -273,10 +273,11 @@ static bool app_music_proc_apps_internal_events(ui_shell_activity_t *self,
             } else
 #endif
             {
+                if (local_context->music_streaming_state != 0x00
 #ifdef AIR_LE_AUDIO_BIS_ENABLE
-                if (!app_le_audio_bis_is_streaming())
+                && !app_le_audio_bis_is_streaming()
 #endif
-                {
+                ) {
                     apps_config_key_set_mmi_state(APP_A2DP_PLAYING);
                     ret = true;
                 }

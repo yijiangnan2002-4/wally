@@ -81,6 +81,9 @@ typedef enum {
     APPS_EVENTS_USB_CONFIG_DONE,         /**<  Notify app the USB configuration done */
     APPS_EVENTS_USB_ENABLE_CONTROL_DETECT_TIMEOUT,  /**<  Control the enable/disable flow, send the event with delay, before the timeout if the usb enable/disable too many times.  */
     APPS_EVENTS_USB_ENABLE_CONTROL_FORCE_STOP_TIMEOUT,  /**<  Control the enable/disable flow, send the event with delay, before the timeout if the usb enable/disable callback, should not exist the force stop status.  */
+#if defined (AIR_PURE_GAMING_MS_ENABLE) || defined (AIR_PURE_GAMING_KB_ENABLE)
+    APPS_EVENTS_USB_HID_EP_TX,
+#endif
 } app_usb_audio_event_t;
 
 

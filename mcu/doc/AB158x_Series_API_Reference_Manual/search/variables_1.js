@@ -61,6 +61,7 @@ var searchData=
   ['audio_5fid',['audio_id',['../struct__bt__media__handle__t.html#ac9e4fcf2c6ff5d28d4bdd205e44c952d',1,'_bt_media_handle_t::audio_id()'],['../structmp3__media__handle__s.html#ac9e4fcf2c6ff5d28d4bdd205e44c952d',1,'mp3_media_handle_s::audio_id()']]],
   ['audio_5fpath_5ftype',['audio_path_type',['../structhal__audio__stream__t.html#aa39953989ead66d2fe7e012a588042f5',1,'hal_audio_stream_t']]],
   ['audio_5fstatus',['audio_status',['../structbt__hfp__audio__status__change__ind__t.html#a44c944cd68a5a2d64b4385b136886a42',1,'bt_hfp_audio_status_change_ind_t']]],
+  ['audio_5ftransfer',['audio_transfer',['../structbt__source__srv__switch__audio__path__t.html#ac59b33950d18c33454a24a803b5f5957',1,'bt_source_srv_switch_audio_path_t']]],
   ['auth_5freq',['auth_req',['../structbt__gap__le__smp__pairing__config__t.html#a3f3e281c2267c91d72744f80c7044421',1,'bt_gap_le_smp_pairing_config_t']]],
   ['avg_5fadc',['avg_adc',['../structhal__captouch__tune__data__t.html#ad9fccd83f3640ac08a5d9f15363034f1',1,'hal_captouch_tune_data_t']]],
   ['avg_5fs',['avg_s',['../structhal__captouch__config__t.html#a31dedc47aa710da150d97a89796e37ad',1,'hal_captouch_config_t']]],

@@ -51,9 +51,13 @@
 #include "app_dongle_le_race.h"
 #include "app_le_audio_vcp_volume_controller.h"
 #include "app_le_audio_micp_micophone_controller.h"
+#include "app_dongle_session_manager.h"
+
 /**************************************************************************************************
 * Define
 **************************************************************************************************/
+#define APP_LE_AUDIO_DONGLE_ADDR_TYPE BT_ADDR_PUBLIC
+
 #ifdef AIR_LE_AUDIO_MULTI_DEVICE_ENABLE
 #define APP_LE_AUDIO_UCST_LINK_MAX_NUM      4
 #else
@@ -151,7 +155,14 @@ typedef uint8_t app_le_audio_ucst_lock_stream_t;
 #define APP_LE_AUDIO_UCST_PAUSE_STREAM_DONGLE_FOTA      0x04    /* pause all stream until dongle fota complete*/
 typedef uint8_t app_le_audio_ucst_pause_stream_t;
 
-
+typedef enum {
+    APP_LE_AUDIO_QOS_PARAMS_TYPE_NONE,
+    APP_LE_AUDIO_QOS_PARAMS_TYPE_NORMAL,
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    APP_LE_AUDIO_QOS_PARAMS_TYPE_GMAP,
+#endif
+    APP_LE_AUDIO_QOS_PARAMS_TYPE_MAX
+} app_le_audio_qos_params_type_t;
 /**************************************************************************************************
 * Structure
 **************************************************************************************************/
@@ -162,6 +173,7 @@ typedef struct {
     uint8_t link_idx;       /* the link index if the device is connected */
     uint8_t in_white_list;
     uint8_t deleting;
+    bt_hci_disconnect_reason_t reason;   /**< Disconnect reason. */
 } app_le_audio_ucst_bonded_device_t;
 
 typedef struct {
@@ -301,6 +313,16 @@ typedef struct {
     bool remote_device_bredr_connected; /* If the remote device connects to any BR/EDR device or not. */
     bool disconnect_cis_for_silence; /* If CIS need be disconnected when silence is detected. */
 #endif
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    uint8_t gmap_role;
+    uint8_t ugg_feature;
+    uint8_t ugt_feature;
+    uint8_t bgs_feature;
+    uint8_t bgr_feature;
+    bool gmap_discovery_complete;
+    app_le_audio_qos_params_type_t qos_params_type;
+#endif
+    app_dongle_session_manager_lea_session_info_t session_info[APP_DONGLE_SESSION_MGR_SESSION_USAGE_MAX];
 } app_le_audio_ucst_link_info_t;
 
 
@@ -358,7 +380,12 @@ bt_status_t app_le_audio_ucst_find_device(void);                /* scan and conn
 bt_status_t app_le_audio_ucst_connect_device(const bt_addr_t *addr);      /* connect device by bd_addr */
 
 void app_le_audio_ucst_cancel_create_connection(void);
+
+void app_le_audio_ucst_handle_cancel_create_connection_cnf(bt_status_t ret, void *ind);
+
 bt_status_t app_le_audio_ucst_disconnect(bt_handle_t handle);
+
+bt_status_t app_le_audio_ucst_disconnect_with_reason(bt_handle_t handle, bt_hci_disconnect_reason_t reason);
 
 bt_status_t app_le_audio_ucst_disconnect_device(bt_addr_t *addr);   /* disconnect device by bd_addr */
 
@@ -386,6 +413,8 @@ void app_le_audio_ucst_check_active_device_idle(void);
 void app_le_audio_ucst_handle_disconnect_ind(bt_status_t ret, bt_hci_evt_disconnect_complete_t *ind);
 
 void app_le_audio_ucst_handle_connection_update_ind(bt_status_t ret, bt_gap_le_connection_update_ind_t *ind);
+
+const bt_bd_addr_t *app_le_audio_csip_get_dongle_addr(bt_addr_type_t *addr_type);
 
 void app_le_audio_csip_handle_power_on(void);
 

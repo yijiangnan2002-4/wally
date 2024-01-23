@@ -82,9 +82,15 @@ typedef void (*fix_fft30_10_MS_t)(void);
 typedef void (*fix_fft40_10_MS_t)(void);
 typedef void (*FFT8N_10_MS_t)(void);
 
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+typedef LC3_ERR_T(*LC3PLUSN_Enc_Prcs_t)(void *p_lc3i_ptr, void *p_lc3i_tab, uint8_t *bytes, uint8_t *BufI, uint32_t *nBytes, Multi_FFT *FFTx);
+typedef LC3_ERR_T(*LC3PLUSN_Dec_Prcs_t)(void *p_lc3i_ptr, void *p_lc3i_tab, uint8_t *bytes, uint8_t *BufO, int32_t nBytes, int16_t packet_lost_st, int32_t bfi_ext, Multi_FFT *FFTx);
+typedef void (*LC3PLUSN_Dec_Get_Param_t)(void *p_lc3i_ptr, uint32_t *nSamples, int32_t *delay);
+#else
 typedef LC3_ERR_T(*LC3I_Enc_Prcs_t)(void *p_lc3i_ptr, void *p_lc3i_tab, uint8_t *bytes, uint8_t *BufI, uint32_t *nBytes, Multi_FFT *FFTx);
 typedef LC3_ERR_T(*LC3I_Dec_Prcs_t)(void *p_lc3i_ptr, void *p_lc3i_tab, uint8_t *bytes, uint8_t *BufO, int32_t nBytes, int16_t packet_lost_st, int32_t bfi_ext, Multi_FFT *FFTx);
 typedef void (*LC3I_Dec_Get_Param_t)(void *p_lc3i_ptr, uint32_t *nSamples, int32_t *delay);
+#endif
 
 extern void *g_lc3i_plc_std_export_parameters[];
 #define processPLCmain_Std_fx ((processPLCmain_Std_fx_t)g_lc3i_plc_std_export_parameters[0])
@@ -108,9 +114,15 @@ extern void *g_lc3i_fft10ms_export_parameters[];
 #define FFT8N_10_MS ((FFT8N_10_MS_t)g_lc3i_fft10ms_export_parameters[6])
 
 extern void *g_lc3i_codec_export_parameters[];
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+#define LC3PLUSN_Enc_Prcs ((LC3PLUSN_Enc_Prcs_t)g_lc3i_codec_export_parameters[0])
+#define LC3PLUSN_Dec_Prcs ((LC3PLUSN_Dec_Prcs_t)g_lc3i_codec_export_parameters[1])
+#define LC3PLUSN_Dec_Get_Param ((LC3PLUSN_Dec_Get_Param_t)g_lc3i_codec_export_parameters[2])
+#else
 #define LC3I_Enc_Prcs ((LC3I_Enc_Prcs_t)g_lc3i_codec_export_parameters[0])
 #define LC3I_Dec_Prcs ((LC3I_Dec_Prcs_t)g_lc3i_codec_export_parameters[1])
 #define LC3I_Dec_Get_Param ((LC3I_Dec_Get_Param_t)g_lc3i_codec_export_parameters[2])
+#endif
 
 extern void lc3i_fft7_5ms_library_load(void *code_address, void *data_address, uint32_t *dram_pic_usage);
 extern uint32_t lc3i_fft7_5ms_library_unload(void);

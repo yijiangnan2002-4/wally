@@ -102,7 +102,7 @@
 #define APP_LINE_IN_MIX_RATIO_MIN_LEVEL       (0)
 #define APP_LINE_IN_MIX_RATIO_BALANCED_LEVEL  (70)
 #define APP_LINE_IN_MIX_RATIO_MAX_LEVEL       (100)
-#define APP_LINE_IN_DEFAULT_VOLUME_VALUES     50  /**< Customer configuration*/
+#define APP_LINE_IN_DEFAULT_VOLUME_VALUES     100 /**< Customer configuration*/
 #define APP_LINE_OUT_DEFAULT_VOLUME_VALUES    90  /**< Customer configuration*/
 
 typedef struct {
@@ -1153,6 +1153,16 @@ static bool app_ull_dongle_idle_usb_event_proc(ui_shell_activity_t *self, uint32
             APPS_LOG_MSGID_E(LOG_TAG", received APPS_EVENTS_USB_AUDIO_RESUME, but no handler", 0);
             break;
         }
+
+#if defined (AIR_PURE_GAMING_MS_ENABLE) || defined (AIR_PURE_GAMING_KB_ENABLE)
+        case APPS_EVENTS_USB_HID_EP_TX: {
+            APPS_LOG_MSGID_W(LOG_TAG" USB event, APPS_EVENTS_USB_HID_EP_TX", 0);
+            extern void app_dongle_ull_le_hid_ep_tx(uint8_t *data, uint32_t len);
+            app_dongle_ull_le_hid_ep_tx((uint8_t *)extra_data, data_len);
+            ret = true;
+            break;
+        }
+#endif
         default:
             break;
     }

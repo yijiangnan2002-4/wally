@@ -253,7 +253,7 @@ static void ms_teams_telemetry_handler(ms_teams_telemetry_type_t *req_list, uint
                 }
                 return;
             case MS_TEAMS_TELEMETRY_DON_TO_ANS_SETTING:
-                telemetry_rsp_buf[rsp_len] = s_telemetry_info.don_to_seeting;
+                telemetry_rsp_buf[rsp_len] = s_telemetry_info.don_to_setting;
                 rsp_len += 1;
                 break;
             case MS_TEAMS_TELEMETRY_ENDPOINT_MODEL_ID:
@@ -293,10 +293,10 @@ static void ms_teams_telemetry_handler(ms_teams_telemetry_type_t *req_list, uint
                 rsp_len += 1;
                 break;
             case MS_TEAMS_TELEMETRY_DSP_EFFECTS_ENABLED: {
-                telemetry_rsp_buf[rsp_len] = s_telemetry_info.dsp_effect & 0xFF;
-                telemetry_rsp_buf[rsp_len + 1] = (s_telemetry_info.dsp_effect >> 8) & 0xFF;
-                telemetry_rsp_buf[rsp_len + 2] = (s_telemetry_info.dsp_effect >> 16) & 0xFF;
-                telemetry_rsp_buf[rsp_len + 3] = (s_telemetry_info.dsp_effect >> 24) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 3] = s_telemetry_info.dsp_effect & 0xFF;
+                telemetry_rsp_buf[rsp_len + 2] = (s_telemetry_info.dsp_effect >> 8) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 1] = (s_telemetry_info.dsp_effect >> 16) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 0] = (s_telemetry_info.dsp_effect >> 24) & 0xFF;
                 rsp_len += 4;
             }
             break;
@@ -335,10 +335,10 @@ static void ms_teams_telemetry_handler(ms_teams_telemetry_type_t *req_list, uint
                 break;
 #endif
             case MS_TEAMS_TELEMETRY_LOCAL_CONFERENCE_CNT:
-                telemetry_rsp_buf[rsp_len] = s_telemetry_info.local_conference_cnt & 0xFF;
-                telemetry_rsp_buf[rsp_len + 1] = (s_telemetry_info.local_conference_cnt >> 8) & 0xFF;
-                telemetry_rsp_buf[rsp_len + 2] = (s_telemetry_info.local_conference_cnt >> 16) & 0xFF;
-                telemetry_rsp_buf[rsp_len + 3] = (s_telemetry_info.local_conference_cnt >> 24) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 3] = s_telemetry_info.local_conference_cnt & 0xFF;
+                telemetry_rsp_buf[rsp_len + 2] = (s_telemetry_info.local_conference_cnt >> 8) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 1] = (s_telemetry_info.local_conference_cnt >> 16) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 0] = (s_telemetry_info.local_conference_cnt >> 24) & 0xFF;
                 rsp_len += 4;
                 break;
 #if 1
@@ -401,10 +401,10 @@ static void ms_teams_telemetry_handler(ms_teams_telemetry_type_t *req_list, uint
             if (s_telemetry_dt_list2[idx].key != 0) {
                 telemetry_rsp_buf[0] = s_telemetry_dt_list2[idx].key;
                 s_telemetry_dt_list2[idx].key = 0;
-                telemetry_rsp_buf[1] = s_telemetry_dt_list2[idx].val & 0xff;
-                telemetry_rsp_buf[2] = (s_telemetry_dt_list2[idx].val >> 8) & 0xff;
-                telemetry_rsp_buf[3] = (s_telemetry_dt_list2[idx].val >> 16) & 0xff;
-                telemetry_rsp_buf[4] = (s_telemetry_dt_list2[idx].val >> 24) & 0xff;
+                telemetry_rsp_buf[4] = s_telemetry_dt_list2[idx].val & 0xff;
+                telemetry_rsp_buf[3] = (s_telemetry_dt_list2[idx].val >> 8) & 0xff;
+                telemetry_rsp_buf[2] = (s_telemetry_dt_list2[idx].val >> 16) & 0xff;
+                telemetry_rsp_buf[1] = (s_telemetry_dt_list2[idx].val >> 24) & 0xff;
                 *data = telemetry_rsp_buf;
                 *data_len = 5;
                 return;
@@ -462,7 +462,7 @@ void app_ms_teams_set_mmi_state(ms_teams_call_state_sub_event_t ev)
             apps_config_set_background_led_pattern(LED_INDEX_INCOMING_CALL, true, APPS_CONFIG_LED_AWS_SYNC_PRIO_MIDDLE);
             break;
         case MS_TEAMS_CALL_EVENT_CALL_IN_PROCESS:
-            mmi_sta = APP_HFP_CALLACTIVE;
+            mmi_sta = APP_HFP_CALL_ACTIVE;
             apps_config_set_background_led_pattern(LED_INDEX_CALL_ACTIVE, true, APPS_CONFIG_LED_AWS_SYNC_PRIO_MIDDLE);
             break;
         case MS_TEAMS_CALL_EVENT_CALLER_ID:

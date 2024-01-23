@@ -573,16 +573,16 @@ ATTR_TEXT_IN_TCM static hal_i2c_status_t    _hal_i2c_config_transfer(hal_i2c_por
         }
         hal_nvic_restore_interrupt_mask(mask);
 
+        /* config i2c hw */
+        if (i2c_op_ioctl(i2c_port, I2C_IOCTRL_GET_BUSY_STAT, 0) == 0) {
+            i2c_config_transfer(i2c_port, config);
+        }
+
         /* if config is DMA mode, init dma*/
         if (config->trans_mode == I2C_TRANSFER_MODE_DMA && i2c_op_ioctl(i2c_port, I2C_IOCTRL_GET_BUSY_STAT, 0) == 0) {
             if(i2c_pdma_init(i2c_port, config)) {
                 break;
             }
-        }
-
-        /* config i2c hw */
-        if (i2c_op_ioctl(i2c_port, I2C_IOCTRL_GET_BUSY_STAT, 0) == 0) {
-            i2c_config_transfer(i2c_port, config);
         }
     } while (0);
    // hal_nvic_restore_interrupt_mask(mask);

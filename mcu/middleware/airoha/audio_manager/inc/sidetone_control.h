@@ -139,6 +139,7 @@ extern sidetone_control_result_t am_audio_side_tone_disable_by_scenario(sidetone
 sidetone_control_result_t ami_sidetone_enable_user_config_mode(int32_t user_volume);
 sidetone_control_result_t ami_sidetone_disable_user_config_mode(void);
 uint32_t ami_sidetone_adjust_gain_by_user_config(uint32_t sidetone_gain);
+bool am_audio_side_tone_get_status(void);
 
 #ifdef __cplusplus
 }

@@ -66,12 +66,12 @@
 
 #define LOG_TAG           "[anc_gain]"
 
-#define APP_ANC_EXTEND_GAIN_SYNC_DELAY         (600)
+#define APP_ANC_EXTEND_GAIN_SYNC_DELAY         (200)
 /* UU status: 1 for loose, 0 for tight. */
 #define APP_ANC_EXTEND_GAIN_UU_INIT            (0xFF)
 #define APP_ANC_EXTEND_GAIN_UU_INIT_TIMEOUT    (2 * 1000)
 
-#define APP_ANC_EXTEND_GAIN_ED_INVAILD         (0xFF)
+#define APP_ANC_EXTEND_GAIN_ED_INVALID         (0xFF)
 
 #define APP_UU_ED_MODE_INIT  (0)
 #define APP_UU_ED_MODE_UU    (1)
@@ -125,18 +125,24 @@ typedef struct {
     bool                     is_response;
 } PACKED app_anc_environment_detection_noise_sync_t;
 
+typedef struct {
+    audio_anc_control_extend_ramp_gain_type_t type;
+    audio_anc_control_gain_t gain_1;
+    audio_anc_control_gain_t gain_2;
+} PACKED app_anc_extend_gain_t;
+
 static app_anc_extend_gain_context_t        s_app_anc_gain_ctx = {0};
 static app_anc_gain_control_t               s_app_anc_gain_control = {0};
 
 /* Currently Not use but need a pointer pass to DSP callback.*/
 static uint32_t                             s_app_extend_gain_monitor = 0;
 
-bool app_anc_extend_gaing_get_streaming_status(void)
+bool app_anc_extend_gain_get_streaming_status(void)
 {
     return s_app_anc_gain_ctx.is_streaming_started;
 }
 
-void app_anc_extend_gaing_control_streaming(bool start_streaming)
+void app_anc_extend_gain_control_streaming(bool start_streaming)
 {
     audio_anc_monitor_adaptive_anc_stream_enable(start_streaming);
     s_app_anc_gain_ctx.is_streaming_started = start_streaming;
@@ -204,13 +210,23 @@ static void app_anc_extend_gain_notify_ed_result_imp(bool is_response)
                                                             ed_ff_apply,
                                                             ed_fb_apply,
                                                             stationary_noise,
-                                                            s_app_anc_gain_ctx.ed_peer_stationary_noise);
+#ifdef MTK_AWS_MCE_ENABLE
+                                                            s_app_anc_gain_ctx.ed_peer_stationary_noise
+#else 
+                                                            stationary_noise
+#endif
+                                                            );
     } else {
         race_dsprealtime_anc_environment_detection_notify(ed_level_apply,
                                                           ed_ff_apply,
                                                           ed_fb_apply,
                                                           stationary_noise,
-                                                          s_app_anc_gain_ctx.ed_peer_stationary_noise);
+#ifdef MTK_AWS_MCE_ENABLE
+                                                          s_app_anc_gain_ctx.ed_peer_stationary_noise
+#else 
+                                                          stationary_noise
+#endif
+                                                          );
     }
 }
 
@@ -621,7 +637,7 @@ static void app_anc_extend_gain_control(anc_gain_control_param_t *param)
     // Query action, only for Agent, not request AWS connected
     if (action == RACE_ANC_GAIN_CONTROL_QUERY
 #ifdef MTK_AWS_MCE_ENABLE
-        && role == BT_AWS_MCE_ROLE_AGENT
+        //&& role == BT_AWS_MCE_ROLE_AGENT
 #endif
        ) {
         bool enable = FALSE;
@@ -686,12 +702,12 @@ static void app_anc_extend_gain_control(anc_gain_control_param_t *param)
         if ((s_app_anc_gain_control.wn_enable && !s_app_anc_gain_control.wn_suspend)
             || (s_app_anc_gain_control.uu_enable && !s_app_anc_gain_control.uu_suspend)
             || (s_app_anc_gain_control.ed_enable && !s_app_anc_gain_control.ed_suspend)) {
-            app_anc_extend_gaing_control_streaming(TRUE);
+            app_anc_extend_gain_control_streaming(TRUE);
         }
     } else {
         if ((!s_app_anc_gain_control.wn_enable && !s_app_anc_gain_control.uu_enable && !s_app_anc_gain_control.ed_enable)
             || (s_app_anc_gain_control.wn_suspend && s_app_anc_gain_control.uu_suspend && s_app_anc_gain_control.ed_suspend)) {
-            app_anc_extend_gaing_control_streaming(FALSE);
+            app_anc_extend_gain_control_streaming(FALSE);
         }
     }
 
@@ -813,7 +829,11 @@ static void app_anc_extend_gain_dsp_callback(hal_audio_event_t event, void *user
     if (anc_extend_ramp_cap.gain_type ==  AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE
         || anc_extend_ramp_cap.gain_type == AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_USER_UNAWARE
         || anc_extend_ramp_cap.gain_type == AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION) {
+#ifdef MTK_AWS_MCE_ENABLE
         is_sync_control = true;
+#else
+        is_sync_control = false;
+#endif
     } else if (anc_extend_ramp_cap.gain_type ==  AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_HOWLING_CONTROL) {
         is_sync_control = false;
     }
@@ -835,7 +855,8 @@ static void app_anc_extend_gain_dsp_callback(hal_audio_event_t event, void *user
                                             ed_level);
     } else {
         /* ANC control. */
-        audio_anc_control_set_extend_gain(anc_extend_ramp_cap.gain_type, &anc_extend_ramp_cap, NULL);
+        //audio_anc_control_set_extend_gain(anc_extend_ramp_cap.gain_type, &anc_extend_ramp_cap, NULL);
+        app_anc_extend_gain_set_local(anc_extend_ramp_cap.gain_type, anc_extend_ramp_cap.extend_gain_1, anc_extend_ramp_cap.extend_gain_2, 0);
     }
 }
 
@@ -843,8 +864,8 @@ static bool app_anc_extend_gain_set_local(audio_anc_control_extend_ramp_gain_typ
                                           audio_anc_control_gain_t gain_2, uint32_t target_gpt)
 {
     bool success = false;
-    audio_anc_control_extend_ramp_cap_t    anc_extend_ramp_cap;
-    audio_anc_control_misc_t misc = {0};
+    //audio_anc_control_extend_ramp_cap_t    anc_extend_ramp_cap;
+    //audio_anc_control_misc_t misc = {0};
     uint32_t cur_gpt = 0;
     hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &cur_gpt);
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
@@ -877,47 +898,29 @@ static bool app_anc_extend_gain_set_local(audio_anc_control_extend_ramp_gain_typ
         success = true;
     } else if (type == AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE
                || type == AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION) {
-        /* Wind Noise or Noise Gate. */
-        misc.target_gpt_count = target_gpt;
-        anc_extend_ramp_cap.extend_gain_1 = gain_1;
-        anc_extend_ramp_cap.extend_gain_2 = gain_2;
-        audio_anc_control_result_t anc_ret = AUDIO_ANC_CONTROL_EXECUTION_FAIL;
-#if (defined AIR_ANC_USER_UNAWARE_ENABLE) && (defined AIR_ANC_ENVIRONMENT_DETECTION_ENABLE)
-        if (type == AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION &&
-            ((s_app_anc_gain_ctx.uu_ed_mode == APP_UU_ED_MODE_UU) ||
-             (s_app_anc_gain_ctx.uu_ed_mode == APP_UU_ED_MODE_INIT && s_app_anc_gain_ctx.uu_local == APP_ANC_EXTEND_GAIN_UU_INIT))) {
-            /* If UU is loose, cannot enable ENVIRONMENT_DETECTION. */
-            APPS_LOG_MSGID_I(LOG_TAG" in UU loose/init, ignore ENVIRONMENT_DETECTION", 0);
-        } else
-#endif
-        {
-            anc_ret = audio_anc_control_set_extend_gain(type, &anc_extend_ramp_cap, &misc);
-        }
+         app_anc_extend_gain_t *temp_extend_gain = (app_anc_extend_gain_t *)pvPortMalloc(sizeof(app_anc_extend_gain_t));
+         if (temp_extend_gain != NULL) {
+             uint32_t temp_delay_ms = 0;
+             if (target_gpt != 0) {
+                 temp_delay_ms = (target_gpt - cur_gpt) / 1000;
+             }
 
-        success = (AUDIO_ANC_CONTROL_EXECUTION_SUCCESS == anc_ret);
+             temp_extend_gain->type    = type;
+             temp_extend_gain->gain_1  = gain_1;
+             temp_extend_gain->gain_2  = gain_2;
 
-        if (success
-#ifdef MTK_AWS_MCE_ENABLE
-            && role == BT_AWS_MCE_ROLE_AGENT
-#endif
-           ) {
-            switch (type) {
-                case AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION: {
-                    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_ANC_EXTEND_GAIN, APP_EXTEND_GAIN_NOTIFY_ENVIRONMENT_DETECTION_TO_PHONE_APP);
-                    ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_ANC_EXTEND_GAIN,
-                                        APP_EXTEND_GAIN_NOTIFY_ENVIRONMENT_DETECTION_TO_PHONE_APP,
-                                        NULL, 0, NULL, 500);
-                    break;
-                }
-                case AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE: {
-                    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_ANC_EXTEND_GAIN, APP_EXTEND_GAIN_NOTIFY_WIND_NOISE_TO_PHONE_APP);
-                    ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_ANC_EXTEND_GAIN,
-                                        APP_EXTEND_GAIN_NOTIFY_WIND_NOISE_TO_PHONE_APP,
-                                        NULL, 0, NULL, 500);
-                    break;
-                }
-            }
-        }
+             ui_shell_status_t status = ui_shell_send_event(false, EVENT_PRIORITY_HIGH,
+                                         EVENT_GROUP_UI_SHELL_ANC_EXTEND_GAIN, APP_EXTEND_GAIN_WN_OR_ED_SET,
+                                         (void *)temp_extend_gain, sizeof(app_anc_extend_gain_t), NULL, temp_delay_ms);
+             if (UI_SHELL_STATUS_OK != status) {
+                 vPortFree(temp_extend_gain);
+                 temp_extend_gain = NULL;
+             }
+
+             success = true;
+         } else {
+             APPS_LOG_MSGID_W(LOG_TAG" set_local, app_anc_extend_gain_t malloc fail", 0);
+         }
     }
 
     APPS_LOG_MSGID_I(LOG_TAG" set_local, [%02X] type=%d gain_1=%d gain_2=%d cur_gpt=%d target_gpt=%d success=%d",
@@ -1024,7 +1027,7 @@ static bool app_anc_extend_gain_proc_ui_shell_group(ui_shell_activity_t *self, u
                     s_app_anc_gain_ctx.uu_local = APP_ANC_EXTEND_GAIN_UU_INIT;
                     s_app_anc_gain_ctx.uu_peer = APP_ANC_EXTEND_GAIN_UU_INIT;
                     s_app_anc_gain_ctx.uu_apply = APP_ANC_EXTEND_GAIN_UU_INIT;
-                    s_app_anc_gain_ctx.ed_peer_stationary_noise = APP_ANC_EXTEND_GAIN_ED_INVAILD;
+                    s_app_anc_gain_ctx.ed_peer_stationary_noise = APP_ANC_EXTEND_GAIN_ED_INVALID;
                     s_app_anc_gain_ctx.curr_anc_type = AUDIO_ANC_CONTROL_TYPE_DUMMY;
                 }
                 /* Register callback to wind noise lib. */
@@ -1073,7 +1076,7 @@ static bool app_anc_extend_gain_proc_bt_cm_group(ui_shell_activity_t *self, uint
                 }
             } else if ((BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->pre_connected_service)
                        && !(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)) {
-                local_ctx->ed_peer_stationary_noise = APP_ANC_EXTEND_GAIN_ED_INVAILD;
+                local_ctx->ed_peer_stationary_noise = APP_ANC_EXTEND_GAIN_ED_INVALID;
                 if (local_ctx->wn_apply != local_ctx->wn_local) {
                     local_ctx->wn_apply = local_ctx->wn_local;
                     app_anc_extend_gain_set_local(AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE, local_ctx->wn_apply,
@@ -1112,22 +1115,15 @@ static bool app_anc_extend_gain_proc_bt_cm_group(ui_shell_activity_t *self, uint
 
 static bool app_anc_extend_gain_proc_audio_anc_group(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
 {
-    bool streaming_state = app_anc_extend_gaing_get_streaming_status();
-#if (defined(AIR_ANC_ENVIRONMENT_DETECTION_ENABLE) || defined(AIR_ANC_USER_UNAWARE_ENABLE)) && defined(MTK_RACE_CMD_ENABLE)
-    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
-#endif
+    bool streaming_state = app_anc_extend_gain_get_streaming_status();
     app_anc_srv_result_t *anc_result = (app_anc_srv_result_t *)extra_data;
     app_anc_extend_gain_context_t *local_ctx = self->local_context;
     APPS_LOG_MSGID_I(LOG_TAG" ANC EVENT : event_id=%d, type=%d, filter_id=%d",
                      3, event_id,  anc_result->cur_type, anc_result->cur_filter_id);
 
     if (event_id == AUDIO_ANC_CONTROL_EVENT_OFF) {
-        app_anc_extend_gain_set_local(AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE, 0,
-                                      AUDIO_ANC_CONTROL_UNASSIGNED_GAIN, 0);
-        app_anc_extend_gain_set_local(AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION, 0, 0, 0);
-
         if (streaming_state) {
-            app_anc_extend_gaing_control_streaming(FALSE);
+            app_anc_extend_gain_control_streaming(FALSE);
         }
 
         local_ctx->wn_apply    = 0;
@@ -1141,20 +1137,6 @@ static bool app_anc_extend_gain_proc_audio_anc_group(ui_shell_activity_t *self, 
         if (anc_result->cur_type == AUDIO_ANC_CONTROL_TYPE_PASSTHRU_FF
          || anc_result->cur_type == AUDIO_ANC_CONTROL_TYPE_PT_HYBRID) {
             s_app_anc_gain_control.pt_filter_index = anc_result->cur_filter_id;
-
-            /* Suspend ED or UU when PT on.*/
-#ifdef MTK_RACE_CMD_ENABLE
-#ifdef AIR_ANC_ENVIRONMENT_DETECTION_ENABLE
-            if (s_app_anc_gain_control.ed_enable && !s_app_anc_gain_control.ed_suspend) {
-                app_anc_extent_gain_control_ed(role, RACE_ANC_GAIN_CONTROL_SUSPEND);
-            }
-#endif
-#ifdef AIR_ANC_USER_UNAWARE_ENABLE
-            if (s_app_anc_gain_control.uu_enable && !s_app_anc_gain_control.uu_suspend) {
-                app_anc_extend_gain_control_uu(role, RACE_ANC_GAIN_CONTROL_SUSPEND);
-            }
-#endif
-#endif
         } else if (anc_result->cur_type != AUDIO_ANC_CONTROL_TYPE_PASSTHRU_FF
                    && anc_result->cur_type != AUDIO_ANC_CONTROL_TYPE_DUMMY) {
             s_app_anc_gain_control.anc_filter_index = anc_result->cur_filter_id;
@@ -1163,22 +1145,8 @@ static bool app_anc_extend_gain_proc_audio_anc_group(ui_shell_activity_t *self, 
                 ((s_app_anc_gain_control.wn_enable && !s_app_anc_gain_control.wn_suspend)
                  || (s_app_anc_gain_control.uu_enable && !s_app_anc_gain_control.uu_suspend)
                  || (s_app_anc_gain_control.ed_enable && !s_app_anc_gain_control.ed_suspend))) {
-                app_anc_extend_gaing_control_streaming(TRUE);
+                app_anc_extend_gain_control_streaming(TRUE);
             }
-
-            /* Resume ED or UU when ANC on.*/
-#ifdef MTK_RACE_CMD_ENABLE
-#ifdef AIR_ANC_ENVIRONMENT_DETECTION_ENABLE
-            if (s_app_anc_gain_control.ed_enable && s_app_anc_gain_control.ed_suspend) {
-                app_anc_extent_gain_control_ed(role, RACE_ANC_GAIN_CONTROL_RESUME);
-            }
-#endif
-#ifdef AIR_ANC_USER_UNAWARE_ENABLE
-            if (s_app_anc_gain_control.uu_enable && s_app_anc_gain_control.uu_suspend) {
-                app_anc_extend_gain_control_uu(role, RACE_ANC_GAIN_CONTROL_RESUME);
-            }
-#endif
-#endif
         }
 
         if (anc_result->cur_filter_id != AUDIO_ANC_CONTROL_FILTER_ID_ANC_4) {
@@ -1188,13 +1156,30 @@ static bool app_anc_extend_gain_proc_audio_anc_group(ui_shell_activity_t *self, 
         }
         app_anc_extend_gain_save_control_status();
     }
+    app_anc_extend_gain_update_control_status();
+#ifdef MTK_RACE_CMD_ENABLE
+    bool is_notify = true;
+#ifdef MTK_AWS_MCE_ENABLE
+    if (BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type()) {
+        if (bt_connection_manager_device_local_info_get_aws_role() != BT_AWS_MCE_ROLE_AGENT) {
+            is_notify = false;
+        }
+    }
+#endif //MTK_AWS_MCE_ENABLE
+    if (is_notify) {
+#ifdef AIR_ANC_WIND_DETECTION_ENABLE
+        race_dsprealtime_anc_gain_control_notify(RACE_ANC_GAIN_STATUS_SUCCESS, AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE, s_app_anc_gain_control.wn_enable);
+#endif
+#ifdef AIR_ANC_ENVIRONMENT_DETECTION_ENABLE
+        race_dsprealtime_anc_gain_control_notify(RACE_ANC_GAIN_STATUS_SUCCESS, AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION, s_app_anc_gain_control.ed_enable);
+#endif
+    }
+#endif //MTK_RACE_CMD_ENABLE
     return false;
 }
 
 static bool app_anc_extend_gain_proc_interaction_group(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
 {
-    //app_anc_extend_gain_context_t *local_ctx = self->local_context;
-
     switch (event_id) {
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
         case APPS_EVENTS_INTERACTION_RHO_END: {
@@ -1240,11 +1225,11 @@ static void app_anc_extend_gain_update_wn_gain(app_anc_extend_gain_context_t *lo
     APPS_LOG_MSGID_I(LOG_TAG" update_wn_gain, local=%d peer=%d apply=%d->%d",
                      4, local_ctx->wn_local, local_ctx->wn_peer,
                      local_ctx->wn_apply, apply_gain);
-    //if (local_ctx->wn_apply != apply_gain) {
+    if (local_ctx->wn_apply != apply_gain) {
         app_anc_extend_gain_set_and_sync(AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE, apply_gain,
                                          AUDIO_ANC_CONTROL_UNASSIGNED_GAIN, APP_ANC_EXTEND_GAIN_SYNC_DELAY);
-        local_ctx->wn_apply = apply_gain;
-    //}
+        //local_ctx->wn_apply = apply_gain;
+    }
 }
 
 static void app_anc_extend_gain_update_uu_gain(app_anc_extend_gain_context_t *local_ctx)
@@ -1252,8 +1237,8 @@ static void app_anc_extend_gain_update_uu_gain(app_anc_extend_gain_context_t *lo
     audio_anc_control_gain_t apply_gain = (local_ctx->uu_local <= local_ctx->uu_peer ? local_ctx->uu_local : local_ctx->uu_peer);
     APPS_LOG_MSGID_I(LOG_TAG" update_uu_gain, local=%d peer=%d apply=%d->%d",
                      4, local_ctx->uu_local, local_ctx->uu_peer, local_ctx->uu_apply, apply_gain);
-    //if (local_ctx->uu_apply != apply_gain) {
-        //if (local_ctx->uu_peer != APP_ANC_EXTEND_GAIN_UU_INIT) {
+    if (local_ctx->uu_apply != apply_gain) {
+        if (local_ctx->uu_peer != APP_ANC_EXTEND_GAIN_UU_INIT) {
         if (1) {
             app_anc_extend_gain_set_and_sync(AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_USER_UNAWARE, apply_gain,
                                              AUDIO_ANC_CONTROL_UNASSIGNED_GAIN, APP_ANC_EXTEND_GAIN_SYNC_DELAY);
@@ -1262,10 +1247,11 @@ static void app_anc_extend_gain_update_uu_gain(app_anc_extend_gain_context_t *lo
                                           AUDIO_ANC_CONTROL_UNASSIGNED_GAIN, 0);
         }
 
-        if (local_ctx->uu_local != APP_ANC_EXTEND_GAIN_UU_INIT && apply_gain != APP_ANC_EXTEND_GAIN_UU_INIT) {
-            local_ctx->uu_apply = apply_gain;
+//        if (local_ctx->uu_local != APP_ANC_EXTEND_GAIN_UU_INIT && apply_gain != APP_ANC_EXTEND_GAIN_UU_INIT) {
+//            local_ctx->uu_apply = apply_gain;
+//        }
         }
-    //}
+    }
 }
 
 static void app_anc_extend_gain_update_ed_gain(app_anc_extend_gain_context_t *local_ctx)
@@ -1277,13 +1263,13 @@ static void app_anc_extend_gain_update_ed_gain(app_anc_extend_gain_context_t *lo
                      local_ctx->ed_ff_peer, local_ctx->ed_fb_peer,
                      local_ctx->ed_ff_apply, local_ctx->ed_fb_apply,
                      ff_apply_gain, fb_apply_gain);
-    //if (local_ctx->ed_ff_apply != ff_apply_gain || local_ctx->ed_fb_apply != fb_apply_gain) {
+    if (local_ctx->ed_ff_apply != ff_apply_gain || local_ctx->ed_fb_apply != fb_apply_gain) {
         app_anc_extend_gain_set_and_sync(AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION,
                                          ff_apply_gain, fb_apply_gain,
                                          APP_ANC_EXTEND_GAIN_SYNC_DELAY);
-        local_ctx->ed_ff_apply = ff_apply_gain;
-        local_ctx->ed_fb_apply = fb_apply_gain;
-    //}
+//        local_ctx->ed_ff_apply = ff_apply_gain;
+//        local_ctx->ed_fb_apply = fb_apply_gain;
+    }
 }
 
 static void app_anc_extend_gain_update_gain(app_anc_extend_gain_event_t event, app_anc_extend_gain_context_t *local_ctx)
@@ -1324,7 +1310,7 @@ static bool app_anc_extend_gain_proc_aws_data_group(ui_shell_activity_t *self, u
                 app_anc_environment_detection_noise_sync_t noise_sync = *((app_anc_environment_detection_noise_sync_t *)extra);
                 int16_t stationary_noise = noise_sync.stationary_noise;
                 bool is_response = noise_sync.is_response;
-                APPS_LOG_MSGID_I(LOG_TAG" [AWS_DATA] [%02X] ed_nosie stationary_noise=%d is_response=%d",
+                APPS_LOG_MSGID_I(LOG_TAG" [AWS_DATA] [%02X] ed_noise stationary_noise=%d is_response=%d",
                                  3, role, stationary_noise, is_response);
                 s_app_anc_gain_ctx.ed_peer_stationary_noise = stationary_noise;
 
@@ -1480,6 +1466,7 @@ static bool app_anc_extend_gain_proc_anc_extend_gain_group(ui_shell_activity_t *
         case APP_EXTEND_GAIN_USER_UNAWARE_SET: {
             APPS_LOG_MSGID_I(LOG_TAG" [ANC_GAIN event] USER_UNAWARE_SET, [%02X] gain=%d ed_enable=%d",
                              3, role, extra_data, s_app_anc_gain_control.ed_enable);
+            local_ctx->uu_apply = (uint32_t)extra_data;
             audio_anc_monitor_set_info(AUDIO_ANC_MONITOR_SET_USER_UNAWARE_STAT, (uint32_t)extra_data);
 #if (defined AIR_ANC_USER_UNAWARE_ENABLE) && (defined AIR_ANC_ENVIRONMENT_DETECTION_ENABLE)
             /* Disable UU and switch to environment detection when it's tight. */
@@ -1506,6 +1493,63 @@ static bool app_anc_extend_gain_proc_anc_extend_gain_group(ui_shell_activity_t *
                 local_ctx->uu_ed_mode = APP_UU_ED_MODE_UU;
             }
 #endif
+            break;
+        }
+        case APP_EXTEND_GAIN_WN_OR_ED_SET: {
+            /* Wind Noise or Noise Gate. */
+            app_anc_extend_gain_t *extend_gain_set = (app_anc_extend_gain_t *)extra_data;
+            if (extend_gain_set == NULL) {
+                break;
+            }
+            APPS_LOG_MSGID_I(LOG_TAG" [ANC_GAIN event] WN_OR_ED_SET, [%02X] type=%d",
+                                         2, role, extend_gain_set->type);
+            audio_anc_control_result_t set_ret = AUDIO_ANC_CONTROL_EXECUTION_NONE;
+            audio_anc_control_extend_ramp_cap_t    anc_extend_ramp_cap = {0};
+            anc_extend_ramp_cap.extend_gain_1 = extend_gain_set->gain_1;
+            anc_extend_ramp_cap.extend_gain_2 = extend_gain_set->gain_2;
+#if (defined AIR_ANC_USER_UNAWARE_ENABLE) && (defined AIR_ANC_ENVIRONMENT_DETECTION_ENABLE)
+            if (extend_gain_set->type == AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION &&
+                ((s_app_anc_gain_ctx.uu_ed_mode == APP_UU_ED_MODE_UU) ||
+                 (s_app_anc_gain_ctx.uu_ed_mode == APP_UU_ED_MODE_INIT && s_app_anc_gain_ctx.uu_local == APP_ANC_EXTEND_GAIN_UU_INIT))) {
+                /* If UU is loose, cannot enable ENVIRONMENT_DETECTION. */
+                APPS_LOG_MSGID_I(LOG_TAG" in UU loose/init, ignore ENVIRONMENT_DETECTION", 0);
+            } else
+#endif
+            {
+                set_ret = audio_anc_control_set_extend_gain(extend_gain_set->type, &anc_extend_ramp_cap, NULL);
+            }
+
+            if (AUDIO_ANC_CONTROL_EXECUTION_SUCCESS == set_ret) {
+                if (extend_gain_set->type == AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION) {
+                    local_ctx->ed_ff_apply = extend_gain_set->gain_1;
+                    local_ctx->ed_fb_apply = extend_gain_set->gain_2;
+                } else {
+                    local_ctx->wn_apply = extend_gain_set->gain_1;
+                }
+#ifdef MTK_AWS_MCE_ENABLE
+                if (role == BT_AWS_MCE_ROLE_AGENT)
+#endif
+                {
+                    switch (extend_gain_set->type) {
+                        case AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_ENVIRONMENT_DETECTION: {
+                            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_ANC_EXTEND_GAIN, APP_EXTEND_GAIN_NOTIFY_ENVIRONMENT_DETECTION_TO_PHONE_APP);
+                            ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_ANC_EXTEND_GAIN,
+                                                APP_EXTEND_GAIN_NOTIFY_ENVIRONMENT_DETECTION_TO_PHONE_APP,
+                                                NULL, 0, NULL, 500);
+                            break;
+                        }
+                        case AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE: {
+                            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_ANC_EXTEND_GAIN, APP_EXTEND_GAIN_NOTIFY_WIND_NOISE_TO_PHONE_APP);
+                            ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_ANC_EXTEND_GAIN,
+                                                APP_EXTEND_GAIN_NOTIFY_WIND_NOISE_TO_PHONE_APP,
+                                                NULL, 0, NULL, 500);
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+                }
+            }
             break;
         }
 #ifdef MTK_RACE_CMD_ENABLE

@@ -41,12 +41,15 @@ extern "C" {
 
 #include "bt_sink_srv.h"
 #include "bt_sink_srv_common.h"
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 #include "bt_sink_srv_music.h"
+#endif
 #include "bt_sink_srv_state_manager.h"
 #include "bt_sink_srv_utils.h"
 
 #include "bt_connection_manager.h"
 #include "bt_utils.h"
+#include "project_config.h"
 
 #ifdef AIR_LE_AUDIO_ENABLE
 #include "bt_sink_srv_le.h"
@@ -92,7 +95,7 @@ extern "C" {
      BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK))
 
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE
- #define BT_SINK_SRV_STATE_MANAGER_IS_SINK_SRV_DEVICE(type) \
+#define BT_SINK_SRV_STATE_MANAGER_IS_SINK_SRV_DEVICE(type) \
      ((type) == AUDIO_SRC_SRV_PSEUDO_DEVICE_A2DP ||      \
       (type) == AUDIO_SRC_SRV_PSEUDO_DEVICE_AWS_A2DP ||  \
       (type) == AUDIO_SRC_SRV_PSEUDO_DEVICE_HFP ||       \
@@ -105,6 +108,11 @@ extern "C" {
      (type) == AUDIO_SRC_SRV_PSEUDO_DEVICE_HFP ||       \
      (type) == AUDIO_SRC_SRV_PSEUDO_DEVICE_BLE)
 #endif
+
+#define BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(device)                \
+    ((NULL != (device)) &&                                              \
+     (BT_SINK_SRV_STATE_MANAGER_IS_CALL_STATE((device)->call_state) ||  \
+      BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED != (device)->call_audio_state))
 
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE
 #define BT_SINK_SRV_STATE_MANAGER_NEXT_STATE_INVALID            0x00
@@ -122,6 +130,8 @@ typedef uint8_t bt_sink_srv_state_manager_device_flag_t;
 #define BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_FOCUS               0x01
 #define BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_PLAYED              0x02
 #define BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_ACTION              0x03
+#define BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_PLAY_COUNT          0x04
+#define BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_REQUEST_STATE       0x05
 typedef uint8_t bt_sink_srv_state_manager_sync_type_t;
 
 #define BT_SINK_SRV_STATE_MANAGER_SYNC_DIRECTION_AGENT          0x00
@@ -151,10 +161,10 @@ typedef struct {
     bt_sink_srv_state_t                         call_state;
     bt_sink_srv_state_t                         media_state;
     bt_sink_srv_state_t                         previous_state;
-    bt_sink_srv_state_manager_device_t          *focus_call_device;
-    bt_sink_srv_state_manager_device_t          *focus_media_device;
+    bt_sink_srv_state_manager_device_t          *focus_device;
     bt_sink_srv_state_manager_device_t          devices[BT_SINK_SRV_STATE_MANAGER_MAX_DEVICE_NUM];
     bt_sink_srv_state_manager_played_device_t   played_devices[BT_SINK_SRV_STATE_MANAGER_MAX_PLAYED_DEVICE_NUM];
+    bt_sink_srv_state_manager_play_count_t      play_count;
 } bt_sink_srv_state_manager_context_t;
 
 typedef struct {
@@ -170,6 +180,7 @@ typedef struct {
     bt_sink_srv_action_t                        focus_action;
     bt_sink_srv_action_t                        other_action;
     bool                                        swap_focus;
+    bool                                        find_last_other;
 } bt_sink_srv_state_manager_dispatch_table_t;
 
 typedef struct {
@@ -201,6 +212,15 @@ typedef struct {
     uint32_t                                    parameter_length;
     uint8_t                                     parameter[1];
 } bt_sink_srv_state_manager_sync_action_t;
+
+typedef struct {
+    bt_sink_srv_state_manager_sync_header_t     header;
+    bt_sink_srv_state_manager_play_count_t      play_count;
+} bt_sink_srv_state_manager_sync_play_count_t;
+
+typedef struct {
+    bt_sink_srv_state_manager_sync_header_t     header;
+} bt_sink_srv_state_manager_sync_request_state_t;
 
 typedef struct {
     bt_sink_srv_state_manager_focus_device_t    focus_type;
@@ -249,12 +269,7 @@ bt_sink_srv_state_manager_device_t *bt_sink_srv_state_manager_get_device_by_flag
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_state_manager_device_flag_t flag);
 
-void bt_sink_srv_state_manager_set_focus_call_device(
-    bt_sink_srv_state_manager_context_t *context,
-    bt_sink_srv_state_manager_device_t *device,
-    bool is_add);
-
-void bt_sink_srv_state_manager_set_focus_media_device(
+void bt_sink_srv_state_manager_set_focus_device(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_state_manager_device_t *device,
     bool is_add);
@@ -295,9 +310,25 @@ uint32_t bt_gap_le_srv_get_address_by_link_type(
     uint32_t list_num,
     bool is_local_addr);
 
+void bt_sink_srv_state_manager_update_ring_ind(
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device,
+    bt_sink_srv_state_t previous_state);
+
+void bt_sink_srv_state_manager_get_device_state(
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device,
+    bt_sink_srv_device_state_t *device_state);
+
 bt_sink_srv_state_manager_context_t *bt_sink_srv_state_manager_get_context(void);
 void bt_sink_srv_state_manager_update_edr_devices(bt_sink_srv_state_manager_context_t *context);
 void bt_sink_srv_state_manager_sync_played_devices(bt_sink_srv_state_manager_context_t *context);
+
+#if defined(MTK_AWS_MCE_ENABLE)
+void bt_sink_srv_state_manager_sync_state_change(
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_t state);
+#endif
 
 #ifdef MTK_AWS_MCE_ENABLE
 void bt_sink_srv_state_manager_aws_mce_report_callback(bt_aws_mce_report_info_t *info);
@@ -313,6 +344,8 @@ void bt_sink_srv_state_manager_rho_status(
 uint8_t bt_sink_srv_state_manager_rho_get_len(const bt_bd_addr_t *address);
 bt_status_t bt_sink_srv_state_manager_rho_get_data(const bt_bd_addr_t *address, void *data);
 bt_status_t bt_sink_srv_state_manager_rho_update(bt_role_handover_update_info_t *info);
+bool bt_sink_srv_state_manager_is_rho_update(bt_sink_srv_state_manager_context_t *context);
+
 #endif
 
 #ifdef MTK_BT_CM_SUPPORT
@@ -323,7 +356,7 @@ bt_status_t bt_sink_srv_state_manager_cm_callback(
 #endif
 
 #ifdef AIR_LE_AUDIO_ENABLE
-void bt_sink_srv_state_manager_gap_le_srv_callback(bt_gap_le_srv_event_t event, void *parameter); 
+void bt_sink_srv_state_manager_gap_le_srv_callback(bt_gap_le_srv_event_t event, void *parameter);
 #endif
 
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE

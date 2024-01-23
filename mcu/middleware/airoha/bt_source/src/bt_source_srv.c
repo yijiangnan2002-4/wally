@@ -52,10 +52,12 @@
 #pragma comment(linker, "/alternatename:_bt_source_srv_event_callback=_default_bt_source_srv_event_callback")
 #pragma comment(linker, "/alternatename:_bt_source_srv_get_feature_config=_default_bt_source_srv_get_feature_config")
 #pragma comment(linker, "/alternatename:_bt_source_srv_get_phone_card_information=_default_bt_source_srv_get_phone_card_information")
+#pragma comment(linker, "/alternatename:_bt_source_srv_get_audio_codec_type=_default_bt_source_srv_get_audio_codec_type")
 #elif defined(__GNUC__) || defined(__ICCARM__) || defined(__CC_ARM)
 #pragma weak bt_source_srv_event_callback = default_bt_source_srv_event_callback
 #pragma weak bt_source_srv_get_feature_config = default_bt_source_srv_get_feature_config
 #pragma weak bt_source_srv_get_phone_card_information = default_bt_source_srv_get_phone_card_information
+#pragma weak bt_source_srv_get_audio_codec_type = default_bt_source_srv_get_audio_codec_type
 #else
 #error "Unsupported Platform"
 #endif
@@ -77,6 +79,12 @@ static uint32_t default_bt_source_srv_get_phone_card_information(bt_source_srv_t
 {
     LOG_MSGID_I(source_srv, "[SOURCE][SRV] the user didn't implement get phone card information, please implement", 0);
     return 0;
+}
+
+static bt_source_srv_codec_t default_bt_source_srv_get_audio_codec_type(bt_source_srv_t type, const bt_addr_t *peer_address)
+{
+    LOG_MSGID_I(source_srv, "[SOURCE][SRV] the user didn't implement get audio codec type, please implement", 0);
+    return BT_SOURCE_SRV_CODEC_TYPE_NONE;
 }
 
 static bt_status_t bt_source_srv_common_callback(bt_msg_type_t msg, bt_status_t status, void *buffer)

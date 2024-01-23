@@ -57,6 +57,11 @@
 
 
 #define APPS_AUTO_SET_BT_DISCOVERABLE        (1) /* When disconnected from smart phone or power on BT, enable BT discoverable automatically */
+#define TIME_TO_RECONNECT_DEVICE    (10 * 1000)             /* The time of reconnect the connected device. */
+#define TIME_TO_START_VISIBLE_AFTER_POWER_ON    (TIME_TO_RECONNECT_DEVICE)
+/* The delay time to start BT visible after BT power on. */
+#define TIME_TO_STOP_RECONNECTION   (2 * 60 * 1000)         /* The delay time to stop reconnection. */
+#define VISIBLE_TIMEOUT             (2 * 60 * 1000)         /* The timeout of BT visibility. */
 
 
 #ifdef APPS_SLEEP_AFTER_NO_CONNECTION
@@ -73,6 +78,12 @@
 /* The POWER_SAVING_MODE if ANC/PassThrough is enabled. It must be <= APPS_POWER_SAVING_MODE */
 #define APPS_POWER_SAVING_WHEN_ANC_PASSTHROUGH_ENABLED  (0) /* == APPS_POWER_SAVING_NONE */
 #endif
+
+#ifndef AIR_HEARTHROUGH_MAIN_ENABLE
+#define AIR_APPS_DEFAULT_ADV_ENABLE                     (1)
+#else
+#define AIR_APPS_DEFAULT_ADV_ENABLE                     (0)
+#endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
 
 #if (!(defined MULTI_VA_SUPPORT_COMPETITION)) && defined AIR_XIAOWEI_ENABLE
 #define APPS_DEFAULT_VA_TYPE                    MULTI_VA_TYPE_XIAOWEI

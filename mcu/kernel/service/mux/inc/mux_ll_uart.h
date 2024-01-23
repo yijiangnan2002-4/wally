@@ -146,12 +146,6 @@ ATTR_TEXT_IN_FAST_MEM static __FORCE_INLINE__ uint32_t mux_get_bt_clock_count(vo
 
 #define MUX_PACKAGE_HEAD_TAIL_LEN (MUX_PACKAGE_HEAD_LEN + MUX_DATA_CHECK_LEN)
 
-#define MUX_HEADER_HEAD_IDX         0
-#define MUX_HEADER_ID_IDX           1
-#define MUX_HEADER_LOW_LEN_IDX      2
-#define MUX_HEADER_HIGH_LEN_IDX     3
-#define MUX_HEADER_SEQ_IDX          4
-
 #ifndef MUX_LL_UART_CUSTOMIZATION_USER_COUNT_MAX
 #define MUX_LL_UART_CUSTOMIZATION_USER_COUNT_MAX 0
 #endif
@@ -260,6 +254,11 @@ typedef struct {
     mux_ll_user_timestamp_t callback_timestamp[MUX_LL_TIMESTAMP_BUFFER_MAX];
     hal_core_id_t tx_scid;
     hal_core_id_t rx_dcid;
+    uint32_t tx_silence_timeout;
+    uint32_t rx_silence_enable;
+    uint32_t tx_silence_enable;
+    uint32_t rx_silence_drop_max;
+    uint32_t msg_status;
 } mux_ll_user_config_t;
 
 typedef struct mux_user_fifo_list {
@@ -272,6 +271,7 @@ typedef enum {
     MUX_TX_TRIGGER_OWNER_RDYW   = 2,
     MUX_TX_TRIGGER_OWNER_DSP_TX = 3,
     MUX_TX_TRIGGER_OWNER_WAKEUP = 4,
+    MUX_TX_TRIGGER_OWNER_RXCHK  = 5,
 } mux_tx_trigger_owner_t;
 
 #define MUX_SET_TX_FLAGS(uid, debug) (g_port_config.tx_flags = ((((uid) & 0xFF) << 8) | ((debug) & 0xFF)))
@@ -306,12 +306,16 @@ typedef struct {
     uint32_t user_count;
     uint16_t uart_tx_threshold;
     uint16_t uart_rx_threshold;
-    uint32_t tx_pkt_head_tail_len;
     dchs_mode_t device_mode;
     uint32_t notify_counter;
     mux_ll_user_totify_t dsp_notify[MUX_LL_NOTIFY_BUFFER_MAX];
     mux_ll_user_config_t user_config[MAX_MUX_LL_USER_COUNT];
 } mux_ll_config_t;
+
+typedef enum {
+    MUX_LL_MSG_READY_TO_WRITE,
+    MUX_LL_MSG_CLEAR_USER_BUFFER,
+} mux_ll_message_t;
 
 extern mux_ll_port_config_t g_port_config;
 extern ATTR_SHARE_ZIDATA mux_ll_config_t mux_ll_config;
@@ -323,6 +327,7 @@ extern mux_status_t mux_deinit_ll(mux_port_t port);
 extern mux_status_t mux_rx_ll(mux_handle_t handle, mux_buffer_t *buffer, uint32_t *receive_done_data_len);
 extern mux_status_t mux_peek_ll(mux_handle_t handle, mux_buffer_t *buffer, uint32_t *receive_done_data_len);
 extern mux_status_t mux_tx_ll(mux_handle_t handle, const mux_buffer_t buffers[], uint32_t buffers_counter, uint32_t *send_done_data_len);
+extern mux_status_t mux_tx_ll_with_silence(mux_handle_t handle, const mux_buffer_t buffers[], uint32_t buffers_counter, uint32_t *send_done_data_len);
 extern mux_status_t mux_open_ll(mux_port_t port, const char *user_name, mux_handle_t *p_handle, mux_callback_t callback, void *user_data);
 extern mux_status_t mux_close_ll(mux_handle_t handle);
 extern mux_status_t mux_control_ll(mux_handle_t handle, mux_ctrl_cmd_t command, mux_ctrl_para_t *para);

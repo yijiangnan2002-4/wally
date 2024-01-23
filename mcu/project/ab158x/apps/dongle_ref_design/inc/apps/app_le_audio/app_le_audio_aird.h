@@ -42,6 +42,7 @@ void app_le_audio_aird_init(void);
 void app_le_audio_aird_notify_volume_change(app_le_audio_aird_streaming_interface_t streaming_interface,
                                                 app_le_audio_aird_streaming_port_t streaming_port,
                                                 app_le_audio_aird_volume_t volume);
+bool app_le_audio_aird_is_connected(bt_handle_t handle);
 
 #endif /* AIR_LE_AUDIO_ENABLE */
 #endif /* __APP_LE_AUDIO_AIRD_H__ */

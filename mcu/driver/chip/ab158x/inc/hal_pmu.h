@@ -895,5 +895,7 @@ void pmu_dump_nvkey(void);
 void pmu_dump_rg(void);
 void pmu_vrf_keep_nm(void);
 void pmu_check_rg_timer(uint16_t start, uint16_t end, uint16_t timer);
+void hal_pmu_buck_thd_test(void);
+void hal_pmu_buck_thd_test_wo_pg(void);
 #endif /* HAL_PMU_MODULE_ENABLED */
 #endif

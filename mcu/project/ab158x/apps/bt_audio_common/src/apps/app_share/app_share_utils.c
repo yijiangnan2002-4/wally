@@ -78,7 +78,7 @@ void app_share_enable_share_mode(struct _ui_shell_activity *self, bool is_follow
         ret = bt_mcsync_share_enable(BT_MCSYNC_SHARE_ROLE_SHARE);
     }
     if (ret == BT_STATUS_SUCCESS) {
-        voice_prompt_play_vp_successed();
+        voice_prompt_play_vp_succeed();
 #if 1
         ui_shell_start_activity(self, app_share_activity, ACTIVITY_PRIORITY_HIGH, NULL, 0);
 #endif
@@ -105,9 +105,9 @@ void app_share_disable_share_mode(struct _ui_shell_activity *self)
 #if 0
     role = bt_mcsync_share_get_role();
     if (role & BT_MCSYNC_SHARE_ROLE_AGENT) {
-        apps_config_set_vp(VP_INDEX_SUCCESSED, true, 200, VOICE_PROMPT_PRIO_HIGH, false, NULL);
+        apps_config_set_vp(VP_INDEX_SUCCEED, true, 200, VOICE_PROMPT_PRIO_HIGH, false, NULL);
     } else {
-        apps_config_set_vp(VP_INDEX_SUCCESSED, false, 200, VOICE_PROMPT_PRIO_HIGH, false, NULL);
+        apps_config_set_vp(VP_INDEX_SUCCEED, false, 200, VOICE_PROMPT_PRIO_HIGH, false, NULL);
     }
 #endif
 #if 0
@@ -252,7 +252,7 @@ void app_share_vol_change(uint8_t vol_action)
 #define BT_CM_COMMON_TYPE_ENABLE                (0x01)
 #define BT_CM_COMMON_TYPE_UNKNOW                (0xFF)
 typedef uint8_t bt_cm_common_type_t;
-extern void bt_cm_write_scan_mode(bt_cm_common_type_t discoveralbe, bt_cm_common_type_t connectable);
+extern void bt_cm_write_scan_mode(bt_cm_common_type_t discoverable, bt_cm_common_type_t connectable);
 
 
 void disable_page_scan()

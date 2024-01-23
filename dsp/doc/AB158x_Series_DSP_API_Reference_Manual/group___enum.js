@@ -156,6 +156,10 @@ var group___enum =
       [ "FUNC_HEARTHROUGH_POST_PROC", "group___enum.html#gga2b587bd2e62234e10f4b0330020ca8b6adfd540d09d5dc2b86961b5ddb89ecb60", null ],
       [ "FUNC_AUDIO_VOLUME_MONITOR", "group___enum.html#gga2b587bd2e62234e10f4b0330020ca8b6a4f3cd14f45526b4aa0bc83ea5957bfab", null ],
       [ "FUNC_HW_VIVID_PT", "group___enum.html#gga2b587bd2e62234e10f4b0330020ca8b6a05f5b321cd5783b03dd4a36aa78641e8", null ],
+      [ "FUNC_CH_SEL_MULTISTREAM_MEMCPY", "group___enum.html#gga2b587bd2e62234e10f4b0330020ca8b6a6e7169f8e8a4ec729b55e435319a2179", null ],
+      [ "FUNC_CH_SEL_MULTISTREAM_ADD_LATENCY", "group___enum.html#gga2b587bd2e62234e10f4b0330020ca8b6a9ca6b44096ad92985c0a5cd14717e5be", null ],
+      [ "FUNC_DL_SW_GAIN", "group___enum.html#gga2b587bd2e62234e10f4b0330020ca8b6a17796f7eff784015ae7c9a0ec4112722", null ],
+      [ "FUNC_LINE_IN_POST_PEQ", "group___enum.html#gga2b587bd2e62234e10f4b0330020ca8b6aa93bc580564acceee0b6025cb933d789", null ],
       [ "FUNC_SAMPLE", "group___enum.html#gga2b587bd2e62234e10f4b0330020ca8b6ada0bfd0b6e43b04f2c4c34ed8368c1c8", null ]
     ] ],
     [ "stream_resolution_t", "group___enum.html#ga3b288e32cb826efdbcfa392fe0e9bbff", [

@@ -315,7 +315,11 @@ void lc3i_fft7_5ms_library_load(void *code_address, void *data_address, uint32_t
 #ifdef AIR_DSP_MEMORY_REGION_ENABLE
     error_handling = preloader_pisplit_load_v1(g_lc3i_fft7_5ms_pisplit_library_handle, code_address, data_address);
 #else
+#if defined(AIR_BTA_IC_PREMIUM_G3)
+    error_handling = preloader_pisplit_load(g_lc3i_fft7_5ms_pisplit_library_handle, PRELOADER_I_LOW_PERFORMANCE, PRELOADER_D_HIGH_PERFORMANCE);
+#else
     error_handling = preloader_pisplit_load(g_lc3i_fft7_5ms_pisplit_library_handle, PRELOADER_I_HIGH_PERFORMANCE, PRELOADER_D_HIGH_PERFORMANCE);
+#endif
 #endif
     if (error_handling != PRELOADER_PISPLIT_XTLIB_NO_ERR) {
         DSP_MW_LOG_E("[lc3] preloader_pisplit_load() fail %d", 1, error_handling);
@@ -472,7 +476,11 @@ void lc3i_fft10ms_library_load(void *code_address, void *data_address, uint32_t 
 #ifdef AIR_DSP_MEMORY_REGION_ENABLE
     error_handling = preloader_pisplit_load_v1(g_lc3i_fft10ms_pisplit_library_handle, code_address, data_address);
 #else
+#if defined(AIR_BTA_IC_PREMIUM_G3)
+    error_handling = preloader_pisplit_load(g_lc3i_fft10ms_pisplit_library_handle, PRELOADER_I_LOW_PERFORMANCE, PRELOADER_D_HIGH_PERFORMANCE);
+#else
     error_handling = preloader_pisplit_load(g_lc3i_fft10ms_pisplit_library_handle, PRELOADER_I_HIGH_PERFORMANCE, PRELOADER_D_HIGH_PERFORMANCE);
+#endif
 #endif
     if (error_handling != PRELOADER_PISPLIT_XTLIB_NO_ERR) {
         DSP_MW_LOG_E("[lc3] preloader_pisplit_load() fail %d", 1, error_handling);
@@ -619,7 +627,7 @@ uint32_t lc3i_codec_library_load(void *code_address, void *data_address, uint32_
         g_lc3i_codec_load_lib_xSemaphore = xSemaphoreCreateBinary();
         assert(g_lc3i_codec_load_lib_xSemaphore != NULL);
     }
-#ifdef AIR_BT_BLE_FIX_ADV_PLC
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
     error_handling = preloader_pisplit_get_handle(&g_lc3i_codec_pisplit_library_handle, &pisplit_lc3i_codec_APLC, lc3i_codec_load_library_callback);
     DSP_MW_LOG_I("[lc3] preloader load APLC", 0);
 #else

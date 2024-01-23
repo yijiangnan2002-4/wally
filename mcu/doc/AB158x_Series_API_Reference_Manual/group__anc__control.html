@@ -158,6 +158,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ga04a98ec2e96af3a0626071cc9333bb24"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__anc__enum.html#gaa9d7b5f1ea05c57ccfa960f298b8a7b9">audio_anc_control_result_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__anc__control.html#ga04a98ec2e96af3a0626071cc9333bb24">audio_anc_control_set_runtime_gain</a> (<a class="el" href="group__anc__control__typedef.html#ga3f9b08c0d841327a054f518d587a5d00">audio_anc_control_gain_t</a> runtime_gain, <a class="el" href="group__anc__enum.html#ga1d0e5eaf4082c7191a04114d7ebbc377">audio_anc_control_type_t</a> type)</td></tr>
 <tr class="memdesc:ga04a98ec2e96af3a0626071cc9333bb24"><td class="mdescLeft">&#160;</td><td class="mdescRight">This function is used to set the ramp gain in ANC path.  <a href="#ga04a98ec2e96af3a0626071cc9333bb24">More...</a><br /></td></tr>
 <tr class="separator:ga04a98ec2e96af3a0626071cc9333bb24"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga94b3a19a2c6fd61511105aa920bfb956"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__anc__enum.html#gaa9d7b5f1ea05c57ccfa960f298b8a7b9">audio_anc_control_result_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__anc__control.html#ga94b3a19a2c6fd61511105aa920bfb956">audio_anc_control_get_extend_gain</a> (<a class="el" href="group__anc__enum.html#ga8cec253e9f1ec13b2d5ca09abc6e4c6f">audio_anc_control_extend_ramp_gain_type_t</a> gain_type, <a class="el" href="group__anc__control__struct.html#ga6eeada453831ecc3722a7a38ef6f4769">audio_anc_control_extend_ramp_cap_t</a> *gain_cap, <a class="el" href="group__anc__control__struct.html#ga18d0a04c9bf0f896e6d4028d9a6d2fe9">audio_anc_control_misc_t</a> *control_misc)</td></tr>
+<tr class="memdesc:ga94b3a19a2c6fd61511105aa920bfb956"><td class="mdescLeft">&#160;</td><td class="mdescRight">This function is used to obtain the extend ramp gain in the ANC path.  <a href="#ga94b3a19a2c6fd61511105aa920bfb956">More...</a><br /></td></tr>
+<tr class="separator:ga94b3a19a2c6fd61511105aa920bfb956"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga68fc4a30b6846a286c0b8f80913e7118"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__anc__enum.html#gaa9d7b5f1ea05c57ccfa960f298b8a7b9">audio_anc_control_result_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__anc__control.html#ga68fc4a30b6846a286c0b8f80913e7118">audio_anc_control_set_extend_gain</a> (<a class="el" href="group__anc__enum.html#ga8cec253e9f1ec13b2d5ca09abc6e4c6f">audio_anc_control_extend_ramp_gain_type_t</a> gain_type, <a class="el" href="group__anc__control__struct.html#ga6eeada453831ecc3722a7a38ef6f4769">audio_anc_control_extend_ramp_cap_t</a> *gain_cap, <a class="el" href="group__anc__control__struct.html#ga18d0a04c9bf0f896e6d4028d9a6d2fe9">audio_anc_control_misc_t</a> *control_misc)</td></tr>
 <tr class="memdesc:ga68fc4a30b6846a286c0b8f80913e7118"><td class="mdescLeft">&#160;</td><td class="mdescRight">This function is used to set the extend ramp gain in ANC path.  <a href="#ga68fc4a30b6846a286c0b8f80913e7118">More...</a><br /></td></tr>
 <tr class="separator:ga68fc4a30b6846a286c0b8f80913e7118"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -402,6 +405,50 @@ Modules</h2></td></tr>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>Return AUDIO_ANC_CONTROL_EXECUTION_SUCCESS if the operation is successful. Otherwise, error occurs. </dd></dl>
 <dl class="section see"><dt>See also</dt><dd><a class="el" href="group__anc__control.html#gaab5be5292a874f705b5ae3b93f388713" title="This function is used to get the calibrate gain mask in nvkey. ">audio_anc_control_get_calibrate_gain_from_flash()</a> </dd></dl>
+
+</div>
+</div>
+<a class="anchor" id="ga94b3a19a2c6fd61511105aa920bfb956"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="group__anc__enum.html#gaa9d7b5f1ea05c57ccfa960f298b8a7b9">audio_anc_control_result_t</a> audio_anc_control_get_extend_gain </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="group__anc__enum.html#ga8cec253e9f1ec13b2d5ca09abc6e4c6f">audio_anc_control_extend_ramp_gain_type_t</a>&#160;</td>
+          <td class="paramname"><em>gain_type</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="group__anc__control__struct.html#ga6eeada453831ecc3722a7a38ef6f4769">audio_anc_control_extend_ramp_cap_t</a> *&#160;</td>
+          <td class="paramname"><em>gain_cap</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="group__anc__control__struct.html#ga18d0a04c9bf0f896e6d4028d9a6d2fe9">audio_anc_control_misc_t</a> *&#160;</td>
+          <td class="paramname"><em>control_misc</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>This function is used to obtain the extend ramp gain in the ANC path. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">gain_type</td><td>parameter specifies the type of ANC extend ramp gain that user wants to retrieve. </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">*gain_cap</td><td>parameter will save the current value of ANC extend ramp gain. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">*control_misc</td><td>parameter is an additional parameter for extended use. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>Return AUDIO_ANC_CONTROL_EXECUTION_SUCCESS if the operation is successful; otherwise, an error occurs. </dd></dl>
+<dl class="section see"><dt>See also</dt><dd><a class="el" href="group__anc__control.html#ga94b3a19a2c6fd61511105aa920bfb956" title="This function is used to obtain the extend ramp gain in the ANC path. ">audio_anc_control_get_extend_gain()</a> </dd></dl>
 
 </div>
 </div>
@@ -1266,7 +1313,7 @@ Modules</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Thu Sep 28 2023 17:13:33 for AB158x Series MCU API Reference by
+    <li class="footer">Generated on Fri Dec 29 2023 02:13:06 for AB158x Series MCU API Reference by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.11 </li>
   </ul>

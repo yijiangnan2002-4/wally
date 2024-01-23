@@ -41,6 +41,8 @@
 #ifndef USB_DBG_H
 #define USB_DBG_H
 
+#ifdef AIR_USB_ENABLE
+
 #include <stdint.h>
 
 #ifdef __EXT_BOOTLOADER__
@@ -155,7 +157,7 @@ typedef enum {
     USB_DBG_OPT_AUDIO_DUMP_RX1          = 8,
     USB_DBG_OPT_AUDIO_DUMP_TX1          = 9,
     USB_DBG_OPT_AUDIO_DUMP_RX2          = 10,
-    USB_DBG_OPT_AUDIO_DUMP_TX2          = 11,
+    USB_DBG_OPT_AUDIO_DUMP_TX2          = 11, /* Unused */
     USB_DBG_OPT_AUDIO_RX_TIME_MEASURE   = 12,
     USB_DBG_OPT_AUDIO_TX_TIME_MEASURE   = 13,
     USB_DBG_OPT_AUDIO_RX_TIME_ASSERT    = 14,
@@ -249,4 +251,7 @@ uint8_t usb_dbg_is_opt_enable(uint8_t opt);
 
 #endif
 
+#endif /* AIR_USB_ENABLE */
+
 #endif /* USB_DBG_H */
+

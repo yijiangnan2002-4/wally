@@ -1449,7 +1449,13 @@ bt_status_t bt_avrcp_send_play_item_response(uint32_t handle, bt_avrcp_err_code_
  * @return            #BT_STATUS_SUCCESS, the set absolute volume response is sent successfully. #BT_STATUS_AVRCP_INVALID_INPUT_PARAMETER, the handle is NULL.
                       #BT_STATUS_OUT_OF_MEMORY, the TX memory is not enough.
  */
-bt_status_t bt_avrcp_send_set_absoulte_volume_response(uint32_t handle, uint8_t volume);
+bt_status_t bt_avrcp_send_set_absolute_volume_response(uint32_t handle, uint8_t volume);
+
+/**
+ *@deprecated  Use #bt_avrcp_send_set_absolute_volume_response instead.
+ *             bt_avrcp_send_set_absoulte_volume_response will be phased out and removed in the next SDK major version. Do not use.
+ */
+#define bt_avrcp_send_set_absoulte_volume_response bt_avrcp_send_set_absolute_volume_response
 
 /**
  * @brief              This function sends the register notification response to the CT device.

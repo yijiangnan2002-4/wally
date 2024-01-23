@@ -50,6 +50,7 @@
 #include "app_smcharger_utils.h"
 
 #include "apps_aws_sync_event.h"
+#include "apps_config_audio_helper.h"
 #include "apps_config_event_list.h"
 #include "apps_events_key_event.h"
 #include "battery_management.h"
@@ -70,7 +71,7 @@
 #include "bt_le_audio_util.h"
 #include "bt_sink_srv_le_volume.h"
 #endif
-#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
+#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 #include "app_lea_service.h"
 #endif
 #ifdef AIR_XIAOAI_ENABLE
@@ -372,7 +373,7 @@ void app_smcharger_bt_clear_enter_discoverable(app_smcharger_clear_bt_step_t ste
 static void app_smcharger_bt_air_pairing()
 {
     bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
-#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
+#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     app_lea_service_stop_advertising(FALSE);
 #endif
     APPS_LOG_MSGID_I(LOG_TAG" [%02X] bt_air_pairing", 1, role);
@@ -387,7 +388,13 @@ static void app_smcharger_bt_air_pairing()
 */
 static app_smcharger_action_status_t app_smcharger_switch_bt(bool on, bool direct_off)
 {
-    APPS_LOG_MSGID_I(LOG_TAG" switch_bt on=%d", 1, on);
+    bool need_rho = TRUE;
+    if (g_smcharger_context != NULL
+        && g_smcharger_context->smcharger_state == STATE_SMCHARGER_LID_CLOSE
+        && g_smcharger_context->peer_smcharger_state == STATE_SMCHARGER_LID_CLOSE) {
+        need_rho = FALSE;
+    }
+    APPS_LOG_MSGID_I(LOG_TAG" switch_bt on=%d need_rho=%d", 2, on, need_rho);
 
     uint32_t off_classic_delay_ms = APP_SMCHARGER_DELAY_OFF_BT_CLASSIC_TIMER;
     uint32_t delay_ms = 3 * 1000;
@@ -439,7 +446,7 @@ static app_smcharger_action_status_t app_smcharger_switch_bt(bool on, bool direc
         } else {
             ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                       APPS_EVENTS_INTERACTION_REQUEST_CLASSIC_BT_OFF,
-                                      NULL, 0, NULL, off_classic_delay_ms);
+                                      (void *)need_rho, 0, NULL, off_classic_delay_ms);
             ret += ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                        APPS_EVENTS_INTERACTION_REQUEST_ON_OFF_BT,
                                        (void *)FALSE, 0, NULL, delay_ms);
@@ -456,7 +463,7 @@ static app_smcharger_action_status_t app_smcharger_switch_bt(bool on, bool direc
 */
 static app_smcharger_action_status_t app_smcharger_mute_audio(bool is_mute)
 {
-    APPS_LOG_MSGID_I(LOG_TAG" mute_audio mute=%d", 1, is_mute);
+    APPS_LOG_MSGID_E(LOG_TAG" mute_audio, mute=%d (sidetone)", 1, is_mute);
     bt_status_t status = bt_sink_srv_music_set_mute(is_mute);
 #ifdef AIR_LE_AUDIO_ENABLE
     bt_sink_srv_le_volume_set_mute_ex(BT_SINK_SRV_LE_STREAM_TYPE_OUT, is_mute, true);
@@ -464,6 +471,7 @@ static app_smcharger_action_status_t app_smcharger_mute_audio(bool is_mute)
 #ifdef AIR_PROMPT_SOUND_ENABLE
     prompt_control_set_mute(is_mute);
 #endif
+    apps_config_audio_helper_sidetone_temporary_disable(is_mute);
     return (status == BT_STATUS_SUCCESS ? APP_SMCHARGER_OK : APP_SMCHARGER_FAILURE);
 }
 

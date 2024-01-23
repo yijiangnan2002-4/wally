@@ -163,7 +163,7 @@ static bt_gap_le_smp_pairing_config_t pairing_config_deafult = {//MITM, Bond, OO
     .responder_key_distribution = BT_GAP_LE_SMP_KEY_DISTRIBUTE_ENCKEY | BT_GAP_LE_SMP_KEY_DISTRIBUTE_IDKEY | BT_GAP_LE_SMP_KEY_DISTRIBUTE_SIGN,
 };
 
-#if (defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_LE_AUDIO_UNICAST_ENABLE)) || defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
+#if (defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_LE_AUDIO_UNICAST_ENABLE)) || defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE) || defined (AIR_HID_BT_HOGP_ENABLE)
 static bt_gap_le_smp_pairing_config_t pairing_config_le_audio = {//MITM, Bond, OOB
     .maximum_encryption_key_size = 16,
     .io_capability = BT_GAP_LE_SMP_NO_INPUT_NO_OUTPUT,
@@ -913,12 +913,12 @@ static bt_status_t bt_app_common_stop_ble_adv(void)
         bt_hci_cmd_le_set_advertising_enable_t adv_enable = {
             .advertising_enable = BT_HCI_DISABLE,
         };
-        bt_app_adv_ongoing = BT_APP_COMMON_BLE_ADV_STOPING;
+        bt_app_adv_ongoing = BT_APP_COMMON_BLE_ADV_STOPPING;
         hal_nvic_restore_interrupt_mask(sync_mask);
         stop_ret = bt_gap_le_set_advertising(&adv_enable, NULL, NULL, NULL);
         if (BT_STATUS_SUCCESS != stop_ret) {
             hal_nvic_save_and_set_interrupt_mask(&sync_mask);
-            if (BT_APP_COMMON_BLE_ADV_STOPING == bt_app_adv_ongoing) {
+            if (BT_APP_COMMON_BLE_ADV_STOPPING == bt_app_adv_ongoing) {
                 bt_app_adv_ongoing = BT_APP_COMMON_BLE_ADV_STARTED;
             }
             hal_nvic_restore_interrupt_mask(sync_mask);
@@ -1221,7 +1221,7 @@ static bt_status_t bt_app_common_event_callback(bt_msg_type_t msg, bt_status_t s
         }
     }
     //adv cnf needs to handle error state.
-    if (status != BT_STATUS_SUCCESS && msg != BT_GAP_LE_SET_ADVERTISING_CNF) {
+    if (status != BT_STATUS_SUCCESS && msg != BT_GAP_LE_SET_ADVERTISING_CNF && msg != BT_GAP_LE_CONNECT_IND) {
         return BT_STATUS_SUCCESS;
     }
 
@@ -1258,7 +1258,7 @@ static bt_status_t bt_app_common_event_callback(bt_msg_type_t msg, bt_status_t s
             ble_adv_increase_interval = false;
             bt_app_adv_ongoing = BT_APP_COMMON_BLE_ADV_STOPPED;
 
-#if (defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_LE_AUDIO_UNICAST_ENABLE)) || defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
+#if (defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_LE_AUDIO_UNICAST_ENABLE)) || defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE) || defined (AIR_HID_BT_HOGP_ENABLE)
 #if (defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_LE_AUDIO_UNICAST_ENABLE))
             app_le_audio_ucst_handle_connect_ind(status, connection_ind);
 #ifdef AIR_LE_AUDIO_BA_ENABLE
@@ -1327,7 +1327,7 @@ static bt_status_t bt_app_common_event_callback(bt_msg_type_t msg, bt_status_t s
             break;
 
         case BT_GAP_LE_SET_ADVERTISING_CNF: {
-            if (BT_APP_COMMON_BLE_ADV_STOPING == bt_app_adv_ongoing) {
+            if (BT_APP_COMMON_BLE_ADV_STOPPING == bt_app_adv_ongoing) {
                 bt_app_adv_ongoing = (status == BT_STATUS_SUCCESS) ? BT_APP_COMMON_BLE_ADV_STOPPED : BT_APP_COMMON_BLE_ADV_STARTED;
             } else if (BT_APP_COMMON_BLE_ADV_STARTING == bt_app_adv_ongoing) {
                 bt_app_adv_ongoing = (status == BT_STATUS_SUCCESS) ? BT_APP_COMMON_BLE_ADV_STARTED : BT_APP_COMMON_BLE_ADV_STOPPED;
@@ -1679,7 +1679,7 @@ void bt_app_common_init(void)
 {
     bt_gap_le_srv_config_t le_srv_config = {
         .max_advertising_num = 4,
-        .max_connection_num = 4
+        .max_connection_num = BT_LE_CONNECTION_NUM
     };
     bt_device_manager_le_init();
     bt_gatts_service_init();
@@ -1726,6 +1726,15 @@ void bt_app_common_init(void)
 
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
     app_dongle_ull_le_hid_init();
+#endif
+
+#ifdef AIR_HID_BT_HOGP_ENABLE
+    extern void app_dongle_hid_bt_hogp_init();
+    app_dongle_hid_bt_hogp_init();
+#endif
+
+#if defined(AIR_BT_SOURCE_ENABLE) || defined(AIR_LE_AUDIO_UNICAST_ENABLE)
+    app_dongle_session_manager_init();
 #endif
 }
 

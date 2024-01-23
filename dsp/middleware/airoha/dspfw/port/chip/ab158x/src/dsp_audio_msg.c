@@ -797,7 +797,7 @@ static int msg_rx_task_init(void)
 #if defined(AIR_GAMING_MODE_DONGLE_ENABLE) || defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_WIRELESS_MIC_RX_ENABLE) || defined(AIR_HEARTHROUGH_MAIN_ENABLE) || defined(AIR_CUSTOMIZED_LLF_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_ENABLE)
     ret = xTaskCreate((void *)aud_msg_rx_task, "(RX) Audio Message Handler", 2560 / sizeof(StackType_t), (void *)NULL, TASK_PRIORITY_HIGH, (void *)&aud_msg_rx_handle);
 #else
-#ifdef AIR_DCHS_MODE_ENABLE
+#if defined(AIR_DCHS_MODE_ENABLE) || defined(AIR_MIXER_STREAM_ENABLE)
     ret = xTaskCreate((void *)aud_msg_rx_task, "(RX) Audio Message Handler", 3072 / sizeof(StackType_t), (void *)NULL, TASK_PRIORITY_SOFT_REALTIME, (void *)&aud_msg_rx_handle);
 #else
     ret = xTaskCreate((void *)aud_msg_rx_task, "(RX) Audio Message Handler", 2560 / sizeof(StackType_t), (void *)NULL, TASK_PRIORITY_SOFT_REALTIME, (void *)&aud_msg_rx_handle);

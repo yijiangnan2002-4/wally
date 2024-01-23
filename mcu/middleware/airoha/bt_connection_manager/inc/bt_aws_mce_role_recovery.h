@@ -158,7 +158,7 @@ void bt_aws_mce_role_recovery_init(void);
 void bt_aws_mce_role_recovery_lock(void);
 void bt_aws_mce_role_recovery_unlock(void);
 bt_aws_mce_role_recovery_lock_state_type_t bt_aws_mce_role_recovery_get_lock_state(void);
-uint8_t bt_aws_mce_role_recovery_is_in_role_resetup();
+uint32_t bt_aws_mce_role_recovery_is_in_role_resetup();
 #endif //__BT_AWS_MCE_ROLE_RECOVERY_H__
 #endif //#ifdef MTK_AWS_MCE_ROLE_RECOVERY_ENABLE
 

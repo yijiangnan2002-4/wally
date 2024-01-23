@@ -178,6 +178,7 @@ static void app_hearing_aid_aws_handle_agent_user_configuration_sync(uint8_t *da
     app_hearing_aid_storage_sync_user_configuration(data, data_len);
 }
 
+#if 0
 static void app_hearing_aid_aws_handle_app_info_sync(uint8_t *data, uint32_t data_len)
 {
     if ((data == NULL) || (data_len == 0)) {
@@ -186,6 +187,7 @@ static void app_hearing_aid_aws_handle_app_info_sync(uint8_t *data, uint32_t dat
 
     app_hearing_aid_activity_handle_app_info_sync(data, data_len);
 }
+#endif
 
 static bt_status_t app_hearing_aid_aws_gap_event_handler(bt_msg_type_t msg, bt_status_t status, void *buff)
 {
@@ -253,7 +255,7 @@ static const hearing_aid_aws_data_handler aws_data_handler_list[] = {
     NULL, // app_hearing_aid_aws_handle_race_cmd_response,
     app_hearing_aid_aws_handle_notification,
     app_hearing_aid_aws_handle_agent_user_configuration_sync,
-    app_hearing_aid_aws_handle_app_info_sync,
+    // app_hearing_aid_aws_handle_app_info_sync,
 };
 
 void app_hearing_aid_aws_process_data(uint32_t aws_id, uint8_t *aws_data, uint32_t aws_data_len)
@@ -271,7 +273,8 @@ void app_hearing_aid_aws_process_data(uint32_t aws_id, uint8_t *aws_data, uint32
 void app_hearing_aid_aws_send_middleware_configuration_sync_request()
 {
     if ((bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER)
-            && (app_hearing_aid_aws_is_connected() == true)) {
+            && (app_hearing_aid_aws_is_connected() == true)
+            && (app_hearing_aid_activity_is_out_case() == true)) {
         apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_HEARING_AID,
                                         APP_HEARING_AID_EVENT_ID_AWS_MIDDLEWARE_CONFIGURATION_SYNC_REQUEST,
                                         NULL,
@@ -296,6 +299,14 @@ void app_hearing_aid_aws_sync_agent_middleware_configuration_to_partner()
 
     if (bt_device_manager_aws_local_info_get_role() != BT_AWS_MCE_ROLE_AGENT) {
         // APPS_LOG_MSGID_E(APP_HA_AWS_TAG"[app_hearing_aid_aws_sync_agent_middleware_configuration_to_partner] Current is not agent role", 0);
+        return;
+    }
+
+    /**
+     * @brief If agent is in charger case should ignore the request
+     */
+    if (app_hearing_aid_activity_is_out_case() == false) {
+        APPS_LOG_MSGID_W(APP_HA_AWS_TAG"[app_hearing_aid_aws_sync_agent_middleware_configuration_to_partner] Ignore the sync request cause in charger case", 0);
         return;
     }
 
@@ -442,6 +453,7 @@ bool app_hearing_aid_aws_set_vp_streaming_state(bool streaming)
     return true;
 }
 
+#if 0
 void app_hearing_aid_aws_sync_agent_app_info_to_partner(uint8_t *data, uint32_t data_len)
 {
     if ((data != NULL) && (data_len != 0)) {
@@ -455,6 +467,7 @@ void app_hearing_aid_aws_sync_agent_app_info_to_partner(uint8_t *data, uint32_t 
         }
     }
 }
+#endif
 
 static void app_hearing_aid_aws_sync_handle_control_ha(uint8_t from_which_role, uint8_t current_role, void *data, size_t data_len)
 {
@@ -651,7 +664,7 @@ static void app_hearing_aid_aws_handle_combine_get_response(uint16_t op_type,
                                                                         &combine_response_len);
 
         if (result == true) {
-            app_hear_through_race_cmd_send_get_response(op_type, combine_response, combine_response_len);
+            app_hear_through_race_cmd_send_get_response(op_type, RACE_ERRCODE_SUCCESS, combine_response, combine_response_len);
         }
 
         vPortFree(combine_response);
@@ -698,7 +711,7 @@ static void app_hearing_aid_aws_sync_handle_race_cmd_request(uint8_t from_which_
                  * @brief Execute the race command locally.
                  */
                 if (where_to_execute != APP_HEARING_AID_EXECUTE_ON_BOTH) {
-                    app_hear_through_race_cmd_send_get_response(request->op_type, get_response, get_response_len);
+                    app_hear_through_race_cmd_send_get_response(request->op_type, RACE_ERRCODE_SUCCESS, get_response, get_response_len);
                 } else {
                     app_hearing_aid_aws_handle_combine_get_response(request->op_type, true, get_response, get_response_len);
                 }
@@ -736,7 +749,7 @@ static void app_hearing_aid_aws_sync_handle_race_cmd_request(uint8_t from_which_
         bool result = app_hearing_aid_activity_handle_set_race_cmd(data, data_len);
 
         if (from_which_role == current_role) {
-            app_hear_through_race_cmd_send_set_response(request->op_type, result);
+            app_hear_through_race_cmd_send_set_response(request->op_type, ((result == true) ? RACE_ERRCODE_SUCCESS : RACE_ERRCODE_FAIL));
         }
     }
 }

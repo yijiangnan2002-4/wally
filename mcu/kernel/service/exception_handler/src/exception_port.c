@@ -247,12 +247,15 @@ void exception_ice_debug_test(void)
     uint32_t status;
     uint32_t ice_debug_status;
 
+    ice_debug_status = (*(volatile uint32_t *)HW_SYSRAM_PRIVATE_MEMORY_DSP_ICE_DEBUG_START) & 0xffff;
+
     /*for JTAG debug, waiting RG_RETN_DAT5*/
-    while(*(volatile uint32_t *)RG_WDT_RETN_DAT5 == 0x12345678);
+    if (0xBBFF == ice_debug_status) {
+        while (*(volatile uint32_t *)RG_WDT_RETN_DAT5 == 0x12345678);
+    }
 
     /*for SQC, just use AT CMD sim JTAG behavior*/
-    ice_debug_status = (*(volatile uint32_t *)HW_SYSRAM_PRIVATE_MEMORY_DSP_ICE_DEBUG_START) & 0xffff;
-    if (0xA1FF == ice_debug_status) {       /*decouple_test_mcu*/
+    if (0xA1FF == ice_debug_status) {          /*decouple_test_mcu*/
         hal_gpt_delay_ms(5000);
     } else if (0xA3FF == ice_debug_status) { /*stop_sync_test_mcu*/
         /*stop DSP*/
@@ -294,16 +297,22 @@ __attribute__((weak)) void exception_reboot(void)
      * It needs to be implemented in project.
      */
 #ifdef HAL_WDT_MODULE_ENABLED
-    /* Wait there for 3s to ensure uart output done */
-    hal_wdt_config_t wdt_config;
-    wdt_config.mode = HAL_WDT_MODE_RESET;
-    wdt_config.seconds = 3;
-    hal_wdt_disable(HAL_WDT_DISABLE_MAGIC);
-    hal_wdt_init(&wdt_config);
-    hal_wdt_enable(HAL_WDT_ENABLE_MAGIC);
-    /* In exception flow,uart mode is polling,so it's no need to wait for 3s */
-    //hal_wdt_software_reset();
-    while (1);
+    extern exception_config_mode_t exception_config_mode;
+	if(exception_config_mode.exception_mode_t.exception_nodump){
+		hal_wdt_software_reset();
+		while (1);
+	}else{
+		/* Wait there for 3s to ensure uart output done */
+		hal_wdt_config_t wdt_config;
+		wdt_config.mode = HAL_WDT_MODE_RESET;
+		wdt_config.seconds = 3;
+		hal_wdt_disable(HAL_WDT_DISABLE_MAGIC);
+		hal_wdt_init(&wdt_config);
+		hal_wdt_enable(HAL_WDT_ENABLE_MAGIC);
+		/* In exception flow,uart mode is polling,so it's no need to wait for 3s */
+		//hal_wdt_software_reset();
+		while (1);
+	}
 #endif
     return;
 }

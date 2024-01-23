@@ -223,7 +223,7 @@ static bt_gap_le_smp_pairing_config_t pairing_config_le_audio = {//MITM, Bond, O
     .auth_req = BT_GAP_LE_SMP_AUTH_REQ_BONDING | BT_GAP_LE_SMP_AUTH_REQ_SECURE_CONNECTION,
     .oob_data_flag = BT_GAP_LE_SMP_OOB_DATA_NOT_PRESENTED,
     .initiator_key_distribution = BT_GAP_LE_SMP_KEY_DISTRIBUTE_ENCKEY | BT_GAP_LE_SMP_KEY_DISTRIBUTE_IDKEY | BT_GAP_LE_SMP_KEY_DISTRIBUTE_SIGN | BT_GAP_LE_SMP_KEY_DISTRIBUTE_LINK,
-#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) || defined (AIR_BT_FAST_PAIR_LE_AUDIO_ENABLE)
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) || defined (AIR_BT_FAST_PAIR_LE_AUDIO_ENABLE) || defined (AIR_LE_AUDIO_USE_DIRECT_ADV_TO_ACTIVE_RECONNECT)
     .responder_key_distribution = BT_GAP_LE_SMP_KEY_DISTRIBUTE_ENCKEY | BT_GAP_LE_SMP_KEY_DISTRIBUTE_IDKEY | BT_GAP_LE_SMP_KEY_DISTRIBUTE_SIGN | BT_GAP_LE_SMP_KEY_DISTRIBUTE_LINK,
 #else
     .responder_key_distribution = BT_GAP_LE_SMP_KEY_DISTRIBUTE_ENCKEY | BT_GAP_LE_SMP_KEY_DISTRIBUTE_SIGN | BT_GAP_LE_SMP_KEY_DISTRIBUTE_LINK,
@@ -1216,7 +1216,7 @@ bt_status_t bt_app_common_advertising_start_ex_2(bool update_adv_param,
     } else if (BT_APP_COMMON_BLE_ADV_STOPPED == bt_app_adv_ongoing && !update_adv_param) {
         LOG_MSGID_I(BT_APP, "bt_app_common_advertising_start_ex_2 fail, must update param when stopped", 0);
         return BT_STATUS_FAIL;
-    } else if (BT_APP_COMMON_BLE_ADV_STOPING == bt_app_adv_ongoing || BT_APP_COMMON_BLE_ADV_STARTING == bt_app_adv_ongoing) {
+    } else if (BT_APP_COMMON_BLE_ADV_STOPPING == bt_app_adv_ongoing || BT_APP_COMMON_BLE_ADV_STARTING == bt_app_adv_ongoing) {
         LOG_MSGID_I(BT_APP, "bt_app_common_advertising_start_ex_2 fail, ing state", 0);
         return BT_STATUS_BUSY;
     }
@@ -1341,12 +1341,12 @@ static bt_status_t bt_app_common_stop_ble_adv(void)
         bt_hci_cmd_le_set_advertising_enable_t adv_enable = {
             .advertising_enable = BT_HCI_DISABLE,
         };
-        bt_app_adv_ongoing = BT_APP_COMMON_BLE_ADV_STOPING;
+        bt_app_adv_ongoing = BT_APP_COMMON_BLE_ADV_STOPPING;
         hal_nvic_restore_interrupt_mask(sync_mask);
         stop_ret = bt_gap_le_set_advertising(&adv_enable, NULL, NULL, NULL);
         if (BT_STATUS_SUCCESS != stop_ret) {
             hal_nvic_save_and_set_interrupt_mask(&sync_mask);
-            if (BT_APP_COMMON_BLE_ADV_STOPING == bt_app_adv_ongoing) {
+            if (BT_APP_COMMON_BLE_ADV_STOPPING == bt_app_adv_ongoing) {
                 bt_app_adv_ongoing = BT_APP_COMMON_BLE_ADV_STARTED;
             }
             hal_nvic_restore_interrupt_mask(sync_mask);
@@ -1851,7 +1851,7 @@ static bt_status_t bt_app_common_event_callback(bt_msg_type_t msg, bt_status_t s
             break;
 
         case BT_GAP_LE_SET_ADVERTISING_CNF: {
-            if (BT_APP_COMMON_BLE_ADV_STOPING == bt_app_adv_ongoing) {
+            if (BT_APP_COMMON_BLE_ADV_STOPPING == bt_app_adv_ongoing) {
                 bt_app_adv_ongoing = (status == BT_STATUS_SUCCESS) ? BT_APP_COMMON_BLE_ADV_STOPPED : BT_APP_COMMON_BLE_ADV_STARTED;
             } else if (BT_APP_COMMON_BLE_ADV_STARTING == bt_app_adv_ongoing) {
                 bt_app_adv_ongoing = (status == BT_STATUS_SUCCESS) ? BT_APP_COMMON_BLE_ADV_STARTED : BT_APP_COMMON_BLE_ADV_STOPPED;
@@ -2089,12 +2089,22 @@ void bt_app_common_dm_le_event_callback(bt_device_manager_le_bonded_event_t even
 extern bt_status_t bt_dm_le_remove_bonded_device(bt_addr_t *peer_addr, bool is_clear);
 static bt_status_t bt_app_common_get_pairing_config(bt_gap_le_bonding_start_ind_t *ind)
 {
+#if defined(AIR_SWIFT_PAIR_ENABLE) && defined(AIR_CUST_PAIR_ENABLE)
+    extern bool cust_pair_srv_is_cust_pairing_ongoing(void);
+    bool is_cust_ongoing = cust_pair_srv_is_cust_pairing_ongoing();
+    cust_pair_conn_type conn_type = cust_pair_get_conn_type(ind->handle);
+    bool is_cust_link = (conn_type == CUST_PAIR_CONN_TYPE_CUST);
+#else
+    bool is_cust_ongoing = FALSE;
+    bool is_cust_link = FALSE;
+#endif
     bt_gap_le_srv_conn_info_t *conn_info = bt_gap_le_srv_get_conn_info(ind->handle);
-    LOG_MSGID_I(BT_APP, "[APP][COMMON][SWIFT_PAIR] get connection, handle=0x%04X link_type=0x%08X is_previously_bonded=%d",
-                3, ind->handle, (conn_info != NULL ? conn_info->link_type : 0xFFFF), ind->is_previously_bonded);
+    LOG_MSGID_I(BT_APP, "[APP][COMMON][CUST_PAIR][SWIFT_PAIR] get connection, handle=0x%04X link_type=0x%08X is_cust_link=%d is_cust_ongoing=%d is_previously_bonded=%d",
+                5, ind->handle, (conn_info != NULL ? conn_info->link_type : 0xFFFF),
+                is_cust_link, is_cust_ongoing, ind->is_previously_bonded);
 
 #if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
-    if (conn_info != NULL) {
+    if (conn_info != NULL && !is_cust_link) {
         if ((conn_info->link_type & BT_GAP_LE_SRV_LINK_TYPE_LE_AUDIO) > 0) {
 #ifdef MTK_AWS_MCE_ENABLE
 #ifdef AIR_LE_AUDIO_DUALMODE_ENABLE
@@ -2125,7 +2135,6 @@ static bt_status_t bt_app_common_get_pairing_config(bt_gap_le_bonding_start_ind_
             }
             return BT_STATUS_SUCCESS;
         }
-
     } else {
         LOG_MSGID_W(BT_APP, "[APP][COMMON] get connection link type by handle = %02x not find info", 1, ind->handle);
     }
@@ -2133,13 +2142,16 @@ static bt_status_t bt_app_common_get_pairing_config(bt_gap_le_bonding_start_ind_
 
 #ifdef AIR_SWIFT_PAIR_ENABLE
 #ifdef AIR_CUST_PAIR_ENABLE
-    cust_pair_conn_type conn_type = cust_pair_get_conn_type(ind->handle);
-    if (conn_type == CUST_PAIR_CONN_TYPE_EXT) {
-        LOG_MSGID_I(BT_APP, "[CUST_PAIR] get_pairing_config, EXT success", 0);
-        ind->pairing_config_req = pairing_config_cust_ext_pair;
+    if (conn_type == CUST_PAIR_CONN_TYPE_CUST) {
+        LOG_MSGID_I(BT_APP, "[CUST_PAIR] get_pairing_config, CUST success %d", 1, is_cust_ongoing);
+        if (is_cust_ongoing) {
+            ind->pairing_config_req = pairing_config_cust_ext_pair;
+        } else {
+            ind->pairing_config_req = pairing_config_cust_std_pair;
+        }
         return BT_STATUS_SUCCESS;
     } else if (conn_type == CUST_PAIR_CONN_TYPE_STD) {
-        LOG_MSGID_I(BT_APP, "[CUST_PAIR] get_pairing_config, STD success", 0);
+        LOG_MSGID_I(BT_APP, "[CUST_PAIR] get_pairing_config, SWIFT success", 0);
         ind->pairing_config_req = pairing_config_cust_std_pair;
         return BT_STATUS_SUCCESS;
     }
@@ -2296,6 +2308,18 @@ static bt_status_t bt_app_common_security_param_init(void)
 
 uint8_t *bt_app_common_get_ble_local_irk(void)
 {
+    return (uint8_t *)&local_key.identity_info.irk;
+}
+
+uint8_t *bt_app_common_get_local_irk_by_link_type(bt_gap_le_srv_link_t link_type)
+{
+    for (uint32_t i = 0; i < BT_APP_COMMON_LOCAL_KEY_MAX; i++) {
+        if ((g_specific_local_key[i].link_type & link_type) > 0) {
+            LOG_MSGID_I(BT_APP, "[APP][COMMON] get local irk by link type = %02x success", 1, link_type);
+            return (uint8_t *)&g_specific_local_key[i].local_key.identity_info.irk;
+        }
+    }
+    LOG_MSGID_I(BT_APP, "[APP][COMMON] get local irk by link type = %02x fail", 1, link_type);
     return (uint8_t *)&local_key.identity_info.irk;
 }
 
@@ -2509,6 +2533,7 @@ extern bt_gap_le_srv_link_t bt_device_manager_le_get_link_type_by_addr(bt_bd_add
 extern bt_status_t bt_device_manager_le_set_link_type_by_addr(bt_addr_t *address, bt_gap_le_srv_link_t link_type);
 static void bt_app_common_sync_bonded_info(bt_bd_addr_t *addr_list, bt_addr_type_t *type_list, uint8_t count, bt_device_manager_le_bonded_event_t event)
 {
+#if 0
     bt_aws_mce_report_info_t report_info = {0};
 #ifdef MTK_AWS_MCE_ENABLE
     uint8_t len = sizeof(bt_device_manager_le_sync_packet_t) + 1;
@@ -2590,6 +2615,7 @@ static void bt_app_common_sync_bonded_info(bt_bd_addr_t *addr_list, bt_addr_type
     } else {
         LOG_MSGID_I(BT_APP, "bt_app_common_sync_bonded_info OOM, len 0x%x", 1, len);
     }
+#endif
 }
 
 static void bt_app_common_sync_all_bonded_info()
@@ -2898,6 +2924,27 @@ bt_status_t bt_app_common_set_pairing_config_io_capability(bt_gap_le_srv_link_t 
     return BT_STATUS_SUCCESS;
 }
 
+bt_status_t bt_app_common_set_pairing_distribute_ctkd(bt_gap_le_srv_link_t link_type, bool is_ctkd_support)
+{
+    switch (link_type) {
+        case BT_GAP_LE_SRV_LINK_TYPE_CUST_PAIR: {
+#if defined(AIR_SWIFT_PAIR_ENABLE) && defined(AIR_CUST_PAIR_ENABLE)
+            if (is_ctkd_support) {
+                pairing_config_cust_ext_pair.initiator_key_distribution |= BT_GAP_LE_SMP_KEY_DISTRIBUTE_LINK;
+                pairing_config_cust_ext_pair.responder_key_distribution |= BT_GAP_LE_SMP_KEY_DISTRIBUTE_LINK;
+            } else {
+                pairing_config_cust_ext_pair.initiator_key_distribution &= ~BT_GAP_LE_SMP_KEY_DISTRIBUTE_LINK;
+                pairing_config_cust_ext_pair.responder_key_distribution &= ~BT_GAP_LE_SMP_KEY_DISTRIBUTE_LINK;
+            }
+#endif
+        }
+        break;
+        default:
+            return BT_STATUS_FAIL;
+    }
+    return BT_STATUS_SUCCESS;
+}
+
 #include "avm_external.h"
 void bt_app_common_read_link_quality(bt_app_common_link_quality_type_t type, void* param)
 {
@@ -2948,4 +2995,6 @@ void bt_app_common_read_link_quality(bt_app_common_link_quality_type_t type, voi
         }
     }
 }
+
+
 

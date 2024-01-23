@@ -85,7 +85,7 @@ enum {
     BT_LE_AUDIO_UCI_NIMBUZZ,    /**< Nimbuzz.*/
     BT_LE_AUDIO_UCI_HGANGOUTS,  /**< Hangouts.*/
     BT_LE_AUDIO_UCI_CHATON, /**< ChatOn.*/
-    BT_LE_AUDIO_UCI_MESSANGER,  /**< Messanger.*/
+    BT_LE_AUDIO_UCI_MESSENGER,  /**< Messenger.*/
     BT_LE_AUDIO_UCI_CHATSECURE, /**< ChatSecure.*/
     BT_LE_AUDIO_UCI_ICHAT,  /**< iChat.*/
     BT_LE_AUDIO_UCI_ROUNDS, /**< Rounds.*/
@@ -215,27 +215,33 @@ typedef uint8_t bt_le_audio_announcement_type_t;    /**<The type of announcement
  * @brief Defines for codec LC3.
  */
 #define CODEC_ID_LC3                {6, 0, 0, 0, 0}   /**< Coding_Format, Company_ID, Vendor-specific_codec_ID.*/
-#define CODEC_ID_LC3PLUS_VBR        {0xFF, 0xA9, 0x08,  0x01, 0x00}   /**< 0xFF, Fraunhofer IIS 0x08A9, LC3plusHR_VBR 0x001.*/
-#define CODEC_ID_LC3PLUS_CBR        {0xFF, 0xA9, 0x08,  0x02, 0x00}   /**< 0xFF, Fraunhofer IIS 0x08A9, LC3plusHR_CBR 0x002.*/
+#define CODEC_ID_LC3PLUS_VBR        {0xFF, 0x08, 0xA9, 0x00,  0x01}   /**< 0xFF, Fraunhofer IIS 0x08A9, LC3plusHR_VBR 0x001.*/
+#define CODEC_ID_LC3PLUS_CBR        {0xFF, 0x08, 0xA9, 0x00,  0x02}   /**< 0xFF, Fraunhofer IIS 0x08A9, LC3plusHR_CBR 0x002.*/
 
 /**
  * @brief Defines the length of Codec Specific Capabilties parameters.
  */
-#define CODEC_CAPABILITY_LEN_SUPPORTED_SAMPLING_FREQUENCY       0x03    /**< The length of Supported Sampling Frequencies.*/
-#define CODEC_CAPABILITY_LEN_SUPPORTED_FRAME_DURATIONS          0x02    /**< The length of Supported Frame Durations.*/
-#define CODEC_CAPABILITY_LEN_AUDIO_CHANNEL_COUNTS               0x02    /**< The length of Audio Channel Counts.*/
-#define CODEC_CAPABILITY_LEN_SUPPORTED_OCTETS_PER_CODEC_FRAME   0x05    /**< The length of Supported Octets Per Codec Frame.*/
-#define CODEC_CAPABILITY_LEN_SUPPORTED_MAX_CODEC_FRAMES_PER_SDU 0X02    /**< The length of Max Supported LC3 Frames Per SDU.*/
+#define CODEC_CAPABILITY_LEN_SUPPORTED_SAMPLING_FREQUENCY               0x03    /**< The length of Supported Sampling Frequencies.*/
+#define CODEC_CAPABILITY_LEN_SUPPORTED_FRAME_DURATIONS                  0x02    /**< The length of Supported Frame Durations.*/
+#define CODEC_CAPABILITY_LEN_AUDIO_CHANNEL_COUNTS                       0x02    /**< The length of Audio Channel Counts.*/
+#define CODEC_CAPABILITY_LEN_SUPPORTED_OCTETS_PER_CODEC_FRAME           0x05    /**< The length of Supported Octets Per Codec Frame.*/
+#define CODEC_CAPABILITY_LEN_SUPPORTED_MAX_CODEC_FRAMES_PER_SDU         0x02    /**< The length of Max Supported LC3 Frames Per SDU.*/
+#define CODEC_CAPABILITY_LEN_LC3PLUS_SUPPORTED_FORWARD_ERROR_CORRECTION 0x03    /**< The length of Max Supported forward error correction.*/
 
 /**
  * @brief Defines the type of Codec Specific Capabilties parameters.
  */
 enum {
-    CODEC_CAPABILITY_TYPE_SUPPORTED_SAMPLING_FREQUENCY = 0x01,  /**< Supported Sampling Frequencies.*/
-    CODEC_CAPABILITY_TYPE_SUPPORTED_FRAME_DURATIONS,            /**< Supported Frame Durations.*/
-    CODEC_CAPABILITY_TYPE_AUDIO_CHANNEL_COUNTS,                 /**< Audio Channel Counts.*/
-    CODEC_CAPABILITY_TYPE_SUPPORTED_OCTETS_PER_CODEC_FRAME,     /**< Supported Octets Per Codec Frame.*/
-    CODEC_CAPABILITY_TYPE_SUPPORTED_MAX_CODEC_FRAMES_PER_SDU, /**< Max Supported LC3 Frames Per SDU.*/
+    CODEC_CAPABILITY_TYPE_SUPPORTED_SAMPLING_FREQUENCY = 0x01,              /**< Supported Sampling Frequencies.*/
+    CODEC_CAPABILITY_TYPE_SUPPORTED_FRAME_DURATIONS,                        /**< Supported Frame Durations.*/
+    CODEC_CAPABILITY_TYPE_AUDIO_CHANNEL_COUNTS,                             /**< Audio Channel Counts.*/
+    CODEC_CAPABILITY_TYPE_SUPPORTED_OCTETS_PER_CODEC_FRAME,                 /**< Supported Octets Per Codec Frame.*/
+    CODEC_CAPABILITY_TYPE_SUPPORTED_MAX_CODEC_FRAMES_PER_SDU,               /**< Max Supported LC3 Frames Per SDU.*/
+    CODEC_CAPABILITY_TYPE_LC3PLUS_SUPPORTED_FRAME_DURATIONS = 0xF1,         /**< LC3 Plus Supported Frame Durations.*/
+    CODEC_CAPABILITY_TYPE_LC3PLUS_SUPPORTED_OCTETS_PER_CODEC_FRAME_10MS,    /**< LC3 Plus Supported Octets Per Codec Frame for 10ms frame duration.*/
+    CODEC_CAPABILITY_TYPE_LC3PLUS_SUPPORTED_OCTETS_PER_CODEC_FRAME_5MS,     /**< LC3 Plus Supported Octets Per Codec Frame for 5ms frame duration.*/
+    CODEC_CAPABILITY_TYPE_LC3PLUS_SUPPORTED_OCTETS_PER_CODEC_FRAME_2P5MS,   /**< LC3 Plus Supported Octets Per Codec Frame for 2.5ms frame duration.*/
+    CODEC_CAPABILITY_TYPE_LC3PLUS_SUPPORTED_FORWARD_ERROR_CORRECTION,       /**< LC3 Plus Supported forward error correction.*/
 };
 
 /**
@@ -258,10 +264,16 @@ enum {
 /**
  * @brief Defines the value of Supported Frame Durations in Codec Specific Capabilties parameters.
  */
-#define SUPPORTED_FRAME_DURATIONS_7P5_MS            0x01    /**< 7.5 ms frame duration supported */
-#define SUPPORTED_FRAME_DURATIONS_10_MS             0x02    /**< 10 ms frame duration supported */
-#define SUPPORTED_FRAME_DURATIONS_7P5_MS_PREFERRD   0x10    /**< 7.5 ms preferred. Valid only when 7.5 ms is supported and 10 ms is supported. Shall not be set to 0b1 if bit 5 is set to 0b1. */
-#define SUPPORTED_FRAME_DURATIONS_10_MS_PREFERRD    0x20    /**< 10 ms preferred. Valid only when 7.5 ms is supported and 10 ms is supported. Shall not be set to 0b1 if bit 4 is set to 0b1. */
+#define SUPPORTED_FRAME_DURATIONS_7P5_MS                        0x01    /**< 7.5 ms frame duration supported */
+#define SUPPORTED_FRAME_DURATIONS_10_MS                         0x02    /**< 10 ms frame duration supported */
+#define SUPPORTED_FRAME_DURATIONS_7P5_MS_PREFERRD               0x10    /**< 7.5 ms preferred. Valid only when 7.5 ms is supported and 10 ms is supported. Shall not be set to 0b1 if bit 5 is set to 0b1. */
+#define SUPPORTED_FRAME_DURATIONS_10_MS_PREFERRD                0x20    /**< 10 ms preferred. Valid only when 7.5 ms is supported and 10 ms is supported. Shall not be set to 0b1 if bit 4 is set to 0b1. */
+#define SUPPORTED_FRAME_DURATIONS_LC3PLUS_10_MS                 0x02     /**< LC3 Plus 10 ms frame duration supported */
+#define SUPPORTED_FRAME_DURATIONS_LC3PLUS_5_MS                  0x04     /**< LC3 Plus 5 ms frame duration supported */
+#define SUPPORTED_FRAME_DURATIONS_LC3PLUS_2P5_MS                0x08     /**< LC3 Plus 2.5 ms frame duration supported */
+#define SUPPORTED_FRAME_DURATIONS_LC3PLUS_10_MS_PREFERRD        0x20     /**< LC3 Plus 10 ms frame duration preferred. */
+#define SUPPORTED_FRAME_DURATIONS_LC3PLUS_5_MS_PREFERRD         0x40     /**< LC3 Plus 5 ms frame duration preferred. */
+#define SUPPORTED_FRAME_DURATIONS_LC3PLUS_2P5_MS_PREFERRD       0x80     /**< LC3 Plus 2.5 ms frame duration preferred. */
 
 /**
  * @brief Defines the value of Audio Channel Counts in Codec Specific Capabilties parameters.
@@ -274,12 +286,14 @@ enum {
  * Octet 0-1: Minimum number of octets supported per codec frame.
  * Octet 0-1: Minimum number of octets supported per codec frame.
  */
-#define SUPPORTED_OCTETS_PER_CODEC_FRAME_30_40      0x0028001E  /**< 30~40. */
-#define SUPPORTED_OCTETS_PER_CODEC_FRAME_45_60      0x003C002D  /**< 45~60. */
-#define SUPPORTED_OCTETS_PER_CODEC_FRAME_60_80      0x0050003C  /**< 60~80. */
-#define SUPPORTED_OCTETS_PER_CODEC_FRAME_75_155     0x009B004B  /**< 75~155. */
-//#define SUPPORTED_OCTETS_PER_CODEC_FRAME_190_190    0x00BE00BE  /**< only 190. */
-#define SUPPORTED_OCTETS_PER_CODEC_FRAME_190_190    0x00BE0064  /**< 100~190. temporary */
+#define SUPPORTED_OCTETS_PER_CODEC_FRAME_30_40              0x0028001E  /**< 30~40. */
+#define SUPPORTED_OCTETS_PER_CODEC_FRAME_45_60              0x003C002D  /**< 45~60. */
+#define SUPPORTED_OCTETS_PER_CODEC_FRAME_60_80              0x0050003C  /**< 60~80. */
+#define SUPPORTED_OCTETS_PER_CODEC_FRAME_75_155             0x009B004B  /**< 75~155. */
+//#define SUPPORTED_OCTETS_PER_CODEC_FRAME_190_190            0x00BE00BE  /**< only 190. */
+#define SUPPORTED_OCTETS_PER_CODEC_FRAME_190_190            0x00BE0064  /**< 100~190. temporary */
+#define SUPPORTED_OCTETS_PER_CODEC_FRAME_LC3PLUS_160_310    0x013600A0  /**< 160~310. */
+#define SUPPORTED_OCTETS_PER_CODEC_FRAME_LC3PLUS_190_310    0x013600BE  /**< 190~310. */
 
 /**
  * @brief Defines the value of Max Supported LC3 Frames Per SDU.
@@ -306,21 +320,31 @@ enum {
  * @brief Defines the type of Codec Specific Configuration parameters.
  */
 enum {
-    CODEC_CONFIGURATION_TYPE_SAMPLING_FREQUENCY = 0x01, /**< Supported Sampling Frequencies.*/
-    CODEC_CONFIGURATION_TYPE_FRAME_DURATIONS,           /**< Supported Frame Durations.*/
-    CODEC_CONFIGURATION_TYPE_AUDIO_CHANNEL_ALLOCATION,  /**< Audio Channel Counts.*/
-    CODEC_CONFIGURATION_TYPE_OCTETS_PER_CODEC_FRAME,    /**< Supported Octets Per Codec Frame.*/
-    CODEC_CONFIGURATION_TYPE_CODEC_FRAME_BLOCKS_PER_SDU,        /**< Max Supported LC3 Frames Per SDU.*/
+    CODEC_CONFIGURATION_TYPE_SAMPLING_FREQUENCY = 0x01,     /**< Supported Sampling Frequencies.*/
+    CODEC_CONFIGURATION_TYPE_FRAME_DURATIONS,               /**< Supported Frame Durations.*/
+    CODEC_CONFIGURATION_TYPE_AUDIO_CHANNEL_ALLOCATION,      /**< Audio Channel Counts.*/
+    CODEC_CONFIGURATION_TYPE_OCTETS_PER_CODEC_FRAME,        /**< Supported Octets Per Codec Frame.*/
+    CODEC_CONFIGURATION_TYPE_CODEC_FRAME_BLOCKS_PER_SDU,    /**< Max Supported LC3 Frames Per SDU.*/
+    CODEC_CONFIGURATION_TYPE_LC3PLUSHR_FRAME_DURATION = 0xF1,            /**< LC3plusHR Frame Durations.*/
+    CODEC_CONFIGURATION_TYPE_LC3PLUSHR_FORWARD_ERROR_CORRECTION = 0xF5,  /**< LC3plusHR Forward Error Correction.*/
 };
 
 /**
  * @brief Defines the length of Codec Specific Configuration parameters.
  */
-#define CODEC_CONFIGURATION_LEN_SAMPLING_FREQUENCY          2   /**< Supported Sampling Frequencies.*/
-#define CODEC_CONFIGURATION_LEN_FRAME_DURATIONS             2   /**< Supported Frame Durations.*/
-#define CODEC_CONFIGURATION_LEN_AUDIO_CHANNEL_ALLOCATION    5   /**< Audio Channel Counts.*/
-#define CODEC_CONFIGURATION_LEN_OCTETS_PER_CODEC_FRAME      3   /**< Supported Octets Per Codec Frame.*/
-#define CODEC_CONFIGURATION_LEN_CODEC_FRAME_BLOCKS_PER_SDU  2   /**< Codec Frame Blocks Per_SDU.*/
+#define CODEC_CONFIGURATION_LEN_SAMPLING_FREQUENCY                  2   /**< Supported Sampling Frequencies.*/
+#define CODEC_CONFIGURATION_LEN_FRAME_DURATIONS                     2   /**< Supported Frame Durations.*/
+#define CODEC_CONFIGURATION_LEN_AUDIO_CHANNEL_ALLOCATION            5   /**< Audio Channel Counts.*/
+#define CODEC_CONFIGURATION_LEN_OCTETS_PER_CODEC_FRAME              3   /**< Supported Octets Per Codec Frame.*/
+#define CODEC_CONFIGURATION_LEN_CODEC_FRAME_BLOCKS_PER_SDU          2   /**< Codec Frame Blocks Per_SDU.*/
+#define CODEC_CONFIGURATION_LEN_LC3PLUSHR_FRAME_DURATION             2   /**< LC3plusHR Frame Durations.*/
+#define CODEC_CONFIGURATION_LEN_LC3PLUSHR_FORWARD_ERROR_CORRECTION   3   /**< LC3plusHR Forward Error Correction.*/
+
+/**
+ * @brief Defines the value of LC3plusHR Forward Error Correction in Codec Specific Configuration parameters.
+ */
+#define CODEC_CONFIGURATION_LC3PLUS_FORWARD_ERROR_CORRECTION_DISABLE    0x00
+#define CODEC_CONFIGURATION_LC3PLUS_FORWARD_ERROR_CORRECTION_ENABLE     0x01
 
 /**
  * @brief Defines the value of Sampling Frequency in Codec Specific Configuration parameters.
@@ -336,11 +360,14 @@ enum {
 };
 
 /**
- * @brief Defines the value of Frame_Duration in Codec Specific Configuration parameters.
+ * @brief Defines the value of Frame Duration in Codec Specific Configuration parameters.
  */
 enum {
     FRAME_DURATIONS_7P5_MS, /**< 7.5 ms.*/
     FRAME_DURATIONS_10_MS,  /**< 10 mx.*/
+    FRAME_DURATIONS_LC3PLUS_10_MS =     1,   /**< LC3 Plus HR 10 ms.*/
+    FRAME_DURATIONS_LC3PLUS_5_MS =      2,   /**< LC3 Plus HR 5 ms.*/
+    FRAME_DURATIONS_LC3PLUS_2P5_MS =    4,   /**< LC3 Plus HR 2.5 ms.*/
 };
 
 /**

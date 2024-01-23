@@ -35,37 +35,33 @@
 #include "bt_sink_srv_state_manager.h"
 #include "bt_sink_srv_state_manager_internal.h"
 
-#define BT_SINK_SRV_STATE_MANAGER_IS_LE_CALL_DEVICE(device, psedev) \
-    (NULL != (device) && \
-     (psedev) == (device)->media_device && \
-     BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE == (device)->type && \
-     BT_SINK_SRV_STATE_MANAGER_IS_CALL_STATE((device)->call_state))
-
-#define BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(device, psedev) \
-    ((AUDIO_SRC_SRV_PSEUDO_DEVICE_HFP == (psedev)->type) ||     \
-     (NULL != (device) && (psedev) == (device)->call_device) || \
-     BT_SINK_SRV_STATE_MANAGER_IS_LE_CALL_DEVICE(device, psedev))
-
-#define BT_SINK_SRV_STATE_MANAGER_IS_MEDIA_DEVICE(device, psedev) \
-    ((AUDIO_SRC_SRV_PSEUDO_DEVICE_A2DP == (psedev)->type) ||        \
-     (AUDIO_SRC_SRV_PSEUDO_DEVICE_AWS_A2DP == (psedev)->type) ||    \
-     (NULL != (device) && (psedev) == (device)->media_device))
-
-#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE
-#define BT_SINK_SRV_STATE_MANAGER_IS_DUMMY_DEVICE(device, psedev) \
-    ((AUDIO_SRC_SRV_PSEUDO_DEVICE_DUMMY == (psedev)->type) || \
-     (NULL != (device) && (psedev) == (device)->dummy_device))
-#endif
-
 extern bt_sink_srv_allow_result_t bt_customer_config_allow_play(
     bt_sink_srv_device_state_t *current,
     bt_sink_srv_device_state_t *coming);
+
+static bool bt_sink_srv_state_manager_is_compare_waiting(
+    bt_sink_srv_state_manager_context_t *context,
+    audio_src_srv_handle_t *current);
+
+static bt_sink_srv_allow_result_t bt_sink_srv_state_manager_compare_waiting(
+    bt_sink_srv_state_manager_context_t *context,
+    audio_src_srv_handle_t *current,
+    audio_src_srv_handle_t *coming);
+
+static bt_sink_srv_state_manager_play_count_t bt_sink_srv_state_manager_get_waiting_play_count(
+    bt_sink_srv_state_manager_context_t *context,
+    audio_src_srv_handle_t *handle);
+
+static bt_sink_srv_allow_result_t bt_sink_srv_state_manager_compare_interrupt(
+    bt_sink_srv_state_manager_context_t *context,
+    audio_src_srv_handle_t *current,
+    audio_src_srv_handle_t *coming);
 
 static bt_sink_srv_allow_result_t default_bt_customer_config_allow_play(
     bt_sink_srv_device_state_t *current,
     bt_sink_srv_device_state_t *coming);
 
-#ifdef AIR_LE_AUDIO_ENABLE
+#if defined(AIR_LE_AUDIO_ENABLE)
 bt_sink_srv_cap_am_mode bt_sink_srv_cap_am_get_mode_by_audio_handle(
     audio_src_srv_handle_t *p_handle);
 #endif
@@ -78,47 +74,17 @@ bt_sink_srv_cap_am_mode bt_sink_srv_cap_am_get_mode_by_audio_handle(
 #error "Unsupported Platform"
 #endif
 
-
-static bt_sink_srv_allow_result_t bt_sink_srv_state_manager_compare_workaround(
+bt_sink_srv_allow_result_t bt_sink_srv_state_manager_psedev_compare(
     audio_src_srv_handle_t *current,
     audio_src_srv_handle_t *coming)
 {
     bt_sink_srv_allow_result_t result = BT_SINK_SRV_ALLOW_RESULT_BYPASS;
-    if (current == NULL || coming == NULL) {
-        return result;
-    }
-#if defined(MTK_AWS_MCE_ENABLE)
-/*
-*   BTA-39410, for ull v2 timing issue
-*/
-    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
-    if (BT_AWS_MCE_ROLE_PARTNER == role
-        && AUDIO_SRC_SRV_PSEUDO_DEVICE_AWS_A2DP == coming->type
-        && current->priority == coming->priority) {
-        result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
-        bt_sink_srv_report_id("[Sink][StaMgr]psedev compare, partner allow a2dp interrupt type %d", 1, current->type);
-    }
-#endif
-    return result;
-}
-
-bt_sink_srv_allow_result_t bt_sink_srv_state_manager_psedev_compare(
-        audio_src_srv_handle_t *current,
-        audio_src_srv_handle_t *coming)
-{
-    bt_sink_srv_allow_result_t result = BT_SINK_SRV_ALLOW_RESULT_BYPASS;
     bt_sink_srv_state_manager_context_t *context = bt_sink_srv_state_manager_get_context();
 
-    bt_sink_srv_state_manager_device_t *current_device = NULL;
     bt_sink_srv_state_manager_device_t *coming_device = NULL;
-    bt_sink_srv_device_state_t current_device_state = BT_SINK_SRV_STATE_MANAGER_INVALID_DEVICE_STATE;
-    bt_sink_srv_device_state_t coming_device_state = BT_SINK_SRV_STATE_MANAGER_INVALID_DEVICE_STATE;
+    bt_sink_srv_device_state_t coming_state = BT_SINK_SRV_STATE_MANAGER_INVALID_DEVICE_STATE;
 
-    result = bt_sink_srv_state_manager_compare_workaround(current, coming);
-    if (BT_SINK_SRV_ALLOW_RESULT_BYPASS != result) {
-        return result;
-    }
-    /* 1. Check paramters. */
+    /* 1. Check parameters. */
     if (current == NULL || !BT_SINK_SRV_STATE_MANAGER_IS_SINK_SRV_DEVICE(current->type)) {
         return result;
     }
@@ -127,159 +93,55 @@ bt_sink_srv_allow_result_t bt_sink_srv_state_manager_psedev_compare(
         return result;
     }
 
-    /* 2. Get device state. */
-    current_device = bt_sink_srv_state_manager_get_device_by_psedev(context, current);
+    /* 2. Compare devices. */
+    if (bt_sink_srv_state_manager_is_compare_waiting(context, current)) {
+        result = bt_sink_srv_state_manager_compare_waiting(context, current, coming);
+    } else {
+        result = bt_sink_srv_state_manager_compare_interrupt(context, current, coming);
+    }
+
+    /* 3. Update result. */
     coming_device = bt_sink_srv_state_manager_get_device_by_psedev(context, coming);
 
-    bt_sink_srv_report_id("[Sink][StaMgr]psedev compare, current_device: 0x%x(0x%x) coming_device: 0x%x(0x%x)",
-                          4, current_device, current, coming_device, coming);
-
-    if (NULL != current_device) {
-        current_device_state.type = current_device->type;
-        current_device_state.call_state = current_device->call_state;
-        current_device_state.sco_state = current_device->call_audio_state;
-        current_device_state.music_state = current_device->media_state;
-        bt_sink_srv_memcpy(current_device_state.address, current_device->address, sizeof(bt_bd_addr_t));
-    }
-
     if (NULL != coming_device) {
-        coming_device_state.type = coming_device->type;
-        coming_device_state.call_state = coming_device->call_state;
-        coming_device_state.sco_state = coming_device->call_audio_state;
-        coming_device_state.music_state = coming_device->media_state;
-        bt_sink_srv_memcpy(coming_device_state.address, coming_device->address, sizeof(bt_bd_addr_t));
-    } else {
-        if (AUDIO_SRC_SRV_PSEUDO_DEVICE_A2DP == coming->type ||
-            AUDIO_SRC_SRV_PSEUDO_DEVICE_AWS_A2DP == coming->type) {
-            bt_sink_srv_music_device_t *music_device
-                    = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_PSE_HD, coming);
+        bt_sink_srv_state_manager_get_device_state(context, coming_device, &coming_state);
+    } else if (AUDIO_SRC_SRV_PSEUDO_DEVICE_A2DP == coming->type ||
+               AUDIO_SRC_SRV_PSEUDO_DEVICE_AWS_A2DP == coming->type) {
+#if defined(AIR_BT_SINK_MUSIC_ENABLE)
+        bt_sink_srv_music_device_t *music_device
+            = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_PSE_HD, coming);
 
-            if (NULL != music_device) {
-                coming_device_state.type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR;
-                coming_device_state.music_state = BT_SINK_SRV_STATE_STREAMING;
-                bt_sink_srv_memcpy(coming_device_state.address, music_device->dev_addr, sizeof(bt_bd_addr_t));
-            }
-        } else if (AUDIO_SRC_SRV_PSEUDO_DEVICE_BLE == coming->type) {
-#ifdef AIR_LE_AUDIO_ENABLE
-            bt_sink_srv_cap_am_mode mode = bt_sink_srv_cap_am_get_mode_by_audio_handle(coming);
-            bt_handle_t handle = bt_sink_srv_cap_get_ble_link_by_streaming_mode(mode);
-            bt_gap_le_srv_conn_info_t *conn_info = bt_gap_le_srv_get_conn_info(handle);
-
-            if (NULL != conn_info) {
-                coming_device_state.type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE;
-                coming_device_state.music_state = BT_SINK_SRV_STATE_STREAMING;
-                bt_sink_srv_memcpy(coming_device_state.address, conn_info->peer_addr.addr, sizeof(bt_bd_addr_t));
-            }
-#endif
+        if (NULL != music_device) {
+            coming_state.type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR;
+            coming_state.music_state = BT_SINK_SRV_STATE_STREAMING;
+            bt_sink_srv_memcpy(coming_state.address, music_device->dev_addr, sizeof(bt_bd_addr_t));
         }
-    }
+#endif
+    } else if (AUDIO_SRC_SRV_PSEUDO_DEVICE_BLE == coming->type) {
+#if defined(AIR_LE_AUDIO_ENABLE)
+        bt_sink_srv_cap_am_mode mode = bt_sink_srv_cap_am_get_mode_by_audio_handle(coming);
+        bt_handle_t handle = bt_sink_srv_cap_get_ble_link_by_streaming_mode(mode);
+        bt_gap_le_srv_conn_info_t *conn_info = bt_gap_le_srv_get_conn_info(handle);
 
-    /* 3. Get customer config policy. */
-    const audio_src_srv_handle_t *running_psedev = audio_src_srv_get_runing_pseudo_device();
-    if (NULL != running_psedev && running_psedev == current) {
-        result = bt_customer_config_allow_play(&current_device_state, &coming_device_state);
-        bt_sink_srv_report_id("[Sink][StaMgr]psedev compare, customer result: 0x%x", 1, result);
-    }
-
-    /* 4. Execute Sink Service default policy. */
-    bool is_current_call = BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(current_device, current);
-    bool is_coming_call = BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(coming_device, coming);
-#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE
-    bool is_current_dummy = BT_SINK_SRV_STATE_MANAGER_IS_DUMMY_DEVICE(current_device, current);
-    bool is_coming_dummy = BT_SINK_SRV_STATE_MANAGER_IS_DUMMY_DEVICE(coming_device, coming);
-#endif
-
-    bt_sink_srv_report_id("[SINK][DEBUG][CMP] is_curr_call:%d, is_coming_call:%d, curr==coming:%d", 3,
-        is_current_call, is_coming_call, (current_device == coming_device));
-    uint16_t log_step = 0xff;
-
-    if (BT_SINK_SRV_ALLOW_RESULT_BYPASS == result) {
-        if (is_coming_call
-#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE
-                || is_coming_dummy
-#endif
-        ) {
-            if (is_current_call
-#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE
-                || is_current_dummy
-#endif
-            ) {
-                bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
-                if (BT_AWS_MCE_ROLE_PARTNER == role
-                    && (NULL != coming_device && BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == coming_device->type
-                    && BT_SINK_SRV_SCO_CONNECTION_STATE_CONNECTED == coming_device->call_audio_state)
-                    && (NULL != current_device && BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE == current_device->type)) {
-                    result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
-                    log_step = 1;
-                    bt_sink_srv_report_id("[Sink][StaMgr][Debug]psedev compare, the same device, EDR with esco take LE", 0);
-                } else if (NULL != coming_device && context->focus_call_device == coming_device) {
-#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE
-                    if (current_device == coming_device && coming == coming_device->dummy_device) {
-                        result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW;
-                        log_step = 2;
-                    } else if (current_device == coming_device && current == coming_device->dummy_device) {
-                        result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
-                        log_step = 3;
-                        coming->priority++;
-                        bt_sink_srv_report_id("[Sink][StaMgr]psedev compare, increase coming device's priority", 0);
-                    } else {
-                        result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
-                        log_step = 4;
-                    }
-#else
-                    result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
-                    log_step = 5;
-#endif
-                } else {
-                    result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW; /* Call cannot interrupt call. */
-                    log_step = 6;
-                }
-            } else {
-                result = BT_SINK_SRV_ALLOW_RESULT_ALLOW; /* Call can interrupt media. */
-                log_step = 7;
-            }
-        } else {
-            if (is_current_call
-#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE
-                || is_current_dummy
-#endif
-            ) {
-                result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW; /* Media cannot interrupt call. */
-                log_step = 8;
-            } else {
-                result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW; /* Media can interrupt media. */
-                log_step = 9;
-            }
+        if (NULL != conn_info) {
+            coming_state.type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE;
+            coming_state.music_state = BT_SINK_SRV_STATE_STREAMING;
+            bt_sink_srv_memcpy(coming_state.address, conn_info->peer_addr.addr, sizeof(bt_bd_addr_t));
         }
+#endif
     }
 
-    /* 5. Update focus device. */
     if (BT_SINK_SRV_ALLOW_RESULT_ALLOW == result) {
         if (NULL != coming_device) {
-            if (is_coming_call
-#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE
-                || is_coming_dummy
-#endif
-            ) {
-                bt_sink_srv_state_manager_set_focus_call_device(context, coming_device, true);
-            } else {
-                bt_sink_srv_state_manager_set_focus_media_device(context, coming_device, true);
-            }
+            bt_sink_srv_state_manager_set_focus_device(context, coming_device, true);
         }
 
         bt_sink_srv_event_callback(
-                BT_SINK_SRV_EVENT_PLAYING_DEVICE_CHANGE,
-                &coming_device_state,
-                sizeof(bt_sink_srv_device_state_t));
+            BT_SINK_SRV_EVENT_PLAYING_DEVICE_CHANGE,
+            &coming_state,
+            sizeof(bt_sink_srv_device_state_t));
     }
 
-    if (AUDIO_SRC_SRV_PSEUDO_DEVICE_HFP == current->type &&
-        AUDIO_SRC_SRV_PSEUDO_DEVICE_HFP == coming->type) {
-        result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW;
-        log_step |= 0x8000;
-    }
-
-    bt_sink_srv_report_id("[Sink][StaMgr]psedev compare, final result: 0x%x, log_step: %d", 2, result, log_step);
     return result;
 }
 
@@ -297,17 +159,16 @@ void bt_sink_srv_state_manager_running_psedev_change(audio_src_srv_handle_t *run
     bt_sink_srv_report_id("[Sink][StaMgr]running psedev change, device: 0x%x", 1, device);
 
 #if defined(MTK_AWS_MCE_ENABLE) && defined(AIR_MULTI_POINT_ENABLE)
-        bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
-        bt_aws_mce_srv_link_type_t link = bt_aws_mce_srv_get_link_type();
-    
-        if (BT_AWS_MCE_ROLE_PARTNER == role && BT_AWS_MCE_SRV_LINK_NORMAL == link) {
-            return;
-        }
+    if (BT_AWS_MCE_ROLE_PARTNER == bt_connection_manager_device_local_info_get_aws_role() &&
+        BT_AWS_MCE_SRV_LINK_NORMAL == bt_aws_mce_srv_get_link_type()) {
+        return;
+    }
 #endif
 
     /* 2. Swap state. */
     if (NULL != device) {
-        bt_sink_srv_state_manager_update_state(context, device, running, false);
+        bt_sink_srv_state_manager_set_focus_device(context, device, true);
+        bt_sink_srv_state_manager_notify_state_change(device->type, BT_SINK_SRV_STATE_NONE);
     }
 }
 
@@ -318,15 +179,11 @@ bt_status_t bt_sink_srv_get_playing_device_state(bt_sink_srv_device_state_t *dev
     bt_sink_srv_state_manager_context_t *context = bt_sink_srv_state_manager_get_context();
 
     if (NULL != psedev && BT_SINK_SRV_STATE_MANAGER_IS_SINK_SRV_DEVICE(psedev->type)) {
-        device = bt_sink_srv_state_manager_get_device_by_psedev(context, (audio_src_srv_handle_t *)psedev);
+        device = bt_sink_srv_state_manager_get_device_by_psedev(
+                     context, (audio_src_srv_handle_t *)psedev);
 
         if (NULL != device) {
-            device_state->type = device->type;
-            device_state->call_state = device->call_state;
-            device_state->sco_state = device->call_audio_state;
-            device_state->music_state = device->media_state;
-            bt_sink_srv_memcpy(device_state->address, device->address, sizeof(bt_bd_addr_t));
-
+            bt_sink_srv_state_manager_get_device_state(context, device, device_state);
             return BT_STATUS_SUCCESS;
         }
     }
@@ -334,10 +191,301 @@ bt_status_t bt_sink_srv_get_playing_device_state(bt_sink_srv_device_state_t *dev
     return BT_STATUS_FAIL;
 }
 
+static bool bt_sink_srv_state_manager_is_compare_waiting(
+    bt_sink_srv_state_manager_context_t *context,
+    audio_src_srv_handle_t *current)
+{
+    (void)context;
+    return (current != audio_src_srv_get_runing_pseudo_device());
+}
+
+static bt_sink_srv_allow_result_t bt_sink_srv_state_manager_compare_waiting(
+    bt_sink_srv_state_manager_context_t *context,
+    audio_src_srv_handle_t *current,
+    audio_src_srv_handle_t *coming)
+{
+    uint32_t cases = 0x00;
+    bt_sink_srv_allow_result_t result = BT_SINK_SRV_ALLOW_RESULT_BYPASS;
+
+    do {
+        bt_sink_srv_state_manager_device_t *current_device
+            = bt_sink_srv_state_manager_get_device_by_psedev(context, current);
+
+        bt_sink_srv_state_manager_device_t *coming_device
+            = bt_sink_srv_state_manager_get_device_by_psedev(context, coming);
+
+        bt_sink_srv_report_id("[Sink][StaMgr]compare waiting, current_device: 0x%x, coming_device: 0x%x", 2,
+                              current_device, coming_device);
+
+#if defined(AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE)
+        if (NULL != current_device && current_device == coming_device) {
+            if (current == current_device->dummy_device) {
+                cases = 0x11;
+                result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
+                break;
+            }
+
+            if (coming == coming_device->dummy_device) {
+                cases = 0x12;
+                result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW;
+                break;
+            }
+        }
+#endif
+
+        if (BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(current_device) &&
+            !BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(coming_device)) {
+            cases = 0x21;
+            result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW;
+            break;
+        }
+
+        if (!BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(current_device) &&
+            BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(coming_device)) {
+            cases = 0x22;
+            result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
+            break;
+        }
+
+        if (BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(current_device) &&
+            BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(coming_device)) {
+            if (context->focus_device == coming_device) {
+                cases = 0x23;
+                result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
+                break;
+            } else {
+                cases = 0x24;
+                result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW;
+                break;
+            }
+        }
+
+        bt_sink_srv_state_manager_play_count_t current_count
+            = bt_sink_srv_state_manager_get_waiting_play_count(context, current);
+
+        bt_sink_srv_state_manager_play_count_t coming_count
+            = bt_sink_srv_state_manager_get_waiting_play_count(context, coming);
+
+        bt_sink_srv_report_id("[Sink][StaMgr]compare waiting, current_count: %d, coming_count: %d", 2,
+                              current_count, coming_count);
+
+        if (BT_SINK_SRV_STATE_MANAGER_PLAY_COUNT_INVALID != current_count &&
+            BT_SINK_SRV_STATE_MANAGER_PLAY_COUNT_INVALID != coming_count) {
+            if (current_count < coming_count) {
+                cases = 0x41;
+                result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW;
+                break;
+            } else {
+                cases = 0x42;
+                result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
+                break;
+            }
+        }
+    } while (0);
+
+    bt_sink_srv_report_id("[Sink][StaMgr]compare waiting, cases: 0x%x, result: 0x%x", 2,
+                          cases, result);
+
+    return result;
+}
+
+static bt_sink_srv_state_manager_play_count_t bt_sink_srv_state_manager_get_waiting_play_count(
+    bt_sink_srv_state_manager_context_t *context,
+    audio_src_srv_handle_t *psedev)
+{
+    bt_sink_srv_state_manager_play_count_t play_count
+        = BT_SINK_SRV_STATE_MANAGER_PLAY_COUNT_INVALID;
+
+    bt_sink_srv_state_manager_device_t *device
+        = bt_sink_srv_state_manager_get_device_by_psedev(context, psedev);
+
+    switch (psedev->type) {
+        case AUDIO_SRC_SRV_PSEUDO_DEVICE_A2DP:
+        case AUDIO_SRC_SRV_PSEUDO_DEVICE_AWS_A2DP: {
+            if (NULL != device) {
+                bt_sink_srv_state_manager_music_callback(
+                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_PLAY_COUNT,
+                    &device->address,
+                    &play_count);
+            } else {
+                bt_sink_srv_music_device_t *music_device
+                    = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_PSE_HD, psedev);
+
+                if (NULL != music_device) {
+                    bt_sink_srv_state_manager_music_callback(
+                        BT_SINK_SRV_STATE_MANAGER_EVENT_GET_PLAY_COUNT,
+                        &music_device->dev_addr,
+                        &play_count);
+                }
+            }
+            break;
+        }
+
+        case AUDIO_SRC_SRV_PSEUDO_DEVICE_HFP: {
+            if (NULL != device) {
+                bt_sink_srv_state_manager_call_callback(
+                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_PLAY_COUNT,
+                    &device->address,
+                    &play_count);
+            }
+            break;
+        }
+
+        case AUDIO_SRC_SRV_PSEUDO_DEVICE_BLE: {
+#if defined(AIR_LE_AUDIO_ENABLE)
+            if (NULL != device) {
+                bt_sink_srv_state_manager_le_callback(
+                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_PLAY_COUNT,
+                    &device->address,
+                    &play_count);
+            } else {
+                bt_sink_srv_cap_am_mode mode = bt_sink_srv_cap_am_get_mode_by_audio_handle(psedev);
+                bt_handle_t handle = bt_sink_srv_cap_get_ble_link_by_streaming_mode(mode);
+                bt_gap_le_srv_conn_info_t *conn_info = bt_gap_le_srv_get_conn_info(handle);
+
+                if (NULL != conn_info) {
+                    bt_sink_srv_state_manager_le_callback(
+                        BT_SINK_SRV_STATE_MANAGER_EVENT_GET_PLAY_COUNT,
+                        &conn_info->peer_addr.addr,
+                        &play_count);
+                }
+            }
+#endif
+            break;
+        }
+
+        default: {
+            break;
+        }
+    }
+
+    return play_count;
+}
+
+static bt_sink_srv_allow_result_t bt_sink_srv_state_manager_compare_interrupt(
+    bt_sink_srv_state_manager_context_t *context,
+    audio_src_srv_handle_t *current,
+    audio_src_srv_handle_t *coming)
+{
+    uint32_t cases = 0x00;
+    bt_sink_srv_allow_result_t result = BT_SINK_SRV_ALLOW_RESULT_BYPASS;
+    bt_sink_srv_device_state_t current_state = BT_SINK_SRV_STATE_MANAGER_INVALID_DEVICE_STATE;
+    bt_sink_srv_device_state_t coming_state = BT_SINK_SRV_STATE_MANAGER_INVALID_DEVICE_STATE;
+
+    bt_sink_srv_state_manager_device_t *current_device
+        = bt_sink_srv_state_manager_get_device_by_psedev(context, current);
+
+    bt_sink_srv_state_manager_device_t *coming_device
+        = bt_sink_srv_state_manager_get_device_by_psedev(context, coming);
+
+    bt_sink_srv_report_id("[Sink][StaMgr]compare interrupt, current_device: 0x%x, coming_device: 0x%x", 2,
+                          current_device, coming_device);
+
+    if (NULL != current_device) {
+        bt_sink_srv_state_manager_get_device_state(context, current_device, &current_state);
+    }
+
+    if (NULL != coming_device) {
+        bt_sink_srv_state_manager_get_device_state(context, coming_device, &coming_state);
+    } else if (AUDIO_SRC_SRV_PSEUDO_DEVICE_A2DP == coming->type ||
+               AUDIO_SRC_SRV_PSEUDO_DEVICE_AWS_A2DP == coming->type) {
+#if defined(AIR_BT_SINK_MUSIC_ENABLE)
+        bt_sink_srv_music_device_t *music_device
+            = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_PSE_HD, coming);
+
+        if (NULL != music_device) {
+            coming_state.type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR;
+            coming_state.music_state = BT_SINK_SRV_STATE_STREAMING;
+            bt_sink_srv_memcpy(coming_state.address, music_device->dev_addr, sizeof(bt_bd_addr_t));
+        }
+#endif
+    } else if (AUDIO_SRC_SRV_PSEUDO_DEVICE_BLE == coming->type) {
+#if defined(AIR_LE_AUDIO_ENABLE)
+        bt_sink_srv_cap_am_mode mode = bt_sink_srv_cap_am_get_mode_by_audio_handle(coming);
+        bt_handle_t handle = bt_sink_srv_cap_get_ble_link_by_streaming_mode(mode);
+        bt_gap_le_srv_conn_info_t *conn_info = bt_gap_le_srv_get_conn_info(handle);
+
+        if (NULL != conn_info) {
+            coming_state.type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE;
+            coming_state.music_state = BT_SINK_SRV_STATE_STREAMING;
+            bt_sink_srv_memcpy(coming_state.address, conn_info->peer_addr.addr, sizeof(bt_bd_addr_t));
+        }
+#endif
+    }
+
+    do {
+        result = bt_customer_config_allow_play(&current_state, &coming_state);
+        bt_sink_srv_report_id("[Sink][StaMgr]compare interrupt, customer result: 0x%x", 1, result);
+
+        if (BT_SINK_SRV_ALLOW_RESULT_BYPASS != result) {
+            cases = 0x11;
+            break;
+        }
+
+#if defined(MTK_AWS_MCE_ENABLE)
+        if (BT_AWS_MCE_ROLE_PARTNER == bt_connection_manager_device_local_info_get_aws_role()) {
+            if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE == current_state.type &&
+                BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == coming_state.type &&
+                BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED != coming_state.sco_state) {
+                cases = 0x21;
+                result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
+                break;
+            }
+        }
+#endif
+
+#if defined(AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE)
+        if (NULL != current_device && current_device == coming_device) {
+            if (current == current_device->dummy_device) {
+                cases = 0x41;
+                result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
+                break;
+            }
+
+            if (coming == coming_device->dummy_device) {
+                cases = 0x42;
+                result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW;
+                break;
+            }
+        }
+#endif
+
+        if (BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(current_device)) {
+            if (BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(coming_device)) {
+                if (context->focus_device == coming_device) {
+                    cases = 0x81;
+                    result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
+                    break;
+                } else {
+                    cases = 0x82;
+                    result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW; /* Call cannot interrupt call. */
+                    break;
+                }
+            } else {
+                cases = 0x83;
+                result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW; /* Music cannot interrupt call. */
+                break;
+            }
+        } else {
+            if (BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(coming_device)) {
+                cases = 0x84;
+                result = BT_SINK_SRV_ALLOW_RESULT_ALLOW; /* Call can interrupt music. */
+                break;
+            } else {
+                cases = 0x85;
+                result = BT_SINK_SRV_ALLOW_RESULT_DISALLOW; /* Music cannot interrupt music. */
+                break;
+            }
+        }
+    } while (0);
+
+    bt_sink_srv_report_id("[Sink][StaMgr]compare interrupt, case: 0x%x result: 0x%x", 2, cases, result);
+    return result;
+}
+
 static bt_sink_srv_allow_result_t default_bt_customer_config_allow_play(
-        bt_sink_srv_device_state_t *current,
-        bt_sink_srv_device_state_t *coming)
+    bt_sink_srv_device_state_t *current,
+    bt_sink_srv_device_state_t *coming)
 {
     return BT_SINK_SRV_ALLOW_RESULT_BYPASS;
 }
-

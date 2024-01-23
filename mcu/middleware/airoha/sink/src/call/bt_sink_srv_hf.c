@@ -386,7 +386,20 @@ void bt_sink_srv_hf_pseudo_dev_callback(
                     //BT_SINK_SRV_HF_HOLD_CALL(context->link.handle, BT_SINK_SRV_HF_CHLD_HOLD_ACTIVE_ACCEPT_OTHER);
                     bt_sink_srv_hf_hold_call_ext(context);
                 }
-
+#ifdef AIR_MS_TEAMS_UE_ENABLE
+                else if (BT_SINK_SRV_HF_CALL_STATE_ACTIVE == context->link.call_state) {
+                    /*PORSCHE-2701:unhold active call */
+                    if (context->link.flag & BT_SINK_SRV_HF_FLAG_HOLD_PENDING) {
+                        context->link.flag  &= ~BT_SINK_SRV_HF_FLAG_HOLD_PENDING;
+                        bt_sink_srv_hf_hold_device(context);
+                    } else {
+                        uint32_t timer_id = BT_SINK_SRV_HF_HOLD_TIMER_ID_START + context - g_sink_srv_hf_context;
+                        if (NULL != bt_timer_ext_find(timer_id)) {
+                            bt_timer_ext_stop(timer_id);
+                        }
+                    }
+                }
+#endif
                 if ((BT_SINK_SRV_INTERRUPT_OPERATION_TRANSFER_CALL_AUDIO & config.resume_config.resume_operation) &&
                     !(BT_SINK_SRV_HF_FLAG_SCO_CREATED & context->link.flag)) {
                     bt_hfp_audio_transfer(context->link.handle, BT_HFP_AUDIO_TO_HF);
@@ -399,7 +412,7 @@ void bt_sink_srv_hf_pseudo_dev_callback(
             bt_sink_srv_hf_context_t *hf_context = bt_sink_srv_hf_get_context_by_device(device);
             hf_context->link.flag |= BT_SINK_SRV_HF_FLAG_SCO_ACTIVE;
             bt_sink_srv_hf_set_audio_status(hf_context->link.handle, BT_HFP_AUDIO_STATUS_ACTIVE);
-        #ifndef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+#ifndef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
             if ((hf_context->link.flag & BT_SINK_SRV_HF_FLAG_TWC_RINGING) &&
                 (hf_context->link.call_state == BT_SINK_SRV_HF_CALL_STATE_INCOMING)) {
                 hf_context->link.flag |= BT_SINK_SRV_HF_FLAG_RINGING;
@@ -409,7 +422,7 @@ void bt_sink_srv_hf_pseudo_dev_callback(
                 bt_sink_srv_memcpy(twc_ring_ind.address, hf_context->link.address, sizeof(bt_bd_addr_t));
                 bt_sink_srv_event_callback(BT_SINK_SRV_EVENT_HF_TWC_RING_IND, &twc_ring_ind, sizeof(bt_sink_srv_event_hf_twc_ring_ind_t));
             }
-        #endif
+#endif
         }
         break;
         case BT_SINK_SRV_CALL_PSD_EVENT_DEACTIVATE_SCO: {
@@ -443,7 +456,7 @@ void bt_sink_srv_hf_pseudo_dev_callback(
             }
         }
         break;
-        
+
 #if defined (AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
         case BT_SINK_SRV_CALL_PSD_EVENT_RESEND_CALL_INFO: {
             bt_bd_addr_t *address_p = NULL;
@@ -452,19 +465,43 @@ void bt_sink_srv_hf_pseudo_dev_callback(
             bt_sink_srv_aws_mce_call_update_info_t call_info = {0, {0}};
             call_info.mask = (BT_SINK_SRV_AWS_MCE_CALL_IFORMATION_STATE |
                               BT_SINK_SRV_AWS_MCE_CALL_IFORMATION_SCO_STATUS
-                              );
-            call_info.data.call_state = bt_sink_srv_hf_transfer_to_aws_call_state(context->link.call_state);  
+                             );
+            call_info.data.call_state = bt_sink_srv_hf_transfer_to_aws_call_state(context->link.call_state);
             if (((context->link.flag & BT_SINK_SRV_HF_FLAG_SCO_CREATED) != 0) &&
                 ((context->link.flag & BT_SINK_SRV_HF_FLAG_DISCONNECT_HFP) == 0)) {
-                   call_info.data.sco_state = BT_SINK_SRV_AWS_MCE_SCO_STATE_CONNECTED;
-                  } else {
-                   call_info.data.sco_state = BT_SINK_SRV_AWS_MCE_SCO_STATE_DISCONNECTED;
-                 }
-           
-            bt_sink_srv_hf_send_aws_call_info(address_p, &call_info);            
+                call_info.data.sco_state = BT_SINK_SRV_AWS_MCE_SCO_STATE_CONNECTED;
+            } else {
+                call_info.data.sco_state = BT_SINK_SRV_AWS_MCE_SCO_STATE_DISCONNECTED;
+            }
+
+            bt_sink_srv_hf_send_aws_call_info(address_p, &call_info);
         }
         break;
 #endif
+
+        case BT_SINK_SRV_CALL_PSD_EVENT_SWITCH_AWS_LINK: {
+            bt_sink_srv_hf_context_t *context = bt_sink_srv_hf_get_context_by_device(device);
+
+            if (context == NULL) {
+                break;
+            }
+
+            /* 1. Notify Partner. */
+            bt_sink_srv_aws_mce_call_update_info_t call_info = {
+                .mask = 0
+            };
+
+            bt_sink_srv_hf_send_aws_call_info(&context->link.address, &call_info);
+
+            /* 2. Swtich AWS link. */
+            bt_cm_connect_t conn_req = {{0}};
+            conn_req.profile = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS);
+            bt_sink_srv_memcpy(&conn_req.address, &context->link.address, sizeof(bt_bd_addr_t));
+            bt_status_t status = bt_cm_connect(&conn_req);
+            (void)status;
+            bt_sink_srv_report_id("[CALL][HF]PSD_CB, switch AWS link status:0x%x", 1, status);
+        }
+        break;
 
         case BT_SINK_SRV_CALL_PSD_EVENT_DEINIT: {
             bt_sink_srv_hf_reset_by_device(device);
@@ -615,7 +652,7 @@ static void bt_sink_srv_hf_init_speaker_volume(bt_sink_srv_hf_context_t *bt_sink
         stored_data.speaker_volume = BT_SINK_SRV_CALL_AUDIO_DEFAULT_VOLUME | BT_SINK_SRV_HF_VOLUME_MASK;
         bt_sink_srv_hf_set_nvdm_data(address_p, &stored_data, sizeof(stored_data));
     }
-	bt_sink_srv_report_id("[CALL][HF]Get volume:%d.", 1,stored_data.speaker_volume);
+    bt_sink_srv_report_id("[CALL][HF]Get volume:%d.", 1, stored_data.speaker_volume);
     bt_sink_srv_call_psd_init_speaker_volume(bt_sink_srv_hf_context_p->device, stored_data.speaker_volume & ~BT_SINK_SRV_HF_VOLUME_MASK);
     return;
 }
@@ -732,7 +769,7 @@ bool bt_sink_srv_hf_disable_sniff(bool timeout_flag)
                 if (bt_gap_write_link_policy(gap_handle, &setting) == BT_STATUS_SUCCESS) {
                     g_sink_srv_hf_context[i].link.flag |= BT_SINK_SRV_HF_FLAG_DISABLE_SNIFF;
                 } else {
-                    if(!timeout_flag) {
+                    if (!timeout_flag) {
                         return false;
                     }
                 }
@@ -740,7 +777,7 @@ bool bt_sink_srv_hf_disable_sniff(bool timeout_flag)
         }
     }
     return true;
-} 
+}
 
 #ifdef MTK_BT_TIMER_EXTERNAL_ENABLE
 void bt_sink_srv_hf_disable_sniff_timeout_handler(uint32_t timer_id, uint32_t data)
@@ -824,6 +861,9 @@ void bt_sink_srv_hf_call_state_change(bt_sink_srv_hf_context_t *bt_sink_srv_hf_c
         bt_sink_srv_report_id("[CALL][HF]Call state change, disable Sniff status:0x%x", 1, status);
 #endif
         bt_sink_srv_call_psd_state_event_notify(bt_sink_srv_hf_context_p->device, BT_SINK_SRV_CALL_EVENT_CALL_START_IND, NULL);
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+        bt_sink_srv_hf_context_p->play_count = bt_sink_srv_state_manager_get_play_count();
+#endif
     }
     if (BT_SINK_SRV_HF_CALL_STATE_INCOMING == previous_state
         && BT_SINK_SRV_HF_CALL_STATE_IDLE == new_state
@@ -888,20 +928,20 @@ static void bt_sink_srv_hf_sco_state_change_notify(bt_sink_srv_hf_context_t *hf_
 }
 
 #ifndef BT_SINK_ENABLE_CALL_LOCAL_RINGTONE
-    #ifndef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
-    static void bt_sink_srv_hf_ring_ind_notify(bt_sink_srv_hf_context_t *hf_context)
-    {
-        bt_sink_srv_report_id("[CALL][HF]ring ind.", 0);
+#ifndef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+static void bt_sink_srv_hf_ring_ind_notify(bt_sink_srv_hf_context_t *hf_context)
+{
+    bt_sink_srv_report_id("[CALL][HF]ring ind.", 0);
 
-        bt_bd_addr_t *address_p = &hf_context->link.address;
-        bt_sink_srv_event_param_t *event = NULL;
-        event = bt_sink_srv_memory_alloc(sizeof(*event));
-        bt_sink_srv_memcpy(&event->ring_ind.address, address_p, sizeof(*address_p));
-        bt_sink_srv_event_callback(BT_SINK_SRV_EVENT_HF_RING_IND, event, sizeof(*event));
-        bt_sink_srv_memory_free(event);
-        return;
-    }
-    #endif
+    bt_bd_addr_t *address_p = &hf_context->link.address;
+    bt_sink_srv_event_param_t *event = NULL;
+    event = bt_sink_srv_memory_alloc(sizeof(*event));
+    bt_sink_srv_memcpy(&event->ring_ind.address, address_p, sizeof(*address_p));
+    bt_sink_srv_event_callback(BT_SINK_SRV_EVENT_HF_RING_IND, event, sizeof(*event));
+    bt_sink_srv_memory_free(event);
+    return;
+}
+#endif
 #endif
 #ifndef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
 static void bt_sink_srv_hf_twc_ring_ind_notify(bt_sink_srv_hf_context_t *hf_context)
@@ -920,11 +960,11 @@ void bt_sink_srv_hf_le_event_callback(bt_gap_le_srv_event_t event, void *data)
 }
 #endif
 
-static void bt_sink_srv_hf_call_wait_caller_id_ind_proc(uint32_t handle, uint8_t num_size,uint8_t *number,uint8_t type)
+static void bt_sink_srv_hf_call_wait_caller_id_ind_proc(uint32_t handle, uint8_t num_size, uint8_t *number, uint8_t type)
 {
-	bt_sink_srv_hf_context_t *bt_sink_srv_hf_context_p = NULL;
+    bt_sink_srv_hf_context_t *bt_sink_srv_hf_context_p = NULL;
     bt_bd_addr_t *address_p = NULL;
-    
+
     bt_sink_srv_hf_context_p = bt_sink_srv_hf_get_context_by_handle(handle);
     bt_sink_srv_event_param_t *event = bt_sink_srv_memory_alloc(sizeof(*event));
     address_p = bt_hfp_get_bd_addr_by_handle(handle);
@@ -932,12 +972,12 @@ static void bt_sink_srv_hf_call_wait_caller_id_ind_proc(uint32_t handle, uint8_t
     event->caller_info.num_size = num_size;
     event->caller_info.type = type;
     event->caller_info.waiting = false;
-    bt_sink_srv_memcpy(event->caller_info.number,number, BT_SINK_SRV_MAX_PHONE_NUMBER);
+    bt_sink_srv_memcpy(event->caller_info.number, number, BT_SINK_SRV_MAX_PHONE_NUMBER);
     if ((bt_sink_srv_hf_context_p->link.flag & BT_SINK_SRV_HF_FLAG_QUERY_NAME)
         && (bt_sink_srv_pbapc_get_name_from_remote(address_p,
-                                                    number,
-                                                    (void *)event,
-                                                    bt_sink_srv_hf_get_name_callback) == BT_STATUS_SUCCESS)) {
+                                                   number,
+                                                   (void *)event,
+                                                   bt_sink_srv_hf_get_name_callback) == BT_STATUS_SUCCESS)) {
         bt_sink_srv_hf_context_p->link.flag &= (~BT_SINK_SRV_HF_FLAG_QUERY_NAME);
     } else {
         bt_sink_srv_pbapc_record_t *pbapc_record =
@@ -946,16 +986,16 @@ static void bt_sink_srv_hf_call_wait_caller_id_ind_proc(uint32_t handle, uint8_t
         bt_sink_srv_memcpy((void *)pbapc_record->number, (void *)number, BT_SINK_SRV_MAX_PHONE_NUMBER);
         if (BT_STATUS_SUCCESS == bt_sink_srv_pbapc_get_name_from_local(address_p, pbapc_record)) {
             bt_sink_srv_memcpy(event->caller_info.name,
-                                pbapc_record->name,
-                                BT_SINK_SRV_MAX_NAME);
+                               pbapc_record->name,
+                               BT_SINK_SRV_MAX_NAME);
         }
         bt_sink_srv_memory_free(pbapc_record);
         bt_sink_srv_memcpy((void *)&bt_sink_srv_hf_context_p->link.caller,
-                            (void *)&event->caller_info,
-                            sizeof(bt_sink_srv_caller_information_t));
+                           (void *)&event->caller_info,
+                           sizeof(bt_sink_srv_caller_information_t));
         bt_sink_srv_event_callback(BT_SINK_SRV_EVENT_HF_CALLER_INFORMATION, event, sizeof(*event));
         bt_sink_srv_memory_free(event);
-    }   
+    }
 }
 
 bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status, void *buffer)
@@ -1053,6 +1093,20 @@ bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status
                 bt_sink_srv_hf_send_aws_call_info(address_p, &call_info);
                 /* Notify to Sink CM */
                 bt_sink_srv_cm_profile_status_notify(address_p, BT_SINK_SRV_PROFILE_HFP, BT_SINK_SRV_PROFILE_CONNECTION_STATE_CONNECTED, status);
+                /*for teams feature, 2nd active*/
+#ifdef AIR_MS_TEAMS_UE_ENABLE
+                if (bt_sink_srv_hf_context_p->link.call_state == BT_SINK_SRV_HF_CALL_STATE_ACTIVE) {
+                    bt_sink_srv_hf_set_highlight_device(bt_sink_srv_hf_context_p);
+                    bt_sink_srv_hf_context_t *other_device = bt_sink_srv_hf_find_other_device_by_call_state(bt_sink_srv_hf_context_p, BT_SINK_SRV_HF_CALL_STATE_ACTIVE | BT_SINK_SRV_HF_CALL_STATE_HELD_ACTIVE);
+                    if (NULL != other_device) {
+                        if (other_device->link.call_state == BT_SINK_SRV_HF_CALL_STATE_ACTIVE) {
+                            bt_sink_srv_hf_hold_call_ext(other_device);
+                        } else if (other_device->link.call_state == BT_SINK_SRV_HF_CALL_STATE_HELD_ACTIVE) {
+                            bt_sink_srv_hf_hold_special_ext(other_device);
+                        }
+                    }
+                }
+#endif
                 /* For ACUQA */
                 if (bt_device_manager_remote_find_pnp_info(*address_p, &pnp_info) == BT_STATUS_SUCCESS) {
                     bt_sink_srv_report_id("[CALL][HF]common callback, find vender_id:0x%x product_id:0x%x", 2, pnp_info.vender_id, pnp_info.product_id);
@@ -1082,11 +1136,11 @@ bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status
 #endif
                     }
                 }
-            #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
                 bt_sink_srv_state_manager_notify_state_change(
-                        BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
-                        bt_sink_srv_hf_context_p->link.call_state);
-            #endif
+                    BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
+                    bt_sink_srv_hf_context_p->link.call_state);
+#endif
             }
         }
         break;
@@ -1222,6 +1276,9 @@ bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status
                 }
 #endif
 #endif /* AIR_MULTI_POINT_ENABLE */
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+                bt_sink_srv_hf_context_p->play_count = bt_sink_srv_state_manager_get_play_count();
+#endif
             }
         }
         break;
@@ -1229,6 +1286,7 @@ bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status
             bt_hfp_audio_status_change_ind_t *message = (bt_hfp_audio_status_change_ind_t *)buffer;
             bt_sink_srv_hf_context_p = bt_sink_srv_hf_get_context_by_handle(message->handle);
             if (NULL != bt_sink_srv_hf_context_p) {
+                bt_sink_srv_call_pseudo_dev_t *dev = (bt_sink_srv_call_pseudo_dev_t *)bt_sink_srv_hf_context_p->device;
                 if (BT_HFP_AUDIO_STATUS_ACTIVE == message->audio_status) {
                     //send if packet to remote
                     address_p = bt_hfp_get_bd_addr_by_handle(message->handle);
@@ -1240,9 +1298,11 @@ bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status
                     call_info.data.volume = bt_sink_srv_call_psd_get_speaker_volume(bt_sink_srv_hf_context_p->device);
                     call_info.data.is_ring = 0;
                     bt_sink_srv_hf_send_aws_call_info(address_p, &call_info);
+                    dev->flag |= BT_SINK_SRV_CALL_PSD_FLAG_SCO_ACTIVED;
                     bt_sink_srv_call_psd_state_event_notify(bt_sink_srv_hf_context_p->device,
                                                             BT_SINK_SRV_CALL_EVENT_SCO_ACTIVATED, NULL);
                 } else {
+                    dev->flag &= ~BT_SINK_SRV_CALL_PSD_FLAG_SCO_ACTIVED;
                     bt_sink_srv_call_psd_state_event_notify(bt_sink_srv_hf_context_p->device, BT_SINK_SRV_CALL_EVENT_SCO_DEACTIVATED, NULL);
                 }
             }
@@ -1270,6 +1330,8 @@ bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status
 #endif
                 bt_sink_srv_hf_context_p->link.flag &= (~BT_SINK_SRV_HF_FLAG_SCO_ACTIVE);
                 bt_sink_srv_hf_context_p->link.flag &= (~BT_SINK_SRV_HF_FLAG_SCO_CREATED);
+                bt_sink_srv_call_pseudo_dev_t *dev = (bt_sink_srv_call_pseudo_dev_t *)bt_sink_srv_hf_context_p->device;
+                dev->flag &= ~BT_SINK_SRV_CALL_PSD_FLAG_SCO_ACTIVED;
                 bt_sink_srv_hf_sco_state_change_notify(bt_sink_srv_hf_context_p, BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED);
                 bt_sink_srv_call_psd_state_event_notify(bt_sink_srv_hf_context_p->device, BT_SINK_SRV_CALL_EVENT_SCO_DISCONNECTED, NULL);
                 bt_sink_srv_call_psd_set_codec_type(bt_sink_srv_hf_context_p->device, BT_HFP_CODEC_TYPE_NONE);
@@ -1335,7 +1397,7 @@ bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status
                     ((bt_sink_srv_hf_context_p->link.flag & BT_SINK_SRV_HF_FLAG_SCO_ACTIVE) != 0) &&
                     ((bt_sink_srv_hf_context_p->link.flag & BT_SINK_SRV_HF_FLAG_SCO_CREATED) != 0)) {
                     bt_sink_srv_hf_context_p->link.flag &= ~BT_SINK_SRV_HF_FLAG_SCO_ACTIVE;
-                    bt_sink_srv_hf_mp_set_sco(bt_sink_srv_hf_get_highlight_device(), bt_sink_srv_hf_context_p);
+                    bt_sink_srv_call_psd_state_event_notify(bt_sink_srv_hf_context_p->device, BT_SINK_SRV_CALL_EVENT_SCO_ACTIVATE_REQ, NULL);
                 }
 #endif
             }
@@ -1369,18 +1431,21 @@ bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status
             bt_hfp_call_hold_ind_t *callheld = (bt_hfp_call_hold_ind_t *)buffer;
             bt_sink_srv_hf_context_p = bt_sink_srv_hf_get_context_by_handle(callheld->handle);
             bt_sink_srv_hf_handle_held_ind(bt_sink_srv_hf_context_p, callheld->state);
-            #ifdef MTK_BT_TIMER_EXTERNAL_ENABLE
+#ifdef MTK_BT_TIMER_EXTERNAL_ENABLE
             uint32_t  timer_id = ((uint32_t)(bt_sink_srv_hf_context_p - g_sink_srv_hf_context)) + BT_SINK_SRV_HF_CALL_HOLD_TIMER_ID_OFFSET;
             if (bt_timer_ext_find(timer_id) != NULL) {
                 bt_timer_ext_stop(timer_id);
             }
-            #endif
+#endif
         }
         break;
         case BT_HFP_CURRENT_CALLS_IND: {
             bt_hfp_call_list_ind_t *message = (bt_hfp_call_list_ind_t *)buffer;
             bt_sink_srv_hf_context_p = bt_sink_srv_hf_get_context_by_handle(message->handle);
             bt_sink_srv_hf_handle_call_info_ind((bt_sink_srv_hf_context_t *)bt_sink_srv_hf_context_p, message);
+            if (message->state == BT_HFP_CALL_STATUS_ACTIVE) {
+                bt_sink_srv_hf_context_p->link.active_index = message->index;
+            }
             if (bt_sink_srv_hf_context_p->link.flag & BT_SINK_SRV_HF_FLAG_QUERY_LIST) {
                 bt_sink_srv_event_param_t *event = bt_sink_srv_memory_alloc(sizeof(*event));
                 address_p = bt_hfp_get_bd_addr_by_handle(message->handle);
@@ -1415,16 +1480,16 @@ bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status
         case BT_HFP_RING_IND: {
             bt_hfp_ring_ind_t *ringtone = (bt_hfp_ring_ind_t *)buffer;
             bt_sink_srv_hf_context_p = bt_sink_srv_hf_get_context_by_handle(ringtone->handle);
-        #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
             if (!(bt_sink_srv_hf_context_p->link.flag & BT_SINK_SRV_HF_FLAG_RINGING)) {
                 bt_sink_srv_hf_context_p->link.flag |= BT_SINK_SRV_HF_FLAG_RINGING;
 
                 bt_sink_srv_state_manager_notify_ring_ind(
-                        BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
-                        &bt_sink_srv_hf_context_p->link.address,
-                        true);
+                    BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
+                    &bt_sink_srv_hf_context_p->link.address,
+                    true);
             }
-        #else
+#else
             if (!(bt_sink_srv_hf_context_p->link.ag_featues & BT_HFP_AG_FEATURE_IN_BAND_RING)) {
                 if (bt_sink_srv_hf_context_p == bt_sink_srv_hf_get_highlight_device()) {
                     /*SP IOT case: if the RING_IND comes before SLC_CONNECTED_IND, discard the RIND_IND.*/
@@ -1438,27 +1503,27 @@ bt_status_t bt_sink_srv_hf_common_callback(bt_msg_type_t msg, bt_status_t status
 
                 } else {
                     if (!(bt_sink_srv_hf_context_p->link.flag & BT_SINK_SRV_HF_FLAG_TWC_RINGING)) {
-                         bt_sink_srv_hf_twc_ring_ind_notify(bt_sink_srv_hf_context_p);
+                        bt_sink_srv_hf_twc_ring_ind_notify(bt_sink_srv_hf_context_p);
                     }
                 }
             } else {
                 if (bt_sink_srv_hf_context_p != bt_sink_srv_hf_get_highlight_device()) {
                     if (!(bt_sink_srv_hf_context_p->link.flag & BT_SINK_SRV_HF_FLAG_TWC_RINGING)) {
-                         bt_sink_srv_hf_twc_ring_ind_notify(bt_sink_srv_hf_context_p);
+                        bt_sink_srv_hf_twc_ring_ind_notify(bt_sink_srv_hf_context_p);
                     }
                 }
             }
-        #endif
+#endif
         }
         break;
         case BT_HFP_CALLER_ID_IND: {
             bt_hfp_caller_id_ind_t *message = (bt_hfp_caller_id_ind_t *)buffer;
-            bt_sink_srv_hf_call_wait_caller_id_ind_proc(message->handle, message->num_size, message->number,message->type);
+            bt_sink_srv_hf_call_wait_caller_id_ind_proc(message->handle, message->num_size, message->number, message->type);
         }
         break;
         case BT_HFP_CALL_WAITING_IND: {
             bt_hfp_call_waiting_ind_t *message = (bt_hfp_call_waiting_ind_t *)buffer;
-            bt_sink_srv_hf_call_wait_caller_id_ind_proc(message->handle, message->num_size, message->number,message->type);
+            bt_sink_srv_hf_call_wait_caller_id_ind_proc(message->handle, message->num_size, message->number, message->type);
         }
         break;
         case BT_HFP_VOLUME_SYNC_SPEAKER_GAIN_IND: {
@@ -1753,6 +1818,7 @@ bt_status_t bt_sink_srv_hf_action_handler(bt_sink_srv_action_t action, void *par
             bt_sink_srv_hf_voice_recognition_activate_ext((bt_sink_srv_action_voice_recognition_activate_ext_t *)parameters);
         }
         break;
+
         default:
             break;
     }
@@ -1764,7 +1830,7 @@ bt_status_t bt_sink_srv_hf_get_init_params(bt_hfp_init_param_t *param)
     // for low power test, add cmd to modify hf audio codec
     param->supported_codecs = g_sink_srv_hf_audio_codec;
     bt_hfp_indicator_t *temp = &param->indicators;
-    memset(temp, 0, sizeof (bt_hfp_indicator_t));
+    memset(temp, 0, sizeof(bt_hfp_indicator_t));
     param->support_features = (bt_hfp_init_support_feature_t)(BT_HFP_INIT_SUPPORT_3_WAY | BT_HFP_INIT_SUPPORT_CODEC_NEG);
     param->disable_nrec = true;
     param->enable_call_waiting = true;
@@ -1814,7 +1880,7 @@ void *bt_sink_srv_hf_get_pseudo_device_by_address(bt_bd_addr_t *address)
         return NULL;
     }
 
-    bt_sink_srv_hf_context_t* context = bt_sink_srv_hf_get_context_by_address(address);
+    bt_sink_srv_hf_context_t *context = bt_sink_srv_hf_get_context_by_address(address);
     if (!context) {
         return NULL;
     }
@@ -2015,16 +2081,16 @@ bt_status_t bt_sink_srv_hf_switch(bool value)
     void *device = NULL;
 
     if (value) {
-        for(i = 0; i < BT_SINK_SRV_HF_LINK_NUM; i++) {
+        for (i = 0; i < BT_SINK_SRV_HF_LINK_NUM; i++) {
             hfp_context = &g_sink_srv_hf_context[i];
-            if(bt_sink_srv_call_psd_is_playing_idle(hfp_context->device)) {
+            if (bt_sink_srv_call_psd_is_playing_idle(hfp_context->device)) {
                 device = hfp_context->device;
                 break;
             }
         }
         status = bt_sink_srv_call_audio_switch_handle(value, NULL, device);
     } else {
-        for(i = 0; i < BT_SINK_SRV_HF_LINK_NUM; i++) {
+        for (i = 0; i < BT_SINK_SRV_HF_LINK_NUM; i++) {
             hfp_context = &g_sink_srv_hf_context[i];
             if (bt_sink_srv_call_psd_is_playing(hfp_context->device)) {
                 device = hfp_context->device;

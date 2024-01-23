@@ -171,7 +171,8 @@ static app_battery_state_t _get_battery_state(struct _ui_shell_activity *self)
 
     APPS_LOG_MSGID_I(LOG_TAG" charger_exist_state %d, charger state %d", 3, s_battery_context.charger_exist_state, s_battery_context.charging_state);
     if (s_battery_context.charger_exist_state) {
-        if (s_battery_context.charging_state == CHARGER_STATE_CHR_OFF) {
+        if (s_battery_context.charging_state == CHARGER_STATE_CHR_OFF
+            || s_battery_context.charging_state == CHARGER_STATE_EOC) {
             new_state = APP_BATTERY_STATE_CHARGING_FULL;
         } else if (s_battery_context.charging_state == CHARGER_STATE_THR) {
             new_state = APP_BATTERY_STATE_THR;
@@ -481,7 +482,7 @@ static bool _proc_battery_event_group(ui_shell_activity_t *self,
     }
 
     if (event_processed) {
-        APPS_LOG_MSGID_I(LOG_TAG" Battery event: %d, charger_exsit: %d, extra_data: 0x%X", 2, event_id, s_battery_context.charger_exist_state, extra_data);
+        APPS_LOG_MSGID_I(LOG_TAG" Battery event: %d, charger_exist: %d, extra_data: 0x%X", 2, event_id, s_battery_context.charger_exist_state, extra_data);
     }
 
     bat_state = _get_battery_state(self);

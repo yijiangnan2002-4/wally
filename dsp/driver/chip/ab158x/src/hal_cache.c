@@ -439,7 +439,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_invalidate_multiple_c
     }
 
     /* In order to prevent race condition, interrupt should be disabled when operate cache */
-    hal_nvic_save_and_set_interrupt_mask(&irq_flag);
+    hal_nvic_save_and_set_interrupt_mask_special(&irq_flag);
 
     /* Invalidate dCACHE lines by address and length */
     xthal_dcache_region_invalidate((void *)address, length);
@@ -451,7 +451,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_invalidate_multiple_c
     xthal_icache_sync();
 
     /* Restore the previous status of interrupt */
-    hal_nvic_restore_interrupt_mask(irq_flag);
+    hal_nvic_restore_interrupt_mask_special(irq_flag);
 
     return HAL_CACHE_STATUS_OK;
 }
@@ -466,7 +466,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_invalidate_multiple_i
     }
 
     /* In order to prevent race condition, interrupt should be disabled when operate cache */
-    hal_nvic_save_and_set_interrupt_mask(&irq_flag);
+    hal_nvic_save_and_set_interrupt_mask_special(&irq_flag);
 
     /* Invalidate iCACHE lines by address and length */
     xthal_icache_region_invalidate((void *)address, length);
@@ -474,7 +474,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_invalidate_multiple_i
     xthal_icache_sync();
 
     /* Restore the previous status of interrupt */
-    hal_nvic_restore_interrupt_mask(irq_flag);
+    hal_nvic_restore_interrupt_mask_special(irq_flag);
 
     return HAL_CACHE_STATUS_OK;
 }
@@ -489,7 +489,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_invalidate_multiple_d
     }
 
     /* In order to prevent race condition, interrupt should be disabled when operate cache */
-    hal_nvic_save_and_set_interrupt_mask(&irq_flag);
+    hal_nvic_save_and_set_interrupt_mask_special(&irq_flag);
 
     /* Invalidate iCACHE lines by address and length */
     xthal_dcache_region_invalidate((void *)address, length);
@@ -497,7 +497,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_invalidate_multiple_d
     xthal_dcache_sync();
 
     /* Restore the previous status of interrupt */
-    hal_nvic_restore_interrupt_mask(irq_flag);
+    hal_nvic_restore_interrupt_mask_special(irq_flag);
 
     return HAL_CACHE_STATUS_OK;
 }
@@ -507,7 +507,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_invalidate_all_cache_
     uint32_t irq_flag;
 
     /* In order to prevent race condition, interrupt should be disabled when operate cache */
-    hal_nvic_save_and_set_interrupt_mask(&irq_flag);
+    hal_nvic_save_and_set_interrupt_mask_special(&irq_flag);
 
     /* Flush and Invalidate all dCACHE lines */
     xthal_dcache_all_writeback_inv();
@@ -519,7 +519,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_invalidate_all_cache_
     xthal_icache_sync();
 
     /* Restore the previous status of interrupt */
-    hal_nvic_restore_interrupt_mask(irq_flag);
+    hal_nvic_restore_interrupt_mask_special(irq_flag);
 
     return HAL_CACHE_STATUS_OK;
 }
@@ -558,7 +558,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_flush_multiple_cache_
     }
 
     /* In order to prevent race condition, interrupt should be disabled when query and update global variable which indicates the module status */
-    hal_nvic_save_and_set_interrupt_mask(&irq_flag);
+    hal_nvic_save_and_set_interrupt_mask_special(&irq_flag);
 
     /* Flush and Invalidate CACHE lines by address and length */
     xthal_dcache_region_writeback((void *)address, length);
@@ -567,7 +567,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_flush_multiple_cache_
     xthal_dcache_sync();
 
     /* Restore the previous status of interrupt */
-    hal_nvic_restore_interrupt_mask(irq_flag);
+    hal_nvic_restore_interrupt_mask_special(irq_flag);
 
     return HAL_CACHE_STATUS_OK;
 }
@@ -577,7 +577,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_flush_all_cache_lines
     uint32_t irq_flag;
 
     /* In order to prevent race condition, interrupt should be disabled when query and update global variable which indicates the module status */
-    hal_nvic_save_and_set_interrupt_mask(&irq_flag);
+    hal_nvic_save_and_set_interrupt_mask_special(&irq_flag);
 
     /* Flush and Invalidate all CACHE lines */
     xthal_dcache_all_writeback();
@@ -586,7 +586,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ hal_cache_status_t hal_cache_flush_all_cache_lines
     xthal_dcache_sync();
 
     /* Restore the previous status of interrupt */
-    hal_nvic_restore_interrupt_mask(irq_flag);
+    hal_nvic_restore_interrupt_mask_special(irq_flag);
 
     return HAL_CACHE_STATUS_OK;
 }

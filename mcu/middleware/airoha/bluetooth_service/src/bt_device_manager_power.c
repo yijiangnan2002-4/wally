@@ -119,7 +119,7 @@ static void bt_dm_power_state_update_sub_dev(bt_dm_power_dev_t *dev, bt_device_t
         /* If reset in phase 1 or phase 2 we do not care the target state, just run the reset flow. */
         dev->state = ((BT_STATUS_SUCCESS == dev->cb(BT_DEVICE_MANAGER_POWER_EVT_PREPARE_ACTIVE, g_bt_dm_power_t.reset_type, NULL, 0)) ?
                       BT_DEVICE_MANAGER_POWER_STATE_ACTIVE : BT_DEVICE_MANAGER_POWER_STATE_ACTIVE_PENDING);
-        for (uint8_t i = 0; (BT_DEVICE_MANAGER_POWER_STATE_ACTIVE == dev->state) && (i < BT_DM_CB_MAXIMUM_NUM); i++) {
+        for (uint32_t i = 0; (BT_DEVICE_MANAGER_POWER_STATE_ACTIVE == dev->state) && (i < BT_DM_CB_MAXIMUM_NUM); i++) {
             if (NULL != g_bt_dm_power_t.cb_set[i]) {
                 if (BT_DEVICE_TYPE_LE == type) {
                     g_bt_dm_power_t.cb_set[i](BT_DEVICE_MANAGER_POWER_EVT_LE_ACTIVE_COMPLETE, g_bt_dm_power_t.reset_type, NULL, 0);
@@ -134,7 +134,7 @@ static void bt_dm_power_state_update_sub_dev(bt_dm_power_dev_t *dev, bt_device_t
         /* If reset in phase 1 or phase 2 we do not care the target state, just run the reset flow. */
         dev->state = ((BT_STATUS_SUCCESS == dev->cb(BT_DEVICE_MANAGER_POWER_EVT_PREPARE_STANDBY, g_bt_dm_power_t.reset_type, NULL, 0)) ?
                       BT_DEVICE_MANAGER_POWER_STATE_STANDBY : BT_DEVICE_MANAGER_POWER_STATE_STANDBY_PENDING);
-        for (uint8_t i = 0; (BT_DEVICE_MANAGER_POWER_STATE_STANDBY == dev->state) && (i < BT_DM_CB_MAXIMUM_NUM); i++) {
+        for (uint32_t i = 0; (BT_DEVICE_MANAGER_POWER_STATE_STANDBY == dev->state) && (i < BT_DM_CB_MAXIMUM_NUM); i++) {
             if (NULL != g_bt_dm_power_t.cb_set[i]) {
                 if (BT_DEVICE_TYPE_LE == type) {
                     g_bt_dm_power_t.cb_set[i](BT_DEVICE_MANAGER_POWER_EVT_LE_STANDBY_COMPLETE, g_bt_dm_power_t.reset_type, NULL, 0);
@@ -197,7 +197,7 @@ static void bt_dm_power_reset_state_update()
             }
         }
         if ((!g_bt_dm_power_t.dev[0].reset_flag) && (!g_bt_dm_power_t.dev[1].reset_flag)) {
-            for (uint8_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
+            for (uint32_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
                 if (NULL != g_bt_dm_power_t.cb_set[i]) {
                     g_bt_dm_power_t.cb_set[i](BT_DEVICE_MANAGER_POWER_EVT_ACTIVE_COMPLETE, g_bt_dm_power_t.reset_type, NULL, 0);
                 }
@@ -230,7 +230,7 @@ static void bt_dm_power_reset_state_update()
     if (NULL != g_bt_dm_power_t.reset_cb) {
         g_bt_dm_power_t.reset_cb(BT_DEVICE_MANAGER_POWER_RESET_PROGRESS_MEDIUM, g_bt_dm_power_t.reset_user_data);
     }
-    for (uint8_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
+    for (uint32_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
         if (NULL != g_bt_dm_power_t.cb_set[i]) {
             g_bt_dm_power_t.cb_set[i](BT_DEVICE_MANAGER_POWER_EVT_STANDBY_COMPLETE, g_bt_dm_power_t.reset_type, NULL, 0);
         }
@@ -295,7 +295,7 @@ void        bt_device_manager_power_on_cnf()
         g_bt_dm_power_t.reset_flag = BT_DM_POWER_FLAG_RESET_PHASE_2;
         bt_dm_power_state_update();
     } else {
-        for (uint8_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
+        for (uint32_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
             if (NULL != g_bt_dm_power_t.cb_set[i]) {
                 g_bt_dm_power_t.cb_set[i](BT_DEVICE_MANAGER_POWER_EVT_ACTIVE_COMPLETE, BT_DEVICE_MANAGER_POWER_STATUS_SUCCESS, NULL, 0);
             }
@@ -312,7 +312,7 @@ void        bt_device_manager_power_off_cnf()
     g_bt_dm_power_t.dev[1].state = BT_DEVICE_MANAGER_POWER_STATE_STANDBY;
     bt_dm_power_state_update();
     if (!(g_bt_dm_power_t.reset_flag & (BT_DM_POWER_FLAG_RESET_PHASE_1 | BT_DM_POWER_FLAG_RESET_PHASE_2))) {
-        for (uint8_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
+        for (uint32_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
             if (NULL != g_bt_dm_power_t.cb_set[i]) {
                 g_bt_dm_power_t.cb_set[i](BT_DEVICE_MANAGER_POWER_EVT_STANDBY_COMPLETE, BT_DEVICE_MANAGER_POWER_STATUS_SUCCESS, NULL, 0);
             }
@@ -326,7 +326,7 @@ bt_status_t bt_device_manager_dev_set_power_state(bt_device_type_t type, bt_devi
     if (type & BT_DEVICE_TYPE_LE) {
         bt_device_manager_power_status_t power_status = g_bt_dm_power_t.dev[0].reset_flag ? g_bt_dm_power_t.reset_type : BT_DEVICE_MANAGER_POWER_STATUS_SUCCESS;
         g_bt_dm_power_t.dev[0].state = power_state;
-        for (uint8_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
+        for (uint32_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
             if (NULL != g_bt_dm_power_t.cb_set[i]) {
                 if (BT_DEVICE_MANAGER_POWER_STATE_ACTIVE == power_state) {
                     g_bt_dm_power_t.cb_set[i](BT_DEVICE_MANAGER_POWER_EVT_LE_ACTIVE_COMPLETE, power_status, NULL, 0);
@@ -339,7 +339,7 @@ bt_status_t bt_device_manager_dev_set_power_state(bt_device_type_t type, bt_devi
     if (type & BT_DEVICE_TYPE_CLASSIC) {
         bt_device_manager_power_status_t power_status = g_bt_dm_power_t.dev[1].reset_flag ? g_bt_dm_power_t.reset_type : BT_DEVICE_MANAGER_POWER_STATUS_SUCCESS;
         g_bt_dm_power_t.dev[1].state = power_state;
-        for (uint8_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
+        for (uint32_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
             if (NULL != g_bt_dm_power_t.cb_set[i]) {
                 if (BT_DEVICE_MANAGER_POWER_STATE_ACTIVE == power_state) {
                     g_bt_dm_power_t.cb_set[i](BT_DEVICE_MANAGER_POWER_EVT_CLASSIC_ACTIVE_COMPLETE, power_status, NULL, 0);
@@ -367,9 +367,9 @@ bt_status_t bt_device_manager_dev_register_callback(bt_device_type_t type, bt_de
 
 bt_status_t bt_device_manager_register_callback(bt_device_manager_power_callback_t cb)
 {
-    uint8_t temp_index = 0xFF;
+    uint32_t temp_index = 0xFF;
     bt_dmgr_report_id("[BT_DM][I] User register cb:0x%x", 1, cb);
-    for (uint8_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
+    for (uint32_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
         if (0xFF == temp_index && NULL == g_bt_dm_power_t.cb_set[i]) {
             temp_index = i;
         } else if (cb == g_bt_dm_power_t.cb_set[i]) {
@@ -387,7 +387,7 @@ bt_status_t bt_device_manager_register_callback(bt_device_manager_power_callback
 bt_status_t bt_device_manager_deregister_callback(bt_device_manager_power_callback_t cb)
 {
     bt_dmgr_report_id("[BT_DM][I] User deregister cb:0x%x", 1, cb);
-    for (uint8_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
+    for (uint32_t i = 0; i < BT_DM_CB_MAXIMUM_NUM; i++) {
         if (cb == g_bt_dm_power_t.cb_set[i]) {
             g_bt_dm_power_t.cb_set[i] = NULL;
             return BT_STATUS_SUCCESS;

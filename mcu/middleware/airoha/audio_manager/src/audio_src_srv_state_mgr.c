@@ -473,13 +473,16 @@ static void audio_src_srv_state_prepare_stop_handle(audio_src_srv_handle_t *hand
     audio_src_srv_context_t *ctx = audio_src_srv_get_ctx();
 
     switch (msg_id) {
+        case AUDIO_SRC_SRV_MSG_RESUME:
         case AUDIO_SRC_SRV_MSG_READY: {
             if ((ctx->running) && (ctx->running == handle)) {
                 if ((ctx->running->state & AUDIO_SRC_SRV_STATE_MASK) == AUDIO_SRC_SRV_STATE_PREPARE_STOP) {
                     audio_src_srv_update_psedev_state(handle, AUDIO_SRC_SRV_STATE_READY);
                     audio_src_srv_transfer_state(AUDIO_SRC_SRV_STATE_READY);
-                    audio_src_srv_update_running_psedev(audio_src_srv_get_waiting_psedev());
-                    /* Wake up waiting pseudo device */
+                    if (AUDIO_SRC_SRV_MSG_READY == msg_id) {
+                        /* Wake up waiting pseudo device */
+                        audio_src_srv_update_running_psedev(audio_src_srv_get_waiting_psedev());
+                    }
                     if (ctx->running) {
                         /* Remove handle from waiting list */
                         audio_src_srv_del_waiting_list(ctx->running);
@@ -723,6 +726,11 @@ void audio_src_srv_process_psedev_event(audio_src_srv_handle_t *handle, audio_sr
 
         case AUDIO_SRC_SRV_EVT_PREPARE_STOP: {
             msg_id = AUDIO_SRC_SRV_MSG_STOP;
+            break;
+        }
+
+        case AUDIO_SRC_SRV_EVT_RESUME: {
+            msg_id = AUDIO_SRC_SRV_MSG_RESUME;
             break;
         }
 

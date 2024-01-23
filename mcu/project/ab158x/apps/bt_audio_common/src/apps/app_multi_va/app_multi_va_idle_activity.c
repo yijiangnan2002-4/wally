@@ -41,6 +41,7 @@
  *
  */
 
+#include "apps_customer_config.h"
 #include "app_multi_va_idle_activity.h"
 #include "multi_ble_adv_manager.h"
 #include "multi_va_manager.h"
@@ -69,7 +70,7 @@
 #define LOW_POWER_MODE      (1)     /* This defines the variable of s_low_power_mode, means in low power mode */
 static uint8_t s_low_power_mode = ADV_NORMAL_MODE;  /* The variable records if current system mode is low power mode. */
 
-#ifndef AIR_HEARTHROUGH_MAIN_ENABLE
+#if AIR_APPS_DEFAULT_ADV_ENABLE
 /**
  * @brief      This function is the implementation of get_ble_adv_data_func_t, the content is the adv for smart phone UT APP.
  * @param[out] adv_info, the implemented function should fill the contains of the parameter adv_info.
@@ -84,7 +85,7 @@ static uint32_t get_default_ble_adv_data_func(multi_ble_adv_info_t *adv_info)
     }
     return 0;
 }
-#endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
+#endif /* AIR_APPS_DEFAULT_ADV_ENABLE */
 
 /*****************************************************************************
  ********************************handle functions*****************************
@@ -231,16 +232,16 @@ static bool app_multi_va_proc_bt_cm_group(ui_shell_activity_t *self,
                 if (!multi_voice_assistant_manager_enable_adv(true)) {
                 }
                 /* Add the default adv. */
-#ifndef AIR_HEARTHROUGH_MAIN_ENABLE
+#if AIR_APPS_DEFAULT_ADV_ENABLE
                 multi_ble_adv_manager_add_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func, 1);
+#endif /* AIR_APPS_DEFAULT_ADV_ENABLE */
                 multi_ble_adv_manager_notify_ble_adv_data_changed(MULTI_ADV_INSTANCE_DEFAULT);
-#endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
             }
 
             /* Remove adv when BT EDR is disconnected. */
             if (BT_CM_ACL_LINK_DISCONNECTED != remote_update->pre_acl_state
                 && BT_CM_ACL_LINK_DISCONNECTED == remote_update->acl_state) {
-                /* Confirm all smart phones are disconneted to avoid mistakes in multi link case. */
+                /* Confirm all smart phones are disconnected to avoid mistakes in multi link case. */
                 if (0 == bt_cm_get_connected_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 0)
 #ifdef MTK_AWS_MCE_ENABLE
                     && (BT_AWS_MCE_ROLE_AGENT == role || BT_AWS_MCE_ROLE_NONE == role)
@@ -249,10 +250,10 @@ static bool app_multi_va_proc_bt_cm_group(ui_shell_activity_t *self,
                     APPS_LOG_MSGID_I(LOG_TAG"SP disconnected, remove adv", 0);
                     if (!multi_voice_assistant_manager_enable_adv(false)) {
                     }
-#ifndef AIR_HEARTHROUGH_MAIN_ENABLE
+#if AIR_APPS_DEFAULT_ADV_ENABLE
                     multi_ble_adv_manager_remove_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func);
+#endif /* AIR_APPS_DEFAULT_ADV_ENABLE */
                     multi_ble_adv_manager_notify_ble_adv_data_changed(MULTI_ADV_INSTANCE_DEFAULT);
-#endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
                 }
             }
 
@@ -274,9 +275,9 @@ static bool app_multi_va_proc_bt_cm_group(ui_shell_activity_t *self,
                         APPS_LOG_MSGID_I(LOG_TAG"Partner add adv when AWS connected NORMAL", 0);
                         if (!multi_voice_assistant_manager_enable_adv(true)) {
                         }
-#ifndef AIR_HEARTHROUGH_MAIN_ENABLE
+#if AIR_APPS_DEFAULT_ADV_ENABLE
                         multi_ble_adv_manager_add_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func, 1);
-#endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
+#endif /* AIR_APPS_DEFAULT_ADV_ENABLE */
                     }
                     /* Since the partner only recored the added adv but not start adv, it's not neccesary to notify. */
                 }
@@ -290,11 +291,11 @@ static bool app_multi_va_proc_bt_cm_group(ui_shell_activity_t *self,
                 } else {
                     if (!multi_voice_assistant_manager_enable_adv(false)) {
                     }
-#ifndef AIR_HEARTHROUGH_MAIN_ENABLE
+#if AIR_APPS_DEFAULT_ADV_ENABLE
                     multi_ble_adv_manager_remove_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func);
                     multi_ble_adv_manager_notify_ble_adv_data_changed(MULTI_ADV_INSTANCE_DEFAULT);
                     APPS_LOG_MSGID_I(LOG_TAG"Partner remove default ble adv caused by AWS disconencted", 0);
-#endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
+#endif /* AIR_APPS_DEFAULT_ADV_ENABLE */
                 }
             }
 #endif
@@ -330,11 +331,11 @@ static bool app_multi_va_proc_bt_dm_group(ui_shell_activity_t *self,
                 || BT_DEVICE_MANAGER_POWER_STATUS_ROLE_RECOVERY == status) {
                 if (apps_config_features_is_mp_test_mode()) {
                     /* In MP test mode, the tool want to scan the BLE adv and connect it. */
-#ifndef AIR_HEARTHROUGH_MAIN_ENABLE
+#if AIR_APPS_DEFAULT_ADV_ENABLE
                     APPS_LOG_MSGID_I(LOG_TAG"add default ble adv when mp_test_mode and BT ON", 0);
                     multi_ble_adv_manager_add_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func, 1);
                     multi_ble_adv_manager_notify_ble_adv_data_changed(MULTI_ADV_INSTANCE_DEFAULT);
-#endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
+#endif /* AIR_APPS_DEFAULT_ADV_ENABLE */
                 }
 #if defined(AIR_AMA_ENABLE) && defined(AIR_AMA_ADV_ENABLE_BEFORE_EDR_CONNECT_ENABLE)
                 /**

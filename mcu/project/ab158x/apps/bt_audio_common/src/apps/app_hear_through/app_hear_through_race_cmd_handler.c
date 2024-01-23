@@ -92,37 +92,35 @@ void app_hear_through_send_command(uint8_t race_type, hear_through_response_t *c
     race_flush_packet(response_packet, app_hear_through_race_cmd_context.channel_id);
 }
 
-void app_hear_through_race_cmd_send_get_response(uint16_t config_type, uint8_t *data, uint16_t data_len)
+void app_hear_through_race_cmd_send_get_response(uint16_t config_type, uint8_t result, uint8_t *data, uint16_t data_len)
 {
-    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_get_response] type : 0x%04x, data : 0x%x, result_len : %d",
-                        3,
+    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_get_response] result : %d, type : 0x%04x, data : 0x%x, result_len : %d",
+                        4,
+                        result,
                         config_type,
                         data,
                         data_len);
 
     hear_through_response_t cmd = {0};
 
-    cmd.status = RACE_ERRCODE_FAIL;
+    cmd.status = result;
     cmd.code = APP_HEAR_THROUGH_CMD_OP_CODE_GET;
     cmd.type = config_type;
-    if (data_len > 0) {
-        cmd.status = RACE_ERRCODE_SUCCESS;
-    }
 
     app_hear_through_send_command(RACE_TYPE_RESPONSE, &cmd, data, data_len);
 }
 
-void app_hear_through_race_cmd_send_set_response(uint16_t config_type, bool success)
+void app_hear_through_race_cmd_send_set_response(uint16_t config_type, uint8_t result)
 {
 
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_set_response] type : 0x%04x, execute result : %d",
                         2,
                         config_type,
-                        success);
+                        result);
 
     hear_through_response_t cmd = {0};
 
-    cmd.status = (success == true) ? RACE_ERRCODE_SUCCESS : RACE_ERRCODE_FAIL;
+    cmd.status = result;
     cmd.code = APP_HEAR_THROUGH_CMD_OP_CODE_SET;
     cmd.type = config_type;
 

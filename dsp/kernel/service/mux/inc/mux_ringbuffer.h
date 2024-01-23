@@ -206,6 +206,7 @@ typedef struct mux_ringbuffer {
     uint32_t data_amount;
     uint32_t step;
     uint32_t start_offset;
+    uint32_t drop_count;
 } mux_ringbuffer_t;
 
 #define RB_ASSERT(x)
@@ -392,6 +393,7 @@ bool mux_ringbuffer_alloc(mux_ringbuffer_t *rb, uint32_t capacity, uint32_t flag
 
 uint32_t mux_ringbuffer_write(mux_ringbuffer_t *rb, uint8_t *buffer, uint32_t len);
 uint32_t mux_ringbuffer_write_try(mux_ringbuffer_t *rb, uint8_t *buffer, uint32_t len);
+uint32_t mux_ringbuffer_write_silence_st(mux_ringbuffer_t *rb, uint32_t len);
 uint32_t mux_ringbuffer_write_buffer(mux_ringbuffer_t *src_rb, mux_ringbuffer_t *dest_rb, uint32_t len, uint16_t *crc);
 uint32_t mux_ringbuffer_read(mux_ringbuffer_t *rb, uint8_t *buffer, uint32_t len);
 uint32_t mux_ringbuffer_peek(mux_ringbuffer_t *rb, uint8_t *buffer, uint32_t len);
@@ -541,7 +543,7 @@ ATTR_TEXT_IN_FAST_MEM static __FORCE_INLINE__ void mux_ringbuffer_read_move_data
   }
 #endif
   // step2
-  // Head placeholder succeeded  ，copy data to fifo
+  // Head placeholder succeeded, copy data to fifo
   // TODO:You can optimize with loop unrolling
   // TODO:If direct memcpy is not correct, consider ringbuffer segmentation
   /* Copy RPTR to the end of the buffer and then copy the rest of the beginning of the buffer   */
@@ -620,7 +622,7 @@ ATTR_TEXT_IN_FAST_MEM static __FORCE_INLINE__ void mux_ringbuffer_read_move_tail
   Therefore, when Task2 preempts Task1, task2 should wait for Task1 to read the data into buffer before continuing
   */
 
-  // step3，(current task)update rptr ->tail to new_head when rptr ->tail is equal to rptr ->old_head (previous task completed)
+  // step3, (current task)update rptr ->tail to new_head when rptr ->tail is equal to rptr ->old_head (previous task completed)
   // update tail of rptr
   // Wait for the last task to finish data read, then update tail to the last task's new_head (The old head of this task)
   // TODO:If the previous task has a low priority and will wait for a long time hear, consider adding a timeout to suspend the task  after timeout
@@ -779,6 +781,21 @@ ATTR_TEXT_IN_FAST_MEM static __FORCE_INLINE__ void mux_ringbuffer_write_move_dat
     memcpy(MUX_RB_START_ADDR(rb), buffer + write_len_head, len - write_len_head);
 }
 
+ATTR_TEXT_IN_FAST_MEM static __FORCE_INLINE__ void mux_ringbuffer_write_set_silence_data(mux_ringbuffer_t *rb, uint32_t len, uint32_t wptr_old_head)
+{
+#ifdef MUX_RB_DIR_TYPE_CHECK_ENABLE
+  if (!!rb->ops && RB_IS_RXBUF(rb)) {
+      RB_LOG_E("rxbuff of HW FIFO can not be write by SW!!", 0);
+      assert(0);
+      return ;
+  }
+#endif
+
+    uint32_t write_len_head;
+    write_len_head = RB_MIN(len, rb->capacity - (wptr_old_head&rb->mask));
+    memset(MUX_RB_START_ADDR(rb) + (wptr_old_head&rb->mask), 0, write_len_head);
+    memset(MUX_RB_START_ADDR(rb), 0, len - write_len_head);
+}
 
 ATTR_TEXT_IN_FAST_MEM static __FORCE_INLINE__ void mux_ringbuffer_write_move_hw_tail_st(mux_ringbuffer_t *rb, uint32_t move_bytes)
 {

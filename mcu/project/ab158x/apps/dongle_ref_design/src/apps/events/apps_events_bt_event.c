@@ -306,6 +306,101 @@ void bt_event_get_bt_dm_event_and_status(uint32_t event_id, bt_device_manager_po
     }
 }
 
+#ifdef AIR_HID_BT_HOGP_ENABLE
+#include "bt_hogp_client.h"
+#include "app_bolt_poc_data.h"
+
+static bt_status_t app_dongle_hid_bt_hogp_report_callback(bt_hogp_client_event_t event, bt_hogp_client_para_t *para, bt_status_t status, void *buffer, uint16_t length)
+{
+    switch (event) {
+        case BT_HOGP_CLIENT_EVENT_REPORT_MAP_IND:
+#ifdef AIR_BOLT_POC_MULTI_VENDOR_SUPPORT
+            APPS_LOG_DUMP_I(" [BOLT_POC] descriptor report:", buffer, length);
+            bt_hogp_client_set_rediscovery_flag(para->conn_handle, false);
+            app_bolt_poc_ri_parse(para->conn_handle, (uint8_t *)buffer, length);
+#endif
+            break;
+        case BT_HOGP_CLIENT_EVENT_INPUT_REPORT_IND:
+            app_bolt_poc_event_input_report_ind(para, (const uint8_t *)buffer, length);
+            break;
+        case BT_HOGP_CLIENT_EVENT_CONNECT_IND:
+            //APPS_LOG_MSGID_I(" [BOLT_POC] app_dongle_hid_bt_hogp_report_callback BT_HOGP_CLIENT_EVENT_CONNECT_IND", 0);
+            app_bolt_poc_pop_handle_process(para->conn_handle);
+            break;
+    }
+    return 0;
+}
+
+static void app_dongle_hid_bt_hogp_event_callback(bt_msg_type_t event, bt_status_t status, void *buffer)
+{
+    switch (event) {
+        case BT_POWER_ON_CNF:
+            APPS_LOG_MSGID_I(" [BOLT_POC] bt_bolt_poc_event_callback BT_POWER_ON_CNF", 0);
+            app_bolt_poc_power_on_cnf();
+            break;
+        case BT_POWER_OFF_CNF:
+            APPS_LOG_MSGID_I(" [BOLT_POC] bt_bolt_poc_event_callback BT_POWER_OFF_CNF", 0);
+            break;
+        case BT_GAP_LE_SET_WHITE_LIST_CNF:
+            app_bolt_poc_set_white_list_cnf(status);
+            break;
+        case BT_GAP_LE_CONNECT_IND: {
+                const bt_gap_le_connection_ind_t *conn_ind = (const bt_gap_le_connection_ind_t *)buffer;
+                if (conn_ind == NULL) {
+                    return;
+                }
+                app_bolt_poc_connect_ind(status, &conn_ind->peer_addr, conn_ind->connection_handle);
+                APPS_LOG_MSGID_I(" [BOLT_POC] bt_bolt_poc_event_callback: connect handle(0x%X), connected dev num(0x%X)", 2, conn_ind->connection_handle, bt_gap_le_srv_get_connected_dev_num());
+            }
+            break;
+        case BT_GAP_LE_DISCONNECT_IND: {
+                const bt_hci_evt_disconnect_complete_t *disconn_ind = (const bt_hci_evt_disconnect_complete_t *)buffer;
+                if (disconn_ind == NULL) {
+                    return;
+                }
+                app_bolt_poc_disconn_ind(disconn_ind->connection_handle);
+                APPS_LOG_MSGID_I(" [BOLT_POC] bt_bolt_poc_event_callback: disconnect handle(0x%X), connected dev num(0x%X)", 2, disconn_ind->connection_handle, bt_gap_le_srv_get_connected_dev_num());
+
+                extern void app_bolt_poc_race_report_dev_list();
+                app_bolt_poc_race_report_dev_list();
+            }
+            break;
+        case BT_GAP_LE_CONNECT_CANCEL_CNF: {
+                if (status == BT_HCI_STATUS_COMMAND_DISALLOWED) {
+                    APPS_LOG_MSGID_I(" [BOLT_POC] bt_bolt_poc_event_callback BT_GAP_LE_CONNECT_CANCEL_CNF cancel", 0);
+                    app_bolt_poc_connect_cancel_cnf();
+                }
+            }
+            break;
+        case BT_GAP_LE_EXT_ADVERTISING_REPORT_IND: {
+                APPS_LOG_MSGID_I(" [BOLT_POC] BT_GAP_LE_EXT_ADVERTISING_REPORT_IND evt!", 0);
+                app_bolt_poc_adv_report_ind(buffer);
+            }
+            break;
+        case BT_GAP_LE_BONDING_COMPLETE_IND: {
+#ifdef AIR_BOLT_POC_MULTI_VENDOR_SUPPORT
+                const bt_gap_le_bonding_complete_ind_t *bond_ind = (const bt_gap_le_bonding_complete_ind_t *)buffer;
+                if (bond_ind == NULL) {
+                    return;
+                }
+                app_bolt_poc_bonding_complete_ind(bond_ind->handle);
+#endif
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+void app_dongle_hid_bt_hogp_init()
+{
+    bt_hogp_client_init(app_dongle_hid_bt_hogp_report_callback);
+    bt_callback_manager_register_callback(bt_callback_type_app_event,
+                                          (uint32_t)(MODULE_MASK_GAP | MODULE_MASK_SYSTEM),
+                                          app_dongle_hid_bt_hogp_event_callback);
+}
+#endif
+
 void apps_events_bt_event_init(void)
 {
     /* Only care a part of events, so the second parameter is not all modules. */
@@ -428,13 +523,7 @@ static RACE_ERRCODE bt_race_reload_nvkey_event_callback(void *param, void *user_
                             APPS_EVENTS_INTERACTION_RELOAD_KEY_ACTION_FROM_NVKEY, NULL, 0,
                             NULL, 0);
         return RACE_ERRCODE_SUCCESS;
-        /* Need reload NVKEYID_VA_SWITH, send event to set va type and reboot. */
-    } /*else if (NVKEYID_VA_SWITH == nvkey_id) {
-        ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_MULTI_VA,
-                MULTI_VA_EVENT_SET_VA, NULL, 0,
-                NULL, 3000);
-        return RACE_ERRCODE_SUCCESS;
-    } */else {
+    } else {
         return RACE_ERRCODE_NOT_SUPPORT;
     }
 }

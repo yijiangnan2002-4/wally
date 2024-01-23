@@ -228,6 +228,10 @@ AIR_BT_SPEAKER_ENABLE = n
 # This option is used to enable multi link at the same time.
 AIR_MULTI_POINT_ENABLE = y
 
+# This option is used to specify the maximum number of connections that can exist simultaneously.
+# Dependency: If the AIR_MULTI_POINT_ENABLE option is enabled, this option must be set to 2 or a larger value.
+AIR_MULTI_POINT_MAX_CONNECTION = 2
+
 # This option is to enable/disable LE Audio.
 # It must be turned on/off for both DSP and MCU, otherwise, it will not work.
 AIR_LE_AUDIO_ENABLE = n

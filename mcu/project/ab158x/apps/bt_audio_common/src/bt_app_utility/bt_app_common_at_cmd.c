@@ -53,6 +53,7 @@
 #endif
 #include "bt_gap_le.h"
 #include "bt_customer_config.h"
+#include "bt_device_manager.h"
 #include "bt_device_manager_le.h"
 #include "bt_gatt_over_bredr.h"
 #include "bt_callback_manager.h"
@@ -126,6 +127,7 @@ extern bt_status_t bt_app_common_ext_advertising_stop_test(uint8_t instance);
 static atci_status_t bt_app_comm_at_cmd_ble_scan_hdl(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_ble_cancel_conn_hdl(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_ble_random_addr_hdl(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_lea_adv_addr_hdl(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_set_fast_pair_tx_power_level(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_gatt_over_bredr(atci_parse_cmd_param_t *parse_cmd);
 
@@ -143,6 +145,7 @@ static atci_status_t bt_app_comm_at_cmd_ext_ble_adv_hdl(atci_parse_cmd_param_t *
 
 extern bt_le_sink_srv_music_active_handle g_music_active_handle;
 extern uint8_t app_lea_adv_cas_announcement_type;
+extern bool bt_le_audio_pts_test_enable;
 extern bt_status_t ble_csis_get_sirk(bt_key_t *sirk);
 extern void ble_csis_write_nvkey_sirk(bt_key_t *sirk);
 extern bt_status_t bt_app_common_remove_ltk();
@@ -214,6 +217,12 @@ static atci_cmd_hdlr_item_t bt_app_comm_at_cmd[] = {
     {
         .command_head = "AT+BLERANDOMADDR",    /**< AT command string. */
         .command_hdlr = bt_app_comm_at_cmd_ble_random_addr_hdl,
+        .hash_value1 = 0,
+        .hash_value2 = 0,
+    },
+    {
+        .command_head = "AT+LEAADVADDR",
+        .command_hdlr = bt_app_comm_at_cmd_lea_adv_addr_hdl,
         .hash_value1 = 0,
         .hash_value2 = 0,
     },
@@ -999,6 +1008,49 @@ static atci_status_t bt_app_comm_at_cmd_ble_random_addr_hdl(atci_parse_cmd_param
     return ATCI_STATUS_OK;
 }
 
+static atci_status_t bt_app_comm_at_cmd_lea_adv_addr_hdl(atci_parse_cmd_param_t *parse_cmd)
+{
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+
+#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+    switch (parse_cmd->mode) {
+        case ATCI_CMD_MODE_EXECUTION: {
+            /* AT+LEAADVADDR=<GET> */
+            if (0 == memcmp(parse_cmd->string_ptr + parse_cmd->name_len + 1, "GET", 3)) {
+                uint8_t temp_str[30] = {0};
+                bt_bd_addr_t *addr = NULL;
+#ifdef AIR_LE_AUDIO_DUALMODE_ENABLE
+#ifdef AIR_TWS_ENABLE
+                addr = (bt_bd_addr_t *)bt_device_manager_aws_local_info_get_fixed_address();
+#else
+                addr = (bt_bd_addr_t *)bt_device_manager_get_local_address();
+#endif
+#else
+                bt_gap_le_advertising_handle_t adv_handle = 0;
+                bt_bd_addr_t adv_addr = {0};
+                if (!multi_ble_adv_manager_get_random_addr_and_adv_handle(MULTI_ADV_INSTANCE_NOT_RHO, &adv_addr, &adv_handle)) {
+                    break;
+                }
+                addr = &adv_addr;
+#endif
+                snprintf((char *)temp_str, sizeof(temp_str), "0x%.2X:%.2X:%.2X:%.2X:%.2X:%.2X",
+                         (*addr)[5], (*addr)[4], (*addr)[3], (*addr)[2], (*addr)[1], (*addr)[0]);
+                snprintf((char *)response.response_buf, sizeof(response.response_buf), "+Get addrss:%s\r\n", (char *)temp_str);
+                response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+            }
+            break;
+        }
+        default:
+            break;
+    }
+#endif
+
+    response.response_len = strlen((char *)response.response_buf);
+    atci_send_response(&response);
+    return ATCI_STATUS_OK;
+}
+
 static atci_status_t bt_app_comm_at_cmd_set_fast_pair_tx_power_level(atci_parse_cmd_param_t *parse_cmd)
 {
     atci_response_t *response = (atci_response_t *)malloc(sizeof(atci_response_t));
@@ -1482,7 +1534,7 @@ static atci_status_t bt_app_comm_at_cmd_le_audio_adv_hdl(char *pChar)
             response.response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
         }
 #else
-    
+
         LOG_MSGID_I(BT_APP, "[AT_CMD] NOT in low power mode! AT+LEAUDIO=ADV can only be used in low power mode", 0);
         response.response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
 #endif
@@ -1490,9 +1542,9 @@ static atci_status_t bt_app_comm_at_cmd_le_audio_adv_hdl(char *pChar)
         /* AT+LEAUDIO=ADV,<ACTION> */
         /* <ACTION>: ON, OFF, RESUME */
         if (0 == memcmp(pChar, "ON", 2)) {
-            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_RESTART_ADV);
+            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_GENERAL_ADV_FOR_TEST);
             ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH,
-                                EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_RESTART_ADV,
+                                EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_GENERAL_ADV_FOR_TEST,
                                 NULL, 0, NULL, 0);
             response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
         } else if (0 == memcmp(pChar, "OFF", 3)) {
@@ -1783,6 +1835,7 @@ static bool bt_app_comm_at_cmd_le_audio_broadcast_hdl(char *pChar)
         app_le_audio_bis_start(TRUE);
 
     } else if (0 == memcmp(pChar, "STOP", 4)) {
+        app_le_audio_config_bis_scan_params(NULL);
 #ifdef MTK_AWS_MCE_ENABLE
         uint8_t bis_indices[1] = {0};
         app_le_audio_bis_start(FALSE);
@@ -2126,27 +2179,27 @@ static atci_status_t bt_app_comm_at_cmd_le_audio_hdl(atci_parse_cmd_param_t *par
             pChar++;
             ret_at = bt_app_comm_at_cmd_le_audio_adv_hdl(pChar);
 #ifdef AIR_LE_AUDIO_ENABLE
-        } else if (0 == memcmp(pChar, "RESET", 5)) {
-            /* LE Audio connection reset */
-            /* AT+LEAUDIO=RESET */
-            app_le_audio_reset();
+        } else if (0 == memcmp(pChar, "RESET_LEA_DONGLE", 16)) {
+            app_lea_service_reset_lea_dongle();
         } else if (0 == memcmp(pChar, "FEATURE", 7)) {
-            /* LE Audio connection reset */
             /* AT+LEAUDIO=FEATURE,ON/OFF/DUAL */
             pChar = strchr(pChar, ',');
             pChar++;
-            bool success = FALSE;
             if (0 == memcmp(pChar, "OFF", 3)) {
-                success = app_le_audio_set_feature_mode(APP_LEA_FEATURE_MODE_OFF);
+                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_SET_FEATURE_MODE);
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                                    EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_SET_FEATURE_MODE,
+                                    (void *)(int)APP_LEA_FEATURE_MODE_OFF, 0, NULL, 0);
             } else if (0 == memcmp(pChar, "ON", 2)) {
-                success = app_le_audio_set_feature_mode(APP_LEA_FEATURE_MODE_ON);
+                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_SET_FEATURE_MODE);
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                                    EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_SET_FEATURE_MODE,
+                                    (void *)(int)APP_LEA_FEATURE_MODE_ON, 0, NULL, 0);
             } else if (0 == memcmp(pChar, "DUAL", 4)) {
-                success = app_le_audio_set_feature_mode(APP_LEA_FEATURE_MODE_DUAL_MODE);
-            }
-            if (success) {
-                response->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
-            } else {
-                response->response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_SET_FEATURE_MODE);
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                                    EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_SET_FEATURE_MODE,
+                                    (void *)(int)APP_LEA_FEATURE_MODE_DUAL_MODE, 0, NULL, 0);
             }
         } else if (0 == memcmp(pChar, "START_ADV", 9)) {
             app_lea_service_start_advertising(APP_LEA_ADV_MODE_GENERAL, FALSE, 0);
@@ -2161,6 +2214,17 @@ static atci_status_t bt_app_comm_at_cmd_le_audio_hdl(atci_parse_cmd_param_t *par
             if (sscanf(pChar, "%2x", &val) > 0) {
                 if (0 == val || 1 == val) {
                     app_lea_adv_cas_announcement_type = (uint8_t)val;
+                }
+            }
+        } else if (0 == memcmp(pChar, "PTS_TEST_ENABLE", 15)) {
+            /* AT+LEAUDIO=PTS_TEST_ENABLE,<ACTION> */
+            /* <ACTION>: 0 (Disable), 1 (Enable) */
+            unsigned int val = 0;
+            pChar = strchr(pChar, ',');
+            pChar++;
+            if (sscanf(pChar, "%2x", &val) > 0) {
+                if (0 == val || 1 == val) {
+                    bt_le_audio_pts_test_enable = (bool)val;
                 }
             }
 #ifdef MTK_AWS_MCE_ENABLE

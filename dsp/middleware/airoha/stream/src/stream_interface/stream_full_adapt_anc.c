@@ -69,7 +69,11 @@
 #endif
 
 #ifdef AIR_FULL_ADAPTIVE_ANC_STEREO_ENABLE
-#define FAULL_ADPAT_ANC_DMA_CH_NUM 8 //in*4, out*4
+#ifdef FULL_ADAPT_ANC_HW_DECOUPLE_DEBUG_ENABLE
+#define FAULL_ADPAT_ANC_DMA_CH_NUM 10 //in*6, out*4
+#else
+#define FAULL_ADPAT_ANC_DMA_CH_NUM 8  //in*4, out*4
+#endif
 #else
 #ifdef FULL_ADAPT_ANC_HW_DECOUPLE_DEBUG_ENABLE
 #define FAULL_ADPAT_ANC_DMA_CH_NUM 5 //in*3, out*2
@@ -344,7 +348,11 @@ VOID Source_Audio_Adpat_ANC_Init(SOURCE source)
 }
 
 #ifdef AIR_FULL_ADAPTIVE_ANC_STEREO_ENABLE
+#ifdef FULL_ADAPT_ANC_HW_DECOUPLE_DEBUG_ENABLE
+extern void StreamAudioSetAdaptAncDMA(uint32_t index0_address, uint32_t index1_address, uint32_t index2_address, uint32_t index3_address, uint32_t index4_address, uint32_t index5_address, uint32_t index6_address, uint32_t index7_address, uint32_t index8_address, uint32_t index9_address);
+#else
 extern void StreamAudioSetAdaptAncDMA(uint32_t index0_address, uint32_t index1_address, uint32_t index2_address, uint32_t index3_address, uint32_t index4_address, uint32_t index5_address, uint32_t index6_address, uint32_t index7_address);
+#endif
 #else
 #ifdef FULL_ADAPT_ANC_HW_DECOUPLE_DEBUG_ENABLE
 extern void StreamAudioSetAdaptAncDMA(uint32_t index0_address, uint32_t index1_address, uint32_t index2_address, uint32_t index3_address, uint32_t index4_address);
@@ -420,6 +428,18 @@ SOURCE StreamAudioAdaptAncSource(void *param)
         FA_ANC_LOG_I(g_FA_ANC_msg_id_string_32, "[Rdebug][A_ANC]afe_number=%d,startaddr[0]=0x%x,startaddr[%d]=0x%x", 4, BUFFER_INFO_CH_NUM, source->streamBuffer.BufferInfo.startaddr[0], i, source->streamBuffer.BufferInfo.startaddr[i]);
     }
 #ifdef AIR_FULL_ADAPTIVE_ANC_STEREO_ENABLE
+#ifdef FULL_ADAPT_ANC_HW_DECOUPLE_DEBUG_ENABLE
+    StreamAudioSetAdaptAncDMA((uint32_t)source->streamBuffer.BufferInfo.startaddr[0],
+                              (uint32_t)source->streamBuffer.BufferInfo.startaddr[1],
+                              (uint32_t)source->streamBuffer.BufferInfo.startaddr[2],
+                              (uint32_t)source->streamBuffer.BufferInfo.startaddr[3],
+                              (uint32_t)source->streamBuffer.BufferInfo.startaddr[4],
+                              (uint32_t)source->streamBuffer.BufferInfo.startaddr[5],
+                              (uint32_t)source->streamBuffer.BufferInfo.startaddr[6],
+                              (uint32_t)source->streamBuffer.BufferInfo.startaddr[7],
+                              (uint32_t)source->streamBuffer.BufferInfo.startaddr[8],
+                              (uint32_t)source->streamBuffer.BufferInfo.startaddr[9]);
+#else
     StreamAudioSetAdaptAncDMA((uint32_t)source->streamBuffer.BufferInfo.startaddr[0],
                               (uint32_t)source->streamBuffer.BufferInfo.startaddr[1],
                               (uint32_t)source->streamBuffer.BufferInfo.startaddr[2],
@@ -428,6 +448,7 @@ SOURCE StreamAudioAdaptAncSource(void *param)
                               (uint32_t)source->streamBuffer.BufferInfo.startaddr[5],
                               (uint32_t)source->streamBuffer.BufferInfo.startaddr[6],
                               (uint32_t)source->streamBuffer.BufferInfo.startaddr[7]);
+#endif
 #else
 #ifdef FULL_ADAPT_ANC_HW_DECOUPLE_DEBUG_ENABLE
     StreamAudioSetAdaptAncDMA((uint32_t)source->streamBuffer.BufferInfo.startaddr[0],

@@ -116,7 +116,7 @@ bool app_ms_teams_connected() {
     return s_ctx.teams_connected;
 }
 
-static bool app_ms_teams_idle_teams_ev_proc(struct _ui_shell_activity *self, uint32_t ev, uint8_t *data, uint32_t data_len);
+static bool app_ms_teams_idle_teams_ev_proc(struct _ui_shell_activity *self, uint32_t ev, uint8_t *data, uint32_t data_len, bool from_aws);
 
 #include "atci.h"
 #ifdef MS_TEAMS_TEST
@@ -231,6 +231,10 @@ static void app_ms_teams_remove_host(bt_bd_addr_t *addr, uint8_t type)
     }
 
     s_ctx.teams_connected = has_connected;
+    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN);
+    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                        APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN, NULL, 0,
+                        NULL, 0);
 }
 
 static atci_status_t app_ms_teams_common_atci_handler(atci_parse_cmd_param_t *parse_cmd)
@@ -249,7 +253,7 @@ static atci_status_t app_ms_teams_common_atci_handler(atci_parse_cmd_param_t *pa
     p3 = atoi(param);
     APPS_LOG_MSGID_I(TAG"common at commnd: %d,%d", 2, p1, p2);
     if (p1 == 0) {
-        app_ms_teams_idle_teams_ev_proc(NULL, p2, NULL, 0);
+        app_ms_teams_idle_teams_ev_proc(NULL, p2, NULL, 0, true);
     } else if (p1 == 1) {
         if (p2 == 1) {
             app_ms_teams_set_hardmute_lock(p3 > 0);
@@ -265,7 +269,7 @@ static atci_status_t app_ms_teams_common_atci_handler(atci_parse_cmd_param_t *pa
             app_ms_teams_set_error_message((uint8_t*)"unknown errors.", strlen("unknown errors."));
         }
     } else if (p1 == 2) {
-         ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+         ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_USB_PLUG_STATE,
                                 (void *)p2, 0, NULL, 0);
     }
@@ -306,9 +310,9 @@ static bool app_ms_teams_ev_notify_handler(ms_teams_notif_sub_event_t ev, uint8_
         case MS_TEAMS_NOTIF_EVENT_UPCOMING_SCHEDULED_MEETING:
         case MS_TEAMS_NOTIF_EVENT_UNCHECKE_VOICE_MAIL: {
 #ifdef AIR_HEADSET_ENABLE
-            voice_prompt_play_vp_successed();
+            voice_prompt_play_vp_succeed();
 #else
-            voice_prompt_play_sync_vp_successed();
+            voice_prompt_play_sync_vp_succeed();
 #endif
             s_ctx.last_notify_ev = ev;
             /* Clear the notify state */
@@ -345,11 +349,17 @@ static bool app_ms_teams_ev_notify_handler(ms_teams_notif_sub_event_t ev, uint8_
     return true;
 }
 
-static bool app_ms_teams_idle_teams_ev_proc(struct _ui_shell_activity *self, uint32_t ev, uint8_t *data, uint32_t data_len)
+static bool app_ms_teams_idle_teams_ev_proc(struct _ui_shell_activity *self, uint32_t ev, uint8_t *data, uint32_t data_len, bool from_aws)
 {
     ms_teams_event_t event = ((ev >> 16) & 0xFFFF);
 
     APPS_LOG_MSGID_I(TAG"teams event proc, 0x%x, 0x%x.", 2, ev, event);
+#ifdef MTK_AWS_MCE_ENABLE
+    if ((event == MS_TEAMS_CONNECTED || event == MS_TEAMS_DISCONNECTED) && !from_aws) {
+        apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_MS_TEAMS, ev, data, data_len);
+    }
+#endif
+
     switch (event) {
         case MS_TEAMS_CONNECTED: {
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
@@ -376,7 +386,12 @@ static bool app_ms_teams_idle_teams_ev_proc(struct _ui_shell_activity *self, uin
                 
                 }
                 #endif
-                else if (s_ctx.connected_clients[i].channel_type == MS_TEAMS_LINK_CHANNEL_INVALID) {
+                else if (s_ctx.connected_clients[i].channel_type == MS_TEAMS_LINK_CHANNEL_GATT || s_ctx.connected_clients[i].channel_type == MS_TEAMS_LINK_CHANNEL_RACE) {
+                    if (memcmp(&s_ctx.connected_clients[i].address, &con_ch->address, sizeof(bt_bd_addr_t)) == 0) {
+                        APPS_LOG_MSGID_I(TAG"duplicated connection=%d.", 1, i);
+                        break;
+                    }
+                } else if (s_ctx.connected_clients[i].channel_type == MS_TEAMS_LINK_CHANNEL_INVALID) {
                     if (s_ctx.call_active && i > 0) {
                         ms_teams_channel_t temp;
                         memcpy(&temp, &s_ctx.connected_clients[i - 1], sizeof(ms_teams_channel_t));
@@ -392,12 +407,6 @@ static bool app_ms_teams_idle_teams_ev_proc(struct _ui_shell_activity *self, uin
                     connected_nums += 1;
                     s_ctx.teams_connected = true;
                     break;
-                } else if (s_ctx.connected_clients[i].channel_type == MS_TEAMS_LINK_CHANNEL_GATT) {
-                    if (con_ch->channel_type == MS_TEAMS_LINK_CHANNEL_GATT &&
-                        memcmp(&s_ctx.connected_clients[i].address, &con_ch->address, sizeof(bt_bd_addr_t)) == 0) {
-                        APPS_LOG_MSGID_I(TAG"duplicated connection=%d.", 1, i);
-                        break;
-                    }
                 }
             }
             if (i >= MS_TEAMS_MAX_CONNECTION_NUMS) {
@@ -640,7 +649,7 @@ static bool _proc_aws_data(struct _ui_shell_activity *self, uint32_t event_id, v
             APPS_LOG_MSGID_I(TAG"receive partner key action: %d.", 1, key_action);
             ret = _proc_key_action(action, event_id, &key_action, sizeof(apps_config_key_action_t));
         } else if (event_group == EVENT_GROUP_UI_SHELL_MS_TEAMS) {
-            app_ms_teams_idle_teams_ev_proc(self, action, p_extra_data, extra_data_len);
+            app_ms_teams_idle_teams_ev_proc(self, action, p_extra_data, extra_data_len, true);
         }
     }
 
@@ -697,7 +706,7 @@ bool app_ms_teams_idle_activity_proc(struct _ui_shell_activity *self,
         }
 #endif
         case EVENT_GROUP_UI_SHELL_MS_TEAMS:
-            ret = app_ms_teams_idle_teams_ev_proc(self, event_id, extra_data, data_len);
+            ret = app_ms_teams_idle_teams_ev_proc(self, event_id, extra_data, data_len, false);
             break;
 
 #ifdef MTK_AWS_MCE_ENABLE
@@ -817,9 +826,17 @@ bool app_ms_teams_idle_activity_proc(struct _ui_shell_activity *self,
                         ms_teams_channel_t race_channel = {0};
                         if (pkg->extra_data_len) {
                             memcpy(&race_channel.address, &pkg->data, sizeof(bt_bd_addr_t));
+                        } else {
+                            uint8_t channel_id = apps_dongle_sync_event_get_channel_id(extra_data, data_len);
+                            bt_bd_addr_t *dongle_addr = race_get_bt_connection_addr(channel_id);
+                            if (dongle_addr) {
+                                memcpy(&race_channel.address, dongle_addr, sizeof(bt_bd_addr_t));
+                            } else {
+                                break;
+                            }
                         }
                         race_channel.channel_type = MS_TEAMS_LINK_CHANNEL_RACE;
-                        app_ms_teams_idle_teams_ev_proc(self, MS_TEAMS_CONNECTED << 16, (uint8_t*)&race_channel, sizeof(ms_teams_channel_t));
+                        app_ms_teams_idle_teams_ev_proc(self, MS_TEAMS_CONNECTED << 16, (uint8_t*)&race_channel, sizeof(ms_teams_channel_t), false);
                         /* Sync the fw version and SN and model id to dongle */
                         const uint8_t *fw = (const uint8_t *)app_ms_teams_get_telemetry_info()->endpoint_fw;
                         const uint8_t *model_id = (const uint8_t *)app_ms_teams_get_telemetry_info()->endpoint_mode_id;
@@ -842,7 +859,7 @@ bool app_ms_teams_idle_activity_proc(struct _ui_shell_activity *self,
                         break;
                     }
                     case MS_TEAMS_EVENT_NOTIFY: {
-                        app_ms_teams_idle_teams_ev_proc(self, pkg->event_id, pkg->data, pkg->extra_data_len);
+                        app_ms_teams_idle_teams_ev_proc(self, pkg->event_id, pkg->data, pkg->extra_data_len, false);
                         break;
                     }
                 }
@@ -852,6 +869,10 @@ bool app_ms_teams_idle_activity_proc(struct _ui_shell_activity *self,
 
         case EVENT_GROUP_UI_SHELL_APP_INTERACTION: {
             if (event_id == APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN || event_id == APPS_EVENTS_INTERACTION_UPDATE_TEAMS_LED_BG_PATTERN) {
+                if (event_id == APPS_EVENTS_INTERACTION_UPDATE_TEAMS_LED_BG_PATTERN && s_ctx.teams_connected) {
+                    /* Do not update LED again if Teams already connected, due to maybe already in call state. */
+                    break;
+                }
                 uint32_t time = 0;
                 time = xTaskGetTickCount() / portTICK_PERIOD_MS / 1000;
                 bool connecting = false;
@@ -879,7 +900,7 @@ bool app_ms_teams_idle_activity_proc(struct _ui_shell_activity *self,
                     ms_teams_channel_t usb_channel;
                     memset(&usb_channel, 0, sizeof(usb_channel));
                     usb_channel.channel_type = MS_TEAMS_LINK_CHANNEL_HID;
-                    app_ms_teams_idle_teams_ev_proc(self, MS_TEAMS_DISCONNECTED << 16, (uint8_t*)&usb_channel, sizeof(ms_teams_channel_t));
+                    app_ms_teams_idle_teams_ev_proc(self, MS_TEAMS_DISCONNECTED << 16, (uint8_t*)&usb_channel, sizeof(ms_teams_channel_t), false);
                     s_ctx.last_notify_ev = MS_TEAMS_NOTIF_EVENT_NONE;
                     /* usb plug out, set LED off. */
                     ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,

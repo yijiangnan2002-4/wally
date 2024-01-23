@@ -99,8 +99,8 @@ typedef struct {
 
     hal_audio_device_t               audio_device;
     hal_audio_device_t               audio_device1;
-#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
     hal_audio_device_t               audio_device2;
+#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
     hal_audio_device_t               audio_device3;
     hal_audio_device_t               audio_device4;
     hal_audio_device_t               audio_device5;
@@ -111,14 +111,16 @@ typedef struct {
     hal_audio_memory_t                      memory;
     hal_audio_interface_t                   audio_interface;
     hal_audio_interface_t                   audio_interface1;
-#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
     hal_audio_interface_t                   audio_interface2;
+#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
     hal_audio_interface_t                   audio_interface3;
     hal_audio_interface_t                   audio_interface4;
     hal_audio_interface_t                   audio_interface5;
     hal_audio_interface_t                   audio_interface6;
     hal_audio_interface_t                   audio_interface7;
 #endif
+    uint32_t                                audio_device_rate[8];
+    uint32_t                                audio_memory_rate[8];
     afe_misc_parms_t                        misc_parms;
     bool                                    hw_gain;
     bool                                    echo_reference;
@@ -153,10 +155,11 @@ typedef struct {
 #ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
     uint8_t                                 max_channel_num;/**afe_dmic_clock_rate_t*/
 #endif
-    bool                                    with_upwdown_sampler; /**for up or down sampler*/
-    uint32_t                                audio_path_input_rate; /**for up or down sampler*/
-    uint32_t                                audio_path_output_rate; /**for up or down sampler*/
     audio_scenario_type_t                   scenario_type;
+    hal_audio_afe_hwsrc_type_t              hwsrc_type;
+#if defined(AIR_BTA_IC_PREMIUM_G3)
+	hal_audio_anc_debug_sel_t           anc_ch_select;
+#endif
 } AfeIRQAgentCtrl_t;
 
 typedef struct AU_AFE_CTRL_s {

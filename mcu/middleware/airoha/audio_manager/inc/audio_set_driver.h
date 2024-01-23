@@ -51,6 +51,23 @@ void audio_driver_dc_compensation(void);
 void hal_audio_set_dc_compensation(void);
 #endif
 
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+#ifndef MTK_ANC_SURROUND_MONITOR_ENABLE
+typedef enum {
+    AUDIO_ANC_TYPE_ANC            = 0,
+    AUDIO_ANC_TYPE_PT             = 1,
+    AUDIO_ANC_TYPE_SIDETONE       = 2,
+    AUDIO_ANC_TYPE_HA_PSAP        = 3,
+    AUDIO_ANC_TYPE_SW_VIVID_PT    = 4,
+    AUDIO_ANC_TYPE_HW_VIVID_PT    = 5,
+    AUDIO_ANC_TYPE_MAX,
+} audio_anc_type_t;
+#endif
+void hal_audio_status_send_update_dac_mode_event_to_am(hal_audio_ha_dac_flag_t ha_dac_flag,  bool enable);
+void hal_audio_status_set_ha_flag_and_update_dac_mode(hal_audio_ha_dac_flag_t ha_dac_flag,  bool enable);
+void hal_audio_status_update_dac_mode(void);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

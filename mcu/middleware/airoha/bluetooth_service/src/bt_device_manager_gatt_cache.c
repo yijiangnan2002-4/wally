@@ -260,7 +260,7 @@ static uint8_t *bt_device_manager_gatt_cache_fill_charc_desc(uint8_t *start_buff
     bt_device_manager_gatt_cache_charc_header_t *charc_header;
     bt_device_manager_gatt_cache_desc_header_t *desc_header;
     bt_device_manager_db_mutex_take();
-    for(uint8_t i = 0; i < char_num; i++, charateristics++){
+    for(uint32_t i = 0; i < char_num; i++, charateristics++){
         /* Fill charateristics. */
         charc_header = (bt_device_manager_gatt_cache_charc_header_t*) bt_device_manager_gatt_fill_uuid(start_buffer, &(charateristics->char_uuid));
         charc_header->handle = charateristics->handle;
@@ -273,7 +273,7 @@ static uint8_t *bt_device_manager_gatt_cache_fill_charc_desc(uint8_t *start_buff
         if(charateristics->descr_count_found == 0){
             start_buffer = (uint8_t *)desc_header;
         } else {
-            for(uint8_t j = 0; j < charateristics->descr_count_found; j++, temp_desc_ctx++){
+            for(uint32_t j = 0; j < charateristics->descr_count_found; j++, temp_desc_ctx++){
                 /* Fill descriptor. */
                 desc_header = (bt_device_manager_gatt_cache_desc_header_t *)bt_device_manager_gatt_fill_uuid((uint8_t *)desc_header, &(temp_desc_ctx->descriptor_uuid));
                 desc_header->handle = temp_desc_ctx->handle;
@@ -295,7 +295,7 @@ static uint8_t *bt_device_manager_gatt_cache_extract_charc_desc(uint8_t *start_b
     ble_uuid_t  char_uuid;
     ble_uuid_t  desc_uuid;
     bt_device_manager_db_mutex_take();
-    for(uint8_t i = 0; i < char_num; i++, charateristics++){
+    for(uint32_t i = 0; i < char_num; i++, charateristics++){
         charc_header = (bt_device_manager_gatt_cache_charc_header_t *)bt_device_manager_gatt_extract_uuid(start_buffer, &char_uuid);
         bt_device_manager_gatt_fill_service_uuid((uint8_t *)&(charateristics->char_uuid), &char_uuid);
         charateristics->handle = charc_header->handle;
@@ -308,7 +308,7 @@ static uint8_t *bt_device_manager_gatt_cache_extract_charc_desc(uint8_t *start_b
         if(charc_header->desc_count == 0){
             start_buffer = (uint8_t *)desc_header;
         }
-        for(uint8_t j = 0; j < charc_header->desc_count; j++){
+        for(uint32_t j = 0; j < charc_header->desc_count; j++, temp_desc_ctx++){
             desc_header = (bt_device_manager_gatt_cache_desc_header_t *)bt_device_manager_gatt_extract_uuid((uint8_t *)desc_header, &desc_uuid);
             bt_device_manager_gatt_fill_service_uuid((uint8_t *)&(temp_desc_ctx->descriptor_uuid), &desc_uuid);
             temp_desc_ctx->handle = desc_header->handle;
@@ -388,6 +388,39 @@ void bt_device_manager_gatt_cache_init(void)
     bt_device_manager_db_mutex_give();
 }
 
+static uint32_t bt_dm_gatt_cache_get_sevice_store_size(const bt_gattc_discovery_service_t *service)
+{
+    uint32_t service_size = 0;
+    bt_gattc_discovery_characteristic_t *p_charc = NULL;
+    bt_gattc_discovery_descriptor_t *p_descriptor = NULL;
+    bt_gattc_discovery_included_service_t *p_include_service = NULL;
+    const uint8_t uuid_store_size[] = {0x00, 0x03, 0x05, 0x11};
+    /* service inforamtion size */
+    service_size += uuid_store_size[service->service_uuid.type];
+    service_size += sizeof(bt_device_manager_gatt_cache_service_header_t);
+    /* chrac information size */
+    for(uint32_t i = 0; i < service->char_count_found; i++) {
+        p_charc = &service->charateristics[i];
+        service_size += uuid_store_size[p_charc->char_uuid.type];
+        service_size += sizeof(bt_device_manager_gatt_cache_charc_header_t);
+        /* desc information size */
+        for(uint32_t j = 0; j < p_charc->descr_count_found; j++) {
+            p_descriptor = &p_charc->descriptor[j];
+            service_size += uuid_store_size[p_descriptor->descriptor_uuid.type];
+            service_size += sizeof(bt_device_manager_gatt_cache_desc_header_t);
+        }
+    }
+    /* include service information size */
+    for(uint32_t i = 0; i < service->included_srv_count_found; i++) {
+        p_include_service = &service->included_service[i];
+        service_size += uuid_store_size[p_include_service->service_uuid.type];
+        service_size += sizeof(bt_device_manager_gatt_cache_include_service_header_t);
+    }
+
+    bt_dmgr_report_id("[BT_DM][GATT][I] get service store size = %02x", 1, service_size);
+    return service_size;
+}
+
 bt_gatt_cache_status_t bt_device_manager_gatt_cache_update(const bt_bd_addr_t *addr, const bt_gattc_discovery_service_t *service)
 {
     if (NULL == addr || NULL == service) {
@@ -432,8 +465,10 @@ bt_gatt_cache_status_t bt_device_manager_gatt_cache_update(const bt_bd_addr_t *a
         dev_header = (bt_device_manager_gatt_cache_device_hearder_t *)(context->gatt_cache_info);
     }
 
-    if (dev_header->total_length > (BT_DM_GATT_CACHE_MAX_SIZE - 100)) {
+    /* Check if cache buffer is full, and reserve 30byte. */
+    if ((dev_header->total_length + bt_dm_gatt_cache_get_sevice_store_size(service) + 30) > BT_DM_GATT_CACHE_MAX_SIZE) {
         bt_dmgr_report_id("[BT_DM][GATT][E] length over cache buffer = %02x", 1, dev_header->total_length);
+        bt_device_manager_db_mutex_give();
         return BT_GATT_CACHE_STATUS_ERROR;
     }
 
@@ -463,7 +498,7 @@ bt_gatt_cache_status_t bt_device_manager_gatt_cache_update(const bt_bd_addr_t *a
           bt_device_manager_gatt_cache_include_service_header_t *include_service_header = NULL;
           bt_device_manager_gatt_cache_charc_header_t *include_service_charc_header = NULL;
           bt_gattc_discovery_included_service_t *temp_include_ser_ctx = (bt_gattc_discovery_included_service_t *)service->included_service;
-          for(uint8_t x = 0; x < service->included_srv_count_found; x++){
+          for(uint32_t x = 0; x < service->included_srv_count_found; x++){
               bt_dmgr_report_id("[BT_DM][GATT][I] Gatt cache update:Fill include_service context", 0);
               include_service_header = (bt_device_manager_gatt_cache_include_service_header_t *)bt_device_manager_gatt_fill_uuid((uint8_t *)charc_header, &(temp_include_ser_ctx[x].service_uuid));
               include_service_header->charc_count = temp_include_ser_ctx[x].char_count_found;
@@ -477,7 +512,7 @@ bt_gatt_cache_status_t bt_device_manager_gatt_cache_update(const bt_bd_addr_t *a
           service_header->service_size = ((uint8_t *)include_service_charc_header - start_service_header);
           dev_header->total_length += service_header->service_size;
     }
-    bt_dmgr_report_id("[BT_DM][GATT][I] Gatt cache update, length = %02x, num = %02x", 2, dev_header->total_length, dev_header->service_num);
+    bt_dmgr_report_id("[BT_DM][GATT][I] Gatt cache update, length = %02x, num = %02x service size = %02x", 3, dev_header->total_length, dev_header->service_num, service_header->service_size);
     if(dev_header->total_length > BT_DM_GATT_CACHE_MAX_SIZE){
         /* clear all*/
         bt_device_manager_db_mutex_give();
@@ -559,7 +594,7 @@ bt_gatt_cache_status_t bt_device_manager_gatt_cache_find(const bt_bd_addr_t *add
     bt_dmgr_report_id("[BT_DM][GATT][I] gatt cache find addr = %x,%x,%x,%x,%x,%x", 6, (*addr)[5], (*addr)[4], (*addr)[3], (*addr)[2], (*addr)[1], (*addr)[0]);
     bool read_flag = false;
     bt_device_manager_db_mutex_take();
-    uint8_t i;
+    uint32_t i = 0;
     uint8_t seq = *seq_addr;
     bt_device_manager_gatt_cache_device_hearder_t *device_header;
     bt_device_manager_gatt_cache_service_header_t *service_header;

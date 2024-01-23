@@ -85,7 +85,7 @@ hal_audio_memory_parameter_t dsp_loopbackdump_memory = {
     HAL_AUDIO_MEMORY_UL_AWB,
     HAL_AUDIO_PCM_FORMAT_S16_LE,
     HAL_AUDIO_MEMORY_SYNC_NONE,
-    48000,
+    96000,
     0,
     DSP_LOOPBACK_DUMP_SIZE*DSP_LOOPBACK_DUMP_FRAME_NUMBER,
     0,
@@ -99,7 +99,7 @@ hal_audio_memory_parameter_t dsp_loopbackdump_memory = {
     #ifdef ENABLE_HWSRC_CLKSKEW
     0,
     #endif
-    AUDIO_SCENARIO_TYPE_A2DP,
+    AUDIO_SCENARIO_TYPE_HFP_DL,
 };
 ATTR_TEXT_IN_IRAM void afe_loopback_interrupt_handler(void)
 {
@@ -258,7 +258,8 @@ static int32_t pcm_dl1_start(SINK sink)
 #endif /* AIR_DCHS_MODE_ENABLE */
 #if defined(AIR_WIRED_AUDIO_ENABLE) && !defined(AIR_DCHS_MODE_ENABLE)
     if ((sink->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_IN) ||
-        (sink->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_MAINSTREAM)) {
+        (sink->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_MAINSTREAM) ||
+        (sink->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_OUT)) {
         mem_handle->sync_status = HAL_AUDIO_MEMORY_SYNC_SW_TRIGGER;
     }
 #endif
@@ -323,18 +324,25 @@ static int32_t pcm_dl1_start(SINK sink)
         hal_audio_set_memory(&dsp_loopbackdump_memory, HAL_AUDIO_CONTROL_MEMORY_INTERFACE, HAL_AUDIO_CONTROL_ON);
 
         //Connect I2S1 loopback to AWB
-        hal_audio_path_set_interconnection_state(AUDIO_INTERCONNECTION_CONNECT, AUDIO_INTERCONNECTION_INPUT_I00, AUDIO_INTERCONNECTION_OUTPUT_O20);
-        hal_audio_path_set_interconnection_state(AUDIO_INTERCONNECTION_CONNECT, AUDIO_INTERCONNECTION_INPUT_I01, AUDIO_INTERCONNECTION_OUTPUT_O21);
+        hal_audio_path_set_interconnection_state(AUDIO_INTERCONNECTION_CONNECT, AUDIO_INTERCONNECTION_INPUT_I18, AUDIO_INTERCONNECTION_OUTPUT_O20);
+        hal_audio_path_set_interconnection_state(AUDIO_INTERCONNECTION_CONNECT, AUDIO_INTERCONNECTION_INPUT_I19, AUDIO_INTERCONNECTION_OUTPUT_O21);
     }
     dsp_loopbackdump_control_cnt++;
 #endif
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
         hal_audio_memory_parameter_t *mem_handle1;
+        hal_audio_memory_parameter_t *mem_handle2;
         hal_audio_set_value_parameter_t set_handle;
-        if (sink->param.audio.channel_num == 4) {
+        if (sink->param.audio.channel_num >= 4) {
             memcpy(&sink->param.audio.mem_handle1, mem_handle, sizeof(hal_audio_memory_parameter_t));
             mem_handle1 = &sink->param.audio.mem_handle1;
-            mem_handle1->memory_select = hal_memory_convert_dl(sink->param.audio.memory & (~HAL_AUDIO_MEM1));
+            if (mem_handle->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_MAINSTREAM) {
+                mem_handle->memory_select = hal_memory_convert_dl(sink->param.audio.memory & HAL_AUDIO_MEM3);
+                mem_handle1->memory_select = hal_memory_convert_dl(sink->param.audio.memory & HAL_AUDIO_MEM1);
+            } else {
+                mem_handle->memory_select = hal_memory_convert_dl(sink->param.audio.memory & HAL_AUDIO_MEM1);
+                mem_handle1->memory_select = hal_memory_convert_dl(sink->param.audio.memory & HAL_AUDIO_MEM3);
+            }
             mem_handle1->buffer_addr += mem_handle1->buffer_length;
             mem_handle1->src_buffer_addr += mem_handle1->src_buffer_length;
             hal_audio_set_memory(mem_handle1, HAL_AUDIO_CONTROL_MEMORY_INTERFACE, HAL_AUDIO_CONTROL_ON);
@@ -342,6 +350,18 @@ static int32_t pcm_dl1_start(SINK sink)
             set_handle.irq_enable.memory_select = mem_handle1->memory_select;
             set_handle.irq_enable.enable = false;
             hal_audio_set_value(&set_handle, HAL_AUDIO_SET_MEMORY_IRQ_ENABLE);
+            if (sink->param.audio.channel_num >= 6) {
+                memcpy(&sink->param.audio.mem_handle2, mem_handle1, sizeof(hal_audio_memory_parameter_t));
+                mem_handle2 = &sink->param.audio.mem_handle2;
+                mem_handle2->memory_select = hal_memory_convert_dl(sink->param.audio.memory & HAL_AUDIO_MEM4);
+                mem_handle2->buffer_addr += mem_handle2->buffer_length;
+                mem_handle2->src_buffer_addr += mem_handle2->src_buffer_length;
+                hal_audio_set_memory(mem_handle2, HAL_AUDIO_CONTROL_MEMORY_INTERFACE, HAL_AUDIO_CONTROL_ON);
+                /* Workaorund to disable redundant IRQ counter */
+                set_handle.irq_enable.memory_select = mem_handle2->memory_select;
+                set_handle.irq_enable.enable = false;
+                hal_audio_set_value(&set_handle, HAL_AUDIO_SET_MEMORY_IRQ_ENABLE);
+            }
         }
 #endif
 
@@ -354,8 +374,8 @@ static int32_t pcm_dl1_stop(SINK sink)
     dsp_loopbackdump_control_cnt--;
     if (!dsp_loopbackdump_control_cnt) {
     DSP_MW_LOG_I("DSP audio Debug bump disable \r\n", 0);
-    hal_audio_path_set_interconnection_state(AUDIO_INTERCONNECTION_DISCONNECT, AUDIO_INTERCONNECTION_INPUT_I00, AUDIO_INTERCONNECTION_OUTPUT_O20);
-    hal_audio_path_set_interconnection_state(AUDIO_INTERCONNECTION_DISCONNECT, AUDIO_INTERCONNECTION_INPUT_I01, AUDIO_INTERCONNECTION_OUTPUT_O21);
+    hal_audio_path_set_interconnection_state(AUDIO_INTERCONNECTION_DISCONNECT, AUDIO_INTERCONNECTION_INPUT_I18, AUDIO_INTERCONNECTION_OUTPUT_O20);
+    hal_audio_path_set_interconnection_state(AUDIO_INTERCONNECTION_DISCONNECT, AUDIO_INTERCONNECTION_INPUT_I19, AUDIO_INTERCONNECTION_OUTPUT_O21);
 
     hal_audio_set_memory(&dsp_loopbackdump_memory, HAL_AUDIO_CONTROL_MEMORY_INTERFACE, HAL_AUDIO_CONTROL_OFF);
     dsp_loopbackdump_memory.buffer_addr = 0;
@@ -393,9 +413,13 @@ static int32_t pcm_dl1_stop(SINK sink)
 #endif
 
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-    if (sink->param.audio.channel_num == 4) {
+    if (sink->param.audio.channel_num >= 4) {
         mem_handle = &sink->param.audio.mem_handle1;
         hal_audio_set_memory(mem_handle, HAL_AUDIO_CONTROL_MEMORY_INTERFACE, HAL_AUDIO_CONTROL_OFF);
+        if (sink->param.audio.channel_num >= 6) {
+            mem_handle = &sink->param.audio.mem_handle2;
+            hal_audio_set_memory(mem_handle, HAL_AUDIO_CONTROL_MEMORY_INTERFACE, HAL_AUDIO_CONTROL_OFF);
+        }
     }
 #endif
     return 0;
@@ -416,6 +440,12 @@ static int32_t pcm_dl1_open(SINK sink)
     uint32_t sink_ch;
     hal_audio_path_parameter_t *handle = &sink->param.audio.path_handle;//modify for ab1568
     hal_audio_device_parameter_t *device_handle = &sink->param.audio.device_handle;//modify for ab1568
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    hal_audio_device_t device1 = sink->param.audio.audio_device1;//hal_audio_get_stream_out_device();
+    hal_audio_device_t device2 = sink->param.audio.audio_device2;//hal_audio_get_stream_out_device();
+    hal_audio_device_parameter_t *device_handle1 = &sink->param.audio.device_handle1;
+    hal_audio_device_parameter_t *device_handle2 = &sink->param.audio.device_handle2;
+#endif
     //uint32_t i;
     DSP_MW_LOG_I("[AFE DL] open: scenario type %d", 1, sink->scenario_type);
     sink_ch = (runtime->channel_num >= 2)
@@ -462,21 +492,25 @@ static int32_t pcm_dl1_open(SINK sink)
     }
     #endif
 
-    #ifdef AIR_DCHS_MODE_ENABLE //DCHS project device ON/OFF by dchs dl agent only
+    #if defined(AIR_DCHS_MODE_ENABLE) || defined(AIR_MIXER_STREAM_ENABLE) //DCHS project device ON/OFF by dchs dl agent only
+    #ifdef AIR_DCHS_MODE_ENABLE
     if(dchs_get_device_mode() == DCHS_MODE_SINGLE){
         hal_audio_set_device(device_handle, device, HAL_AUDIO_CONTROL_ON);
-    }else{
-        if(sink->param.audio.mem_handle.scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL){
+    }else
+    #endif
+    {
+        if(sink->param.audio.mem_handle.scenario_type == AUDIO_SCENARIO_TYPE_MIXER_STREAM){
             hal_audio_set_device(device_handle, device, HAL_AUDIO_CONTROL_ON);
         }
     }
     #else
     hal_audio_set_device(device_handle, device, HAL_AUDIO_CONTROL_ON);
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-    if (sink->param.audio.channel_num == 4) {
-        device = sink->param.audio.audio_device1;
-        device_handle = &sink->param.audio.device_handle1;
-        hal_audio_set_device(device_handle, device, HAL_AUDIO_CONTROL_ON);
+    if (sink->param.audio.channel_num >= 4) {
+        hal_audio_set_device(device_handle1, device1, HAL_AUDIO_CONTROL_ON);
+        if (sink->param.audio.channel_num >= 6) {
+            hal_audio_set_device(device_handle2, device2, HAL_AUDIO_CONTROL_ON);
+        }
     }
 #endif
     #ifdef AIR_WIRED_AUDIO_SUB_STREAM_ENABLE
@@ -634,76 +668,14 @@ static int32_t pcm_dl1_close(SINK sink)
     hal_audio_device_t device = sink->param.audio.audio_device;
     hal_audio_path_parameter_t *handle = &sink->param.audio.path_handle;//modify for ab1568
     hal_audio_device_parameter_t *device_handle = &sink->param.audio.device_handle;//modify for ab1568
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    hal_audio_device_t device1 = sink->param.audio.audio_device1;//hal_audio_get_stream_out_device();
+    hal_audio_device_t device2 = sink->param.audio.audio_device2;//hal_audio_get_stream_out_device();
+    hal_audio_device_parameter_t *device_handle1 = &sink->param.audio.device_handle1;
+    hal_audio_device_parameter_t *device_handle2 = &sink->param.audio.device_handle2;
+#endif
     DSP_MW_LOG_I("[AFE DL] close: scenario type %d\r\n", 1, sink->scenario_type);
-    #ifdef AIR_DCHS_MODE_ENABLE //DCHS project device ON/OFF by dchs dl agent only
-    if (dchs_get_device_mode() == DCHS_MODE_SINGLE) {
-        hal_audio_set_device(device_handle, device, HAL_AUDIO_CONTROL_OFF);
-    } else {
-        if(sink->scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL){
-            hal_audio_set_device(device_handle, device, HAL_AUDIO_CONTROL_OFF);
-        }
-    }
-    #else
-    #ifdef AIR_WIRED_AUDIO_SUB_STREAM_ENABLE
-    if(sink->param.audio.mem_handle.scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_MAINSTREAM){
-        hal_audio_device_parameter_t *device_handle1 = &sink->param.audio.device_handle1;
-        device_handle1->common.scenario_type = AUDIO_SCENARIO_TYPE_WIRED_AUDIO_SUBSTREAM;
-        DSP_MW_LOG_I("SUBSTREAM off  device_handle=0x%x,audio_device=0x%x audio_interface=0x%x, device_handle1=0x%x,audio_device1=0x%x audio_interface1=0x%x",6,
-                device_handle, device, sink->param.audio.audio_interface, device_handle1, sink->param.audio.audio_device1, sink->param.audio.audio_interface1);
-        hal_audio_set_device(device_handle1, sink->param.audio.audio_device1, HAL_AUDIO_CONTROL_OFF);
-        if(sink->param.audio.mem_handle.memory_select == HAL_AUDIO_MEMORY_DL_DL3){
-            if((device == HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER)&&(sink->param.audio.audio_device1 == HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL)){
-                hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I06, AUDIO_INTERCONNECTION_OUTPUT_O08);
-                hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I07, AUDIO_INTERCONNECTION_OUTPUT_O09);
-            } else if ((device == HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL)&&(sink->param.audio.audio_device1 == HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER)){
-                    if(sink->param.audio.audio_interface1 == HAL_AUDIO_INTERFACE_1){
-                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I06, AUDIO_INTERCONNECTION_OUTPUT_O00);
-                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I07, AUDIO_INTERCONNECTION_OUTPUT_O01);
-                    }else if(sink->param.audio.audio_interface1 == HAL_AUDIO_INTERFACE_2){
-                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I06, AUDIO_INTERCONNECTION_OUTPUT_O02);
-                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I07, AUDIO_INTERCONNECTION_OUTPUT_O03);
-                    }else if(sink->param.audio.audio_interface1 == HAL_AUDIO_INTERFACE_3){
-                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I06, AUDIO_INTERCONNECTION_OUTPUT_O04);
-                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I07, AUDIO_INTERCONNECTION_OUTPUT_O05);
-                #ifdef AIR_BTA_IC_PREMIUM_G3
-                    }else if(sink->param.audio.audio_interface1 == HAL_AUDIO_INTERFACE_4){
-                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I06, AUDIO_INTERCONNECTION_OUTPUT_O42);
-                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I07, AUDIO_INTERCONNECTION_OUTPUT_O43);
-                #endif
-                    }
-            } else {
-                DSP_MW_LOG_E("SUBSTREAM not support",0);
-            }
-        } else {
-            DSP_MW_LOG_E("SUBSTREAM not support",0);
-        }
-    }
-    #endif
-    hal_audio_set_device(device_handle, device, HAL_AUDIO_CONTROL_OFF);
-    #endif //AIR_DCHS_MODE_ENABLE
 
-    #ifdef AIR_AUDIO_PATH_CUSTOMIZE_ENABLE
-    DSP_MW_LOG_I("MITO type: %d",1,sink->scenario_type);
-    if ((sink->scenario_type == AUDIO_SCENARIO_TYPE_HFP_DL) || (sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_DL)
-        || (hal_audio_status_get_agent_of_type_status(HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_DUAL_TX, AUDIO_SCENARIO_TYPE_VP) && (sink->scenario_type == AUDIO_SCENARIO_TYPE_VP))) {
-        hal_audio_device_parameter_t device_i2s_master_temp;
-        device_i2s_master_temp.i2s_master.audio_device = HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER;
-        device_i2s_master_temp.i2s_master.i2s_interface = HAL_AUDIO_INTERFACE_2;
-        device_i2s_master_temp.i2s_master.rate = handle->audio_output_rate[0];
-        device_i2s_master_temp.i2s_master.scenario_type = sink->scenario_type;
-        device_i2s_master_temp.i2s_master.is_tx = true;
-        device_i2s_master_temp.i2s_master.i2s_format = HAL_AUDIO_I2S_I2S;
-        device_i2s_master_temp.i2s_master.word_length = HAL_AUDIO_I2S_WORD_LENGTH_32BIT;
-        device_i2s_master_temp.i2s_master.mclk_divider = 0;
-        device_i2s_master_temp.i2s_master.with_mclk = false;
-        device_i2s_master_temp.i2s_master.is_low_jitter = gAudioCtrl.Afe.AfeDLSetting.is_low_jitter[1];
-        device_i2s_master_temp.i2s_master.is_rx_swap = false;
-        device_i2s_master_temp.i2s_master.is_tx_swap = false;
-        device_i2s_master_temp.i2s_master.is_internal_loopback = false;
-        device_i2s_master_temp.i2s_master.is_recombinant = false;
-        hal_audio_set_device(&device_i2s_master_temp, HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER, HAL_AUDIO_CONTROL_OFF);
-    }
-    #endif
 
 #ifdef AIR_AUDIO_I2S_SLAVE_TDM_ENABLE
     if ((device == HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE) && ((sink->param.audio.memory == HAL_AUDIO_MEM6) || (sink->param.audio.memory == HAL_AUDIO_MEM7))) {
@@ -767,6 +739,86 @@ static int32_t pcm_dl1_close(SINK sink)
 
         hal_audio_set_path(handle, HAL_AUDIO_CONTROL_OFF);
 #endif
+    #if defined(AIR_DCHS_MODE_ENABLE) || defined(AIR_MIXER_STREAM_ENABLE) //DCHS project device ON/OFF by dchs dl agent only
+    #ifdef AIR_DCHS_MODE_ENABLE
+    if (dchs_get_device_mode() == DCHS_MODE_SINGLE) {
+        hal_audio_set_device(device_handle, device, HAL_AUDIO_CONTROL_OFF);
+    } else
+    #endif
+    {
+        if(sink->scenario_type == AUDIO_SCENARIO_TYPE_MIXER_STREAM){
+            hal_audio_set_device(device_handle, device, HAL_AUDIO_CONTROL_OFF);
+        }
+    }
+    #else
+    #ifdef AIR_WIRED_AUDIO_SUB_STREAM_ENABLE
+    if(sink->param.audio.mem_handle.scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_MAINSTREAM){
+        hal_audio_device_parameter_t *device_handle1 = &sink->param.audio.device_handle1;
+        device_handle1->common.scenario_type = AUDIO_SCENARIO_TYPE_WIRED_AUDIO_SUBSTREAM;
+        DSP_MW_LOG_I("SUBSTREAM off  device_handle=0x%x,audio_device=0x%x audio_interface=0x%x, device_handle1=0x%x,audio_device1=0x%x audio_interface1=0x%x",6,
+                device_handle, device, sink->param.audio.audio_interface, device_handle1, sink->param.audio.audio_device1, sink->param.audio.audio_interface1);
+        hal_audio_set_device(device_handle1, sink->param.audio.audio_device1, HAL_AUDIO_CONTROL_OFF);
+        if(sink->param.audio.mem_handle.memory_select == HAL_AUDIO_MEMORY_DL_DL3){
+            if((device == HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER)&&(sink->param.audio.audio_device1 == HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL)){
+                hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I06, AUDIO_INTERCONNECTION_OUTPUT_O08);
+                hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I07, AUDIO_INTERCONNECTION_OUTPUT_O09);
+            } else if ((device == HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL)&&(sink->param.audio.audio_device1 == HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER)){
+                    if(sink->param.audio.audio_interface1 == HAL_AUDIO_INTERFACE_1){
+                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I06, AUDIO_INTERCONNECTION_OUTPUT_O00);
+                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I07, AUDIO_INTERCONNECTION_OUTPUT_O01);
+                    }else if(sink->param.audio.audio_interface1 == HAL_AUDIO_INTERFACE_2){
+                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I06, AUDIO_INTERCONNECTION_OUTPUT_O02);
+                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I07, AUDIO_INTERCONNECTION_OUTPUT_O03);
+                    }else if(sink->param.audio.audio_interface1 == HAL_AUDIO_INTERFACE_3){
+                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I06, AUDIO_INTERCONNECTION_OUTPUT_O04);
+                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I07, AUDIO_INTERCONNECTION_OUTPUT_O05);
+                #ifdef AIR_BTA_IC_PREMIUM_G3
+                    }else if(sink->param.audio.audio_interface1 == HAL_AUDIO_INTERFACE_4){
+                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I06, AUDIO_INTERCONNECTION_OUTPUT_O42);
+                        hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, AUDIO_INTERCONNECTION_INPUT_I07, AUDIO_INTERCONNECTION_OUTPUT_O43);
+                #endif
+                    }
+            } else {
+                DSP_MW_LOG_E("SUBSTREAM not support",0);
+            }
+        } else {
+            DSP_MW_LOG_E("SUBSTREAM not support",0);
+        }
+    }
+    #endif
+    hal_audio_set_device(device_handle, device, HAL_AUDIO_CONTROL_OFF);
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    if (sink->param.audio.channel_num >= 4) {
+        hal_audio_set_device(device_handle1, device1, HAL_AUDIO_CONTROL_OFF);
+        if (sink->param.audio.channel_num >= 6) {
+            hal_audio_set_device(device_handle2, device2, HAL_AUDIO_CONTROL_OFF);
+        }
+    }
+#endif
+    #endif //AIR_DCHS_MODE_ENABLE
+
+    #ifdef AIR_AUDIO_PATH_CUSTOMIZE_ENABLE
+    DSP_MW_LOG_I("MITO type: %d",1,sink->scenario_type);
+    if ((sink->scenario_type == AUDIO_SCENARIO_TYPE_HFP_DL) || (sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_DL)
+        || (hal_audio_status_get_agent_of_type_status(HAL_AUDIO_AGENT_DEVICE_I2S1_MASTER_DUAL_TX, AUDIO_SCENARIO_TYPE_VP) && (sink->scenario_type == AUDIO_SCENARIO_TYPE_VP))) {
+        hal_audio_device_parameter_t device_i2s_master_temp;
+        device_i2s_master_temp.i2s_master.audio_device = HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER;
+        device_i2s_master_temp.i2s_master.i2s_interface = HAL_AUDIO_INTERFACE_2;
+        device_i2s_master_temp.i2s_master.rate = handle->audio_output_rate[0];
+        device_i2s_master_temp.i2s_master.scenario_type = sink->scenario_type;
+        device_i2s_master_temp.i2s_master.is_tx = true;
+        device_i2s_master_temp.i2s_master.i2s_format = HAL_AUDIO_I2S_I2S;
+        device_i2s_master_temp.i2s_master.word_length = HAL_AUDIO_I2S_WORD_LENGTH_32BIT;
+        device_i2s_master_temp.i2s_master.mclk_divider = 0;
+        device_i2s_master_temp.i2s_master.with_mclk = false;
+        device_i2s_master_temp.i2s_master.is_low_jitter = gAudioCtrl.Afe.AfeDLSetting.is_low_jitter[1];
+        device_i2s_master_temp.i2s_master.is_rx_swap = false;
+        device_i2s_master_temp.i2s_master.is_tx_swap = false;
+        device_i2s_master_temp.i2s_master.is_internal_loopback = false;
+        device_i2s_master_temp.i2s_master.is_recombinant = false;
+        hal_audio_set_device(&device_i2s_master_temp, HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER, HAL_AUDIO_CONTROL_OFF);
+    }
+    #endif
 #endif
     return 0;
 }

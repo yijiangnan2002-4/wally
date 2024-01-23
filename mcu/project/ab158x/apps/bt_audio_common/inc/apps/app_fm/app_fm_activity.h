@@ -87,7 +87,7 @@ typedef struct {
     uint8_t peer_blink;
     uint8_t peer_tone;
 #endif
-    uint16_t duration_seconds;       /**<  Duration time(seconds) of current findme cmd, 0 means use default value. */
+    uint16_t duration_seconds;       /**<  Duration time(seconds) of current find me cmd, 0 means use default value. */
     uint8_t count;                   /**<  Record the loop count of ringtone playback. */
     bt_sink_srv_state_t sink_state;  /**<  Record the sink_state. */
 } app_find_me_context_t;

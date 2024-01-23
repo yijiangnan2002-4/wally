@@ -24,7 +24,6 @@ var searchData=
   ['audio_5fanc_5fcontrol_5fset_5freg_5ft',['audio_anc_control_set_reg_t',['../group__anc__enum.html#ga603228e6e825c6f5996d44724d3e7b42',1,'anc_control_api.h']]],
   ['audio_5fanc_5fcontrol_5fsub_5fstate_5ft',['audio_anc_control_sub_state_t',['../group__anc__enum.html#ga02d3cde5de1749d2473dc343c321b59f',1,'anc_control_api.h']]],
   ['audio_5fanc_5fcontrol_5ftype_5ft',['audio_anc_control_type_t',['../group__anc__enum.html#ga1d0e5eaf4082c7191a04114d7ebbc377',1,'anc_control_api.h']]],
-  ['audio_5fclock_5fsetting_5ftype_5ft',['audio_clock_setting_type_t',['../group__hal__audio__enum.html#ga26b9b384e2c38d8f1dace5049102c92e',1,'hal_platform.h']]],
   ['audio_5fdsp_5fchannel_5fselection',['AUDIO_DSP_CHANNEL_SELECTION',['../group__hal__audio__enum.html#gaf40df8922a8339bc3d79b42edcea0d3a',1,'hal_platform.h']]],
   ['audio_5ftransmitter_5fevent_5ft',['audio_transmitter_event_t',['../group__audio__transmitter__enum.html#ga7af504280a7b3749166319c54f8b0dba',1,'audio_transmitter_control.h']]],
   ['audio_5ftransmitter_5fstate_5ft',['audio_transmitter_state_t',['../group__audio__transmitter__enum.html#ga54a7cba29c99869a266f86e71b3376a1',1,'audio_transmitter_control.h']]],

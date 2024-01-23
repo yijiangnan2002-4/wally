@@ -41,8 +41,13 @@ extern "C" {
 
 #define MTK_L2CAP_FIX_CHANNEL
 
+#ifdef AIR_HID_BT_HOGP_ENABLE
+/* max supported connection number */
+#define BT_LE_CONNECTION_NUM   5
+#else
 /* max supported connection number */
 #define BT_LE_CONNECTION_NUM   4
+#endif
 
 /* max supported connection number */
 #define BT_CONNECTION_MAX   1

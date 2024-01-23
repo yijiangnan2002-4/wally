@@ -553,6 +553,9 @@ bt_status_t app_le_audio_init_audio_transmitter(app_le_audio_stream_port_t port)
 
             framesize = p_codec_state->codec_frame_blocks_per_sdu * audio_location_channels * p_codec_state->octets_per_codec_frame;
             bitrate = (framesize * 8 * 1000 * 1000) / frame_duration;
+            if ((framesize * 8 * 1000 * 1000) % frame_duration) {
+                bitrate += 1;
+            }
             sampling_freq =  app_le_audio_convert_sample_freq(p_codec_state->sampling_frequency);
         }
 
@@ -566,6 +569,9 @@ bt_status_t app_le_audio_init_audio_transmitter(app_le_audio_stream_port_t port)
 
                 framesize_source = p_codec_state_source->codec_frame_blocks_per_sdu * audio_location_channels * p_codec_state_source->octets_per_codec_frame;
                 bitrate_source = (framesize_source * 8 * 1000 * 1000) / frame_duration_source;
+                if ((framesize_source * 8 * 1000 * 1000) % frame_duration_source) {
+                    bitrate_source += 1;
+                }
                 sampling_freq_source =  app_le_audio_convert_sample_freq(p_codec_state_source->sampling_frequency);
             }
             else {
@@ -582,6 +588,29 @@ bt_status_t app_le_audio_init_audio_transmitter(app_le_audio_stream_port_t port)
 
         if ((NULL == p_codec_state_source) && (NULL == p_codec_state)) {
             return BT_STATUS_FAIL;
+        }
+
+        if (APP_LE_AUDIO_STREAM_PORT_MIC_0 == port) {
+            if ((0 == bitrate_source) || (0 == framesize_source) || (0 == frame_duration_source) || (0 == sampling_freq_source)) {
+                LE_AUDIO_MSGLOG_I("[APP][AUDIO_TRANS] init fail, port:%x bitrate_source:%d framesize_source:%d frame_duration_source:%d sampling_freq_source:%d", 5,
+                                    port,
+                                    bitrate_source,
+                                    framesize_source,
+                                    frame_duration_source,
+                                    sampling_freq_source);
+                return BT_STATUS_FAIL;
+            }
+        }
+        else {
+            if (((0 == bitrate) || (0 == framesize) || (0 == frame_duration) || (0 == sampling_freq))) {
+                LE_AUDIO_MSGLOG_I("[APP][AUDIO_TRANS] init fail, port:%x bitrate:%d framesize:%d frame_duration:%d sampling_freq:%d", 5,
+                                    port,
+                                    bitrate,
+                                    framesize,
+                                    frame_duration,
+                                    sampling_freq);
+                return BT_STATUS_FAIL;
+            }
         }
     }
 /*
@@ -654,7 +683,6 @@ bt_status_t app_le_audio_init_audio_transmitter(app_le_audio_stream_port_t port)
     //voice_ble_audio_dongle_config_t *p_ble_audio_dongle_config = &config.scenario_config.ble_audio_dongle_config.voice_ble_audio_dongle_config;
     /* BT & Codec setting */
     p_ble_audio_dongle_config->channel_enable = APP_LE_AUDIO_TRANSMITTER_CHANNEL_DUAL;
-    p_ble_audio_dongle_config->codec_type = AUDIO_DSP_CODEC_TYPE_LC3;
 #ifdef AIR_LE_AUDIO_UNICAST_ENABLE
     if (APP_LE_AUDIO_MODE_UCST == g_lea_ctrl.curr_mode) {
         /*
@@ -663,24 +691,48 @@ bt_status_t app_le_audio_init_audio_transmitter(app_le_audio_stream_port_t port)
             framesize = app_le_audio_ucst_get_sdu_size(is_mic_port);
         }
         */
-        p_ble_audio_dongle_config->period = is_mic_port ? frame_duration_source : frame_duration;//app_le_audio_ucst_get_sdu_interval(is_mic_port);    /* To do: ISO interval */
 
-        p_ble_audio_dongle_config->codec_param.lc3.sample_rate = is_mic_port ? sampling_freq_source : sampling_freq;//app_le_audio_ucst_get_sampling_rate(is_mic_port);
-        p_ble_audio_dongle_config->codec_param.lc3.bit_rate = is_mic_port ? bitrate_source : bitrate;//bitrate;
-        p_ble_audio_dongle_config->codec_param.lc3.channel_mode = APP_LE_AUDIO_TRANSMITTER_CHANNEL_MODE_DUAL_MONO;
-        p_ble_audio_dongle_config->codec_param.lc3.frame_interval = is_mic_port ? frame_duration_source : frame_duration;//app_le_audio_ucst_get_sdu_interval(is_mic_port);
-        p_ble_audio_dongle_config->codec_param.lc3.frame_size = is_mic_port ? framesize_source : framesize;//framesize;
+        if ((is_mic_port && (160 > framesize_source)) || (!is_mic_port && (160 > framesize))) {
+            p_ble_audio_dongle_config->codec_type = AUDIO_DSP_CODEC_TYPE_LC3;
+            p_ble_audio_dongle_config->period = is_mic_port ? frame_duration_source : frame_duration;//app_le_audio_ucst_get_sdu_interval(is_mic_port);    /* To do: ISO interval */
+            p_ble_audio_dongle_config->codec_param.lc3.sample_rate = is_mic_port ? sampling_freq_source : sampling_freq;//app_le_audio_ucst_get_sampling_rate(is_mic_port);
+            p_ble_audio_dongle_config->codec_param.lc3.bit_rate = is_mic_port ? bitrate_source : bitrate;//bitrate;
+            p_ble_audio_dongle_config->codec_param.lc3.channel_mode = APP_LE_AUDIO_TRANSMITTER_CHANNEL_MODE_DUAL_MONO;
+            p_ble_audio_dongle_config->codec_param.lc3.frame_interval = is_mic_port ? frame_duration_source : frame_duration;//app_le_audio_ucst_get_sdu_interval(is_mic_port);
+            p_ble_audio_dongle_config->codec_param.lc3.frame_size = is_mic_port ? framesize_source : framesize;//framesize;
+
+        } else {
+            p_ble_audio_dongle_config->codec_type = AUDIO_DSP_CODEC_TYPE_LC3PLUS;
+            p_ble_audio_dongle_config->period = is_mic_port ? frame_duration_source : frame_duration;//app_le_audio_ucst_get_sdu_interval(is_mic_port);    /* To do: ISO interval */
+            p_ble_audio_dongle_config->codec_param.lc3plus.sample_rate = is_mic_port ? sampling_freq_source : sampling_freq;//app_le_audio_ucst_get_sampling_rate(is_mic_port);
+            p_ble_audio_dongle_config->codec_param.lc3plus.bit_rate = is_mic_port ? bitrate_source : bitrate;//bitrate;
+            p_ble_audio_dongle_config->codec_param.lc3plus.channel_mode = APP_LE_AUDIO_TRANSMITTER_CHANNEL_MODE_DUAL_MONO;
+            p_ble_audio_dongle_config->codec_param.lc3plus.frame_interval = is_mic_port ? frame_duration_source : frame_duration;//app_le_audio_ucst_get_sdu_interval(is_mic_port);
+            p_ble_audio_dongle_config->codec_param.lc3plus.frame_size = is_mic_port ? framesize_source : framesize;//framesize;
+        }
     }
 #endif
 #ifdef AIR_LE_AUDIO_BIS_ENABLE
     if (APP_LE_AUDIO_MODE_BCST == g_lea_ctrl.curr_mode) {
+
         p_ble_audio_dongle_config->period = app_le_audio_bcst_get_sdu_interval();
 
-        p_ble_audio_dongle_config->codec_param.lc3.sample_rate = app_le_audio_bcst_get_sampling_rate();
-        p_ble_audio_dongle_config->codec_param.lc3.bit_rate = (app_le_audio_bcst_get_bitrate() * 1000);
-        p_ble_audio_dongle_config->codec_param.lc3.channel_mode = APP_LE_AUDIO_TRANSMITTER_CHANNEL_MODE_DUAL_MONO;
-        p_ble_audio_dongle_config->codec_param.lc3.frame_interval = app_le_audio_bcst_get_sdu_interval();
-        p_ble_audio_dongle_config->codec_param.lc3.frame_size = app_le_audio_bcst_get_sdu_size();
+        if (160 > app_le_audio_bcst_get_sdu_size()) {
+            p_ble_audio_dongle_config->codec_type = AUDIO_DSP_CODEC_TYPE_LC3;
+            p_ble_audio_dongle_config->codec_param.lc3.sample_rate = app_le_audio_bcst_get_sampling_rate();
+            p_ble_audio_dongle_config->codec_param.lc3.bit_rate = (app_le_audio_bcst_get_bitrate() * 1000);
+            p_ble_audio_dongle_config->codec_param.lc3.channel_mode = APP_LE_AUDIO_TRANSMITTER_CHANNEL_MODE_DUAL_MONO;
+            p_ble_audio_dongle_config->codec_param.lc3.frame_interval = app_le_audio_bcst_get_sdu_interval();
+            p_ble_audio_dongle_config->codec_param.lc3.frame_size = app_le_audio_bcst_get_sdu_size();
+        } else {
+            p_ble_audio_dongle_config->codec_type = AUDIO_DSP_CODEC_TYPE_LC3PLUS;
+            p_ble_audio_dongle_config->codec_param.lc3plus.sample_rate = app_le_audio_bcst_get_sampling_rate();
+            p_ble_audio_dongle_config->codec_param.lc3plus.bit_rate = (app_le_audio_bcst_get_bitrate() * 1000);
+            p_ble_audio_dongle_config->codec_param.lc3plus.channel_mode = APP_LE_AUDIO_TRANSMITTER_CHANNEL_MODE_DUAL_MONO;
+            p_ble_audio_dongle_config->codec_param.lc3plus.frame_interval = app_le_audio_bcst_get_sdu_interval();
+            p_ble_audio_dongle_config->codec_param.lc3plus.frame_size = app_le_audio_bcst_get_sdu_size();
+        }
+
     }
 #endif
     /* Test mode setting */
@@ -859,7 +911,7 @@ static void app_le_audio_handle_audio_transmitter_start_cnf(bool is_success, app
                 }
             }
         }
-        /* return??? */
+        return;
     } else {
         p_stream_info->next_transmitter_state = APP_LE_AUDIO_TRANSMITTER_STATE_SET_VOL;
         p_stream_info->config_op_queue = 0;

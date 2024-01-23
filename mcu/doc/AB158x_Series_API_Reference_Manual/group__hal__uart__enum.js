@@ -26,6 +26,8 @@ var group__hal__uart__enum =
       [ "HAL_UART_EVENT_READY_TO_READ", "group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2a33c4ec20528bdb36906647fb200f51cb", null ],
       [ "HAL_UART_EVENT_READY_TO_WRITE", "group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2aaa08298641b0d6c0636d9a2a069d41b1", null ],
       [ "HAL_UART_EVENT_WAKEUP_SLEEP", "group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2a4fc01cb1de9c14655cb4ea99a9c45b8c", null ],
+      [ "HAL_UART_EVENT_SW_FLOW_CTRL", "group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2acbc7b05b24b3607dee91a5106efd6bbf", null ],
+      [ "HAL_UART_EVENT_HW_FLOW_CTRL", "group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2a620125ae41555d38e8918921b1343dcd", null ],
       [ "HAL_UART_EVENT_TRANSMISSION_DONE", "group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2a7f41f5f4186ce6a4055caa698c5e1a02", null ],
       [ "HAL_UART_EVENT_RECEIVE_BREAK_SIGNAL", "group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2ab9e61eb9c32192a528e6ba2cbfcd66a3", null ]
     ] ],

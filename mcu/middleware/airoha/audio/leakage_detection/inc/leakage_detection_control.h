@@ -63,11 +63,20 @@ typedef anc_control_event_t  audio_anc_control_event_t;
 /** @brief The both device of the target role. */
 #define TO_BOTH      (3)
 
-#define CB_LEVEL_ALL             (0)
+#define CB_LEVEL_ALL         (0)
 
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+#define LD_SYNC_LATENCY         (100)
+#else
 #define LD_SYNC_LATENCY         (500)
+#endif
 #define LD_SYNC_LATENCY_UNDER_SPECIAL_LINK (60)
+
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+#define LD_MAX_CALLBACK_NUM    (6)
+#else
 #define LD_MAX_CALLBACK_NUM    (3)
+#endif
 /** @brief The all level of callback service level. */
 #define AUDIO_LEAKAGE_DETECTION_CONTROL_CB_LEVEL_ALL             (0)
 /** @brief The success only level of callback service level. */
@@ -82,6 +91,8 @@ typedef anc_control_event_t  audio_anc_control_event_t;
 #define LD_STATUS_TIMEOUT              (4)
 #define LD_STATUS_TERMINATE            (5) //terminated by higher priority job
 #define LD_STATUS_ABSENT               (6) //for partner not attached to agent
+#define LD_STATUS_SZD_PASS             (7) //Sz detection done
+#define LD_STATUS_FANC_PASS            (8) //one shot FANC done
 
 #define PACKED  __attribute__((packed))
 
@@ -102,6 +113,13 @@ typedef enum {
     AUDIO_LEAKAGE_DETECTION_CONTROL_EVENT_STOP,
     AUDIO_LEAKAGE_DETECTION_CONTROL_EVENT_MUSIC_UNMUTE,
     AUDIO_LEAKAGE_DETECTION_CONTROL_EVENT_NUM,
+
+    AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_MUSIC_MUTE,      /**< Events for fadp anc compensation.   */
+    AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_START,
+    AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_STOP,
+    AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_MUSIC_UNMUTE,
+    AUDIO_FADP_ANC_COMPENSATION_CONTROL_EVENT_FANC_STOP,
+
 } audio_anc_leakage_detection_control_event_t;
 
 typedef enum {
@@ -173,6 +191,26 @@ void audio_anc_leakage_detection_send_aws_mce_race_ch_id(uint8_t race_ch_id);
 void audio_anc_leakage_detection_set_mute_status(bool mute);
 bool audio_anc_leakage_detection_get_mute_status(void);
 void audio_anc_leakage_detection_set_duration(uint32_t report_thd, uint32_t no_response_thd);
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+void audio_fadp_anc_compensation_start(anc_leakage_compensation_callback_t callback);
+void audio_fadp_anc_compensation_stop(void);
+void audio_fadp_anc_compensation_szd_stop(void);
+void audio_fadp_anc_compensation_fanc_stop(uint16_t result);
+void audio_fadp_anc_compensation_set_status(bool status);
+void audio_fadp_anc_compensation_terminate(void);
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_mute_music(bool is_mute);
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_prepare(anc_leakage_compensation_callback_t callback);
+void audio_fadp_anc_compensation_init(void);
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_send_start(anc_leakage_compensation_callback_t callback);
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_send_stop(void);
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_resume_dl(void);
+void audio_fadp_anc_compensation_register_vp_start_callback(anc_leakage_compensation_callback_t callback);
+audio_anc_leakage_detection_execution_t audio_fadp_anc_compensation_resume_anc(void);
 
+void audio_fadp_anc_compensation_set_mute_status(bool mute);
+bool audio_fadp_anc_compensation_get_mute_status(void);
+#endif
+bool audio_fadp_anc_compensation_get_status(void);
+void audio_fadp_anc_compensation_set_anc_status_disable(void);
 #endif
 

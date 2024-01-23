@@ -122,7 +122,7 @@ atci_status_t atci_cmd_hdlr_gpio(atci_parse_cmd_param_t *parse_cmd)
     const char current_state[4] = {4, 8, 12, 16};
     #define   CURRENT_STRING   "drv:0-4ma, 1-8ma, 2-12ma, 3-16ma\r\n"
 #endif
-    const char *pull_state[10] = {"NO_PULL ", \
+    const char *pull_state[16] = {"NO_PULL ", \
                                   "PU_R  ", \
                                   "PD_R  ", \
                                   "PU_R0  ", \
@@ -131,7 +131,13 @@ atci_status_t atci_cmd_hdlr_gpio(atci_parse_cmd_param_t *parse_cmd)
                                   "PD_R0_R1", \
                                   "PUPD_ERR", \
                                   "PU_R1  ", \
-                                  "PD_R1  "
+                                  "PD_R1  ", \
+                                  "PD_RSEL01", \
+                                  "PD_RSEL10", \
+                                  "PD_RSEL11", \
+                                  "PU_RSEL01", \
+                                  "PU_RSEL10", \
+                                  "PU_RSEL11", 
                                  };
 
     uint8_t i, error_flag;
@@ -204,7 +210,12 @@ atci_status_t atci_cmd_hdlr_gpio(atci_parse_cmd_param_t *parse_cmd)
                                  CURRENT_STRING
                         );
             atci_gpio_send_response(&ret_len1, response);
-
+#if defined(AIR_BTA_IC_PREMIUM_G3)
+            ret_len1 =  snprintf((char *)(response->response_buf), ATCI_UART_TX_FIFO_BUFFER_SIZE, \
+                                 "\r\nAT+EGPIO=GPIO_COMPARE_MODE  compare ept pinmux mode & hw pinmux mode\r\n" 
+                        );
+            atci_gpio_send_response(&ret_len1, response);
+#endif
             break;
 #endif
         case ATCI_CMD_MODE_EXECUTION:
@@ -219,6 +230,19 @@ atci_status_t atci_cmd_hdlr_gpio(atci_parse_cmd_param_t *parse_cmd)
             response->response_len = strlen((char *)response->response_buf);
             response->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
             atci_send_response(response);
+
+#if defined(AIR_BTA_IC_PREMIUM_G3)
+            if (strncmp(parse_cmd->string_ptr, "AT+EGPIO=GPIO_COMPARE_MODE", strlen("AT+EGPIO=GPIO_COMPARE_MODE")) == 0) {
+
+                hal_gpio_mode_ept_compare_hw_config();
+
+                response->response_len = 0;
+                response->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+                atci_send_response(response);
+                break;
+            }
+
+#endif
 
             /*get specify gpio number state*/
             if (strncmp(parse_cmd->string_ptr, "AT+EGPIO=GPIO_GET:", strlen("AT+EGPIO=GPIO_GET:")) == 0) {

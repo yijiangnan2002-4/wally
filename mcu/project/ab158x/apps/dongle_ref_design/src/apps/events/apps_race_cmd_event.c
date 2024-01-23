@@ -792,26 +792,24 @@ void apps_race_cmd_event_on_race_spp_connected(void)
 }
 #endif
 
+
+#if defined (AIR_PURE_GAMING_ENABLE) || defined(AIR_HID_BT_HOGP_ENABLE)
+
 #ifdef AIR_PURE_GAMING_ENABLE
 #include "app_dongle_ull_le_hid.h"
 #include "bt_ull_le_hid_service.h"
 #include "bt_device_manager_power.h"
 #include "race_usb_relay_dongle.h"
-#include "app_key_remap.h"
 
 static void *apps_race_set_report_rate(PTR_RACE_COMMON_HDR_STRU pCmdMsg, uint16_t length, uint8_t cid);
 static void *apps_race_get_report_rate(PTR_RACE_COMMON_HDR_STRU pCmdMsg, uint16_t length, uint8_t cid);
 static void *apps_race_set_crystal_trim(PTR_RACE_COMMON_HDR_STRU pCmdMsg, uint16_t length, uint8_t cid);
 static void *apps_race_res_foc(PTR_RACE_COMMON_HDR_STRU pCmdMsg, uint16_t length, uint8_t cid);
 #if defined(AIR_PURE_GAMING_MS_ENABLE)
+#include "app_key_remap.h"
 static void *apps_race_set_keyremapping_pattern(PTR_RACE_COMMON_HDR_STRU pCmdMsg, uint16_t length, uint8_t cid);
-#endif /* defined(AIR_PURE_GAMING_MS_ENABLE) */
-
-
-#define RACE_SET_REPORT_RATE    0x3010
-#define RACE_GET_REPORT_RATE        0x3011
-#define RACE_CRYSTAL_TRIM_SET_CAP_LOCAL        0x3032
-#define RACE_SET_KEYREMAPPING_PATTERN        0x3040
+#endif
+#endif
 
 void* apps_race_btd_handler(ptr_race_pkt_t pCmdMsg, uint16_t length, uint8_t cid)
 {
@@ -819,6 +817,8 @@ void* apps_race_btd_handler(ptr_race_pkt_t pCmdMsg, uint16_t length, uint8_t cid
         pCmdMsg->hdr.type == RACE_TYPE_RESPONSE ||
         pCmdMsg->hdr.type == RACE_TYPE_COMMAND_WITHOUT_RSP ||
         pCmdMsg->hdr.type == RACE_TYPE_NOTIFICATION) {
+
+#if defined(AIR_PURE_GAMING_ENABLE)
         switch (pCmdMsg->hdr.id) {
             case RACE_SET_REPORT_RATE:
                 return apps_race_set_report_rate((PTR_RACE_COMMON_HDR_STRU)&(pCmdMsg->hdr), length, cid);
@@ -830,19 +830,41 @@ void* apps_race_btd_handler(ptr_race_pkt_t pCmdMsg, uint16_t length, uint8_t cid
                 if (pCmdMsg->hdr.type == RACE_TYPE_RESPONSE) {
                     return apps_race_res_foc((PTR_RACE_COMMON_HDR_STRU)&(pCmdMsg->hdr), length, cid);
                 }
-#if defined(AIR_PURE_GAMING_MS_ENABLE)
+            #if defined(AIR_PURE_GAMING_MS_ENABLE)
             case RACE_SET_KEYREMAPPING_PATTERN:
                 if (pCmdMsg->hdr.type == RACE_TYPE_COMMAND) {
                     return apps_race_set_keyremapping_pattern((PTR_RACE_COMMON_HDR_STRU)&(pCmdMsg->hdr), length, cid);
                 }
-#endif /* defined(AIR_PURE_GAMING_MS_ENABLE) */
+            #endif
             default:
                 return NULL;
         }
+#elif defined(AIR_HID_BT_HOGP_ENABLE)
+        extern void *app_bolt_poc_race_cmd_handler(ptr_race_pkt_t p_race_package, uint16_t length, uint8_t channel_id);
+        return app_bolt_poc_race_cmd_handler(pCmdMsg, length, cid);
+#endif
     }
     return NULL;
 }
 
+void apps_race_btd_init()
+{
+#define RACE_ID_BTD_BEGIN 0x3000
+#define RACE_ID_BTD_END   0x30BF
+
+    RACE_HANDLER handler = {
+        .id_start = RACE_ID_BTD_BEGIN,
+        .id_end = RACE_ID_BTD_END,
+        .handler = apps_race_btd_handler
+    };
+    race_status_t ret = RACE_Register_Handler(&handler);
+    if (RACE_STATUS_OK != ret) {
+        APPS_LOG_MSGID_E(LOG_TAG" apps_btd_race_init fail: ret=%d", 1, ret);
+    }
+}
+
+
+#ifdef AIR_PURE_GAMING_ENABLE
 static bt_ull_le_hid_srv_app_scenario_t apps_race_transfer_to_scenario(uint16_t report_rate)
 {
     switch (report_rate) {
@@ -1110,22 +1132,7 @@ static void *apps_race_set_keyremapping_pattern(PTR_RACE_COMMON_HDR_STRU pCmdMsg
     return NULL;
 }
 #endif /* defined(AIR_PURE_GAMING_MS_ENABLE) */
-
-void apps_race_btd_init()
-{
-#define RACE_ID_BTD_BEGIN 0x3000
-#define RACE_ID_BTD_END   0x30BF
-
-    RACE_HANDLER handler = {
-        .id_start = RACE_ID_BTD_BEGIN,
-        .id_end = RACE_ID_BTD_END,
-        .handler = apps_race_btd_handler
-    };
-    race_status_t ret = RACE_Register_Handler(&handler);
-    if (RACE_STATUS_OK != ret) {
-        APPS_LOG_MSGID_E(LOG_TAG" apps_btd_race_init fail: ret=%d", 1, ret);
-    }
-}
+#endif
 #endif
 
 void apps_race_cmd_event_init(void)
@@ -1142,7 +1149,7 @@ void apps_race_cmd_event_init(void)
     race_cmd_information_register_read_sdk_version_rsp_callback(apps_race_cmd_event_read_sdk_version_rsp_handler);
 #endif
 
-#ifdef AIR_PURE_GAMING_ENABLE
+#if defined (AIR_PURE_GAMING_ENABLE) || defined(AIR_HID_BT_HOGP_ENABLE)
     apps_race_btd_init();
 #endif
 

@@ -115,5 +115,9 @@ bt_status_t bt_source_src_music_audio_mute(audio_transmitter_id_t sub_id);
 
 bt_status_t bt_source_src_music_audio_unmute(audio_transmitter_id_t sub_id);
 
+#if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
+bt_status_t bt_source_srv_music_set_audio_volume_by_port(bt_source_srv_music_device_t *device, bt_source_srv_port_t port, uint32_t volume);
+#endif
+
 #endif
 

@@ -51,7 +51,9 @@ typedef uint16_t app_dongle_ull_le_hid_scan_t;
  *****************************************************************************/
 #define BT_HID_REPORT_ID_KB         0x01
 #define BT_HID_REPORT_ID_MS         0x02
+#if defined(AIR_NVIDIA_REFLEX_ENABLE)
 #define BT_HID_REPORT_ID_NVMS       0x03
+#endif
 #define BT_HID_REPORT_ID_CONSUMER   0x05
 
 #define BT_HID_REPORT_ID_KB_NKEY_GROUP1    0x06
@@ -60,7 +62,7 @@ typedef uint16_t app_dongle_ull_le_hid_scan_t;
 
 void app_dongle_ull_le_hid_srv_event_callback(bt_ull_event_t event, void *param, uint32_t param_len);
 void app_dongle_ull_le_hid_register_race_callback(app_dongle_le_race_event_callback_t callback);
-bt_status_t app_dongle_ull_le_hid_connect_device(bt_ull_le_hid_srv_device_t device_type, bt_addr_t *addr);
+bt_status_t app_dongle_ull_le_hid_connect_device(bt_ull_le_hid_srv_device_t device_type, bt_addr_t *addr, bool is_fast_pair);
 bt_status_t app_dongle_ull_le_hid_disconnect_all_device(uint8_t reason);
 bt_status_t app_dongle_ull_le_hid_disconnect_device(bt_ull_le_hid_srv_device_t device_type, uint8_t reason, bt_addr_t *addr);
 bt_status_t app_dongle_ull_le_hid_start_reconnect(void);
@@ -72,6 +74,10 @@ bt_status_t app_dongle_ull_le_hid_get_scenaraio(bt_ull_le_hid_srv_app_scenario_t
 bt_bd_addr_t *app_dongle_ull_le_hid_get_addr_by_device_type(uint8_t device_type);
 void app_dongle_ull_le_hid_stop_create_cis_timer(void);
 bt_status_t app_dongle_ull_le_hid_fota_lock(bool lock);
+bt_ull_le_hid_srv_app_scenario_t app_dongle_ull_le_get_scenario_from_ctx();
+#if defined(AIR_PURE_GAMING_MS_ENABLE) || defined(AIR_PURE_GAMING_KB_ENABLE) || defined(AIR_PURE_GAMING_MS_KB_ENABLE)
+void app_dongle_ull_le_clear_bond_info_by_device_type(bt_ull_le_hid_srv_device_t cur_device_type);
+#endif
 
 #if (defined MTK_RACE_CMD_ENABLE)
 void app_dongle_ull_le_hid_get_device_list_handler(uint8_t race_channel, app_dongle_le_race_sink_device_t device_type);
@@ -79,6 +85,10 @@ void app_dongle_ull_le_hid_get_paired_list_handler(uint8_t race_channel, app_don
 void app_dongle_ull_le_hid_delete_device(app_dongle_le_race_sink_device_t device_type, bt_addr_t *addr);
 void app_dongle_ull_le_hid_get_device_status_handler(uint8_t race_channel, app_dongle_le_race_sink_device_t device_type,
     app_dongle_le_race_get_device_status_cmd_t *cmd);
+#endif
+
+#if defined (AIR_PURE_GAMING_MS_ENABLE) || defined (AIR_PURE_GAMING_KB_ENABLE)
+void app_dongle_ull_le_hid_ep_tx_reg(void);
 #endif
 
 #endif

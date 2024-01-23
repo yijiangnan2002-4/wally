@@ -61,6 +61,11 @@ typedef enum {
     APP_I2S_IN_VOL_SET,           /**< Set i2s in volume level. */
 } apps_i2s_in_vol_action_t;
 
+typedef enum {
+    APP_I2S_IN_VOL_SRC,
+    APP_I2S_IN_VOL_SINK,
+} app_i2s_in_vol_src_t;
+
 typedef struct {
 #ifdef AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE
     uint8_t                i2s_port;
@@ -77,6 +82,8 @@ typedef struct {
     apps_i2s_in_vol_port_t      vol_port;
     apps_i2s_in_vol_action_t    vol_action;
     uint8_t                     vol_level;
+    app_i2s_in_vol_src_t        vol_src;
+
 } app_i2s_in_vol_t;
 
 /**

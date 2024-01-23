@@ -174,6 +174,7 @@
  */
 #define BT_SOURCE_SRV_TYPE_NONE                  0x00 /**< The invalid source type. */
 #define BT_SOURCE_SRV_TYPE_HFP                   0x01 /**< The HFP source type. */
+#define BT_SOURCE_SRV_TYPE_A2DP                  0x02 /**< The A2DP source type. */
 typedef uint8_t bt_source_srv_t;                      /**< The source type. */
 
 /**
@@ -182,7 +183,7 @@ typedef uint8_t bt_source_srv_t;                      /**< The source type. */
 #define BT_SOURCE_MODULE_OFFSET        16                                                                 /**< Module range: 0xF8500000 ~ 0xF85F0000. The maximum number of modules: 16. */
 #define BT_SOURCE_MODULE_COMMON        ((BT_MODULE_CUSTOM_SOURCE) | (0x1U << BT_SOURCE_MODULE_OFFSET))    /**< Prefix of the common module. 0xF8510000 */
 #define BT_SOURCE_MODULE_CALL          ((BT_MODULE_CUSTOM_SOURCE) | (0x2U << BT_SOURCE_MODULE_OFFSET))    /**< Prefix of the call module. 0xF8520000 */
-#define BT_SOURCE_MODULE_MUSIC          ((BT_MODULE_CUSTOM_SOURCE) | (0x3U << BT_SOURCE_MODULE_OFFSET))    /**< Prefix of the call module. 0xF8530000 */
+#define BT_SOURCE_MODULE_MUSIC         ((BT_MODULE_CUSTOM_SOURCE) | (0x3U << BT_SOURCE_MODULE_OFFSET))    /**< Prefix of the call module. 0xF8530000 */
 /**
  * @brief Define the sub type action and event for the source module ID.
  * +----------+--------------+--------- +---------- +
@@ -198,7 +199,7 @@ typedef uint32_t bt_source_srv_action_t;
 
 #define BT_SOURCE_MODULE_COMMON_ACTION                      ((BT_SOURCE_MODULE_COMMON) | (0x0U << BT_SOURCE_MODULE_SUB_TYPE_OFFSET)) /**< Prefix of the common action. 0xF8510000 */
 #define BT_SOURCE_MODULE_CALL_ACTION                        ((BT_SOURCE_MODULE_CALL)   | (0x0U << BT_SOURCE_MODULE_SUB_TYPE_OFFSET)) /**< Prefix of the call action.   0xF8520000 */
-#define BT_SOURCE_MOULE_MUSIC_ACTION                        ((BT_SOURCE_MODULE_MUSIC)  | (0x0U << BT_SOURCE_MODULE_SUB_TYPE_OFFSET)) /**< Prefix of the music action.  0xF8530000 */
+#define BT_SOURCE_MODULE_MUSIC_ACTION                       ((BT_SOURCE_MODULE_MUSIC)  | (0x0U << BT_SOURCE_MODULE_SUB_TYPE_OFFSET)) /**< Prefix of the music action.  0xF8530000 */
 
 /* common action. */
 #define BT_SOURCE_SRV_ACTION_AUDIO_PORT                     (BT_SOURCE_MODULE_COMMON_ACTION | 0x001U)       /**< This action informs local that a audio port is opened, \
@@ -219,6 +220,8 @@ typedef uint32_t bt_source_srv_action_t;
                                                                                                                 with #bt_source_srv_volume_down_t as the payload 0xF8510008 */
 #define BT_SOURCE_SRV_ACTION_VOLUME_CHANGE                  (BT_SOURCE_MODULE_COMMON_ACTION | 0x009U)       /**< This action informs device that volume change, \
                                                                                                                 with #bt_source_srv_volume_change_t as the payload 0xF8510009 */
+#define BT_SOURCE_SRV_ACTION_SWITCH_CODEC                   (BT_SOURCE_MODULE_COMMON_ACTION | 0x00AU)       /**< This action requests to switch codec, \
+                                                                                                                with #bt_source_srv_switch_codec_t as the payload 0xF851000A */
 /* call action. */
 #define BT_SOURCE_SRV_ACTION_NEW_CALL                       (BT_SOURCE_MODULE_CALL_ACTION | 0x001U)         /**< This action informs remote that a new call is created, \
                                                                                                                 with #bt_source_srv_new_call_t as the payload 0xF8520001 */
@@ -238,22 +241,28 @@ typedef uint32_t bt_source_srv_action_t;
                                                                                                                  with #bt_source_srv_switch_audio_path_t as the the payload 0xF8520008 */
 #define BT_SOURCE_SRV_ACTION_SEND_CUSTOM_RESULT_CODE        (BT_SOURCE_MODULE_CALL_ACTION | 0x009U)         /**< This action request is for sending custom result code to HF,\
                                                                                                                  with #bt_source_srv_send_custom_result_code_t as the payload 0xF8520009 */
+/**
+ *  @brief Define the music operation type.
+ */
+typedef uint32_t bt_srv_music_operation_t;
 
 /*music*/
-#define BT_SOURCE_SRV_ACTION_START_STREAM                   (BT_SOURCE_MOULE_MUSIC_ACTION | 0x001U)         /**< This action sends a request to start stream to Remote device. 0xF8530001*/
-#define BT_SOURCE_SRV_ACTION_SUSPEND_STREAM                 (BT_SOURCE_MOULE_MUSIC_ACTION | 0x002U)         /**< This action sends a request to suspend stream to Remote device. 0xF8530002*/
-#define BT_SOURCE_SRV_ACTION_PLAY                           (BT_SOURCE_MOULE_MUSIC_ACTION | 0x003U)         /**< This action sends a request to play Music to Remote device. 0xF8530003*/
-#define BT_SOURCE_SRV_ACTION_PAUSE                          (BT_SOURCE_MOULE_MUSIC_ACTION | 0x004U)         /**< This action sends a request to pause Music to Remote device. 0xF8530004*/
-#define BT_SOURCE_SRV_ACTION_NEXT                           (BT_SOURCE_MOULE_MUSIC_ACTION | 0x005U)         /**< This action sends a request to next Music to Remote device. 0xF8530005*/
-#define BT_SOURCE_SRV_ACTION_PREVIOUS                       (BT_SOURCE_MOULE_MUSIC_ACTION | 0x006U)         /**< This action sends a request to previous Music to Remote device. 0xF8530006*/
-#define BT_SOURCE_SRV_ACTION_SET_ABSOLUTE_VOLUME            (BT_SOURCE_MOULE_MUSIC_ACTION | 0x009U)         /**< This action sends a request to volume down to Remote device. 0xF8530009*/
-#define BT_SOURCE_SRV_ACTION_REGISTER_RESPONSE              (BT_SOURCE_MOULE_MUSIC_ACTION | 0x00aU)         /**< This action sends a notify response to Register notify. 0xF853000a*/
-#define BT_SOURCE_SRV_ACTION_GET_ELEMENT                    (BT_SOURCE_MOULE_MUSIC_ACTION | 0x00bU)         /**< This action sends a notify response to Register notify. 0xF853000b*/
-#define BT_SOURCE_SRV_ACTION_START_STREAM_RESPONSE          (BT_SOURCE_MOULE_MUSIC_ACTION | 0x00cU)         /**< This action sends a notify response to Register notify. 0xF853000c*/
-#define BT_SOURCE_SRV_ACTION_SUSPEND_STREAM_RESPONSE        (BT_SOURCE_MOULE_MUSIC_ACTION | 0x00dU)         /**< This action sends a notify response to Register notify. 0xF853000c*/
+#define BT_SOURCE_SRV_ACTION_START_STREAM                   (BT_SOURCE_MODULE_MUSIC_ACTION | 0x001U)         /**< This action sends a request to start stream to Remote device. 0xF8530001*/
+#define BT_SOURCE_SRV_ACTION_SUSPEND_STREAM                 (BT_SOURCE_MODULE_MUSIC_ACTION | 0x002U)         /**< This action sends a request to suspend stream to Remote device. 0xF8530002*/
+#define BT_SOURCE_SRV_ACTION_PLAY                           (BT_SOURCE_MODULE_MUSIC_ACTION | 0x003U)         /**< This action sends a request to play Music to Remote device. 0xF8530003*/
+#define BT_SOURCE_SRV_ACTION_PAUSE                          (BT_SOURCE_MODULE_MUSIC_ACTION | 0x004U)         /**< This action sends a request to pause Music to Remote device. 0xF8530004*/
+#define BT_SOURCE_SRV_ACTION_NEXT                           (BT_SOURCE_MODULE_MUSIC_ACTION | 0x005U)         /**< This action sends a request to next Music to Remote device. 0xF8530005*/
+#define BT_SOURCE_SRV_ACTION_PREVIOUS                       (BT_SOURCE_MODULE_MUSIC_ACTION | 0x006U)         /**< This action sends a request to previous Music to Remote device. 0xF8530006*/
+#define BT_SOURCE_SRV_ACTION_SET_ABSOLUTE_VOLUME            (BT_SOURCE_MODULE_MUSIC_ACTION | 0x009U)         /**< This action sends a request to volume down to Remote device. 0xF8530009*/
+#define BT_SOURCE_SRV_ACTION_REGISTER_RESPONSE              (BT_SOURCE_MODULE_MUSIC_ACTION | 0x00aU)         /**< This action sends a notify response to Register notify. 0xF853000a*/
+#define BT_SOURCE_SRV_ACTION_GET_ELEMENT                    (BT_SOURCE_MODULE_MUSIC_ACTION | 0x00bU)         /**< This action sends a notify response to Register notify. 0xF853000b*/
+#define BT_SOURCE_SRV_ACTION_START_STREAM_RESPONSE          (BT_SOURCE_MODULE_MUSIC_ACTION | 0x00cU)         /**< This action sends a notify response to Register notify. 0xF853000c*/
+#define BT_SOURCE_SRV_ACTION_SUSPEND_STREAM_RESPONSE        (BT_SOURCE_MODULE_MUSIC_ACTION | 0x00dU)         /**< This action sends a notify response to Register notify. 0xF853000c*/
 
-
-typedef uint32_t bt_srv_music_operation_t;
+/**
+ * @deprecated Use #BT_SOURCE_MODULE_MUSIC_ACTION instead.
+ */
+#define BT_SOURCE_MOULE_MUSIC_ACTION                        (BT_SOURCE_MODULE_MUSIC_ACTION)      /**< This event will be phased out and removed in the next SDK major version. Do not use. */
 
 /**
  *  @brief Define the Source event sub type.
@@ -264,7 +273,6 @@ typedef uint32_t bt_source_srv_event_t;
 #define BT_SOURCE_MODULE_CALL_EVENT                     ((BT_SOURCE_MODULE_CALL)   | (0x1U << BT_SOURCE_MODULE_SUB_TYPE_OFFSET))     /**< Prefix of the call event.   0xF8521000*/
 #define BT_SOURCE_MODULE_MUSIC_EVENT                    ((BT_SOURCE_MODULE_MUSIC)  | (0x1U << BT_SOURCE_MODULE_SUB_TYPE_OFFSET))     /**< Prefix of the music event.  0xF8531000*/
 
-
 /* common event */
 #define BT_SOURCE_SRV_EVENT_VOLUME_UP                            (BT_SOURCE_MODULE_COMMON_EVENT | 0x001U)        /**< This event indicates the volume up,\
                                                                                                                     with #bt_source_srv_volume_up_ind_t as the payload. 0xF8511001 */
@@ -272,6 +280,10 @@ typedef uint32_t bt_source_srv_event_t;
                                                                                                                     with #bt_source_srv_volume_down_ind_t as the payload. 0xF8511002 */
 #define BT_SOURCE_SRV_EVENT_VOLUME_CHANGE                        (BT_SOURCE_MODULE_COMMON_EVENT | 0x003U)        /**< This event indicates the volume change,\
                                                                                                                     with #bt_source_srv_volume_change_ind_t as the payload. 0xF8511003 */
+#define BT_SOURCE_SRV_EVENT_PROFILE_CONNECTED                    (BT_SOURCE_MODULE_COMMON_EVENT | 0x004U)        /**< This event indicates the profile connected,\
+                                                                                                                    with #bt_source_srv_profile_connected_t as the payload. 0xF8511004 */
+#define BT_SOURCE_SRV_EVENT_PROFILE_DISCONNECTED                 (BT_SOURCE_MODULE_COMMON_EVENT | 0x005U)        /**< This event indicates the profile disconnected,\
+                                                                                                                    with #bt_source_srv_profile_disconnected_t as the payload. 0xF8511005 */
 
 /* call event */
 #define BT_SOURCE_SRV_EVENT_CALL_INDEX_IND                       (BT_SOURCE_MODULE_CALL_EVENT | 0x001U)        /**< This event indicates the call index for new call,\
@@ -301,12 +313,17 @@ typedef uint32_t bt_source_srv_event_t;
 
 /*Music event*/
 
-#define BT_SOURCE_SRV_EVENT_MUSIC_STREAM_OPERATION_CNF           (BT_SOURCE_MODULE_MUSIC_EVENT | 0x001U)        /**< The evnet is triggered after received start play/suspend response from remote devices*/
-#define BT_SOURCE_SRV_EVENT_MUSIC_CONTROL_OPERATION_IND          (BT_SOURCE_MODULE_MUSIC_EVENT | 0x002U)        /**< The event is triggered after received control cmd, can refer to  bt_srv_avrcp_operation_id_t from remote device*/
-#define BT_SOURCE_SRV_EVENT_MUSIC_STREAM_OPERATION_IND            (BT_SOURCE_MODULE_MUSIC_EVENT | 0x003U)        /**< The event is triggered after received start/suspend streaming req from remote device*/
-#define BT_SOURCE_SRV_EVENT_MUSIC_CHNAGE_VOLUME_IND              (BT_SOURCE_MODULE_MUSIC_EVENT | 0x004U)        /**< The event is triggered after received set absolute volume response from remote device*/
-#define BT_SOURCE_SRV_EVENT_MUSIC_DETECT_MEDIA_DATA_IND          (BT_SOURCE_MODULE_MUSIC_EVENT | 0x005U)        /**< The event is triggered after received detection media data event from audio manager*/
+#define BT_SOURCE_SRV_EVENT_MUSIC_STREAM_OPERATION_CNF           (BT_SOURCE_MODULE_MUSIC_EVENT | 0x001U)        /**< The event is triggered after receiving start play/suspend response from remote devices*/
+#define BT_SOURCE_SRV_EVENT_MUSIC_CONTROL_OPERATION_IND          (BT_SOURCE_MODULE_MUSIC_EVENT | 0x002U)        /**< The event is triggered after receiving control cmd, can refer to  bt_srv_avrcp_operation_id_t from remote device*/
+#define BT_SOURCE_SRV_EVENT_MUSIC_STREAM_OPERATION_IND           (BT_SOURCE_MODULE_MUSIC_EVENT | 0x003U)        /**< The event is triggered after receiving start/suspend streaming req from remote device*/
+#define BT_SOURCE_SRV_EVENT_MUSIC_CHANGE_VOLUME_IND              (BT_SOURCE_MODULE_MUSIC_EVENT | 0x004U)        /**< The event is triggered after receiving set absolute volume response from remote device*/
+#define BT_SOURCE_SRV_EVENT_MUSIC_DETECT_MEDIA_DATA_IND          (BT_SOURCE_MODULE_MUSIC_EVENT | 0x005U)        /**< The event is triggered after receiving detection media data event from audio manager*/
 
+
+/**
+ * @deprecated Use #BT_SOURCE_SRV_EVENT_MUSIC_CHANGE_VOLUME_IND instead.
+ */
+#define BT_SOURCE_SRV_EVENT_MUSIC_CHNAGE_VOLUME_IND              (BT_SOURCE_SRV_EVENT_MUSIC_CHANGE_VOLUME_IND)      /**< This event will be phased out and removed in the next SDK major version. Do not use. */
 
 /**
  *  @brief Define the audio port.
@@ -318,7 +335,7 @@ typedef uint32_t bt_source_srv_event_t;
 #define BT_SOURCE_SRV_PORT_LINE_IN                      0x04      /**< The audio port is line in */
 #define BT_SOURCE_SRV_PORT_I2S_IN                       0x05      /**< The audio port is i2s in */
 #define BT_SOURCE_SRV_PORT_I2S_IN_1                     0x06      /**< The audio port is i2s in 1 */
-typedef uint8_t bt_source_srv_port_t;
+typedef uint8_t bt_source_srv_port_t;                             /**< The audio port type. */
 
 /**
  *  @brief Define the HFP audio gateway features.
@@ -349,6 +366,9 @@ typedef bt_hfp_ag_feature_t bt_source_srv_hfp_feature_t;                        
 #define BT_SOURCE_SRV_HFP_HOLD_FEATURE_CALL_TRANSFER             BT_HFP_AG_HOLD_FEATURE_CALL_TRANSFER             /**< Connects the two calls and disconnects the AG from both calls. */
 typedef bt_hfp_ag_hold_feature_t bt_source_srv_hfp_hold_feature_t;                                                /**< The audio gateway's 3-way calling (hold) feature set. */
 
+/**
+ *  @brief Define the HFP audio gateway custom feature.
+*/
 #define BT_SOURCE_SRV_HFP_CUSTOM_FEATURE_LOCAL_MIC               0x0001                                           /**< Enabling the local MIC. */
 typedef uint16_t bt_source_srv_hfp_custom_feature_t;                                                              /**< The HFP custom features. */
 /**
@@ -423,8 +443,8 @@ typedef uint8_t bt_source_srv_hfp_call_mpty_t;             /**< The HFP call mul
 /**
  *  @brief Define the HFP call address type.
  */
-#define BT_SOURCE_SRV_HFP_CALL_IAC_WITHOUT         0x00    /**< Dialing string without international access code “+”. */
-#define BT_SOURCE_SRV_HFP_CALL_IAC_INCLUDE         0x01    /**< Dialing string includes international access code character “+”. */
+#define BT_SOURCE_SRV_HFP_CALL_IAC_WITHOUT         0x00    /**< Dialing string without international access code "+". */
+#define BT_SOURCE_SRV_HFP_CALL_IAC_INCLUDE         0x01    /**< Dialing string includes international access code character "+". */
 typedef uint8_t bt_source_srv_hfp_call_iac_t;              /**< The HFP call address type. */
 
 /**
@@ -459,7 +479,7 @@ typedef uint8_t bt_source_srv_audio_port_state_t;                     /**< The a
  */
 #define BT_SOURCE_SRV_VOLUME_STEP_TYPE_UP              0x00          /**< The volume is up step. */
 #define BT_SOURCE_SRV_VOLUME_STEP_TYPE_DOWN            0x01          /**< The volume is down step. */
-typedef uint8_t bt_source_srv_volume_step_t;
+typedef uint8_t bt_source_srv_volume_step_t;                         /**< The volume step type. */
 
 /**
  *  @brief Define the mute state type.
@@ -467,34 +487,51 @@ typedef uint8_t bt_source_srv_volume_step_t;
 #define BT_SOURCE_SRV_MUTE_STATE_NONE                  0x00          /**< The mute state is none. */
 #define BT_SOURCE_SRV_MUTE_STATE_ENABLE                0x01          /**< The mute state is enable. */
 #define BT_SOURCE_SRV_MUTE_STATE_DISABLE               0x02          /**< The mute state is disable. */
-typedef uint8_t bt_source_srv_mute_state_t;
+typedef uint8_t bt_source_srv_mute_state_t;                          /**< The mute state type. */
 
 /**
  *  @brief Define the aduio direction type.
  */
 #define BT_SOURCE_SRV_AUDIO_TRANSFER_TO_HF             0x00           /**< The audio connection is transferred to the HF side and AG establishes eSCO. */
 #define BT_SOURCE_SRV_AUDIO_TRANSFER_TO_AG             0x01           /**< The audio connection is transferred to the AG side and AG releases eSCO. */
-typedef uint8_t bt_source_srv_audio_transfer_t;
+typedef uint8_t bt_source_srv_audio_transfer_t;                       /**< The audio transfer type. */
 
 /**
- *  @brief Define media detect type.
+ *  @brief Define the media detect type.
  */
-#define BT_SOURCE_SRV_MUSIC_DATA_SUSPEND 0           /**< The music data is detected no data is suspend. */
-#define BT_SOURCE_SRV_MUSIC_DATA_RESUME 1           /**< The music data is detected normal is resume. */
-typedef uint8_t bt_source_srv_music_data_detect_type_t;
+#define BT_SOURCE_SRV_MUSIC_DATA_SUSPEND    0x00                    /**< No streaming or silence data is detected for Music. */
+#define BT_SOURCE_SRV_MUSIC_DATA_RESUME     0x01                    /**< Audio streaming is detected for Music. */
+typedef uint8_t bt_source_srv_music_data_detect_type_t;             /**< The music data detection action. */
+
+/**
+ *  @brief Define the device set volume type.
+ */
+#define BT_SOURCE_SRV_SET_VOLUME_TO_LOCAL  0x00                 /**< Set volume to audio on local. */
+#define BT_SOURCE_SRV_SET_VOLUME_TO_REMOTE 0x01                 /**< Set volume to audio on remote side. */
+typedef uint32_t bt_source_srv_set_volume_t;                    /**< The set volume type. */
+
 
 /**
  *  @brief Define media data detect action type.
  */
- #define BT_SOURCE_SRV_MUSIC_DATA_DETECT_ENABLE 1 /**< The music data is detected by source is enable. */
- typedef uint8_t bt_source_srv_music_data_detect_t;
+ #define BT_SOURCE_SRV_MUSIC_DATA_DETECT_ENABLE 0x01    /**< The music data is detected by source is enabled. */
+ typedef uint8_t bt_source_srv_music_data_detect_t;     /**<  The music data detection state. */
 
  /**
  *  @brief Define for the sco connection state.
  */
-#define BT_SOURCE_SRV_ESCO_CONNECTION_STATE_DISCONNECTED  (0x00)     /**<  The disconnected state. */
-#define BT_SOURCE_SRV_ESCO_CONNECTION_STATE_CONNECTED     (0x01)     /**<  The connected state. */
-typedef uint8_t bt_source_srv_esco_connection_state_t;               /**<  The eSCO connection state. */
+#define BT_SOURCE_SRV_ESCO_CONNECTION_STATE_DISCONNECTED  0x00     /**<  The disconnected state. */
+#define BT_SOURCE_SRV_ESCO_CONNECTION_STATE_CONNECTED     0x01     /**<  The connected state. */
+typedef uint8_t bt_source_srv_esco_connection_state_t;             /**<  The eSCO connection state. */
+
+/**
+ *  @brief Define the codec type.
+ */
+#define BT_SOURCE_SRV_CODEC_TYPE_NONE    0x00000000                   /**< There is no codec. */
+#define BT_SOURCE_SRV_CODEC_TYPE_CVSD    0x00000001                   /**< The codec is CVSD. */
+#define BT_SOURCE_SRV_CODEC_TYPE_MSBC    0x00000002                   /**< The codec is MSBC. */
+#define BT_SOURCE_SRV_CODEC_TYPE_SBC     0x00000100                   /**< The codec is SBC. */
+typedef uint32_t bt_source_srv_codec_t;                               /**< The source codec type, bit0-bit7 for HFP codec type, bit8-bit15 for A2DP codec type, bit16-bit31 for reserved. */
 
 /**
  * @}
@@ -568,7 +605,34 @@ typedef bt_source_srv_volume_up_t bt_source_srv_volume_down_t;
 typedef struct {
     bt_source_srv_port_t             port;             /**< The audio port. */
     uint32_t                         volume_value;     /**< The volume value, range is 0~100. */
+    bt_source_srv_set_volume_t       is_local;         /**< The notification for volume change is sent to either a local or remote device. */
 } bt_source_srv_volume_change_t;
+
+/**
+ *  @brief This structure defines the parameter for #BT_SOURCE_SRV_ACTION_SWITCH_CODEC, which requests to switch codec.
+ */
+typedef struct {
+    bt_source_srv_t                  type;           /**< The source type. */
+    bt_addr_t                        peer_address;   /**< The address of a remote device. */
+    bt_source_srv_codec_t            codec;          /**< The source codec type. */
+} bt_source_srv_switch_codec_t;
+
+/**
+ *  @brief This structure defines the parameter for #BT_SOURCE_SRV_EVENT_PROFILE_CONNECTED, which indicates the profile connected.
+ */
+typedef struct {
+    bt_source_srv_t                  type;             /**< The source type. */
+    bt_addr_t                        peer_address;     /**< The address of a remote device. */
+    bt_source_srv_codec_t            support_codec;    /**< The source codec type. */
+} bt_source_srv_profile_connected_t;
+
+/**
+ *  @brief This structure defines the parameter for #BT_SOURCE_SRV_EVENT_PROFILE_DISCONNECTED, which indicates the profile disconnected.
+ */
+typedef struct {
+    bt_source_srv_t                  type;             /**< The source type. */
+    bt_addr_t                        peer_address;     /**< The address of a remote device. */
+} bt_source_srv_profile_disconnected_t;
 
 /**
  *  @brief This structure defines the parameter for #BT_SOURCE_SRV_EVENT_VOLUME_UP, which indicates volume is increased.
@@ -614,7 +678,7 @@ typedef struct {
     bt_source_srv_t                  type;           /**< The source type. */
     union {
         bt_source_srv_hfp_new_call_t hfp_new_call;   /**< The hfp call structure. */
-    };                                         /**< The new call information. */
+    };                                               /**< The new call information. */
 } bt_source_srv_new_call_t;
 
 /**
@@ -633,7 +697,7 @@ typedef struct {
     bt_source_srv_t                           type;              /**< The source type. */
     union {
         bt_source_srv_hfp_call_state_change_t hfp_call_change;   /**< The HFP call change structure. */
-    };                                                     /**< The call change information. */
+    };                                                           /**< The call change information. */
 } bt_source_srv_call_state_change_t;
 
 /**
@@ -812,7 +876,7 @@ typedef struct {
 } bt_source_srv_init_parameter_t;
 
 /**
-* @brief The struct for #BT_SOURCE_SRV_MUSIC_STREAM_OPERATION_CNF.
+* @brief The struct for #BT_SOURCE_SRV_EVENT_MUSIC_STREAM_OPERATION_CNF.
 */
 typedef struct {
     bt_addr_t                peer_address;          /**< The address of a remote device. */
@@ -821,7 +885,7 @@ typedef struct {
 }bt_source_srv_music_stream_operation_cnf_t;
 
 /**
-* @brief The struct for #BT_SOURCE_SRV_MUSIC_STREAM_OPERAION_IND.
+* @brief The struct for #BT_SOURCE_SRV_EVENT_MUSIC_STREAM_OPERATION_IND.
 */
 
 typedef struct {
@@ -831,12 +895,12 @@ typedef struct {
 
 
 /**
-* @brief The struct for #BT_SOURCE_SRV_MUSIC_CONTROL_OPERATION_IND.
+* @brief The struct for #BT_SOURCE_SRV_EVENT_MUSIC_CONTROL_OPERATION_IND.
 */
 typedef struct {
     bt_addr_t                peer_address;          /**< The address of a remote device. */
     bt_srv_music_operation_t operation;             /**< The music action. */
-    uint8_t                  length;                /**< The length of paramter of music operation from remote device. */
+    uint8_t                  length;                /**< The length of parameter of music operation from remote device. */
     uint8_t                  *data;                 /**< The data of music operation from remote device. */
 }bt_source_srv_music_control_operation_ind_t;
 
@@ -852,10 +916,13 @@ typedef struct {
 * @brief The struct for BT_SOURCE_SRV_EVENT_MUSIC_DETECT_MEDIA_DATA_IND.
 */
 typedef struct {
-    bt_addr_t  peer_address;/**< The address of a remote device. */
+    bt_addr_t  peer_address;                               /**< The address of a remote device. */
     bt_source_srv_music_data_detect_type_t    event;       /**< The type of media data detect. */
 }bt_source_srv_music_detect_media_data_ind_t;
 
+/**
+*@brief This structure defines the parameter of getting playing device codec.
+*/
 typedef struct {
     bt_source_srv_t            source_type;               /**< The source type. */
     union {
@@ -910,24 +977,33 @@ bt_status_t bt_source_srv_get_feature_config(bt_source_srv_t type, void *feature
  * @param[in] type                  is the source type.
  * @param[in] phone_card            is the parameter of phone card.
  * @param[in] phone_card_num        is the number of the phone card that the list can hold.
- * @return                          the return phone card number.
+ * @return                          phone card number.
  */
 uint32_t bt_source_srv_get_phone_card_information(bt_source_srv_t type, bt_source_srv_phone_card_info_t *phone_card, uint32_t phone_card_num);
 
 /**
- * @brief                 This function is get remote device supports set absolute volume or not
- * @param[in] bt_addr     is the bt address of the specified remote device.
+ * @brief                 This function is used to get remote device and determine if set absolute volume is supported.
+ * @param[in] address     is the BT address of the specified remote device.
  * @return                the support of set absolute volume or not.
  */
 bool bt_source_srv_get_remote_absolute_volume_information(const bt_bd_addr_t *address);
 
 /**
- * @brief                 This function is get playing device codec.
- * @param[in] codec       is the playing device codec, need provide by application.
- * @return                #BT_STATUS_SUCCESS, the get codec is successful.
- *                        otherwise the operation failed.
+ * @brief                         This function is used to get playing device codec.
+ * @param[out] playing_codec      is the playing device codec, need to be provided by application.
+ * @return                        #BT_STATUS_SUCCESS, the operation is successful and user can check the codec in output parameter.
+ *
  */
 bt_status_t bt_source_srv_get_playing_device_codec(bt_source_srv_get_playing_device_codec_t *playing_codec);
+
+/**
+ * @brief                           This function is used to get the audio type recommended by users. The BT source will select the appropriate audio codec type based on the current situation.
+ *                                                                         It should be implemented by the application.
+ * @param[in] type                  is the source type.
+ * @param[in] peer_address          is the BT address of the specified remote device.
+ * @return                          is the recommended codec type by user.
+ */
+bt_source_srv_codec_t bt_source_srv_get_audio_codec_type(bt_source_srv_t type, const bt_addr_t *peer_address);
 
 /**
  * @}

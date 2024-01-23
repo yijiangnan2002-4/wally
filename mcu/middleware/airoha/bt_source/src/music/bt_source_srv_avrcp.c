@@ -46,7 +46,7 @@ static bt_source_srv_volume_step_t bt_source_srv_avrcp_write_volume(bt_bd_addr_t
 
 static bt_status_t bt_source_srv_avrcp_read_volume(bt_bd_addr_t *bd_addr, bt_source_srv_music_stored_data_t *stored_data);
 static void bt_source_srv_avrcp_notify_volume_ind_to_upper_layer(bt_source_srv_music_device_t *dev, uint8_t volume);
-static uint8_t bt_source_srv_avrcp_get_map_volume(uint32_t volume);
+static uint32_t bt_source_srv_avrcp_get_map_volume(uint32_t volume);
 static bool bt_source_srv_avrcp_set_nvdm_data(bt_bd_addr_t *bt_addr, bt_source_srv_music_stored_data_t *data_p);
 static uint32_t bt_source_srv_avrcp_get_volume_step(uint8_t avrcp_volume);
 
@@ -127,11 +127,12 @@ static bt_status_t bt_source_srv_avrcp_connct_cnf_handler(bt_avrcp_connect_cnf_t
 {
     bt_source_srv_music_device_t *dev = bt_source_srv_music_get_device(BT_SRV_MUSIC_DEVICE_AVRCP_HD, (void*)&(cnf->handle));
 
-    LOG_MSGID_I(source_srv,"[AVRCP_SRV]avrcp_connct_cnf_handler: dev = 0x%x, handle = %x, a2dp_state :%x", 3, dev,cnf->handle, dev->a2dp_state);
+    LOG_MSGID_I(source_srv,"[AVRCP_SRV]avrcp_connct_cnf_handler: dev = 0x%x, handle = %x", 2, dev,cnf->handle);
 
     bt_status_t ret = BT_STATUS_FAIL;
     if (dev) {
         bt_audio_srv_context_t *cntx = bt_source_srv_music_get_context();
+        LOG_MSGID_I(source_srv,"[AVRCP_SRV]avrcp_connct_cnf_handler: a2dp_state = 0x%x, bqb_flag = %x", 2, dev->a2dp_state,cntx->bqb_flag);
         if (dev->a2dp_state < BT_SOURCE_SRV_STATE_READY && !cntx->bqb_flag) {
             bt_source_srv_avrcp_disconnect(&dev->dev_addr);
             return ret;
@@ -142,6 +143,7 @@ static bt_status_t bt_source_srv_avrcp_connct_cnf_handler(bt_avrcp_connect_cnf_t
             dev->avrcp_state = BT_SOURCE_SRV_STATE_READY;
 #ifdef BT_SOURCE_PC_VOLUME_PRO_HIGH
         ret = bt_avrcp_set_absolute_volume(cnf->handle, g_local_volume);
+        dev->absolute_support = true;
         dev->bt_volume = g_local_volume;
         dev->flag = dev->flag | BT_SOURCE_SRV_A2DP_REGISTER_FLAG;//busy need retry
         LOG_MSGID_I(source_srv,"[AVRCP_SRV]avrcp_connct_cnf_handler:ret = 0x%x, local_values:%x, nv_vol:0x%x", 3, ret, g_local_volume,dev->bt_volume);
@@ -160,7 +162,7 @@ static bt_status_t bt_source_srv_avrcp_connct_cnf_handler(bt_avrcp_connect_cnf_t
         bt_source_srv_avrcp_set_nvdm_data(&dev->dev_addr, &dev_db);
 #else
         ret = bt_source_srv_avrcp_read_volume(&dev->dev_addr, &dev_db);
-        uint8_t vol_flag = (dev_db.music_volume & BT_SOURCE_SRV_MUSIC_VOLUME_SET_FLAG);
+        uint32_t vol_flag = (dev_db.music_volume & BT_SOURCE_SRV_MUSIC_VOLUME_SET_FLAG);
         LOG_MSGID_I(source_srv,"[AVRCP_SRV]avrcp_connct_cnf_handler:vol_flag: %x", 1, vol_flag);
         if (vol_flag != BT_SOURCE_SRV_MUSIC_VOLUME_SET_FLAG) {
             dev_db.music_volume = g_local_volume | BT_SOURCE_SRV_MUSIC_VOLUME_SET_FLAG;
@@ -233,7 +235,7 @@ static void bt_source_srv_set_absolute_volume_ind_handler(bt_avrcp_set_absolute_
     if (dev) {
         if (response) {
             LOG_MSGID_I(source_srv,"[AVRCP_SRV]set_absolute_volume_handler: dev = 0x%x, ind = %x", 2, dev, response->handle);
-            bt_avrcp_send_set_absoulte_volume_response(response->handle, response->volume);
+            bt_avrcp_send_set_absolute_volume_response(response->handle, response->volume);
             bt_source_srv_avrcp_notify_volume_ind_to_upper_layer(dev, response->volume);
         }
     }
@@ -380,7 +382,7 @@ static void bt_source_srv_avrcp_notify_volume_ind_to_upper_layer(bt_source_srv_m
     uint8_t vol_step = 0;
 
     vol_ind.step_type = bt_source_srv_avrcp_write_volume(&(dev->dev_addr),&volume, &vol_step);
-    bt_utils_memcpy(vol_ind.peer_address.addr, &(dev->dev_addr), sizeof(bt_bd_addr_t));
+    bt_utils_memcpy(&vol_ind.peer_address.addr, &(dev->dev_addr), sizeof(bt_bd_addr_t));
 
     if (vol_ind.step_type != BT_SOURCE_SRV_MUSIC_VOLUME_CHANGE_INVAILD) {
         ret = bt_source_srv_common_audio_find_port_context(BT_SOURCE_SRV_PORT_CHAT_SPEAKER, &port_ind);
@@ -493,8 +495,6 @@ static bt_status_t bt_source_avrcp_get_play_status_notification_ind_hanlder(bt_a
 
 static void bt_source_avrcp_get_element_attribute_notification_ind_handler(bt_avrcp_get_element_attribute_t *ind)
 {
-//    uint8_t temp_data[28] = {0};//now use number is 0x00~0x07
-    //uint8_t i = 0;
     bt_avrcp_get_element_attributes_response_t rsp = {ind->handle,
     BT_AVRCP_METADATA_PACKET_TYPE_NON_FRAGMENT,
     0};
@@ -621,13 +621,13 @@ bt_status_t bt_source_srv_avrcp_callback(bt_msg_type_t msg, bt_status_t status, 
 }
 
 
-bt_status_t bt_source_srv_notify_avrcp_event_change(const bt_bd_addr_t *address, bt_avrcp_event_t event, void *data)
+bt_status_t bt_source_srv_notify_avrcp_event_change(const bt_bd_addr_t *address, bt_avrcp_event_t event, uint32_t data)
 {
     bt_status_t ret = BT_STATUS_FAIL;
-    uint8_t *state = (uint8_t *)data;
+    uint8_t state = (uint8_t)data;
     bt_avrcp_send_register_notification_response_t rsp = {0, };
     bt_source_srv_music_device_t *dev = bt_source_srv_music_get_device(BT_SRV_MUSIC_DEVICE_ADDR_AVRCP, (void *)(address));
-    LOG_MSGID_I(source_srv,"[AVRCP_SRV]notify_avrcp_event_change:state = 0x%x, event:%x ", 2, *state, event);
+    LOG_MSGID_I(source_srv,"[AVRCP_SRV]notify_avrcp_event_change:state = 0x%x, event:%x, data:%x ", 3, state, event, data);
 
     if (dev && (dev->avrcp_state == BT_SOURCE_SRV_STATE_READY)) {
         rsp.parameter_length = 2;
@@ -638,16 +638,16 @@ bt_status_t bt_source_srv_notify_avrcp_event_change(const bt_bd_addr_t *address,
             if (is_iot) {
                 return ret;
             }
-            if ((*state) != dev->avrcp_play_status) {
-                rsp.status = (*state);
-                dev->avrcp_play_status = (*state);
+            if ((state) != dev->avrcp_play_status) {
+                rsp.status = state;
+                dev->avrcp_play_status = state;
                 LOG_MSGID_I(source_srv,"[AVRCP_SRV]notify_avrcp_event_change: status = 0x%x", 1, rsp.status);
             } else {
                 return ret;
             }
         } else if (BT_AVRCP_EVENT_VOLUME_CHANGED == event) {
-            rsp.volume = (*state);
-            dev->bt_volume = (*state);
+            rsp.volume = state;
+            dev->bt_volume = state;
         }
         ret = bt_avrcp_send_register_notification_response(dev->avrcp_hd, &rsp);
 
@@ -719,13 +719,12 @@ bt_status_t bt_source_srv_avrcp_disconnect(const bt_bd_addr_t *address)
     return ret;
 }
 
-static uint8_t bt_source_srv_avrcp_get_map_volume(uint32_t volume)
+static uint32_t bt_source_srv_avrcp_get_map_volume(uint32_t volume)
 {
-    float bt_volume = 0;
-    float local_level_f = volume;
-    bt_volume = ((local_level_f * BT_AVRCP_VOL_IN_LEVEL_VALUE_MAX) / 15 + 0.5f);
-    LOG_MSGID_I(source_srv,"[AVRCP_SRV][VOL]bt_source_srv_avrcp_get_map_volume: volume:%x, bt_volume:%x", 2, volume, (uint8_t)bt_volume);
-    return (uint8_t)bt_volume;
+    bt_sink_srv_am_volume_level_t max_level = bt_sink_srv_ami_get_a2dp_max_volume_level();
+    uint32_t bt_volume = (uint8_t)((1.0f * volume * BT_AVRCP_VOL_IN_LEVEL_VALUE_MAX) / max_level + 0.5f);
+    LOG_MSGID_I(source_srv,"[AVRCP_SRV][VOL]bt_source_srv_avrcp_get_map_volume: volume:%x, bt_volume:%x,max_level:%x", 3, volume, bt_volume, max_level);
+    return bt_volume;
 }
 
 static uint32_t bt_source_srv_avrcp_get_volume_step(uint8_t avrcp_volume)
@@ -744,7 +743,11 @@ static uint32_t bt_source_srv_avrcp_get_volume_step(uint8_t avrcp_volume)
 static bool bt_source_srv_avrcp_is_speaker_port(bt_source_srv_port_t port)
 {
     bool is_speaker = false;
-    if (port == BT_SOURCE_SRV_PORT_CHAT_SPEAKER || port == BT_SOURCE_SRV_PORT_GAMING_SPEAKER) {
+    if (port == BT_SOURCE_SRV_PORT_CHAT_SPEAKER
+        || port == BT_SOURCE_SRV_PORT_GAMING_SPEAKER
+        || port == BT_SOURCE_SRV_PORT_LINE_IN
+        || port == BT_SOURCE_SRV_PORT_I2S_IN
+        || port == BT_SOURCE_SRV_PORT_I2S_IN_1) {
         is_speaker = true;
     }
     return is_speaker;
@@ -764,7 +767,7 @@ bt_status_t bt_source_srv_avrcp_common_action_handler(uint32_t action, void* par
         return ret;
     }
 
-    uint8_t bt_volume = bt_source_srv_avrcp_get_map_volume(data->volume_value);
+    uint32_t bt_volume = bt_source_srv_avrcp_get_map_volume(data->volume_value);
 
     if (dev == NULL) {
         dev = bt_source_srv_music_get_device(BT_SRV_MUSIC_DEVICE_USED, NULL);
@@ -784,6 +787,12 @@ bt_status_t bt_source_srv_avrcp_common_action_handler(uint32_t action, void* par
         case BT_SOURCE_SRV_ACTION_VOLUME_CHANGE:{
 
             if (dev && dev->avrcp_state == BT_SOURCE_SRV_STATE_READY) {
+#if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
+                if (!data->is_local) {
+                    bt_source_srv_music_set_audio_volume_by_port(dev, data->port, data->volume_value);
+                } else
+#endif
+                {
                 bt_source_srv_music_stored_data_t music_data = {0};
                 bt_source_srv_avrcp_read_volume(&dev->dev_addr, &music_data);
                 music_data.music_volume = (music_data.music_volume & 0x7F);
@@ -791,22 +800,22 @@ bt_status_t bt_source_srv_avrcp_common_action_handler(uint32_t action, void* par
                 if (bt_volume !=  music_data.music_volume) {
                     bt_source_srv_music_stored_data_t dev_db;
                     bt_source_srv_memset(&dev_db, 0, sizeof(bt_source_srv_music_stored_data_t));
-                    dev_db.music_volume = (bt_volume | BT_SOURCE_SRV_MUSIC_VOLUME_SET_FLAG);
+                    dev_db.music_volume = (uint8_t)(bt_volume | BT_SOURCE_SRV_MUSIC_VOLUME_SET_FLAG);
                     if (dev->absolute_support) {
-                        ret = bt_avrcp_set_absolute_volume(dev->avrcp_hd, bt_volume);
+                        ret = bt_avrcp_set_absolute_volume(dev->avrcp_hd, (uint8_t)bt_volume);
                     } else {
-                        bt_source_srv_notify_avrcp_event_change(&dev->dev_addr, BT_AVRCP_EVENT_VOLUME_CHANGED, &bt_volume);
+                        bt_source_srv_notify_avrcp_event_change(&dev->dev_addr, BT_AVRCP_EVENT_VOLUME_CHANGED, bt_volume);
                     }
                     if (ret == BT_STATUS_SUCCESS) {
                         bt_source_srv_avrcp_set_nvdm_data(&dev->dev_addr, &dev_db);
                     }
                 }
                 LOG_MSGID_I(source_srv,"[AVRCP_SRV][VOL]avrcp_common_handler:ret:0x%x, local_vol:0x%x", 2, ret, g_local_volume);
+                }
             } else {
-                g_local_volume = bt_volume;
                 LOG_MSGID_I(source_srv,"[AVRCP_SRV][VOL]avrcp_common_handler: AVRCP NOT CONNECTED , volume:0x%x, local_vol:0x%x", 2,bt_volume, g_local_volume);
             }
-
+            g_local_volume = bt_volume;
             ret = BT_STATUS_SUCCESS;
             break;
         }
@@ -820,7 +829,7 @@ bt_status_t bt_source_srv_avrcp_action_handler(uint32_t action, void* param,uint
 {
     bt_source_srv_music_device_t *dev = NULL;
     bt_source_srv_music_action_t *srv_action = NULL;
-    uint8_t avrcp_status = BT_AVRCP_EVENT_MEDIA_PLAY_STOPPED;
+    uint32_t avrcp_status = BT_AVRCP_EVENT_MEDIA_PLAY_STOPPED;
     uint32_t handle = BT_SOURCE_SRV_INVAILD_HANDLE;
     bt_status_t ret = BT_STATUS_SUCCESS;
 
@@ -839,12 +848,12 @@ bt_status_t bt_source_srv_avrcp_action_handler(uint32_t action, void* param,uint
         case BT_SOURCE_SRV_ACTION_PLAY:
         {
             avrcp_status = BT_AVRCP_EVENT_MEDIA_PLAYING;
-            ret = bt_source_srv_notify_avrcp_event_change(&srv_action->peer_address.addr, BT_AVRCP_EVENT_PLAYBACK_STATUS_CHANGED, &avrcp_status);
+            ret = bt_source_srv_notify_avrcp_event_change(&srv_action->peer_address.addr, BT_AVRCP_EVENT_PLAYBACK_STATUS_CHANGED, avrcp_status);
             break;
         }
         case BT_SOURCE_SRV_ACTION_PAUSE:{
             avrcp_status = BT_AVRCP_EVENT_MEDIA_PAUSED;
-            ret = bt_source_srv_notify_avrcp_event_change(&srv_action->peer_address.addr, BT_AVRCP_EVENT_PLAYBACK_STATUS_CHANGED, &avrcp_status);
+            ret = bt_source_srv_notify_avrcp_event_change(&srv_action->peer_address.addr, BT_AVRCP_EVENT_PLAYBACK_STATUS_CHANGED, avrcp_status);
             break;
         }
         case BT_SOURCE_SRV_ACTION_NEXT:{
@@ -854,7 +863,7 @@ bt_status_t bt_source_srv_avrcp_action_handler(uint32_t action, void* param,uint
             break;
         }
         case BT_SOURCE_SRV_ACTION_GET_ELEMENT:{
-            uint8_t i = 0;
+            uint32_t i = 0;
             uint8_t *p_data = NULL;
             uint16_t temp_length = 0;
             bt_avrcp_get_element_attributes_response_t rsp = {0};
@@ -869,7 +878,7 @@ bt_status_t bt_source_srv_avrcp_action_handler(uint32_t action, void* param,uint
                 rsp.packet_type = BT_AVRCP_METADATA_PACKET_TYPE_NON_FRAGMENT;
                 rsp.length = length; //(high_len << 8) | low_len;
             }
-            p_data = bt_utils_memory_alloc(rsp.length);
+            p_data = (uint8_t*)bt_utils_memory_alloc(rsp.length);
             if (p_data == NULL) {
                 LOG_MSGID_E(source_srv,"[AVRCP_SRV]set_element:alloc momery fail", 0);
                 break;
@@ -901,7 +910,7 @@ bt_status_t bt_source_srv_avrcp_BQB_notify_volume_change(bool is_notify,uint8_t 
         dev = bt_source_srv_music_get_device(BT_SRV_MUSIC_DEVICE_VAILD_DEVICE, NULL);
     }
     if (is_notify) {
-        ret = bt_source_srv_notify_avrcp_event_change(&dev->dev_addr, BT_AVRCP_EVENT_VOLUME_CHANGED, &volume);
+        ret = bt_source_srv_notify_avrcp_event_change(&dev->dev_addr, BT_AVRCP_EVENT_VOLUME_CHANGED, volume);
     } else {
         ret = bt_avrcp_set_absolute_volume(dev->avrcp_hd, volume);
     }

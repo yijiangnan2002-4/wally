@@ -132,6 +132,7 @@ typedef enum {
     AUDIO_ANC_MONI_SCENARIO_TYPE_HA_PSAP        = 3,
     AUDIO_ANC_MONI_SCENARIO_TYPE_SW_VIVID_PT    = 4,
     AUDIO_ANC_MONI_SCENARIO_TYPE_HW_VIVID_PT    = 5,
+    AUDIO_ANC_MONI_SCENARIO_TYPE_LLF            = 6,
     AUDIO_ANC_MONI_SCENARIO_TYPE_MAX,
 } audio_anc_monitor_scenario_type_t;
 
@@ -158,6 +159,7 @@ void audio_anc_monitor_anc_callback(audio_anc_control_event_t event_id, audio_an
 void audio_anc_monitor_set_info(audio_anc_monitor_set_info_t set_type, uint32_t para);
 uint32_t audio_anc_monitor_get_info(audio_anc_monitor_get_info_t info);
 void audio_anc_monitor_transmitter_send_ccni(uint16_t nvkey_id);
+void audio_anc_monitor_get_anc_status(uint8_t *enable, audio_anc_monitor_scenario_type_t *anc_type, uint32_t *misc1, uint32_t *misc2);
 
 
 #if defined(AIR_ANC_USER_UNAWARE_ENABLE) || defined(AIR_ANC_WIND_DETECTION_ENABLE) || defined(AIR_ANC_ENVIRONMENT_DETECTION_ENABLE)

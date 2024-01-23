@@ -68,7 +68,7 @@ typedef uint16_t app_ms_teams_special_client_action;
 #define APP_MS_TEAMS_SPECIAL_CLIENT_EVT_MIC_MUTE_STA_RSP 0x0246
 #define APP_MS_TEAMS_SPECIAL_CLIENT_EVT_MIC_LOCK_STA_RSP 0x0248
 #define APP_MS_TEAMS_SPECIAL_CLIENT_EVT_WEARING_STA_RSP 0x0340
-#define APP_MS_TEAMS_SPECIAL_CIIENT_EVT_DON_TO_ANSER_SET_RSP 0x0440
+#define APP_MS_TEAMS_SPECIAL_CIIENT_EVT_DON_TO_ANSWER_SET_RSP 0x0440
 #define APP_MS_TEAMS_SPECIAL_CLIENT_EVT_BAT_LEVEL_RSP 0x0540
 #define APP_MS_TEAMS_SPECIAL_CLIENT_EVT_FRIEND_NAME_CHANGE 0x0182
 #define APP_MS_TEAMS_SPECIAL_CLIENT_EVT_SIDETONE_LEVEL_CHANGE 0x0281
@@ -208,9 +208,9 @@ static void app_ms_teams_event_process(uint8_t *data, uint32_t len)
             telemetry_info->headset_worn = data[7];
             ms_teams_telemetry_report_uint8_value(MS_TEAMS_TELEMETRY_HEADSET_WORN, data[7], true);
             break;
-        case APP_MS_TEAMS_SPECIAL_CIIENT_EVT_DON_TO_ANSER_SET_RSP:
+        case APP_MS_TEAMS_SPECIAL_CIIENT_EVT_DON_TO_ANSWER_SET_RSP:
         case APP_MS_TEAMS_SPECIAL_CLIENT_EVT_DON_TO_ANSWER_SET_CHANGE:
-            telemetry_info->don_to_seeting = data[7];
+            telemetry_info->don_to_setting = data[7];
             ms_teams_telemetry_report_uint8_value(MS_TEAMS_TELEMETRY_DON_TO_ANS_SETTING, data[7], true);
             break;
         case APP_MS_TEAMS_SPECIAL_CLIENT_EVT_BAT_LEVEL_RSP:

@@ -103,6 +103,7 @@ typedef struct {
 
 ATTR_SHARE_ZIDATA core_task_info_t dsp_task_info = {0};
 ATTR_SHARE_ZIDATA core_task_info_t mcu_task_info = {0};
+ATTR_SHARE_ZIDATA uint32_t core_enable_heap_leak_self_check;
 ATTR_SHARE_ZIDATA hal_ccni_message_t hal_ccni_message;
 #endif
 
@@ -911,6 +912,34 @@ atci_status_t atci_cmd_hdlr_utilization(atci_parse_cmd_param_t *parse_cmd)
                 presponse->response_flag |= ATCI_RESPONSE_FLAG_APPEND_OK;
                 atci_send_response(presponse);
                 break;
+            }
+            else if (strcmp(op, "heap_self_check") == 0) {  
+                param = strtok_r(NULL, ",", &saveptr);
+                extern uint32_t g_tmp_enable_heak_leak;
+                if (param != NULL) {
+                    if (strcmp("enable", param) == 0) {
+                        g_tmp_enable_heak_leak = 1;    
+                        core_enable_heap_leak_self_check  = 1;                      
+                    } else if (strcmp("disable", param) == 0) {
+                        g_tmp_enable_heak_leak = 0;
+                        core_enable_heap_leak_self_check = 0;
+                    } else {
+                        strncpy((char *)(presponse->response_buf),
+                        "+UTILIZATION:\r\n command syntax error\r\n",
+                        (int32_t)ATCI_UART_TX_FIFO_BUFFER_SIZE);
+                        presponse->response_len = strlen((char *)(presponse->response_buf));
+                        atci_send_response(presponse);
+                        break;
+                    }  
+                    /* send ccni to dsp */
+                    hal_ccni_message.ccni_message[0] =  hal_memview_mcu_to_infrasys((uint32_t)&core_enable_heap_leak_self_check);
+                    if (0 != hal_ccni_set_event(CCNI_CM4_TO_DSP0_CONFIG_PROFILING, &hal_ccni_message)) {
+                         LOGMSGIDE("mcu send ccni to dsp fail!!!\r\n", 0);
+                    }                    
+                    presponse->response_len = 1;
+                    presponse->response_flag |= ATCI_RESPONSE_FLAG_APPEND_OK;
+                    atci_send_response(presponse);
+                }
             }
 #endif
             else if (strcmp(op, "duration") == 0) {

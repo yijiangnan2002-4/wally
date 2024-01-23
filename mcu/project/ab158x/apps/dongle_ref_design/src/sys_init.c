@@ -142,11 +142,11 @@ extern uint32_t _image_stack_zi_base;
 
 #if (defined(AIR_BTA_IC_PREMIUM_G2) || defined(AIR_BTA_IC_STEREO_HIGH_G3))
 /**
- * @brief       Caculate actual bit value of region size.
+ * @brief       Calculate actual bit value of region size.
  * @param[in]   region_size: actual region size.
  * @return      Corresponding bit value of region size for MPU setting.
  */
-static uint32_t caculate_mpu_region_size(uint32_t region_size)
+static uint32_t calculate_mpu_region_size(uint32_t region_size)
 {
     uint32_t count;
 
@@ -248,7 +248,7 @@ static void mpu_init(void)
 #if (defined (AIR_BTA_IC_PREMIUM_G2) || defined(AIR_BTA_IC_STEREO_HIGH_G3))
         /* Updata region information to be configured. */
         region_config.mpu_region_address = region_information[region].mpu_region_base_address;
-        region_config.mpu_region_size = (hal_mpu_region_size_t) caculate_mpu_region_size(region_information[region].mpu_region_end_address - region_information[region].mpu_region_base_address);
+        region_config.mpu_region_size = (hal_mpu_region_size_t) calculate_mpu_region_size(region_information[region].mpu_region_end_address - region_information[region].mpu_region_base_address);
         region_config.mpu_region_access_permission = region_information[region].mpu_region_access_permission;
         region_config.mpu_subregion_mask = region_information[region].mpu_subregion_mask;
         region_config.mpu_xn = region_information[region].mpu_xn;
@@ -414,10 +414,10 @@ void system_init(void)
     /* sys init done log */
     LOG_I(common, "[MCU]system initialize done[%s]", build_date_time_str);
     LOG_I(common, "FirmWare Version: %s", MTK_FW_VERSION);
-#ifdef AIR_PURE_GAMING_ENABLE
+#if defined (AIR_PURE_GAMING_ENABLE) || defined(AIR_HID_BT_HOGP_ENABLE)
     /* add workaround for MP tool, since MP tool must need this log, BTA DSP can output this log too */
     LOG_I(common, "[DSP0]system initialize done[%s]", build_date_time_str);
-#endif /* AIR_PURE_GAMING_ENABLE */
+#endif
 
 #ifdef MTK_NVDM_ENABLE
     exception_dump_config_init();

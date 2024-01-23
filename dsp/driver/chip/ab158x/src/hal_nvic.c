@@ -394,6 +394,7 @@ ATTR_TEXT_IN_IRAM void isrC_main()
     uint32_t shift;
     uint32_t int_level;
     uint32_t backup;
+    uint32_t backup_int_level = 0;
     const  uint32_t sw_irq[4][2] = {{I2S_SLAVE_IRQn, RGU_IRQn},
         {MCU_DMA1_IRQn, BT_AUTX_IRQn},
         {ANC_IRQn, CM33_IRQn},
@@ -406,7 +407,8 @@ ATTR_TEXT_IN_IRAM void isrC_main()
     int_level = (uint32_t)XTOS_SET_INTLEVEL(4); // to get intlevel
     XTOS_RESTORE_INTLEVEL(int_level);           // restore intlevel
 
-    int_level = int_level & 0xf;
+    int_level = int_level & 0xF;
+    backup_int_level = int_level;  // backup current irq level
 
     for (i = sw_irq[int_level - 1][0]; i <= sw_irq[int_level - 1][1]; i++) {
         shift = 1 << i;
@@ -441,6 +443,16 @@ ATTR_TEXT_IN_IRAM void isrC_main()
         }
     }
     nvic_irq_execution_number = backup;
+
+    /* Check if the off interrupt is paired  */
+    int_level = (uint32_t)XTOS_SET_INTLEVEL(4); // to get intlevel
+    XTOS_RESTORE_INTLEVEL(int_level);           // restore intlevel
+    int_level = int_level & 0xF;
+    if(int_level != backup_int_level) {
+        log_hal_msgid_error("backup_int_level = %d, int_level = %d \r\n", 2, backup_int_level, int_level);
+        hal_gpt_delay_ms(10);
+        assert(0);
+    }
 }
 
 hal_nvic_status_t hal_nvic_register_isr_handler(hal_nvic_irq_t irq_number, hal_nvic_isr_t callback)
@@ -496,7 +508,12 @@ ATTR_TEXT_IN_IRAM hal_nvic_status_t hal_nvic_restore_interrupt_mask(uint32_t mas
 #ifdef HAL_TIME_CHECK_DISABLE_IRQ_ENABLED
     uint32_t backup_time_start = 0, backup_time_end = 0, backup_duration_us = 0, backup_linkAddress = 0, backup_critical_flag;
     uint32_t check_assert_flag = TRUE;
-    if ((mask & 0xF) == 0) {
+    uint32_t int_level;
+
+    int_level = (uint32_t)XTOS_SET_INTLEVEL(4);
+    XTOS_RESTORE_INTLEVEL(int_level);           // restore intlevel
+
+    if (((mask & 0xF) == 0) && ((int_level & 0xF) == 4)) {
         backup_time_end    = GPT(HAL_GPT_US_PORT)->GPT_COUNT;
         backup_time_start = hal_time_check_disbale_irq_start;
         backup_duration_us = backup_time_end - backup_time_start;
@@ -515,7 +532,7 @@ ATTR_TEXT_IN_IRAM hal_nvic_status_t hal_nvic_restore_interrupt_mask(uint32_t mas
 
 #ifdef HAL_TIME_CHECK_DISABLE_IRQ_ENABLED
     if((backup_duration_us > TIME_CHECK_DISABLE_IRQ_TIME) && (hal_core_status_read(HAL_CORE_DSP0) != HAL_CORE_EXCEPTION) && \
-      (is_time_check_assert_enabled == true) && check_assert_flag) {
+      (is_time_check_assert_enabled == true) && check_assert_flag && ((int_level & 0xF) == 4)) {
         log_hal_msgid_error("[NVIC][DSP HAL %d us]start:%d,end:%d,duartion:%d,lr:0x%x,flag:0x%x\r\n", 6,
                                 TIME_CHECK_DISABLE_IRQ_TIME,
                                 backup_time_start,
@@ -557,7 +574,12 @@ ATTR_TEXT_IN_IRAM hal_nvic_status_t hal_nvic_restore_interrupt_mask_special(uint
 {
 #ifdef HAL_TIME_CHECK_DISABLE_IRQ_ENABLED
     uint32_t backup_time_start = 0, backup_time_end = 0, backup_duration_us = 0, backup_linkAddress = 0;
-    if ((mask & 0xf) == 0) {
+     uint32_t int_level;
+
+    int_level = (uint32_t)XTOS_SET_INTLEVEL(4);
+    XTOS_RESTORE_INTLEVEL(int_level);           // restore intlevel
+
+    if (((mask & 0xF) == 0) && ((int_level & 0xF) == 4)) {
         backup_time_end    = GPT(HAL_GPT_US_PORT)->GPT_COUNT;
         backup_time_start = hal_time_check_disbale_irq_start_special;
         backup_duration_us = backup_time_end - backup_time_start;
@@ -573,7 +595,7 @@ ATTR_TEXT_IN_IRAM hal_nvic_status_t hal_nvic_restore_interrupt_mask_special(uint
 
 #ifdef HAL_TIME_CHECK_DISABLE_IRQ_ENABLED
     if ((backup_duration_us > TIME_CHECK_DISABLE_IRQ_TIME_SPECIAL)  && (hal_core_status_read(HAL_CORE_DSP0) != HAL_CORE_EXCEPTION) && \
-      (is_time_check_assert_enabled == true)) {
+      (is_time_check_assert_enabled == true) && ((int_level & 0xF) == 4)) {
         log_hal_msgid_warning("[NVIC][DSP HAL SPECIAL %d us]start:%d,end:%d,duartion:%d,lr:0x%x \r\n", 5,
                                 TIME_CHECK_DISABLE_IRQ_TIME_SPECIAL,
                                 backup_time_start,

@@ -35,6 +35,7 @@
 #include "bt_source_srv_call_psd_manager.h"
 #include "bt_source_srv_call_pseduo_dev.h"
 #include "bt_source_srv_utils.h"
+#include "bt_timer_external.h"
 
 static bt_status_t bt_source_srv_call_psd_audio_play_int(bt_source_srv_call_pseduo_dev_t *device, bt_source_srv_call_audio_play_t type);
 static bt_status_t bt_source_srv_call_psd_audio_stop_int(bt_source_srv_call_pseduo_dev_t *device, bt_source_srv_call_audio_play_t type);
@@ -112,30 +113,22 @@ static void bt_source_srv_call_psd_update_next_state(bt_source_srv_call_pseduo_d
     device->next_state = next_state;
 }
 
+static void bt_source_srv_call_psd_update_next_sub_state(bt_source_srv_call_pseduo_dev_t *device, bt_source_srv_call_psd_next_sub_state_t next_sub_state)
+{
+    bt_source_srv_assert(device && "update next state device is NULL");
+    LOG_MSGID_I(source_srv, "[AG][PSD][MGR] device = %02x update next sub state = %2x", 2, device, next_sub_state);
+    device->next_sub_state = next_sub_state;
+}
+
 static void bt_source_srv_call_psd_take_audio_src_complete(bt_source_srv_call_pseduo_dev_t *device)
 {
     bt_source_srv_assert(device && "take audio source complete device is NULL");
-    if (device->codec_type == BT_HFP_CODEC_TYPE_NONE) {
-        /* esco was not established, wait esco establish */
-        bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_PLAY);
-        bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_PLAY_IDLE);
-        /* run next state in play idle sub state */
-        bt_source_srv_call_psd_run_next_state_with_sub_state_play_idle(device);
-    } else {
-        /* active esco. */
-        bt_source_srv_call_audio_controller_config(device->codec_type);
-        device->user_callback((void *)device, BT_SOURCE_SRV_CALL_PSD_USER_EVENT_ACTIVATE_SCO, NULL);
-        bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_PLAY);
-        bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_SCO_ACTIVATING);
-    }
+    bt_source_srv_call_psd_event_notify(device, BT_SOURCE_SRV_CALL_PSD_EVENT_AUDIO_SRC_TAKE_SUCCESS, NULL);
 }
 
 static void bt_source_srv_call_psd_give_audio_src_complete(bt_source_srv_call_pseduo_dev_t *device)
 {
-    bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_READY);
-    bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_NONE);
-    /* run next state in ready state */
-    bt_source_srv_call_psd_run_next_state_with_state_ready(device);
+    bt_source_srv_call_psd_event_notify(device, BT_SOURCE_SRV_CALL_PSD_EVENT_AUDIO_SRC_GIVE_SUCCESS, NULL);
 }
 
 static bt_status_t bt_source_srv_call_psd_take_audio_source(bt_source_srv_call_pseduo_dev_t *device)
@@ -169,6 +162,8 @@ static bt_status_t bt_source_srv_call_psd_take_audio_source(bt_source_srv_call_p
 static bt_status_t bt_source_srv_call_psd_give_audio_source(bt_source_srv_call_pseduo_dev_t *device)
 {
     bt_source_srv_assert(device && "give audio source device is NULL");
+    bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_GIVE_AUDIO_SRC);
+    bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_NONE);
     bt_source_srv_call_psd_audio_source_t type = BT_SOURCE_SRV_CALL_PSD_AUDIO_SRC_TYPE_TRANSMITTER;
     bt_source_srv_call_psd_flag_t flag = BT_SOURCE_SRV_CALL_PSD_FLAG_NONE;
     for (type = 0; type < BT_SOURCE_SRV_CALL_PSD_AUDIO_SRC_TYPE_MAX; type++) {
@@ -216,9 +211,7 @@ static void bt_source_srv_call_psd_handle_audio_src_take_success(bt_source_srv_c
 
 static void bt_source_srv_call_psd_handle_audio_src_take_reject(bt_source_srv_call_pseduo_dev_t *device)
 {
-    audio_src_srv_resource_manager_add_waiting_list(device->transmitter_audio_src);
-    bt_source_srv_call_psd_add_waiting_list(device, BT_SOURCE_SRV_CALL_PSD_AUDIO_SRC_TYPE_TRANSMITTER);
-    bt_source_srv_call_psd_give_audio_source(device);
+    bt_source_srv_call_psd_event_notify(device, BT_SOURCE_SRV_CALL_PSD_EVENT_AUDIO_SRC_REJECT, NULL);
 }
 
 static void bt_source_srv_call_psd_handle_audio_src_give_success(bt_source_srv_call_pseduo_dev_t *device)
@@ -228,7 +221,9 @@ static void bt_source_srv_call_psd_handle_audio_src_give_success(bt_source_srv_c
     bt_source_srv_psd_get_call_state_t call_state = {0};
     device->user_callback(device, BT_SOURCE_SRV_CALL_PSD_USER_EVENT_GET_CALL_STATE, &call_state);
     device->user_callback(device, BT_SOURCE_SRV_CALL_PSD_USER_EVENT_GET_ESCO_STATE, &esco_state);
-    if ((esco_state.state == BT_SOURCE_SRV_CALL_PSD_ESCO_CONNECTED) || (call_state.state == BT_SOURCE_SRV_CALL_PSD_CALL_EXISTENCE)) {
+    if ((BT_SOURCE_SRV_CALL_PSD_FLAG_IS_SET(device, BT_SOURCE_SRV_CALL_PSD_FLAG_NEED_ADD_WL)) &&
+            ((esco_state.state == BT_SOURCE_SRV_CALL_PSD_ESCO_CONNECTED) || (call_state.state == BT_SOURCE_SRV_CALL_PSD_CALL_EXISTENCE))) {
+        BT_SOURCE_SRV_CALL_PSD_REMOVE_FLAG(device, BT_SOURCE_SRV_CALL_PSD_FLAG_NEED_ADD_WL);
         bt_source_srv_call_psd_add_waiting_list(device, BT_SOURCE_SRV_CALL_PSD_AUDIO_SRC_TYPE_TRANSMITTER);
     }
     bt_source_srv_call_psd_give_audio_source(device);
@@ -236,7 +231,23 @@ static void bt_source_srv_call_psd_handle_audio_src_give_success(bt_source_srv_c
 
 static void bt_source_srv_call_psd_handle_audio_src_suspend(bt_source_srv_call_pseduo_dev_t *device)
 {
-    device->user_callback((void *)device, BT_SOURCE_SRV_CALL_PSD_USER_EVENT_SUSPEND, NULL);
+    BT_SOURCE_SRV_CALL_PSD_SET_FLAG(device, BT_SOURCE_SRV_CALL_PSD_FLAG_NEED_ADD_WL);
+    bt_source_srv_call_psd_event_notify(device, BT_SOURCE_SRV_CALL_PSD_EVENT_AUDIO_SRC_SUSPEND, NULL);
+}
+
+static void bt_source_srv_call_psd_audio_resource_message_receive(uint32_t timer_id, uint32_t data)
+{
+    LOG_MSGID_I(source_srv, "[AG][PSD][MGR] device = %02x audio resource message = %02x receive", 2, timer_id, data);
+    bt_source_srv_call_pseduo_dev_t *device = (bt_source_srv_call_pseduo_dev_t *)timer_id;
+    if ((sizeof(g_audio_src_event_handler) / sizeof(bt_source_srv_audio_src_event_handler_t)) > data) {
+        g_audio_src_event_handler[data](device);
+    }
+}
+
+static void bt_source_srv_call_psd_audio_resource_message_send(bt_source_srv_call_pseduo_dev_t *device, audio_src_srv_resource_manager_event_t event)
+{
+    bt_timer_ext_status_t timer_status = bt_timer_ext_start((uint32_t)device, (uint32_t)event, 0, bt_source_srv_call_psd_audio_resource_message_receive);
+    LOG_MSGID_I(source_srv, "[AG][PSD][MGR] device = %02x audio resource message = %02x send status = %02x", 3, device, event, timer_status);
 }
 
 static void bt_source_srv_call_psd_audio_resource_callback(audio_src_srv_resource_manager_handle_t *handle,
@@ -249,10 +260,9 @@ static void bt_source_srv_call_psd_audio_resource_callback(audio_src_srv_resourc
         return;
     }
 
-    LOG_MSGID_I(source_srv, "[AG][PSD][MGR] audio resource device = %02x, event = %02x", 2, device, event);
-    if ((sizeof(g_audio_src_event_handler) / sizeof(bt_source_srv_audio_src_event_handler_t)) > event) {
-        g_audio_src_event_handler[event](device);
-    }
+    //LOG_MSGID_I(source_srv, "[AG][PSD][MGR] audio resource device = %02x, event = %02x", 2, device, event);
+    /* switch task */
+    bt_source_srv_call_psd_audio_resource_message_send(device, event);
 }
 
 static void bt_source_srv_call_psd_handle_audio_replay(bt_source_srv_call_pseduo_dev_t *device, bt_source_srv_call_audio_play_t type)
@@ -475,6 +485,10 @@ static bt_status_t bt_source_srv_call_psd_run_next_state_with_state_ready(bt_sou
         case BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_NONE: {
             bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_NONE);
             bt_source_srv_call_psd_update_next_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_INIT);
+            if (device->next_sub_state == BT_SOURCE_SRV_CALL_PSD_NEXT_SUB_STATE_CONNECTING) {
+                bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_CONNECTING);
+                bt_source_srv_call_psd_update_next_sub_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_SUB_STATE_NONE);
+            }
         }
         break;
         case BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_READY: {
@@ -630,8 +644,31 @@ static bt_status_t bt_source_srv_call_psd_handle_state_take_audio_src(bt_source_
             bt_source_srv_call_psd_update_next_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_NONE);
         }
         break;
-        case BT_SOURCE_SRV_CALL_PSD_EVENT_SCO_DISCONNECTED: {
+        case BT_SOURCE_SRV_CALL_PSD_EVENT_SCO_DISCONNECTED:
+        case BT_SOURCE_SRV_CALL_PSD_EVENT_SCO_DISCONNECT_REQ: {
             bt_source_srv_call_psd_update_next_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_READY);
+        }
+        break;
+        case BT_SOURCE_SRV_CALL_PSD_EVENT_AUDIO_SRC_TAKE_SUCCESS: {
+            if (device->codec_type == BT_HFP_CODEC_TYPE_NONE) {
+                /* esco was not established, wait esco establish */
+                bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_PLAY);
+                bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_PLAY_IDLE);
+                /* run next state in play idle sub state */
+                bt_source_srv_call_psd_run_next_state_with_sub_state_play_idle(device);
+            } else {
+                /* active esco. */
+                bt_source_srv_call_audio_controller_config(device->codec_type);
+                device->user_callback((void *)device, BT_SOURCE_SRV_CALL_PSD_USER_EVENT_ACTIVATE_SCO, NULL);
+                bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_PLAY);
+                bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_SCO_ACTIVATING);
+            }
+        }
+        break;
+        case BT_SOURCE_SRV_CALL_PSD_EVENT_AUDIO_SRC_REJECT: {
+            audio_src_srv_resource_manager_add_waiting_list(device->transmitter_audio_src);
+            bt_source_srv_call_psd_add_waiting_list(device, BT_SOURCE_SRV_CALL_PSD_AUDIO_SRC_TYPE_TRANSMITTER);
+            bt_source_srv_call_psd_give_audio_source(device);
         }
         break;
         default:
@@ -644,6 +681,12 @@ static bt_status_t bt_source_srv_call_psd_handle_state_take_audio_src(bt_source_
 static bt_status_t bt_source_srv_call_psd_handle_state_give_audio_src(bt_source_srv_call_pseduo_dev_t *device, bt_source_srv_call_psd_event_t event, void *parameter)
 {
     switch (event) {
+        case BT_SOURCE_SRV_CALL_PSD_EVENT_LINK_CONNECT_REQ: {
+            if (device->next_state == BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_NONE) {
+                bt_source_srv_call_psd_update_next_sub_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_SUB_STATE_CONNECTING);
+            }
+        }
+        break;
         case BT_SOURCE_SRV_CALL_PSD_EVENT_LINK_CONNECTED: {
             bt_source_srv_call_psd_update_next_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_READY);
         }
@@ -655,6 +698,13 @@ static bt_status_t bt_source_srv_call_psd_handle_state_give_audio_src(bt_source_
         break;
         case BT_SOURCE_SRV_CALL_PSD_EVENT_LINK_DISCONNECTED: {
             bt_source_srv_call_psd_update_next_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_NONE);
+        }
+        break;
+        case BT_SOURCE_SRV_CALL_PSD_EVENT_AUDIO_SRC_GIVE_SUCCESS: {
+            bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_READY);
+            bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_NONE);
+            /* run next state in ready state */
+            bt_source_srv_call_psd_run_next_state_with_state_ready(device);
         }
         break;
         default:
@@ -682,8 +732,6 @@ static bt_status_t bt_source_srv_call_psd_handle_sub_state_play_idle(bt_source_s
     switch (event) {
         case BT_SOURCE_SRV_CALL_PSD_EVENT_LINK_DISCONNECTED: {
             /* update state */
-            bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_GIVE_AUDIO_SRC);
-            bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_NONE);
             bt_source_srv_call_psd_update_next_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_NONE);
             /* give audio resource */
             bt_source_srv_call_psd_give_audio_source(device);
@@ -697,17 +745,18 @@ static bt_status_t bt_source_srv_call_psd_handle_sub_state_play_idle(bt_source_s
         }
         break;
         case BT_SOURCE_SRV_CALL_PSD_EVENT_CALL_END: {
-            /* update state */
-            bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_GIVE_AUDIO_SRC);
-            bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_NONE);
-            bt_source_srv_call_psd_update_next_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_READY);
-            /* give audio resource */
-            bt_source_srv_call_psd_give_audio_source(device);
+            bt_source_srv_call_psd_call_end_t *call_end = (bt_source_srv_call_psd_call_end_t *)parameter;
+            if (call_end->is_allow_audio_stop) {
+                /* update state */
+                bt_source_srv_call_psd_update_next_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_READY);
+                /* give audio resource */
+                bt_source_srv_call_psd_give_audio_source(device);
+            } else {
+                LOG_MSGID_W(source_srv, "[AG][PSD][MGR] device = %02x call end disallow audio stop by play idle", 1, device);
+            }
         }
         break;
-        case BT_SOURCE_SRV_CALL_PSD_EVENT_SUSPEND_REQ: {
-            bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_GIVE_AUDIO_SRC);
-            bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_NONE);
+        case BT_SOURCE_SRV_CALL_PSD_EVENT_AUDIO_SRC_SUSPEND: {
             bt_source_srv_call_psd_update_next_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_READY);
             /* suspend will give audio source */
             bt_source_srv_call_psd_give_audio_source(device);
@@ -816,7 +865,7 @@ static bt_status_t bt_source_srv_call_psd_handle_sub_state_playing(bt_source_srv
         }
         break;
         case BT_SOURCE_SRV_CALL_PSD_EVENT_SCO_DISCONNECTED:
-        case BT_SOURCE_SRV_CALL_PSD_EVENT_SUSPEND_REQ: {
+        case BT_SOURCE_SRV_CALL_PSD_EVENT_AUDIO_SRC_SUSPEND: {
             bt_source_srv_call_psd_audio_stop(device);
         }
         break;
@@ -895,8 +944,6 @@ static bt_status_t bt_source_srv_call_psd_handle_sub_state_play_stopping(bt_sour
                 device->user_callback((void *)device, BT_SOURCE_SRV_CALL_PSD_USER_EVENT_DEACTIVATE_SCO, NULL);
                 bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_SCO_DEACTIVATING);
             } else {
-                bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_GIVE_AUDIO_SRC);
-                bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_NONE);
                 /* give audio source */
                 bt_source_srv_call_psd_give_audio_source(device);
 
@@ -923,6 +970,13 @@ static bt_status_t bt_source_srv_call_psd_handle_sub_state_play_stopping(bt_sour
             }
         }
         break;
+        case BT_SOURCE_SRV_CALL_PSD_EVENT_SCO_DISCONNECT_REQ: {
+            bt_source_srv_call_psd_update_next_state(device, BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_READY);
+            if (BT_SOURCE_SRV_CALL_PSD_FLAG_IS_SET(device, BT_SOURCE_SRV_CALL_PSD_FLAG_AUDIO_REPLAYING)) {
+                BT_SOURCE_SRV_CALL_PSD_REMOVE_FLAG(device, BT_SOURCE_SRV_CALL_PSD_FLAG_AUDIO_REPLAYING);
+            }
+        }
+        break;
         default:
             break;
     }
@@ -934,15 +988,11 @@ static bt_status_t bt_source_srv_call_psd_handle_sub_state_sco_deactivating(bt_s
     switch (event) {
         case BT_SOURCE_SRV_CALL_PSD_EVENT_SCO_DEACTIVATED: {
             /* give audio source */
-            bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_GIVE_AUDIO_SRC);
-            bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_NONE);
             bt_source_srv_call_psd_give_audio_source(device);
         }
         break;
         case BT_SOURCE_SRV_CALL_PSD_EVENT_SCO_DISCONNECTED: {
             /* because sco disonnected, so will cannot receive sco activated event. give audio source */
-            bt_source_srv_call_psd_update_state(device, BT_SOURCE_SRV_CALL_PSD_STATE_GIVE_AUDIO_SRC);
-            bt_source_srv_call_psd_update_sub_state(device, BT_SOURCE_SRV_CALL_PSD_SUB_STATE_NONE);
             bt_source_srv_call_psd_give_audio_source(device);
         }
         break;

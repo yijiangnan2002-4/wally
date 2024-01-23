@@ -52,9 +52,9 @@
 #include "usb_custom_def.h"
 #include "usb_main.h"
 #include "usb_resource.h"
-#include "usb_host_detect.h"
 #include "usbacm_drv.h"
 #include "usbaudio_drv.h"
+#include "usbhid_drv.h"
 #include "usbms_state.h"
 #include "usbms_drv.h"
 #include "usb_nvkey_struct.h"
@@ -313,12 +313,13 @@ void USB_Init(usb_dev_type_t type)
 
     switch (type) {
         case USB_CDC_ACM:
-            LOG_MSGID_I(USB, "USB_Init_Acm_Status", 0);
+            LOG_MSGID_I(USB, "USB_Init USB_CDC_ACM", 0);
             USB_Init_Acm_Status();
             break;
 
 #ifdef  AIR_USB_MSC_ENABLE
         case USB_MASS_STORAGE:
+            LOG_MSGID_I(USB, "USB_Init USB_MASS_STORAGE", 0);
             hal_usb_set_speed(true);
             hal_dvfs_lock_control(HAL_DVFS_HIGH_SPEED_208M, HAL_DVFS_LOCK);
             USB_Init_Ms_Status();
@@ -327,18 +328,18 @@ void USB_Init(usb_dev_type_t type)
 
 #ifdef AIR_USB_HID_ENABLE
         case USB_HID:
-            LOG_MSGID_I(USB, "USB_Init_HID_Status", 0);
+            LOG_MSGID_I(USB, "USB_Init USB_HID", 0);
             USB_Init_Hid_Status();
             break;
 #endif
 
 #if defined(AIR_USB_AUDIO_ENABLE)
         case USB_AUDIO:
-            LOG_MSGID_I(USB, "USB_Init_Audio_Status", 0);
+            LOG_MSGID_I(USB, "USB_Init USB_AUDIO", 0);
             USB_Init_Audio_Status();
             break;
         case USB_AUDIO_SMARTPHONE:
-            LOG_MSGID_I(USB, "USB_Init_Audio_Smartphone_Status", 0);
+            LOG_MSGID_I(USB, "USB_Init USB_AUDIO_SMARTPHONE", 0);
             /* Force switch to FS mode in SMARTPHONE scenario */
             hal_usb_set_speed(false);
             USB_Init_Audio_Status();
@@ -347,7 +348,7 @@ void USB_Init(usb_dev_type_t type)
 
 #if defined(AIR_USB_XBOX_ENABLE)
         case USB_XBOX:
-            LOG_MSGID_I(USB, "USB_Init_XBOX_Status", 0);
+            LOG_MSGID_I(USB, "USB_Init USB_XBOX", 0);
             /* Force switch to FS mode in XBOX scenario */
             hal_usb_set_speed(false);
             USB_Init_XBOX_Status();
@@ -356,13 +357,13 @@ void USB_Init(usb_dev_type_t type)
 
 #if defined(AIR_USB_AUDIO_ENABLE)
         case USB_AUDIO_CDC:
-            LOG_MSGID_I(USB, "USB_Init_Audio_CDC_Status", 0);
+            LOG_MSGID_I(USB, "USB_Init USB_AUDIO_CDC", 0);
             USB_Init_Audio_Status();
             USB_Init_Acm_Status();
             break;
 #endif
         default:
-            //LOG_E(hal, "ASSERT\n");
+            LOG_MSGID_E(USB, "USB_Init invalid device type", 0);
             break;
     }
 
@@ -1029,9 +1030,9 @@ void USB_EP0_Command_Hdlr(bool bError)
         hal_usb_update_endpoint_0_state(HAL_USB_EP0_DRV_STATE_READ_END, bError, false);
     }
 
-    if(bError){
-        LOG_MSGID_E(USB, "USB_EP0_Command_Hdlr bError:%d", 1, bError);
-    }
+    // if(bError){
+    //     LOG_MSGID_E(USB, "USB_EP0_Command_Hdlr bError:%d", 1, bError);
+    // }
 }
 
 /* Parse usb standard command */
@@ -1092,10 +1093,6 @@ static void USB_Stdcmd(Usb_Ep0_Status *pep0state, Usb_Command *pcmd)
             LOG_MSGID_E(USB, "USB_Stdcmd bRequest:0x%X is out of case", 1, pcmd->bRequest);
             break;
     }
-
-#ifdef USB_HOST_DETECT_ENABLE
-    USB_HostDetect_RecordStdcmd(pep0state, pcmd);
-#endif /* USB_HOST_DETECT_ENABLE */
 
     USB_EP0_Command_Hdlr(bError);
 }
@@ -1182,21 +1179,21 @@ static void USB_Endpoint0_Idle(void)
 
 #if defined(AIR_USB_AUDIO_ENABLE)
             else if ((gUsbDevice.cmd.bmRequestType == USB_CMD_CLASSEPOUT) || (gUsbDevice.cmd.bmRequestType == USB_CMD_CLASSEPIN)) {
-                if(((gUsbDevice.cmd.wIndex & USB_EP_ADR_MASK) == (USB_EP_DIR_OUT | g_UsbAudio[0].stream_ep_out_id)) &&
-                     g_UsbAudio[0].stream_if_info->if_class_specific_hdlr) {
+                if(((gUsbDevice.cmd.wIndex & USB_EP_ADR_MASK) == (USB_EP_DIR_OUT | g_UsbAudio[USB_AUDIO_1_PORT].stream_ep_out_id)) &&
+                     g_UsbAudio[USB_AUDIO_1_PORT].stream_if_info->if_class_specific_hdlr) {
                     /*wIdex: ep num*/
-                    g_UsbAudio[0].stream_if_info->if_class_specific_hdlr(&gUsbDevice.ep0info, &gUsbDevice.cmd);
+                    g_UsbAudio[USB_AUDIO_1_PORT].stream_if_info->if_class_specific_hdlr(&gUsbDevice.ep0info, &gUsbDevice.cmd);
                 }
 #ifdef AIR_USB_AUDIO_2_SPK_ENABLE
-                else if (((gUsbDevice.cmd.wIndex & USB_EP_ADR_MASK) == (USB_EP_DIR_OUT | g_UsbAudio[1].stream_ep_out_id)) &&
-                           g_UsbAudio[1].stream_if_info->if_class_specific_hdlr) {
-                    g_UsbAudio[1].stream_if_info->if_class_specific_hdlr(&gUsbDevice.ep0info, &gUsbDevice.cmd);
+                else if (((gUsbDevice.cmd.wIndex & USB_EP_ADR_MASK) == (USB_EP_DIR_OUT | g_UsbAudio[USB_AUDIO_2_PORT].stream_ep_out_id)) &&
+                           g_UsbAudio[USB_AUDIO_2_PORT].stream_if_info->if_class_specific_hdlr) {
+                    g_UsbAudio[USB_AUDIO_2_PORT].stream_if_info->if_class_specific_hdlr(&gUsbDevice.ep0info, &gUsbDevice.cmd);
                 }
 #endif
 #ifdef AIR_USB_AUDIO_1_MIC_ENABLE
-                else if((gUsbDevice.cmd.wIndex & USB_EP_ADR_MASK) == (USB_EP_DIR_IN | g_UsbAudio[0].stream_ep_in_id) &&
-                          g_UsbAudio[0].stream_microphone_if_info->if_class_specific_hdlr) {
-                    g_UsbAudio[0].stream_microphone_if_info->if_class_specific_hdlr(&gUsbDevice.ep0info, &gUsbDevice.cmd);
+                else if((gUsbDevice.cmd.wIndex & USB_EP_ADR_MASK) == (USB_EP_DIR_IN | g_UsbAudio[USB_AUDIO_1_PORT].stream_ep_in_id) &&
+                          g_UsbAudio[USB_AUDIO_1_PORT].stream_microphone_if_info->if_class_specific_hdlr) {
+                    g_UsbAudio[USB_AUDIO_1_PORT].stream_microphone_if_info->if_class_specific_hdlr(&gUsbDevice.ep0info, &gUsbDevice.cmd);
                 }
 #endif
                 else {
@@ -1204,9 +1201,9 @@ static void USB_Endpoint0_Idle(void)
                     hal_usb_update_endpoint_0_state(HAL_USB_EP0_DRV_STATE_READ_END, true, false);
                     LOG_MSGID_E(USB, "USB_Endpoint0_Idle index:%X speaker1:%X mic1:%X speaker2:%X is out of USB Audio case", 4,
                                 gUsbDevice.cmd.wIndex & USB_EP_ADR_MASK,
-                                USB_EP_DIR_OUT | g_UsbAudio[0].stream_ep_out_id,
-                                USB_EP_DIR_IN | g_UsbAudio[0].stream_ep_in_id,
-                                USB_EP_DIR_OUT | g_UsbAudio[1].stream_ep_out_id);
+                                USB_EP_DIR_OUT | g_UsbAudio[USB_AUDIO_1_PORT].stream_ep_out_id,
+                                USB_EP_DIR_IN  | g_UsbAudio[USB_AUDIO_1_PORT].stream_ep_in_id,
+                                USB_EP_DIR_OUT | g_UsbAudio[USB_AUDIO_2_PORT].stream_ep_out_id);
                 }
             }
 #endif
@@ -1315,14 +1312,14 @@ static void USB_Endpoint0_Hdlr(void)
     if (b_sent_stall == true) {
         hal_usb_update_endpoint_0_state(HAL_USB_EP0_DRV_STATE_CLEAR_SENT_STALL, false, false);
         gUsbDevice.ep0_state = USB_EP0_IDLE;
-        LOG_MSGID_E(USB, "USB_Endpoint0_Hdlr b_sent_stall", 0);
+        LOG_MSGID_I(USB, "USB_Endpoint0_Hdlr b_sent_stall", 0);
     }
 
     /* Check for SetupEnd */
     if (b_transaction_end == true) {
         hal_usb_update_endpoint_0_state(HAL_USB_EP0_DRV_STATE_TRANSACTION_END, false, false);
         gUsbDevice.ep0_state = USB_EP0_IDLE;
-        LOG_MSGID_E(USB, "USB_Endpoint0_Hdlr b_transaction_end", 0);
+        LOG_MSGID_I(USB, "USB_Endpoint0_Hdlr b_transaction_end", 0);
     }
 
     /* Call relevant routines for endpoint 0 state */
@@ -1386,3 +1383,4 @@ static void USB_Endpoint0_Hdlr(void)
 }
 
 #endif /* AIR_USB_ENABLE */
+

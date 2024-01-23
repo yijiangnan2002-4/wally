@@ -47,6 +47,7 @@
 #include "app_lea_service.h"
 #include "app_lea_service_adv_mgr.h"
 #include "app_lea_service_event.h"
+#include "app_lea_service_sync_info.h"
 
 #ifdef AIR_LE_AUDIO_ENABLE
 #include "app_le_audio.h"
@@ -66,6 +67,7 @@
 #endif
 #endif
 
+#include "bt_app_common.h"
 #include "bt_aws_mce_srv.h"
 #include "bt_customer_config.h"
 #include "bt_device_manager.h"
@@ -76,6 +78,8 @@
 #include "bt_sink_srv_le.h"
 
 #include "FreeRTOS.h"
+#include "task.h"
+#include "task_def.h"
 #include "multi_ble_adv_manager.h"
 #include "nvkey.h"
 #include "nvkey_id_list.h"
@@ -104,11 +108,14 @@
 #define APP_LEA_CENTRAL_ADDRESS_RESOLUTION_ENABLE          (0x1)    // bit0~1, 0b01
 #define APP_LEA_CENTRAL_ADDRESS_RESOLUTION_DISABLE         (0x2)    // bit0~1, 0b10
 
+#define APP_LEA_VALUE_LEA_DONGLE_MASK                      (0x80)   // bit8
+
 typedef enum {
     APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED = 0,        // Default, Target announcement flag
     APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED,                 // General announcement flag
     APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV,              // Link Lost, Direct ADV for Intel EVO
     APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED,               // Already Connected
+    APP_LEA_CONN_ACTIVE_RECONNECT_TEMP_NO_NEED,            // NO_NEED temporarily, but restore to DEFAULT_NEED on some cases
 } app_lea_conn_active_reconnect_type_t;
 
 typedef enum {
@@ -144,7 +151,9 @@ typedef struct {
     uint8_t              state;
 } PACKED app_lea_conn_ida_info_item_t;
 
-static app_lea_conn_ida_info_item_t       app_lea_conn_ida_info_list[APP_LEA_MAX_BOND_NUM] = {0};
+#define APP_LEA_MAX_IDA_INFO_NUM          (APP_LEA_MAX_BOND_NUM + 3)
+static app_lea_conn_ida_info_item_t       app_lea_conn_ida_info_list[APP_LEA_MAX_IDA_INFO_NUM] = {0};
+static app_lea_conn_ida_info_item_t       app_lea_conn_cur_ida_info = {0};
 
 #endif
 
@@ -180,10 +189,10 @@ typedef struct {
 #endif
 } PACKED app_lea_conn_info_t;
 
-static app_lea_conn_info_t                 app_lea_conn_info_list[APP_LEA_MAX_CONN_NUM];
+static app_lea_conn_info_t                 app_lea_conn_info_list[APP_LEA_MAX_CONN_NUM] = {0};
 
 #define APP_LEA_BOND_INFO_LENGTH           (sizeof(app_lea_bond_info_t) * APP_LEA_MAX_BOND_NUM)
-static app_lea_bond_info_t                 app_lea_bond_info_list[APP_LEA_MAX_BOND_NUM];
+static app_lea_bond_info_t                 app_lea_bond_info_list[APP_LEA_MAX_BOND_NUM] = {0};  // LEA/ULL2 Device Info List
 
 static app_lea_conn_mgr_connection_cb_t    app_lea_connection_cb = NULL;
 
@@ -192,7 +201,10 @@ static app_lea_conn_mgr_connection_cb_t    app_lea_connection_cb = NULL;
 /**================================================================================*/
 /**                                   Internal API                                 */
 /**================================================================================*/
-static void app_lea_conn_mgr_save_bond_info(void);
+static void app_lea_conn_mgr_save_bond_info(bool adjust);
+#ifdef AIR_LE_AUDIO_ENABLE
+static void app_lea_conn_mgr_handle_discovery_result(uint32_t info);
+#endif
 
 #define APP_LEA_IS_EMPTY_ADDR(X, EMPTY)        (memcmp((X), (EMPTY), BT_BD_ADDR_LEN) == 0)
 
@@ -233,9 +245,153 @@ static void app_lea_conn_mgr_print_bond_info(bool now)
     }
 }
 
-static void app_lea_conn_mgr_update_reconnect_type(const uint8_t *bd_addr, uint8_t reconnect_type)
+static void app_lea_conn_mgr_remove_le_bond_info(uint8_t addr_type, uint8_t *addr)
 {
-    int need_active_reconnect_num = 0;
+    // Need to remove LE Bond ?
+    /*
+    bt_addr_t remove_bt_addr = {0};
+    remove_bt_addr.type = addr_type;
+    memcpy(remove_bt_addr.addr, addr, BT_BD_ADDR_LEN);
+    bt_device_manager_le_remove_bonded_device(&remove_bt_addr);
+    APPS_LOG_MSGID_W(LOG_TAG" remove_le_bond_info, addr=%08X%04X", 2, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+     */
+}
+
+static void app_lea_conn_mgr_adjust_reconnect_type(void)
+{
+    app_lea_conn_mgr_print_bond_info(TRUE);
+
+#if defined(AIR_LE_AUDIO_USE_DIRECT_ADV_TO_ACTIVE_RECONNECT) && !defined(AIR_BT_INTEL_EVO_ENABLE)
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        uint8_t conn_type = app_lea_bond_info_list[i].conn_type;
+        uint8_t reconnect_type = app_lea_bond_info_list[i].reconnect_type;
+        if (conn_type == APP_LEA_CONN_TYPE_LE_AUDIO
+            && reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV) {
+            APPS_LOG_MSGID_W(LOG_TAG" adjust_reconnect_type, [%d] DIRECT_ADV reset to DEFAULT_NEED", 1, i);
+            app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
+        }
+    }
+#endif
+
+    // Change ULL2 reconnect type (Default_need or no_need) to avoiding ADV rotation
+#if defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+    uint8_t adv_mode = app_lea_adv_mgr_get_adv_mode();
+    // If ADV mode is general (no whitelist), always set ULL2 as RECONNECT_NO_NEED
+    if (adv_mode == APP_LEA_ADV_MODE_GENERAL) {
+        for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+            if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_ULL
+                && app_lea_bond_info_list[i].reconnect_type != APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
+                APPS_LOG_MSGID_W(LOG_TAG" adjust_reconnect_type, [%d] set ULL2 to NO_NEED when General ADV", 1, i);
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED;
+            }
+        }
+    } else {
+        uint8_t lea_num = 0;
+        uint8_t ull2_num = 0;
+        bool is_exist_direct_adv = 0;
+        uint8_t lea_active_reconnect_num = 0;
+        uint8_t lea_no_need_num = 0;
+        for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+            uint8_t conn_type = app_lea_bond_info_list[i].conn_type;
+            uint8_t reconnect_type = app_lea_bond_info_list[i].reconnect_type;
+            if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
+                continue;
+            }
+            if (conn_type == APP_LEA_CONN_TYPE_LE_AUDIO) {
+                lea_num++;
+                if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED) {
+                    lea_active_reconnect_num++;
+                } else if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED
+                           || reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_TEMP_NO_NEED) {
+                    lea_no_need_num++;
+                }
+            } else if (conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
+                ull2_num++;
+            }
+            if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV) {
+                is_exist_direct_adv = TRUE;
+            }
+        }
+
+        if (!is_exist_direct_adv && lea_num > 0 && ull2_num > 0) {
+            if (lea_active_reconnect_num == lea_num && lea_no_need_num == 0) {
+                for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+                    if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_ULL
+                        && app_lea_bond_info_list[i].reconnect_type != APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
+                        APPS_LOG_MSGID_W(LOG_TAG" adjust_reconnect_type, [%d] set ULL2 to DEFAULT_NEED", 1, i);
+                        app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
+                    }
+                }
+            } else if (lea_no_need_num == lea_num && lea_active_reconnect_num == 0) {
+                for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+                    if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_ULL
+                        && app_lea_bond_info_list[i].reconnect_type != APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
+                        APPS_LOG_MSGID_W(LOG_TAG" adjust_reconnect_type, [%d] set ULL2 to NO_NEED", 1, i);
+                        app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED;
+                    }
+                }
+            }
+        }
+    }
+#endif
+
+#ifdef AIR_LE_AUDIO_USE_DIRECT_ADV_TO_ACTIVE_RECONNECT
+    // When earbuds need to start LEA ADV and rotation each 500ms,
+    // LEA ADV with targeted announcement flag for phone A (as whitelist) and general announcement flag for phone B (as whitelist)
+    // But Phone B could found the LEA ADV with targeted announcement flag and initiate connection request.
+    // In order to avoid the case, start Direct ADV to replace whitelist ADV with targeted announcement flag.
+    // But Direct ADV only cover one phone, many Direct ADV will reduce LEA connection performance.
+#ifdef APP_LE_AUDIO_ADV_ACTIVE_RECONNECT_TYPE_ALWAYS_USE_DIRECT_ADV
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO
+            && app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED
+            && (app_lea_bond_info_list[i].value & APP_LEA_CENTRAL_ADDRESS_RESOLUTION_MASK) > 0) {
+            APPS_LOG_MSGID_W(LOG_TAG" adjust_reconnect_type, [%d] always set DEFAULT_NEED to DIRECT_ADV", 1, i);
+            app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV;
+        }
+    }
+#else
+    uint8_t lea1_active_reconnect_num = 0;
+    uint8_t lea1_no_need_num = 0;
+    uint8_t lea1_connected_num = 0;
+    uint8_t ull2_num1 = 0;
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO) {
+            if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED) {
+                lea1_active_reconnect_num++;
+            } else if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED) {
+                lea1_no_need_num++;
+            } else if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
+                lea1_connected_num++;
+            }
+        } else if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
+            ull2_num1++;
+        }
+    }
+    if (lea1_active_reconnect_num > 0 && (lea1_no_need_num > 0 || lea1_connected_num > 0)) {
+        for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+            uint8_t conn_type = app_lea_bond_info_list[i].conn_type;
+            uint8_t reconnect_type = app_lea_bond_info_list[i].reconnect_type;
+            if (conn_type == APP_LEA_CONN_TYPE_LE_AUDIO
+                && reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED
+                && (app_lea_bond_info_list[i].value & APP_LEA_CENTRAL_ADDRESS_RESOLUTION_MASK) > 0) {
+                APPS_LOG_MSGID_W(LOG_TAG" adjust_reconnect_type, [%d] set DEFAULT_NEED to DIRECT_ADV", 1, i);
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV;
+            }
+
+            if (ull2_num1 > 0 && conn_type == APP_LEA_CONN_TYPE_LE_ULL
+                && app_lea_bond_info_list[i].reconnect_type != APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
+                APPS_LOG_MSGID_W(LOG_TAG" adjust_reconnect_type, [%d] reset ULL2 to NO_NEED", 1, i);
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED;
+            }
+        }
+    }
+#endif
+#endif
+}
+
+void app_lea_conn_mgr_update_reconnect_type(const uint8_t *bd_addr, uint8_t reconnect_type)
+{
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
 
     for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
@@ -260,71 +416,9 @@ static void app_lea_conn_mgr_update_reconnect_type(const uint8_t *bd_addr, uint8
                              6, i, conn_type, addr_type, reconnect_type,
                              *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
         }
-
-        if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV
-            || app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED) {
-            need_active_reconnect_num++;
-        }
     }
 
-    // Reset as DEFAULT_NEED when include two many LINK_LOST
-    if (need_active_reconnect_num >= 3) {
-        for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
-            if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV) {
-                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
-                APPS_LOG_MSGID_W(LOG_TAG" update_reconnect_type, [%d] reset LIST_LOST to DEFAULT_NEED", 1, i);
-            }
-        }
-    }
-
-    // Change ULL2 reconnect type (Default_need or no_need) to avoiding ADV rotation
-#if defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
-    uint8_t lea_num = 0;
-    uint8_t ull2_num = 0;
-    bool is_exist_direct_adv = 0;
-    uint8_t lea_active_reconnect_num = 0;
-    uint8_t lea_no_need_num = 0;
-    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
-        uint8_t conn_type = app_lea_bond_info_list[i].conn_type;
-        uint8_t reconnect_type = app_lea_bond_info_list[i].reconnect_type;
-        if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
-            continue;
-        }
-        if (conn_type == APP_LEA_CONN_TYPE_LE_AUDIO) {
-            lea_num++;
-            if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED) {
-                lea_active_reconnect_num++;
-            } else if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED) {
-                lea_no_need_num++;
-            }
-        } else if (conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
-            ull2_num++;
-        }
-        if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV) {
-            is_exist_direct_adv = TRUE;
-        }
-    }
-
-    if (!is_exist_direct_adv && lea_num > 0 && ull2_num > 0) {
-        if (lea_active_reconnect_num == lea_num && lea_no_need_num == 0) {
-            APPS_LOG_MSGID_W(LOG_TAG" update_reconnect_type, set ULL2 to DEFAULT_NEED", 0);
-            for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
-                uint8_t conn_type = app_lea_bond_info_list[i].conn_type;
-                if (conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
-                    app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
-                }
-            }
-        } else if (lea_no_need_num == lea_num && lea_active_reconnect_num == 0) {
-            APPS_LOG_MSGID_W(LOG_TAG" update_reconnect_type, set ULL2 to NO_NEED", 0);
-            for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
-                uint8_t conn_type = app_lea_bond_info_list[i].conn_type;
-                if (conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
-                    app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED;
-                }
-            }
-        }
-    }
-#endif
+    app_lea_conn_mgr_adjust_reconnect_type();
 }
 
 static bool app_lea_conn_mgr_update_bond_info(uint8_t addr_type, uint8_t *bd_addr, uint8_t conn_type)
@@ -362,6 +456,23 @@ static bool app_lea_conn_mgr_update_bond_info(uint8_t addr_type, uint8_t *bd_add
         return FALSE;
     }
 
+    app_lea_bond_info_t remove_item = {0};
+    // Prevent the dongle info (last position) be remove; ignore ULL2 + LEA dongle co-exist case;
+    bool is_last_dongle = FALSE;
+    app_lea_bond_info_t last_item = app_lea_bond_info_list[APP_LEA_MAX_BOND_NUM - 1];
+    if (last_item.used) {
+        remove_item = last_item;
+        bool is_last_lea_dongle = (last_item.conn_type == APP_LEA_CONN_TYPE_LE_AUDIO
+                                   && (last_item.value & APP_LEA_VALUE_LEA_DONGLE_MASK) > 0);
+#ifdef AIR_BLE_ULL_REMOVE_OLD_RECORD_ENABLE
+        // ULL2->ULL2 via AIR_BLE_ULL_REMOVE_OLD_RECORD_ENABLE, only handle LEA->ULL2
+        bool is_last_ull2_dongle = (conn_type == APP_LEA_CONN_TYPE_LE_AUDIO && last_item.conn_type == APP_LEA_CONN_TYPE_LE_ULL);
+#else
+        bool is_last_ull2_dongle = (last_item.conn_type == APP_LEA_CONN_TYPE_LE_ULL);
+#endif
+        is_last_dongle = (is_last_ull2_dongle || is_last_lea_dongle);
+    }
+
     app_lea_conn_mgr_print_bond_info(FALSE);
     for (int i = (APP_LEA_MAX_BOND_NUM - 1 - 1); i >= 0; i--) {
         if (app_lea_bond_info_list[i].used) {
@@ -375,25 +486,79 @@ static bool app_lea_conn_mgr_update_bond_info(uint8_t addr_type, uint8_t *bd_add
     app_lea_bond_info_list[0].value = 0;
     memcpy(app_lea_bond_info_list[0].bond_addr, bd_addr, BT_BD_ADDR_LEN);
 
+    if (is_last_dongle && conn_type != APP_LEA_CONN_TYPE_LE_ULL) {
+        APPS_LOG_MSGID_W(LOG_TAG" update_bond_info, must keep last link", 0);
+        remove_item = app_lea_bond_info_list[APP_LEA_MAX_BOND_NUM - 1];
+        app_lea_bond_info_list[APP_LEA_MAX_BOND_NUM - 1] = last_item;
+    }
+
+    if (remove_item.used) {
+        if (remove_item.reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
+            app_lea_conn_mgr_disconnect(remove_item.bond_addr, BT_HCI_STATUS_REMOTE_TERMINATED_CONNECTION_DUE_TO_LOW_RESOURCES);
+        }
+        app_lea_conn_mgr_remove_le_bond_info(remove_item.addr_type, remove_item.bond_addr);
+    }
+
+#ifdef AIR_BLE_ULL_REMOVE_OLD_RECORD_ENABLE
+    if (conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
+        for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+            uint8_t conn_type = app_lea_bond_info_list[i].conn_type;
+            uint8_t *addr = app_lea_bond_info_list[i].bond_addr;
+            if (conn_type == APP_LEA_CONN_TYPE_LE_ULL && memcmp(addr, bd_addr, BT_BD_ADDR_LEN) != 0) {
+                uint8_t addr_type = app_lea_bond_info_list[i].addr_type;
+                APPS_LOG_MSGID_W(LOG_TAG" update_bond_info, remove first ULL2 addr", 0);
+                app_lea_conn_mgr_remove_bond_info(TRUE, addr_type, addr);
+                break;
+            }
+        }
+    }
+#endif
+
     app_lea_conn_mgr_print_bond_info(TRUE);
-    app_lea_conn_mgr_save_bond_info();
+    app_lea_conn_mgr_save_bond_info(FALSE);
+
+#ifdef AIR_LE_AUDIO_BOTH_SYNC_INFO
+    app_lea_sync_info_send();
+#endif
 
     return TRUE;
 }
 
-static void app_lea_conn_mgr_save_bond_info(void)
+static void app_lea_conn_mgr_save_bond_info(bool adjust)
 {
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_LE_AUDIO_DIRECT_ADV)
-    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
-        uint8_t conn_type = app_lea_bond_info_list[i].conn_type;
-        uint8_t reconnect_type = app_lea_bond_info_list[i].reconnect_type;
-        if (conn_type == APP_LEA_CONN_TYPE_LE_ULL && reconnect_type != APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
-            app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
-        } else if (conn_type == APP_LEA_CONN_TYPE_LE_AUDIO && app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV) {
-            app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
+    if (adjust) {
+        uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
+        for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+            if (!app_lea_bond_info_list[i].used || (memcmp(app_lea_bond_info_list[i].bond_addr, empty_addr, BT_BD_ADDR_LEN) == 0)) {
+                continue;
+            }
+
+            uint8_t conn_type = app_lea_bond_info_list[i].conn_type;
+            uint8_t reconnect_type = app_lea_bond_info_list[i].reconnect_type;
+            if (conn_type == APP_LEA_CONN_TYPE_LE_ULL && reconnect_type != APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
+            }
+            if (conn_type == APP_LEA_CONN_TYPE_LE_AUDIO && app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV) {
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
+            }
+#ifdef APP_LE_AUDIO_ADV_RESTORE_TEMP_NO_NEED_TO_ACTIVE_RECONNECT
+            if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_TEMP_NO_NEED) {
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
+            }
+#else
+            if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_TEMP_NO_NEED) {
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED;
+            }
+#endif
+#ifdef APP_LE_AUDIO_ADV_CLEAR_LEA_ACTIVE_RECONNECT_TYPE_AFTER_POWER_ON
+            if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO) {
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED;
+                APPS_LOG_MSGID_E(LOG_TAG" save_bond_info, [%d] CLEAR_LEA_ACTIVE_RECONNECT_TYPE_AFTER_POWER_ON",
+                                 1, i);
+            }
+#endif
         }
     }
-#endif
 
     nvkey_status_t status = nvkey_write_data(NVID_APP_LE_AUDIO_CONN_FLAG,
                                              (const uint8_t *)&app_lea_bond_info_list[0],
@@ -437,34 +602,34 @@ static void app_lea_conn_mgr_restore_bond_info(void)
                 }
             }
             app_lea_conn_mgr_print_bond_info(TRUE);
-            app_lea_conn_mgr_save_bond_info();
+            app_lea_conn_mgr_save_bond_info(TRUE);
             vPortFree(temp_list);
             return;
         } else if (status == NVKEY_STATUS_OK && size > 0 && size != APP_LEA_BOND_INFO_LENGTH && (size % old_item1_len) == 0) {
             uint8_t old_item_num = size / old_item1_len;
-             memset(&app_lea_bond_info_list[0], 0, APP_LEA_BOND_INFO_LENGTH);
-             app_lea_old_bond_info1_t *temp_list = (app_lea_old_bond_info1_t *)pvPortMalloc(sizeof(app_lea_old_bond_info1_t) * old_item_num);
-             if (temp_list == NULL) {
-                 APPS_LOG_MSGID_E(LOG_TAG" restore_bond_info, malloc fail", 0);
-                 return;
-             }
-             nvkey_read_data(NVID_APP_LE_AUDIO_CONN_FLAG, (uint8_t *)&temp_list[0], &size);
+            memset(&app_lea_bond_info_list[0], 0, APP_LEA_BOND_INFO_LENGTH);
+            app_lea_old_bond_info1_t *temp_list = (app_lea_old_bond_info1_t *)pvPortMalloc(sizeof(app_lea_old_bond_info1_t) * old_item_num);
+            if (temp_list == NULL) {
+                APPS_LOG_MSGID_E(LOG_TAG" restore_bond_info, malloc fail", 0);
+                return;
+            }
+            nvkey_read_data(NVID_APP_LE_AUDIO_CONN_FLAG, (uint8_t *)&temp_list[0], &size);
 
-             for (int i = 0; i < old_item_num; i++) {
-                 app_lea_bond_info_list[i].used = temp_list[i].used;
-                 app_lea_bond_info_list[i].conn_type = temp_list[i].conn_type;
-                 app_lea_bond_info_list[i].addr_type = temp_list[i].addr_type;
-                 memcpy(app_lea_bond_info_list[i].bond_addr, temp_list[i].bond_addr, BT_BD_ADDR_LEN);
-                 app_lea_bond_info_list[i].reconnect_type = temp_list[i].reconnect_type;
-                 app_lea_bond_info_list[i].value = 0;
-                 if (i >= (APP_LEA_MAX_BOND_NUM - 1)) {
-                     break;
-                 }
-             }
-             app_lea_conn_mgr_print_bond_info(TRUE);
-             app_lea_conn_mgr_save_bond_info();
-             vPortFree(temp_list);
-             return;
+            for (int i = 0; i < old_item_num; i++) {
+                app_lea_bond_info_list[i].used = temp_list[i].used;
+                app_lea_bond_info_list[i].conn_type = temp_list[i].conn_type;
+                app_lea_bond_info_list[i].addr_type = temp_list[i].addr_type;
+                memcpy(app_lea_bond_info_list[i].bond_addr, temp_list[i].bond_addr, BT_BD_ADDR_LEN);
+                app_lea_bond_info_list[i].reconnect_type = temp_list[i].reconnect_type;
+                app_lea_bond_info_list[i].value = 0;
+                if (i >= (APP_LEA_MAX_BOND_NUM - 1)) {
+                    break;
+                }
+            }
+            app_lea_conn_mgr_print_bond_info(TRUE);
+            app_lea_conn_mgr_save_bond_info(TRUE);
+            vPortFree(temp_list);
+            return;
         }
     }
 #endif
@@ -478,10 +643,20 @@ static void app_lea_conn_mgr_restore_bond_info(void)
         app_lea_conn_mgr_print_bond_info(TRUE);
         for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
             uint8_t reconnect_type = app_lea_bond_info_list[i].reconnect_type;
-            if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
-                // Set ACTIVE_RECONNECT_NO_NEED due to HW Reset
+            // For HW Reset or unexpected crash
+            if (reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED
+                || reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV
+                || reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_TEMP_NO_NEED
+                || app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
                 app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
             }
+#ifdef APP_LE_AUDIO_ADV_CLEAR_LEA_ACTIVE_RECONNECT_TYPE_AFTER_POWER_ON
+            if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO) {
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED;
+                APPS_LOG_MSGID_E(LOG_TAG" restore_bond_info, [%d] CLEAR_LEA_ACTIVE_RECONNECT_TYPE_AFTER_POWER_ON",
+                                 1, i);
+            }
+#endif
         }
     } else if (status == NVKEY_STATUS_ITEM_NOT_FOUND) {
         memset(&app_lea_bond_info_list[0], 0, APP_LEA_BOND_INFO_LENGTH);
@@ -493,17 +668,43 @@ static void app_lea_conn_mgr_restore_bond_info(void)
     }
 }
 
+static void app_lea_conn_mgr_clear_lea_bond_info_keep_ull2(bool restore)
+{
+    if (restore) {
+        app_lea_conn_mgr_restore_bond_info();
+    } else {
+        app_lea_conn_mgr_save_bond_info(FALSE);
+    }
+
+    bool found_ull2 = FALSE;
+    app_lea_bond_info_t ull2_info = {0};
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
+            found_ull2 = TRUE;
+            ull2_info = app_lea_bond_info_list[i];
+            APPS_LOG_MSGID_E(LOG_TAG" keep_ull2_bond_info", 0);
+            break;
+        }
+    }
+
+    memset(&app_lea_bond_info_list[0], 0, APP_LEA_BOND_INFO_LENGTH);
+    if (found_ull2) {
+        memcpy(&app_lea_bond_info_list[0], &ull2_info, sizeof(app_lea_bond_info_t));
+    }
+    app_lea_conn_mgr_save_bond_info(FALSE);
+}
+
 #if defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
 static void app_lea_conn_clear_ida_info_list(void)
 {
     APPS_LOG_MSGID_I(LOG_TAG" clear_ida_info_list", 0);
-    memset(&app_lea_conn_ida_info_list[0], 0, APP_LEA_MAX_BOND_NUM * sizeof(app_lea_conn_ida_info_item_t));
+    memset(&app_lea_conn_ida_info_list[0], 0, APP_LEA_MAX_IDA_INFO_NUM * sizeof(app_lea_conn_ida_info_item_t));
 }
 
 static bool app_lea_conn_compare_ida_info_list(uint8_t *ida, uint8_t *irk)
 {
     bool same = FALSE;
-    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+    for (int i = 0; i < APP_LEA_MAX_IDA_INFO_NUM; i++) {
         app_lea_conn_ida_info_item_t *item = &app_lea_conn_ida_info_list[i];
         if (memcmp(item->ida, ida, BT_BD_ADDR_LEN) == 0
             && memcmp(item->irk, irk, BT_KEY_SIZE) == 0) {
@@ -517,7 +718,7 @@ static bool app_lea_conn_compare_ida_info_list(uint8_t *ida, uint8_t *irk)
 static void app_lea_conn_update_ida_info_list(bool added, uint8_t addr_type, uint8_t *ida, uint8_t *irk)
 {
     bool duplicate_ida = FALSE;
-    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+    for (int i = 0; i < APP_LEA_MAX_IDA_INFO_NUM; i++) {
         app_lea_conn_ida_info_item_t *item = &app_lea_conn_ida_info_list[i];
         if (memcmp(item->ida, ida, BT_BD_ADDR_LEN) == 0) {
             duplicate_ida = TRUE;
@@ -533,8 +734,10 @@ static void app_lea_conn_update_ida_info_list(bool added, uint8_t addr_type, uin
         }
     }
 
+    bool is_found = FALSE;
+    int added_index = -1;
     if (!duplicate_ida) {
-        for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        for (int i = 0; i < APP_LEA_MAX_IDA_INFO_NUM; i++) {
             app_lea_conn_ida_info_item_t *item = &app_lea_conn_ida_info_list[i];
             if (item->state == APP_LEA_CONN_IDA_STATE_NONE) {
                 item->addr_type = addr_type;
@@ -543,7 +746,22 @@ static void app_lea_conn_update_ida_info_list(bool added, uint8_t addr_type, uin
                 item->state = (added ? APP_LEA_CONN_IDA_STATE_ADD : APP_LEA_CONN_IDA_STATE_READY_TO_ADD);
                 APPS_LOG_MSGID_W(LOG_TAG" update_ida_info_list, [%d] added=%d addr=%08X%04X irk=%02X:%02X:%02X",
                                  7, i, added, *((uint32_t *)(ida + 2)), *((uint16_t *)ida), irk[0], irk[1], irk[2]);
+                is_found = TRUE;
                 break;
+            } else if (added_index == -1 && item->state == APP_LEA_CONN_IDA_STATE_ADD) {
+                added_index = i;
+            }
+        }
+
+        if (!is_found) {
+            APPS_LOG_MSGID_E(LOG_TAG" update_ida_info_list, not found - use [%d] added=%d addr=%08X%04X irk=%02X:%02X:%02X",
+                             7, added_index, added, *((uint32_t *)(ida + 2)), *((uint16_t *)ida), irk[0], irk[1], irk[2]);
+            if (added_index != -1) {
+                app_lea_conn_ida_info_item_t *item = &app_lea_conn_ida_info_list[added_index];
+                item->addr_type = addr_type;
+                memcpy(item->ida, ida, BT_BD_ADDR_LEN);
+                memcpy(item->irk, irk, BT_KEY_SIZE);
+                item->state = (added ? APP_LEA_CONN_IDA_STATE_ADD : APP_LEA_CONN_IDA_STATE_READY_TO_ADD);
             }
         }
     }
@@ -552,15 +770,22 @@ static void app_lea_conn_update_ida_info_list(bool added, uint8_t addr_type, uin
 static void app_lea_conn_add_ida_info(uint8_t addr_type, uint8_t *ida, uint8_t *irk)
 {
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    uint8_t *local_irk = bt_app_common_get_ble_local_irk();
     bt_hci_cmd_le_add_device_to_resolving_list_t param = {0};
     param.peer_identity_address.type = addr_type;
     memcpy(param.peer_identity_address.addr, ida, BT_BD_ADDR_LEN);
     memcpy(param.peer_irk, irk, BT_KEY_SIZE);
+    memcpy(param.local_irk, local_irk, BT_KEY_SIZE);
     bt_status_t bt_status = bt_gap_le_set_resolving_list(BT_GAP_LE_ADD_TO_RESOLVING_LIST, &param);
     APPS_LOG_MSGID_W(LOG_TAG" add_ida_info, [%02X] addr=%08X%04X irk=%02X:%02X:%02X bt_status=0x%08X",
                      8, role, *((uint32_t *)(ida + 2)), *((uint16_t *)ida), irk[0], irk[1], irk[2], bt_status);
 
     if (bt_status == BT_STATUS_SUCCESS) {
+        app_lea_conn_cur_ida_info.addr_type = addr_type;
+        memcpy(app_lea_conn_cur_ida_info.ida, ida, BT_BD_ADDR_LEN);
+        memcpy(app_lea_conn_cur_ida_info.irk, irk, BT_KEY_SIZE);
+        app_lea_conn_cur_ida_info.state = APP_LEA_CONN_IDA_STATE_ADD;
+
         bt_status = bt_gap_le_set_address_resolution_enable(TRUE);
         if (bt_status != BT_STATUS_SUCCESS) {
             APPS_LOG_MSGID_E(LOG_TAG" add_ida_info, set_address_resolution_enable bt_status=0x%08X", 1, bt_status);
@@ -636,9 +861,21 @@ static void app_lea_conn_check_ida_irk(void)
     }
 }
 
-static void app_lea_conn_handle_peer_ida_info(app_lea_conn_sync_ida_info_t *sync_ida_info)
+static void app_lea_conn_add_rsl_imp(uint8_t addr_type, uint8_t *ida, uint8_t *irk)
 {
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    bt_status_t bt_status = bt_gap_le_srv_prepare_set_rsl();
+    if (bt_status == BT_STATUS_SUCCESS) {
+        app_lea_conn_add_ida_info(addr_type, ida, irk);
+    } else if (bt_status == BT_STATUS_BUSY) {
+        app_lea_conn_update_ida_info_list(FALSE, addr_type, ida, irk);
+        APPS_LOG_MSGID_E(LOG_TAG" handle_peer_ida_info, [%02X] RSL Busy addr=%08X%04X irk=%02X:%02X:%02X",
+                         6, role, *((uint32_t *)(ida + 2)), *((uint16_t *)ida), irk[0], irk[1], irk[2]);
+    }
+}
+
+static void app_lea_conn_handle_peer_ida_info(app_lea_conn_sync_ida_info_t *sync_ida_info)
+{
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
     uint8_t empty_irk[BT_KEY_SIZE] = {0};
 
@@ -653,6 +890,7 @@ static void app_lea_conn_handle_peer_ida_info(app_lea_conn_sync_ida_info_t *sync
 
         bool is_connected = FALSE;
         bool added_rsl = app_lea_conn_compare_ida_info_list(ida, irk);
+        // Still need to add IDA/IRK (maybe new IRK) even if LE_GAP_SRV exist the bond info of the IDA
         for (int j = 0; j < APP_LEA_MAX_CONN_NUM; j++) {
             if (memcmp(ida, app_lea_conn_info_list[j].peer_id_addr, BT_BD_ADDR_LEN) == 0
                 || memcmp(ida, app_lea_conn_info_list[j].peer_random_addr, BT_BD_ADDR_LEN) == 0) {
@@ -664,13 +902,7 @@ static void app_lea_conn_handle_peer_ida_info(app_lea_conn_sync_ida_info_t *sync
         if (is_connected || added_rsl) {
             continue;
         } else {
-            bt_status_t bt_status = bt_gap_le_srv_prepare_set_rsl();
-            if (bt_status == BT_STATUS_SUCCESS) {
-                app_lea_conn_add_ida_info(addr_type, ida, irk);
-            } else if (bt_status == BT_STATUS_BUSY) {
-                app_lea_conn_update_ida_info_list(FALSE, addr_type, ida, irk);
-                APPS_LOG_MSGID_E(LOG_TAG" handle_peer_ida_info, [%02X] RSL Busy", 1, role);
-            }
+            app_lea_conn_add_rsl_imp(addr_type, ida, irk);
         }
     }
 }
@@ -688,9 +920,68 @@ static void app_lea_conn_mgr_le_srv_event_callback(bt_gap_le_srv_event_t event, 
 #endif
 }
 
-#if defined(AIR_LE_AUDIO_DIRECT_ADV) && defined(AIR_GATT_SRV_CLIENT_ENABLE)
+#ifdef AIR_LE_AUDIO_ENABLE
+static void app_lea_conn_mgr_handle_aird_ready(bt_handle_t handle)
+{
+    uint8_t *addr = app_lea_conn_mgr_get_addr_by_handle(handle);
+    if (handle == BT_HANDLE_INVALID || addr == NULL) {
+        APPS_LOG_MSGID_E(LOG_TAG" handle_aird_ready, handle=0x%04X addr=0x%08X",
+                         2, handle, addr);
+        return;
+    }
+    APPS_LOG_MSGID_I(LOG_TAG" handle_aird_ready, handle=0x%04X addr=%08X%04X",
+                     3, handle, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+
+    bool update_lea_dongle_flag = FALSE;
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO
+            && ((app_lea_bond_info_list[i].value & APP_LEA_VALUE_LEA_DONGLE_MASK) == 0)
+            && memcmp(addr, app_lea_bond_info_list[i].bond_addr, BT_BD_ADDR_LEN) == 0) {
+            update_lea_dongle_flag = TRUE;
+            APPS_LOG_MSGID_W(LOG_TAG" update_bond_info, addr=%08X%04X update flag",
+                             2, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+            app_lea_bond_info_list[i].value |= APP_LEA_VALUE_LEA_DONGLE_MASK;
+            break;
+        }
+    }
+
+    if (update_lea_dongle_flag) {
+        // Only keep one LEA Dongle bond info, remove other LEA dongle
+        for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+            if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO
+                && ((app_lea_bond_info_list[i].value & APP_LEA_VALUE_LEA_DONGLE_MASK) > 0)
+                && memcmp(addr, app_lea_bond_info_list[i].bond_addr, BT_BD_ADDR_LEN) != 0) {
+                APPS_LOG_MSGID_W(LOG_TAG" update_bond_info, remove old LEA Dongle addr", 0);
+                app_lea_conn_mgr_remove_bond_info(TRUE, app_lea_bond_info_list[i].addr_type,
+                                                  app_lea_bond_info_list[i].bond_addr);
+                break;
+            }
+        }
+
+        app_lea_conn_mgr_print_bond_info(TRUE);
+        app_lea_conn_mgr_save_bond_info(FALSE);
+    }
+}
+
+static void app_lea_conn_mgr_start_reconnect_timer(void)
+{
+    // Cancel all active_reconnect flag (direct adv / targeted announcement flag) after APP_LE_AUDIO_ACTIVE_RECONNECT_TIME
+    // Similar to EDR cancel reconnect from headset after power on or link lost TIME_TO_STOP_RECONNECTION
+    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CANCEL_ADV_RECONNECT_FLAG);
+    ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
+                        EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_CANCEL_ADV_RECONNECT_FLAG,
+                        NULL, 0, NULL, APP_LE_AUDIO_ACTIVE_RECONNECT_TIME);
+}
+#endif
+
+#ifdef AIR_LE_AUDIO_DIRECT_ADV
 static bool app_lea_conn_mgr_is_check_addr_resolution_feature(uint8_t *addr)
 {
+    uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
+    if (addr == NULL || memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
+        return FALSE;
+    }
+
     bool ret = FALSE;
     for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
         if (memcmp(app_lea_bond_info_list[i].bond_addr, addr, BT_BD_ADDR_LEN) == 0) {
@@ -707,10 +998,10 @@ static void app_lea_conn_mgr_update_addr_resolution_feature(uint8_t *addr, uint8
 {
     for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
         if (memcmp(app_lea_bond_info_list[i].bond_addr, addr, BT_BD_ADDR_LEN) == 0) {
-            uint8_t old_value = app_lea_bond_info_list[i].value;
+            uint32_t old_value = app_lea_bond_info_list[i].value;
             app_lea_bond_info_list[i].value |= ((value == 1) ? APP_LEA_CENTRAL_ADDRESS_RESOLUTION_ENABLE : APP_LEA_CENTRAL_ADDRESS_RESOLUTION_DISABLE);
             if (old_value != app_lea_bond_info_list[i].value) {
-                app_lea_conn_mgr_save_bond_info();
+                app_lea_conn_mgr_save_bond_info(FALSE);
             }
             break;
         }
@@ -718,7 +1009,7 @@ static void app_lea_conn_mgr_update_addr_resolution_feature(uint8_t *addr, uint8
 }
 
 static bt_status_t app_lea_conn_mgr_client_event_callback(bt_gatt_srv_client_event_t event,
-                                                              bt_status_t status, void *parameter)
+                                                          bt_status_t status, void *parameter)
 {
     APPS_LOG_MSGID_I(LOG_TAG" client_event_callback, event=%d bt_status=0x%08X",
                      2, event, status);
@@ -729,13 +1020,39 @@ static bt_status_t app_lea_conn_mgr_client_event_callback(bt_gatt_srv_client_eve
         if (read_value->type == BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION && read_value->length == 1) {
             uint8_t value = *((uint8_t *)read_value->data);
             uint8_t *addr = app_lea_conn_mgr_get_addr_by_handle(read_value->connection_handle);
+            char *cur_task = pcTaskGetName(NULL);
             APPS_LOG_MSGID_W(LOG_TAG" client_event_callback, addr=%08X%04X resolution=%d",
                              3, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), value);
-            app_lea_conn_mgr_update_addr_resolution_feature(addr, value);
+            if (strstr(UI_SHELL_TASK_NAME, cur_task) != 0) {
+                app_lea_conn_mgr_update_addr_resolution_feature(addr, value);
+            } else {
+                uint32_t info = ((read_value->connection_handle << 16) | value);
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                                    EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_GET_ADDR_RESOLUTION_INFO,
+                                    (void *)(int)info, 0, NULL, 0);
+            }
         }
     }
     return BT_STATUS_SUCCESS;
 }
+
+static void app_lea_conn_mgr_get_address_resolution(bt_handle_t conn_handle)
+{
+    uint8_t *addr = app_lea_conn_mgr_get_addr_by_handle(conn_handle);
+    if (addr == NULL || app_lea_conn_mgr_is_check_addr_resolution_feature(addr)) {
+        return;
+    }
+
+    bt_gatt_srv_client_action_read_value_t read_param = {0};
+    read_param.type = BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION;
+    read_param.connection_handle = conn_handle;
+    read_param.callback = app_lea_conn_mgr_client_event_callback;
+    bt_status_t bt_status = bt_gatt_srv_client_send_action(BT_GATT_SRV_CLIENT_ACTION_READ_VALUE,
+                                                           &read_param, sizeof(read_param));
+    APPS_LOG_MSGID_I(LOG_TAG" get_address_resolution, addr=%08X%04X handle=0x%04X bt_status=0x%08X",
+                     4, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), conn_handle, bt_status);
+}
+
 #endif
 
 
@@ -787,40 +1104,11 @@ static void app_lea_conn_mgr_bt_dm_event_group(uint32_t event_id, void *extra_da
 #if defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
                 app_lea_conn_clear_ida_info_list();
 #endif
-                app_lea_conn_mgr_save_bond_info();
+                app_lea_conn_mgr_save_bond_info(TRUE);
             }
             break;
         }
     }
-}
-
-static void app_lea_conn_mgr_bt_sink_event_group(uint32_t event_id, void *extra_data, size_t data_len)
-{
-#if defined(AIR_LE_AUDIO_DIRECT_ADV) && defined(AIR_GATT_SRV_CLIENT_ENABLE)
-    if (event_id == LE_SINK_SRV_EVENT_REMOTE_INFO_UPDATE) {
-        bt_le_sink_srv_event_remote_info_update_t *ind = (bt_le_sink_srv_event_remote_info_update_t *)extra_data;
-        if (ind != NULL && ind->pre_connected_service != ind->connected_service
-            && ind->connected_service == (BT_SINK_SRV_PROFILE_CALL | BT_SINK_SRV_PROFILE_MUSIC)) {
-            uint8_t *addr = app_lea_conn_mgr_get_unify_addr((uint8_t *)ind->address.addr);
-            bt_handle_t conn_handle = app_lea_conn_mgr_get_handle_by_addr(addr);
-            if (app_lea_conn_mgr_is_check_addr_resolution_feature(addr)) {
-                return;
-            }
-
-            bt_gatt_srv_client_action_read_value_t read_param = {0};
-            read_param.type = BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION;
-            read_param.connection_handle = conn_handle;
-            read_param.callback = app_lea_conn_mgr_client_event_callback;
-            bt_status_t bt_status = bt_gatt_srv_client_send_action(BT_GATT_SRV_CLIENT_ACTION_READ_VALUE,
-                                                                   &read_param, sizeof(read_param));
-            APPS_LOG_MSGID_I(LOG_TAG" bt_gatt_srv_client_send_action, addr=%08X%04X handle=0x%04X bt_status=0x%08X",
-                             4, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), conn_handle, bt_status);
-            if (bt_status != BT_STATUS_SUCCESS) {
-                app_lea_conn_mgr_update_addr_resolution_feature(addr, 0);
-            }
-        }
-    }
-#endif
 }
 
 static void app_lea_conn_mgr_interaction_event_group(uint32_t event_id, void *extra_data, size_t data_len)
@@ -872,26 +1160,69 @@ static void app_lea_conn_mgr_proc_aws_data(void *extra_data, size_t data_len)
         app_lea_conn_mgr_set_reconnect_targeted_addr(FALSE, addr);
     }
 }
+#endif
 
 static void app_lea_conn_mgr_lea_event_group(uint32_t event_id, void *extra_data, size_t data_len)
 {
+#ifdef AIR_LE_AUDIO_ENABLE
+#ifdef AIR_TWS_ENABLE
     if (event_id == EVENT_ID_LEA_ALLOW_SET_RSL) {
         bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
         APPS_LOG_MSGID_I(LOG_TAG" lea_event_group, [%02X] ALLOW_SET_RSL", 1, role);
-        for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        for (int i = 0; i < APP_LEA_MAX_IDA_INFO_NUM; i++) {
             app_lea_conn_ida_info_item_t *item = &app_lea_conn_ida_info_list[i];
             if (item->state == APP_LEA_CONN_IDA_STATE_READY_TO_ADD) {
                 app_lea_conn_add_ida_info(item->addr_type, item->ida, item->irk);
             }
         }
     }
-}
-
 #endif
 
+    if (event_id == EVENT_ID_LEA_HANDLE_AIRD_READY) {
+        uint16_t handle = (uint16_t)(int)extra_data;
+        app_lea_conn_mgr_handle_aird_ready(handle);
+    } else if (event_id == EVENT_ID_LEA_DISCOVERY_INFO) {
+        uint32_t info = (uint32_t)(int)extra_data;
+        app_lea_conn_mgr_handle_discovery_result(info);
+    }
+#ifdef AIR_LE_AUDIO_DIRECT_ADV
+    else if (event_id == EVENT_ID_LEA_GET_ADDR_RESOLUTION_INFO) {
+        uint32_t info = (uint32_t)(int)extra_data;
+        bt_handle_t conn_handle = (uint16_t)((info & 0xFFFF0000) >> 16);
+        uint8_t value = (uint8_t)(info & 0xFF);
+        uint8_t *addr = app_lea_conn_mgr_get_addr_by_handle(conn_handle);
+        if (addr == NULL) {
+            APPS_LOG_MSGID_E(LOG_TAG" lea_event_group, GET_ADDR_RESOLUTION_INFO addr=NULL", 0);
+            return;
+        }
+        APPS_LOG_MSGID_W(LOG_TAG" lea_event_group, GET_ADDR_RESOLUTION_INFO conn_handle=0x%04X addr=%08X%04X resolution=%d",
+                         4, conn_handle, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), value);
+        app_lea_conn_mgr_update_addr_resolution_feature(addr, value);
+    }
+#endif
+#endif
+}
+
 #ifdef AIR_LE_AUDIO_ENABLE
-void app_lea_conn_mgr_update_discovery_result(bt_handle_t conn_handle, bool tbs, bool general, uint8_t char_num)
+void app_lea_conn_mgr_notify_aird_ready(bt_handle_t handle)
 {
+    // Enhance for LEA Dongle, set value bit8 as 1
+    APPS_LOG_MSGID_I(LOG_TAG" notify_aird_ready, handle=0x%04X", 1, handle);
+    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_HANDLE_AIRD_READY);
+    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                        EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_HANDLE_AIRD_READY,
+                        (void *)(int)handle, 0, NULL, 0);
+}
+
+static void app_lea_conn_mgr_handle_discovery_result(uint32_t info)
+{
+/*
+    bt_handle_t conn_handle = (uint16_t)((info & 0xFFFF0000) >> 16);
+    uint8_t char_num = (uint8_t)((info & 0xFF00) >> 8);
+    bool tbs = (bool)((info & 0x02) > 0);
+    bool general = (bool)((info & 0x01) > 0);
+//    APPS_LOG_MSGID_E(LOG_TAG" handle_discovery_result, info=%08X conn_handle=0x%02X char_num=%d tbs=%d general=%d",
+//                     5, info, conn_handle, char_num, tbs, general);
     for (int i = 0; i < APP_LEA_MAX_CONN_NUM; i++) {
         if (app_lea_conn_info_list[i].conn_handle == conn_handle
             && app_lea_conn_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO) {
@@ -913,7 +1244,7 @@ void app_lea_conn_mgr_update_discovery_result(bt_handle_t conn_handle, bool tbs,
                 }
             }
 
-//            APPS_LOG_MSGID_E(LOG_TAG" update_discovery_result, %d %d %d %d %d %d %d %d",
+//            APPS_LOG_MSGID_E(LOG_TAG" handle_discovery_result, %d %d %d %d %d %d %d %d",
 //                             8, app_lea_conn_info_list[i].gtbs_discovery_done, app_lea_conn_info_list[i].gtbs_char_num,
 //                             app_lea_conn_info_list[i].tbs_discovery_done, app_lea_conn_info_list[i].tbs_char_num,
 //                             app_lea_conn_info_list[i].gmcs_discovery_done, app_lea_conn_info_list[i].gmcs_char_num,
@@ -932,14 +1263,25 @@ void app_lea_conn_mgr_update_discovery_result(bt_handle_t conn_handle, bool tbs,
                 } else {
                     addr = app_lea_conn_info_list[i].peer_id_addr;
                 }
-                APPS_LOG_MSGID_E(LOG_TAG" update_discovery_result, conn_handle=0x%02X addr=%08X%04X no any service",
+                APPS_LOG_MSGID_E(LOG_TAG" handle_discovery_result, conn_handle=0x%02X addr=%08X%04X no any service",
                                  3, app_lea_conn_info_list[i].conn_handle,
                                  *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
-                app_lea_conn_mgr_remove_bond_info(app_lea_conn_info_list[i].peer_type, addr);
+                app_lea_conn_mgr_remove_bond_info(FALSE, app_lea_conn_info_list[i].peer_type, addr);
             }
             break;
         }
     }
+*/
+}
+
+void app_lea_conn_mgr_update_discovery_result(bt_handle_t conn_handle, bool tbs, bool general, uint8_t char_num)
+{
+/*
+    uint32_t info = ((conn_handle << 16) | (char_num << 8) | (tbs ? 0x02 : 0) | (general ? 0x01 : 0));
+    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                        EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_DISCOVERY_INFO,
+                        (void *)(int)info, 0, NULL, 0);
+*/
 }
 #endif
 
@@ -1003,6 +1345,7 @@ static void app_lea_conn_mgr_bt_event_group(uint32_t event_id, void *extra_data,
             bt_handle_t conn_handle = conn_ind->connection_handle;
             uint8_t *addr = (uint8_t *)conn_ind->peer_addr.addr;
             bt_addr_type_t peer_type = conn_ind->peer_addr.type;
+            bt_bd_addr_t adv_addr = {0};
 
 #ifdef AIR_BT_FAST_PAIR_LE_AUDIO_ENABLE
             if (app_lea_conn_gfp_standby_handle == conn_handle) {
@@ -1021,7 +1364,6 @@ static void app_lea_conn_mgr_bt_event_group(uint32_t event_id, void *extra_data,
             }
 #endif
 #ifdef AIR_LE_AUDIO_DIRECT_ADV
-            bt_bd_addr_t adv_addr = {0};
             if (multi_ble_adv_manager_get_random_addr_and_adv_handle(MULTI_ADV_INSTANCE_NOT_RHO, &adv_addr, NULL)
                 && memcmp(&adv_addr, local_addr, BT_BD_ADDR_LEN) == 0) {
                 need_check = FALSE;
@@ -1042,7 +1384,6 @@ static void app_lea_conn_mgr_bt_event_group(uint32_t event_id, void *extra_data,
                     break;
                 }
             } else {
-                bt_bd_addr_t adv_addr = {0};
                 if (multi_ble_adv_manager_get_random_addr_and_adv_handle(MULTI_ADV_INSTANCE_NOT_RHO, &adv_addr, NULL)
                     && memcmp(&adv_addr, local_addr, BT_BD_ADDR_LEN) == 0) {
                     // le audio link
@@ -1052,7 +1393,6 @@ static void app_lea_conn_mgr_bt_event_group(uint32_t event_id, void *extra_data,
                 }
             }
 #else
-            bt_bd_addr_t adv_addr = {0};
             if (multi_ble_adv_manager_get_random_addr_and_adv_handle(MULTI_ADV_INSTANCE_NOT_RHO, &adv_addr, NULL)
                 && memcmp(&adv_addr, local_addr, BT_BD_ADDR_LEN) == 0) {
                 // le audio link
@@ -1062,11 +1402,19 @@ static void app_lea_conn_mgr_bt_event_group(uint32_t event_id, void *extra_data,
             }
 #endif
 
+#if defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+            bool is_ull2_link = bt_gap_le_check_remote_features(conn_handle, BT_GAP_LE_ULL2_0);
+            if (!is_ull2_link && app_lea_feature_mode == APP_LEA_FEATURE_MODE_OFF) {
+                APPS_LOG_MSGID_E(LOG_TAG" BT_LE_CONNECT_IND, not ULL2 link when APP_LEA_FEATURE_MODE_OFF", 0);
+                break;
+            }
+#endif
+
             int index = -1;
             for (int i = 0; i < APP_LEA_MAX_CONN_NUM; i++) {
                 if (app_lea_conn_info_list[i].conn_handle == BT_HANDLE_INVALID) {
-                    APPS_LOG_MSGID_I(LOG_TAG" BT_LE_CONNECT_IND, lea_conn_info[%d] handle=0x%04X peer_addr=%02X:%02X:%02X:%02X:%02X:XX peer_type=%d",
-                                     8, i, conn_handle, addr[5], addr[4], addr[3], addr[2], addr[1], peer_type);
+                    APPS_LOG_MSGID_I(LOG_TAG" BT_LE_CONNECT_IND, lea_conn_info[%d] handle=0x%04X peer_addr=%08X%04X peer_type=%d",
+                                     5, i, conn_handle, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), peer_type);
                     app_lea_conn_info_list[i].conn_handle = conn_handle;
                     if (peer_type == BT_ADDR_RANDOM) {
                         memcpy(app_lea_conn_info_list[i].peer_random_addr, addr, BT_BD_ADDR_LEN);
@@ -1149,9 +1497,8 @@ static void app_lea_conn_mgr_bt_event_group(uint32_t event_id, void *extra_data,
                             || reason == BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST) {
                             // As active disconnect, no need to active reconnect
                             app_lea_conn_mgr_update_reconnect_type(peer_addr, APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED);
-#ifdef AIR_LE_AUDIO_DIRECT_ADV
+#if defined(AIR_BT_INTEL_EVO_ENABLE) && defined(AIR_LE_AUDIO_DIRECT_ADV)
                         } else if (reason == BT_HCI_STATUS_CONNECTION_TIMEOUT) {
-#ifdef AIR_GATT_SRV_CLIENT_ENABLE
                             // As link lost, need to active reconnect (direct adv for Intel EVO)
                             bool check_addr_resolution = app_lea_conn_mgr_is_check_addr_resolution_feature(peer_addr);
                             if (!check_addr_resolution) {
@@ -1160,14 +1507,14 @@ static void app_lea_conn_mgr_bt_event_group(uint32_t event_id, void *extra_data,
                             } else {
                                 app_lea_conn_mgr_update_reconnect_type(peer_addr, APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV);
                             }
-#else
-                            APPS_LOG_MSGID_E(LOG_TAG" BT_LE_DISCONNECT_IND, EVO Link Lost but not support check addr resolution", 0);
-                            app_lea_conn_mgr_update_reconnect_type(peer_addr, APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED);
-#endif
+                            app_lea_conn_mgr_start_reconnect_timer();
 #endif
                         } else {
                             // Need to active reconnect
                             app_lea_conn_mgr_update_reconnect_type(peer_addr, APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED);
+#ifdef AIR_LE_AUDIO_ENABLE
+                            app_lea_conn_mgr_start_reconnect_timer();
+#endif
                         }
                     } else if (conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
                         app_lea_conn_mgr_update_reconnect_type(peer_addr, APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED);
@@ -1266,7 +1613,7 @@ static void app_lea_conn_mgr_bt_event_group(uint32_t event_id, void *extra_data,
                     uint8_t *le_addr = app_bt_takeover_get_disconnect_le_addr();
                     if (le_addr != NULL) {
                         if ((memcmp(le_addr, app_lea_conn_info_list[i].peer_random_addr, BT_BD_ADDR_LEN) == 0
-                            || memcmp(le_addr, app_lea_conn_info_list[i].peer_id_addr, BT_BD_ADDR_LEN) == 0)
+                             || memcmp(le_addr, app_lea_conn_info_list[i].peer_id_addr, BT_BD_ADDR_LEN) == 0)
                             && app_lea_conn_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO) {
                             APPS_LOG_MSGID_W(LOG_TAG" BT_BONDING_COMPLETE_IND, disconnect lea_addr for takeover", 0);
                             app_lea_service_disconnect(FALSE, APP_LE_AUDIO_DISCONNECT_MODE_DISCONNECT, le_addr,
@@ -1281,9 +1628,13 @@ static void app_lea_conn_mgr_bt_event_group(uint32_t event_id, void *extra_data,
 
 #ifdef AIR_LE_AUDIO_ENABLE
                     if (app_lea_conn_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO) {
+#ifdef AIR_LE_AUDIO_DIRECT_ADV
+                        app_lea_conn_mgr_get_address_resolution(conn_handle);
+#endif
                         if (need_discovery) {
                             bt_status_t bt_status = bt_gattc_discovery_start(BT_GATTC_DISCOVERY_USER_LE_AUDIO,
                                                                              conn_handle, FALSE);
+
                             if (bt_status != BT_STATUS_SUCCESS) {
                                 APPS_LOG_MSGID_E(LOG_TAG" BT_BONDING_COMPLETE_IND, discovery error status=0x%08X",
                                                  1, bt_status);
@@ -1353,6 +1704,22 @@ static void app_lea_conn_mgr_bt_event_group(uint32_t event_id, void *extra_data,
             }
             break;
         }
+
+#ifdef AIR_TWS_ENABLE
+        case BT_GAP_LE_SET_RESOLVING_LIST_CNF: {
+            if (bt_event_data->status == BT_HCI_STATUS_MEMORY_CAPACITY_EXCEEDED) {
+                APPS_LOG_MSGID_E(LOG_TAG" SET_RESOLVING_LIST_CNF, MEMORY_CAPACITY_EXCEEDED", 0);
+                extern bt_status_t bt_device_manager_le_remove_old_bonded_device(void);
+                bt_device_manager_le_remove_old_bonded_device();
+                app_lea_conn_add_rsl_imp(app_lea_conn_cur_ida_info.addr_type,
+                                         app_lea_conn_cur_ida_info.ida,
+                                         app_lea_conn_cur_ida_info.irk);
+            } else {
+                memset(&app_lea_conn_cur_ida_info, 0, sizeof(app_lea_conn_ida_info_item_t));
+            }
+            break;
+        }
+#endif
 #endif
     }
 }
@@ -1381,6 +1748,11 @@ bool app_lea_conn_mgr_is_ever_connected(void)
 
 bool app_lea_conn_mgr_is_connected(const uint8_t *addr)
 {
+    uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
+    if (addr == NULL || memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
+        return FALSE;
+    }
+
     bool ret = FALSE;
     for (int i = 0; i < APP_LEA_MAX_CONN_NUM; i++) {
         if (app_lea_conn_info_list[i].conn_handle != BT_HANDLE_INVALID
@@ -1450,7 +1822,7 @@ bt_handle_t app_lea_conn_mgr_get_dongle_handle(app_lea_conn_type_t type)
 bt_handle_t app_lea_conn_mgr_get_handle_by_addr(const uint8_t *addr)
 {
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
-    if (memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
+    if (addr == NULL || memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
         return BT_HANDLE_INVALID;
     }
 
@@ -1461,28 +1833,6 @@ bt_handle_t app_lea_conn_mgr_get_handle_by_addr(const uint8_t *addr)
         }
     }
     return BT_HANDLE_INVALID;
-}
-
-
-bool app_lea_conn_mgr_is_lea_dongle_link(const uint8_t *addr)
-{
-    uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
-    if (memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
-        return FALSE;
-    }
-
-    bool ret = FALSE;
-#ifdef AIR_LE_AUDIO_ENABLE
-    for (int i = 0; i < APP_LEA_MAX_CONN_NUM; i++) {
-        if ((memcmp(addr, app_lea_conn_info_list[i].peer_random_addr, BT_BD_ADDR_LEN) == 0)
-            || (memcmp(addr, app_lea_conn_info_list[i].peer_id_addr, BT_BD_ADDR_LEN) == 0)) {
-            bt_handle_t conn_handle = app_lea_conn_info_list[i].conn_handle;
-            ret = app_le_audio_aird_client_is_support(conn_handle);
-            break;
-        }
-    }
-#endif
-    return ret;
 }
 
 uint8_t *app_lea_conn_mgr_get_addr_by_handle(bt_handle_t handle)
@@ -1504,7 +1854,7 @@ uint8_t *app_lea_conn_mgr_get_addr_by_handle(bt_handle_t handle)
 uint8_t *app_lea_conn_mgr_get_unify_addr(const uint8_t *addr)
 {
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
-    if (memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
+    if (addr == NULL || memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
         return NULL;
     }
 
@@ -1526,7 +1876,7 @@ uint8_t *app_lea_conn_mgr_get_unify_addr(const uint8_t *addr)
 bool app_lea_conn_mgr_is_bond_link(const uint8_t *addr)
 {
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
-    if (memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
+    if (addr == NULL || memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
         return FALSE;
     }
 
@@ -1543,7 +1893,7 @@ bool app_lea_conn_mgr_is_bond_link(const uint8_t *addr)
 bool app_lea_conn_mgr_is_ull_link(const uint8_t *addr)
 {
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
-    if (memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
+    if (addr == NULL || memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
         return FALSE;
     }
 
@@ -1560,18 +1910,108 @@ bool app_lea_conn_mgr_is_ull_link(const uint8_t *addr)
     return ret;
 }
 
+uint8_t* app_lea_conn_mgr_get_ull_dongle_addr(void)
+{
+    uint8_t *addr = NULL;
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        if (app_lea_bond_info_list[i].used
+            && app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
+            addr = app_lea_bond_info_list[i].bond_addr;
+            break;
+        }
+    }
+    return addr;
+}
+
+bool app_lea_conn_mgr_is_lea_dongle_link(const uint8_t *addr)
+{
+    uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
+    if (addr == NULL || memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
+        return FALSE;
+    }
+
+    bool ret = FALSE;
+#ifdef AIR_LE_AUDIO_ENABLE
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO
+            && memcmp(app_lea_bond_info_list[i].bond_addr, addr, BT_BD_ADDR_LEN) == 0
+            && ((app_lea_bond_info_list[i].value & APP_LEA_VALUE_LEA_DONGLE_MASK) > 0)) {
+            ret = TRUE;
+            break;
+        }
+    }
+#endif
+    return ret;
+}
+
+uint8_t *app_lea_conn_mgr_get_lea_dongle_addr(void)
+{
+    uint8_t *addr = NULL;
+    uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO
+            && ((app_lea_bond_info_list[i].value & APP_LEA_VALUE_LEA_DONGLE_MASK) > 0)
+            && memcmp(app_lea_bond_info_list[i].bond_addr, empty_addr, BT_BD_ADDR_LEN) != 0) {
+            addr = app_lea_bond_info_list[i].bond_addr;
+            break;
+        }
+    }
+    return addr;
+}
+
+void app_lea_conn_mgr_reset_lea_dongle(void)
+{
+    uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_AUDIO
+            && ((app_lea_bond_info_list[i].value & APP_LEA_VALUE_LEA_DONGLE_MASK) > 0)
+            && memcmp(app_lea_bond_info_list[i].bond_addr, empty_addr, BT_BD_ADDR_LEN) != 0) {
+            uint8_t *addr = app_lea_bond_info_list[i].bond_addr;
+            APPS_LOG_MSGID_W(LOG_TAG" reset_lea_dongle, addr=%08X%04X",
+                             2, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+            app_lea_conn_mgr_remove_bond_info(TRUE, app_lea_bond_info_list[i].addr_type,
+                                              app_lea_bond_info_list[i].bond_addr);
+            break;
+        }
+    }
+}
+
 uint8_t app_lea_conn_mgr_get_conn_type(bt_handle_t handle)
 {
+    if (handle == BT_HANDLE_INVALID) {
+        return APP_LEA_CONN_TYPE_NONE;
+    }
+
     uint8_t conn_type = APP_LEA_CONN_TYPE_NONE;
     for (int i = 0; i < APP_LEA_MAX_CONN_NUM; i++) {
         if (app_lea_conn_info_list[i].conn_handle == handle) {
             conn_type = app_lea_conn_info_list[i].conn_type;
+            break;
         }
     }
     return conn_type;
 }
 
+uint8_t app_lea_conn_mgr_get_conn_type_by_addr(const uint8_t *addr)
+{
+    uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
+    if (addr == NULL || memcmp(addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
+        return APP_LEA_CONN_TYPE_NONE;
+    }
 
+    bt_handle_t handle = app_lea_conn_mgr_get_handle_by_addr(addr);
+    uint8_t conn_type = app_lea_conn_mgr_get_conn_type(handle);
+    if (conn_type == APP_LEA_CONN_TYPE_NONE) {
+        for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+            const uint8_t *bond_addr = app_lea_bond_info_list[i].bond_addr;
+            if (memcmp(addr, bond_addr, BT_BD_ADDR_LEN) == 0) {
+                conn_type = app_lea_bond_info_list[i].conn_type;
+                break;
+            }
+        }
+    }
+    return conn_type;
+}
 
 uint8_t app_lea_conn_mgr_get_index(bt_handle_t handle)
 {
@@ -1592,14 +2032,14 @@ uint8_t app_lea_conn_mgr_get_conn_num(void)
 void app_lea_conn_mgr_get_conn_info(uint8_t *num, bt_addr_t *bdaddr)
 {
     if (num == NULL || bdaddr == NULL) {
-        APPS_LOG_MSGID_E(LOG_TAG" get_conn_info, error num=0x%08X bdaddr=0x%08X", 2, num, bdaddr);
+        //APPS_LOG_MSGID_E(LOG_TAG" get_conn_info, error num=0x%08X bdaddr=0x%08X", 2, num, bdaddr);
         return;
     }
 
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
     int conn_num = app_lea_conn_mgr_get_conn_num();
     if (conn_num == 0) {
-        APPS_LOG_MSGID_I(LOG_TAG" get_conn_info, num=0", 0);
+        //APPS_LOG_MSGID_I(LOG_TAG" get_conn_info, num=0", 0);
         return;
     }
 
@@ -1675,7 +2115,7 @@ void app_lea_conn_mgr_reset_bond_info(void)
 {
     APPS_LOG_MSGID_I(LOG_TAG" reset_bond_info", 0);
     memset(&app_lea_bond_info_list[0], 0, APP_LEA_BOND_INFO_LENGTH);
-    app_lea_conn_mgr_save_bond_info();
+    app_lea_conn_mgr_save_bond_info(FALSE);
 }
 
 bool app_lea_conn_mgr_add_bond_info(uint8_t addr_type, uint8_t *addr, uint8_t conn_type)
@@ -1685,7 +2125,7 @@ bool app_lea_conn_mgr_add_bond_info(uint8_t addr_type, uint8_t *addr, uint8_t co
     return app_lea_conn_mgr_update_bond_info(addr_type, addr, conn_type);
 }
 
-bool app_lea_conn_mgr_remove_bond_info(uint8_t addr_type, uint8_t *addr)
+bool app_lea_conn_mgr_remove_bond_info(bool disconnect, uint8_t addr_type, uint8_t *addr)
 {
     bool ret = FALSE;
     int index = -1;
@@ -1705,10 +2145,14 @@ bool app_lea_conn_mgr_remove_bond_info(uint8_t addr_type, uint8_t *addr)
             ret = TRUE;
             app_lea_conn_mgr_print_bond_info(FALSE);
             index = i;
-            APPS_LOG_MSGID_W(LOG_TAG" remove_bond_info, addr=%d %02X:%02X:%02X:%02X:%02X:%02X",
-                             7, addr_type, addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
+            APPS_LOG_MSGID_W(LOG_TAG" remove_bond_info, disconnect=%d addr_type=%d addr=%08X%04X",
+                             4, disconnect, addr_type, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
 
-            app_lea_conn_mgr_disconnect(addr, BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST);
+            if (disconnect) {
+                app_lea_conn_mgr_disconnect(addr, BT_HCI_STATUS_REMOTE_TERMINATED_CONNECTION_DUE_TO_LOW_RESOURCES);
+            }
+
+            app_lea_conn_mgr_remove_le_bond_info(addr_type, addr);
             break;
         }
     }
@@ -1720,10 +2164,7 @@ bool app_lea_conn_mgr_remove_bond_info(uint8_t addr_type, uint8_t *addr)
         memset(&app_lea_bond_info_list[APP_LEA_MAX_BOND_NUM - 1], 0, sizeof(app_lea_bond_info_t));
         app_lea_conn_mgr_print_bond_info(TRUE);
 
-        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_FORCE_UPDATE_ADV);
-        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH,
-                            EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_FORCE_UPDATE_ADV,
-                            NULL, 0, NULL, 0);
+        app_lea_service_refresh_advertising(0);
     }
 
     return ret;
@@ -1732,24 +2173,13 @@ bool app_lea_conn_mgr_remove_bond_info(uint8_t addr_type, uint8_t *addr)
 void app_lea_conn_mgr_reset_keep_ull2_bond_info(void)
 {
     APPS_LOG_MSGID_E(LOG_TAG" reset_keep_ull2_bond_info", 0);
-    app_lea_conn_mgr_restore_bond_info();
+    app_lea_conn_mgr_clear_lea_bond_info_keep_ull2(TRUE);
+}
 
-    bool found_ull2 = FALSE;
-    app_lea_bond_info_t ull2_info = {0};
-    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
-        if (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_ULL) {
-            found_ull2 = TRUE;
-            ull2_info = app_lea_bond_info_list[i];
-            APPS_LOG_MSGID_E(LOG_TAG" reset_keep_ull2_bond_info", 0);
-            break;
-        }
-    }
-
-    memset(&app_lea_bond_info_list[0], 0, APP_LEA_BOND_INFO_LENGTH);
-    if (found_ull2) {
-        memcpy(&app_lea_bond_info_list[0], &ull2_info, sizeof(app_lea_bond_info_t));
-    }
-    app_lea_conn_mgr_save_bond_info();
+void app_lea_conn_mgr_clear_lea_keep_ull2_bond_info(void)
+{
+    APPS_LOG_MSGID_E(LOG_TAG" clear_lea_keep_ull2_bond_info", 0);
+    app_lea_conn_mgr_clear_lea_bond_info_keep_ull2(FALSE);
 }
 
 bool app_lea_conn_mgr_is_need_reconnect_adv(void)
@@ -1763,7 +2193,8 @@ bool app_lea_conn_mgr_is_need_reconnect_adv(void)
 
         if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV
             || app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED
-            || app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED) {
+            || app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED
+            || app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_TEMP_NO_NEED) {
             need = TRUE;
             break;
         }
@@ -1771,13 +2202,15 @@ bool app_lea_conn_mgr_is_need_reconnect_adv(void)
     return need;
 }
 
-void app_lea_conn_mgr_get_reconnect_info(uint8_t *direct_num, uint8_t *active_num, uint8_t *unactive_num)
+void app_lea_conn_mgr_get_reconnect_info(bool adjust, uint8_t *direct_num, uint8_t *active_num, uint8_t *inactive_num)
 {
-    app_lea_conn_mgr_print_bond_info(TRUE);
+    if (adjust) {
+        app_lea_conn_mgr_adjust_reconnect_type();
+    }
 
     uint8_t temp_direct_num = 0;
     uint8_t temp_active_num = 0;
-    uint8_t temp_unactive_num = 0;
+    uint8_t temp_inactive_num = 0;
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
     for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
         if (!app_lea_bond_info_list[i].used || (memcmp(app_lea_bond_info_list[i].bond_addr, empty_addr, BT_BD_ADDR_LEN) == 0)) {
@@ -1788,8 +2221,9 @@ void app_lea_conn_mgr_get_reconnect_info(uint8_t *direct_num, uint8_t *active_nu
             temp_direct_num++;
         } else if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED) {
             temp_active_num++;
-        } else if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED) {
-            temp_unactive_num++;
+        } else if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED
+                   || app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_TEMP_NO_NEED) {
+            temp_inactive_num++;
         }
     }
     if (direct_num != NULL) {
@@ -1798,11 +2232,14 @@ void app_lea_conn_mgr_get_reconnect_info(uint8_t *direct_num, uint8_t *active_nu
     if (active_num != NULL) {
         *active_num = temp_active_num;
     }
-    if (unactive_num != NULL) {
-        *unactive_num = temp_unactive_num;
+    if (inactive_num != NULL) {
+        *inactive_num = temp_inactive_num;
     }
-    APPS_LOG_MSGID_W(LOG_TAG"[SUB_MODE] get_reconnect_info, direct_num=%d active_num=%d unactive_num=%d",
-                     3, temp_direct_num, temp_active_num, temp_unactive_num);
+
+    if (adjust) {
+        APPS_LOG_MSGID_W(LOG_TAG"[SUB_MODE] get_reconnect_info, direct_num=%d active_num=%d inactive_num=%d",
+                         3, temp_direct_num, temp_active_num, temp_inactive_num);
+    }
 }
 
 void app_lea_conn_mgr_get_reconnect_addr(uint8_t sub_mode, bt_addr_t *addr_list, uint8_t *list_num)
@@ -1814,7 +2251,6 @@ void app_lea_conn_mgr_get_reconnect_addr(uint8_t sub_mode, bt_addr_t *addr_list,
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
     int buffer_num = *list_num;
     int index = 0;
-    bool skip_direct_1 = FALSE;
     for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
         if (!app_lea_bond_info_list[i].used || (memcmp(app_lea_bond_info_list[i].bond_addr, empty_addr, BT_BD_ADDR_LEN) == 0)) {
             continue;
@@ -1825,18 +2261,12 @@ void app_lea_conn_mgr_get_reconnect_addr(uint8_t sub_mode, bt_addr_t *addr_list,
             && (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED
                 || (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_ULL && app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED))) {
             match = TRUE;
-        } else if (sub_mode == APP_LEA_ADV_SUB_MODE_UNACTIVE
-                   && (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_NO_NEED
-                       || (app_lea_bond_info_list[i].conn_type == APP_LEA_CONN_TYPE_LE_ULL && app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED))) {
+        } else if (sub_mode == APP_LEA_ADV_SUB_MODE_INACTIVE
+                   && app_lea_bond_info_list[i].reconnect_type != APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED) {
             match = TRUE;
-        } else if (sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT_2
-                   && skip_direct_1
+        } else if (sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT
                    && app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV) {
             match = TRUE;
-        } else if ((sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT_1 || sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT_2)
-                   && app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV) {
-            match = (sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT_1);
-            skip_direct_1 = TRUE;
         }
 
         if (match) {
@@ -1844,8 +2274,6 @@ void app_lea_conn_mgr_get_reconnect_addr(uint8_t sub_mode, bt_addr_t *addr_list,
             addr_list[index].type = app_lea_bond_info_list[i].addr_type;
             index++;
             if (index > buffer_num) {
-                break;
-            } else if (sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT_1 || sub_mode == APP_LEA_ADV_SUB_MODE_DIRECT_2) {
                 break;
             }
         }
@@ -1860,8 +2288,8 @@ bool app_lea_conn_mgr_is_support_addr_resolution(uint8_t *addr)
     for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
         if (memcmp(app_lea_bond_info_list[i].bond_addr, addr, BT_BD_ADDR_LEN) == 0) {
             uint32_t value = app_lea_bond_info_list[i].value;
-            uint8_t addr_resolution = (value & 0x3);
-            ret = (addr_resolution == 1);
+            uint8_t addr_resolution = (value & APP_LEA_CENTRAL_ADDRESS_RESOLUTION_MASK);
+            ret = (addr_resolution == APP_LEA_CENTRAL_ADDRESS_RESOLUTION_ENABLE);
             break;
         }
     }
@@ -1943,8 +2371,21 @@ void app_lea_conn_mgr_disconnect_dongle(void)
 void app_lea_conn_mgr_set_reconnect_targeted_addr(bool sync, const uint8_t *addr)
 {
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    bool already_connected = FALSE;
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        if (app_lea_bond_info_list[i].used
+            && memcmp(addr, app_lea_bond_info_list[i].bond_addr, BT_BD_ADDR_LEN) == 0) {
+            already_connected = (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_CONNECTED);
+            break;
+        }
+    }
     // Update reconnect mode, should be on the LEA Bond List, start adv with targeted announcement flag
-    app_lea_conn_mgr_update_reconnect_type(addr, APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED);
+    if (!already_connected) {
+        app_lea_conn_mgr_update_reconnect_type(addr, APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED);
+#ifdef AIR_LE_AUDIO_ENABLE
+        app_lea_conn_mgr_start_reconnect_timer();
+#endif
+    }
 
 #ifdef AIR_TWS_ENABLE
     bt_aws_mce_srv_link_type_t aws_link_type = bt_aws_mce_srv_get_link_type();
@@ -1959,6 +2400,38 @@ void app_lea_conn_mgr_set_reconnect_targeted_addr(bool sync, const uint8_t *addr
     APPS_LOG_MSGID_I(LOG_TAG" set_targeted_addr, [%02X] addr=%02X:%02X:%02X:%02X:%02X:%02X",
                      7, role, addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
 #endif
+}
+
+void app_lea_conn_mgr_control_temp_reconnect_type(bool enable)
+{
+    app_lea_conn_mgr_print_bond_info(FALSE);
+
+    uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
+    uint8_t update_num = 0;
+    for (int i = 0; i < APP_LEA_MAX_BOND_NUM; i++) {
+        if (!app_lea_bond_info_list[i].used || (memcmp(app_lea_bond_info_list[i].bond_addr, empty_addr, BT_BD_ADDR_LEN) == 0)) {
+            continue;
+        }
+
+        if (enable) {
+            if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_TEMP_NO_NEED) {
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED;
+                update_num++;
+            }
+        } else {
+            if (app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DIRECT_ADV
+                || app_lea_bond_info_list[i].reconnect_type == APP_LEA_CONN_ACTIVE_RECONNECT_DEFAULT_NEED) {
+                app_lea_bond_info_list[i].reconnect_type = APP_LEA_CONN_ACTIVE_RECONNECT_TEMP_NO_NEED;
+                update_num++;
+            }
+        }
+    }
+
+    APPS_LOG_MSGID_W(LOG_TAG" control_temp_reconnect_type, enable=%d update_num=%d", 2, enable, update_num);
+    if (update_num > 0) {
+        app_lea_conn_mgr_print_bond_info(TRUE);
+        app_lea_service_refresh_advertising(0);
+    }
 }
 
 void app_lea_conn_mgr_enable_multi_conn(bool enable)
@@ -2011,9 +2484,6 @@ void app_lea_conn_mgr_proc_ui_shell_event(uint32_t event_group,
         case EVENT_GROUP_UI_SHELL_BT_DEVICE_MANAGER:
             app_lea_conn_mgr_bt_dm_event_group(event_id, extra_data, data_len);
             break;
-        case EVENT_GROUP_UI_SHELL_BT_SINK:
-            app_lea_conn_mgr_bt_sink_event_group(event_id, extra_data, data_len);
-            break;
         case EVENT_GROUP_UI_SHELL_APP_INTERACTION:
             app_lea_conn_mgr_interaction_event_group(event_id, extra_data, data_len);
             break;
@@ -2021,11 +2491,11 @@ void app_lea_conn_mgr_proc_ui_shell_event(uint32_t event_group,
         case EVENT_GROUP_UI_SHELL_AWS_DATA:
             app_lea_conn_mgr_proc_aws_data(extra_data, data_len);
             break;
+#endif
         case EVENT_GROUP_UI_SHELL_LE_AUDIO: {
             app_lea_conn_mgr_lea_event_group(event_id, extra_data, data_len);
             break;
         }
-#endif
         case EVENT_GROUP_UI_SHELL_BT:
             app_lea_conn_mgr_bt_event_group(event_id, extra_data, data_len);
             break;

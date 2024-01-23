@@ -87,7 +87,8 @@ typedef enum {
 typedef struct {
     app_power_saving_state_t app_state;                 /**<  The state of Power Saving APP. */
     app_power_saving_bt_state_t bt_sink_srv_state;      /**<  BT state. */
-    app_power_saving_type_t waiting_type;           /**<  The waiting type is no connection or silence detect. */
+    app_power_saving_bt_state_t le_sink_srv_state;           /**< LEA state.*/
+    app_power_saving_type_t waiting_type;               /**<  The waiting type is no connection or silence detect. */
 } app_power_saving_context_t;
 
 /**
@@ -110,7 +111,7 @@ typedef enum {
     APP_POWER_SAVING_EVENT_NOTIFY_CHANGE,       /**<  Notify change event. */
 } app_power_saving_event_t;
 
-#define APPS_MIN_TIMEOUT_OF_SLEEP_AFTER_NO_CONNECTEION   (20 * 1000) /* The minimal waiting time (seconds) before sleep */
+#define APPS_MIN_TIMEOUT_OF_SLEEP_AFTER_NO_CONNECTION   (20 * 1000) /* The minimal waiting time (seconds) before sleep */
 
 /**
  *  @brief This typedef defines the function pointer used to update power saving target_mode.

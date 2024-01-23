@@ -55,6 +55,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_SWB_RX_EQ,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 #define ECNR_SWB_NVKEY_LIST \
                 NVKEY_DSP_PARA_AEC,\
@@ -65,6 +70,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_SWB_RX_EQ,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 #define ECNR_WB_NVKEY_LIST \
                 NVKEY_DSP_PARA_AEC,\
@@ -74,6 +84,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_WB_RX_EQ,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 #define ECNR_NB_NVKEY_LIST \
                 NVKEY_DSP_PARA_AEC,\
@@ -83,6 +98,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_NB_RX_EQ,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 
 /*
@@ -100,6 +120,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_SWB_RX_EQ_2ND,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 #define ECNR_WB_ANC_NVKEY_LIST \
                 NVKEY_DSP_PARA_AEC,\
@@ -109,6 +134,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_WB_RX_EQ_2ND,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 #define ECNR_NB_ANC_NVKEY_LIST \
                 NVKEY_DSP_PARA_AEC,\
@@ -118,6 +148,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_NB_RX_EQ_2ND,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 
 #define PSAP_1_ECNR_SWB_NVKEY_LIST ECNR_SWB_ANC_NVKEY_LIST
@@ -134,6 +169,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_SWB_RX_EQ,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 #define ECNR_SWB_BOOM_MIC_NVKEY_LIST \
                 NVKEY_DSP_PARA_AEC_BOOMIC,\
@@ -144,6 +184,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_SWB_RX_EQ,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 #define ECNR_WB_BOOM_MIC_NVKEY_LIST \
                 NVKEY_DSP_PARA_AEC_BOOMIC,\
@@ -153,6 +198,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_WB_RX_EQ,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 #define ECNR_NB_BOOM_MIC_NVKEY_LIST \
                 NVKEY_DSP_PARA_AEC_BOOMIC,\
@@ -162,6 +212,11 @@
                 NVKEY_DSP_PARA_WB_TX_PRE_EQ,\
                 NVKEY_DSP_PARA_NB_RX_EQ,\
                 NVKEY_DSP_PARA_AST_EQ,\
+                NVKEY_DSP_PARA_AST_EQ_1,\
+                NVKEY_DSP_PARA_AST_EQ_2,\
+                NVKEY_DSP_PARA_AST_EQ_3,\
+                NVKEY_DSP_PARA_AST_EQ_4,\
+                NVKEY_DSP_PARA_AST_EQ_5,\
                 ECNR_RESERVED_NVKEY
 
 #elif defined(AIR_ECNR_1MIC_INEAR_ENABLE) || defined(AIR_ECNR_2MIC_INEAR_ENABLE)

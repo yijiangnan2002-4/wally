@@ -63,7 +63,7 @@ static void app_share_mode_trigger_sta_update()
 }
 
 /**
-* @brief      This function will be called when share mode states updated or some errors happend.
+* @brief      This function will be called when share mode states updated or some errors happens.
 * @param[in]  event, the current event come from middleware
 * @param[in]  status, indicate the operation is success of failed.
 * @param[in]  data, the pointer of payload.
@@ -120,7 +120,7 @@ bt_status_t app_share_handover_allow_execution(const bt_bd_addr_t *addr)
     if (sta == BT_STATUS_PENDING) {
         ctx->rho_pending = true;
     }
-    APPS_LOG_MSGID_I(TAG"rho allw execution status: %d.", 1, sta);
+    APPS_LOG_MSGID_I(TAG"rho allow execution status: %d.", 1, sta);
     return sta;
 }
 
@@ -140,7 +140,7 @@ void app_share_handover_status_callback(const bt_bd_addr_t *addr,
         ctx->rho_status = BT_STATUS_SUCCESS;
     }
     /* app share not care the rho status, because app share would not allowed rho
-     * in share mode status. But in the followe case, the share mode will disable
+     * in share mode status. But in the follow case, the share mode will disable
      * and try to trigger rho.
      * 1. The Agent put into charger case.
      * 2. The Agent in low power status.
@@ -174,7 +174,7 @@ static bool __send_key_action(uint16_t send_event)
 /**
 * @brief      This function will be called when race command about share mode received.
 * @param[in]  cmd, the command of share mode control.
-* @return     return the command excuete result.
+* @return     return the command execute result.
 */
 uint8_t share_mode_set_callback(race_share_mode_set_cmd cmd)
 {
@@ -184,7 +184,7 @@ uint8_t share_mode_set_callback(race_share_mode_set_cmd cmd)
     sta = bt_mcsync_share_get_state();
     APPS_LOG_MSGID_I(TAG"receive share set cmd: %d, current sta: %d.", 2, cmd, sta);
 
-    /* Conver the command to key event. */
+    /* Convert the command to key event. */
     if (cmd == RACE_CMD_SHARE_MODE_SET_ENABLE_SHARE && sta == BT_MCSYNC_SHARE_STATE_NORMAL) {
         send_event = KEY_SHARE_MODE_SWITCH;
     } else if (cmd == RACE_CMD_SHARE_MODE_SET_ENABLE_FOLLOWER && sta == BT_MCSYNC_SHARE_STATE_NORMAL) {

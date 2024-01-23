@@ -417,6 +417,37 @@ void    wdt_dump_register(uint32_t channel)
     }
 }
 
+void    wdt_exception_config_internal_use(uint32_t seconds)
+{
+    uint32_t length_register_value = 0;
+
+    /* between two wdt feed / length set needs to be greater than 6 Tick * 32K */
+    hal_gpt_delay_us(8 * 32);//256us
+
+    /* disable wdt */
+    WDT_REGISTER->WDT_EN = (WDT_EN_KEY << WDT_EN_KEY_OFFSET) | WDT_EN_TST_MODE_KEY_MASK;
+    WDT_REGISTER->WDT_AUTO_RESTART_EN = (WDT_AUTO_RESTART_EN_KEY << WDT_AUTO_RESTART_EN_KEY_OFFSET);
+
+    /* set length */
+    length_register_value = (seconds * 10000) / WDT_1_TICK_LENGTH;
+    length_register_value <<= WDT_LENGTH_OFFSET;
+    /* write the length register */
+    length_register_value |= WDT_LENGTH_KEY << WDT_LENGTH_KEY_OFFSET;
+    WDT_REGISTER->WDT_LENGTH = length_register_value;
+    /*restart WDT to let the new value take effect */
+    WDT_REGISTER->WDT_SW_RESTART = WDT_SW_RESTART_KEY;
+
+    /* set reset mode */
+    WDT_REGISTER->WDT_IE = (WDT_IRQ_IE_KEY << WDT_IRQ_IE_KEY_OFFSET) | (WDT_NMI_IE_KEY << WDT_NMI_IE_KEY_OFFSET);
+
+    /* set cold reset */
+    WDT_REGISTER->WDT_MASK1_UNION.WDT_MASK1_CELLS.PMU_RESET = (WDT_PMU_MASK_SW_RST_KEY << WDT_PMU_MASK_SW_RST_KEY_OFFSET);
+
+    /* enable wdt */
+    WDT_REGISTER->WDT_EN = (WDT_EN_MASK | (WDT_EN_KEY << WDT_EN_KEY_OFFSET)) | (WDT_EN_TST_MODE_KEY_MASK);
+    WDT_REGISTER->WDT_AUTO_RESTART_EN = (WDT_AUTO_RESTART_EN_MASK | (WDT_AUTO_RESTART_EN_KEY << WDT_AUTO_RESTART_EN_KEY_OFFSET));
+}
+
 
 #endif
 

@@ -220,7 +220,11 @@ static void app_ull_take_over_set_sp_con(bool connect)
 
         cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
         s_ctx.wait_sp_disconnect_ev = 0;
+#ifdef AIR_HEADSET_ENABLE
         connected_num = bt_cm_get_connecting_devices(BT_CM_PROFILE_SERVICE_MASK_NONE, connected_address, connected_num);
+#else
+        connected_num = bt_cm_get_connecting_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), connected_address, connected_num);
+#endif
         for (i = 0; i < connected_num; i++) {
             memcpy(cm_param.address, connected_address[i], sizeof(bt_bd_addr_t));
             bt_cm_disconnect(&cm_param);
@@ -437,6 +441,9 @@ static void app_ull_take_over_event_process(ull2_take_over_event_type_t event)
         case ULL2_TAKE_OVER_EV_LE_AUDIO_DISCONNECTED: {
             if (s_ctx.le_audio_connected > 0) {
                 s_ctx.le_audio_connected--;
+                if (s_ctx.le_audio_connected == 0 && s_ctx.sp_edr_connected == 0 && s_ctx.ull2_connected == 0) {
+                    app_lea_adv_mgr_enable_ull2_reconnect_mode(true);
+                }
             }
             if (s_ctx.wait_le_audio_disconnect_ev != 0) {
                 s_ctx.wait_le_audio_disconnect_ev--;

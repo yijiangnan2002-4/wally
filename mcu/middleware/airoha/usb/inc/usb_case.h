@@ -36,6 +36,8 @@
 #ifndef __USB_CASE_H__
 #define __USB_CASE_H__
 
+#ifdef AIR_USB_ENABLE
+
 /* C library */
 #include <stdbool.h>
 #include <stdint.h>
@@ -53,5 +55,7 @@ void usb_case_race_call(bool usb_plug_in);
 void usb_case_register_logs_callback(USB_LOGS_FUNC logs_callback);
 void usb_case_logs_call(bool usb_plug_in);
 
-#endif
+#endif /* AIR_USB_ENABLE */
+
+#endif /* __USB_CASE_H__ */
 

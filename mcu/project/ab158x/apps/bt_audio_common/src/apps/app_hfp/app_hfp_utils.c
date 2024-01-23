@@ -154,6 +154,47 @@ uint8_t app_hfp_get_active_device_type()
     return type;
 }
 
+bool app_hfp_get_va_active_device(bt_bd_addr_t *active_addr)
+{
+    bool ret = false;
+    if (NULL == active_addr) {
+        return ret;
+    }
+
+    const bt_device_manager_link_record_t *link_info = bt_device_manager_link_record_get_connected_link();
+    if (link_info == NULL || (link_info != NULL && link_info->connected_num == 0)) {
+        return ret;
+    }
+
+    bt_sink_srv_state_manager_played_device_t played_list[3] = {0};
+    uint32_t play_list_num = 0;
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+    play_list_num = bt_sink_srv_state_manager_get_played_device_list(played_list, 3);
+#endif
+    if (play_list_num != 0) {
+        for (int i=0; i<play_list_num; i++) {
+            if (played_list[i].type == BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR) {
+                memcpy((*active_addr), played_list[i].address, sizeof(bt_bd_addr_t));
+                ret = true;
+                break;
+            }
+        }
+    } else {
+        for (int j=0; j<link_info->connected_num; j++) {
+            if (link_info->connected_device[j].link_type == BT_DEVICE_MANAGER_LINK_TYPE_EDR) {
+                memcpy((*active_addr), link_info->connected_device[j].remote_addr, sizeof(bt_bd_addr_t));
+                ret = true;
+                break;
+            }
+        }
+    }
+
+
+    APPS_LOG_MSGID_I(APP_HFP_UTILS" get_va_active_device: ret=%d, list_num=%d, connected_num=%d", 3, ret, play_list_num, link_info->connected_num);
+    APPS_LOG_MSGID_I(APP_HFP_UTILS" get_va_active_device: addr=%02X:%02X:%02X:%02X:%02X:%02X", 6
+                     , (*active_addr)[0], (*active_addr)[1], (*active_addr)[2], (*active_addr)[3], (*active_addr)[4], (*active_addr)[5]);
+    return ret;
+}
 
 apps_config_state_t app_hfp_get_config_status_by_state(bt_sink_srv_state_t state)
 {
@@ -173,7 +214,7 @@ apps_config_state_t app_hfp_get_config_status_by_state(bt_sink_srv_state_t state
         }
         case BT_SINK_SRV_STATE_ACTIVE: {
             /* There is an active call only.*/
-            status = APP_HFP_CALLACTIVE;
+            status = APP_HFP_CALL_ACTIVE;
             break;
         }
         case BT_SINK_SRV_STATE_TWC_INCOMING: {
@@ -193,12 +234,12 @@ apps_config_state_t app_hfp_get_config_status_by_state(bt_sink_srv_state_t state
         }
         case BT_SINK_SRV_STATE_HELD_REMAINING: {
             /* There is a held call only. */
-            status = APP_HFP_CALLACTIVE_WITHOUT_SCO;
+            status = APP_HFP_CALL_ACTIVE_WITHOUT_SCO;
             break;
         }
         case BT_SINK_SRV_STATE_MULTIPARTY: {
             /* There is a conference call. */
-            status = APP_HFP_MULTITPART_CALL;
+            status = APP_HFP_MULTIPARTY_CALL;
             break;
         }
     }
@@ -432,32 +473,32 @@ uint8_t app_hfp_is_auto_accept_incoming_call()
     return isEnable;
 }
 
-bool app_hfp_set_auto_accept_incoming_call(uint8_t isAutoaccept, bool is_sync)
+bool app_hfp_set_auto_accept_incoming_call(uint8_t auto_accept, bool sync)
 {
     bool ret = false;
     nvkey_status_t status = NVKEY_STATUS_OK;
-    status = nvkey_write_data(NVID_APP_IN_EAR_HFP_ABILITY, &isAutoaccept, sizeof(uint8_t));
+    status = nvkey_write_data(NVID_APP_IN_EAR_HFP_ABILITY, &auto_accept, sizeof(uint8_t));
     if (status == NVKEY_STATUS_OK) {
         ret = true;
-        g_app_hfp_auto_accept = isAutoaccept;
+        g_app_hfp_auto_accept = auto_accept;
 #ifdef MTK_AWS_MCE_ENABLE
-        if (is_sync) {
+        if (sync) {
             app_hfp_notify_state_to_peer();
         }
 #endif
     }
-    APPS_LOG_MSGID_I(APP_HFP_UTILS" [AUTO ACCEPT] set in ear control value: status=%d, isEnable=%d, is_sync=%d.",
-                     3, status, isAutoaccept, is_sync);
+    APPS_LOG_MSGID_I(APP_HFP_UTILS" [AUTO ACCEPT] set in ear control value: status=%d, isEnable=%d, sync=%d.",
+                     3, status, auto_accept, sync);
     return ret;
 }
 
 void app_hfp_notify_state_to_peer()
 {
 #ifdef MTK_AWS_MCE_ENABLE
-    uint8_t isAutoaccept = app_hfp_is_auto_accept_incoming_call();
+    uint8_t auto_accept = app_hfp_is_auto_accept_incoming_call();
     if (TRUE == app_home_screen_idle_activity_is_aws_connected()) {
         bt_status_t send_state = apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-                                                                APPS_EVENTS_INTERACTION_SYNC_AUTO_ACCEPT_STATUS, &isAutoaccept, sizeof(uint8_t));
+                                                                APPS_EVENTS_INTERACTION_SYNC_AUTO_ACCEPT_STATUS, &auto_accept, sizeof(uint8_t));
         APPS_LOG_MSGID_I(APP_HFP_UTILS" [AUTO ACCEPT] sync auto accept status to peer: state=%d.", 1, send_state);
     }
 #endif
@@ -631,7 +672,7 @@ void app_hfp_incoming_call_vp_process(ui_shell_activity_t *self, bool isLongVp, 
         return;
     }
 
-    uint32_t vp_delay_time = (isLongVp == TRUE) ? APP_HFP_INCMOING_CALL_VP_LONG_DELAY_TIME : APP_HFP_INCMOING_CALL_VP_SHORT_DELAY_TIME;
+    uint32_t vp_delay_time = (isLongVp == TRUE) ? APP_HFP_INCOMING_CALL_VP_LONG_DELAY_TIME : APP_HFP_INCOMING_CALL_VP_SHORT_DELAY_TIME;
     uint32_t vp_index      = (isTwcIncoming == TRUE) ? VP_INDEX_TWC_INCOMING_CALL : VP_INDEX_INCOMING_CALL;
     uint32_t stop_vp_index = (isTwcIncoming == FALSE) ? VP_INDEX_TWC_INCOMING_CALL : VP_INDEX_INCOMING_CALL;
     APPS_LOG_MSGID_I(APP_HFP_UTILS",[RING_IND] set vp: vp_delay_time=%d, vp_index=%d, aws_link_state=%d",
@@ -717,7 +758,7 @@ bool app_hfp_mute_mic(bool mute)
         if (BT_AWS_MCE_ROLE_AGENT == bt_device_manager_aws_local_info_get_role())
 #endif
         {
-            voice_prompt_play_sync_vp_successed();
+            voice_prompt_play_sync_vp_succeed();
         }
     }
 
@@ -752,20 +793,17 @@ bool app_hfp_set_va_enable(bool enable)
         return ret;
     }
 
+
     va_trigger.activate = enable;
     /* Get trigger address.*/
-    va_trigger.type = app_hfp_get_active_device_type();
-    trigger_ret = app_hfp_get_active_device_addr(&(va_trigger.address));
-    if (va_trigger.type != BT_DEVICE_MANAGER_LINK_TYPE_EDR) {
-        return ret;
-    }
-
+    va_trigger.type = BT_SINK_SRV_DEVICE_EDR;
+    //trigger_ret = app_hfp_get_active_device_addr(&(va_trigger.address));
+    trigger_ret = app_hfp_get_va_active_device(&(va_trigger.address));
+    
     if (trigger_ret == TRUE) {
         bt_status = bt_sink_srv_send_action(BT_SINK_SRV_ACTION_VOICE_RECOGNITION_ACTIVATE_EXT,
                                             (void *)&va_trigger);
-    } else {
-        bt_status = bt_sink_srv_send_action(BT_SINK_SRV_ACTION_VOICE_RECOGNITION_ACTIVATE, &va_trigger.activate);
-    }
+    } 
 
     if (BT_STATUS_SUCCESS == bt_status) {
         ret = TRUE;

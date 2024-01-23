@@ -92,6 +92,8 @@ ATTR_LOG_STRING_LIB BT_LE_AUDIO_006[] = LOG_INFO_PREFIX(LE_AUDIO) "[LINK] LE AUD
 ATTR_LOG_STRING_LIB BT_LE_AUDIO_007[] = LOG_INFO_PREFIX(LE_AUDIO) "[LINK] LE AUDIO data len update cnf, handle:%04X status:%x";
 ATTR_LOG_STRING_LIB BT_LE_AUDIO_008[] = LOG_INFO_PREFIX(LE_AUDIO) "[LINK] LE AUDIO conn ind, type:%x addr:%x %x %x %x %x %x";
 ATTR_LOG_STRING_LIB BT_LE_AUDIO_009[] = LOG_INFO_PREFIX(LE_AUDIO) "[LINK] get ADV handle[%x]:%x idx:%x";
+ATTR_LOG_STRING_LIB BT_LE_AUDIO_010[] = LOG_INFO_PREFIX(LE_AUDIO) "[SINK] update pre-action flag, handle=%x need_retry=%d pre_action_mask[%d -> %d] retry_count=%d";
+ATTR_LOG_STRING_LIB BT_LE_AUDIO_011[] = LOG_INFO_PREFIX(LE_AUDIO) "[SINK] retry discovery, handle:0x%04x, bt_status:0x%x";
 
 /* CCP */
 ATTR_LOG_STRING_LIB BT_LE_AUDIO_CCP_000[] = LOG_INFO_PREFIX(LE_AUDIO) "[CCP] init, malloc fail";
@@ -326,7 +328,13 @@ ATTR_LOG_STRING_LIB BT_LE_AUDIO_BAPC_001[] = LOG_INFO_PREFIX(LE_AUDIO) "[BAPC] s
 ATTR_LOG_STRING_LIB BT_LE_AUDIO_BAPC_002[] = LOG_INFO_PREFIX(LE_AUDIO) "[BAPC] step:%d, state:%d";
 ATTR_LOG_STRING_LIB BT_LE_AUDIO_BAPC_003[] = LOG_INFO_PREFIX(LE_AUDIO) "[BAPC] step:%d, uuid type:%d, att_hdl:0x%x";
 
+/* GMAS */
+ATTR_LOG_STRING_LIB BT_LE_AUDIO_GMAS_001[] = LOG_INFO_PREFIX(LE_AUDIO) "[GMAS] req:%d, conn_hdl:0x%x sz = %d";
+ATTR_LOG_STRING_LIB BT_LE_AUDIO_GMAS_002[] = LOG_INFO_PREFIX(LE_AUDIO) "[GMAS] att_hdl:0x%x, role:0x%x feature:0x%x";
 
-
-
-
+/* GMAP */
+ATTR_LOG_STRING_LIB BT_LE_AUDIO_GMAP_001[] = LOG_INFO_PREFIX(LE_AUDIO) "[GMAP] set_service_attribute evt_type:0x%x p_info = %x";
+ATTR_LOG_STRING_LIB BT_LE_AUDIO_GMAP_002[] = LOG_INFO_PREFIX(LE_AUDIO) "[GMAP] service_discovery state = 0x%x";
+ATTR_LOG_STRING_LIB BT_LE_AUDIO_GMAP_003[] = LOG_INFO_PREFIX(LE_AUDIO) "[GMAP] read_rsp current_event = 0x%x val = 0x%x";
+ATTR_LOG_STRING_LIB BT_LE_AUDIO_GMAP_004[] = LOG_INFO_PREFIX(LE_AUDIO) "[GMAP] set_service_attribute uuid_type:%d, val_hdl:0x%x";
+ATTR_LOG_STRING_LIB BT_LE_AUDIO_GMAP_005[] = LOG_INFO_PREFIX(LE_AUDIO) "[GMAP] char_found:%d, want_find:%d";

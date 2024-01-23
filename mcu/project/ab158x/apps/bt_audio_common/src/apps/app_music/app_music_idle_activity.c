@@ -160,7 +160,7 @@ static void _role_handover_service_status_callback(const bt_bd_addr_t *addr,
         APPS_LOG_MSGID_I(APP_MUSIC_TAG" [RHO] service_status_callback: status=%d, role=0x%x",
                          2, status, role);
         if (BT_STATUS_SUCCESS == status) {
-            /* allways set partner connecting flag to true while rho success. */
+            /* always set partner connecting flag to true while rho success. */
             s_app_music_context.isPartnerConnected = true;
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
             if (role == BT_AWS_MCE_ROLE_AGENT) {
@@ -221,7 +221,7 @@ static bool _proc_ui_shell_group(ui_shell_activity_t *self, uint32_t event_id, v
 }
 
 /**
- * @brief Do PEQ swtich operation
+ * @brief Do PEQ switch operation
  */
 static void app_music_idle_activity_handle_peq_switch()
 {
@@ -267,7 +267,7 @@ static void app_music_idle_activity_handle_peq_switch()
                      2, next_peq_id, status);
 
     if (status == RACE_ERRCODE_SUCCESS) {
-        voice_prompt_play_sync_vp_successed();
+        voice_prompt_play_sync_vp_succeed();
     } else {
         voice_prompt_play_sync_vp_failed();
     }

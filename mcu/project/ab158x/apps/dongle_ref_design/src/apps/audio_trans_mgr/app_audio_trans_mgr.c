@@ -68,7 +68,7 @@ typedef enum {
     APP_AUDIO_TRANS_MGR_TRANS_STA_IDLE = 2,
     APP_AUDIO_TRANS_MGR_TRANS_STA_STARTING = 3,
     APP_AUDIO_TRANS_MGR_TRANS_STA_STREAMING = 4,
-    APP_AUDIO_TRANS_MGR_TRANS_STA_STOPING = 5,
+    APP_AUDIO_TRANS_MGR_TRANS_STA_STOPPING = 5,
     APP_AUDIO_TRANS_MGR_TRANS_STA_SUSPEND = 6,
 } app_audio_trans_mgr_trans_sta_t;
 
@@ -86,12 +86,12 @@ typedef enum {
 typedef uint8_t app_audio_trans_mgr_cmd_t;
 
 typedef enum {
-    APP_AUDIO_TRANS_MGR_SEUDO_EVENT_START = 0,
-    APP_AUDIO_TRANS_MGR_SEUDO_EVENT_STOP  = 1,
-    APP_AUDIO_TRANS_MGR_SEUDO_EVENT_REJECT  = 2,
-    APP_AUDIO_TRANS_MGR_SEUDO_EVENT_SUSPEND = 3,
-    APP_AUDIO_TRANS_MGR_SEUDO_EVENT_EXCEPTION = 4,
-} app_audio_trans_mgr_seudo_event_type_t;
+    APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_START = 0,
+    APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_STOP  = 1,
+    APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_REJECT  = 2,
+    APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_SUSPEND = 3,
+    APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_EXCEPTION = 4,
+} app_audio_trans_mgr_pseudo_event_type_t;
 
 #define MGR_CMD_QUEUE_SIZE 16
 typedef struct {
@@ -135,7 +135,7 @@ static void __send_audio_trans_mgr_event(uint32_t event_id, app_audio_trans_mgr_
 
     ev->usr = usr;
     ev->event = event;
-    ui_shell_status_t status = ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_AUDIO_TRANS_MGR, event_id,
+    ui_shell_status_t status = ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_AUDIO_TRANS_MGR, event_id,
                                                    (void *)ev, sizeof(app_audio_trans_mgr_interaction_event_t),
                                                    NULL, 0);
     if (UI_SHELL_STATUS_OK != status) {
@@ -252,7 +252,7 @@ static void app_audio_trans_mgr_transmitter_event_proc(app_audio_trans_mgr_usr_c
                 }
             }
 #endif
-            if (u_ctx->usr_info.ctrl_type == APP_AUDIO_TRANS_MGR_CTRL_TYPE_SEUDO_DEVICE) {
+            if (u_ctx->usr_info.ctrl_type == APP_AUDIO_TRANS_MGR_CTRL_TYPE_PSEUDO_DEVICE) {
                 audio_src_srv_update_state(u_ctx->pseudo_device_handle, AUDIO_SRC_SRV_EVT_PREPARE_STOP);
                 audio_src_srv_update_state(u_ctx->pseudo_device_handle, AUDIO_SRC_SRV_EVT_READY);
                 if (now_sta == APP_AUDIO_TRANS_MGR_TRANS_STA_SUSPEND) {
@@ -396,7 +396,7 @@ static void app_audio_trans_mgr_judgement_event_proc(app_audio_trans_mgr_usr_ctx
 #endif
 #endif
 
-static void __send_seudo_event(struct _audio_src_srv_handle_t *handle, app_audio_trans_mgr_seudo_event_type_t event)
+static void __send_pseudo_event(struct _audio_src_srv_handle_t *handle, app_audio_trans_mgr_pseudo_event_type_t event)
 {
     app_audio_trans_mgr_usr_ctx_t *u_ctx = NULL;
     for (uint32_t i = 0; i < APP_AUDIO_TRANS_MGR_USR_MAX_NUM; i++) {
@@ -409,45 +409,45 @@ static void __send_seudo_event(struct _audio_src_srv_handle_t *handle, app_audio
         return;
     }
 
-    __send_audio_trans_mgr_event(APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_SEUDO_DEV_EV, u_ctx->usr_info.type, (uint32_t)event);
-    APP_AUDIO_TRANS_MGR_LOG_I("__send_seudo_event, usr=%d, event=%d", 2, u_ctx->usr_info.type, event);
+    __send_audio_trans_mgr_event(APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_PSEUDO_DEV_EV, u_ctx->usr_info.type, (uint32_t)event);
+    APP_AUDIO_TRANS_MGR_LOG_I("__send_pseudo_event, usr=%d, event=%d", 2, u_ctx->usr_info.type, event);
 }
 
-static void seudo_play_callback(struct _audio_src_srv_handle_t *handle)
+static void pseudo_play_callback(struct _audio_src_srv_handle_t *handle)
 {
-    __send_seudo_event(handle, APP_AUDIO_TRANS_MGR_SEUDO_EVENT_START);
+    __send_pseudo_event(handle, APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_START);
 }
 
-static void seudo_stop_callback(struct _audio_src_srv_handle_t *handle)
+static void pseudo_stop_callback(struct _audio_src_srv_handle_t *handle)
 {
-    __send_seudo_event(handle, APP_AUDIO_TRANS_MGR_SEUDO_EVENT_STOP);
+    __send_pseudo_event(handle, APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_STOP);
 }
 
-static void seudo_suspend_callback(struct _audio_src_srv_handle_t *handle, struct _audio_src_srv_handle_t *int_hd)
+static void pseudo_suspend_callback(struct _audio_src_srv_handle_t *handle, struct _audio_src_srv_handle_t *int_hd)
 {
-    __send_seudo_event(handle, APP_AUDIO_TRANS_MGR_SEUDO_EVENT_SUSPEND);
+    __send_pseudo_event(handle, APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_SUSPEND);
 }
 
-static void seudo_reject_callback(struct _audio_src_srv_handle_t *handle)
+static void pseudo_reject_callback(struct _audio_src_srv_handle_t *handle)
 {
-    __send_seudo_event(handle, APP_AUDIO_TRANS_MGR_SEUDO_EVENT_REJECT);
+    __send_pseudo_event(handle, APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_REJECT);
 }
 
-static void seudo_exception_handle(struct _audio_src_srv_handle_t *handle, int32_t event, void *param)
+static void pseudo_exception_handle(struct _audio_src_srv_handle_t *handle, int32_t event, void *param)
 {
-    __send_seudo_event(handle, APP_AUDIO_TRANS_MGR_SEUDO_EVENT_EXCEPTION);
-    APP_AUDIO_TRANS_MGR_LOG_I("seudo_exception_handle exception=%d", 1, event);
+    __send_pseudo_event(handle, APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_EXCEPTION);
+    APP_AUDIO_TRANS_MGR_LOG_I("pseudo_exception_handle exception=%d", 1, event);
 }
 
 #ifndef AIR_DCHS_MODE_SLAVE_ENABLE
-static void app_audio_trans_mgr_seudo_event_proc(app_audio_trans_mgr_usr_ctx_t *u_ctx, app_audio_trans_mgr_seudo_event_type_t event)
+static void app_audio_trans_mgr_pseudo_event_proc(app_audio_trans_mgr_usr_ctx_t *u_ctx, app_audio_trans_mgr_pseudo_event_type_t event)
 {
     if (u_ctx == NULL) {
         return;
     }
 
     switch (event) {
-        case APP_AUDIO_TRANS_MGR_SEUDO_EVENT_START:
+        case APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_START:
 #ifdef AIR_DCHS_MODE_MASTER_ENABLE
             if (u_ctx->usr_info.type == APP_AUDIO_TRANS_MGR_USR_USB_IN1 ||
                 u_ctx->usr_info.type == APP_AUDIO_TRANS_MGR_USR_USB_IN2 ||
@@ -462,20 +462,20 @@ static void app_audio_trans_mgr_seudo_event_proc(app_audio_trans_mgr_usr_ctx_t *
 #endif
             audio_transmitter_start(u_ctx->trans_id);
             break;
-        case APP_AUDIO_TRANS_MGR_SEUDO_EVENT_STOP:
+        case APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_STOP:
             __set_trans_state(u_ctx, APP_AUDIO_TRANS_MGR_TRANS_STA_IDLE);
             break;
-        case APP_AUDIO_TRANS_MGR_SEUDO_EVENT_REJECT:
+        case APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_REJECT:
             //__set_trans_state(u_ctx, APP_AUDIO_TRANS_MGR_TRANS_STA_SUSPEND);
             __set_trans_state(u_ctx, APP_AUDIO_TRANS_MGR_TRANS_STA_IDLE);
             audio_src_srv_add_waiting_list(u_ctx->pseudo_device_handle);
             break;
-        case APP_AUDIO_TRANS_MGR_SEUDO_EVENT_SUSPEND:
+        case APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_SUSPEND:
             __set_trans_state(u_ctx, APP_AUDIO_TRANS_MGR_TRANS_STA_SUSPEND);
             audio_transmitter_stop(u_ctx->trans_id);
             //audio_src_srv_update_state(u_ctx->pseudo_device_handle, AUDIO_SRC_SRV_EVT_READY);
             break;
-        case APP_AUDIO_TRANS_MGR_SEUDO_EVENT_EXCEPTION:
+        case APP_AUDIO_TRANS_MGR_PSEUDO_EVENT_EXCEPTION:
             break;
     }
 }
@@ -627,7 +627,7 @@ void __app_audio_trans_mgr_init_audio(app_audio_trans_mgr_usr_ctx_t *u_ctx)
         }
     }
 #endif
-    if (u_ctx->pseudo_device_handle == NULL && u_ctx->usr_info.ctrl_type == APP_AUDIO_TRANS_MGR_CTRL_TYPE_SEUDO_DEVICE) {
+    if (u_ctx->pseudo_device_handle == NULL && u_ctx->usr_info.ctrl_type == APP_AUDIO_TRANS_MGR_CTRL_TYPE_PSEUDO_DEVICE) {
         u_ctx->pseudo_device_handle = audio_src_srv_construct_handle(cfg.pseudo_type);
         if (u_ctx->pseudo_device_handle == NULL) {
             APP_AUDIO_TRANS_MGR_LOG_E("init seudo device fail, usr=%d, trans_id=%d", 2, u_ctx->usr_info.type, u_ctx->trans_id);
@@ -636,11 +636,11 @@ void __app_audio_trans_mgr_init_audio(app_audio_trans_mgr_usr_ctx_t *u_ctx)
         u_ctx->pseudo_device_handle->type = cfg.pseudo_type;
         u_ctx->pseudo_device_handle->priority = cfg.priority;
         u_ctx->pseudo_device_handle->dev_id = 0;//??
-        u_ctx->pseudo_device_handle->play       = seudo_play_callback;
-        u_ctx->pseudo_device_handle->stop       = seudo_stop_callback;
-        u_ctx->pseudo_device_handle->suspend    = seudo_suspend_callback;
-        u_ctx->pseudo_device_handle->reject     = seudo_reject_callback;
-        u_ctx->pseudo_device_handle->exception_handle = seudo_exception_handle;
+        u_ctx->pseudo_device_handle->play       = pseudo_play_callback;
+        u_ctx->pseudo_device_handle->stop       = pseudo_stop_callback;
+        u_ctx->pseudo_device_handle->suspend    = pseudo_suspend_callback;
+        u_ctx->pseudo_device_handle->reject     = pseudo_reject_callback;
+        u_ctx->pseudo_device_handle->exception_handle = pseudo_exception_handle;
         audio_src_srv_update_state(u_ctx->pseudo_device_handle, AUDIO_SRC_SRV_EVT_READY);
     }
     APP_AUDIO_TRANS_MGR_LOG_I("init, usr=%d, trans_id=%d", 2, u_ctx->usr_info.type, u_ctx->trans_id);
@@ -658,7 +658,7 @@ void __app_audio_trans_mgr_start_audio(app_audio_trans_mgr_usr_ctx_t *u_ctx)
         audio_src_srv_resource_manager_take(u_ctx->resource_manager_handle);
     }
 #endif
-    if (u_ctx->usr_info.ctrl_type == APP_AUDIO_TRANS_MGR_CTRL_TYPE_SEUDO_DEVICE) {
+    if (u_ctx->usr_info.ctrl_type == APP_AUDIO_TRANS_MGR_CTRL_TYPE_PSEUDO_DEVICE) {
         audio_src_srv_update_state(u_ctx->pseudo_device_handle, AUDIO_SRC_SRV_EVT_PREPARE_PLAY);
         __set_trans_state(u_ctx, APP_AUDIO_TRANS_MGR_TRANS_STA_STARTING);
     }
@@ -691,21 +691,21 @@ void __app_audio_trans_mgr_stop_audio(app_audio_trans_mgr_usr_ctx_t *u_ctx)
         audio_src_srv_resource_manager_delete_waiting_list((audio_src_srv_resource_manager_handle_t *)u_ctx->pseudo_device_handle);
     }
 #endif
-    if (u_ctx->usr_info.ctrl_type == APP_AUDIO_TRANS_MGR_CTRL_TYPE_SEUDO_DEVICE) {
+    if (u_ctx->usr_info.ctrl_type == APP_AUDIO_TRANS_MGR_CTRL_TYPE_PSEUDO_DEVICE) {
         audio_src_srv_del_waiting_list(u_ctx->pseudo_device_handle);
     }
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
-    if (u_ctx->usr_info.ctrl_type == APP_AUDIO_TRANS_MGR_CTRL_TYPE_AUD_SRC_CTRL && u_ctx->state == APP_AUDIO_TRANS_MGR_TRANS_STA_STOPING) {
+    if (u_ctx->usr_info.ctrl_type == APP_AUDIO_TRANS_MGR_CTRL_TYPE_AUD_SRC_CTRL && u_ctx->state == APP_AUDIO_TRANS_MGR_TRANS_STA_STOPPING) {
         audio_source_control_cmd(u_ctx->audio_source_ctrl_handle, AUDIO_SOURCE_CONTROL_CMD_DEL_WAITTING_LIST, AUDIO_SOURCE_CONTROL_CMD_DEST_REMOTE);
     }
 #endif
 
     if (u_ctx->state == APP_AUDIO_TRANS_MGR_TRANS_STA_IDLE) {
-        /* just delete waitting list in this case. */
+        /* just delete waiting list in this case. */
         return;
     }
 
-    __set_trans_state(u_ctx, APP_AUDIO_TRANS_MGR_TRANS_STA_STOPING);
+    __set_trans_state(u_ctx, APP_AUDIO_TRANS_MGR_TRANS_STA_STOPPING);
     audio_transmitter_stop(u_ctx->trans_id);
 }
 
@@ -800,7 +800,7 @@ static void app_audio_trans_mgr_self_cmd_proc(app_audio_trans_mgr_usr_ctx_t *u_c
         case APP_AUDIO_TRANS_MGR_CMD_STOP:
             if (u_ctx->state == APP_AUDIO_TRANS_MGR_TRANS_STA_STREAMING || u_ctx->state == APP_AUDIO_TRANS_MGR_TRANS_STA_IDLE) {
                 __app_audio_trans_mgr_stop_audio(u_ctx);
-            } else if (u_ctx->state != APP_AUDIO_TRANS_MGR_TRANS_STA_STOPING &&
+            } else if (u_ctx->state != APP_AUDIO_TRANS_MGR_TRANS_STA_STOPPING &&
                        u_ctx->state != APP_AUDIO_TRANS_MGR_TRANS_STA_INIT) {
                 u_ctx->cmd_queue[u_ctx->queued_cmd_nums++] = cmd;
             }
@@ -990,8 +990,8 @@ static bool app_audio_trans_mgr_event_proc(ui_shell_activity_t *self,
         case APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_SELF_CMD:
             app_audio_trans_mgr_self_cmd_proc(u_ctx, (app_audio_trans_mgr_cmd_t)ev->event);
             break;
-        case APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_SEUDO_DEV_EV:
-            app_audio_trans_mgr_seudo_event_proc(u_ctx, (app_audio_trans_mgr_seudo_event_type_t)ev->event);
+        case APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_PSEUDO_DEV_EV:
+            app_audio_trans_mgr_pseudo_event_proc(u_ctx, (app_audio_trans_mgr_pseudo_event_type_t)ev->event);
             break;
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
         case APPS_EVENTS_INTERACTION_APP_AUDIO_TRANS_MGR_AUD_SRC_CTRL_EV:
@@ -1059,7 +1059,7 @@ void app_audio_trans_mgr_set_volume(void *usr, uint8_t l, uint8_t r)
     __send_self_cmd((app_audio_trans_mgr_usr_ctx_t *)usr, APP_AUDIO_TRANS_MGR_CMD_SET_VOLUME);
 }
 
-void app_audio_trans_mgrs_set_db(void* usr, int32_t l, int32_t r) {
+void app_audio_trans_mgr_set_db(void* usr, int32_t l, int32_t r) {
     app_audio_trans_mgr_usr_ctx_t *u_ctx = (app_audio_trans_mgr_usr_ctx_t *)usr;
     if (u_ctx == NULL) {
         return;
@@ -1118,7 +1118,7 @@ void app_audio_trans_mgr_stop_audio_unsafe(void *usr)
     app_audio_trans_mgr_usr_ctx_t *u_ctx = (app_audio_trans_mgr_usr_ctx_t *) usr;
     if (u_ctx->state == APP_AUDIO_TRANS_MGR_TRANS_STA_STREAMING || u_ctx->state == APP_AUDIO_TRANS_MGR_TRANS_STA_IDLE) {
         __app_audio_trans_mgr_stop_audio(u_ctx);
-    } else if (u_ctx->state != APP_AUDIO_TRANS_MGR_TRANS_STA_STOPING &&
+    } else if (u_ctx->state != APP_AUDIO_TRANS_MGR_TRANS_STA_STOPPING &&
                u_ctx->state != APP_AUDIO_TRANS_MGR_TRANS_STA_INIT) {
         u_ctx->cmd_queue[u_ctx->queued_cmd_nums++] = APP_AUDIO_TRANS_MGR_CMD_STOP;
     }

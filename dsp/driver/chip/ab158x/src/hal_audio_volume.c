@@ -117,24 +117,24 @@ uint32_t afe_calculate_db_result(int32_t digital_gain_in_01unit_db, uint32_t dig
         integer_multiply = integer_db - times_6db * 6;
     }
     if (second_decimal_db != 0) {
-       multiplier = afe_db_match_table[second_decimal_db+AFE_DB_CONVERSION_TABLE_SECOND_DECIMAL_PLACE];
-       calculate_result = calculate_result*multiplier;
-       calculate_result >>= 23;
+        multiplier = afe_db_match_table[second_decimal_db + AFE_DB_CONVERSION_TABLE_SECOND_DECIMAL_PLACE];
+        calculate_result = calculate_result * multiplier;
+        calculate_result >>= 23;
     }
 
     if (first_decimal_db != 0) {
-       multiplier = afe_db_match_table[first_decimal_db+AFE_DB_CONVERSION_TABLE_FIRST_DECIMAL_PLACE];
-       calculate_result = calculate_result*multiplier;
-       calculate_result >>= 23;
+        multiplier = afe_db_match_table[first_decimal_db + AFE_DB_CONVERSION_TABLE_FIRST_DECIMAL_PLACE];
+        calculate_result = calculate_result * multiplier;
+        calculate_result >>= 23;
     }
 
     if (integer_multiply != 0) {
-       multiplier = afe_db_match_table[integer_multiply+AFE_DB_CONVERSION_TABLE_0_DB];
-       calculate_result = calculate_result*multiplier;
-       calculate_result >>= 23;
+        multiplier = afe_db_match_table[integer_multiply + AFE_DB_CONVERSION_TABLE_0_DB];
+        calculate_result = calculate_result * multiplier;
+        calculate_result >>= 23;
     }
 
-    if(times_6db != 0) {
+    if (times_6db != 0) {
         if (digital_gain_in_01unit_db > 0) {
             calculate_result = calculate_result << times_6db;
         } else {

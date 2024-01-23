@@ -181,7 +181,8 @@ bt_source_srv_call_audio_id_t bt_source_srv_call_audio_config_init(bt_source_srv
             bool is_force_open = false;
             bt_audio_dongle_dl_info_t *dl_config = &config->transmitter_config.scenario_config.bt_audio_dongle_config.dl_info;
             if (bt_source_srv_common_audio_find_port_context(BT_SOURCE_SRV_PORT_CHAT_SPEAKER, &port_context) != BT_STATUS_SUCCESS) {
-                if (bt_source_srv_common_audio_find_port_context(BT_SOURCE_SRV_PORT_GAMING_SPEAKER, &port_context) != BT_STATUS_SUCCESS) {
+                if ((bt_source_srv_common_audio_find_port_context(BT_SOURCE_SRV_PORT_GAMING_SPEAKER, &port_context) != BT_STATUS_SUCCESS) &&
+                        (bt_source_srv_common_audio_port_is_valid(BT_SOURCE_SRV_PORT_MIC))) {
                     /*
                      * type:PC workaround
                      * root cause:call audio no sound when only MIC open.
@@ -364,7 +365,7 @@ bt_status_t bt_source_src_call_audio_mute(bt_source_srv_call_audio_id_t audio_id
 bt_status_t bt_source_src_call_audio_unmute(bt_source_srv_call_audio_id_t audio_id)
 {
     audio_transmitter_status_t audio_status = audio_transmitter_set_runtime_config(audio_id, BT_AUDIO_DONGLE_CONFIG_OP_SET_UNMUTE, NULL);
-   LOG_MSGID_I(source_srv, "[AG][AUDIO] unmute audio id = %02x status = %02x", 2, audio_id, audio_status);
+    LOG_MSGID_I(source_srv, "[AG][AUDIO] unmute audio id = %02x status = %02x", 2, audio_id, audio_status);
     return (audio_status == AUDIO_TRANSMITTER_STATUS_SUCCESS) ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
 }
 

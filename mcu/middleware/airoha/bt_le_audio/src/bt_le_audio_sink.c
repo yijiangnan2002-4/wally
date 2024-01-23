@@ -310,13 +310,13 @@ bt_status_t bt_le_audio_sink_set_cccd_loaded(bt_handle_t handle, bool loaded)
         if (loaded) {
             if (g_le_audio_cccd_loaded[i] == BT_HANDLE_INVALID) {
                 g_le_audio_cccd_loaded[i] = handle;
-                LE_AUDIO_MSGLOG_I("[CCCD] bt_le_audio_sink_set_cccd_loaded handle[0x%04x] loaded[%d]", 2, handle, loaded);
+                LE_AUDIO_MSGLOG_I("[CCCD] bt_le_audio_sink_set_cccd_loaded handle[0x%04x] loaded", 1, handle);
                 return BT_STATUS_SUCCESS;
             }
         } else {
             if (g_le_audio_cccd_loaded[i] == handle) {
                 g_le_audio_cccd_loaded[i] = BT_HANDLE_INVALID;
-                LE_AUDIO_MSGLOG_I("[CCCD] bt_le_audio_sink_set_cccd_loaded handle[0x%04x] loaded[%d]", 2, handle, loaded);
+                LE_AUDIO_MSGLOG_I("[CCCD] bt_le_audio_sink_set_cccd_loaded handle[0x%04x] unloaded[%d]", 1, handle);
                 return BT_STATUS_SUCCESS;
             }
         }
@@ -324,7 +324,7 @@ bt_status_t bt_le_audio_sink_set_cccd_loaded(bt_handle_t handle, bool loaded)
     LE_AUDIO_MSGLOG_E("[CCCD] bt_le_audio_sink_set_cccd_loaded FAILED handle[0x%04x] loaded[%d]", 2, handle, loaded);
 
     for (i=0 ; i < LEA_SERVICE_CCCD_LE_CONNECTION_MAX ; i++) {
-        LE_AUDIO_MSGLOG_I("[CCCD] g_le_audio_cccd_loaded [i] handle[0x%04x]", 2, i, g_le_audio_cccd_loaded[i]);
+        LE_AUDIO_MSGLOG_I("[CCCD] g_le_audio_cccd_loaded [%d] handle[0x%04x]", 2, i, g_le_audio_cccd_loaded[i]);
     }
 
     return BT_STATUS_FAIL;

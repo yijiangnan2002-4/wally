@@ -1,4 +1,4 @@
-﻿ 
+﻿
 Airoha IoT Development Platform provides a comprehensive software solution for devices based
 on the chips.
 

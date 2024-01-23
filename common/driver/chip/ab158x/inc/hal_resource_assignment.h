@@ -122,7 +122,7 @@ Total system private memory  4KB
 ----------------------------------
 |   logging flash      --- 100  B
 ----------------------------------
-|   MUX                --- 1624 B
+|   MUX                --- 2072 B
 ----------------------------------
 |   UART log port      --- 112  B
 ----------------------------------
@@ -148,7 +148,7 @@ Total system private memory  4KB
 ----------------------------------
 |   Low latency MUX    --- 4    B
 ----------------------------------
-|   reserved           --- 462  B
+|   reserved           --- 14   B
 ----------------------------------
 */
 #if defined(CORE_CM33)
@@ -213,10 +213,10 @@ Total system private memory  4KB
 #define HW_SYSRAM_PRIVATE_MEMORY_SYSLOG_FLASH_VAR_LEN   0x64
 
 #define HW_SYSRAM_PRIVATE_MEMORY_MUX_VAR_PORT_START (HW_SYSRAM_PRIVATE_MEMORY_SYSLOG_FLASH_VAR_START + HW_SYSRAM_PRIVATE_MEMORY_SYSLOG_FLASH_VAR_LEN)
-#define HW_SYSRAM_PRIVATE_MEMORY_MUX_VAR_PORT_LEN 0x658
+#define HW_SYSRAM_PRIVATE_MEMORY_MUX_VAR_PORT_LEN 0x818
 
 #define HW_SYSRAM_PRIVATE_MEMORY_SYSLOG_UART_VAR_START (HW_SYSRAM_PRIVATE_MEMORY_MUX_VAR_PORT_START + HW_SYSRAM_PRIVATE_MEMORY_MUX_VAR_PORT_LEN)
-#define HW_SYSRAM_PRIVATE_MEMORY_SYSLOG_UART_VAR_LEN   0x70
+#define HW_SYSRAM_PRIVATE_MEMORY_SYSLOG_UART_VAR_LEN   0x78
 
 #define HW_SYSRAM_PRIVATE_MEMORY_SYSLOG_VERSION_VAR_START (HW_SYSRAM_PRIVATE_MEMORY_SYSLOG_UART_VAR_START + HW_SYSRAM_PRIVATE_MEMORY_SYSLOG_UART_VAR_LEN)
 #define HW_SYSRAM_PRIVATE_MEMORY_SYSLOG_VERSION_VAR_LEN   0x60

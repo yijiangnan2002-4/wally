@@ -135,9 +135,11 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static int32_t pcm_ul1_start(SOURCE source)
     uint32_t channel_index = 0;
     uint32_t update_offset = 0;
     mem_handle->audio_path_rate = runtime->rate;
+    mem_handle->src_rate = runtime->src_rate;
     mem_handle->buffer_addr = afe_block->phys_buffer_addr;
     mem_handle->buffer_length = runtime->buffer_size;
-    if(source->param.audio.mem_handle.pure_agent_with_src){
+
+    if (mem_handle->pure_agent_with_src) {
         mem_handle->buffer_length = AUDIO_AFE_SOURCE_ASRC_BUFFER_SIZE;
     }
 
@@ -145,6 +147,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static int32_t pcm_ul1_start(SOURCE source)
     mem_handle->sync_status = HAL_AUDIO_MEMORY_SYNC_SW_TRIGGER;
     /* Set Memory */
     memory_select = mem_handle->memory_select;
+
     for (memory_search = HAL_AUDIO_MEMORY_UL_VUL1 ; memory_search <= HAL_AUDIO_MEMORY_UL_AWB2 ; memory_search <<= 1) {
         if (memory_search & memory_select) {
             uint32_t addr = 0;
@@ -257,13 +260,15 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static int32_t pcm_ul1_start(SOURCE source)
                 S32 cur_native_bt_clk = 0,cur_native_bt_phase = 0;
                 delay_time = DCHS_USB_OUT_UL_SYNC_TIME;
                 hal_sw_gpt_absolute_parameter_t  dchs_hfp_absolute_parameter;
-
+                dsp_uart_ul_open();
+                dsp_uart_ul_clear_rx_buffer();
+                dsp_uart_ul_clear_tx_buffer();
                 hal_gpt_sw_get_timer(&dchs_main_ul_handle);
 
                 hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &count_1);
                 MCE_GetBtClk((BTCLK *)&cur_native_bt_clk, (BTPHASE *)&cur_native_bt_phase, DCHS_CLK_Offset);
 
-                hfp_delay_count = ((uint32_t)(delay_time* 1000));
+                hfp_delay_count = ((uint32_t)(delay_time* 1000)) + 120;
                 usb_line_out_gpt_count = count_1 + hfp_delay_count;
                 dchs_hfp_absolute_parameter.absolute_time_count = count_1 + hfp_delay_count - 600;
                 dchs_hfp_absolute_parameter.callback = (void*)hal_audio_gpt_trigger_mem;

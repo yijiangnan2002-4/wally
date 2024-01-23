@@ -63,6 +63,7 @@
 #include "usb_hid_srv.h"
 #include "ui_shell_manager.h"
 #include "bt_customer_config.h"
+#include "bt_sink_srv_ami.h"
 #ifdef AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE
 #include "apps_events_i2s_in_event.h"
 #endif
@@ -71,7 +72,7 @@
 #include "apps_events_interaction_event.h"
 #endif
 
-
+#include "app_preproc_activity.h"
 
 #define LOG_TAG             "[BT_SRC][APP]"
 
@@ -85,7 +86,8 @@ typedef struct {
     bool                                            game_spk_port_enable;
     bool                                            mic_port_enable;
     bool                                            line_in_port_enable;
-    bool                                            i2s_in_port_enable;
+    bool                                            i2s_0_in_port_enable;
+    bool                                            i2s_1_in_port_enable;
 } PACKED app_bt_source_context_t;
 
 static app_bt_source_context_t                      app_bt_source_ctx = {0};
@@ -161,6 +163,46 @@ static bt_source_srv_port_t app_bt_source_covert_port(app_usb_audio_port_t port_
     return port;
 }
 
+static bool app_bt_source_activity_is_port_ready_to_disable(bt_source_srv_port_t port)
+{
+#ifdef AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE
+    if ((port == BT_SOURCE_SRV_PORT_I2S_IN)
+        && (app_bt_source_ctx.i2s_0_in_port_enable == false)) {
+        return false;
+    }
+
+    if ((port == BT_SOURCE_SRV_PORT_I2S_IN_1)
+        && (app_bt_source_ctx.i2s_1_in_port_enable == false)) {
+        return false;
+    }
+#endif /* AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE */
+
+#ifdef AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE
+    if ((port == BT_SOURCE_SRV_PORT_LINE_IN)
+        && (app_bt_source_ctx.line_in_port_enable == false)) {
+        return false;
+    }
+#endif /* AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE */
+
+    if ((port == BT_SOURCE_SRV_PORT_MIC)
+        && (app_bt_source_ctx.mic_port_enable == false)) {
+        return false;
+    }
+
+    if ((port == BT_SOURCE_SRV_PORT_GAMING_SPEAKER)
+        && (app_bt_source_ctx.game_spk_port_enable == false)) {
+        return false;
+    }
+
+    if ((port == BT_SOURCE_SRV_PORT_CHAT_SPEAKER)
+        && (app_bt_source_ctx.chat_spk_port_enable == false)) {
+        return false;
+    }
+
+    return true;
+}
+
+#if 0
 static uint32_t app_bt_source_covert_sample_rate(app_usb_audio_sample_rate_t rate)
 {
     uint32_t rate_integer = 48000;
@@ -191,6 +233,7 @@ static uint32_t app_bt_source_covert_sample_rate(app_usb_audio_sample_rate_t rat
     }
     return rate_integer;
 }
+#endif
 
 bool app_bt_source_send_action(bt_source_srv_action_t action, void *parameter, uint32_t length)
 {
@@ -237,6 +280,11 @@ static void app_bt_source_handle_line_in_volume(void *extra_data)
             bt_source_srv_volume_change_t volume_change = {0};
             volume_change.port           = BT_SOURCE_SRV_PORT_LINE_IN;
             volume_change.volume_value   = line_in_vol->vol_level;
+            if (line_in_vol->vol_src == APP_LINE_IN_VOL_SRC) {
+                volume_change.is_local = BT_SOURCE_SRV_SET_VOLUME_TO_LOCAL;
+            } else {
+                volume_change.is_local = BT_SOURCE_SRV_SET_VOLUME_TO_REMOTE;
+            }
             success = app_bt_source_send_action(action, (void*)&volume_change, sizeof(bt_source_srv_volume_change_t));
             break;
         }
@@ -278,6 +326,11 @@ static void app_bt_source_handle_i2s_in_volume(void *extra_data)
             bt_source_srv_volume_change_t volume_change = {0};
             volume_change.port           = BT_SOURCE_SRV_PORT_I2S_IN;
             volume_change.volume_value   = i2s_in_vol->vol_level;
+            if (i2s_in_vol->vol_src == APP_I2S_IN_VOL_SRC) {
+                volume_change.is_local = BT_SOURCE_SRV_SET_VOLUME_TO_LOCAL;
+            } else {
+                volume_change.is_local = BT_SOURCE_SRV_SET_VOLUME_TO_REMOTE;
+            }
             success = app_bt_source_send_action(action, (void*)&volume_change, sizeof(bt_source_srv_volume_change_t));
             break;
         }
@@ -367,6 +420,17 @@ static void app_bt_source_handle_usb_streaming(bt_source_srv_port_t port, bool e
         APPS_LOG_MSGID_W(LOG_TAG" handle_usb_streaming, AUDIO_PLAY port=%d", 1, port);
     } else {
         APPS_LOG_MSGID_W(LOG_TAG" handle_usb_streaming, AUDIO_STOP port=%d", 1, port);
+
+        if ((enable == false)
+            && (app_bt_source_activity_is_port_ready_to_disable(port) == false)) {
+            APPS_LOG_MSGID_W(LOG_TAG" handle_usb_streaming, is not ready to disable, port : %d, game_spk_enable : %d, chat_spk_enable : %d, mic_enable : %d",
+                            4,
+                            port,
+                            app_bt_source_ctx.game_spk_port_enable,
+                            app_bt_source_ctx.chat_spk_port_enable,
+                            app_bt_source_ctx.mic_port_enable);
+            return;
+        }
     }
 
     // Update app_bt_source context
@@ -377,10 +441,10 @@ static void app_bt_source_handle_usb_streaming(bt_source_srv_port_t port, bool e
     } else if (port == BT_SOURCE_SRV_PORT_MIC) {
         app_bt_source_ctx.mic_port_enable = enable;
     }
-    APPS_LOG_MSGID_I(LOG_TAG" handle_usb_streaming, game=%d chat=%d mic=%d line_in=%d i2s_in=%d",
-                     5, app_bt_source_ctx.game_spk_port_enable, app_bt_source_ctx.chat_spk_port_enable,
+    APPS_LOG_MSGID_I(LOG_TAG" handle_usb_streaming, game=%d chat=%d mic=%d line_in=%d i2s_0_in=%d i2s_1_in%d",
+                     6, app_bt_source_ctx.game_spk_port_enable, app_bt_source_ctx.chat_spk_port_enable,
                      app_bt_source_ctx.mic_port_enable, app_bt_source_ctx.line_in_port_enable,
-                     app_bt_source_ctx.i2s_in_port_enable);
+                     app_bt_source_ctx.i2s_0_in_port_enable, app_bt_source_ctx.i2s_1_in_port_enable);
 
     app_bt_source_handle_audio_port_change(port, enable);
 
@@ -598,6 +662,7 @@ static bool app_bt_source_activity_proc_usb_group(uint32_t event_id,
 
                 volume_change.port = port;
                 volume_change.volume_value = bt_customer_config_get_volume_by_gain(port, usb_volume->left_db > usb_volume->right_db ? usb_volume->left_db : usb_volume->right_db);
+                volume_change.is_local = BT_SOURCE_SRV_SET_VOLUME_TO_REMOTE;
                 success = app_bt_source_send_action(BT_SOURCE_SRV_ACTION_VOLUME_CHANGE,
                                                     (void*)&volume_change, sizeof(bt_source_srv_volume_change_t));
             }
@@ -626,6 +691,21 @@ static bool app_bt_source_activity_proc_usb_group(uint32_t event_id,
             app_events_usb_sample_rate_t *usb_rate = (app_events_usb_sample_rate_t *)&usb_data;
             if (usb_rate != NULL) {
                 bt_source_srv_port_t port = app_bt_source_covert_port(usb_rate->port.port_type, usb_rate->port.port_num);
+                uint8_t interface_id = apps_event_usb_get_interface_id_from_port_info(&usb_rate->port);
+                const apps_usb_interface_enable_app_task_recorder_t *interface_status = app_preproc_activity_get_usb_interface_info(interface_id);
+
+                if (interface_status != NULL) {
+                    bt_source_srv_audio_sample_rate_t rate_param = {0};
+                    rate_param.port = port;
+                    rate_param.sample_rate = interface_status->sample_rate;
+                    APPS_LOG_MSGID_W(LOG_TAG" USB event, SAMPLE_RATE port=%d rate : %d",
+                                        2, port, rate_param.sample_rate);
+                    success = app_bt_source_send_action(BT_SOURCE_SRV_ACTION_AUDIO_SAMPLE_RATE, &rate_param, sizeof(rate_param));
+                } else {
+                    APPS_LOG_MSGID_E(LOG_TAG" USB event, SAMPLE_RATE, interface is NULL", 0);
+                }
+#if 0
+                bt_source_srv_port_t port = app_bt_source_covert_port(usb_rate->port.port_type, usb_rate->port.port_num);
                 uint32_t rate = app_bt_source_covert_sample_rate(usb_rate->rate);
                 APPS_LOG_MSGID_W(LOG_TAG" USB event, SAMPLE_RATE port=%d rate=%d->%d",
                                  3, port, usb_rate->rate, rate);
@@ -633,6 +713,7 @@ static bool app_bt_source_activity_proc_usb_group(uint32_t event_id,
                 rate_param.port = port;
                 rate_param.sample_rate = rate;
                 success = app_bt_source_send_action(BT_SOURCE_SRV_ACTION_AUDIO_SAMPLE_RATE, &rate_param, sizeof(rate_param));
+#endif
             }
             break;
         }
@@ -694,6 +775,25 @@ static bool app_bt_source_activity_proc_usb_group(uint32_t event_id,
     return FALSE;
 }
 
+#if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
+static void app_bt_source_set_afe_in_default_volume(bt_source_srv_port_t port)
+{
+    bt_source_srv_volume_change_t volume_change = {0};
+    volume_change.port = port;
+    volume_change.volume_value = bt_sink_srv_ami_get_lineIN_default_volume_level();
+    volume_change.is_local = BT_SOURCE_SRV_SET_VOLUME_TO_REMOTE;
+    bool success = app_bt_source_send_action(BT_SOURCE_SRV_ACTION_VOLUME_CHANGE,
+                                            (void*)&volume_change,
+                                            sizeof(bt_source_srv_volume_change_t));
+
+    APPS_LOG_MSGID_I(LOG_TAG" AFE In set default volume, port : 0x%02x, volume : %d, result : %d",
+                        3,
+                        port,
+                        volume_change.volume_value,
+                        success);
+}
+#endif /* AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE || AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE */
+
 #ifdef AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE
 bool app_bt_source_activity_proc_i2s_in_group(uint32_t event_id, void *extra_data, size_t data_len)
 {
@@ -701,15 +801,32 @@ bool app_bt_source_activity_proc_i2s_in_group(uint32_t event_id, void *extra_dat
         if (event_id == APPS_EVENTS_I2S_IN_STATUS_CHANGE) {
             app_i2s_in_det_t *i2s_in_param = (app_i2s_in_det_t *)extra_data;
             bool i2s_in = (i2s_in_param->i2s_state == 1);
-            app_bt_source_ctx.i2s_in_port_enable = i2s_in;
+            bt_source_srv_port_t i2s_port = BT_SOURCE_SRV_PORT_NONE;
 
-            bt_source_srv_port_t i2s_port = BT_SOURCE_SRV_PORT_I2S_IN;
-
-#ifdef AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE
-            if (i2s_in_param->i2s_port == 1) {
+            if (i2s_in_param->i2s_port == APP_I2S_IN_VOL_PORT_0) {
+                i2s_port = BT_SOURCE_SRV_PORT_I2S_IN;
+            } else if (i2s_in_param->i2s_port == APP_I2S_IN_VOL_PORT_1) {
                 i2s_port = BT_SOURCE_SRV_PORT_I2S_IN_1;
+            } else {
+                return false;
             }
-#endif /* AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE */
+
+            if ((i2s_in == false)
+                && (app_bt_source_activity_is_port_ready_to_disable(i2s_port) == false)) {
+                APPS_LOG_MSGID_W(LOG_TAG" proc_i2s_in_group, I2S is not ready to disable, port : %d, i2s enable status : %d %d",
+                                    3,
+                                    i2s_in_param->i2s_port,
+                                    app_bt_source_ctx.i2s_0_in_port_enable,
+                                    app_bt_source_ctx.i2s_1_in_port_enable);
+                return false;
+            }
+
+            if (i2s_in_param->i2s_port == APP_I2S_IN_VOL_PORT_0) {
+                app_bt_source_ctx.i2s_0_in_port_enable = i2s_in;
+            } else {
+                app_bt_source_ctx.i2s_1_in_port_enable = i2s_in;
+            }
+
 #if 0
     //        if (app_bt_source_conn_mgr_is_disabled()) {
     //            APPS_LOG_MSGID_E(LOG_TAG" I2S_IN event, i2s_state=%d but BT Source disabled",
@@ -725,14 +842,17 @@ bool app_bt_source_activity_proc_i2s_in_group(uint32_t event_id, void *extra_dat
             bool success = app_bt_source_send_action(BT_SOURCE_SRV_ACTION_AUDIO_PORT, &port_param, sizeof(port_param));
             APPS_LOG_MSGID_W(LOG_TAG" I2S_IN event, i2s_state=%d success=%d", 2, i2s_in_param->i2s_state, success);
 #endif
-            app_bt_source_handle_audio_port_change(i2s_port, i2s_in);
+            if (i2s_port != BT_SOURCE_SRV_PORT_NONE) {
+                app_bt_source_handle_audio_port_change(i2s_port, i2s_in);
+                app_bt_source_set_afe_in_default_volume(i2s_port);
+            }
         } else if (event_id == APPS_EVENTS_I2S_IN_VOLUME_CHANGE) {
             app_bt_source_handle_i2s_in_volume(extra_data);
         }
     }
     return FALSE;
 }
-#endif
+#endif /* AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE */
 
 #ifdef AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE
 bool app_bt_source_activity_proc_line_in_group(uint32_t event_id, void *extra_data, size_t data_len)
@@ -740,16 +860,25 @@ bool app_bt_source_activity_proc_line_in_group(uint32_t event_id, void *extra_da
 
     if (event_id == APPS_EVENTS_INTERACTION_LINE_IN_STATUS) {
         bool line_in = (bool)extra_data;
+
+        if ((line_in == false)
+            && (app_bt_source_activity_is_port_ready_to_disable(BT_SOURCE_SRV_PORT_LINE_IN) == false)) {
+            APPS_LOG_MSGID_W(LOG_TAG" proc_line_in_group, Line-in is not ready to disable", 0);
+            return false;
+        }
+
         app_bt_source_ctx.line_in_port_enable = line_in;
 
         app_bt_source_handle_audio_port_change(BT_SOURCE_SRV_PORT_LINE_IN, line_in);
+
+        app_bt_source_set_afe_in_default_volume(BT_SOURCE_SRV_PORT_LINE_IN);
     } else if (event_id == APPS_EVENTS_INTERACTION_LINE_IN_VOLUME) {
         app_bt_source_handle_line_in_volume(extra_data);
     }
 
     return FALSE;
 }
-#endif
+#endif /* AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE */
 
 /**================================================================================*/
 /**                             BT Source Service Callback                         */
@@ -758,6 +887,12 @@ void bt_source_srv_event_callback(bt_source_srv_event_t event_id, void *paramete
 {
     APPS_LOG_MSGID_I(LOG_TAG" bt_source_srv callback, event_id=0x%08X parameter=0x%08X length=%d",
                      3, event_id, parameter, length);
+
+    if ((BT_SOURCE_SRV_EVENT_PROFILE_CONNECTED == event_id) || (BT_SOURCE_SRV_EVENT_PROFILE_DISCONNECTED == event_id)) {
+        extern bt_status_t app_dongle_session_manager_handle_edr_session_type(bt_source_srv_event_t event,void *parameter);
+        app_dongle_session_manager_handle_edr_session_type(event_id, parameter);
+        return;
+    }
 
     void *extra_data = NULL;
     if (parameter != NULL && length > 0) {

@@ -118,3 +118,12 @@ bool default_bt_cm_check_connect_request(bt_bd_addr_ptr_t address, uint32_t cod)
 {
     return true;
 }
+
+bool bt_connection_manager_is_support_mhdt(void)
+{
+#if defined(AIR_FEATURE_SINK_MHDT_SUPPORT) || defined(AIR_FEATURE_SOURCE_MHDT_SUPPORT)
+    return true;
+#else
+    return false;
+#endif
+}

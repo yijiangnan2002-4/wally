@@ -271,33 +271,22 @@ copy_cm4_files () {
     echo "cp -f mcu/out/$1/$2/$5/*bootloader.bin $download_dir"
     echo "cp -f mcu/out/$1/$2/$5/$2.bin $download_dir"
     echo "cp -f mcu/out/$1/$2/$5/partition_table.bin $download_dir"
-    echo "cp -f mcu/out/$1/$2/$5/*_patch_hdr.bin $download_dir"
     echo "cp -f mcu/out/$1/$2/$5/nvdm.bin $download_dir"
     echo "cp -f mcu/out/$1/$2/$5/nvdm_ou.bin $download_dir"
     echo "cp -f mcu/out/$1/$2/$5/filesystem.bin $download_dir"
-    echo "cp -f mcu/out/$1/$2/$5/secure_no_rtos_demo.bin $download_dir"
+    echo "cp -f mcu/out/$1/$2/$5/nvkey.xml $download_dir"
+    echo "cp -f mcu/out/$1/$2/$5/nvkey_chip.xml $download_dir"
     test -e "mcu/out/$1/$2/$5/flash_download.cfg" && cp -f "mcu/out/$1/$2/$5/flash_download.cfg" "${download_dir}"
     test -e "mcu/out/$1/$2/$5/"*bootloader.bin && cp -f "mcu/out/$1/$2/$5/"*bootloader.bin "${download_dir}"
     test -e "mcu/out/$1/$2/$5/$2.bin" && cp -f "mcu/out/$1/$2/$5/$2.bin" "${download_dir}"
     test -e "mcu/out/$1/$2/$5/partition_table.bin" && cp -f "mcu/out/$1/$2/$5/partition_table.bin" "${download_dir}"
-    test -e "mcu/out/$1/$2/$5/"*_patch_hdr.bin && cp -f "mcu/out/$1/$2/$5/"*_patch_hdr.bin "${download_dir}"
     test -e "mcu/out/$1/$2/$5/nvdm.bin" && cp -f "mcu/out/$1/$2/$5/nvdm.bin" "${download_dir}"
     test -e "mcu/out/$1/$2/$5/filesystem.bin" && cp -f "mcu/out/$1/$2/$5/filesystem.bin" "${download_dir}"
-    test -e "mcu/out/$1/$2/$5/Hey_Google.bin" && cp -f "mcu/out/$1/$2/$5/Hey_Google.bin" "${download_dir}"
-    test -e "mcu/out/$1/$2/$5/Hey_Siri.bin" && cp -f "mcu/out/$1/$2/$5/Hey_Siri.bin" "${download_dir}"
     test -e "mcu/out/$1/$2/$5/nvdm_ou.bin" && cp -f "mcu/out/$1/$2/$5/nvdm_ou.bin" "${download_dir}"
     test -e "mcu/out/$1/$2/$5/filesystem.bin" && cp -f "mcu/out/$1/$2/$5/"filesystem.bin "${download_dir}"
-    test -e "mcu/out/$1/$2/$5/secure_no_rtos_demo.bin" && cp -f "mcu/out/$1/$2/$5/"secure_no_rtos_demo.bin "${download_dir}"
     test -e "mcu/out/$1/$2/$5/nvkey.xml" && cp -f "mcu/out/$1/$2/$5/nvkey.xml" "${download_dir}"
     test -e "mcu/out/$1/$2/$5/nvkey_chip.xml" && cp -f "mcu/out/$1/$2/$5/nvkey_chip.xml" "${download_dir}"
 
-    # copy ANC FW if exist
-    echo "cp -f mcu/out/$1/$2/$5/ANC_Image.bin ${download_dir}"
-    echo "cp -f mcu/out/$1/$2/$5/TurboCal_Image.bin ${download_dir}"
-    echo "cp -f mcu/out/$1/$2/$5/ANC_Tune_Image.bin ${download_dir}"
-    test -e "mcu/out/$1/$2/$5/ANC_Image.bin" && cp -f "mcu/out/$1/$2/$5/ANC_Image.bin" "${download_dir}"
-    test -e "mcu/out/$1/$2/$5/TurboCal_Image.bin" && cp -f "mcu/out/$1/$2/$5/TurboCal_Image.bin" "${download_dir}"
-    test -e "mcu/out/$1/$2/$5/ANC_Tune_Image.bin" && cp -f "mcu/out/$1/$2/$5/ANC_Tune_Image.bin" "${download_dir}"
 
     # Copy the language model binary to the output folder.
     # For gva and ama are in different partition
@@ -582,6 +571,7 @@ if [ ! -z "${board_share}" ]; then
 fi
 
 if [ -d "mcu/project/ab157x_ab158x" ]; then board="ab157x_ab158x"; fi
+if [ -d "mcu/project/ab15xx" ]; then board="ab15xx"; fi
 
 if [  ${debug} -eq "1" ]; then
     echo -e "feature_mk : ${feature_mk}\n"

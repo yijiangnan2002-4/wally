@@ -35,7 +35,7 @@
 #ifndef __VERNO_H__
 #define __VERNO_H__
 
-#define MTK_FW_VERSION "IoT_SDK_for_BT_Audio_V3.9.0.AB158x"
+#define MTK_FW_VERSION "IoT_SDK_for_BT_Audio_V3.10.0.AB158x"
 extern char build_date_time_str[];
 
 #endif

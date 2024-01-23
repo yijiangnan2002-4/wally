@@ -114,14 +114,6 @@ typedef enum {
 } afe_dmic_clock_select_t;
 
 typedef enum {
-    AFE_DMIC_CLOCK_3_25M    = 0,
-    AFE_DMIC_CLOCK_1_625M   = 1,
-    AFE_DMIC_CLOCK_812_5K   = 2,
-    AFE_DMIC_CLOCK_406_25K  = 3,
-    AFE_DMIC_CLOCK_MAX,
-    AFE_DMIC_CLOCK_DUMMY    = 0x7fffffff,
-} afe_dmic_clock_rate_t;
-typedef enum {
     AFE_VOLUME_ANALOG_OUTPUT_CLASSD_CAP_VALUE_NEG_8_DB   = 31,
     AFE_VOLUME_ANALOG_OUTPUT_CLASSD_CAP_VALUE_NEG_5_DB   = 15,
     AFE_VOLUME_ANALOG_OUTPUT_CLASSD_CAP_VALUE_NEG_2_DB   = 7,
@@ -179,7 +171,7 @@ uint32_t afe_samplerate_get_ul_samplerate(hal_audio_device_agent_t device_agent)
 uint32_t afe_samplerate_get_ul_device_samplerate(hal_audio_device_agent_t device_agent);
 void afe_samplerate_set_dl_samplerate(uint32_t samplerate);
 uint32_t afe_samplerate_get_dl_samplerate(void);
-void hal_src_set_irq_enable(afe_mem_asrc_id_t asrc_id, bool enable);
+void hal_src_set_irq_enable(afe_src_configuration_t *config, bool enable);
 uint32_t hal_samplerate_convert_to_register_value(hal_audio_device_agent_t device_agent, uint32_t samplerate);
 afe_audio_bt_sync_con0_t afe_get_bt_sync_enable_bit(hal_audio_agent_t agent);
 
@@ -237,6 +229,8 @@ bool hal_hw_gain_set_up_step(afe_hardware_digital_gain_t gain_select,uint32_t up
 uint32_t hal_hw_gain_get_target(afe_hardware_digital_gain_t gain_select);
 uint32_t hal_hw_gain_get_current_gain(afe_hardware_digital_gain_t gain_select);
 bool hal_hw_gain_is_running(afe_hardware_digital_gain_t gain_select);
+bool hal_hw_gain_set_sample_per_step(afe_hardware_digital_gain_t gain_select, uint32_t sample_per_step);
+uint32_t hal_hw_gain_get_sample_per_step(afe_hardware_digital_gain_t gain_select);
 uint32_t hal_hw_gain_get_sample_rate(afe_hardware_digital_gain_t gain_select);
 bool hal_hw_gain_set_current_gain(afe_hardware_digital_gain_t gain_select, uint32_t gain);
 
@@ -328,7 +322,8 @@ bool hal_audio_ul1_ul2_set_swap(hal_audio_device_agent_t device_agent);
 bool hal_audio_ul_set_inverse(hal_audio_device_agent_t device_agent, bool enable);
 bool hal_audio_ul4_set_loopback(hal_audio_ul_loopback_setting_t loopback_setting, bool enable);
 
-bool hal_audio_dl_set_fifo_swap(bool no_swap);
+bool hal_audio_dl_set_fifo_swap(bool is_swap);
+bool hal_audio_dl_set_mono(bool is_mono);
 bool hal_audio_dl_set_sdm(hal_audio_dl_sdm_setting_t sdm_setting, bool enable);
 hal_audio_dl_sdm_setting_t hal_audio_dl_get_sdm(void);
 VOID hal_audio_dl_reset_sdm_enable(bool enable);

@@ -130,6 +130,10 @@ AIR_BT_SPEAKER_ENABLE = n
 # This option is used to enable multi link at the same time.
 AIR_MULTI_POINT_ENABLE = y
 
+# This option is used to specify the maximum number of connections that can exist simultaneously.
+# Dependency: If the AIR_MULTI_POINT_ENABLE option is enabled, this option must be set to 2 or a larger value.
+AIR_MULTI_POINT_MAX_CONNECTION = 2
+
 # This option is to enable/disable MUX BT HID feature.
 # Dependency:AIR_BT_HID_ENABLE must be enable when this option is set to y.
 AIR_MUX_BT_HID_ENABLE = n
@@ -150,6 +154,22 @@ AIR_LE_AUDIO_BIS_ENABLE = y
 # This option is used to support dual mode of classic/LE Audio.
 # Dependency: AIR_LE_AUDIO_ENABLE must be enabled when this option is set to y.
 AIR_LE_AUDIO_DUAL_MODE_ENABLE = y
+
+# This option is used to support LE Audio Telephony and Media Audio Profile.
+# Dependency: AIR_LE_AUDIO_ENABLE must be enabled when this option is set to y.
+AIR_LE_AUDIO_TMAP_ENABLE = y
+
+# This option is used to support LE Audio Hearing Access Profile.
+# Dependency: AIR_LE_AUDIO_ENABLE must be enabled when this option is set to y.
+AIR_LE_AUDIO_HAP_ENABLE = n
+
+# This option is used to support LE Audio Gaming Audio Profile.
+# Dependency: AIR_LE_AUDIO_ENABLE must be enabled when this option is set to y.
+AIR_LE_AUDIO_GMAP_ENABLE = n
+
+# This option is used to support Auracast
+# Dependency: AIR_LE_AUDIO_ENABLE and AIR_LE_AUDIO_BIS_ENABLE must be enabled when this option is set to y.
+AIR_LE_AUDIO_AURACAST_ENABLE = y
 
 # This option is to enable/disable latency test mode
 AIR_BT_LATENCY_TEST_MODE_ENABLE = n
@@ -326,11 +346,6 @@ AIR_HAL_EXTERNAL_RAM_TYPE = none
 # This option is used for customization files
 # Usage: default, or other customers
 AIR_SDK_CUSTOMER = default
-
-##############################################
-# Include the MCU DSP shared feature option checking flow
-##############################################
-include $(PWD)/mcu_dsp_share_option_checker.mk
 
 ##############################################
 # Include the DSP feature makefile to inlcude the feature options are both supported in MCU and DSP

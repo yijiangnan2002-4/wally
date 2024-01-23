@@ -177,13 +177,13 @@ Audio Calibration module usage guide
 Brief:          This module is the Audio Calibration control implementation.
 Usage:          GCC:  For Audio Calibration, include the module with
                       1) Add the following module.mk for libs and source file:
-                         include $(SOURCE_DIR)/middleware/MTK/audio/module.mk
+                         include $(SOURCE_DIR)/<a href="#middleware_airoha_audio">middleware/airoha/audio</a>/module.mk
                       2) Module.mk provides different options to enable or disable according to the profiles.
                          Please configure the related options on the specified GCC/feature.mk.
                          AIR_COMPONENT_CALIBRATION_ENABLE
                       3) Add the header file path:
-                         CFLAGS += -I$(SOURCE_DIR)/middleware/MTK/audio/calibration/inc
-Dependency:     
+                         CFLAGS += -I$(SOURCE_DIR)/<a href="#middleware_airoha_audio">middleware/airoha/audio</a>/calibration/inc
+Dependency:     None.
 Notice:         None.
 Relative doc:   None.
 Example project:None.</pre><pre>     </pre> </td></tr>
@@ -466,9 +466,9 @@ Audio Manager module usage guide
 Brief:          This module is for dual-chip audio source control.
 Usage:          GCC:  For dual-chip audio source control
                       1) Add the following module.mk for libs and source file:
-                         include $(SOURCE_DIR)/middleware/MTK/audio_source_control/module.mk
+                         include $(SOURCE_DIR)/<a href="#middleware_airoha_audio">middleware/airoha/audio</a>_source_control/module.mk
                       2) Add the header file path:
-                         CFLAGS += -I$(SOURCE_DIR)/middleware/MTK/audio_source_control/inc
+                         CFLAGS += -I$(SOURCE_DIR)/<a href="#middleware_airoha_audio">middleware/airoha/audio</a>_source_control/inc
 Dependency:     None.
 Notice:         None.
 Relative doc:   None.
@@ -982,7 +982,7 @@ Example project:Please refer to the earbuds_ref_design under the project folder.
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Thu Sep 28 2023 17:13:25 for Airoha IoT SDK Compile Options Description by
+    <li class="footer">Generated on Fri Dec 29 2023 02:13:00 for Airoha IoT SDK Compile Options Description by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.11 </li>
   </ul>

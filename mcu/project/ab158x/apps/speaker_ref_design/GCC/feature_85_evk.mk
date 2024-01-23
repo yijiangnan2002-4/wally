@@ -342,11 +342,6 @@ AIR_HAL_EXTERNAL_RAM_TYPE = none
 AIR_SDK_CUSTOMER = default
 
 ##############################################
-# Include the MCU DSP shared feature option checking flow
-##############################################
-include $(PWD)/mcu_dsp_share_option_checker.mk
-
-##############################################
 # Include the DSP feature makefile to inlcude the feature options are both supported in MCU and DSP
 ##############################################
 include $(SOURCE_DIR)/../dsp/project/$(BOARD)/apps/dsp0_headset_ref_design/XT-XCC/feature_85_speaker.mk

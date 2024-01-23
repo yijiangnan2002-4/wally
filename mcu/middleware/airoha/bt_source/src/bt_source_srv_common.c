@@ -69,6 +69,7 @@ static bt_status_t bt_source_srv_common_handle_unmute(void *parameter, uint32_t 
 static bt_status_t bt_source_srv_common_handle_volume_up(void *parameter, uint32_t length);
 static bt_status_t bt_source_srv_common_handle_volume_down(void *parameter, uint32_t length);
 static bt_status_t bt_source_srv_common_handle_volume_change(void *parameter, uint32_t length);
+static bt_status_t bt_source_srv_common_handle_switch_codec(void *parameter, uint32_t length);
 
 static const bt_source_srv_common_action_handler_t g_handle_common_action_table[] = {
     NULL,
@@ -80,7 +81,8 @@ static const bt_source_srv_common_action_handler_t g_handle_common_action_table[
     bt_source_srv_common_handle_unmute,
     bt_source_srv_common_handle_volume_up,
     bt_source_srv_common_handle_volume_down,
-    bt_source_srv_common_handle_volume_change
+    bt_source_srv_common_handle_volume_change,
+    bt_source_srv_common_handle_switch_codec
 };
 
 static void bt_source_srv_common_audio_port_reset(bt_source_srv_common_audio_port_context_t *port_context)
@@ -159,7 +161,7 @@ bt_status_t bt_source_srv_common_audio_find_port_context(bt_source_srv_port_t po
 {
     uint32_t i = 0;
     for (i = 0; i < BT_SOURCE_SRV_COMMON_PORT_MAX; i++) {
-        if (g_common_port_context[i].port == port) {
+        if ((g_common_port_context[i].port == port) && (bt_source_srv_common_audio_port_is_valid(port))) {
             bt_source_srv_memcpy(context, &g_common_port_context[i], sizeof(bt_source_srv_common_audio_port_context_t));
             return BT_STATUS_SUCCESS;
         }
@@ -300,10 +302,7 @@ static bt_status_t bt_source_srv_common_handle_mute(void *parameter, uint32_t le
 {
     bt_status_t status = BT_STATUS_FAIL;
 #ifdef AIR_SOURCE_SRV_HFP_ENABLE
-    if (bt_source_srv_common_get_playing_device() == BT_SOURCE_SRV_TYPE_HFP) {
-        status = bt_source_srv_call_send_action(BT_SOURCE_SRV_ACTION_MUTE, parameter, length);
-        return status;
-    }
+    status = bt_source_srv_call_send_action(BT_SOURCE_SRV_ACTION_MUTE, parameter, length);
 #endif
 #ifdef AIR_SOURCE_SRV_MUSIC_ENABLE
     status = bt_source_srv_a2dp_common_action_handler(BT_SOURCE_SRV_ACTION_MUTE, parameter, length);
@@ -316,10 +315,7 @@ static bt_status_t bt_source_srv_common_handle_unmute(void *parameter, uint32_t 
 {
     bt_status_t status = BT_STATUS_FAIL;
 #ifdef AIR_SOURCE_SRV_HFP_ENABLE
-    if (bt_source_srv_common_get_playing_device() == BT_SOURCE_SRV_TYPE_HFP) {
-        status = bt_source_srv_call_send_action(BT_SOURCE_SRV_ACTION_UNMUTE, parameter, length);
-        return status;
-    }
+    status = bt_source_srv_call_send_action(BT_SOURCE_SRV_ACTION_UNMUTE, parameter, length);
 #endif
 #ifdef AIR_SOURCE_SRV_MUSIC_ENABLE
     status = bt_source_srv_a2dp_common_action_handler(BT_SOURCE_SRV_ACTION_UNMUTE, parameter, length);
@@ -367,6 +363,23 @@ static bt_status_t bt_source_srv_common_handle_volume_change(void *parameter, ui
     return status;
 }
 
+static bt_status_t bt_source_srv_common_handle_switch_codec(void *parameter, uint32_t length)
+{
+    bt_status_t status = BT_STATUS_FAIL;
+    bt_source_srv_switch_codec_t *switch_codec = (bt_source_srv_switch_codec_t *)parameter;
+        LOG_MSGID_I(source_srv, "[SOURCE][COMMON] common_handle_switch_codec = %02x", 1,switch_codec->type);
+    if (switch_codec->type == BT_SOURCE_SRV_TYPE_HFP) {
+#ifdef AIR_SOURCE_SRV_HFP_ENABLE
+        status = bt_source_srv_call_send_action(BT_SOURCE_SRV_ACTION_SWITCH_CODEC, parameter, length);
+#endif
+    } else if (switch_codec->type == BT_SOURCE_SRV_TYPE_A2DP) {
+#ifdef AIR_SOURCE_SRV_MUSIC_ENABLE
+        status = bt_source_srv_a2dp_common_action_handler(BT_SOURCE_SRV_ACTION_SWITCH_CODEC, parameter, length);
+#endif
+    }
+
+    return status;
+}
 
 bt_status_t bt_source_srv_common_send_action(bt_source_srv_action_t action, void *parameter, uint32_t length)
 {

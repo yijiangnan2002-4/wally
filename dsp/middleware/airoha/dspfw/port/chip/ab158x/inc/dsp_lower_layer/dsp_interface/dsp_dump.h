@@ -188,6 +188,8 @@ typedef enum {
     AUDIO_FADP_ANC_OUT_2CH_16BIT_IN_2     = 160,
     AUDIO_FADP_ANC_OUT_2CH_16BIT_OUT_1    = 161,
     AUDIO_FADP_ANC_OUT_2CH_16BIT_OUT_2    = 162,
+    AUDIO_FADP_ANC_DEQ_IN_1               = 163,
+    AUDIO_FADP_ANC_DEQ_IN_2               = 164,
     AUDIO_FADP_ANC_AUDIO_DUMP_MAX         = 170,
     /* Full adaptive ANC aduio dump end */
 
@@ -239,12 +241,19 @@ typedef enum {
     AUDIO_DCHS_UL_MAX_RESERVE             = 320,
     /*------------ DCHS UL ---------------*/
 
-    /* USB Audio */
+    /* USB Audio, Unused */
     USB_AUDIO_RX1                = 400,
     USB_AUDIO_RX2                = 401,
     USB_AUDIO_TX1                = 402,
     USB_AUDIO_TX2                = 403,
     /* USB Audio - End */
+
+    /* LEA Dongle DUMP ID BEGIN */
+    AUDIO_LEA_DONGLE_DL_BEG         = 420,
+    AUDIO_LEA_DONGLE_UL_DEC_OUT_0   = 440,
+    AUDIO_LEA_DONGLE_UL_DEC_OUT_1   = 441,
+    AUDIO_LEA_DONGLE_UL_END         = 499,
+    /* LEA Dongle DUMP ID END */
 
     /* ULD dump */
     ULD_ENCODE_IN_1              = 500,
@@ -257,6 +266,26 @@ typedef enum {
     ULD_ENCODE_OUT_4             = 507,
     ULD_DECODE_IN                = 508,
     ULD_DECODE_OUT               = 509,
+
+    /*------------ FrameSzie Adjustor ---------------*/
+    AUDIO_FRAMESIZE_ADJUSTOR_IN_CH1 = 550,
+    AUDIO_FRAMESIZE_ADJUSTOR_IN_CH2 = 551,
+    AUDIO_FRAMESIZE_ADJUSTOR_IN_CH3 = 552,
+    AUDIO_FRAMESIZE_ADJUSTOR_IN_CH4 = 553,
+    AUDIO_FRAMESIZE_ADJUSTOR_OUT_CH1 = 554,
+    AUDIO_FRAMESIZE_ADJUSTOR_OUT_CH2 = 555,
+    AUDIO_FRAMESIZE_ADJUSTOR_OUT_CH3 = 556,
+    AUDIO_FRAMESIZE_ADJUSTOR_OUT_CH4 = 557,
+
+    AUDIO_FRAMESIZE_ADJUSTOR_CUS_IN_CH1 = 558,
+    AUDIO_FRAMESIZE_ADJUSTOR_CUS_IN_CH2 = 559,
+    AUDIO_FRAMESIZE_ADJUSTOR_CUS_IN_CH3 = 550,
+    AUDIO_FRAMESIZE_ADJUSTOR_CUS_IN_CH4 = 551,
+    AUDIO_FRAMESIZE_ADJUSTOR_CUS_OUT_CH1 = 552,
+    AUDIO_FRAMESIZE_ADJUSTOR_CUS_OUT_CH2 = 553,
+    AUDIO_FRAMESIZE_ADJUSTOR_CUS_OUT_CH3 = 554,
+    AUDIO_FRAMESIZE_ADJUSTOR_CUS_OUT_CH4 = 555,
+
 
     /* Dongle dump ID */
     DONGLE_AUDIO_USB_IN_I_1      = 600,
@@ -278,23 +307,23 @@ typedef enum {
     DONGLE_AUDIO_MAX_ID          = 699,
 
     /* BT Source Dongle DUMP ID BEGIN */
-    AUDIO_BT_SRC_DONGLE_DL_ENC_IN         = 700,
-    AUDIO_BT_SRC_DONGLE_DL_ENC_OUT        = 701,
-    AUDIO_BT_SRC_DONGLE_DL_MCU_USB_IN_DUAL = 702,
-    AUDIO_BT_SRC_DONGLE_DL_USB_INL        = 703,
-    AUDIO_BT_SRC_DONGLE_DL_USB_INR        = 704,
-    AUDIO_BT_SRC_DONGLE_DL_SINK_OUT_HEADER    = 705,
-    AUDIO_BT_SRC_DONGLE_DL_SINK_OUT_NO_HEADER = 706,
+    AUDIO_BT_SRC_DONGLE_DL_ENC_IN                = 700,
+    AUDIO_BT_SRC_DONGLE_DL_ENC_OUT               = 701,
+    AUDIO_BT_SRC_DONGLE_DL_MCU_USB_IN_DUAL       = 702,
+    AUDIO_BT_SRC_DONGLE_DL_USB_INL               = 703,
+    AUDIO_BT_SRC_DONGLE_DL_USB_INR               = 704,
+    AUDIO_BT_SRC_DONGLE_DL_SINK_OUT_HEADER       = 705,
+    AUDIO_BT_SRC_DONGLE_DL_SINK_OUT_NO_HEADER    = 706,
 
-    AUDIO_BT_SRC_DONGLE_DL_ENC_IN_ESCO        = 707,
-    AUDIO_BT_SRC_DONGLE_DL_ENC_OUT_ESCO       = 708,
-    AUDIO_BT_SRC_DONGLE_DL_SINK_OUT_ESCO      = 709,
+    AUDIO_BT_SRC_DONGLE_DL_ENC_IN_ESCO           = 707,
+    AUDIO_BT_SRC_DONGLE_DL_ENC_OUT_ESCO          = 708,
+    AUDIO_BT_SRC_DONGLE_DL_SINK_OUT_ESCO         = 709,
 
-    AUDIO_BT_SRC_DONGLE_UL_BT_IN        = 710,
-    AUDIO_BT_SRC_DONGLE_UL_BT_DEC_IN    = 711,
-    AUDIO_BT_SRC_DONGLE_UL_BT_DEC_OUT   = 712,
-    AUDIO_BT_SRC_DONGLE_UL_USB_OUT      = 714,
-    AUDIO_BT_SRC_DONGLE_DL_CLK_SKEW_DEBUG = 719,
+    AUDIO_BT_SRC_DONGLE_UL_BT_IN                 = 710,
+    AUDIO_BT_SRC_DONGLE_UL_BT_DEC_IN             = 711,
+    AUDIO_BT_SRC_DONGLE_UL_BT_DEC_OUT            = 712,
+    AUDIO_BT_SRC_DONGLE_UL_USB_OUT               = 714,
+    AUDIO_BT_SRC_DONGLE_DL_CLK_SKEW_DEBUG        = 719,
     /* BT Source Dongle DUMP ID END */
     AUDIO_CODEC_TEST_DATA       = 720,
 
@@ -380,6 +409,36 @@ typedef enum {
     SRC_FIXED_RATIO_P3_OUT7      = 897,
     SRC_FIXED_RATIO_P3_OUT8      = 898,
 
+    AUDIO_HFP_AFE_IN1            = 900,
+    AUDIO_HFP_AFE_IN2            = 901,
+    AUDIO_HFP_AFE_IN3            = 902,
+    AUDIO_HFP_AFE_IN4            = 903,
+    AUDIO_HFP_AFE_IN5            = 904,
+    /*++++++++++++ Mixer Stream +++++++++++++*/
+    AUDIO_MIXER_STREAM_SINK_OUT         = 905,
+    AUDIO_MIXER_STREAM_SOURCE_IN_CH1    = 906,
+    AUDIO_MIXER_STREAM_SOURCE_IN_CH2    = 907,
+    AUDIO_MIXER_STREAM_SOURCE_IN_CH3    = 908,
+    AUDIO_MIXER_STREAM_SOURCE_IN_CH4    = 909,
+    AUDIO_MIXER_STREAM_SOURCE_IN_CH5    = 910,
+    AUDIO_MIXER_STREAM_SOURCE_IN_CH6    = 911,
+    /*-------------Mixer Stream -------------*/
+
+    /* Multiple stream out DUMP ID BEGIN */
+    AUDIO_MULTIPLE_STREAM_OUT_0  = 910,
+    AUDIO_MULTIPLE_STREAM_OUT_1  = 911,
+    AUDIO_MULTIPLE_STREAM_OUT_2  = 912,
+    AUDIO_MULTIPLE_STREAM_OUT_3  = 913,
+    AUDIO_MULTIPLE_STREAM_OUT_4  = 914,
+    AUDIO_MULTIPLE_STREAM_OUT_5  = 915,
+
+    /*aidop plc*/
+    AUDIO_PLC_IN_L               = 916,
+    AUDIO_PLC_IN_R               = 917,
+    AUDIO_PLC_OUT_L              = 918,
+    AUDIO_PLC_OUT_R              = 919,
+    AUDIO_PLC_BFI                = 920,
+
     DSP_DATADUMP_MAX_BIT = 60000,
 } DSP_DATADUMP_MASK_BIT;
 /*********************************************************************************
@@ -395,12 +454,13 @@ typedef struct{
 /******************************************************************************
  * External Function Prototypes
  ******************************************************************************/
-EXTERN void LOG_AUDIO_DUMP(U8 *audio, U32 audio_size, U32 dumpID);
+EXTERN void LOG_AUDIO_DUMP(U8 *audio, U32 audio_size, U32 dump_id);
 EXTERN U16 AudioDumpCfgIDs[AUDIO_DUMP_CONFIG_MAX_NUM];
 EXTERN U32 AudioDumpDevice;
 EXTERN U32 DumpIdCfgVersion;
 EXTERN DumpIDs_AccumBytes DumpIDsAccumBytes[AUDIO_DUMP_CONFIG_MAX_NUM];
 
+EXTERN void audio_dump_set_block(bool is_block_dump);
 EXTERN bool check_cfg_dump_id(DSP_DATADUMP_MASK_BIT dumpID);
 EXTERN void add_cfg_dump_id(DSP_DATADUMP_MASK_BIT dumpID);
 EXTERN void remove_cfg_dump_id(DSP_DATADUMP_MASK_BIT dumpID);

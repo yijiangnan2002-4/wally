@@ -18,7 +18,7 @@ var group___bluetooth_service___e_d_r___d_m =
     [ "bt_device_manager_get_paired_number", "group___bluetooth_service___e_d_r___d_m.html#ga1a2e48a7b3e9e4e4bd051dffad989e08", null ],
     [ "bt_device_manager_init", "group___bluetooth_service___e_d_r___d_m.html#ga07442dd96bdd211794bb6524221338f7", null ],
     [ "bt_device_manager_is_paired", "group___bluetooth_service___e_d_r___d_m.html#gaa95ed48717e8ba43d05eb899641de402", null ],
-    [ "bt_device_manager_remote_get_dev_by_seq_num", "group___bluetooth_service___e_d_r___d_m.html#gac9e889fe90051b82654412f01203e8c4", null ],
+    [ "bt_device_manager_remote_get_dev_by_seq_num", "group___bluetooth_service___e_d_r___d_m.html#ga49f2aa21b9a8345fb76ed01c7922a784", null ],
     [ "bt_device_manager_remote_get_paired_num", "group___bluetooth_service___e_d_r___d_m.html#gaacec07c367703e60383dd25bf2e61058", null ],
     [ "bt_device_manager_remote_set_seq_num", "group___bluetooth_service___e_d_r___d_m.html#ga54f11d4c1477cbcdab0b856e6fc9538e", null ],
     [ "bt_device_manager_remote_top", "group___bluetooth_service___e_d_r___d_m.html#gaca7ba72091a77026e316c31d8ad08315", null ],

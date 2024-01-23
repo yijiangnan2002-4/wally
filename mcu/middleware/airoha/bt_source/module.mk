@@ -6,6 +6,13 @@ ifeq ($(AIR_BT_MHDT_ENABLE), y)
 CFLAGS += -DAIR_FEATURE_SOURCE_MHDT_SUPPORT
 endif
 
+LHDC_REPO=$(SOURCE_DIR)/middleware/third_party/lhdc_decoder/
+ifeq ($(AIR_BT_A2DP_LHDC_ENABLE), y)
+ifeq ($(LHDC_REPO), $(wildcard $(LHDC_REPO)))
+include $(SOURCE_DIR)/middleware/third_party/lhdc_decoder/module.mk
+endif
+endif
+
 BT_SOURCE_SRV_SRC = middleware/airoha/bt_source/src
 
 C_FILES  += $(BT_SOURCE_SRV_SRC)/bt_source_srv_utils.c \

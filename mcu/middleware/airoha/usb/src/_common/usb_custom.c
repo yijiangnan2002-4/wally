@@ -62,26 +62,22 @@
 /* Other includes */
 #include "memory_attribute.h"
 
-/************************************************************
-    External variables
-*************************************************************/
 
 /************************************************************
     Device descriptor parameters
 *************************************************************/
+/* iManufacturer */
 static const char usb_string_manufacturer[] = "MediaTek Inc";
 
+/* iProduct */
 #if defined(AIR_USB_DONGLE_PROJECT_ENABLE)
 static const char usb_string_product[] = "Airoha Dongle";
 #else
 static const char usb_string_product[] = "Airoha Headset";
 #endif
 
-#ifdef AIR_USB_HID_ENABLE
-static char usb_serial_number[USB_STRING_MAX_LENGTH] = "0000000000000000";
-#else
-static char usb_serial_number[USB_STRING_MAX_LENGTH] = "CDC_Demo";
-#endif
+/* iSerialNumber*/
+static char usb_serial_number[USB_STRING_MAX_LENGTH] __unused = "0000000000000000";
 
 /************************************************************
     CDC ACM parameters
@@ -181,11 +177,21 @@ const char USB_XBOX_CONTROL_STRING[] = "AIROHA XBOX CONTROL";
 const char USB_XBOX_AUDIO_STRING[] = "AIROHA XBOX AUDIO";
 #endif
 
+
 /*******************************************************
     KBM String
 *******************************************************/
 static const char usb_string_ms[] __unused = "AIROHA Mouse";
 static const char usb_string_kb[] __unused = "AIROHA Keyboard";
+
+
+/*******************************************************
+*   MFI String
+*******************************************************/
+#ifdef AIR_USB_MFI_ENABLE
+static const char USB_MFI_STRING[] __unused = "iAP Interface";
+#endif
+
 
 /************************************************************
     Custom String Create list
@@ -199,7 +205,20 @@ static usb_custom_string_t custom_string_list[] = {
     /* {usage, id, pointer of string} */
     {USB_STRING_USAGE_VENDOR,   0, usb_string_manufacturer},
     {USB_STRING_USAGE_PRODUCT,  0, usb_string_product},
+/**
+ * NOTE:
+ * In Windows, if two devices with the same PID, VID, serial number pulg in PC.
+ * The second pluged device would take 5s more than the first device to enumerate.
+ *
+ * To avoid this issue, we remove the serial number for device.
+ * Only in BTD project(kb, ms), cause it care about enumeration time.
+ */
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
+    /* BTD Projects */
+#else
+    /* BTA Projects */
     {USB_STRING_USAGE_SERIAL,   0, usb_serial_number},
+#endif
 
 #if defined(AIR_USB_AUDIO_ENABLE) || defined(AIR_USB_HID_ENABLE)
 #if defined(AIR_USB_AUDIO_ENABLE)
@@ -229,12 +248,17 @@ static usb_custom_string_t custom_string_list[] = {
     {USB_STRING_USAGE_MOUSE,    0, usb_string_ms},
     {USB_STRING_USAGE_KEYBOARD, 0, usb_string_kb},
 #endif
+
+#ifdef AIR_USB_MFI_ENABLE
+    {USB_STRING_USAGE_MFI, 0, USB_MFI_STRING},
+#endif
+
 };
+
 
 /************************************************************
     USB device infos
 *************************************************************/
-
 static usb_custom_class_info_t custom_class_info = {
     .bcdUSB    = 0x0200,
     .class     = 0x00,
@@ -242,50 +266,14 @@ static usb_custom_class_info_t custom_class_info = {
     .protocol  = 0x00
 };
 
+/* idVendor, set up by usb_custom_set_product_info*/
 #define CUSTOM_VID 0x0E8D
 
-#if defined(AIR_USB_AUDIO_ENABLE) || defined(AIR_USB_HID_ENABLE)
+/* idProduct, set up by usb_custom_set_product_info*/
 #ifdef AIR_USB_DONGLE_PROJECT_ENABLE
-
-/* Dongle */
-#ifdef AIR_USB_AUDIO_MULTI_CH_MODE /* DCHS */
-#define CUSTOM_PID 0x080E
-#elif AIR_WIRELESS_MIC_ENABLE /* Wireless MIC */
-#define CUSTOM_PID 0x080C
-#elif AIR_BLE_ULTRA_LOW_LATENCY_ENABLE /* ULL2.0 */
-#define CUSTOM_PID 0x080A
-#else
 #define CUSTOM_PID 0x0808
-#endif
-
-/* Headset */
-#else
-#ifdef AIR_DCHS_MODE_ENABLE /* DCHS */
-#define CUSTOM_PID 0x080F
-#elif AIR_WIRELESS_MIC_ENABLE /* Wireless MIC */
-#define CUSTOM_PID 0x080D
-#elif AIR_BLE_ULTRA_LOW_LATENCY_ENABLE /* ULL2.0 */
-#define CUSTOM_PID 0x080B
 #else
 #define CUSTOM_PID 0x0809
-#endif
-#endif
-
-#elif defined(AIR_USB_XBOX_ENABLE)
-#ifdef AIR_USB_DONGLE_PROJECT_ENABLE
-#define CUSTOM_PID 0x0003
-#else
-#define CUSTOM_PID 0x0809
-#endif
-
-#elif defined(AIR_USB_CDC_ENABLE)
-#define CUSTOM_PID 0x0023
-
-#elif defined(AIR_USB_MSC_ENABLE)
-#define CUSTOM_PID 0x0002
-
-#else
-#define CUSTOM_PID 0x0003
 #endif
 
 static usb_custom_product_info_t custom_product_info = {
@@ -294,21 +282,22 @@ static usb_custom_product_info_t custom_product_info = {
     .bcd_version = 0x0100,
 };
 
-#if defined(AIR_USB_AUDIO_ENABLE) || defined(AIR_USB_HID_ENABLE)
+
+/* SelfPowered */
+/* Dongle project*/
 #ifdef AIR_USB_DONGLE_PROJECT_ENABLE
+#ifdef AIR_WIRELESS_MIC_ENABLE
+#define CUSTOM_SELF_POWER true
+#else
 #define CUSTOM_SELF_POWER false
+#endif
+/* Headset project */
 #else
 #define CUSTOM_SELF_POWER true
 #endif
-#else
-#define CUSTOM_SELF_POWER false
-#endif
 
-#if defined(AIR_USB_AUDIO_ENABLE) || defined(AIR_USB_HID_ENABLE)
+/* bMaxPower */
 #define CUSTOM_MAX_POWER 100
-#else
-#define CUSTOM_MAX_POWER 500
-#endif
 
 static usb_custom_power_info_t custom_power_info = {
     .self_power    = CUSTOM_SELF_POWER,
@@ -316,10 +305,10 @@ static usb_custom_power_info_t custom_power_info = {
     .maxpower      = CUSTOM_MAX_POWER,
 };
 
+
 /************************************************************
     Customization functinos
 *************************************************************/
-#ifdef AIR_USB_HID_ENABLE
 extern void uid_code_get(uint8_t *p_data);
 
 #define TO_HEX(DIGIT) ((DIGIT) <= 9 ? '0' + (DIGIT) : 'A' - 10 + (DIGIT))
@@ -343,7 +332,6 @@ void Set_SerialNumber_From_ChipUID(char *serial_number_string)
     }
     serial_number_string[i * 2] = '\0';
 }
-#endif
 
 /* Get device VID */
 uint16_t USB_GetDeviceVID(void)
@@ -455,11 +443,6 @@ void usb_custom_set_speed(bool hs_fs)
     USB mass storage parameters
 *************************************************************/
 /**
- * Below section is dummy code.
- * It's not used currently, only for reference.
- */
-
-/**
  * Inquire data explanation
  * The length byte(Byte 4) should be always not changed, the mass storage spec define it
  * Byte 8 to 15 is Vendor Information
@@ -475,34 +458,12 @@ ATTR_RWDATA_IN_NONCACHED_RAM uint8_t INQUIRE_DATA[] = {
     0x00,
     0x00,
     0x00,
-    'M',  /*Vendor Identification*/
-    'E',
-    'D',
-    'I',
-    'A',
-    'T',
-    'E',
-    'K',
-    ' ', /*Product Identification*/
-    'F',
-    'L',
-    'A',
-    'S',
-    'H',
-    ' ',
-    'D',
-    'I',
-    'S',
-    'K',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    ' ', /*Product Revision Level*/
-    ' ',
-    ' ',
-    ' '
+    /*Vendor Identification*/
+    'M', 'E', 'D', 'I', 'A', 'T', 'E', 'K', ' ',
+    /*Product Identification*/
+    'F', 'L', 'A', 'S', 'H', ' ', 'D', 'I', 'S', 'K', ' ', ' ', ' ', ' ', ' ', ' ',
+    /*Product Revision Level*/
+    ' ', ' ', ' '
 };
 
 static const uint16_t  USB_MS_INTERFACE_STRING[] = {
@@ -525,3 +486,4 @@ const USB_MS_PARAM *USB_GetMsParam(void)
 }
 
 #endif /* AIR_USB_ENABLE */
+

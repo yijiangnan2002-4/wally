@@ -258,6 +258,9 @@ static void app_le_audio_ba_config_link_to_ready(uint8_t link_idx)
         }
     } else if (APP_LE_AUDIO_BA_LINK_STATE_READY < p_link_info->ba_state) {
         p_link_info->add_source_retry = true;
+        if (p_link_info->remove_source_needed) {
+            ble_bass_remove_source(p_link_info->handle, p_link_info->source_id);
+        }
     }
 }
 
@@ -595,17 +598,10 @@ static void app_le_audio_ba_handle_bass_evt(uint8_t event, void *msg)
                     return;
                 }
 
-                if (APP_LE_AUDIO_BA_LINK_STATE_REMOVE_SOURCE != p_link_info->ba_state) {
-                    p_link_info->ba_state = APP_LE_AUDIO_BA_LINK_STATE_REMOVE_SOURCE;
-                    if (BT_STATUS_SUCCESS == ble_bass_remove_source(p_cfm->handle, p_cfm->source_id)) {
-                        snprintf((char *)conn_string, 50, "Remove source link [%x] id [%x]\r\n", link_idx, p_cfm->source_id);
-                        bt_app_common_at_cmd_print_report(conn_string);
-                        LE_AUDIO_MSGLOG_I("[APP][BA] remove source", 0);
-                    } else {
-                        /*Fail to remove source, wait ATT write rsp*/
-                        LE_AUDIO_MSGLOG_I("[APP][BA] Fail to remove source", 0);
-                        p_link_info->remove_source_needed = true;
-                    }
+                p_link_info->ba_state = APP_LE_AUDIO_BA_LINK_STATE_REMOVE_SOURCE;
+                p_link_info->remove_source_needed = true;
+                if (p_link_info->add_source_retry) {
+                    ble_bass_remove_source(p_link_info->handle, p_link_info->source_id);
                 }
                 return;
             }

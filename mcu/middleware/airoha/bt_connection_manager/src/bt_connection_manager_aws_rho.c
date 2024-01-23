@@ -48,12 +48,26 @@ typedef struct {
     bt_cm_profile_service_mask_t    profile_connection_mask;
     uint8_t                         aws_ready;
 #ifdef AIR_MULTI_POINT_ENABLE
-    bt_cm_connect_t connecting_device;
+    bt_cm_connect_t connecting_device[2];
 #endif
 } bt_cm_rho_context_t;
 
 bt_cm_rho_prepare_wait_flag_t   g_bt_cm_rho_flags_t;
 bt_cm_rho_context_t bt_cm_rho_context;
+
+bt_bd_addr_t*   bt_cm_get_disconnect_addr_before_rho(void);
+#if _MSC_VER >= 1500
+#pragma comment(linker, "/alternatename:_bt_cm_get_disconnect_addr_before_rho=_default_bt_cm_get_disconnect_addr_before_rho")
+#elif defined(__GNUC__) || defined(__ICCARM__) || defined(__CC_ARM)
+#pragma weak bt_cm_get_disconnect_addr_before_rho = default_bt_cm_get_disconnect_addr_before_rho
+#else
+#error "Unsupported Platform"
+#endif
+
+bt_bd_addr_t*   default_bt_cm_get_disconnect_addr_before_rho()
+{
+    return NULL;
+}
 
 static bt_status_t  bt_cm_rho_is_allowed(const bt_bd_addr_t *addr)
 {
@@ -90,7 +104,9 @@ static bt_status_t  bt_cm_rho_get_data(const bt_bd_addr_t *addr, void *data)
     bt_utils_assert(NULL != remote_device && "RHO can't find remote device !!!");
     rho_context->profile_connection_mask = remote_device->link_info.connected_mask;
 #ifdef AIR_MULTI_POINT_ENABLE
-    bt_utils_memcpy(&(rho_context->connecting_device), &(bt_cm_rho_context.connecting_device), sizeof(bt_cm_connect_t));
+    for(uint32_t index = 0; index < 2; index++) {
+        bt_utils_memcpy(&(rho_context->connecting_device[index]), &(bt_cm_rho_context.connecting_device[index]), sizeof(bt_cm_connect_t));
+    }
 #endif
     rho_context->aws_ready = bt_aws_mce_srv_rho_get_aws_ready((void *)addr);
     bt_utils_memset(&bt_cm_rho_context, 0, sizeof(bt_cm_rho_context_t));
@@ -165,14 +181,17 @@ static bt_status_t  bt_cm_rho_update(bt_role_handover_update_info_t *info)
             bt_cm_list_add(BT_CM_LIST_CONNECTED, non_aws_device, BT_CM_LIST_ADD_FRONT);
         }
 #ifdef AIR_MULTI_POINT_ENABLE
-        bt_cm_connect_t remote_device;
-        if (rho_context->connecting_device.profile != 0) {
-            bt_utils_memcpy(&(remote_device.address), &(rho_context->connecting_device.address), sizeof(bt_bd_addr_t));
-            remote_device.profile = rho_context->connecting_device.profile;
-            //bt_cmgr_report_id("[BT_CM][RHO][I] Partner switch context to agent connect the canceled device", 0);
+        bt_cm_connect_t remote_device;     
+        for (uint32_t index = 0; index < 2; index++) {
+            if (rho_context->connecting_device[index].profile == 0) {
+                continue;
+            }
+            bt_utils_memcpy(&(remote_device.address), &(rho_context->connecting_device[index].address), sizeof(bt_bd_addr_t));
+            remote_device.profile = rho_context->connecting_device[index].profile;
+            bt_cmgr_report_id("[BT_CM][RHO][I] Partner switch context to agent connect the RHO canceled device", 0);
             bt_cm_connect(&remote_device);
-            bt_utils_memset(&bt_cm_rho_context, 0, sizeof(bt_cm_rho_context_t));
         }
+        bt_utils_memset(&bt_cm_rho_context, 0, sizeof(bt_cm_rho_context_t));
 #endif
     }
     bt_aws_mce_srv_rho_complete((void *)info->addr, info->is_active, aws_ready);
@@ -209,6 +228,11 @@ void                bt_cm_rho_gap_event_handle(bt_msg_type_t msg, bt_status_t st
         bt_role_handover_reply_prepare_request(BT_ROLE_HANDOVER_MODULE_SINK_CM);
     }
 }
+extern bt_bd_addr_t g_bt_cm_delay_reconnect_addr;
+extern bt_cm_profile_service_mask_t g_bt_cm_delay_reconnect_profile;
+
+extern void bt_cm_delay_reconnect_callback(void *params);
+
 
 static void         bt_cm_rho_status_callback(const bt_bd_addr_t *addr, bt_aws_mce_role_t role, bt_role_handover_event_t event, bt_status_t status)
 {
@@ -241,35 +265,70 @@ static void         bt_cm_rho_status_callback(const bt_bd_addr_t *addr, bt_aws_m
         }
         //bt_cmgr_report_id("[BT_CM][RHO][E] Write link policy fail status 0x%x", 1, ret_status);
 #ifdef AIR_MULTI_POINT_ENABLE
-        bt_cm_remote_device_t *cancel_device = bt_cm_list_get_last(BT_CM_LIST_CONNECTING);
-        if (NULL != cancel_device) {
-            bt_utils_memcpy(&(bt_cm_rho_context.connecting_device.address), &(cancel_device->link_info.addr), sizeof(bt_bd_addr_t));
-            bt_cm_rho_context.connecting_device.profile = (cancel_device->request_connect_mask | cancel_device->link_info.connected_mask | cancel_device->link_info.connecting_mask);
-            g_bt_cm_rho_flags_t |= BT_CM_RHO_PREPARE_WAIT_FLAG_CANCEL_CONNECTION;
-            //bt_cmgr_report_id("[BT_CM][RHO][I] set cancel connectiong flag and g_bt_cm_rho_flags_t is %d", 1,  g_bt_cm_rho_flags_t);
-            bt_cm_cancel_connect(&(bt_cm_rho_context.connecting_device.address));
-        } else
-#endif
-            if (0 == g_bt_cm_rho_flags_t &&BT_ROLE_HANDOVER_STATE_ONGOING == bt_role_handover_get_state()) {
-                bt_role_handover_reply_prepare_request(BT_ROLE_HANDOVER_MODULE_SINK_CM);
+        bt_bd_addr_t* sequence_second_addr = NULL;
+        uint32_t connected_dev = bt_cm_get_connected_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL,0);
+         if (3 == connected_dev) {
+            bt_bd_addr_t *disconnect_one = NULL;
+            bt_cm_remote_device_t *discon_device = NULL;
+            bt_cmgr_report_id("[BT_CM][RHO][I] connected 3 sp need to disconnect one", 0);
+            disconnect_one = bt_cm_get_disconnect_addr_before_rho();
+            if (NULL == disconnect_one || NULL == (discon_device = bt_cm_find_device(BT_CM_FIND_BY_ADDR, disconnect_one))) {
+                discon_device = bt_cm_list_get_last(BT_CM_LIST_CONNECTED);
             }
-            bt_cmgr_report_id("[BT_CM][RHO][I] BT_ROLE_HANDOVER_PREPARE_REQ_IND g_bt_cm_rho_flags_t is %d", 1,  g_bt_cm_rho_flags_t);
+            if (discon_device->link_info.connected_mask & BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS)) {
+                bt_cmgr_report_id("[BT_CM][RHO][I] last device is aws connected need disconnect 2 seq device", 0);
+                sequence_second_addr = bt_device_manager_remote_get_dev_by_seq_num(2);
+                discon_device = bt_cm_find_device(BT_CM_FIND_BY_ADDR,sequence_second_addr);
+            }
+            bt_cm_rho_context.connecting_device[0].profile = (discon_device->request_connect_mask | discon_device->link_info.connected_mask | discon_device->link_info.connecting_mask);
+            bt_utils_memcpy(&(bt_cm_rho_context.connecting_device[0].address), &discon_device->link_info.addr, sizeof(bt_bd_addr_t));
+            bt_cm_connect_t disconn_param;
+            bt_utils_memcpy(&disconn_param.address, &discon_device->link_info.addr, sizeof(bt_bd_addr_t));
+            disconn_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
+            g_bt_cm_rho_flags_t |= BT_CM_RHO_PREPARE_WAIT_FLAG_DISCONNECT_DEVICE;
+            bt_cmgr_report_id("[BT_CM][RHO][I] set disconnect device flag and g_bt_cm_rho_flags_t is %d", 1,  g_bt_cm_rho_flags_t);
+            bt_cm_disconnect(&disconn_param);
+        } else {
+            bt_bd_addr_t cancel_device[2] = {{0},{0}};
+            uint32_t connecting_num = bt_cm_get_connecting_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), cancel_device, 2);
+            if (0 != connecting_num) {
+                bt_cm_remote_device_t *cancel_dev = NULL;
+                g_bt_cm_rho_flags_t |= BT_CM_RHO_PREPARE_WAIT_FLAG_CANCEL_CONNECTION;
+                bt_cmgr_report_id("[BT_CM][RHO][I] set cancel connectiong flag and g_bt_cm_rho_flags_t is %d", 1,  g_bt_cm_rho_flags_t);
+                for(uint32_t index = 0; index < connecting_num && index < 2; index++) {
+                    bt_utils_memcpy(&(bt_cm_rho_context.connecting_device[index].address), &cancel_device[index], sizeof(bt_bd_addr_t));
+                    cancel_dev = bt_cm_find_device(BT_CM_FIND_BY_ADDR,&(bt_cm_rho_context.connecting_device[index].address));
+                    bt_cm_rho_context.connecting_device[index].profile = (cancel_dev->request_connect_mask | cancel_dev->link_info.connected_mask | cancel_dev->link_info.connecting_mask);
+                    bt_cm_cancel_connect(&(bt_cm_rho_context.connecting_device[index].address));
+                }
+            }
+        }
+#endif
+        if (0 == g_bt_cm_rho_flags_t && BT_ROLE_HANDOVER_STATE_ONGOING == bt_role_handover_get_state()) {
+            bt_role_handover_reply_prepare_request(BT_ROLE_HANDOVER_MODULE_SINK_CM);
+        }
+        bt_cmgr_report_id("[BT_CM][RHO][I] BT_ROLE_HANDOVER_PREPARE_REQ_IND g_bt_cm_rho_flags_t is %d", 1,  g_bt_cm_rho_flags_t);
     } else if (BT_ROLE_HANDOVER_COMPLETE_IND == event && NULL != aws_device) {
         if (BT_STATUS_SUCCESS == status) {
             /* Flush nvdm may take a lot of time make RHO latency, so move flush point from RHO update to RHO complete. */
             //bt_cmgr_report_id("[BT_CM][RHO][I] Success current role 0x%x", 1, role);
             bt_device_manager_aws_local_info_update();
-            bt_cm_discoverable(false);
+            //bt_cm_discoverable(false);
+            bt_cm_write_scan_mode_internal(BT_CM_COMMON_TYPE_DISABLE,BT_CM_COMMON_TYPE_UNKNOW);
         } else {
             bt_cmgr_report_id("[BT_CM][RHO][I] RHO fail", 0);
             bt_status_t bt_aws_mce_retry_set_state();
             bt_aws_mce_retry_set_state();
 #ifdef AIR_MULTI_POINT_ENABLE
-            if (0 != bt_cm_rho_context.connecting_device.profile) {
-                bt_cmgr_report_id("[BT_CM][RHO][I] rho file reconnect canceled device", 0);
-                bt_cm_connect(&(bt_cm_rho_context.connecting_device));
-                bt_utils_memset(&bt_cm_rho_context, 0, sizeof(bt_cm_rho_context_t));
+            if (0 != bt_cm_rho_context.connecting_device[0].profile) {
+                bt_cmgr_report_id("[BT_CM][RHO][I] rho file reconnect canceled device 1", 0);
+                bt_cm_connect(&(bt_cm_rho_context.connecting_device[0]));
             }
+            if (0 != bt_cm_rho_context.connecting_device[1].profile) {
+                bt_cmgr_report_id("[BT_CM][RHO][I] rho file reconnect canceled device 2", 0);
+                bt_cm_connect(&(bt_cm_rho_context.connecting_device[1]));
+            }
+            bt_utils_memset(&bt_cm_rho_context, 0, sizeof(bt_cm_rho_context_t));
 #endif
         }
         if (BT_AWS_MCE_ROLE_AGENT == bt_device_manager_aws_local_info_get_role()) {
@@ -314,7 +373,14 @@ void                bt_cm_rho_deinit()
     bt_role_handover_deregister_callbacks(BT_ROLE_HANDOVER_MODULE_SINK_CM);
 }
 
+void bt_cm_reply_prepare_rho_request(void *param)
+{
+    bt_cmgr_report_id("[BT_CM][I] CM reply rho request, ", 0);
+    bt_role_handover_reply_prepare_request(BT_ROLE_HANDOVER_MODULE_SINK_CM);
+}
+
 #endif /* #ifdef SUPPORT_ROLE_HANDOVER_SERVICE */
+
 
 
 

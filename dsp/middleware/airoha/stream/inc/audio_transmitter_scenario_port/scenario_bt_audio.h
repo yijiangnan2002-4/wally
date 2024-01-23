@@ -142,6 +142,7 @@ typedef struct bt_audio_dongle_handle_t {
     uint16_t pre_ro[BT_AUDIO_DATA_CHANNEL_NUMBER];        // for dump bt read data
     uint16_t cur_ro[BT_AUDIO_DATA_CHANNEL_NUMBER];        // for dump bt read data
     uint32_t process_sample_rate_max;
+    int32_t gain_compensation;
 #if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
     audio_dongle_afe_in_info_t afe_in;
 #endif

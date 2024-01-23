@@ -318,10 +318,10 @@ Write n bytes data:
     3. After writing, update new_w_head to w_tail
         wmb()//Write memory barrier to ensure that data has been written to buffer
         We also need to check whether the current w_tail is equal to old_w_head. If they are equal, it means the previous user has written data.
-        At this point, the last user may not have finished writing, that is, w_tail does not equal old_w_head，If new_w_head is directly updated to w_tail,
+        At this point, the last user may not have finished writing, that is, w_tail does not equal old_w_head, If new_w_head is directly updated to w_tail,
         w_tail will be overwritten after the last user is written
 
-### For example：
+### For example:
     write 3 bytes data
 
     #### single user case
@@ -1074,6 +1074,21 @@ ATTR_TEXT_IN_FAST_MEM uint32_t mux_ringbuffer_write(mux_ringbuffer_t *rb, uint8_
     return write_len;
 }
 
+ATTR_TEXT_IN_FAST_MEM uint32_t mux_ringbuffer_write_silence_st(mux_ringbuffer_t *rb, uint32_t len)
+{
+    uint32_t old_head;
+    uint32_t write_len;
+    uint32_t size = len;
+
+    write_len = mux_ringbuffer_write_move_head_st(rb, &old_head, size);
+
+    mux_ringbuffer_write_set_silence_data(rb, write_len, old_head);
+
+    mux_ringbuffer_write_move_tail_st(rb, write_len);
+
+    return write_len;
+}
+
 ATTR_TEXT_IN_FAST_MEM uint32_t mux_ringbuffer_write_try(mux_ringbuffer_t *rb, uint8_t *buffer, uint32_t len)
 {
   if (mux_ringbuffer_free_space(rb) < len) {
@@ -1082,7 +1097,8 @@ ATTR_TEXT_IN_FAST_MEM uint32_t mux_ringbuffer_write_try(mux_ringbuffer_t *rb, ui
   return mux_ringbuffer_write(rb, buffer, len);
 }
 
-void mux_ringbuffer_reset(mux_ringbuffer_t *rb) {
+void mux_ringbuffer_reset(mux_ringbuffer_t *rb)
+{
   MUX_RB_ASSERT(rb);
   rb->wptr.head = 0;
   rb->wptr.tail = 0;

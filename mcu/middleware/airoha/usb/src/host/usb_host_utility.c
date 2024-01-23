@@ -32,8 +32,6 @@
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
 
-
-
 #ifdef AIR_USB_HOST_ENABLE
 
 #include "usb_dbg.h"
@@ -126,3 +124,4 @@ void USB_Host_Send_Message_ISR(usb_host_msg_type_t msg, void *data)
 }
 
 #endif /* AIR_USB_HOST_ENABLE */
+

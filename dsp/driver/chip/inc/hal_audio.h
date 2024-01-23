@@ -136,6 +136,7 @@ typedef enum {
 
 
 /** @brief Audio control. */
+#if defined(AIR_BTA_IC_PREMIUM_G3)
 typedef enum {
     HAL_AUDIO_CONTROL_NONE                              = 0x0000,   /**<  No audio device is on. */
 
@@ -159,25 +160,56 @@ typedef enum {
     HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_R             = 0x0200,
     HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL          = 0x0300,   /**<  Stream out:    AMP. */
 
-    HAL_AUDIO_CONTROL_DEVICE_SIDETONE                   = 0x0400,   /**<  Stream out:    HW Sidetone. */
-    HAL_AUDIO_CONTROL_DEVICE_LOOPBACK                   = 0x0800,   /**<  Stream in:     HW AD loopback. */
+    HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_L                 = 0x0400,
+    HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_R                 = 0x0800,
+    HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL              = 0x0C00,   /**<  Stream in:     HW AD loopback. */
 
-    HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER                 = 0x1000,   /**<  Stream in/out: I2S master. */
+    HAL_AUDIO_CONTROL_DEVICE_SPDIF                      = 0x1000,   /**<  Stream out: SPDIF. */
     HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE                  = 0x2000,   /**<  Stream in/out: I2S slave. */
-    HAL_AUDIO_CONTROL_DEVICE_SPDIF                      = 0x4000,   /**<  Stream out: SPDIF. */
+
 
     HAL_AUDIO_CONTROL_MEMORY_INTERFACE                  = 0x8000,   /**<  Stream internal: Memory interface. */
     HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L               = 0x10000,
     HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R               = 0x20000,
+    HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER                 = 0x30000,  /**<  Stream in/out: I2S master. */
+    HAL_AUDIO_CONTROL_DEVICE_SIDETONE                   = 0x40000,  /**<  Stream out:    HW Sidetone. */
 
+    HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_HW_GAIN_L         = 0x100000,   /**<  Stream in: HW Gain L loopback. */
+    HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_HW_GAIN_R         = 0x200000,   /**<  Stream in: HW Gain R loopback. */
+    HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_I2S_MASTER_L      = 0x400000,  /**<  Stream in: I2S master L loopback. */
+    HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_I2S_MASTER_R      = 0x800000,  /**<  Stream in: I2S master R loopback. */
+
+    HAL_AUDIO_CONTROL_DUMMY                             = 0xFFFFFFFF,   /**<  for DSP structrue alignment */
+} hal_audio_control_t;
+#else
+typedef enum {
+    HAL_AUDIO_CONTROL_NONE                              = 0x0000,   /**<  No audio device is on. */
+    HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L               = 0x0001,
+    HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_R               = 0x0002,
+    HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL            = 0x0003,   /**<  Stream in:     main mic. */
+    HAL_AUDIO_CONTROL_DEVICE_LINE_IN_L                  = 0x0004,
+    HAL_AUDIO_CONTROL_DEVICE_LINE_IN_R                  = 0x0008,    HAL_AUDIO_CONTROL_DEVICE_LINE_IN_DUAL               = 0x000C,   /**<  Stream in:     LineIn. */
+    HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_L              = 0x0010,    HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_R              = 0x0020,
+    HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL           = 0x0030,   /**<  Stream in:     digital mic. */
+    HAL_AUDIO_CONTROL_DEVICE_ANC                        = 0x0040,   /**<  Stream in:     HW ANC. */
+    HAL_AUDIO_CONTROL_DEVICE_VAD                        = 0x0080,   /**<  Stream in:     HW VAD. */
+    HAL_AUDIO_CONTROL_DEVICE_VOW                        = 0x00C0,   /**<  Stream in:     VOW. */
+    HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_L             = 0x0100,    HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_R             = 0x0200,
+    HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL          = 0x0300,   /**<  Stream out:    AMP. */
+    HAL_AUDIO_CONTROL_DEVICE_SIDETONE                   = 0x0400,   /**<  Stream out:    HW Sidetone. */
+    HAL_AUDIO_CONTROL_DEVICE_LOOPBACK                   = 0x0800,   /**<  Stream in:     HW AD loopback. */
+    HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER                 = 0x1000,   /**<  Stream in/out: I2S master. */
+    HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE                  = 0x2000,   /**<  Stream in/out: I2S slave. */
+    HAL_AUDIO_CONTROL_DEVICE_SPDIF                      = 0x4000,   /**<  Stream out: SPDIF. */
+    HAL_AUDIO_CONTROL_MEMORY_INTERFACE                  = 0x8000,   /**<  Stream internal: Memory interface. */
+    HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L               = 0x10000,    HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R               = 0x20000,
     HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_HW_GAIN_L         = 0x40000,   /**<  Stream in: HW Gain L loopback. */
     HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_HW_GAIN_R         = 0x80000,   /**<  Stream in: HW Gain R loopback. */
     HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_I2S_MASTER_L      = 0x100000,  /**<  Stream in: I2S master L loopback. */
     HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_I2S_MASTER_R      = 0x200000,  /**<  Stream in: I2S master R loopback. */
-
     HAL_AUDIO_CONTROL_DUMMY                             = 0xFFFFFFFF,   /**<  for DSP structrue alignment */
 } hal_audio_control_t;
-
+#endif
 /**
  * @brief  This macro defines the hal_audio_control remapping.
  */
@@ -205,7 +237,7 @@ typedef enum {
     HAL_AUDIO_MEMORY_UL_SLAVE_TDM                       = 0x4000,       /**< Memory path UL:SLAVE TDM data   */
 
     HAL_AUDIO_MEMORY_DL_MASK                            = 0x00FF,
-    HAL_AUDIO_MEMORY_UL_MASK                            = 0x7F00,
+    HAL_AUDIO_MEMORY_UL_MASK                            = 0xFF00,
 
     HAL_AUDIO_MEMORY_POWER_DETECTOR_L                   = 0x10000,
     HAL_AUDIO_MEMORY_POWER_DETECTOR_R                   = 0x20000,
@@ -322,14 +354,15 @@ typedef enum {
     HAL_AUDIO_INTERCONN_SELECT_INPUT_MEMORY_MAX                 = HAL_AUDIO_INTERCONN_SELECT_INPUT_MEMORY_SRC2_CH2,
     HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER23_CH1         = (hal_audio_interconn_sequence_t)66,
     HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER01_CH1         = (hal_audio_interconn_sequence_t)67,
-    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN1_CH1        = (hal_audio_interconn_sequence_t)68,
-    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN1_CH2        = (hal_audio_interconn_sequence_t)69,
-    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN2_CH1        = (hal_audio_interconn_sequence_t)70,
-    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN2_CH2        = (hal_audio_interconn_sequence_t)71,
-    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN3_CH1        = (hal_audio_interconn_sequence_t)72,
-    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN3_CH2        = (hal_audio_interconn_sequence_t)73,
-    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN4_CH1        = (hal_audio_interconn_sequence_t)74,
-    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN4_CH2        = (hal_audio_interconn_sequence_t)75,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER23_CH2         = (hal_audio_interconn_sequence_t)68,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN1_CH1        = (hal_audio_interconn_sequence_t)69,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN1_CH2        = (hal_audio_interconn_sequence_t)70,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN2_CH1        = (hal_audio_interconn_sequence_t)71,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN2_CH2        = (hal_audio_interconn_sequence_t)72,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN3_CH1        = (hal_audio_interconn_sequence_t)73,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN3_CH2        = (hal_audio_interconn_sequence_t)74,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN4_CH1        = (hal_audio_interconn_sequence_t)75,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN4_CH2        = (hal_audio_interconn_sequence_t)76,
     HAL_AUDIO_INTERCONN_SELECT_INPUT_MAX                        = HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN4_CH2,
 
 
@@ -411,6 +444,9 @@ typedef enum {
     HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN2_CH2        = (hal_audio_interconn_sequence_t)67,
     HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN3_CH1        = (hal_audio_interconn_sequence_t)68,
     HAL_AUDIO_INTERCONN_SELECT_INPUT_DEVICE_HW_GAIN3_CH2        = (hal_audio_interconn_sequence_t)69,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER23_CH1         = (hal_audio_interconn_sequence_t)70,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER01_CH1         = (hal_audio_interconn_sequence_t)71,
+    HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER23_CH2         = (hal_audio_interconn_sequence_t)72,
     HAL_AUDIO_INTERCONN_SELECT_INPUT_MEMORY_MAX                 = HAL_AUDIO_INTERCONN_SELECT_INPUT_MEMORY_SRC2_CH2,
     HAL_AUDIO_INTERCONN_SELECT_INPUT_MAX                        = HAL_AUDIO_INTERCONN_SELECT_INPUT_MEMORY_SRC2_CH2,
 
@@ -587,21 +623,6 @@ typedef enum {
     HAL_AUDIO_UL_IIR_DUMMY          = 0xFFFFFFFF,       /**<  for DSP structrue alignment */
 } hal_audio_ul_iir_t;
 
-
-/** @brief Hal audio dmic selection. */
-typedef enum {
-    HAL_AUDIO_DMIC_GPIO_DMIC0   = 0x0,                 /**<  for dmic selection */
-    HAL_AUDIO_DMIC_GPIO_DMIC1,                         /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC0,                          /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC1,                          /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC2,                          /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC3,                          /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC4,                          /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC5,                          /**<  for dmic selection */
-    HAL_AUDIO_DMIC_DUMMY        = 0xFFFFFFFF,           /**<  for DSP structrue alignment */
-} hal_audio_dmic_selection_t;
-
-
 /** @brief Hal audio bias voltage. */
 typedef enum {
     HAL_AUDIO_BIAS_VOLTAGE_1_80V    = 0x0,            /**<  for bias voltage setting */
@@ -745,7 +766,7 @@ typedef struct {
     uint32_t audio_output_rate[HAL_AUDIO_PATH_SUPPORT_SEQUENCE]; /**< for audio_path_output_rate */
 
     bool with_hw_gain; /**< for with_hw_gain */
-    bool with_updown_sampler[HAL_AUDIO_PATH_SUPPORT_SEQUENCE]; /**< for with_upwdown_sampler */
+    bool with_updown_sampler[HAL_AUDIO_PATH_SUPPORT_SEQUENCE]; /**< for with_updown_sampler */
     bool with_dl_deq_mixer; /**< for with_dl_deq_mixer */
     uint32_t out_device;
     uint32_t out_device_interface;
@@ -817,6 +838,7 @@ typedef struct {
 
     hal_audio_ul_loopback_setting_t loopback_setting;/**< for loopback_setting */
     hal_audio_ul_iir_t iir_filter;/**< for iir_filter */
+    uint8_t anc_ch_select;
 } hal_audio_device_parameter_loopback_t;
 
 /** @brief  hal audio device parameter linein*/

@@ -89,16 +89,6 @@ C_FILES += $(APPS_SRC)/app_multi_va/multi_ble_adv_manager.c
 CFLAGS  += -DAIR_APP_MULTI_VA
 endif
 
-ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE),y)
-CFLAGS += -DAIR_BLE_ULL_TAKEOVER_ENABLE
-CFLAGS += -DAIR_BLE_ULL_PARING_MODE_ENABLE
-ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE),y)
-CFLAGS += -DAIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
-endif
-C_FILES += $(APPS_SRC)/app_ull/app_ull_takeover.c
-C_FILES += $(APPS_SRC)/app_ull/app_ull_idle_activity.c
-endif
-
 ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE),y)
 CFLAGS += -DAIR_BLE_ULL_TAKEOVER_ENABLE
 CFLAGS += -DAIR_BLE_ULL_PARING_MODE_ENABLE
@@ -112,6 +102,11 @@ endif
 ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE),y)
 CFLAGS += -DAIR_BLE_ULL_TAKEOVER_ENABLE
 CFLAGS += -DAIR_BLE_ULL_PARING_MODE_ENABLE
+#CFLAGS += -DAIR_BLE_ULL_KEEP_APP_BOND_INFO_ENABLE
+CFLAGS += -DAIR_BLE_ULL_REMOVE_OLD_RECORD_ENABLE
+ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE),y)
+CFLAGS += -DAIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
+endif
 C_FILES += $(APPS_SRC)/app_ull/app_ull_takeover.c
 C_FILES += $(APPS_SRC)/app_ull/app_ull_idle_activity.c
 endif
@@ -135,6 +130,14 @@ ifeq ($(AIR_MULTI_POINT_ENABLE), y)
 C_FILES += $(APPS_SRC)/app_idle/app_bt_emp_service.c
 endif
 C_FILES += $(APPS_SRC)/app_idle/app_bt_conn_manager.c
+
+# BT Takeover & Power on Reconnect
+ifeq ($(AIR_BT_TAKEOVER_ENABLE),y)
+CFLAGS += -DAIR_BT_TAKEOVER_ENABLE
+
+CFLAGS += -DAPP_CONN_MGR_RECONNECT_CONTROL
+#CFLAGS += -DAPP_CONN_MGR_RECONNECT_ONLY_ONE
+endif
 
 ifeq ($(AIR_SWIFT_PAIR_ENABLE),y)
 CFLAGS += -DAIR_SWIFT_PAIR_ENABLE
@@ -741,6 +744,11 @@ CFLAGS += -DTEMP_CLASSIC_BT_OFF
 
 # app leaudio
 ifeq ($(AIR_LE_AUDIO_ENABLE), y)
+
+# Use direct adv to avoiding Targeted announcement flag on whitelist to impact other device.
+# CFLAGS += -DAIR_LE_AUDIO_USE_DIRECT_ADV_TO_ACTIVE_RECONNECT
+# CFLAGS += -DAIR_LE_AUDIO_DIRECT_ADV
+
 C_FILES += $(APPS_SRC)/app_le_audio/app_le_audio.c
 C_FILES += $(APPS_SRC)/app_le_audio/app_mcp.c
 C_FILES += $(APPS_SRC)/app_le_audio/app_ccp.c
@@ -793,3 +801,5 @@ ifeq ($(AIR_BLE_HRS_ENABLE),y)
 C_FILES += $(APPS_SRC)/app_hrs/ble_app_hrs.c
 C_FILES += $(APPS_SRC)/app_hrs/ble_app_hrs_data.c
 endif
+
+CFLAGS += -DAIR_BT_LINKRECORD_ENCRYPTED

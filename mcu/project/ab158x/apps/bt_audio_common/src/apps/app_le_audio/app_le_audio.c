@@ -68,6 +68,7 @@
 #include "multi_ble_adv_manager.h"
 #include "nvkey.h"
 #include "nvkey_id_list.h"
+#include "app_bt_conn_manager.h"
 #include "app_bt_state_service.h"
 #include "apps_events_event_group.h"
 #include "apps_events_interaction_event.h"
@@ -97,6 +98,9 @@
 #ifdef AIR_LE_AUDIO_HAPS_ENABLE
 #include "ble_haps.h"
 #endif
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+#include "ble_gmas.h"
+#endif
 
 #include "bt_avm.h"
 #include "bt_device_manager_le.h"
@@ -113,7 +117,7 @@
 /**************************************************************************************************
  * Variable
 **************************************************************************************************/
-static bool app_le_audio_clear_adv = false;
+static bool app_le_audio_clear_adv = FALSE;
 
 /**************************************************************************************************
  * Prototype
@@ -310,6 +314,18 @@ static bool app_le_audio_proc_bt_dm_group(struct _ui_shell_activity *self,
     return FALSE;
 }
 
+static bool app_le_audio_proc_lea_group(struct _ui_shell_activity *self,
+                                        uint32_t event_id,
+                                        void *extra_data,
+                                        size_t data_len)
+{
+    if (event_id == EVENT_ID_LEA_SET_FEATURE_MODE) {
+        uint8_t feature_mode = (uint8_t)(int)extra_data;
+        app_le_audio_set_feature_mode(feature_mode);
+    }
+    return FALSE;
+}
+
 static bool app_le_audio_proc_bt_sink_group(struct _ui_shell_activity *self,
                                             uint32_t event_id,
                                             void *extra_data,
@@ -365,7 +381,7 @@ void bt_sink_srv_edr_state_change_callback(bt_sink_srv_state_t previous, bt_sink
         ((!(previous & BT_SINK_SRV_STATE_STREAMING)) && (now & BT_SINK_SRV_STATE_STREAMING))) {
         /* HFP incoming call */
         /* HFP outgoing call */
-        /* HFP cal unheld */
+        /* HFP call unheld */
         /* HFP call active */
         /* A2DP Streaming start */
         ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_RESET_DONGLE_BUSY_EVENT);
@@ -377,7 +393,7 @@ void bt_sink_srv_edr_state_change_callback(bt_sink_srv_state_t previous, bt_sink
                ((previous & BT_SINK_SRV_STATE_STREAMING) && (!(now & BT_SINK_SRV_STATE_STREAMING)))) {
         /* HFP reject call (incoming) */
         /* HFP reject call (outgoing) */
-        /* HFP cal held */
+        /* HFP call held */
         /* HFP call end */
         /* A2DP Streaming stop */
         ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_RESET_DONGLE_BUSY_EVENT);
@@ -402,6 +418,10 @@ bool app_le_audio_idle_activity_proc(struct _ui_shell_activity *self, uint32_t e
         }
         case EVENT_GROUP_UI_SHELL_BT_DEVICE_MANAGER: {
             ret = app_le_audio_proc_bt_dm_group(self, event_id, extra_data, data_len);
+            break;
+        }
+        case EVENT_GROUP_UI_SHELL_LE_AUDIO: {
+            ret = app_le_audio_proc_lea_group(self, event_id, extra_data, data_len);
             break;
         }
         default:
@@ -451,27 +471,9 @@ void app_le_audio_init(void)
 #ifdef AIR_LE_AUDIO_HAPS_ENABLE
     ble_haps_init_server(APP_LEA_MAX_CONN_NUM);
 #endif
-}
-
-void app_le_audio_disconnect_edr()
-{
-    bt_cm_connect_t cm_param;
-    bt_bd_addr_t connected_address[APP_LEA_MAX_CONN_NUM];
-    uint32_t connected_num = APP_LEA_MAX_CONN_NUM;
-    uint32_t i;
-
-    connected_num = bt_cm_get_connected_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS),
-                                                connected_address, connected_num);
-
-    APPS_LOG_MSGID_W(LOG_TAG" connected_num %d", 1, connected_num);
-
-    for (i = 0; i < connected_num; i++) {
-        cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-
-        memcpy(cm_param.address, connected_address[i], sizeof(bt_bd_addr_t));
-        bt_cm_disconnect(&cm_param);
-    }
-
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    ble_gmas_init();
+#endif
 }
 
 bool app_le_audio_set_feature_mode(uint8_t feature_mode)
@@ -488,6 +490,7 @@ bool app_le_audio_set_feature_mode(uint8_t feature_mode)
     }
 #endif
 #ifdef AIR_TWS_ENABLE
+    extern void app_le_audio_dhss_set_local_le_addr(bt_addr_type_t type, bt_bd_addr_t addr);
     if (bt_aws_mce_srv_get_link_type() == BT_AWS_MCE_SRV_LINK_NONE) {
         APPS_LOG_MSGID_E(LOG_TAG" set_feature_mode, [%02X] error AWS Disconnected feature_mode=%d",
                          2, role, feature_mode);
@@ -508,56 +511,49 @@ bool app_le_audio_set_feature_mode(uint8_t feature_mode)
 
     bt_device_manager_unpair_all();
     bt_device_manager_le_clear_all_bonded_info();
-    app_lea_conn_mgr_reset_bond_info();
+    app_lea_conn_mgr_clear_lea_keep_ull2_bond_info();
 
-    app_le_audio_disconnect_edr();
+    app_bt_conn_mgr_disconnect_edr(NULL, TRUE);
 
     if (app_lea_feature_mode == APP_LEA_FEATURE_MODE_OFF) {
-        app_lea_service_disconnect(FALSE, APP_LE_AUDIO_DISCONNECT_MODE_ALL,
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
+        extern bool app_lea_adv_add_lea_data;
+        app_lea_adv_add_lea_data = FALSE;
+        app_lea_service_refresh_advertising(0);
+#else
+        app_lea_service_quick_stop_adv();
+#endif
+        app_lea_service_disconnect(FALSE, APP_LE_AUDIO_DISCONNECT_MODE_DISCONNECT_LEA,
                                    NULL, BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST);
-        app_lea_service_stop_advertising(FALSE);
     } else if (app_lea_feature_mode == APP_LEA_FEATURE_MODE_ON
                || app_lea_feature_mode == APP_LEA_FEATURE_MODE_DUAL_MODE) {
-        app_lea_service_disconnect(FALSE, APP_LE_AUDIO_DISCONNECT_MODE_ALL,
+#if defined(AIR_LE_AUDIO_ENABLE) && defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+        extern bool app_lea_adv_add_lea_data;
+        app_lea_adv_add_lea_data = TRUE;
+#endif
+        app_lea_service_disconnect(FALSE, APP_LE_AUDIO_DISCONNECT_MODE_DISCONNECT_LEA,
                                    NULL, BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST);
         if (role == BT_AWS_MCE_ROLE_AGENT || role == BT_AWS_MCE_ROLE_NONE) {
             app_bt_state_service_set_bt_visible(TRUE, FALSE, APP_LE_AUDIO_ADV_TIME);
         }
-        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_FORCE_UPDATE_ADV);
-        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH,
-                            EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LEA_FORCE_UPDATE_ADV,
-                            NULL, 0, NULL, 0);
-#ifdef AIR_TWS_ENABLE
-        extern void app_le_audio_dhss_set_local_le_addr(bt_addr_type_t type, bt_bd_addr_t addr);
-#endif
+        app_lea_service_refresh_advertising(0);
 
         if (app_lea_feature_mode == APP_LEA_FEATURE_MODE_DUAL_MODE) {
-
-            APPS_LOG_MSGID_I(LOG_TAG" set_feature_mode, COD = 0x%x", 1, LE_AUDIO_COD);
-
+            APPS_LOG_MSGID_I(LOG_TAG" set_feature_mode, [%02X] COD=0x%08X", 2, role, LE_AUDIO_COD);
             bt_avm_change_local_cod(LE_AUDIO_COD);
-
 #ifdef AIR_TWS_ENABLE
             app_le_audio_dhss_set_local_le_addr(BT_ADDR_PUBLIC, *bt_device_manager_aws_local_info_get_fixed_address());
 #endif
         } else {
-
-            APPS_LOG_MSGID_I(LOG_TAG" set_feature_mode, COD =0x%x", 1, LE_AUDIO_COD_DISABLE_LEA);
-
+            APPS_LOG_MSGID_I(LOG_TAG" set_feature_mode, [%02X] COD=0x%08X", 2, role, LE_AUDIO_COD_DISABLE_LEA);
             bt_avm_change_local_cod(LE_AUDIO_COD_DISABLE_LEA);
-            app_le_audio_clear_adv = true;
-
+            app_le_audio_clear_adv = TRUE;
 #ifdef AIR_TWS_ENABLE
             app_le_audio_dhss_set_local_le_addr(BT_ADDR_RANDOM, *multi_ble_adv_get_instance_address(MULTI_ADV_INSTANCE_NOT_RHO));
 #endif
         }
     }
     return TRUE;
-}
-
-void app_le_audio_reset(void)
-{
-    APPS_LOG_MSGID_I(LOG_TAG" reset", 0);
 }
 
 bool app_le_audio_get_addr(bool local_or_peer, uint8_t *type, uint8_t *addr)
@@ -623,21 +619,34 @@ bool app_le_audio_is_connected(void)
 
 bool app_le_audio_is_clear_adv_data(void)
 {
+    // For "dynamic feature mode"
     bool is_clear_adv_data = app_le_audio_clear_adv;
-
-    app_le_audio_clear_adv = false;
-
-    APPS_LOG_MSGID_I(LOG_TAG" app_le_audio_clear_adv = %d is_clear_adv_data = %d ",
+    app_le_audio_clear_adv = FALSE;
+    APPS_LOG_MSGID_I(LOG_TAG" is_clear_adv_data, app_le_audio_clear_adv=%d is_clear_adv_data=%d ",
                      2, app_le_audio_clear_adv, is_clear_adv_data);
-
     return is_clear_adv_data;
+}
+
+bool app_le_audio_is_cis_streaming(void)
+{
+    bool cis_streaming = FALSE;
+    for (int i = 0; i < APP_LEA_MAX_CONN_NUM; i++) {
+        bt_handle_t handle = app_lea_conn_mgr_get_handle(i);
+        if (handle != BT_HANDLE_INVALID
+            && app_lea_conn_mgr_get_conn_type(handle) == APP_LEA_CONN_TYPE_LE_AUDIO) {
+            cis_streaming = bt_sink_srv_cap_stream_is_cis_streaming(handle);
+            if (cis_streaming) {
+                break;
+            }
+        }
+    }
+    return cis_streaming;
 }
 
 #ifdef MTK_AWS_MCE_ENABLE
 bool app_le_audio_is_primary_earbud(void)
 {
     bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
-
     if (app_lea_feature_mode == APP_LEA_FEATURE_MODE_DUAL_MODE) {
         bt_bd_addr_t *edr_addr = NULL;
         bt_bd_addr_t *le_addr = bt_device_manager_aws_local_info_get_fixed_address();
@@ -647,10 +656,10 @@ bool app_le_audio_is_primary_earbud(void)
         } else {
             edr_addr = bt_device_manager_get_local_address();
         }
-
         return (0 == memcmp(edr_addr, le_addr, BT_BD_ADDR_LEN));
-    } else
+    } else {
         return (BT_AWS_MCE_ROLE_AGENT == role);
+    }
 }
 #endif
 

@@ -89,9 +89,9 @@ void hal_audio_clock_enable_adda2(bool enable);
 void hal_audio_clock_enable_adda6(bool enable);
 void hal_audio_clock_enable_adda_anc(hal_audio_device_agent_t device_agent, bool enable);
 void hal_audio_clock_enable_dac_hires(hal_audio_device_agent_t device_agent, bool enable);
-void hal_audio_clock_enable_src(bool enable);
-void hal_audio_clock_enable_src1(bool enable);
-void hal_audio_clock_enable_src2(bool enable);
+void hal_audio_clock_enable_src(afe_mem_asrc_id_t asrc_id, bool enable);
+void hal_audio_clock_enable_src1(afe_mem_asrc_id_t asrc_id, bool enable);
+void hal_audio_clock_enable_src2(afe_mem_asrc_id_t asrc_id, bool enable);
 
 
 

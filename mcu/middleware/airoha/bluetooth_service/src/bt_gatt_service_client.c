@@ -60,6 +60,8 @@ log_create_module(gatt_client, PRINT_LEVEL_INFO);
 
 #define BT_GATT_SRV_CLIENT_NONE                   0xFF         /**< The invalid characteristic. */
 
+#define BT_GATT_SRV_CLIENT_INVALID_CASS           0xFF         /**< The invalid central address resolution support value. */
+
 #define BT_GATT_SRV_CLIENT_FLAG_GATT_DISCORYED          0x0001
 #define BT_GATT_SRV_CLIENT_FLAG_GAP_DISCORYED           0x0002
 #define BT_GATT_SRV_CLIENT_FLAG_READING                 0x0004
@@ -177,6 +179,7 @@ static bt_gatt_srv_client_context_t *bt_gatt_srv_client_get_free_context(void)
     for (uint32_t i = 0; i < BT_GATT_SRV_CLIENT_LINK_NUMBER; i++) {
         if (g_gatt_srv_client_context[i].connection_handle == BT_GATT_SRV_CLIENT_INVALID_HANDLE) {
             LOG_MSGID_I(gatt_client, "[GATT][CLIENT] get free context = %02x index = %d", 2 , &g_gatt_srv_client_context[i], i);
+            g_gatt_srv_client_context[i].central_address_resolution_support = BT_GATT_SRV_CLIENT_INVALID_CASS;
             return &g_gatt_srv_client_context[i];
         }
     }
@@ -201,6 +204,7 @@ static void bt_gatt_srv_client_reset_context(bt_gatt_srv_client_context_t *conte
     bt_status_srv_client_deinit_charc_information(context);
     bt_gatt_srv_client_clear_action(context);
     bt_utils_memset(context, 0, sizeof(bt_gatt_srv_client_context_t));
+    context ->central_address_resolution_support = BT_GATT_SRV_CLIENT_INVALID_CASS;
 }
 
 static void bt_gatt_srv_client_init_service(void)
@@ -270,13 +274,12 @@ static bt_status_t bt_gatt_srv_client_handle_le_connected(bt_status_t status, vo
         local_action.type = BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION;
         bt_gatt_srv_client_add_action(context, BT_GATT_SRV_CLIENT_ACTION_READ_VALUE, &local_action);
 
-#ifdef AIR_SWIFT_PAIR_ENABLE
         if (connect_ind->role == BT_ROLE_SLAVE) {
             bt_gatt_srv_client_discovery_cache_init();
             bt_gattc_discovery_status_t discovery_status = bt_gattc_discovery_start(BT_GATTC_DISCOVERY_USER_COMMON_SERVICE,
                     context->connection_handle, false);
             LOG_MSGID_I(gatt_client, "[GATT][CLIENT] trigger discovery status = %02x", 1, discovery_status);
-            if (discovery_status != BT_GATTC_DISCOVERY_STATUS_SUCCESS) {
+            if ((discovery_status != BT_GATTC_DISCOVERY_STATUS_SUCCESS) && (discovery_status != BT_GATTC_DISCOVERY_STATUS_BUSY)) {
                 BT_GATT_SRV_CLIENT_SET_FLAG(context, BT_GATT_SRV_CLIENT_FLAG_GATT_DISCORYED);
                 BT_GATT_SRV_CLIENT_SET_FLAG(context, BT_GATT_SRV_CLIENT_FLAG_GAP_DISCORYED);
                 if (bt_gatt_srv_client_is_all_link_discovery_complete()) {
@@ -284,7 +287,6 @@ static bt_status_t bt_gatt_srv_client_handle_le_connected(bt_status_t status, vo
                 }
             }
         }
-#endif
 
     }
     return BT_STATUS_SUCCESS;
@@ -299,6 +301,54 @@ static bt_status_t bt_gatt_srv_client_handle_le_disconnected(bt_status_t status,
         bt_gatt_srv_client_reset_context(context);
     }
     return BT_STATUS_SUCCESS;
+}
+
+static void bt_gatt_srv_client_handle_user_action_complete(bt_gatt_srv_client_context_t *context, bt_gatt_srv_client_action_context_t *action_context, bt_status_t result)
+{
+    bt_gatt_srv_client_action_context_t *current_action = NULL;
+    bt_gatt_srv_client_action_context_t *next_action = action_context;
+    bt_gatt_srv_client_action_context_t compare_action = {0};
+    bt_utils_memcpy(&compare_action, action_context, sizeof(bt_gatt_srv_client_action_context_t));
+    LOG_MSGID_I(gatt_client, "[GATT][CLIENT] handle user action = %02x type = %02x", 2, compare_action.action, compare_action.type);
+    switch (action_context->type) {
+        case BT_GATT_SRV_CLIENT_DEVICE_NAME: {
+            bt_gatt_srv_client_remove_action(context, action_context);
+        }
+        break;
+        case BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION: {
+            while (next_action != NULL) {
+                current_action = next_action;
+                next_action = (bt_gatt_srv_client_action_context_t *)next_action->node.front;
+                if ((current_action->action == compare_action.action) && (current_action->type == compare_action.type)) {
+                    if (current_action->callback != NULL) {
+                        if (result == BT_STATUS_SUCCESS) {
+                            bt_gatt_srv_client_read_value_complete_t read_value_complete = {
+                                .type = BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION,
+                                .connection_handle = context->connection_handle,
+                                .data = &context->central_address_resolution_support,
+                                .length = 1
+                            };
+                            current_action->callback(g_event_mapping_table[action_context->action], result, &read_value_complete);
+                        } else {
+                            bt_gatt_srv_client_action_error_t error_event = {
+                                .type = action_context->type,
+                                .connection_handle = context->connection_handle,
+                            };
+                            action_context->callback(g_event_mapping_table[action_context->action], result, &error_event);
+                        }  
+                    }
+                    bt_gatt_srv_client_remove_action(context, current_action);
+                }
+            }
+        } 
+        break;
+        case BT_GATT_SRV_CLIENT_RPA_ONLY: {
+
+        }
+        break;
+        default:
+            break;
+    }
 }
 
 static bt_status_t bt_gatt_srv_client_handle_read_charc_rsp(bt_status_t status, void *buffer)
@@ -334,12 +384,16 @@ static bt_status_t bt_gatt_srv_client_handle_read_charc_rsp(bt_status_t status, 
             LOG_MSGID_I(gatt_client, "[GATT][CLIENT] read device name length = %02x", 1, context->device_name_length);
         }
 
-        if ((status == BT_STATUS_SUCCESS) && (action_context->type == BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION)) {
-            bt_gattc_read_rsp_t *read_rsp = (bt_gattc_read_rsp_t *)buffer;
-            context->central_address_resolution_support = read_rsp->att_rsp->attribute_value[0];
-            LOG_MSGID_I(gatt_client, "[GATT][CLIENT] read central address resolution support = %02x", 1, context->central_address_resolution_support);
+        if (action_context->type == BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION) {
+            if (status == BT_STATUS_SUCCESS) {
+                bt_gattc_read_rsp_t *read_rsp = (bt_gattc_read_rsp_t *)buffer;
+                context->central_address_resolution_support = read_rsp->att_rsp->attribute_value[0];
+            } else {
+                context->central_address_resolution_support = 0;
+            }
+            LOG_MSGID_I(gatt_client, "[GATT][CLIENT] read central address resolution support = %02x status = %02x", 2, context->central_address_resolution_support, status);
         }
-        bt_gatt_srv_client_remove_action(context, action_context);
+        bt_gatt_srv_client_handle_user_action_complete(context, action_context, status);
     }
     
     if ((action_context != NULL) && (action_context->type != BT_GATT_SRV_CLIENT_DEVICE_NAME)) {
@@ -430,7 +484,7 @@ static bt_status_t bt_gatt_srv_client_handle_exchange_mtu_rsp(bt_status_t status
         bt_gattc_discovery_status_t discovery_status = bt_gattc_discovery_start(BT_GATTC_DISCOVERY_USER_COMMON_SERVICE,
                 context->connection_handle, false);
         LOG_MSGID_I(gatt_client, "[GATT][CLIENT] trigger discovery status = %02x", 1, discovery_status);
-        if (discovery_status != BT_GATTC_DISCOVERY_STATUS_SUCCESS) {
+        if ((discovery_status != BT_GATTC_DISCOVERY_STATUS_SUCCESS) && (discovery_status != BT_GATTC_DISCOVERY_STATUS_BUSY)) {
             BT_GATT_SRV_CLIENT_SET_FLAG(context, BT_GATT_SRV_CLIENT_FLAG_GATT_DISCORYED);
             BT_GATT_SRV_CLIENT_SET_FLAG(context, BT_GATT_SRV_CLIENT_FLAG_GAP_DISCORYED);
             if (bt_gatt_srv_client_is_all_link_discovery_complete()) {
@@ -866,13 +920,17 @@ bt_status_t bt_gatt_srv_client_send_action(bt_gatt_srv_client_action_t action, v
             }
 
             if (read_value->type == BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION) {
-                bt_gatt_srv_client_read_value_complete_t read_value_complete = {
-                    .type = BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION,
-                    .connection_handle = context->connection_handle,
-                    .data = &context->central_address_resolution_support,
-                    .length = 1
-                };
-                read_value->callback(BT_GATT_SRV_CLIENT_EVENT_READ_VALUE_COMPLTETE, BT_STATUS_SUCCESS, &read_value_complete);
+                if (context->central_address_resolution_support != BT_GATT_SRV_CLIENT_INVALID_CASS) {
+                    bt_gatt_srv_client_read_value_complete_t read_value_complete = {
+                        .type = BT_GATT_SRV_CLIENT_CENTRAL_ADDRESS_RESOLUTION,
+                        .connection_handle = context->connection_handle,
+                        .data = &context->central_address_resolution_support,
+                        .length = 1
+                    };
+                    read_value->callback(BT_GATT_SRV_CLIENT_EVENT_READ_VALUE_COMPLTETE, BT_STATUS_SUCCESS, &read_value_complete);
+                } else {
+                    status = bt_gatt_srv_client_add_action(context, action, parameter);
+                }
                 return BT_STATUS_SUCCESS;
             }
 

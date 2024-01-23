@@ -94,15 +94,12 @@ src_fixed_ratio_port_t *ull_ul_smp_port;
 #include "scenario_wireless_mic_rx.h"
 #endif /* AIR_WIRELESS_MIC_RX_ENABLE */
 
-#ifdef AIR_DCHS_MODE_ENABLE
-#include "stream_dchs.h"
-#endif
-
 #ifdef AIR_BT_AUDIO_DONGLE_ENABLE
 #include "scenario_bt_audio.h"
 #endif
-
-
+#ifdef AIR_DCHS_MODE_ENABLE
+#include "stream_dchs.h"
+#endif
 #ifdef AIR_RECORD_ADVANCED_ENABLE
 #include "scenario_advanced_record.h"
 #endif
@@ -178,6 +175,12 @@ void port_audio_transmitter_configure_task(audio_transmitter_scenario_type_t sce
 #ifdef AIR_GAMING_MODE_DONGLE_LINE_OUT_ENABLE
     if (source->scenario_type == AUDIO_SCENARIO_TYPE_GAMING_MODE_VOICE_DONGLE_LINE_OUT) {
         source->taskId = DPR_TASK_ID;
+    }
+#endif
+#ifdef AIR_MULTI_MIC_STREAM_ENABLE
+    if (source->scenario_type == AUDIO_SCENARIO_TYPE_MULTI_MIC_STREAM_FUNCTION_A) {
+        source->taskId = DAV_TASK_ID;
+        sink->taskid   = DAV_TASK_ID;
     }
 #endif
 }
@@ -360,19 +363,10 @@ void port_audio_transmitter_open(audio_transmitter_scenario_type_t scenario_id, 
 #endif /* AIR_RECORD_ADVANCED_ENABLE */
 #if defined (AIR_DCHS_MODE_ENABLE)
         case AUDIO_TRANSMITTER_DCHS:
-            if (sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_DL) {
-                //set flag
-                DSP_MW_LOG_I("[audio_transmitter][DCHS] dchs dl open done",0);
-                U32 mask;
-                hal_nvic_save_and_set_interrupt_mask(&mask);
-                g_dchs_dl_open_done_flag = true;
-                hal_nvic_restore_interrupt_mask(mask);
-                if(g_dchs_dl_play_en_info.waiting_to_set){
-                    g_dchs_dl_play_en_info.waiting_to_set = false;
-                    dchs_dl_set_play_en(g_dchs_dl_play_en_info.play_en_clk, g_dchs_dl_play_en_info.play_en_phase, g_dchs_dl_play_en_info.scenario_type);
+            if(sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_UL){
+                if((open_param->stream_in_param.afe.dchs_ul_scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_OUT) || (open_param->stream_in_param.afe.dchs_ul_scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_OUT)){
+                    dchs_ul_sw_gain_init(source);
                 }
-                dchs_dl_uart_buf_clear();
-                dchs_dl_resume_dchs_task();
             }
             break;
 #endif
@@ -487,14 +481,6 @@ void port_audio_transmitter_start(audio_transmitter_scenario_type_t scenario_id,
             }
             break;
 #endif /* AIR_WIRELESS_MIC_RX_ENABLE */
-
-#if defined (AIR_DCHS_MODE_ENABLE)
-        case AUDIO_TRANSMITTER_DCHS:
-            if (sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_DL) {
-                DSP_MW_LOG_I("[audio_transmitter][DCHS] dchs dl start done", 0);
-            }
-            break;
-#endif
 
 #ifdef AIR_BT_AUDIO_DONGLE_ENABLE
          case AUDIO_TRANSMITTER_BT_AUDIO_DONGLE:
@@ -746,10 +732,8 @@ void port_audio_transmitter_close(audio_transmitter_scenario_type_t scenario_id,
 #endif /* AIR_RECORD_ADVANCED_ENABLE */
 #if defined (AIR_DCHS_MODE_ENABLE)
         case AUDIO_TRANSMITTER_DCHS:
-            if (sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_DL) {
-                //set flag
-                g_dchs_dl_open_done_flag = false;
-                DSP_MW_LOG_I("[audio_transmitter][DCHS] dchs dl close done",0);
+            if(sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_UL){
+                dchs_ul_sw_gain_deinit();
             }
             break;
 #endif
@@ -1167,7 +1151,13 @@ bool port_audio_transmitter_scenario_config(audio_transmitter_scenario_type_t sc
             #endif
         }
 #endif /* AIR_BT_AUDIO_DONGLE_ENABLE */
-
+#if defined (AIR_DCHS_MODE_ENABLE)
+            if (scenario_id == AUDIO_TRANSMITTER_DCHS) {
+                if(sub_id.dchs_id == AUDIO_TRANSMITTER_DCHS_UART_UL){
+                    dchs_ul_sw_gain_config(config_param, application_ptr->source, application_ptr->sink);
+                }
+            }
+#endif
     return true;
 }
 

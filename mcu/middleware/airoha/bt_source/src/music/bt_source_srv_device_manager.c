@@ -200,6 +200,6 @@ void bt_source_srv_music_clean_avrcp_conn_info(bt_source_srv_music_device_t *dev
     dev->avrcp_role = BT_AVRCP_ROLE_UNDEF;
     dev->last_cmd = BT_SOURCE_SRV_A2DP_INVAILD_LAST_CMD;
     dev->flag = 0;
-    dev->absolute_support = false;
+    dev->absolute_support = true;
 }
 

@@ -86,6 +86,10 @@ const partition_t protect_partition[] = {
 };
 #endif
 
+#ifdef AIR_ANTI_ROLLBACK_ENABLE
+uint8_t g_antrbk_en = 0;
+#endif
+
 /* Functions ---------------------------------------------------------------*/
 ATTR_TEXT_IN_TCM void bl_system_init()
 {
@@ -150,6 +154,7 @@ ATTR_TEXT_IN_TCM void bl_hardware_init()
     extern void pmu_latch_power_key_for_bootloader();
     pmu_latch_power_key_for_bootloader();
     bl_print(LOG_DEBUG, "hal_latch_power_key\r\n");
+    bl_print(LOG_DEBUG, "Power off[%d] on [%d]\r\n", pmu_get_power_off_reason(), pmu_get_power_on_reason());
     bl_latch_end_gpt(BOOT_TIME_PWR_KEY);
 #endif
 
@@ -212,10 +217,10 @@ void secure_boot_entry(void)
 void anti_rollback_entry(void)
 {
     antrbk_status_t   antrbk_ret = ANTRBK_STATUS_OK;
-    bool              antrbk_auto_update_en = false;
+    bool              antrbk_auto_update_en = true;
     uint32_t sechdrAddr = bl_custom_header_start_address();
 
-    antrbk_ret = anti_rollback_check((uint8_t *)sechdrAddr, ANTRBK_FLASH_OTP, antrbk_auto_update_en);
+    antrbk_ret = anti_rollback_check((uint8_t *)sechdrAddr, antrbk_auto_update_en);
     if(antrbk_ret != ANTRBK_STATUS_OK) {
         if(antrbk_ret == ANTRBK_STATUS_NOT_ENABLE) {
             bl_print(LOG_DEBUG, "anti_rollback is disabled\r\n");

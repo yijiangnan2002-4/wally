@@ -49,6 +49,7 @@
 #include "bt_gatt_over_bredr.h"
 #include "gatt_over_bredr_air.h"
 #include "gatt_over_bredr_air_internal.h"
+#include "bt_iot_device_white_list.h"
 //#include "bt_gap_le.h"
 //#include "bt_uuid.h"
 #include "bt_type.h"
@@ -159,14 +160,14 @@ static bt_status_t gatt_over_bredr_air_find_free_conn_handle(uint8_t *index)
     for (i = 0; i < BT_CONNECTION_MAX; i++) {
         if ((0 == g_gobe_air_cntx[i].conn_handle) || (BT_HANDLE_INVALID == g_gobe_air_cntx[i].conn_handle)) {
             *index = i;
-             break;
+            break;
         }
     }
     if (i == BT_CONNECTION_MAX) {
         LOG_MSGID_I(GOBEAIR, "not find_free_conn_handle", 0);
         return BT_STATUS_FAIL;
     }
-    LOG_MSGID_I(GOBEAIR, "find handle[%x] =%x", 2 , i , g_gobe_air_cntx[i].conn_handle);
+    LOG_MSGID_I(GOBEAIR, "find handle[%x] =%x", 2, i, g_gobe_air_cntx[i].conn_handle);
     return BT_STATUS_SUCCESS;
 }
 static bt_status_t gatt_over_bredr_air_rho_update_cb(bt_role_handover_update_info_t *info)
@@ -612,7 +613,7 @@ static gatt_over_bredr_air_cntx_t *gatt_over_bredr_find_connection_context_by_ad
     for (i = 0; i < BT_CONNECTION_MAX; i++) {
         if (bt_utils_memcmp(&g_gobe_air_cntx[i].peer_addr, peer_address, sizeof(bt_bd_addr_t)) == 0) {
             LOG_MSGID_I(GOBEAIR, "[GATT][EDR][CM] find connection context index = %d, connection handle = %02x", 2,
-                                i, g_gobe_air_cntx[i].conn_handle);
+                        i, g_gobe_air_cntx[i].conn_handle);
             return &g_gobe_air_cntx[i];
         }
     }
@@ -667,12 +668,11 @@ static bt_status_t gatt_over_bredr_air_cm_event_callback(bt_cm_event_t event_id,
 {
     gatt_over_bredr_air_status_t status;
     switch (event_id) {
-        case BT_CM_EVENT_REMOTE_INFO_UPDATE:
-        {
+        case BT_CM_EVENT_REMOTE_INFO_UPDATE: {
             LOG_MSGID_I(GOBEAIR, "[GATT][EDR][CM] remote info update notify", 0);
             bt_cm_remote_info_update_ind_t *info_update = (bt_cm_remote_info_update_ind_t *)params;
             if (((info_update->connected_service & BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP)) == 0) &&
-                       ((info_update->pre_connected_service & BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP)) != 0)) {
+                ((info_update->pre_connected_service & BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP)) != 0)) {
                 gatt_over_bredr_air_cntx_t *context = gatt_over_bredr_find_connection_context_by_address(&info_update->address);
                 if (context != NULL) {
                     status = gatt_over_bredr_air_disconnect(context->conn_handle);
@@ -926,6 +926,15 @@ static gatt_over_bredr_air_status_t gatt_over_bredr_air_connect(const bt_bd_addr
         return GATT_OVER_BREDR_AIR_STATUS_FAIL;
     }
 #endif
+
+#ifdef AIR_LE_AUDIO_ENABLE
+    if (!bt_iot_device_white_list_check_iot_case((bt_bd_addr_t *)address, BT_IOT_DEVICE_IDENTIFY_APPLE)) {
+        LOG_MSGID_I(GOBEAIR, "device not need reconnect gatt over edr!\r\n", 0);
+        GOBEAIR_MUTEX_UNLOCK();
+        return GATT_OVER_BREDR_AIR_STATUS_FAIL;
+    }
+#endif
+
     status = bt_gatt_over_bredr_connect(address);
     if (0 != status) {
         status = GATT_OVER_BREDR_AIR_STATUS_FAIL;
@@ -956,8 +965,4 @@ static gatt_over_bredr_air_status_t gatt_over_bredr_air_disconnect(uint16_t hand
 
 #endif /*MTK_GATT_OVER_BREDR_ENABLE*/
 #endif /*#ifdef MTK_PORT_SERVICE_BT_ENABLE*/
-
-
-
-
 

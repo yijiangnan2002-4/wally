@@ -99,9 +99,21 @@ typedef struct {
     int16_t                             runtime_gain;
 } PACKED app_anc_service_aws_sync_gain_t;
 
+/**
+ * @brief Fix issue customer issue -156
+ * That if agent is switching link in EMP case, the agent is not sync the newest configuration
+ * to partner side.
+ */
+typedef struct {
+    bool                                is_not_sent;
+    app_anc_service_aws_sync_info_t     sync_info;
+} PACKED app_anc_service_aws_un_synced_info_t;
+
+static app_anc_service_aws_un_synced_info_t g_aws_un_synced_info = {0};
+
 #define APP_ANC_SERVICE_REALTIME_SYNC_DELAY_MS        (200)       // 200ms
 
-#endif
+#endif /* AIR_APP_ANC_SYNC_ENABLE && AIR_TWS_ENABLE */
 
 static app_anc_service_context_t        g_anc_srv_context;
 
@@ -147,12 +159,27 @@ static audio_anc_control_result_t app_anc_service_local_control(bool enable,
     return anc_result;
 }
 
+#if defined(AIR_APP_ANC_SYNC_ENABLE) && defined(AIR_TWS_ENABLE)
+static void app_anc_srv_reset_un_synced_info()
+{
+    memset(&g_aws_un_synced_info, 0, sizeof(app_anc_service_aws_un_synced_info_t));
+}
+#endif /* AIR_APP_ANC_SYNC_ENABLE && AIR_TWS_ENABLE */
+
 static audio_anc_control_result_t app_anc_service_control(bool sync, bool enable,
                                                           audio_anc_control_filter_id_t filter_id,
                                                           audio_anc_control_type_t anc_type,
                                                           audio_anc_control_gain_t runtime_gain,
                                                           audio_anc_control_misc_t *control_misc)
 {
+    APPS_LOG_MSGID_I(LOG_TAG"[app_anc_service_control] Sync : %d, enable : %d, type : 0x%04x, filter_id : 0x%04x, runtime_gain : 0x%04x",
+                        5,
+                        sync,
+                        enable,
+                        anc_type,
+                        filter_id,
+                        runtime_gain);
+
 #if defined(AIR_APP_ANC_SYNC_ENABLE) && defined(AIR_TWS_ENABLE)
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
     if (role == BT_AWS_MCE_ROLE_PARTNER) {
@@ -165,21 +192,52 @@ static audio_anc_control_result_t app_anc_service_control(bool sync, bool enable
     audio_anc_control_result_t anc_result = AUDIO_ANC_CONTROL_EXECUTION_NONE;
 #if defined(AIR_APP_ANC_SYNC_ENABLE) && defined(AIR_TWS_ENABLE)
     bt_aws_mce_srv_link_type_t aws_link_type = bt_aws_mce_srv_get_link_type();
+
+    APPS_LOG_MSGID_I(LOG_TAG"[app_anc_service_control][TWS] sync : %d, role : 0x%02x, aws_link_type : 0x%02x",
+                        3,
+                        sync,
+                        role,
+                        aws_link_type);
+
+    app_anc_service_aws_sync_info_t sync_info = {0};
+    sync_info.enable = enable;
+    if (sync_info.enable) {
+        sync_info.filter_id = filter_id;
+        sync_info.anc_type = anc_type;
+        sync_info.runtime_gain = runtime_gain;
+    }
+
     if (sync && role == BT_AWS_MCE_ROLE_AGENT && aws_link_type != BT_AWS_MCE_SRV_LINK_NONE) {
         // Real time sync and control ANC
-        app_anc_service_aws_sync_info_t sync_info = {0};
-        sync_info.enable = enable;
-        if (sync_info.enable) {
-            sync_info.filter_id = filter_id;
-            sync_info.anc_type = anc_type;
-            sync_info.runtime_gain = runtime_gain;
-        }
+
         apps_aws_sync_send_future_sync_event(FALSE, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-                                             APPS_EVENTS_INTERACTION_APP_ANC_SRV_ANC_ACTION,
-                                             TRUE, (uint8_t *)&sync_info, sizeof(app_anc_service_aws_sync_info_t),
-                                             APP_ANC_SERVICE_REALTIME_SYNC_DELAY_MS);
+                                                APPS_EVENTS_INTERACTION_APP_ANC_SRV_ANC_ACTION,
+                                                TRUE, (uint8_t *)&sync_info, sizeof(app_anc_service_aws_sync_info_t),
+                                                APP_ANC_SERVICE_REALTIME_SYNC_DELAY_MS);
+
+        /**
+         * @brief Fix issue - 156
+         * If send data failed, need store the data in the un-synced buffer,  and when AWS connected, need sync
+         * the buffer data to partner side.
+         */
+        app_anc_srv_reset_un_synced_info();
+
+        g_aws_un_synced_info.is_not_sent = true;
+        memcpy(&(g_aws_un_synced_info.sync_info), &sync_info, sizeof(app_anc_service_aws_sync_info_t));
+
         anc_result = AUDIO_ANC_CONTROL_EXECUTION_SUCCESS;
     } else {
+        /**
+         * @brief Fix issue - 156
+         * If AWS is not connected and need sync and current is agent role, need store the data
+         * into the un_synced info to wait to send it after AWS connected.
+         */
+        if (sync == true && role == BT_AWS_MCE_ROLE_AGENT) {
+            app_anc_srv_reset_un_synced_info();
+
+            g_aws_un_synced_info.is_not_sent = true;
+            memcpy(&(g_aws_un_synced_info.sync_info), &sync_info, sizeof(app_anc_service_aws_sync_info_t));
+        }
         anc_result = app_anc_service_local_control(enable, filter_id, anc_type, runtime_gain, control_misc);
     }
 #else
@@ -323,12 +381,34 @@ static void app_anc_service_send_sync_info(void)
     if (sync_info.ht_enabled == false)
 #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
     {
-        sync_info.enable = g_anc_srv_context.cur_enable;
-        if (sync_info.enable) {
-            sync_info.filter_id = g_anc_srv_context.cur_filter_id;
-            sync_info.anc_type = g_anc_srv_context.cur_type;
-            sync_info.runtime_gain = g_anc_srv_context.cur_runtime_gain;
+        /**
+         * @brief Fix issue - 156
+         * If the un-synced info is not sent to partner side, need send the newest synced info to partner side.
+         */
+        APPS_LOG_MSGID_I(LOG_TAG"[app_anc_service_send_sync_info] un_synced_info, not_sent : %d, enable : %d, anc_type : 0x%04x, filter_id : 0x%04x, runtime_gain : 0x%08x",
+                            5,
+                            g_aws_un_synced_info.is_not_sent,
+                            g_aws_un_synced_info.sync_info.enable,
+                            g_aws_un_synced_info.sync_info.anc_type,
+                            g_aws_un_synced_info.sync_info.filter_id,
+                            g_aws_un_synced_info.sync_info.runtime_gain);
+
+        if ((g_aws_un_synced_info.is_not_sent == true)
+            && ((g_aws_un_synced_info.sync_info.anc_type != g_anc_srv_context.cur_type)
+                || (g_aws_un_synced_info.sync_info.enable != g_anc_srv_context.cur_enable)
+                || (g_aws_un_synced_info.sync_info.filter_id != g_anc_srv_context.cur_filter_id)
+                || (g_aws_un_synced_info.sync_info.runtime_gain != g_anc_srv_context.cur_runtime_gain))) {
+            memcpy(&sync_info, &(g_aws_un_synced_info.sync_info), sizeof(app_anc_service_aws_sync_info_t));
+        } else {
+            sync_info.enable = g_anc_srv_context.cur_enable;
+            if (sync_info.enable) {
+                sync_info.filter_id = g_anc_srv_context.cur_filter_id;
+                sync_info.anc_type = g_anc_srv_context.cur_type;
+                sync_info.runtime_gain = g_anc_srv_context.cur_runtime_gain;
+            }
         }
+
+        app_anc_srv_reset_un_synced_info();
     }
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
     else {
@@ -540,6 +620,12 @@ bool app_anc_service_enable(audio_anc_control_filter_id_t filter_id,
         return FALSE;
     }
 
+    APPS_LOG_MSGID_I(LOG_TAG"[app_anc_service_enable] Enable, type : 0x%04x, filter_id : 0x0%04x, gain : 0x%04x",
+                        3,
+                        anc_type,
+                        filter_id,
+                        runtime_gain);
+
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
     if (audio_anc_leakage_compensation_get_status() == true) {
         APPS_LOG_MSGID_W(LOG_TAG" leakage detection is ongoing, cannot enable ANC", 0);
@@ -558,7 +644,7 @@ bool app_anc_service_enable(audio_anc_control_filter_id_t filter_id,
 
     audio_anc_control_result_t anc_result = app_anc_service_control(TRUE, TRUE, filter_id, anc_type, runtime_gain, control_misc);
 #ifndef AIR_HEARTHROUGH_MAIN_ENABLE
-    voice_prompt_play_sync_vp_successed();
+    voice_prompt_play_sync_vp_succeed();
 #endif /* !AIR_HEARTHROUGH_MAIN_ENABLE */
     return (anc_result == AUDIO_ANC_CONTROL_EXECUTION_SUCCESS);
 }
@@ -569,6 +655,8 @@ bool app_anc_service_disable()
         APPS_LOG_MSGID_W(LOG_TAG" user trigger test ongoing, cannot disable ANC", 0);
         return FALSE;
     }
+
+    APPS_LOG_MSGID_I(LOG_TAG"[app_anc_service_disable] Disable", 0);
 
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
     if (audio_anc_leakage_compensation_get_status() == true) {
@@ -584,7 +672,7 @@ bool app_anc_service_disable()
     audio_anc_control_result_t anc_result = app_anc_service_control(TRUE, FALSE, 0, 0, 0, NULL);
 
 #ifndef AIR_HEARTHROUGH_MAIN_ENABLE
-    voice_prompt_play_sync_vp_successed();
+    voice_prompt_play_sync_vp_succeed();
 #endif /* !AIR_HEARTHROUGH_MAIN_ENABLE */
     return (anc_result == AUDIO_ANC_CONTROL_EXECUTION_SUCCESS);
 }
@@ -714,6 +802,7 @@ void app_anc_service_handle_event(uint32_t event_group, uint32_t event_id, void 
             bool aws_conntected = (!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->pre_connected_service)
                                    && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service));
             if (role == BT_AWS_MCE_ROLE_AGENT && aws_conntected) {
+                APPS_LOG_MSGID_I(LOG_TAG"[app_anc_service_handle_event] AWS connected, sync info", 0);
                 app_anc_service_send_sync_info();
             }
         }

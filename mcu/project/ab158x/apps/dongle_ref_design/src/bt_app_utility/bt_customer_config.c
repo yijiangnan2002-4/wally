@@ -53,7 +53,7 @@
 #ifdef AIR_BT_SOURCE_ENABLE
 #include "bt_source_srv.h"
 #include "usb_main.h"
-#include "usb_host_detect.h"
+#include "app_dongle_session_manager.h"
 #endif
 
 /***********************************************************************************************
@@ -500,6 +500,17 @@ uint32_t bt_source_srv_get_phone_card_information(bt_source_srv_t type, bt_sourc
     return BT_CUSTOMER_CONFIG_PHONE_CARD_MAX;
 }
 
+extern bt_status_t app_dongle_session_manager_handle_edr_session_negotiation(bt_addr_t *edr_addr, app_dongle_session_manager_session_usage_t session_usage, app_dongle_session_manager_edr_session_info_t *session_info);
+bt_source_srv_codec_t bt_source_srv_get_audio_codec_type(bt_source_srv_t type, const bt_addr_t *peer_address)
+{
+    app_dongle_session_manager_edr_session_info_t session_info = {0};
+    app_dongle_session_manager_session_usage_t session_usage = (type == BT_SOURCE_SRV_TYPE_HFP) ? APP_DONGLE_SESSION_MGR_SESSION_USAGE_COMMUNICATION : APP_DONGLE_SESSION_MGR_SESSION_USAGE_MEDIA;
+    if (app_dongle_session_manager_handle_edr_session_negotiation((bt_addr_t *)peer_address, session_usage, &session_info) == BT_STATUS_SUCCESS) {
+        return session_info.session_type;
+    }
+    return (BT_SOURCE_SRV_CODEC_TYPE_CVSD | BT_SOURCE_SRV_CODEC_TYPE_MSBC | BT_SOURCE_SRV_CODEC_TYPE_SBC);
+}
+
 typedef struct {
     uint8_t     volume_value;           /* The volume value range is 0~15 */
     int32_t     gain;
@@ -594,13 +605,6 @@ uint8_t bt_customer_config_get_volume_by_gain(bt_source_srv_port_t port, int32_t
         }
     }
     return BT_SOURCE_SRV_INVALID_VOLUME_VALUE;
-}
-#endif
-
-#ifdef AIR_FEATURE_SINK_MHDT_SUPPORT
-bool bt_customer_config_is_support_mhdt()
-{
-    return true;
 }
 #endif
 

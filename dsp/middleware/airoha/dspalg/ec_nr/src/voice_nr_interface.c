@@ -232,7 +232,16 @@ bool stream_function_aec_process(void *para)
         DSP_MW_LOG_I("[DSP][VOICE_NR] reinitialize only voice nr", 0);
     }
 
-    if (voice_nr_check_enable() == false) {
+    if ((voice_nr_check_enable() == false)
+#if defined(AIR_BT_CODEC_BLE_ENABLED)
+        || ((stream_ptr->sink->type == SINK_TYPE_N9BLE) && (stream_ptr->sink->param.n9ble.dummy_insert_number) && (stream_ptr->sink->param.n9ble.codec_type == BT_BLE_CODEC_LC3))
+#endif
+    )
+    {
+#if defined(AIR_BT_CODEC_BLE_ENABLED)
+        if((stream_ptr->sink->type == SINK_TYPE_N9BLE) && (stream_ptr->sink->param.n9ble.dummy_insert_number) && (stream_ptr->sink->param.n9ble.codec_type == BT_BLE_CODEC_LC3))
+            DSP_MW_LOG_W("[DSP][VOICE_NR][BLE] NR SKIP: %d", 1, stream_ptr->sink->param.n9ble.dummy_insert_number);
+#endif
         /* The valid channel after NR process should be set to 1 channel */
         ((DSP_ENTRY_PARA_PTR)para)->out_channel_num = 1;
         return false;

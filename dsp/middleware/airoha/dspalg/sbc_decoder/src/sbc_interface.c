@@ -221,7 +221,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 bool stream_codec_decoder_sbc_process(void *para)
 
     stream_codec_modify_resolution(para, stream_codec_get_output_resolution(para));
     stream_codec_modify_output_size(para, OutLength);
-    stream_codec_modify_output_samplingrate(para, SBC_GetSamplingRate(InBuf));
+    //stream_codec_modify_output_samplingrate(para, SBC_GetSamplingRate(InBuf));
     return FALSE;
 #else
     // *InLength = 105*4;

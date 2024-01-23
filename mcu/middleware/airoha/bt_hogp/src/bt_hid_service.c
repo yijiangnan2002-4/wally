@@ -735,6 +735,7 @@ bt_status_t bt_hid_service_common_callback(bt_msg_type_t msg, bt_status_t status
                     context->connection_handle = ind->connection_handle;
                     memcpy(&context->remote_address, p_peer_address, sizeof(bt_addr_t));
                     bt_hid_service_get_report_id(context);
+                    LOG_MSGID_I(BT_HID_SRV, "[HID][SRV] LE connect context = %02x flag = %02x report_input_cccd = %02x bk_input_cccd = %02x", 4, context, context->flag, context->report_input_cccd, context->bk_input_cccd);
                 }
             }
         }
@@ -754,7 +755,7 @@ bt_status_t bt_hid_service_common_callback(bt_msg_type_t msg, bt_status_t status
             bt_gap_le_bonding_complete_ind_t *ind = (bt_gap_le_bonding_complete_ind_t *)buff;
             bt_hid_service_context_t *context = bt_hid_find_context_by_handle(ind->handle);
             LOG_MSGID_I(BT_HID_SRV, "[HID][SRV] bond complete handle = %02x", 1, ind->handle);
-            if (NULL != NULL) {
+            if (NULL != context) {
                 context->flag |= BT_HID_SERVICE_FLAG_BONDED;
                 bt_hid_srv_db_storage_write(context);
             }
@@ -770,6 +771,7 @@ static void bt_hid_service_bond_event_callback(bt_device_manager_le_bonded_event
 {
     LOG_MSGID_I(BT_HID_SRV, "[HID][SRV] bond event = %02x", 1, event);
     switch (event) {
+#if 0
         case BT_DEVICE_MANAGER_LE_BONDED_ADD: {
             bt_hid_service_context_t *context = bt_hid_get_context_by_address(address);
             if (context == NULL) {
@@ -779,6 +781,7 @@ static void bt_hid_service_bond_event_callback(bt_device_manager_le_bonded_event
             bt_hid_srv_db_storage_write(context);
         }
         break;
+#endif
         case BT_DEVICE_MANAGER_LE_BONDED_REMOVE: {
             bt_hid_service_context_t *context = bt_hid_find_context_by_address(address);
             if (context == NULL) {

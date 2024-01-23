@@ -55,6 +55,11 @@
 #include "ble_csip.h"
 #include "ble_bap.h"
 
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+#include "ble_gmap.h"
+#include "ble_gmas.h"
+#endif
+
 #include "apps_events_event_group.h"
 #include "ui_shell_manager.h"
 #include "hal_usb.h"
@@ -82,9 +87,10 @@
 #endif
 
 #ifdef AIR_LE_AUDIO_HAPC_ENABLE
-#include "app_le_audio_hapc.h"
+#include "app_le_audio_hap.h"
 #endif
 
+#include "app_dongle_session_manager.h"
 /**************************************************************************************************
 * Define
 **************************************************************************************************/
@@ -109,8 +115,6 @@
 #define APP_LE_AUDIO_CIS_ID_3_CALL      0x03    /* Left */
 #define APP_LE_AUDIO_CIS_ID_4_CALL      0x04    /* Right */
 
-
-
 /* Metadata: Streaming Audio Contexts */
 #define APP_LE_AUDIO_METADATA_STREAMING_AUDIO_CONTEXTS_LEN      0x03
 #define APP_LE_AUDIO_METADATA_STREAMING_AUDIO_CONTEXTS_TYPE     0x02
@@ -125,38 +129,51 @@
 
 #define APP_LE_AUDIO_PREPARE_VCMD_MODE_DISCONN  0x01
 #define APP_LE_AUDIO_PREPARE_VCMD_MODE_CONN     0x02
+#define APP_LE_AUDIO_HCI_VENDOR_EVENT           0xFF
+#define APP_LE_AUDIO_HCI_VENDOR_SUBEVT_CIG_INFO 0xFC
+
 
 enum {
-    CODEC_SPECIFIC_CAPABILITIIES_TYPE_SAMPLING_FREQUENCY = 0x01, /**< Supported Sampling Frequencies.*/
-    CODEC_SPECIFIC_CAPABILITIIES_TYPE_FRAME_DURATIONS,           /**< Supported Frame Durations.*/
-    CODEC_SPECIFIC_CAPABILITIIES_TYPE_AUDIO_CHANNEL_COUNTS,      /**< Audio Channel Counts.*/
-    CODEC_SPECIFIC_CAPABILITIIES_TYPE_OCTETS_PER_CODEC_FRAME,     /**< Supported Octets Per Codec Frame.*/
-    CODEC_SPECIFIC_CAPABILITIIES_TYPE_CODEC_FRAME_BLOCKS_PER_SDU, /**< Max Supported LC3 Frames Per SDU.*/
+    CODEC_SPECIFIC_CAPABILITIES_TYPE_SAMPLING_FREQUENCY = 0x01, /**< Supported Sampling Frequencies.*/
+    CODEC_SPECIFIC_CAPABILITIES_TYPE_FRAME_DURATIONS,           /**< Supported Frame Durations.*/
+    CODEC_SPECIFIC_CAPABILITIES_TYPE_AUDIO_CHANNEL_COUNTS,      /**< Audio Channel Counts.*/
+    CODEC_SPECIFIC_CAPABILITIES_TYPE_OCTETS_PER_CODEC_FRAME,     /**< Supported Octets Per Codec Frame.*/
+    CODEC_SPECIFIC_CAPABILITIES_TYPE_CODEC_FRAME_BLOCKS_PER_SDU, /**< Max Supported LC3 Frames Per SDU.*/
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+    CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_FRAME_DURATIONS = 0xF1,       /**< LC3 Plus Supported Frame Durations.*/
+    CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_OCTETS_PER_CODEC_FRAME_10MS,  /**< LC3 Plus Supported Octets Per Codec Frame for 10ms frame duration.*/
+    CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_OCTETS_PER_CODEC_FRAME_5MS,   /**< LC3 Plus Supported Octets Per Codec Frame for 5ms frame duration.*/
+    CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_OCTETS_PER_CODEC_FRAME_2P5MS, /**< LC3 Plus Supported Octets Per Codec Frame for 2.5ms frame duration.*/
+    CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_FORWARD_ERROR_CORRECTION,     /**< LC3 Plus Supported forward error correction.*/
+#endif
 };
 
 #define MATADATA_TYPE_PREFERRED_AUDIO_CONTEXTS     0x01
 #define MATADATA_TYPE_STREAMING_AUDIO_CONTEXTS     0x02
 
-#define FRAME_DURATION_7P5_MS           0x00 /**< 7.5 ms.*/
-#define FRAME_DURATION_10_MS            0x01  /**< 10 ms.*/
-
 enum {
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_8_1 = 0x00,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_8_2,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_16_1,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_16_2,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_24_1,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_24_2,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_32_1,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_32_2,
-    //CODEC_SPECIFIC_CAPABILITIY_SETTING_441_1,
-    //CODEC_SPECIFIC_CAPABILITIY_SETTING_441_2,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_48_1,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_48_2,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_48_3,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_48_4,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_48_5,
-    CODEC_SPECIFIC_CAPABILITIY_SETTING_48_6,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_8_1 = 0x00,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_8_2,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_16_1,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_16_2,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_24_1,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_24_2,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_32_1,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_32_2,
+    //CODEC_SPECIFIC_CAPABILITY_SETTING_441_1,
+    //CODEC_SPECIFIC_CAPABILITY_SETTING_441_2,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_48_1,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_48_2,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_48_3,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_48_4,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_48_5,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_48_6,
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+    CODEC_SPECIFIC_CAPABILITY_SETTING_LC3PLUS_48_1,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_LC3PLUS_48_2,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_LC3PLUS_96_1,
+    CODEC_SPECIFIC_CAPABILITY_SETTING_LC3PLUS_96_2,
+#endif
 };
 typedef uint8_t app_le_audio_ucst_codec_capability_setting;
 
@@ -167,6 +184,12 @@ typedef uint8_t app_le_audio_ucst_codec_capability_setting;
 #define TMAP_ROLE_UMR_UMS   (BLE_TMAP_ROLE_MASK_UMR|BLE_TMAP_ROLE_MASK_UMS)
 #define TMAP_ROLE_CT_CG     (BLE_TMAP_ROLE_MASK_CT|BLE_TMAP_ROLE_MASK_CG)
 
+#define TMAP_PRESENTATION_DELAY  40000
+
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+#define GMAP_GS_PRESENTATION_DELAY  60000
+#define GMAP_GR_PRESENTATION_DELAY  10000
+#endif
 /**************************************************************************************************
 * Structure
 **************************************************************************************************/
@@ -179,6 +202,11 @@ typedef struct {
     //uint16_t support_gmap_role;                  /* supported GMAP role */
 } app_le_audio_ucst_codec_specific_capabilities_t;
 
+typedef struct {
+    uint8_t sampling_freq;                       /* Sampling frequency */
+    uint8_t frame_duration;                      /* 0x00:7.5ms, 0x01:10ms */
+    uint16_t octets_per_codec_frame;             /* octets */
+} app_le_audio_ucst_codec_info_t;
 
 BT_PACKED(
 typedef struct {
@@ -190,9 +218,11 @@ typedef struct {
 /**************************************************************************************************
 * Variable
 **************************************************************************************************/
+app_dongle_session_manager_lea_handle_t *g_lea_ucst_session_manager_cb = NULL;
 static bt_handle_t g_lea_ucst_prepare_vcmd_conn_handle[APP_LE_AUDIO_UCST_LINK_MAX_NUM];
 static bt_handle_t g_lea_ucst_prepare_vcmd_disconn_handle[APP_LE_AUDIO_UCST_LINK_MAX_NUM];
 app_le_audio_ucst_cis_info_t g_lea_ucst_cis_info[APP_LE_AUDIO_UCST_CIS_MAX_NUM];
+uint16_t g_lea_ucst_iso_interval = 0x0000;
 
 static ble_bap_config_codec_param_t g_lea_cofig_code_param = {
     .ase_id = APP_LE_AUDIO_UCST_ASE_ID_INVALID,
@@ -223,22 +253,29 @@ static ble_bap_config_codec_param_t g_lea_cofig_code_param = {
 static const app_le_audio_ucst_codec_specific_capabilities_t g_lea_ucst_codec_specific_capabilities_tbl[] =
 {
     /*     sampling_freq                      frame_duration  octets_per_codec_frame  bitrate support_tmap_role */ /* Sink Source */
-/*8_1*/ {CODEC_CONFIGURATION_SAMPLING_FREQ_8KHZ,   FRAME_DURATION_7P5_MS,    26,        27.734, 0                },/*  O     O   */
-/*8_2*/ {CODEC_CONFIGURATION_SAMPLING_FREQ_8KHZ,   FRAME_DURATION_10_MS,     30,        24,     0                },/*  O     O   */
-/*16_1*/{CODEC_CONFIGURATION_SAMPLING_FREQ_16KHZ,  FRAME_DURATION_7P5_MS,    30,        32,     TMAP_ROLE_CT     },/*  O     O   */ /* CT:M */
-/*16_2*/{CODEC_CONFIGURATION_SAMPLING_FREQ_16KHZ,  FRAME_DURATION_10_MS,     40,        32,     0                },/*  M     M   */
-/*24_1*/{CODEC_CONFIGURATION_SAMPLING_FREQ_24KHZ,  FRAME_DURATION_7P5_MS,    45,        48,     0                },/*  O     O   */
-/*24_2*/{CODEC_CONFIGURATION_SAMPLING_FREQ_24KHZ,  FRAME_DURATION_10_MS,     60,        48,     0                },/*  M     O   */
-/*32_1*/{CODEC_CONFIGURATION_SAMPLING_FREQ_32KHZ,  FRAME_DURATION_7P5_MS,    60,        64,     TMAP_ROLE_CT     },/*  O     O   */ /* CT:M */
-/*32_2*/{CODEC_CONFIGURATION_SAMPLING_FREQ_32KHZ,  FRAME_DURATION_10_MS,     80,        64,     TMAP_ROLE_CT_CG  },/*  O     O   */ /* CT:M CG:M */
+/*8_1*/ {CODEC_CONFIGURATION_SAMPLING_FREQ_8KHZ,   FRAME_DURATIONS_7P5_MS,    26,        27.734, 0                },/*  O     O   */
+/*8_2*/ {CODEC_CONFIGURATION_SAMPLING_FREQ_8KHZ,   FRAME_DURATIONS_10_MS,     30,        24,     0                },/*  O     O   */
+/*16_1*/{CODEC_CONFIGURATION_SAMPLING_FREQ_16KHZ,  FRAME_DURATIONS_7P5_MS,    30,        32,     TMAP_ROLE_CT     },/*  O     O   */ /* CT:M */
+/*16_2*/{CODEC_CONFIGURATION_SAMPLING_FREQ_16KHZ,  FRAME_DURATIONS_10_MS,     40,        32,     0                },/*  M     M   */
+/*24_1*/{CODEC_CONFIGURATION_SAMPLING_FREQ_24KHZ,  FRAME_DURATIONS_7P5_MS,    45,        48,     0                },/*  O     O   */
+/*24_2*/{CODEC_CONFIGURATION_SAMPLING_FREQ_24KHZ,  FRAME_DURATIONS_10_MS,     60,        48,     0                },/*  M     O   */
+/*32_1*/{CODEC_CONFIGURATION_SAMPLING_FREQ_32KHZ,  FRAME_DURATIONS_7P5_MS,    60,        64,     TMAP_ROLE_CT     },/*  O     O   */ /* CT:M */
+/*32_2*/{CODEC_CONFIGURATION_SAMPLING_FREQ_32KHZ,  FRAME_DURATIONS_10_MS,     80,        64,     TMAP_ROLE_CT_CG  },/*  O     O   */ /* CT:M CG:M */
 /*441_1*///{CODEC_CONFIGURATION_SAMPLING_FREQ_44_1KHZ,FRAME_DURATION_8_163,     97,       95.06,  0                },/*  O     O   */
 /*441_2*///{CODEC_CONFIGURATION_SAMPLING_FREQ_44_1KHZ,FRAME_DURATION_10_884,    130,      95.55,  0                },/*  O     O   */
-/*48_1*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATION_7P5_MS,    75,        80,     TMAP_ROLE_UMR    },/*  O     O   */ /* UMR:M */
-/*48_2*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATION_10_MS,     100,       80,     TMAP_ROLE_UMR_UMS},/*  O     O   */ /* UMR:M UMS:M */
-/*48_3*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATION_7P5_MS,    90,        96,     TMAP_ROLE_UMR    },/*  O     O   */ /* UMR:M */
-/*48_4*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATION_10_MS,     120,       96,     TMAP_ROLE_UMR_UMS},/*  O     O   */ /* UMR:M UMS:C1 */
-/*48_5*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATION_7P5_MS,    117,       124.8,  TMAP_ROLE_UMR    },/*  O     O   */ /* UMR:M */
-/*48_6*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATION_10_MS,     155,       124,    TMAP_ROLE_UMR_UMS} /*  O     O   */ /* UMR:M UMS:C1 */
+/*48_1*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATIONS_7P5_MS,    75,        80,     TMAP_ROLE_UMR    },/*  O     O   */ /* UMR:M */
+/*48_2*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATIONS_10_MS,     100,       80,     TMAP_ROLE_UMR_UMS},/*  O     O   */ /* UMR:M UMS:M */
+/*48_3*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATIONS_7P5_MS,    90,        96,     TMAP_ROLE_UMR    },/*  O     O   */ /* UMR:M */
+/*48_4*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATIONS_10_MS,     120,       96,     TMAP_ROLE_UMR_UMS},/*  O     O   */ /* UMR:M UMS:C1 */
+/*48_5*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATIONS_7P5_MS,    117,       124.8,  TMAP_ROLE_UMR    },/*  O     O   */ /* UMR:M */
+/*48_6*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATIONS_10_MS,     155,       124,    TMAP_ROLE_UMR_UMS},/*  O     O   */ /* UMR:M UMS:C1 */
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+    /*              sampling_freq                      frame_duration  octets_per_codec_frame  bitrate support_tmap_role */ /* Sink Source */
+/*LC3+ 48_1*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATIONS_10_MS,     160,       128,    TMAP_ROLE_UMR_UMS},/*  O     O   */ /* UMR:M UMS:C1 */
+/*LC3+ 48_2*/{CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ,  FRAME_DURATIONS_10_MS,     310,       248,    TMAP_ROLE_UMR_UMS},/*  O     O   */ /* UMR:M UMS:C1 */
+/*LC3+ 96_1*/{CODEC_CONFIGURATION_SAMPLING_FREQ_96KHZ,  FRAME_DURATIONS_10_MS,     190,       152,    TMAP_ROLE_UMR_UMS},/*  O     O   */ /* UMR:M UMS:C1 */
+/*LC3+ 96_2*/{CODEC_CONFIGURATION_SAMPLING_FREQ_96KHZ,  FRAME_DURATIONS_10_MS,     310,       248,    TMAP_ROLE_UMR_UMS},/*  O     O   */ /* UMR:M UMS:C1 */
+#endif
 };
 
 
@@ -258,6 +295,12 @@ extern app_le_audio_qos_params_t g_lea_ucst_qos_params_spk_1;
 
 extern app_le_audio_qos_params_t g_lea_ucst_qos_params_mic_0;
 
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+extern app_le_audio_qos_params_t g_lea_ucst_gmap_qos_params_spk_0;
+extern app_le_audio_qos_params_t g_lea_ucst_gmap_qos_params_mic_0;
+extern app_le_audio_qos_params_t g_lea_ucst_gmap_qos_params_spk_1;
+#endif
+
 extern app_le_audio_ucst_cig_params_test_t *g_lea_ucst_cig_params_test;
 
 extern uint8_t g_lea_ucst_test_mode_flag;
@@ -271,6 +314,7 @@ bool g_lea_ucst_pts_remote_call_service = false;
 extern ble_tbs_call_index_t g_curr_call_idx;
 #endif
 
+extern bool g_lea_ucst_use_cig_params_test_cmd;
 /**************************************************************************************************
 * Prototype
 **************************************************************************************************/
@@ -292,6 +336,7 @@ extern bool app_le_audio_usb_hid_handle_call_hold(void);
 extern bool app_le_audio_usb_hid_handle_call_unhold(void);
 #endif
 
+extern uint16_t app_le_audio_ucst_get_audio_context_type_ex(app_le_audio_qos_params_type_t qos_params_type);
 /**************************************************************************************************
 * Static Functions
 **************************************************************************************************/
@@ -500,6 +545,50 @@ static uint8_t app_le_audio_ucst_get_source_ase_num(app_le_audio_ucst_link_info_
     return p_info->source_ase_num;
 }
 
+static app_le_audio_qos_params_t *app_le_audio_ucst_get_selected_qos_params(bt_le_audio_direction_t direction, app_le_audio_qos_params_type_t qos_params_type)
+{
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    if ((g_lea_ucst_qos_params_selected) || (APP_LE_AUDIO_QOS_PARAMS_TYPE_GMAP == qos_params_type))
+#else
+    if (g_lea_ucst_qos_params_selected)
+#endif
+    {
+        LE_AUDIO_MSGLOG_I("[APP][U] get_selected_qos_params, direction:%x qos_params_type:%x selected:%x", 3, direction, qos_params_type, g_lea_ucst_qos_params_selected);
+        app_le_audio_ucst_stream_port_t port;
+
+        if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
+            if (AUDIO_DIRECTION_SINK == direction) {
+                port = APP_LE_AUDIO_UCST_STREAM_PORT_SPK_0;
+            } else {
+                port = APP_LE_AUDIO_UCST_STREAM_PORT_MIC_0;
+            }
+        } else {
+            port = APP_LE_AUDIO_UCST_STREAM_PORT_SPK_1;
+        }
+
+        return app_le_audio_ucst_get_qos_params(port, qos_params_type);
+    }
+
+    return NULL;
+}
+
+static uint32_t app_le_audio_ucst_get_selected_presentation_delay(bt_le_audio_direction_t direction, app_le_audio_qos_params_type_t qos_params_type)
+{
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+        if (APP_LE_AUDIO_QOS_PARAMS_TYPE_GMAP == qos_params_type) {
+            if (AUDIO_DIRECTION_SINK == direction) {
+                return GMAP_GR_PRESENTATION_DELAY;
+            } else if (AUDIO_DIRECTION_SOURCE == direction) {
+                return GMAP_GS_PRESENTATION_DELAY;
+            }
+        } else
+#endif
+        if (g_lea_ucst_qos_params_selected) {
+            return TMAP_PRESENTATION_DELAY;
+        }
+    return 0;
+}
+
 static bool app_le_audio_ucst_set_ase(app_le_audio_ucst_link_info_t *p_info, uint8_t ase_id, uint8_t ase_state, bt_le_audio_direction_t direction)
 {
     uint8_t i;
@@ -614,11 +703,15 @@ void app_le_audio_ucst_set_mic_channel(void)
         }
     }
 
-    if ((0 == channel) || (APP_LE_AUDIO_TRANSMITTER_CHANNEL_DUAL == channel
+    if ((0 == channel)
+#ifndef AIR_LE_AUDIO_GMAP_ENABLE
+        || (APP_LE_AUDIO_TRANSMITTER_CHANNEL_DUAL == channel
 #ifdef APP_LE_AUDIO_UCST_UPLINK_MIX_ENABLE
         && !app_le_audio_ucst_get_uplink_mix_status()
 #endif
-        )) {
+        )
+#endif
+        ) {
         LE_AUDIO_MSGLOG_I("[APP][U] set_mic_channel, use L (channel:%x)", 1, channel);
         channel = APP_LE_AUDIO_TRANSMITTER_CHANNEL_L;
     }
@@ -653,14 +746,15 @@ static bt_status_t app_le_audio_ucst_exchange_mtu(bt_handle_t handle)
     return ret;
 }
 
-app_le_audio_ucst_codec_specific_capabilities_t* app_le_audio_ucst_get_codec_configuration(bt_handle_t handle, uint16_t context_type, bt_le_audio_direction_t direction)
+app_le_audio_ucst_codec_specific_capabilities_t* app_le_audio_ucst_get_codec_configuration(bt_handle_t handle, uint16_t context_type, bt_le_audio_direction_t direction, app_le_audio_qos_params_type_t qos_params_type)
 {
     app_le_audio_ucst_link_info_t *p_info = NULL;
     app_le_audio_pac_t *p_pac = NULL;
     uint8_t sampling_freq = 0, frame_duration = 0;
     //uint16_t octets_per_codec_frame = 0;
-    uint8_t record_index, preferred_record_index, codec_index, preferred_audio_contexts_cnt;
-    uint8_t sampling_freq_max = CODEC_CONFIGURATION_SAMPLING_FREQ_8KHZ,record_index_max = 0;
+    uint8_t record_index, preferred_record_index, codec_index;//preferred_audio_contexts_cnt;
+    uint8_t sampling_freq_max = CODEC_CONFIGURATION_SAMPLING_FREQ_8KHZ, record_index_max = sizeof(g_lea_ucst_codec_specific_capabilities_tbl)/sizeof(app_le_audio_ucst_codec_specific_capabilities_t);
+    uint8_t sampling_freq_target = 0;//APP_DONGLE_SESSION_MGR_CODEC_SAMPLING_FREQ_ABANDON_CHOICE
     uint8_t audio_channel_num = 0x01;//channel count per cis
     uint16_t tmap_role = 0;
     uint16_t preferred_audio_contexts;
@@ -670,6 +764,16 @@ app_le_audio_ucst_codec_specific_capabilities_t* app_le_audio_ucst_get_codec_con
         return NULL;
     }
 
+    if (g_lea_ucst_session_manager_cb) {
+        if ((AUDIO_DIRECTION_SINK == direction) && ((AUDIO_CONTENT_TYPE_CONVERSATIONAL == context_type) || (AUDIO_CONTENT_TYPE_GAME == context_type))) {
+            sampling_freq_target = p_info->session_info[APP_DONGLE_SESSION_MGR_SESSION_USAGE_COMMUNICATION].sink_sample_freq;
+        } else if ((AUDIO_DIRECTION_SOURCE == direction) && ((AUDIO_CONTENT_TYPE_CONVERSATIONAL == context_type) || (AUDIO_CONTENT_TYPE_GAME == context_type))){
+            sampling_freq_target = p_info->session_info[APP_DONGLE_SESSION_MGR_SESSION_USAGE_COMMUNICATION].source_sample_freq;
+        } else {
+            sampling_freq_target = p_info->session_info[APP_DONGLE_SESSION_MGR_SESSION_USAGE_MEDIA].sink_sample_freq;
+        }
+    }
+
     if (AUDIO_DIRECTION_SINK == direction) {
         p_pac = &p_info->sink_pac;
     }
@@ -677,17 +781,35 @@ app_le_audio_ucst_codec_specific_capabilities_t* app_le_audio_ucst_get_codec_con
         p_pac = &p_info->source_pac;
     }
 
-    if (g_lea_ucst_qos_params_selected) {
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    if ((g_lea_ucst_qos_params_selected) || (APP_LE_AUDIO_QOS_PARAMS_TYPE_GMAP == qos_params_type))
+#else
+    if (g_lea_ucst_qos_params_selected)
+#endif
+    {
         app_le_audio_qos_params_t *p_qos = NULL;
+        LE_AUDIO_MSGLOG_I("[APP][U] get_codec_config, selected:%x qos_params_type:%x", 2, g_lea_ucst_qos_params_selected, qos_params_type);
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+        if (APP_LE_AUDIO_QOS_PARAMS_TYPE_GMAP == qos_params_type) {
+            if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
+                if (AUDIO_DIRECTION_SINK == direction) {
+                    p_qos = &g_lea_ucst_gmap_qos_params_spk_0;
+                } else {//if (AUDIO_DIRECTION_SOURCE == direction){
+                    p_qos = &g_lea_ucst_gmap_qos_params_mic_0;
+                }
+            } else {
+                p_qos = &g_lea_ucst_gmap_qos_params_spk_1;
+            }
+        } else
+#endif
         if ((AUDIO_DIRECTION_SINK == direction) && ((AUDIO_CONTENT_TYPE_CONVERSATIONAL == context_type) || (AUDIO_CONTENT_TYPE_GAME == context_type))) {
             p_qos = &g_lea_ucst_qos_params_spk_0;
-        }
-        else if ((AUDIO_DIRECTION_SOURCE == direction) && ((AUDIO_CONTENT_TYPE_CONVERSATIONAL == context_type) || (AUDIO_CONTENT_TYPE_GAME == context_type))){
+        } else if ((AUDIO_DIRECTION_SOURCE == direction) && ((AUDIO_CONTENT_TYPE_CONVERSATIONAL == context_type) || (AUDIO_CONTENT_TYPE_GAME == context_type))){
             p_qos = &g_lea_ucst_qos_params_mic_0;
-        }
-        else {
+        } else {
             p_qos = &g_lea_ucst_qos_params_spk_1;
         }
+
         sampling_freq = p_qos->sampling_freq;
         frame_duration = p_qos->sdu_interval;
         octets_per_codec_frame = p_qos->sdu_size;
@@ -727,25 +849,44 @@ app_le_audio_ucst_codec_specific_capabilities_t* app_le_audio_ucst_get_codec_con
         }
         return NULL;
     }
+
+    //Ensure that the codec selected for sink and source is the same <=== GMAP support UL!=DL
+    //if ((AUDIO_DIRECTION_SINK == direction) && ((AUDIO_CONTENT_TYPE_CONVERSATIONAL == context_type) || (AUDIO_CONTENT_TYPE_GAME == context_type))
+    //    && (0 < p_info->source_pac.num_of_record)) {
+    //    p_pac = &p_info->source_pac;
+    //}
+
     // find preferred codec by preferred_audio_contexts
     preferred_record_index = p_pac->num_of_record;
-    for (record_index = 0; record_index < p_pac->num_of_record; record_index++) {
+    for (record_index = 0; ((record_index < p_pac->num_of_record) && (sampling_freq_target == 0)); record_index++) {
         preferred_audio_contexts = p_pac->pac_record[record_index].preferred_audio_contexts;
+        #if 0
         preferred_audio_contexts_cnt = 0;
         if (context_type & preferred_audio_contexts) {
             while (preferred_audio_contexts) {
-                preferred_audio_contexts = preferred_audio_contexts >> 1;
-                preferred_audio_contexts_cnt++;
-                if (preferred_audio_contexts_cnt > 1) {
-                    break;
+                if (preferred_audio_contexts & 0x01) {
+                    preferred_audio_contexts_cnt++;
+                    if (preferred_audio_contexts_cnt > 1) {
+                        break;
+                    }
                 }
+                preferred_audio_contexts = preferred_audio_contexts >> 1;
             }
+            //If there are multiple sample rates or preferred_audio_contexts in a PAC Record, how to choose?
+            //So only the scenario where preferred_audio_contexts_cnt is 1 is processed.
             if (preferred_audio_contexts_cnt == 1) {
                 preferred_record_index = record_index;
                 break;
             }
         }
+        #else
+        if (context_type & preferred_audio_contexts) {
+            preferred_record_index = record_index;
+            break;
+        }
+        #endif
     }
+
 
     if (preferred_record_index >= p_pac->num_of_record) {// Not Found preferred
         if((context_type & (AUDIO_CONTENT_TYPE_CONVERSATIONAL | AUDIO_CONTENT_TYPE_GAME)) &&
@@ -768,11 +909,21 @@ app_le_audio_ucst_codec_specific_capabilities_t* app_le_audio_ucst_get_codec_con
         if (tmap_role) {
             for (codec_index = sizeof(g_lea_ucst_codec_specific_capabilities_tbl)/sizeof(app_le_audio_ucst_codec_specific_capabilities_t); codec_index > 0; codec_index--) {
                 //Find codec_index by tmap_role and bitrate < = 96kbps
-                if ((tmap_role & g_lea_ucst_codec_specific_capabilities_tbl[codec_index -1].support_tmap_role) &&
-                    (97 > g_lea_ucst_codec_specific_capabilities_tbl[codec_index - 1].bitrate)) {
+                if (tmap_role & g_lea_ucst_codec_specific_capabilities_tbl[codec_index -1].support_tmap_role) {
+                    if ((97 < g_lea_ucst_codec_specific_capabilities_tbl[codec_index - 1].bitrate) && (sampling_freq_target == 0)) {
+                        continue;
+                    }
                     sampling_freq = g_lea_ucst_codec_specific_capabilities_tbl[codec_index - 1].sampling_freq;
                     frame_duration = g_lea_ucst_codec_specific_capabilities_tbl[codec_index - 1].frame_duration;
                     octets_per_codec_frame = g_lea_ucst_codec_specific_capabilities_tbl[codec_index - 1].octets_per_codec_frame;
+                    if (sampling_freq == 0) {//Never == 0,Just for Coverity scan
+                        continue;
+                    }
+
+                    if ((sampling_freq_target != sampling_freq) && (sampling_freq_target != 0)) {
+                        continue;
+                    }
+
                     //Check codec is supported in PAC
                     for (record_index = 0; record_index < p_pac->num_of_record; record_index++) {
                         if ((p_pac->pac_record[record_index].supported_sampling_frequencies & (0x0001 << (sampling_freq - 1))) &&
@@ -799,13 +950,24 @@ app_le_audio_ucst_codec_specific_capabilities_t* app_le_audio_ucst_get_codec_con
 
         // tmap_role is not supported, find codec by max sampling_freq
         for (record_index = 0; record_index < p_pac->num_of_record; record_index++) {
-            for (sampling_freq = CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ; sampling_freq >= CODEC_CONFIGURATION_SAMPLING_FREQ_8KHZ; sampling_freq--) {
+            if (sampling_freq_target != 0) {
+                sampling_freq = sampling_freq_target;
                 if (p_pac->pac_record[record_index].supported_sampling_frequencies & 0x00FF & (0x0001 << (sampling_freq - 1))) {
-                    if (sampling_freq >= sampling_freq_max) {
-                        sampling_freq_max = sampling_freq;
-                        record_index_max = record_index;
-                    }
+                    sampling_freq_max = sampling_freq;
+                    record_index_max = record_index;
                     break;
+                }
+
+            }
+            else {
+                for (sampling_freq = CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ; sampling_freq >= CODEC_CONFIGURATION_SAMPLING_FREQ_8KHZ; sampling_freq--) {
+                    if (p_pac->pac_record[record_index].supported_sampling_frequencies & 0x00FF & (0x0001 << (sampling_freq - 1))) {
+                        if (sampling_freq >= sampling_freq_max) {
+                            sampling_freq_max = sampling_freq;
+                            record_index_max = record_index;
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -816,14 +978,16 @@ app_le_audio_ucst_codec_specific_capabilities_t* app_le_audio_ucst_get_codec_con
     }
 
     // Get max sampling_freq in pac_record[record_index]
-    for (sampling_freq = CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ; sampling_freq >= CODEC_CONFIGURATION_SAMPLING_FREQ_8KHZ; sampling_freq--) {
-        if (p_pac->pac_record[record_index].supported_sampling_frequencies & 0x00FF & (0x0001 << (sampling_freq - 1))) {
-            break;
+    if (sampling_freq_target == 0) {
+        for (sampling_freq = CODEC_CONFIGURATION_SAMPLING_FREQ_48KHZ; sampling_freq >= CODEC_CONFIGURATION_SAMPLING_FREQ_8KHZ; sampling_freq--) {
+            if (p_pac->pac_record[record_index].supported_sampling_frequencies & 0x00FF & (0x0001 << (sampling_freq - 1))) {
+                break;
+            }
         }
     }
     // Get frame_duration
 #if 0
-    for (frame_duration = FRAME_DURATION_7P5_MS; frame_duration <= FRAME_DURATION_10_MS; frame_duration++) {
+    for (frame_duration = FRAME_DURATIONS_7P5_MS; frame_duration <= FRAME_DURATIONS_10_MS; frame_duration++) {
         if ((p_pac->pac_record[record_index].supported_frame_durations >> 4 ) & 0x03) {// prefered:at most 1 bit
             if ((p_pac->pac_record[record_index].supported_frame_durations >> 4 ) & 0x03 & (0x01 << frame_duration)) {
                 break;
@@ -837,18 +1001,18 @@ app_le_audio_ucst_codec_specific_capabilities_t* app_le_audio_ucst_get_codec_con
         }
     }
 #else
-    if ((p_pac->pac_record[record_index].supported_frame_durations >> 4 ) & (0x01 << FRAME_DURATION_10_MS)) {// prefered:at most 1 bit
-        frame_duration = FRAME_DURATION_10_MS;//prefered frame_durations
+    if ((p_pac->pac_record[record_index].supported_frame_durations >> 4 ) & (0x01 << FRAME_DURATIONS_10_MS)) {// prefered:at most 1 bit
+        frame_duration = FRAME_DURATIONS_10_MS;//prefered frame_durations
     }
-    else if ((p_pac->pac_record[record_index].supported_frame_durations >> 4 ) & (0x01 << FRAME_DURATION_7P5_MS)) {// prefered:at most 1 bit
-        frame_duration = FRAME_DURATION_7P5_MS;//prefered frame_durations
+    else if ((p_pac->pac_record[record_index].supported_frame_durations >> 4 ) & (0x01 << FRAME_DURATIONS_7P5_MS)) {// prefered:at most 1 bit
+        frame_duration = FRAME_DURATIONS_7P5_MS;//prefered frame_durations
     }
     else {
-        if (p_pac->pac_record[record_index].supported_frame_durations & (0x01 << FRAME_DURATION_10_MS)) {// supported:at most 2 bits
-            frame_duration = FRAME_DURATION_10_MS;
+        if (p_pac->pac_record[record_index].supported_frame_durations & (0x01 << FRAME_DURATIONS_10_MS)) {// supported:at most 2 bits
+            frame_duration = FRAME_DURATIONS_10_MS;
         }
         else {
-            frame_duration = FRAME_DURATION_7P5_MS;
+            frame_duration = FRAME_DURATIONS_7P5_MS;
         }
     }
 #endif
@@ -887,20 +1051,25 @@ app_le_audio_ucst_codec_specific_capabilities_t* app_le_audio_ucst_get_codec_con
 
 bt_status_t app_le_audio_ucst_config_codec(bt_handle_t handle)
 {
-    ble_bap_ascs_config_codec_operation_t *buf = NULL;
+    uint8_t *buf = NULL;
     app_le_audio_ucst_link_info_t *p_info = NULL;
     bt_status_t ret;
     uint16_t context_type;
     uint8_t idx = 0, ase_num = 0, sink_ase_num = 0, source_ase_num = 0;
+    app_le_audio_qos_params_type_t qos_params_type = APP_LE_AUDIO_QOS_PARAMS_TYPE_NORMAL;
     app_le_audio_ucst_codec_specific_capabilities_t* p_audio_capability_configuration = NULL;
+
 
 
     if (NULL == (p_info = app_le_audio_ucst_get_link_info(handle))) {
         return BT_STATUS_FAIL;
     }
 
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    app_le_audio_ucst_get_qos_params_type(&qos_params_type);
+#endif
     /* get context type */
-    context_type = app_le_audio_ucst_get_audio_context_type();
+    context_type = app_le_audio_ucst_get_audio_context_type_ex(qos_params_type);
 
     //Check Available Audio Context
     if (!g_lea_ucst_test_mode_flag) {
@@ -949,26 +1118,29 @@ bt_status_t app_le_audio_ucst_config_codec(bt_handle_t handle)
                       p_info->cis_num,
                       ase_num);
 
-    if (NULL == (buf = pvPortMalloc(APP_LE_AUDIO_UCST_ASE_CTRL_POINT_HDR_LEN + ase_num * sizeof(ble_bap_config_codec_param_t)))) {
+    uint8_t param_len = (APP_LE_AUDIO_UCST_ASE_CTRL_POINT_HDR_LEN + ase_num * (sizeof(ble_bap_config_codec_param_t)+3));
+    if (NULL == (buf = pvPortMalloc(param_len))) {
         LE_AUDIO_MSGLOG_I("[APP][ASE] config_codec, malloc failed", 0);
         return BT_STATUS_FAIL;
     }
 
-    memset(buf, 0, APP_LE_AUDIO_UCST_ASE_CTRL_POINT_HDR_LEN + ase_num * sizeof(ble_bap_config_codec_param_t));
+    memset(buf, 0, param_len);
     LE_AUDIO_MSGLOG_I("[APP][ASE] config_codec, ase_num(total:%x sink:%x source:%x)", 3, ase_num, sink_ase_num, source_ase_num);
 
-    buf->opcode = ASE_OPCODE_CONFIG_CODEC;
-    //buf->num_of_ase = ase_num;
-
-    uint8_t i, location_idx;
+    buf[0] = ASE_OPCODE_CONFIG_CODEC;
+    //buf[1] = ase_num;
+    uint8_t buf_idx = 2;
+    uint8_t i, location_idx = 0;
+    ble_bap_config_codec_param_t *p_param = NULL;
     app_le_audio_qos_params_t *p_qos_params = NULL;
 
     /* SINK ASE */
-    location_idx = 0;
     for (i = 0; i < sink_ase_num; i++) {
-        memcpy(&buf->param[idx], &g_lea_cofig_code_param, sizeof(ble_bap_config_codec_param_t));
+        memcpy(&buf[buf_idx], &g_lea_cofig_code_param, sizeof(ble_bap_config_codec_param_t));
+        p_param = (ble_bap_config_codec_param_t *)&buf[buf_idx];
+
         if (p_info->sink_ase_num < (sink_ase_num * APP_LE_AUDIO_UCST_MAX_MODE_NUM)) {
-            buf->param[idx].ase_id = p_info->ase[i].id;
+            p_param->ase_id = p_info->ase[i].id;
             p_info->ase[i].codec_state.audio_contexts = context_type;
             if (APP_LE_AUDIO_UCST_CREATE_CIS_ALWAYS_BIDIRECTIONAL < g_lea_ucst_ctrl.create_cis_mode) {
                 if ((APP_LE_AUDIO_UCST_IS_CALL_MODE) && ((0 < source_ase_num) ||
@@ -977,22 +1149,22 @@ bt_status_t app_le_audio_ucst_config_codec(bt_handle_t handle)
                         (APP_LE_AUDIO_UCST_CREATE_CIS_WITH_AC_8_2 == g_lea_ucst_ctrl.create_cis_mode)))))) {
                     /* call mode */
                     LE_AUDIO_MSGLOG_I("[APP][ASE] config_codec, sink 2 call", 0);
-                    p_qos_params = &g_lea_ucst_qos_params_spk_0;
+                    p_qos_params = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_SPK_0, qos_params_type);
                 } else {
                     /* media mode */
                     LE_AUDIO_MSGLOG_I("[APP][ASE] config_codec, sink 1 media", 0);
-                    p_qos_params = &g_lea_ucst_qos_params_spk_1;
+                    p_qos_params = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_SPK_1, qos_params_type);
                 }
 
-                buf->param[idx].codec_specific_configuration.sampling_freq_value = p_qos_params->sampling_freq;
-                buf->param[idx].codec_specific_configuration.frame_duration_value = p_qos_params->sdu_interval;
-                buf->param[idx].codec_specific_configuration.octets_per_codec_frame_value = p_qos_params->sdu_size;
+                p_param->codec_specific_configuration.sampling_freq_value = p_qos_params->sampling_freq;
+                p_param->codec_specific_configuration.frame_duration_value = p_qos_params->sdu_interval;
+                p_param->codec_specific_configuration.octets_per_codec_frame_value = p_qos_params->sdu_size;
             }
             else {
-                if(NULL != (p_audio_capability_configuration = app_le_audio_ucst_get_codec_configuration(p_info->handle, context_type, AUDIO_DIRECTION_SINK))) {
-                    buf->param[idx].codec_specific_configuration.sampling_freq_value = p_audio_capability_configuration->sampling_freq;
-                    buf->param[idx].codec_specific_configuration.frame_duration_value = p_audio_capability_configuration->frame_duration;
-                    buf->param[idx].codec_specific_configuration.octets_per_codec_frame_value = p_audio_capability_configuration->octets_per_codec_frame;
+                if(NULL != (p_audio_capability_configuration = app_le_audio_ucst_get_codec_configuration(p_info->handle, context_type, AUDIO_DIRECTION_SINK, qos_params_type))) {
+                    p_param->codec_specific_configuration.sampling_freq_value = p_audio_capability_configuration->sampling_freq;
+                    p_param->codec_specific_configuration.frame_duration_value = p_audio_capability_configuration->frame_duration;
+                    p_param->codec_specific_configuration.octets_per_codec_frame_value = p_audio_capability_configuration->octets_per_codec_frame;
                 }
             }
         } else {
@@ -1003,27 +1175,26 @@ bt_status_t app_le_audio_ucst_config_codec(bt_handle_t handle)
             //if (idx < p_info->cis_num) {
             if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
                 /* call mode */
-                buf->param[idx].ase_id = p_info->ase[sink_ase_num + i].id;
+                p_param->ase_id = p_info->ase[sink_ase_num + i].id;
                 p_info->ase[sink_ase_num + i].codec_state.audio_contexts = context_type;
                 LE_AUDIO_MSGLOG_I("[APP][ASE] config_codec, sink 4 call", 0);
-                p_qos_params = &g_lea_ucst_qos_params_spk_0;
+                p_qos_params = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_SPK_0, qos_params_type);
             } else {
                 /* media mode */
-                buf->param[idx].ase_id = p_info->ase[i].id;
+                p_param->ase_id = p_info->ase[i].id;
                 p_info->ase[i].codec_state.audio_contexts = context_type;
                 LE_AUDIO_MSGLOG_I("[APP][ASE] config_codec, sink 3 media", 0);
-                p_qos_params = &g_lea_ucst_qos_params_spk_1;
+                p_qos_params = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_SPK_1, qos_params_type);
             }
             if (APP_LE_AUDIO_UCST_CREATE_CIS_ALWAYS_BIDIRECTIONAL < g_lea_ucst_ctrl.create_cis_mode) {
-                buf->param[idx].codec_specific_configuration.sampling_freq_value = p_qos_params->sampling_freq;
-                buf->param[idx].codec_specific_configuration.frame_duration_value = p_qos_params->sdu_interval;
-                buf->param[idx].codec_specific_configuration.octets_per_codec_frame_value = p_qos_params->sdu_size;
-            }
-            else {
-                if(NULL != (p_audio_capability_configuration = app_le_audio_ucst_get_codec_configuration(p_info->handle, context_type, AUDIO_DIRECTION_SINK))) {
-                    buf->param[idx].codec_specific_configuration.sampling_freq_value = p_audio_capability_configuration->sampling_freq;
-                    buf->param[idx].codec_specific_configuration.frame_duration_value = p_audio_capability_configuration->frame_duration;
-                    buf->param[idx].codec_specific_configuration.octets_per_codec_frame_value = p_audio_capability_configuration->octets_per_codec_frame;
+                p_param->codec_specific_configuration.sampling_freq_value = p_qos_params->sampling_freq;
+                p_param->codec_specific_configuration.frame_duration_value = p_qos_params->sdu_interval;
+                p_param->codec_specific_configuration.octets_per_codec_frame_value = p_qos_params->sdu_size;
+            } else {
+                if(NULL != (p_audio_capability_configuration = app_le_audio_ucst_get_codec_configuration(p_info->handle, context_type, AUDIO_DIRECTION_SINK, qos_params_type))) {
+                    p_param->codec_specific_configuration.sampling_freq_value = p_audio_capability_configuration->sampling_freq;
+                    p_param->codec_specific_configuration.frame_duration_value = p_audio_capability_configuration->frame_duration;
+                    p_param->codec_specific_configuration.octets_per_codec_frame_value = p_audio_capability_configuration->octets_per_codec_frame;
                 }
             }
             if (idx == p_info->cis_num) {
@@ -1031,27 +1202,40 @@ bt_status_t app_le_audio_ucst_config_codec(bt_handle_t handle)
             }
         }
         if (0 == p_info->sink_location_num) {
-            buf->param[idx].codec_specific_configuration.audio_channel_alloaction_value = AUDIO_LOCATION_NONE;
+            p_param->codec_specific_configuration.audio_channel_alloaction_value = AUDIO_LOCATION_NONE;
         } else if ((1 == p_info->sink_location_num) || (APP_LE_AUDIO_UCST_CREATE_CIS_WITH_AC_4 == g_lea_ucst_ctrl.create_cis_mode)) {
-            buf->param[idx].codec_specific_configuration.audio_channel_alloaction_value = p_info->sink_location;
+            p_param->codec_specific_configuration.audio_channel_alloaction_value = p_info->sink_location;
         } else if (APP_LE_AUDIO_UCST_CREATE_CIS_WITH_AC_7_1 == g_lea_ucst_ctrl.create_cis_mode) {
-            buf->param[idx].codec_specific_configuration.audio_channel_alloaction_value = AUDIO_LOCATION_FRONT_RIGHT;
+            p_param->codec_specific_configuration.audio_channel_alloaction_value = AUDIO_LOCATION_FRONT_RIGHT;
         } else {
-            buf->param[idx].codec_specific_configuration.audio_channel_alloaction_value = app_le_audio_ucst_get_location(location_idx, p_info->sink_location);
+            p_param->codec_specific_configuration.audio_channel_alloaction_value = app_le_audio_ucst_get_location(location_idx, p_info->sink_location);
             location_idx++;
         }
 
         if (g_lea_ucst_qos_params_selected) {
-            buf->param[idx].target_latency = g_lea_ucst_qos_params_selected;
+            p_param->target_latency = g_lea_ucst_qos_params_selected;
         }
+
+        buf_idx += sizeof(ble_bap_config_codec_param_t);
+
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+        if (160 <= p_param->codec_specific_configuration.octets_per_codec_frame_value) {
+            /* use LC3 plus codec */
+            uint8_t lc3plus_id[AUDIO_CODEC_ID_SIZE] = CODEC_ID_LC3PLUS_CBR;
+            memcpy(&p_param->codec_id, lc3plus_id, AUDIO_CODEC_ID_SIZE);
+
+            /* moridy type as LC3plusHR Frame Durations */
+            p_param->codec_specific_configuration.frame_duration_type = CODEC_CONFIGURATION_TYPE_LC3PLUSHR_FRAME_DURATION;
+        }
+#endif
 
         LE_AUDIO_MSGLOG_I("[APP][ASE] config_codec, parameter sink_ase[%x]:%x sampling_freq:%02x frame_duration:%02x octets_per_codec_frame:%04x location:%08x ", 6,
                           idx,
-                          buf->param[idx].ase_id,
-                          buf->param[idx].codec_specific_configuration.sampling_freq_value,
-                          buf->param[idx].codec_specific_configuration.frame_duration_value,
-                          buf->param[idx].codec_specific_configuration.octets_per_codec_frame_value,
-                          buf->param[idx].codec_specific_configuration.audio_channel_alloaction_value);
+                          p_param->ase_id,
+                          p_param->codec_specific_configuration.sampling_freq_value,
+                          p_param->codec_specific_configuration.frame_duration_value,
+                          p_param->codec_specific_configuration.octets_per_codec_frame_value,
+                          p_param->codec_specific_configuration.audio_channel_alloaction_value);
         idx++;
     }
 
@@ -1063,50 +1247,66 @@ bt_status_t app_le_audio_ucst_config_codec(bt_handle_t handle)
 
         location_idx = 0;
         for (i = 0; i < source_ase_num; i++) {
-            memcpy(&buf->param[idx], &g_lea_cofig_code_param, sizeof(ble_bap_config_codec_param_t));
-            buf->param[idx].ase_id = p_info->ase[p_info->source_ase_idx + i].id;
+            memcpy(&buf[buf_idx], &g_lea_cofig_code_param, sizeof(ble_bap_config_codec_param_t));
+            p_param = (ble_bap_config_codec_param_t *)&buf[buf_idx];
+            p_param->ase_id = p_info->ase[p_info->source_ase_idx + i].id;
             p_info->ase[p_info->source_ase_idx + i].codec_state.audio_contexts = context_type;
             if (APP_LE_AUDIO_UCST_CREATE_CIS_ALWAYS_BIDIRECTIONAL < g_lea_ucst_ctrl.create_cis_mode) {
-                buf->param[idx].codec_specific_configuration.sampling_freq_value = g_lea_ucst_qos_params_mic_0.sampling_freq;
-                buf->param[idx].codec_specific_configuration.frame_duration_value = g_lea_ucst_qos_params_mic_0.sdu_interval;
-                buf->param[idx].codec_specific_configuration.octets_per_codec_frame_value = g_lea_ucst_qos_params_mic_0.sdu_size;
+                p_qos_params = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_MIC_0, qos_params_type);
+                p_param->codec_specific_configuration.sampling_freq_value = p_qos_params->sampling_freq;
+                p_param->codec_specific_configuration.frame_duration_value = p_qos_params->sdu_interval;
+                p_param->codec_specific_configuration.octets_per_codec_frame_value = p_qos_params->sdu_size;
             }
             else {
-                if(NULL != (p_audio_capability_configuration = app_le_audio_ucst_get_codec_configuration(p_info->handle, context_type, AUDIO_DIRECTION_SOURCE))) {
-                    buf->param[idx].codec_specific_configuration.sampling_freq_value = p_audio_capability_configuration->sampling_freq;
-                    buf->param[idx].codec_specific_configuration.frame_duration_value = p_audio_capability_configuration->frame_duration;
-                    buf->param[idx].codec_specific_configuration.octets_per_codec_frame_value = p_audio_capability_configuration->octets_per_codec_frame;
+                if(NULL != (p_audio_capability_configuration = app_le_audio_ucst_get_codec_configuration(p_info->handle, context_type, AUDIO_DIRECTION_SOURCE, qos_params_type))) {
+                    p_param->codec_specific_configuration.sampling_freq_value = p_audio_capability_configuration->sampling_freq;
+                    p_param->codec_specific_configuration.frame_duration_value = p_audio_capability_configuration->frame_duration;
+                    p_param->codec_specific_configuration.octets_per_codec_frame_value = p_audio_capability_configuration->octets_per_codec_frame;
                 }
             }
             if (0 == p_info->source_location_num) {
-                buf->param[idx].codec_specific_configuration.audio_channel_alloaction_value = AUDIO_LOCATION_NONE;
+                p_param->codec_specific_configuration.audio_channel_alloaction_value = AUDIO_LOCATION_NONE;
             } else if (1 == p_info->source_location_num) {
-                buf->param[idx].codec_specific_configuration.audio_channel_alloaction_value = p_info->source_location;
+                p_param->codec_specific_configuration.audio_channel_alloaction_value = p_info->source_location;
             } else {
-                buf->param[idx].codec_specific_configuration.audio_channel_alloaction_value = app_le_audio_ucst_get_location(location_idx, p_info->source_location);
+                p_param->codec_specific_configuration.audio_channel_alloaction_value = app_le_audio_ucst_get_location(location_idx, p_info->source_location);
                 location_idx++;
             }
             if (g_lea_ucst_qos_params_selected) {
-                buf->param[idx].target_latency = g_lea_ucst_qos_params_selected;
+                p_param->target_latency = g_lea_ucst_qos_params_selected;
             }
+
+        buf_idx += sizeof(ble_bap_config_codec_param_t);
+
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+        if (160 <= p_param->codec_specific_configuration.octets_per_codec_frame_value) {
+            /* use LC3 plus codec */
+            uint8_t lc3plus_id[AUDIO_CODEC_ID_SIZE] = CODEC_ID_LC3PLUS_CBR;
+            memcpy(&p_param->codec_id, lc3plus_id, AUDIO_CODEC_ID_SIZE);
+
+            /* moridy type as LC3plusHR Frame Durations */
+            p_param->codec_specific_configuration.frame_duration_type = CODEC_CONFIGURATION_TYPE_LC3PLUSHR_FRAME_DURATION;
+        }
+#endif
 
             LE_AUDIO_MSGLOG_I("[APP][ASE] config_codec, parameter source_ase[%x]:%x sampling_freq:%02x frame_duration:%02x octets_per_codec_frame:%04x location:%08x ", 6,
                               idx,
-                              buf->param[idx].ase_id,
-                              buf->param[idx].codec_specific_configuration.sampling_freq_value,
-                              buf->param[idx].codec_specific_configuration.frame_duration_value,
-                              buf->param[idx].codec_specific_configuration.octets_per_codec_frame_value,
-                              buf->param[idx].codec_specific_configuration.audio_channel_alloaction_value);
+                              p_param->ase_id,
+                              p_param->codec_specific_configuration.sampling_freq_value,
+                              p_param->codec_specific_configuration.frame_duration_value,
+                              p_param->codec_specific_configuration.octets_per_codec_frame_value,
+                              p_param->codec_specific_configuration.audio_channel_alloaction_value);
 
             idx++;
         }
     }
 
-    buf->num_of_ase = idx;
-    p_info->wait_event.wait_ase_event = buf->num_of_ase;
+    //buf->num_of_ase = idx;
+	buf[1] = idx; //ase_num;
+    p_info->wait_event.wait_ase_event = buf[1];
     p_info->wait_event.wait_ase_cp_event = 0;//Some devices will violate Spec: Nofify ASE status first, then Nofify Control Point status; so the Control Point return result is no longer checked.
 
-    ret = ble_bap_ascs_config_codec(handle, buf);
+    ret = ble_bap_ascs_config_codec_ex(handle, buf, buf_idx);
 
     LE_AUDIO_MSGLOG_I("[APP][ASE] config_codec, handle:%x ret:%x w_ase:%x", 3, handle, ret, p_info->wait_event.wait_ase_event);
 
@@ -1132,14 +1332,18 @@ static bt_status_t app_le_audio_ucst_config_qos(bt_handle_t handle)
     uint16_t context_type = 0;
     uint8_t ase_num, idx = 0, i, ase_idx = 0;
     uint8_t sink_ase_num = 0, source_ase_num = 0;
+    app_le_audio_qos_params_type_t qos_params_type = APP_LE_AUDIO_QOS_PARAMS_TYPE_NORMAL;
 
     if (NULL == (p_info = app_le_audio_ucst_get_link_info(handle))) {
         LE_AUDIO_MSGLOG_I("[APP][ASE] config_qos, link not exist (hdl:%x)", 1, handle);
         return BT_STATUS_FAIL;
     }
 
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    app_le_audio_ucst_get_qos_params_type(&qos_params_type);
+#endif
     /* get context type */
-    context_type = app_le_audio_ucst_get_audio_context_type();
+    context_type = app_le_audio_ucst_get_audio_context_type_ex(qos_params_type);
 
     //Check Available Audio Context
     if (!g_lea_ucst_test_mode_flag) {
@@ -1156,6 +1360,7 @@ static bt_status_t app_le_audio_ucst_config_qos(bt_handle_t handle)
             }
         }
     }
+    app_le_audio_qos_params_t *sink_qos_param = app_le_audio_ucst_get_selected_qos_params(AUDIO_DIRECTION_SINK, qos_params_type);
 
     /* get the num of SINK ASE to be configured */
     sink_ase_num = app_le_audio_ucst_get_sink_ase_num(p_info);
@@ -1163,6 +1368,7 @@ static bt_status_t app_le_audio_ucst_config_qos(bt_handle_t handle)
 
     if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
         /* Call mode */
+        app_le_audio_qos_params_t *source_qos_param = app_le_audio_ucst_get_selected_qos_params(AUDIO_DIRECTION_SINK, qos_params_type);
 
         /* get the num of SOURCE ASE to be configured */
         source_ase_num = app_le_audio_ucst_get_source_ase_num(p_info);
@@ -1210,7 +1416,7 @@ static bt_status_t app_le_audio_ucst_config_qos(bt_handle_t handle)
             }
             p_codec_state = &p_info->ase[ase_idx].codec_state;
 
-            buf->param[idx].sdu_interval = (p_codec_state->frame_duration == FRAME_DURATION_7P5_MS) ? 7500 : 10000;
+            buf->param[idx].sdu_interval = (p_codec_state->frame_duration == FRAME_DURATIONS_7P5_MS) ? 7500 : 10000;
             buf->param[idx].framing = p_codec_state->framing;
             if (p_codec_state->preferred_phy & 0x01) {
                 buf->param[idx].phy = 0x01;
@@ -1229,13 +1435,19 @@ static bt_status_t app_le_audio_ucst_config_qos(bt_handle_t handle)
                 audio_location_channels = 1;
             }
             buf->param[idx].maximum_sdu_size = p_codec_state->codec_frame_blocks_per_sdu * audio_location_channels * p_codec_state->octets_per_codec_frame;
-            buf->param[idx].retransmission_number = p_codec_state->preferred_retransmission_number;
-            buf->param[idx].transport_latency = p_codec_state->max_transport_latency;
-            if (0 == p_codec_state->preferred_presentation_delay_min) {
-                buf->param[idx].presentation_delay = p_codec_state->presentation_delay_min;
-            }
-            else {
-                buf->param[idx].presentation_delay = p_codec_state->preferred_presentation_delay_min;
+            if (NULL != sink_qos_param) {
+                buf->param[idx].retransmission_number = sink_qos_param->rtn;
+                buf->param[idx].transport_latency = sink_qos_param->latency;
+                buf->param[idx].presentation_delay = app_le_audio_ucst_get_selected_presentation_delay(AUDIO_DIRECTION_SINK, qos_params_type);
+            } else {
+                buf->param[idx].retransmission_number = p_codec_state->preferred_retransmission_number;
+                buf->param[idx].transport_latency = p_codec_state->max_transport_latency;
+                if (0 == p_codec_state->preferred_presentation_delay_min) {
+                    buf->param[idx].presentation_delay = p_codec_state->presentation_delay_min;
+                }
+                else {
+                    buf->param[idx].presentation_delay = p_codec_state->preferred_presentation_delay_min;
+                }
             }
             LE_AUDIO_MSGLOG_I("[APP][ASE] config_qos, ase_id[%x]:%x sink[%x] cig_id:%x cis_id:%x", 5,
                               ase_idx,
@@ -1263,7 +1475,7 @@ static bt_status_t app_le_audio_ucst_config_qos(bt_handle_t handle)
                 }
             }
             p_codec_state = &p_info->ase[ase_idx].codec_state;
-            buf->param[idx].sdu_interval = (p_codec_state->frame_duration == FRAME_DURATION_7P5_MS) ? 7500 : 10000;
+            buf->param[idx].sdu_interval = (p_codec_state->frame_duration == FRAME_DURATIONS_7P5_MS) ? 7500 : 10000;
             buf->param[idx].framing = p_codec_state->framing;
             if (p_codec_state->preferred_phy & 0x02) {
                 buf->param[idx].phy = 0x02;
@@ -1279,13 +1491,19 @@ static bt_status_t app_le_audio_ucst_config_qos(bt_handle_t handle)
                 audio_location_channels = 1;
             }
             buf->param[idx].maximum_sdu_size = p_codec_state->codec_frame_blocks_per_sdu * audio_location_channels * p_codec_state->octets_per_codec_frame;
-            buf->param[idx].retransmission_number = p_codec_state->preferred_retransmission_number;
-            buf->param[idx].transport_latency = p_codec_state->max_transport_latency;
-            if (0 == p_codec_state->preferred_presentation_delay_min) {
-                buf->param[idx].presentation_delay = p_codec_state->presentation_delay_min;
-            }
-            else {
-                buf->param[idx].presentation_delay = p_codec_state->preferred_presentation_delay_min;
+            if (NULL != source_qos_param) {
+                buf->param[idx].retransmission_number = source_qos_param->rtn;
+                buf->param[idx].transport_latency = source_qos_param->latency;
+                buf->param[idx].presentation_delay = app_le_audio_ucst_get_selected_presentation_delay(AUDIO_DIRECTION_SOURCE, qos_params_type);
+            } else {
+                buf->param[idx].transport_latency = p_codec_state->max_transport_latency;
+                buf->param[idx].retransmission_number = p_codec_state->preferred_retransmission_number;
+                if (0 == p_codec_state->preferred_presentation_delay_min) {
+                    buf->param[idx].presentation_delay = p_codec_state->presentation_delay_min;
+                }
+                else {
+                    buf->param[idx].presentation_delay = p_codec_state->preferred_presentation_delay_min;
+                }
             }
 
             LE_AUDIO_MSGLOG_I("[APP][ASE] config_qos, ase_id[%x]:%x source[%x] cig_id:%x cis_id:%x", 5,
@@ -1339,7 +1557,7 @@ static bt_status_t app_le_audio_ucst_config_qos(bt_handle_t handle)
                 p_info->ase[ase_idx].codec_state.octets_per_codec_frame,
                 p_info->ase[ase_idx].codec_state.codec_frame_blocks_per_sdu);
             */
-            buf->param[idx].sdu_interval = (p_codec_state->frame_duration == FRAME_DURATION_7P5_MS) ? 7500 : 10000;
+            buf->param[idx].sdu_interval = (p_codec_state->frame_duration == FRAME_DURATIONS_7P5_MS) ? 7500 : 10000;
             buf->param[idx].framing = p_codec_state->framing;
             if (p_codec_state->preferred_phy & 0x02) {
                 buf->param[idx].phy = 0x02;
@@ -1358,13 +1576,19 @@ static bt_status_t app_le_audio_ucst_config_qos(bt_handle_t handle)
                 audio_location_channels = 2;
             }
             buf->param[idx].maximum_sdu_size = p_codec_state->codec_frame_blocks_per_sdu * audio_location_channels * p_codec_state->octets_per_codec_frame;
-            buf->param[idx].retransmission_number = p_codec_state->preferred_retransmission_number;
-            buf->param[idx].transport_latency = p_codec_state->max_transport_latency;
-            if (0 == p_codec_state->preferred_presentation_delay_min) {
-                buf->param[idx].presentation_delay = p_codec_state->presentation_delay_min;
-            }
-            else {
-                buf->param[idx].presentation_delay = p_codec_state->preferred_presentation_delay_min;
+            if (NULL != sink_qos_param) {
+                buf->param[idx].retransmission_number = sink_qos_param->rtn;
+                buf->param[idx].transport_latency = sink_qos_param->latency;
+                buf->param[idx].presentation_delay = app_le_audio_ucst_get_selected_presentation_delay(AUDIO_DIRECTION_SINK, qos_params_type);
+            } else {
+                buf->param[idx].retransmission_number = p_codec_state->preferred_retransmission_number;
+                buf->param[idx].transport_latency = p_codec_state->max_transport_latency;
+                if (0 == p_codec_state->preferred_presentation_delay_min) {
+                    buf->param[idx].presentation_delay = p_codec_state->presentation_delay_min;
+                }
+                else {
+                    buf->param[idx].presentation_delay = p_codec_state->preferred_presentation_delay_min;
+                }
             }
 
             LE_AUDIO_MSGLOG_I("[APP][ASE] config_qos, ase_id[%x]:%x sink[%x] cig_id:%x cis_id:%x", 5,
@@ -1402,6 +1626,11 @@ static bt_status_t app_le_audio_ucst_enable_ase(bt_handle_t handle)
 
     if (NULL == (p_info = app_le_audio_ucst_get_link_info(handle))) {
         return BT_STATUS_FAIL;
+    }
+    LE_AUDIO_MSGLOG_I("[APP] g_lea_ucst_iso_interval:%x", 1, g_lea_ucst_iso_interval);
+
+    if ((0x0000 != g_lea_ucst_iso_interval) && (false == app_le_audio_aird_is_connected(handle))) {
+        app_le_audio_ucst_update_connection_interval(p_info, g_lea_ucst_iso_interval);
     }
 
     /* get context type */
@@ -2091,6 +2320,16 @@ static bt_status_t app_le_audio_ucst_test_mode_set_cig_param(void)
     uint8_t cis_num = 0, group_size = 0;
     uint8_t i, j;
     uint8_t sink_ase_num = 0, source_ase_num = 0;
+    app_le_audio_qos_params_t *spk0_qos_parameter = NULL, *spk1_qos_parameter = NULL, *mic0_qos_parameter = NULL;
+    app_le_audio_qos_params_type_t qos_params_type = APP_LE_AUDIO_QOS_PARAMS_TYPE_NORMAL;
+
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    app_le_audio_ucst_get_qos_params_type(&qos_params_type);
+#endif
+
+    spk0_qos_parameter = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_SPK_0, qos_params_type);
+    spk1_qos_parameter = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_SPK_1, qos_params_type);
+    mic0_qos_parameter = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_MIC_0, qos_params_type);
 
     if (0 == app_le_audio_ucst_get_link_num_ex()) {
         LE_AUDIO_MSGLOG_I("[APP][U] test_mode_set_cig_param, no connection!", 0);
@@ -2152,13 +2391,13 @@ static bt_status_t app_le_audio_ucst_test_mode_set_cig_param(void)
 
         if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
             p_cis[i].cis_id = ((0 == i) ? APP_LE_AUDIO_CIS_ID_3_CALL : APP_LE_AUDIO_CIS_ID_4_CALL);
-            p_cis[i].rtn_m_to_s = g_lea_ucst_qos_params_spk_0.rtn;
-            p_cis[i].rtn_s_to_m = g_lea_ucst_qos_params_mic_0.rtn;
+            p_cis[i].rtn_m_to_s = spk0_qos_parameter->rtn;
+            p_cis[i].rtn_s_to_m = mic0_qos_parameter->rtn;
             if (0 == sink_ase_num) {
                 p_cis[i].max_sdu_m_to_s = 0x0000;
                 LE_AUDIO_MSGLOG_I("[APP] test_mode_set_cig_param 1, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
             } else {
-                p_cis[i].max_sdu_m_to_s = g_lea_ucst_qos_params_spk_0.sdu_size;
+                p_cis[i].max_sdu_m_to_s = spk0_qos_parameter->sdu_size;
                 LE_AUDIO_MSGLOG_I("[APP] test_mode_set_cig_param 2, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
             }
 
@@ -2167,19 +2406,19 @@ static bt_status_t app_le_audio_ucst_test_mode_set_cig_param(void)
                 p_cis[i].max_sdu_s_to_m = 0x0000;
                 LE_AUDIO_MSGLOG_I("[APP] test_mode_set_cig_param 3, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
             } else {
-                p_cis[i].max_sdu_s_to_m = g_lea_ucst_qos_params_mic_0.sdu_size;
+                p_cis[i].max_sdu_s_to_m = mic0_qos_parameter->sdu_size;
                 LE_AUDIO_MSGLOG_I("[APP] test_mode_set_cig_param 4, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
             }
 
         } else {
             p_cis[i].cis_id = ((0 == i) ? APP_LE_AUDIO_CIS_ID_1_MEDIA : APP_LE_AUDIO_CIS_ID_2_MEDIA);
             LE_AUDIO_MSGLOG_I("[APP] test_mode_set_cig_param 5, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
-            p_cis[i].rtn_m_to_s = g_lea_ucst_qos_params_spk_1.rtn;
-            p_cis[i].rtn_s_to_m = g_lea_ucst_qos_params_spk_1.rtn;
+            p_cis[i].rtn_m_to_s = spk1_qos_parameter->rtn;
+            p_cis[i].rtn_s_to_m = spk1_qos_parameter->rtn;
             if (APP_LE_AUDIO_UCST_CREATE_CIS_WITH_AC_4 == g_lea_ucst_ctrl.create_cis_mode) {
-                p_cis[i].max_sdu_m_to_s = (g_lea_ucst_qos_params_spk_1.sdu_size * 2);
+                p_cis[i].max_sdu_m_to_s = (spk1_qos_parameter->sdu_size*2);
             } else {
-                p_cis[i].max_sdu_m_to_s = g_lea_ucst_qos_params_spk_1.sdu_size;
+                p_cis[i].max_sdu_m_to_s = spk1_qos_parameter->sdu_size;
             }
             p_cis[i].max_sdu_s_to_m = 0x0000;
         }
@@ -2201,14 +2440,14 @@ static bt_status_t app_le_audio_ucst_test_mode_set_cig_param(void)
         param.cig_id = APP_LE_AUDIO_CIG_ID_2;
         param.sdu_interval_m_to_s = app_le_audio_ucst_get_sdu_interval(false);
         param.sdu_interval_s_to_m = app_le_audio_ucst_get_sdu_interval(true);
-        param.max_transport_latency_m_to_s = g_lea_ucst_qos_params_spk_0.latency;
-        param.max_transport_latency_s_to_m = g_lea_ucst_qos_params_mic_0.latency;
+        param.max_transport_latency_m_to_s = spk0_qos_parameter->latency;
+        param.max_transport_latency_s_to_m = mic0_qos_parameter->latency;
 
     } else {
         param.sdu_interval_m_to_s = app_le_audio_ucst_get_sdu_interval(false);
         param.sdu_interval_s_to_m = app_le_audio_ucst_get_sdu_interval(false);
-        param.max_transport_latency_m_to_s = g_lea_ucst_qos_params_spk_1.latency;
-        param.max_transport_latency_s_to_m = g_lea_ucst_qos_params_spk_1.latency;
+        param.max_transport_latency_m_to_s = spk1_qos_parameter->latency;
+        param.max_transport_latency_s_to_m = spk1_qos_parameter->latency;
     }
 
     g_lea_ucst_ctrl.cig_id = param.cig_id;
@@ -2228,6 +2467,15 @@ static bt_status_t app_le_audio_ucst_set_cig_parameters(void)
     uint8_t cis_num = 0, group_size = 0;
     uint8_t i, tmp;
     uint8_t sink_ase_num = 0, source_ase_num = 0;
+    app_le_audio_qos_params_t *spk0_qos_parameter = NULL, *spk1_qos_parameter = NULL, *mic0_qos_parameter = NULL;
+    app_le_audio_qos_params_type_t qos_params_type = APP_LE_AUDIO_QOS_PARAMS_TYPE_NORMAL;
+
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    app_le_audio_ucst_get_qos_params_type(&qos_params_type);
+#endif
+    spk0_qos_parameter = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_SPK_0, qos_params_type);
+    spk1_qos_parameter = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_SPK_1, qos_params_type);
+    mic0_qos_parameter = app_le_audio_ucst_get_qos_params(APP_LE_AUDIO_UCST_STREAM_PORT_MIC_0, qos_params_type);
 
 #ifdef AIR_LE_AUDIO_MULTI_DEVICE_ENABLE
     if (APP_LE_AUDIO_UCST_GROUP_ID_MAX <= g_lea_ucst_ctrl.curr_group) {
@@ -2271,8 +2519,12 @@ static bt_status_t app_le_audio_ucst_set_cig_parameters(void)
     cis_num *= group_size;
     LE_AUDIO_MSGLOG_I("[APP][U] set_cig_parameters, cis_num:%x group_size:%x sink_ase_num:%x source_ase_num:%x", 4, cis_num, group_size, sink_ase_num, source_ase_num);
 
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    if ((NULL != g_lea_ucst_cig_params_test) &&
+        (g_lea_ucst_use_cig_params_test_cmd || (APP_LE_AUDIO_QOS_PARAMS_TYPE_GMAP == qos_params_type))) {
+#else
     if (NULL != g_lea_ucst_cig_params_test) {
-
+#endif
         /* Use set CIG parameters test command */
         bt_gap_le_cis_params_test_t *p_cis = NULL;
 
@@ -2287,35 +2539,43 @@ static bt_status_t app_le_audio_ucst_set_cig_parameters(void)
             if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
                 /* Call mode */
                 p_cis[i].cis_id = ((0 == i) ? APP_LE_AUDIO_CIS_ID_3_CALL : APP_LE_AUDIO_CIS_ID_4_CALL);
-                p_cis[i].max_sdu_m_to_s = g_lea_ucst_qos_params_spk_0.sdu_size;
-                p_cis[i].max_pdu_m_to_s = g_lea_ucst_qos_params_spk_0.sdu_size;
 
-                if ((0 == source_ase_num) ||
-                    ((1 == group_size) && (1 == source_ase_num) && (0 != (i % 2)))) {
+                if (!app_le_audio_ucst_need_cis_m_to_s(i, sink_ase_num)) {
+                    p_cis[i].max_sdu_m_to_s = 0x0000;
+                    p_cis[i].max_pdu_m_to_s = 0x0000;
+                    p_cis[i].bn_m_to_s = 0;
                     LE_AUDIO_MSGLOG_I("[APP] set_cig_parameters_test 1, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
+                } else {
+                    p_cis[i].max_sdu_m_to_s = spk0_qos_parameter->sdu_size;
+                    p_cis[i].max_pdu_m_to_s = spk0_qos_parameter->sdu_size;
+                    p_cis[i].bn_m_to_s = g_lea_ucst_cig_params_test->bn;
+                    LE_AUDIO_MSGLOG_I("[APP] set_cig_parameters_test 2, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
+                }
+
+                if (!app_le_audio_ucst_need_cis_s_to_m(i, source_ase_num, group_size)) {
+                    LE_AUDIO_MSGLOG_I("[APP] set_cig_parameters_test 3, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
                     p_cis[i].max_sdu_s_to_m = 0x0000;
                     p_cis[i].max_pdu_s_to_m = 0x0000;
                     p_cis[i].bn_s_to_m = 0;
-
                 } else {
-                    LE_AUDIO_MSGLOG_I("[APP] set_cig_parameters_test 2, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
-                    p_cis[i].max_sdu_s_to_m = g_lea_ucst_qos_params_mic_0.sdu_size;
-                    p_cis[i].max_pdu_s_to_m = g_lea_ucst_qos_params_mic_0.sdu_size;
+                    LE_AUDIO_MSGLOG_I("[APP] set_cig_parameters_test 4, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
+                    p_cis[i].max_sdu_s_to_m = mic0_qos_parameter->sdu_size;
+                    p_cis[i].max_pdu_s_to_m = mic0_qos_parameter->sdu_size;
                     p_cis[i].bn_s_to_m = g_lea_ucst_cig_params_test->bn;
                 }
 
             } else {
                 /* Media mode */
                 p_cis[i].cis_id = ((0 == i) ? APP_LE_AUDIO_CIS_ID_1_MEDIA : APP_LE_AUDIO_CIS_ID_2_MEDIA);
-                LE_AUDIO_MSGLOG_I("[APP] set_cig_parameters_test 3, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
+                LE_AUDIO_MSGLOG_I("[APP] set_cig_parameters_test 5, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
 
                 if (APP_LE_AUDIO_UCST_CREATE_CIS_WITH_AC_4 == g_lea_ucst_ctrl.create_cis_mode) {
-                    p_cis[i].max_sdu_m_to_s = (g_lea_ucst_qos_params_spk_1.sdu_size * 2);
-                    p_cis[i].max_pdu_m_to_s = (g_lea_ucst_qos_params_spk_1.sdu_size * 2);
+                    p_cis[i].max_sdu_m_to_s = (spk1_qos_parameter->sdu_size*2);
                 } else {
-                    p_cis[i].max_sdu_m_to_s = g_lea_ucst_qos_params_spk_1.sdu_size;
-                    p_cis[i].max_pdu_m_to_s = g_lea_ucst_qos_params_spk_1.sdu_size;
+                    p_cis[i].max_sdu_m_to_s = spk1_qos_parameter->sdu_size;
                 }
+                p_cis[i].max_pdu_m_to_s = spk1_qos_parameter->sdu_size;
+                p_cis[i].bn_m_to_s = g_lea_ucst_cig_params_test->bn;
                 p_cis[i].max_sdu_s_to_m = 0x0000;
                 p_cis[i].max_pdu_s_to_m = 0x0000;
                 p_cis[i].bn_s_to_m = 0;
@@ -2324,14 +2584,24 @@ static bt_status_t app_le_audio_ucst_set_cig_parameters(void)
             p_cis[i].nse = g_lea_ucst_cig_params_test->nse;
             p_cis[i].phy_m_to_s = 0x02;
             p_cis[i].phy_s_to_m = 0x02;
-            p_cis[i].bn_m_to_s = g_lea_ucst_cig_params_test->bn;
+        }
+
+        uint16_t iso_interval = 8;
+        if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
+            if (SDU_INTERVAL_7P5_MS == spk0_qos_parameter->sdu_interval) {
+                iso_interval = 6;
+            }
+        } else {
+            if (SDU_INTERVAL_7P5_MS == spk1_qos_parameter->sdu_interval) {
+                iso_interval = 6;
+            }
         }
 
         bt_gap_le_set_cig_params_test_t param = {
             .cig_id = APP_LE_AUDIO_CIG_ID_1,
             .ft_m_to_s = g_lea_ucst_cig_params_test->ft,
             .ft_s_to_m = g_lea_ucst_cig_params_test->ft,
-            .iso_interval = g_lea_ucst_cig_params_test->iso_interval,
+            .iso_interval = iso_interval,
             .sca = 0x00,
             .packing = BT_GAP_LE_CIG_PACKING_INTERLEAVED,
             .framing = BT_GAP_LE_CIG_FRAMING_UNFRAMED,
@@ -2392,8 +2662,13 @@ static bt_status_t app_le_audio_ucst_set_cig_parameters(void)
         for (i = 0; i < cis_num; i++) {
             if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
                 p_cis[i].cis_id = ((0 == i) ? APP_LE_AUDIO_CIS_ID_3_CALL : APP_LE_AUDIO_CIS_ID_4_CALL);
-                p_cis[i].rtn_m_to_s = p_sink_codec_state->preferred_retransmission_number;//g_lea_ucst_qos_params_spk_0.rtn;
-                p_cis[i].rtn_s_to_m = p_source_codec_state->preferred_retransmission_number;//g_lea_ucst_qos_params_mic_0.rtn;
+                if (g_lea_ucst_qos_params_selected) {
+                    p_cis[i].rtn_m_to_s = spk0_qos_parameter->rtn;
+                    p_cis[i].rtn_s_to_m = mic0_qos_parameter->rtn;
+                } else {
+                    p_cis[i].rtn_m_to_s = p_sink_codec_state->preferred_retransmission_number;//g_lea_ucst_qos_params_spk_0.rtn;
+                    p_cis[i].rtn_s_to_m = p_source_codec_state->preferred_retransmission_number;//g_lea_ucst_qos_params_mic_0.rtn;
+                }
 
                 if (!app_le_audio_ucst_need_cis_m_to_s(i, sink_ase_num)) {
                     p_cis[i].max_sdu_m_to_s = 0x0000;
@@ -2414,8 +2689,13 @@ static bt_status_t app_le_audio_ucst_set_cig_parameters(void)
             } else {
                 p_cis[i].cis_id = ((0 == i) ? APP_LE_AUDIO_CIS_ID_1_MEDIA : APP_LE_AUDIO_CIS_ID_2_MEDIA);
                 LE_AUDIO_MSGLOG_I("[APP] set_cig_parameters 5, cis_id[%x]:%x", 2, i, p_cis[i].cis_id);
-                p_cis[i].rtn_m_to_s = p_sink_codec_state->preferred_retransmission_number;//g_lea_ucst_qos_params_spk_1.rtn;
-                p_cis[i].rtn_s_to_m = p_sink_codec_state->preferred_retransmission_number;//g_lea_ucst_qos_params_spk_1.rtn;
+                if (g_lea_ucst_qos_params_selected) {
+                    p_cis[i].rtn_m_to_s = spk1_qos_parameter->rtn;
+                    p_cis[i].rtn_s_to_m = spk1_qos_parameter->rtn;
+                } else {
+                    p_cis[i].rtn_m_to_s = p_sink_codec_state->preferred_retransmission_number;//g_lea_ucst_qos_params_spk_1.rtn;
+                    p_cis[i].rtn_s_to_m = p_sink_codec_state->preferred_retransmission_number;//g_lea_ucst_qos_params_spk_1.rtn;
+                }
                 if (APP_LE_AUDIO_UCST_CREATE_CIS_WITH_AC_4 == g_lea_ucst_ctrl.create_cis_mode) {
                     p_cis[i].max_sdu_m_to_s = p_sink_codec_state->octets_per_codec_frame * 2;//(g_lea_ucst_qos_params_spk_1.sdu_size * 2);
                 } else {
@@ -2439,14 +2719,14 @@ static bt_status_t app_le_audio_ucst_set_cig_parameters(void)
 
         if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
             param.cig_id = APP_LE_AUDIO_CIG_ID_2;
-            param.sdu_interval_m_to_s = (p_sink_codec_state->frame_duration == FRAME_DURATION_7P5_MS) ? 7500 : 10000;//app_le_audio_ucst_get_sdu_interval(false);
-            param.sdu_interval_s_to_m = (p_source_codec_state->frame_duration == FRAME_DURATION_7P5_MS) ? 7500 : 10000;//app_le_audio_ucst_get_sdu_interval(true);
+            param.sdu_interval_m_to_s = (p_sink_codec_state->frame_duration == FRAME_DURATIONS_7P5_MS) ? 7500 : 10000;//app_le_audio_ucst_get_sdu_interval(false);
+            param.sdu_interval_s_to_m = (p_source_codec_state->frame_duration == FRAME_DURATIONS_7P5_MS) ? 7500 : 10000;//app_le_audio_ucst_get_sdu_interval(true);
             param.max_transport_latency_m_to_s = p_sink_codec_state->max_transport_latency;//g_lea_ucst_qos_params_spk_0.latency;
             param.max_transport_latency_s_to_m = p_source_codec_state->max_transport_latency;//g_lea_ucst_qos_params_mic_0.latency;
 
         } else {
-            param.sdu_interval_m_to_s = (p_sink_codec_state->frame_duration == FRAME_DURATION_7P5_MS) ? 7500 : 10000;//app_le_audio_ucst_get_sdu_interval(false);
-            param.sdu_interval_s_to_m = (p_sink_codec_state->frame_duration == FRAME_DURATION_7P5_MS) ? 7500 : 10000;//app_le_audio_ucst_get_sdu_interval(false);
+            param.sdu_interval_m_to_s = (p_sink_codec_state->frame_duration == FRAME_DURATIONS_7P5_MS) ? 7500 : 10000;//app_le_audio_ucst_get_sdu_interval(false);
+            param.sdu_interval_s_to_m = (p_sink_codec_state->frame_duration == FRAME_DURATIONS_7P5_MS) ? 7500 : 10000;//app_le_audio_ucst_get_sdu_interval(false);
             param.max_transport_latency_m_to_s = p_sink_codec_state->max_transport_latency;//g_lea_ucst_qos_params_spk_1.latency;
             param.max_transport_latency_s_to_m = p_sink_codec_state->max_transport_latency;//g_lea_ucst_qos_params_spk_1.latency;
         }
@@ -2466,7 +2746,7 @@ static bt_status_t app_le_audio_ucst_set_cig_parameters(void)
 bt_status_t app_le_audio_ucst_create_cis(void)
 {
     app_le_audio_ucst_link_info_t *p_info;
-    bt_status_t ret;
+    bt_status_t ret = BT_STATUS_SUCCESS;
     uint8_t i, tmp;
     bt_gap_le_cis_set_t hdl_list[APP_LE_AUDIO_UCST_CIS_MAX_NUM] = {{0}, {0}};
     bt_gap_le_create_cis_t param = {
@@ -2483,8 +2763,6 @@ bt_status_t app_le_audio_ucst_create_cis(void)
     }
 #endif
 
-    LE_AUDIO_MSGLOG_I("[APP][U] create_cis, cig:%x total_cis_num:%x", 2, g_lea_ucst_ctrl.cig_id, g_lea_ucst_ctrl.cis_num);
-
     for (tmp = 0; tmp < app_le_audio_ucst_get_max_link_num(); tmp++) {
 #ifdef AIR_LE_AUDIO_MULTI_DEVICE_ENABLE
         if (APP_LE_AUDIO_UCST_LINK_MAX_NUM <= (i = p_group_info->link_idx[tmp])) {
@@ -2497,6 +2775,23 @@ bt_status_t app_le_audio_ucst_create_cis(void)
 
         if ((BT_HANDLE_INVALID != p_info->handle) &&
             (APP_LE_AUDIO_UCST_LINK_STATE_CREATE_CIS == p_info->next_state)) {
+            if ((0x0000 != g_lea_ucst_iso_interval) && (false == app_le_audio_aird_is_connected(p_info->handle))) {
+                if (((p_info->next_interval != 0) && ((p_info->next_interval % g_lea_ucst_iso_interval) != 0)) ||
+                    ((p_info->next_interval == 0) && ((p_info->curr_interval % g_lea_ucst_iso_interval) != 0))) {
+                    //update interval
+                    LE_AUDIO_MSGLOG_I("[APP][U] Need update_connection_interval first, handle:%x ", 1, p_info->handle);
+                    app_le_audio_ucst_update_connection_interval(p_info, g_lea_ucst_iso_interval);
+                    continue;
+                }
+                else if ((p_info->next_interval != 0) && ((p_info->next_interval % g_lea_ucst_iso_interval) == 0)) {
+                    //wait
+                    LE_AUDIO_MSGLOG_I("[APP][U] Need wait update_connection_interval, handle:%x ", 1, p_info->handle);
+                    continue;
+                }
+                else {
+                    //ok
+                }
+            }
 
             LE_AUDIO_MSGLOG_I("[APP][U] create_cis, handle:%x state:%x->%x cis_num:%x location:(%x %x)", 6,
                               p_info->handle,
@@ -2574,16 +2869,19 @@ bt_status_t app_le_audio_ucst_create_cis(void)
         }
     }
 
-    LE_AUDIO_MSGLOG_I("[APP] create_cis, cis_count:%x [0](acl:%x cis:%x) [1](acl:%x cis:%x)", 5,
-                      param.cis_count,
-                      hdl_list[0].acl_connection_handle,
-                      hdl_list[0].cis_connection_handle,
-                      hdl_list[1].acl_connection_handle,
-                      hdl_list[1].cis_connection_handle);
+    if (param.cis_count) {
+        LE_AUDIO_MSGLOG_I("[APP][U] create_cis, cig:%x total_cis_num:%x", 2, g_lea_ucst_ctrl.cig_id, g_lea_ucst_ctrl.cis_num);
 
-    ret = bt_gap_le_create_cis(&param);
-    LE_AUDIO_MSGLOG_I("[APP] create_cis, ret:%x", 1, ret);
+        LE_AUDIO_MSGLOG_I("[APP] create_cis, cis_count:%x [0](acl:%x cis:%x) [1](acl:%x cis:%x)", 5,
+                          param.cis_count,
+                          hdl_list[0].acl_connection_handle,
+                          hdl_list[0].cis_connection_handle,
+                          hdl_list[1].acl_connection_handle,
+                          hdl_list[1].cis_connection_handle);
 
+        ret = bt_gap_le_create_cis(&param);
+        LE_AUDIO_MSGLOG_I("[APP] create_cis, ret:%x", 1, ret);
+    }
     return ret;
 }
 
@@ -2707,7 +3005,7 @@ bool app_le_audio_ucst_check_pause_stream(void)
     return false;
 }
 
-static bool app_le_audio_ucst_check_close_audio_stream(void)
+bool app_le_audio_ucst_check_close_audio_stream(void)
 {
     uint8_t i, tmp;
 #ifdef AIR_LE_AUDIO_MULTI_DEVICE_ENABLE
@@ -2795,7 +3093,7 @@ static void app_le_audio_ucst_check_set_ase(uint8_t link_idx)
     }
 }
 
-
+#if 0
 static void app_le_audio_ucst_disable_ase_when_setup_iso_data_path(void)
 {
     app_le_audio_ucst_link_info_t *p_info = NULL;
@@ -2935,6 +3233,67 @@ static void app_le_audio_ucst_disable_ase_when_state_match(app_le_audio_ucst_lin
     }
 }
 
+#endif
+
+//The states of the two links may not be consistent, and disabling the specified state may not handle the other link
+static bool app_le_audio_ucst_disable_ase_when_allowed(bool check_release)
+{
+    app_le_audio_ucst_link_info_t *p_info = NULL;
+    uint8_t i, tmp;
+    uint8_t wait_ase_num = 0;
+#ifdef AIR_LE_AUDIO_MULTI_DEVICE_ENABLE
+    app_le_audio_ucst_group_info_t *p_group_info = app_le_audio_ucst_get_group_info(g_lea_ucst_ctrl.curr_group);
+#endif
+
+    for (tmp = 0; tmp < app_le_audio_ucst_get_max_link_num(); tmp++) {
+#ifdef AIR_LE_AUDIO_MULTI_DEVICE_ENABLE
+        if(NULL == p_group_info) {
+            break;
+        }
+
+        if (APP_LE_AUDIO_UCST_LINK_MAX_NUM <= (i = p_group_info->link_idx[tmp])) {
+            continue;
+        }
+#else
+        i = tmp;
+#endif
+        p_info = &g_lea_ucst_link_info[i];
+
+        if (BT_HANDLE_INVALID != p_info->handle) {
+
+            LE_AUDIO_MSGLOG_I("[APP][U] disable_ase, handle:%x state:%x->%x w_ase:%x check_release:%x", 5,
+                              p_info->handle,
+                              p_info->curr_state,
+                              p_info->next_state,
+                              p_info->wait_event.wait_ase_event,
+                              check_release);
+
+            if ((((APP_LE_AUDIO_UCST_LINK_STATE_SETUP_ISO_DATA_PATH == p_info->curr_state) ||
+                   (APP_LE_AUDIO_UCST_LINK_STATE_STREAMING == p_info->curr_state)) &&
+                  (APP_LE_AUDIO_UCST_LINK_STATE_IDLE == p_info->next_state)) ||
+                (((APP_LE_AUDIO_UCST_LINK_STATE_CREATE_CIS == p_info->curr_state)||
+                   (APP_LE_AUDIO_UCST_LINK_STATE_ENABLE_ASE == p_info->curr_state)) &&
+                 (APP_LE_AUDIO_UCST_LINK_STATE_DISABLE_ASE != p_info->next_state))) {
+
+                p_info->next_state = APP_LE_AUDIO_UCST_LINK_STATE_DISABLE_ASE;
+                wait_ase_num++;
+
+                if (BT_STATUS_SUCCESS != app_le_audio_ucst_disable_ase(p_info->handle)) {
+                    p_info->next_state = APP_LE_AUDIO_UCST_LINK_STATE_IDLE;
+                    wait_ase_num--;
+                }
+            } else if (check_release && p_info->ase_releasing) {
+                wait_ase_num++;
+            }
+        }
+    }
+
+    if (0 != wait_ase_num) {
+        return true;
+    }
+
+    return false;
+}
 
 
 static void app_le_audio_ucst_handle_ase_idle(ble_bap_ase_notify_t *p_notify)
@@ -3055,7 +3414,8 @@ static void app_le_audio_ucst_handle_ase_codec_configured(ble_bap_ase_notify_t *
                 p_info->ase[ase_idx].codec_state.sampling_frequency = p_notify->additional_parameter[index++];
                 break;
             }
-            case CODEC_CONFIGURATION_TYPE_FRAME_DURATIONS: {
+            case CODEC_CONFIGURATION_TYPE_FRAME_DURATIONS:
+            case CODEC_CONFIGURATION_TYPE_LC3PLUSHR_FRAME_DURATION: {
                 p_info->ase[ase_idx].codec_state.frame_duration = p_notify->additional_parameter[index++];
                 break;
             }
@@ -3142,6 +3502,7 @@ static void app_le_audio_ucst_handle_ase_codec_configured(ble_bap_ase_notify_t *
                         (((APP_LE_AUDIO_UCST_TARGET_STOP_MEDIA_MODE == g_lea_ucst_ctrl.curr_target) ||
                           (APP_LE_AUDIO_UCST_TARGET_STOP_CALL_MODE == g_lea_ucst_ctrl.curr_target)) &&
                          (APP_LE_AUDIO_UCST_TARGET_NONE == g_lea_ucst_ctrl.next_target))) {
+                         app_le_audio_ucst_disable_ase_when_allowed(false);
                         break;
                     }
 
@@ -3305,7 +3666,9 @@ static void app_le_audio_ucst_handle_ase_qos_configured(ble_bap_ase_notify_t *p_
                         app_le_audio_ucst_check_pause_stream() ||
                         (APP_LE_AUDIO_UCST_TARGET_STOP_MEDIA_MODE == g_lea_ucst_ctrl.curr_target) ||
                         (APP_LE_AUDIO_UCST_TARGET_STOP_CALL_MODE == g_lea_ucst_ctrl.curr_target)) {
-                        app_le_audio_ucst_check_close_audio_stream();
+                        if (!app_le_audio_ucst_check_close_audio_stream()) {
+                            app_le_audio_ucst_disable_ase_when_allowed(false);
+                        }
                         break;
                     }
 
@@ -3558,7 +3921,8 @@ static void app_le_audio_ucst_handle_ase_enabling(ble_bap_ase_notify_t *p_notify
                     if (app_le_audio_ucst_check_pause_stream() ||
                         (APP_LE_AUDIO_UCST_TARGET_STOP_MEDIA_MODE == g_lea_ucst_ctrl.curr_target) ||
                         (APP_LE_AUDIO_UCST_TARGET_STOP_CALL_MODE == g_lea_ucst_ctrl.curr_target)) {
-                        app_le_audio_ucst_disable_ase_when_state_match(APP_LE_AUDIO_UCST_LINK_STATE_ENABLE_ASE);
+                        //app_le_audio_ucst_disable_ase_when_state_match(APP_LE_AUDIO_UCST_LINK_STATE_ENABLE_ASE);
+                        app_le_audio_ucst_disable_ase_when_allowed(false);
                         break;
                     }
 
@@ -3700,7 +4064,8 @@ static void app_le_audio_ucst_handle_ase_streaming(ble_bap_ase_notify_t *p_notif
                     if (app_le_audio_ucst_check_pause_stream() ||
                         (APP_LE_AUDIO_UCST_TARGET_STOP_MEDIA_MODE == g_lea_ucst_ctrl.curr_target) ||
                         (APP_LE_AUDIO_UCST_TARGET_STOP_CALL_MODE == g_lea_ucst_ctrl.curr_target)) {
-                        app_le_audio_ucst_disable_ase_when_setup_iso_data_path();
+                        //app_le_audio_ucst_disable_ase_when_setup_iso_data_path();
+                        app_le_audio_ucst_disable_ase_when_allowed(false);
                         return;
                     }
 
@@ -4011,6 +4376,13 @@ static void app_le_audio_ucst_handle_bap_discover_service_complete(ble_bap_disco
 
     bt_status_t ret;
 
+    /* Decide the qos_parameter type here in case GMAP is disabled. */
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    p_info->qos_params_type = APP_LE_AUDIO_QOS_PARAMS_TYPE_NORMAL;
+    if (BLE_GMAP_ROLE_MASK_UGT & p_info->gmap_role) {
+        p_info->qos_params_type = APP_LE_AUDIO_QOS_PARAMS_TYPE_GMAP;
+    }
+#endif
     /* enter next step */
     p_info->next_state = APP_LE_AUDIO_UCST_LINK_STATE_READ_AVAILABLE_AUDIO_CONTEXTS;
     if (BT_STATUS_SUCCESS != (ret = ble_bap_pacs_read_available_audio_contexts_req(p_info->handle))) {
@@ -4188,29 +4560,37 @@ static void app_le_audio_ucst_handle_read_sink_pac_cnf(ble_bap_read_sink_pac_cnf
 
             //LE_AUDIO_MSGLOG_I("[APP][PACS] L:%x T:%x D:%02x %02x %02x %02x", 6, length, type, cnf->pac_record[offset + j],cnf->pac_record[offset + j+1],cnf->pac_record[offset + j+2],cnf->pac_record[offset + j+3]);
             switch (type) {
-                case CODEC_SPECIFIC_CAPABILITIIES_TYPE_SAMPLING_FREQUENCY: {
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_SAMPLING_FREQUENCY: {
                     memcpy(&p_pac_record[i].supported_sampling_frequencies, &(cnf->pac_record[offset + j]), sizeof(uint16_t));
                     j += 2;
                     break;
                 }
-                case CODEC_SPECIFIC_CAPABILITIIES_TYPE_FRAME_DURATIONS: {
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_FRAME_DURATIONS:
+#endif
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_FRAME_DURATIONS: {
                     p_pac_record[i].supported_frame_durations = cnf->pac_record[offset + j];
                     j++;
                     break;
                 }
-                case CODEC_SPECIFIC_CAPABILITIIES_TYPE_AUDIO_CHANNEL_COUNTS: {
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_AUDIO_CHANNEL_COUNTS: {
                     p_pac_record[i].supported_audio_channel_counts = cnf->pac_record[offset + j];
                     j++;
                     break;
                 }
-                case CODEC_SPECIFIC_CAPABILITIIES_TYPE_OCTETS_PER_CODEC_FRAME: {
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_OCTETS_PER_CODEC_FRAME_10MS:
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_OCTETS_PER_CODEC_FRAME_5MS:
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_OCTETS_PER_CODEC_FRAME_2P5MS:
+#endif
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_OCTETS_PER_CODEC_FRAME: {
                     memcpy(&p_pac_record[i].supported_octets_per_codec_frame_min, &(cnf->pac_record[offset + j]), sizeof(uint16_t));
                     j += 2;
                     memcpy(&p_pac_record[i].supported_octets_per_codec_frame_max, &(cnf->pac_record[offset + j]), sizeof(uint16_t));
                     j += 2;
                     break;
                 }
-                case CODEC_SPECIFIC_CAPABILITIIES_TYPE_CODEC_FRAME_BLOCKS_PER_SDU: {
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_CODEC_FRAME_BLOCKS_PER_SDU: {
                     p_pac_record[i].supported_codec_frame_blocks_per_sdu = cnf->pac_record[offset + j];
                     j++;
                     break;
@@ -4333,29 +4713,37 @@ static void app_le_audio_ucst_handle_read_source_pac_cnf(ble_bap_read_source_pac
             type = cnf->pac_record[offset + j];
             j++;
             switch (type) {
-                case CODEC_SPECIFIC_CAPABILITIIES_TYPE_SAMPLING_FREQUENCY: {
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_SAMPLING_FREQUENCY: {
                     memcpy(&p_pac_record[i].supported_sampling_frequencies, &(cnf->pac_record[offset + j]), sizeof(uint16_t));
                     j += 2;
                     break;
                 }
-                case CODEC_SPECIFIC_CAPABILITIIES_TYPE_FRAME_DURATIONS: {
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_FRAME_DURATIONS:
+#endif
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_FRAME_DURATIONS: {
                     p_pac_record[i].supported_frame_durations = cnf->pac_record[offset + j];
                     j++;
                     break;
                 }
-                case CODEC_SPECIFIC_CAPABILITIIES_TYPE_AUDIO_CHANNEL_COUNTS: {
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_AUDIO_CHANNEL_COUNTS: {
                     p_pac_record[i].supported_audio_channel_counts = cnf->pac_record[offset + j];
                     j++;
                     break;
                 }
-                case CODEC_SPECIFIC_CAPABILITIIES_TYPE_OCTETS_PER_CODEC_FRAME: {
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_OCTETS_PER_CODEC_FRAME_10MS:
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_OCTETS_PER_CODEC_FRAME_5MS:
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_LC3PLUS_OCTETS_PER_CODEC_FRAME_2P5MS:
+#endif
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_OCTETS_PER_CODEC_FRAME: {
                     memcpy(&p_pac_record[i].supported_octets_per_codec_frame_min, &(cnf->pac_record[offset + j]), sizeof(uint16_t));
                     j += 2;
                     memcpy(&p_pac_record[i].supported_octets_per_codec_frame_max, &(cnf->pac_record[offset + j]), sizeof(uint16_t));
                     j += 2;
                     break;
                 }
-                case CODEC_SPECIFIC_CAPABILITIIES_TYPE_CODEC_FRAME_BLOCKS_PER_SDU: {
+                case CODEC_SPECIFIC_CAPABILITIES_TYPE_CODEC_FRAME_BLOCKS_PER_SDU: {
                     p_pac_record[i].supported_codec_frame_blocks_per_sdu = cnf->pac_record[offset + j];
                     j++;
                     break;
@@ -4527,6 +4915,28 @@ static void app_le_audio_ucst_handle_read_ase_cnf(ble_ascs_read_ase_cnf_t *cnf)
             p_info->source_ase_num = (APP_LE_AUDIO_UCST_ASE_MAX_NUM - 4);
         }
         p_info->source_ase_idx = p_info->sink_ase_num;
+        if (g_lea_ucst_session_manager_cb) {
+            uint8_t index = 0;
+            app_dongle_session_manager_lea_param_t param;
+            memset(&param, 0, sizeof(app_dongle_session_manager_lea_param_t));
+            param.partner_connection_handle = BT_HANDLE_INVALID;
+            if (p_info->tmap_role & TMAP_ROLE_CT) {
+                param.profile |= 0x01;
+            }
+
+            if (p_info->tmap_role & TMAP_ROLE_UMR) {
+                param.profile |= 0x02;
+            }
+
+            for(index = 0; index < p_info->sink_pac.num_of_record; index++) {
+                param.sink_sampling_frequencies |= p_info->sink_pac.pac_record[index].supported_sampling_frequencies;
+            }
+
+            for(index = 0; index < p_info->source_pac.num_of_record; index++) {
+                param.source_sampling_frequencies |= p_info->source_pac.pac_record[index].supported_sampling_frequencies;
+            }
+            g_lea_ucst_session_manager_cb->lea_session_type_noify(p_info->handle, &param);
+        }
 
         /* enter next step */
         p_info->curr_state = APP_LE_AUDIO_UCST_LINK_STATE_READ_ASE;
@@ -4648,6 +5058,98 @@ static void app_le_audio_ucst_handle_bap_evt(ble_bap_event_t event, void *msg)
     app_le_audio_ba_handle_bap_client_evt(event, msg);
 #endif
 }
+
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+static void app_le_audio_ucst_handle_gmap_evt(ble_gmap_event_t event, void *msg)
+{
+    if (NULL == msg) {
+        return;
+    }
+
+    switch (event) {
+        case BLE_GMAP_READ_ROLE_CNF: {
+            ble_gmap_read_role_cnf_t *cnf = (ble_gmap_read_role_cnf_t *)msg;
+            app_le_audio_ucst_link_info_t *link_info = app_le_audio_ucst_get_link_info(cnf->handle);
+
+            LE_AUDIO_MSGLOG_I("[APP][GMAP] READ_ROLE_CNF, handle:%x role:%x link_info:%x ugg:%x ugt:%x bgs:%x bgr:%x", 7,
+                cnf->handle, cnf->role, link_info, cnf->ugg_feature, cnf->ugt_feature, cnf->bgs_feature, cnf->bgr_feature);
+
+            if (link_info) {
+                link_info->gmap_role = cnf->role;
+                link_info->ugg_feature = cnf->ugg_feature;
+                link_info->ugt_feature = cnf->ugt_feature;
+                link_info->bgs_feature = cnf->bgs_feature;
+                link_info->bgr_feature = cnf->bgr_feature;
+            }
+            break;
+        }
+
+        case BLE_GMAP_DISCOVER_SERVICE_COMPLETE_NOTIFY: {
+            ble_gmap_discover_service_complete_t *cnf = (ble_gmap_discover_service_complete_t *)msg;
+            app_le_audio_ucst_link_info_t *link_info = app_le_audio_ucst_get_link_info(cnf->handle);
+            uint8_t i = 0, link_idx = app_le_audio_ucst_get_link_idx(cnf->handle);
+#ifdef AIR_LE_AUDIO_MULTI_DEVICE_ENABLE
+            uint8_t tmp_link_idx = APP_LE_AUDIO_UCST_LINK_MAX_NUM;
+#endif
+
+            LE_AUDIO_MSGLOG_I("[APP][GMAP] DISCOVER_SERVICE_COMPLETE, handle:%x link_info:%x link_idx:%d group_id:%d group_size:%d", 5,
+                cnf->handle, link_info, link_idx,
+                link_info ? link_info->group_id : 0xFF,
+                link_info ? link_info->group_size : 0xFF);
+
+            if (!cnf->handle || !link_info ||
+                APP_LE_AUDIO_UCST_LINK_MAX_NUM <= link_idx ||
+                APP_LE_AUDIO_UCST_GROUP_ID_MAX <= link_info->group_id) {
+                if (cnf->handle) {
+                    app_le_audio_ucst_disconnect(cnf->handle);
+                }
+                break;
+            }
+
+            /* If the gmap role statues of the same group does not match, disconnect the current LE link.
+                     * CSIS discovery is before GMAP discovery. Group id and group size have been obtained.
+                     */
+#ifdef AIR_LE_AUDIO_MULTI_DEVICE_ENABLE
+            for (i = 0; i < APP_LE_AUDIO_UCST_GROUP_LINK_MAX_NUM; i++)  {
+                tmp_link_idx = g_lea_ucst_group_info[link_info->group_id].link_idx[i];
+                if (link_idx != tmp_link_idx &&
+                    APP_LE_AUDIO_UCST_LINK_MAX_NUM > tmp_link_idx &&
+                    g_lea_ucst_link_info[tmp_link_idx].gmap_discovery_complete &&
+                    ((BLE_GMAP_ROLE_MASK_UGT & g_lea_ucst_link_info[tmp_link_idx].gmap_role) !=
+                     (BLE_GMAP_ROLE_MASK_UGT & g_lea_ucst_link_info[link_idx].gmap_role))) {
+                    break;
+                }
+            }
+#else
+            for (i = 0; i < APP_LE_AUDIO_UCST_LINK_MAX_NUM; i++) {
+                if (link_idx != i &&
+                    g_lea_ucst_link_info[i].gmap_discovery_complete &&
+                    ((BLE_GMAP_ROLE_MASK_UGT & g_lea_ucst_link_info[i].gmap_role) !=
+                     (BLE_GMAP_ROLE_MASK_UGT & g_lea_ucst_link_info[link_idx].gmap_role))) {
+                    break;
+                }
+            }
+#endif
+
+#ifdef AIR_LE_AUDIO_MULTI_DEVICE_ENABLE
+            if (i < APP_LE_AUDIO_UCST_GROUP_LINK_MAX_NUM)
+#else
+            if (i < APP_LE_AUDIO_UCST_LINK_MAX_NUM)
+#endif
+            {
+                /* gmap role does not match to other LE link. Disconnect. */
+                app_le_audio_ucst_disconnect(cnf->handle);
+            } else {
+                link_info->gmap_discovery_complete = TRUE;
+            }
+
+            break;
+        }
+        default:
+            break;
+    }
+}
+#endif
 
 static uint16_t app_le_audio_ucst_handle_source_evt(bt_le_audio_source_event_t event, void *msg)
 {
@@ -4901,6 +5403,8 @@ void app_le_audio_ucst_handle_set_cig_parameter_cnf(bt_status_t ret, bt_gap_le_s
                       g_lea_ucst_ctrl.curr_target, g_lea_ucst_ctrl.next_target,
                       g_lea_ucst_ctrl.curr_stream_state, g_lea_ucst_ctrl.next_stream_state);
 
+    g_lea_ucst_ctrl.is_cig_created = true;
+
     if (APP_LE_AUDIO_UCST_STREAM_STATE_SET_CIG_PARAMETER != g_lea_ucst_ctrl.next_stream_state) {
         /* To do: check */
         return;
@@ -4908,8 +5412,6 @@ void app_le_audio_ucst_handle_set_cig_parameter_cnf(bt_status_t ret, bt_gap_le_s
 
     g_lea_ucst_ctrl.curr_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_SET_CIG_PARAMETER;
     g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_IDLE;
-
-    g_lea_ucst_ctrl.is_cig_created = true;
 
     if (APP_LE_AUDIO_UCST_CIS_MAX_NUM < cnf->cis_count) {
         cnf->cis_count = APP_LE_AUDIO_UCST_CIS_MAX_NUM;
@@ -5177,7 +5679,8 @@ void app_le_audio_ucst_handle_cis_established_ind(bt_status_t ret, bt_gap_le_cis
     if (app_le_audio_ucst_check_pause_stream() || (g_lea_ucst_ctrl.release) ||
         (APP_LE_AUDIO_UCST_TARGET_STOP_MEDIA_MODE == g_lea_ucst_ctrl.curr_target) ||
         (APP_LE_AUDIO_UCST_TARGET_STOP_CALL_MODE == g_lea_ucst_ctrl.curr_target)) {
-        app_le_audio_ucst_disable_ase_when_state_match(APP_LE_AUDIO_UCST_LINK_STATE_CREATE_CIS);
+        //app_le_audio_ucst_disable_ase_when_state_match(APP_LE_AUDIO_UCST_LINK_STATE_CREATE_CIS);
+        app_le_audio_ucst_disable_ase_when_allowed(false);
         return;
     }
 
@@ -5286,7 +5789,8 @@ void app_le_audio_ucst_handle_setup_iso_data_path_cnf(bt_status_t ret, bt_gap_le
     if (app_le_audio_ucst_check_pause_stream() ||
         (APP_LE_AUDIO_UCST_TARGET_STOP_MEDIA_MODE == g_lea_ucst_ctrl.curr_target) ||
         (APP_LE_AUDIO_UCST_TARGET_STOP_CALL_MODE == g_lea_ucst_ctrl.curr_target)) {
-        app_le_audio_ucst_disable_ase_when_setup_iso_data_path();
+        //app_le_audio_ucst_disable_ase_when_setup_iso_data_path();
+        app_le_audio_ucst_disable_ase_when_allowed(false);
         return;
     }
 
@@ -5479,11 +5983,14 @@ void app_le_audio_ucst_handle_cis_terminated_ind(bt_status_t ret, bt_gap_le_cis_
             app_le_audio_ucst_disconnect(g_lea_ucst_cis_info[cis_idx].cis_handle);
             return;
         } else if (BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST != ind->reason) {
-            /* When the LE link creates more than one CIS link, disconnect LE link if one of the CIS links disconnects because of CONNTECTION_TIMEOUT.
+            /* When the LE link creates more than one CIS link, disconnect LE link if one of the CIS links disconnects because of CONNECTION_TIMEOUT.
              * It may not be re-created successfully. Therefore, disconnect LE link and start over simply.
              */
             g_lea_ucst_link_info[link_idx].next_state = APP_LE_AUDIO_UCST_LINK_STATE_DISCONNECT_ACL;
-            app_le_audio_ucst_disconnect(g_lea_ucst_link_info[link_idx].handle);
+            //app_le_audio_ucst_disconnect(g_lea_ucst_link_info[link_idx].handle);
+            //if reason is BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST,BT_HCI_STATUS_REMOTE_TERMINATED_CONNECTION_DUE_TO_LOW_RESOURCES
+            //Headset change:  Headset will send general announcement flag ADV, Dongle will not connect it.
+            app_le_audio_ucst_disconnect_with_reason(g_lea_ucst_link_info[link_idx].handle, BT_HCI_STATUS_CONNECTION_TIMEOUT);
             return;
         }
 
@@ -5557,6 +6064,7 @@ void app_le_audio_ucst_handle_remove_cig_cnf(bt_status_t ret, bt_gap_le_remove_c
         /* To do: check */
         return;
     }
+    g_lea_ucst_iso_interval = 0x0000;
 
     g_lea_ucst_ctrl.curr_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_IDLE;
     g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_IDLE;
@@ -5708,11 +6216,17 @@ void app_le_audio_ucst_open_audio_transmitter_cb(void)
                     g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_SET_CIG_PARAMETER;
                     if (APP_LE_AUDIO_UCST_TEST_MODE_CIG_PARAM & g_lea_ucst_test_mode_flag) {
                         if (BT_STATUS_SUCCESS != app_le_audio_ucst_test_mode_set_cig_param()) {
-                            g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_IDLE;
+                            g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_STOP_AUDIO_STREAM;
+                            if (BT_STATUS_SUCCESS != app_le_audio_close_audio_transmitter()) {
+                                g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_IDLE;
+                            }
                         }
                     } else {
                         if (BT_STATUS_SUCCESS != app_le_audio_ucst_set_cig_parameters()) {
-                            g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_IDLE;
+                            g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_STOP_AUDIO_STREAM;
+                            if (BT_STATUS_SUCCESS != app_le_audio_close_audio_transmitter()) {
+                                g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_IDLE;
+                            }
                         }
                     }
                 }
@@ -5963,11 +6477,16 @@ uint8_t app_le_audio_ucst_get_streaming_port(void)
     return streaming_port;
 }
 
-uint16_t app_le_audio_ucst_get_audio_context_type(void)
+uint16_t app_le_audio_ucst_get_audio_context_type_ex(app_le_audio_qos_params_type_t qos_params_type)
 {
     uint16_t context_type;
 
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
     /* get context type */
+    if (APP_LE_AUDIO_QOS_PARAMS_TYPE_GMAP == qos_params_type) {
+        context_type = AUDIO_CONTENT_TYPE_GAME;
+    } else
+#endif
     if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
         context_type = (g_lea_ucst_qos_params_spk_0.sampling_freq == g_lea_ucst_qos_params_mic_0.sampling_freq) ? AUDIO_CONTENT_TYPE_CONVERSATIONAL : AUDIO_CONTENT_TYPE_GAME;
     } else {
@@ -5976,6 +6495,17 @@ uint16_t app_le_audio_ucst_get_audio_context_type(void)
 
     LE_AUDIO_MSGLOG_I("[APP][U] get_audio_context_type, context_type:%04x", 1, context_type);
     return context_type;
+}
+
+uint16_t app_le_audio_ucst_get_audio_context_type(void)
+{
+    app_le_audio_qos_params_type_t qos_params_type = APP_LE_AUDIO_QOS_PARAMS_TYPE_NORMAL;
+
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    app_le_audio_ucst_get_qos_params_type(&qos_params_type);
+#endif
+
+    return app_le_audio_ucst_get_audio_context_type_ex(qos_params_type);
 }
 
 app_le_audio_ase_codec_t * app_le_audio_ucst_get_ase_codec_config(uint16_t context_type, bt_le_audio_direction_t direction)
@@ -6117,6 +6647,98 @@ bt_status_t app_le_audio_ucst_check_ase_codec_config(bt_handle_t handle)
     return ret;
 }
 
+bt_status_t app_le_audio_ucst_clear_ase_audio_contexts(bt_handle_t handle, app_le_audio_ucst_codec_info_t *sink, app_le_audio_ucst_codec_info_t *source)
+{
+    app_le_audio_ucst_link_info_t *p_info = NULL;
+    bt_status_t ret = BT_STATUS_SUCCESS;
+    uint8_t ase_idx = 0, sink_ase_num = 0, source_ase_num = 0;
+
+    if (NULL == (p_info = app_le_audio_ucst_get_link_info(handle))) {
+        LE_AUDIO_MSGLOG_I("[APP][ASE] clear ase audio_contexts, handle:%x NOT_FOUND", 1, handle);
+        return BT_STATUS_CONNECTION_NOT_FOUND;
+    }
+
+    if (APP_LE_AUDIO_UCST_LINK_STATE_CONFIG_ASE_QOS < p_info->curr_state) {
+        LE_AUDIO_MSGLOG_I("[APP][ASE] clear ase audio_contexts, handle:%x curr_state:%x", 2, handle, p_info->curr_state);
+        return BT_STATUS_BUSY;
+    }
+
+
+    /* get the num of SINK ASE to be configured */
+    sink_ase_num = app_le_audio_ucst_get_sink_ase_num(p_info);
+
+#if 0 // For Airoha device
+    if ((APP_LE_AUDIO_UCST_CREATE_CIS_WITH_AC_1 > g_lea_ucst_ctrl.create_cis_mode) &&
+        (0 != p_info->sink_location_num) && (p_info->sink_ase_num >= (p_info->sink_location_num * 2))) {
+        sink_ase_num = (p_info->sink_location_num * 2); /* call mode and media mode */
+    }
+#endif
+    /* get the num of SOURCE ASE to be configured */
+    source_ase_num = app_le_audio_ucst_get_source_ase_num(p_info);
+
+    uint8_t i;
+
+    /* SINK ASE */
+    for (i = 0; (i < sink_ase_num) && (NULL != sink); i++) {
+        if (p_info->sink_ase_num < (sink_ase_num * APP_LE_AUDIO_UCST_MAX_MODE_NUM)) {
+            ase_idx = i;
+        } else {
+            /* config SINK ASE for media and call */
+            /* earbuds: media(ase[0]), call(ase[1]) */
+            /* headset: media(ase[0], ase[1]), call(ase[2], ase[3]) */
+            if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
+                /* call mode */
+                ase_idx = sink_ase_num + i;
+            } else {
+                /* media mode */
+                ase_idx = i;
+            }
+
+        }
+
+        if (p_info->ase[ase_idx].curr_state > ASE_STATE_QOS_CONFIGURED) {
+            return BT_STATUS_UNSUPPORTED;
+        }
+
+        if ((p_info->ase[ase_idx].curr_state == ASE_STATE_IDLE)
+            || ((p_info->ase[ase_idx].codec_state.sampling_frequency != sink->sampling_freq) && (0xFF != sink->sampling_freq))
+            || ((p_info->ase[ase_idx].codec_state.frame_duration != sink->frame_duration) && (0xFF != sink->frame_duration))
+            || ((p_info->ase[ase_idx].codec_state.codec_frame_blocks_per_sdu != sink->octets_per_codec_frame) && (0xFFFF != sink->octets_per_codec_frame))) {
+            LE_AUDIO_MSGLOG_I("[APP][ASE] clear sink ase audio_contexts, handle:%x ASE[%d]: audio_contexts:%04x -> 0x0000", 3,
+                                handle,
+                                ase_idx,
+                                p_info->ase[ase_idx].codec_state.audio_contexts);
+
+            p_info->ase[ase_idx].codec_state.audio_contexts = AUDIO_CONTENT_TYPE_NOT_AVAILABLE;
+        }
+
+    }
+
+    /* SOURCE ASE */
+    if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
+        for (i = 0; (i < source_ase_num) && (NULL != source); i++) {
+            ase_idx = p_info->source_ase_idx + i;
+
+            if (p_info->ase[ase_idx].curr_state > ASE_STATE_QOS_CONFIGURED) {
+                return BT_STATUS_UNSUPPORTED;
+            }
+            if ((p_info->ase[ase_idx].curr_state == ASE_STATE_IDLE)
+                || ((p_info->ase[ase_idx].codec_state.sampling_frequency != source->sampling_freq) && (CODEC_CONFIGURATION_SAMPLING_FREQ_96KHZ >= source->sampling_freq))
+                || ((p_info->ase[ase_idx].codec_state.frame_duration != source->frame_duration) && (FRAME_DURATIONS_LC3PLUS_2P5_MS >= source->frame_duration))
+                || ((p_info->ase[ase_idx].codec_state.codec_frame_blocks_per_sdu != source->octets_per_codec_frame) && (0xFFFF != source->octets_per_codec_frame))) {
+
+                LE_AUDIO_MSGLOG_I("[APP][ASE] clear source ase audio_contexts, handle:%x ASE[%d] audio_contexts:%04x -> 0x0000", 3,
+                                    handle,
+                                    ase_idx,
+                                    p_info->ase[ase_idx].codec_state.audio_contexts);
+
+                p_info->ase[ase_idx].codec_state.audio_contexts = AUDIO_CONTENT_TYPE_NOT_AVAILABLE;
+            }
+        }
+    }
+
+    return ret;
+}
 
 void app_le_audio_ucst_start(void)
 {
@@ -6125,7 +6747,7 @@ void app_le_audio_ucst_start(void)
     bool bidirectional = false, is_ready = false;
 
     if (APP_LE_AUDIO_UCST_PAUSE_STREAM_ALL <= g_lea_ucst_ctrl.pause_stream) {
-        LE_AUDIO_MSGLOG_I("[APP][U] start, p:%x", g_lea_ucst_ctrl.pause_stream);
+        LE_AUDIO_MSGLOG_I("[APP][U] start, p:%x", 1, g_lea_ucst_ctrl.pause_stream);
         return;
     }
 
@@ -6134,6 +6756,16 @@ void app_le_audio_ucst_start(void)
                       g_lea_ucst_ctrl.curr_stream_state, g_lea_ucst_ctrl.next_stream_state,
                       g_lea_ucst_ctrl.pause_stream, g_lea_ucst_ctrl.release,
                       g_lea_ucst_ctrl.create_cis_mode, streaming_port);
+
+    if (app_le_audio_ucst_is_delay_disconnect_timer_exist()) {
+        LE_AUDIO_MSGLOG_I("[APP][U] start, streaming_port stop timer has not timeout!", 0);
+        return;
+    }
+
+    if((APP_LE_AUDIO_UCST_STREAM_STATE_STOP_AUDIO_STREAM == g_lea_ucst_ctrl.next_stream_state) ||
+        (APP_LE_AUDIO_UCST_STREAM_STATE_REMOVE_CIG == g_lea_ucst_ctrl.next_stream_state)) {
+        return;
+    }
 
 #ifdef AIR_SILENCE_DETECTION_ENABLE
     /* Stop special silence detection mode first if it exists. */
@@ -6345,6 +6977,38 @@ void app_le_audio_ucst_start(void)
             i = tmp;
 #endif
             p_info = &g_lea_ucst_link_info[i];
+            if(BT_HANDLE_INVALID == p_info->handle) {
+                continue;
+            }
+            if (g_lea_ucst_session_manager_cb) {
+                app_dongle_session_manager_lea_session_info_t session_info;
+                app_dongle_session_manager_session_usage_t session_usage = APP_DONGLE_SESSION_MGR_SESSION_USAGE_MEDIA;
+                if (APP_LE_AUDIO_UCST_IS_CALL_MODE) {
+                    session_usage = APP_DONGLE_SESSION_MGR_SESSION_USAGE_COMMUNICATION;
+                }
+                if (BT_STATUS_SUCCESS == g_lea_ucst_session_manager_cb->lea_session_negotiation(p_info->handle, session_usage, &session_info)){
+
+                    if ((p_info->session_info[session_usage].sink_sample_freq != session_info.sink_sample_freq)
+                        || (p_info->session_info[session_usage].source_sample_freq != session_info.source_sample_freq)) {
+                        app_le_audio_ucst_codec_info_t sink = {
+                        .sampling_freq = session_info.sink_sample_freq,
+                        .frame_duration = 0xFF,
+                        .octets_per_codec_frame = 0xFFFF
+                        };
+                        app_le_audio_ucst_codec_info_t source = {
+                            .sampling_freq = session_info.source_sample_freq,
+                            .frame_duration = 0xFF,
+                            .octets_per_codec_frame = 0xFFFF
+                            };
+                        app_le_audio_ucst_clear_ase_audio_contexts(p_info->handle, &sink, &source);
+                        memcpy(&p_info->session_info[session_usage], &session_info, sizeof(app_dongle_session_manager_lea_session_info_t));
+                    }
+
+                }
+                else {
+                    return;
+                }
+            }
 
             if ((APP_LE_AUDIO_UCST_LINK_STATE_SETUP_ISO_DATA_PATH > p_info->curr_state) || (APP_LE_AUDIO_UCST_TARGET_NONE != g_lea_ucst_ctrl.next_target)) {
                 app_le_audio_ucst_increase_connection_config_speed(p_info->handle);
@@ -6466,13 +7130,18 @@ void app_le_audio_ucst_start(void)
             (APP_LE_AUDIO_UCST_STREAM_STATE_IDLE == g_lea_ucst_ctrl.next_stream_state)) {
 
             g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_STOP_STREAMING;
-
+#if 0
             if (0 != app_le_audio_ucst_get_cis_num()) {
                 if (app_le_audio_ucst_disable_ase_when_state_match_streaming(false)) {
                     return;
                 }
             }
+#else
+            if (app_le_audio_ucst_disable_ase_when_allowed(false)) {
+                return;
+            }
 
+#endif
             g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_STOP_AUDIO_STREAM;
             if (BT_STATUS_SUCCESS != app_le_audio_close_audio_transmitter()) {
                 g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_IDLE;
@@ -6605,10 +7274,15 @@ bool app_le_audio_ucst_stop(bool restart)
         g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_STOP_STREAMING;
         //New interval will be updated after interval*8 = 480ms, CIS is disconnecting at that time.
         app_le_audio_ucst_increase_active_device_config_speed();
-
+#if 0
         if (app_le_audio_ucst_disable_ase_when_state_match_streaming(true)) {
             return true;
         }
+#else
+        if (app_le_audio_ucst_disable_ase_when_allowed(true)) {
+            return true;
+        }
+#endif
 
         if (0 != app_le_audio_ucst_get_cis_num()) {
             g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_STOP_AUDIO_STREAM;
@@ -6617,6 +7291,15 @@ bool app_le_audio_ucst_stop(bool restart)
             }
         }
 
+    }
+    else if (((APP_LE_AUDIO_UCST_TARGET_STOP_CALL_MODE == g_lea_ucst_ctrl.curr_target) ||
+        (APP_LE_AUDIO_UCST_TARGET_STOP_MEDIA_MODE == g_lea_ucst_ctrl.curr_target))&&
+        ((APP_LE_AUDIO_UCST_STREAM_STATE_SET_CIG_PARAMETER == g_lea_ucst_ctrl.next_stream_state) ||
+        (APP_LE_AUDIO_UCST_STREAM_STATE_START_AUDIO_STREAM == g_lea_ucst_ctrl.next_stream_state))) {
+        g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_STOP_AUDIO_STREAM;
+        if (BT_STATUS_SUCCESS != app_le_audio_close_audio_transmitter()) {
+            g_lea_ucst_ctrl.next_stream_state = APP_LE_AUDIO_UCST_STREAM_STATE_IDLE;
+        }
     }
 
     return true;
@@ -6709,7 +7392,7 @@ void app_le_audio_ucst_reset_param(void)
     g_lea_ucst_ctrl.curr_group = APP_LE_AUDIO_UCST_GROUP_ID_INVALID;
     g_lea_ucst_ctrl.next_group = APP_LE_AUDIO_UCST_GROUP_ID_INVALID;
     g_lea_ucst_ctrl.latest_group = APP_LE_AUDIO_UCST_GROUP_ID_INVALID;
-
+    g_lea_ucst_ctrl.qos_params_type = APP_LE_AUDIO_QOS_PARAMS_TYPE_NORMAL;
 
 
     /* reset cis info */
@@ -6737,6 +7420,11 @@ void app_le_audio_ucst_init(void)
 
     ble_tmap_init(app_le_audio_ucst_handle_tmap_evt, APP_LE_AUDIO_UCST_LINK_MAX_NUM);
 
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    ble_gmap_init(app_le_audio_ucst_handle_gmap_evt, APP_LE_AUDIO_UCST_LINK_MAX_NUM);
+    ble_gmas_init();
+#endif
+
     ble_vcp_enhance_init(app_le_audio_vcp_handle_evt, APP_LE_AUDIO_UCST_LINK_MAX_NUM);
 
     ble_micp_enhance_init(app_le_audio_micp_handle_evt, APP_LE_AUDIO_UCST_LINK_MAX_NUM);
@@ -6748,5 +7436,30 @@ void app_le_audio_ucst_init(void)
 #endif
 }
 
+void app_le_audio_ucst_register_session_negotiation_callback(app_dongle_session_manager_lea_handle_t *callback)
+{
+    if (callback && callback->lea_session_type_noify && callback->lea_session_disconnected && callback->lea_session_negotiation) {
+        g_lea_ucst_session_manager_cb = callback;
+    }
+}
+
+bt_status_t app_le_audio_vendor_event_callback(uint32_t is_timeout, uint32_t timer_id, uint32_t data, const void *hci_data)
+{
+    //bt_hci_le_packet_t *packet = (bt_hci_le_packet_t *)hci_data;
+    uint8_t event_type = *((uint8_t *)hci_data + 1);
+    //uint8_t sub_event_length = *((uint8_t *)hci_data + 2);//length of sub_event and parameter
+    uint8_t sub_event = *((uint8_t *)hci_data + 3);
+    if (APP_LE_AUDIO_HCI_VENDOR_EVENT == event_type) {
+        if (APP_LE_AUDIO_HCI_VENDOR_SUBEVT_CIG_INFO == sub_event) {
+            uint8_t cig_id = *((uint8_t *)hci_data + 4);
+            uint16_t iso_interval;
+            memcpy(&iso_interval,((uint8_t *)hci_data + 5),sizeof(uint16_t));
+            g_lea_ucst_iso_interval = iso_interval;
+            LE_AUDIO_MSGLOG_I("[APP] app_le_audio_vendor_event_callback, cig_id:0x%02x iso_interval:0x%04x", 2, cig_id, iso_interval);
+        }
+    }
+
+    return BT_STATUS_SUCCESS;
+}
 #endif  /* AIR_LE_AUDIO_ENABLE */
 

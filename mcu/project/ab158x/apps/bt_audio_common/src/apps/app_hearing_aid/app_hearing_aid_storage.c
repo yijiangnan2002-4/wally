@@ -43,6 +43,9 @@
 #include "assert.h"
 #include "stdlib.h"
 #include "string.h"
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+#include "audio_set_driver.h"
+#endif
 
 #define APP_HEARING_AID_STG_TAG "[HearingAid][Storage]"
 
@@ -54,7 +57,8 @@ typedef struct {
     uint8_t     a2dp_mix_switch : 1;
     uint8_t     sco_mix_switch : 1;
     uint8_t     vp_mix_switch : 1;
-    uint8_t     reserved_2 : 5;
+    uint8_t     music_operate_ha_delay_switch : 1;
+    uint8_t     music_operate_ha_delay_time : 4; // max : 15
     uint8_t     reserved_bytes[4];
 } __attribute__((packed)) app_hearing_aid_user_configuration_t;
 
@@ -91,14 +95,20 @@ bool app_hearing_aid_storage_load()
         }
     }
 
-    APPS_LOG_MSGID_I(APP_HEARING_AID_STG_TAG"[app_hearing_aid_storage_load][SYNC_SWITCH] level : %d, volume : %d, in_ear : %d, a2dp_mix : %d, sco_mix : %d, vp_mix : %d",
-                        6,
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+        hal_audio_status_send_update_dac_mode_event_to_am(HAL_AUDIO_HA_DAC_FLAG_A2DP_MIX_MODE, user_config.a2dp_mix_switch);
+        hal_audio_status_send_update_dac_mode_event_to_am(HAL_AUDIO_HA_DAC_FLAG_SCO_MIX_MODE, user_config.sco_mix_switch);
+#endif
+
+    APPS_LOG_MSGID_I(APP_HEARING_AID_STG_TAG"[app_hearing_aid_storage_load][Load] level : %d, volume : %d, in_ear : %d, a2dp_mix : %d, sco_mix : %d, a2dp_delay_switch : %d, a2dp_delay_time : %d",
+                        7,
                         user_config.level_sync_switch,
                         user_config.volume_sync_switch,
                         user_config.in_ear_detection_switch,
                         user_config.a2dp_mix_switch,
                         user_config.sco_mix_switch,
-                        user_config.vp_mix_switch);
+                        user_config.music_operate_ha_delay_switch,
+                        user_config.music_operate_ha_delay_time);
 
     memcpy(&user_config_from_nvkey, &user_config, APP_HEARING_AID_USER_CONFIG_LEN);
 
@@ -183,25 +193,33 @@ bool app_hearing_aid_storage_set_vp_mix_switch(bool vp_mix)
     return false;
 }
 
+void app_hearing_aid_storage_get_music_operate_ha_configuration(bool *music_operate_ha_switch, uint8_t *delay_time)
+{
+    *music_operate_ha_switch = user_config.music_operate_ha_delay_switch;
+    *delay_time = user_config.music_operate_ha_delay_time;
+}
+
 bool app_hearing_aid_storage_save_configuration()
 {
-    APPS_LOG_MSGID_I(APP_HEARING_AID_STG_TAG"[app_hearing_aid_storage_save_configuration] level : %d, volume : %d, in_ear : %d, a2dp_mix : %d, sco_mix : %d, vp_mix : %d",
-                        6,
+    APPS_LOG_MSGID_I(APP_HEARING_AID_STG_TAG"[app_hearing_aid_storage_save_configuration] level : %d, volume : %d, in_ear : %d, a2dp_mix : %d, sco_mix : %d, a2dp_delay_switch : %d, a2dp_delay_time : %d",
+                        7,
                         user_config.level_sync_switch,
                         user_config.volume_sync_switch,
                         user_config.in_ear_detection_switch,
                         user_config.a2dp_mix_switch,
                         user_config.sco_mix_switch,
-                        user_config.vp_mix_switch);
+                        user_config.music_operate_ha_delay_switch,
+                        user_config.music_operate_ha_delay_time);
 
-    APPS_LOG_MSGID_I(APP_HEARING_AID_STG_TAG"[app_hearing_aid_storage_save_configuration] - nvkey level : %d, volume : %d, in_ear : %d, a2dp_mix : %d, sco_mix : %d, vp_mix : %d",
-                        6,
+    APPS_LOG_MSGID_I(APP_HEARING_AID_STG_TAG"[app_hearing_aid_storage_save_configuration] - nvkey level : %d, volume : %d, in_ear : %d, a2dp_mix : %d, sco_mix : %d, a2dp_delay_switch : %d, a2dp_delay_time : %d",
+                        7,
                         user_config_from_nvkey.level_sync_switch,
                         user_config_from_nvkey.volume_sync_switch,
                         user_config_from_nvkey.in_ear_detection_switch,
                         user_config_from_nvkey.a2dp_mix_switch,
                         user_config_from_nvkey.sco_mix_switch,
-                        user_config_from_nvkey.vp_mix_switch);
+                        user_config_from_nvkey.music_operate_ha_delay_switch,
+                        user_config_from_nvkey.music_operate_ha_delay_time);
 
     if (memcmp(&user_config, &user_config_from_nvkey, APP_HEARING_AID_USER_CONFIG_LEN) == 0) {
         return true;
@@ -230,14 +248,15 @@ bool app_hearing_aid_storage_save_configuration()
 
 bool app_hearing_aid_storage_restore(bool *need_update)
 {
-    APPS_LOG_MSGID_I(APP_HEARING_AID_STG_TAG"[app_hearing_aid_storage_restore][Restore] level : %d, volume : %d, in_ear : %d, a2dp_mix : %d, sco_mix : %d, vp_mix : %d",
-                        6,
+    APPS_LOG_MSGID_I(APP_HEARING_AID_STG_TAG"[app_hearing_aid_storage_restore][Restore] level : %d, volume : %d, in_ear : %d, a2dp_mix : %d, sco_mix : %d, a2dp_delay_switch : %d, a2dp_delay_time : %d",
+                        7,
                         default_config.level_sync_switch,
                         default_config.volume_sync_switch,
                         default_config.in_ear_detection_switch,
                         default_config.a2dp_mix_switch,
                         default_config.sco_mix_switch,
-                        default_config.vp_mix_switch);
+                        default_config.music_operate_ha_delay_switch,
+                        default_config.music_operate_ha_delay_time);
 
     *need_update = false;
     if (memcmp(&user_config, &default_config, APP_HEARING_AID_USER_CONFIG_LEN) != 0) {
@@ -282,14 +301,15 @@ void app_hearing_aid_storage_sync_user_configuration(uint8_t *buf, uint8_t buf_l
     memcpy(&user_config, buf, APP_HEARING_AID_USER_CONFIG_LEN);
     // memcpy(&user_config_from_nvkey, buf, APP_HEARING_AID_USER_CONFIG_LEN);
 
-    APPS_LOG_MSGID_I(APP_HEARING_AID_STG_TAG"[app_hearing_aid_storage_sync_user_configuration][SYNC] level : %d, volume : %d, in_ear : %d, a2dp_mix : %d, sco_mix : %d, vp_mix : %d",
-                        6,
+    APPS_LOG_MSGID_I(APP_HEARING_AID_STG_TAG"[app_hearing_aid_storage_sync_user_configuration][SYNC] level : %d, volume : %d, in_ear : %d, a2dp_mix : %d, sco_mix : %d, a2dp_delay_switch : %d, a2dp_delay_time : %d",
+                        7,
                         user_config.level_sync_switch,
                         user_config.volume_sync_switch,
                         user_config.in_ear_detection_switch,
                         user_config.a2dp_mix_switch,
                         user_config.sco_mix_switch,
-                        user_config.vp_mix_switch);
+                        user_config.music_operate_ha_delay_switch,
+                        user_config.music_operate_ha_delay_time);
 }
 
 uint8_t *app_hearing_aid_storage_get_user_configuration(uint8_t *config_len)

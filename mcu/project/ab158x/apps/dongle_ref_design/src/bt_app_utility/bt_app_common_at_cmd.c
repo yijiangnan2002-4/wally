@@ -1724,6 +1724,7 @@ static uint32_t bt_app_comm_at_cmd_le_audio_volume_hdl(char *pChar)
 }
 
 extern bool g_lea_bcst_pa_is_include_meatadata;
+extern uint8_t g_lea_bcst_config_bis_num;
 static uint32_t bt_app_comm_at_cmd_le_audio_broadcast_hdl(char *pChar)
 {
 #ifdef AIR_LE_AUDIO_BIS_ENABLE
@@ -1745,6 +1746,17 @@ static uint32_t bt_app_comm_at_cmd_le_audio_broadcast_hdl(char *pChar)
     } else if (0 == memcmp(pChar, "SET_METADATA_FALSE", 18)) {
         /* AT+LEAUDIO=BROADCAST,SET_METADATA_FALSE */
         g_lea_bcst_pa_is_include_meatadata = false;
+
+    } else if (0 == memcmp(pChar, "SET_BIS_NUM", 11)) {
+        /* AT+LEAUDIO=BROADCAST,SET_BIS_NUM,<num_of_bis> */
+        unsigned int value;
+        pChar = strchr(pChar, ',');
+        pChar++;
+        if (sscanf(pChar, "%2x", &value) > 0) {
+            if (1 == value || 2 == value) {
+                g_lea_bcst_config_bis_num = (uint8_t)value;
+            }
+        }
 
     } else if (0 == memcmp(pChar, "CODE", 4)) {
         /* AT+LEAUDIO=BROADCAST,CODE */
@@ -2038,7 +2050,58 @@ static uint32_t bt_app_comm_at_cmd_le_audio_config_hdl(char *pChar)
             return ATCI_RESPONSE_FLAG_APPEND_ERROR;
 #endif
         }
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    } else if (0 == memcmp(pChar, "GMAP", 4)) {
+        uint8_t port = 0;
+        bool ret = FALSE;
 
+        pChar += 4;
+        /* AT+LEAUDIO=CONFIG,GMAP,<MODE>,<sel_setting><audio_config_level> */
+
+        pChar = strchr(pChar, ',');
+        pChar++;
+
+        if (0 == memcmp(pChar, "SPK_0", 5)) {
+            port = 0;
+        } else if (0 == memcmp(pChar, "SPK_1", 5)) {
+            port = 1;
+        } else if (0 == memcmp(pChar, "MIC_0", 5)) {
+            port = 2;
+        } else if (0 == memcmp(pChar, "BROADCAST", 9)) {
+            port = 3;
+        } else {
+            return ATCI_RESPONSE_FLAG_APPEND_ERROR;
+        }
+
+        pChar = strchr(pChar, ',');
+        pChar++;
+
+        uint8_t sel_setting = atoi(pChar);
+        pChar = strchr(pChar, ',');
+        pChar++;
+
+        uint8_t audio_config_level = atoi(pChar);
+        pChar = strchr(pChar, ',');
+        pChar++;
+
+        if (port < APP_LE_AUDIO_UCST_STREAM_PORT_MAX) {
+#ifdef AIR_LE_AUDIO_UNICAST_ENABLE
+            ret = app_le_audio_ucst_gmap_set_qos_params(sel_setting, audio_config_level, port);
+            if (!ret)
+#endif
+            {
+                return ATCI_RESPONSE_FLAG_APPEND_ERROR;
+            }
+        } else {
+#ifdef AIR_LE_AUDIO_BIS_ENABLE
+            ret = app_le_audio_bcst_gmap_set_qos_params(sel_setting, audio_config_level);
+            if (!ret)
+#endif
+            {
+                return ATCI_RESPONSE_FLAG_APPEND_ERROR;
+            }
+        }
+#endif
     } else {
         return ATCI_RESPONSE_FLAG_APPEND_ERROR;
     }
@@ -4225,7 +4288,7 @@ static uint32_t bt_app_comm_at_cmd_ull_hid_conn_hdl(char *pChar)
         addr.addr[2] = addr_2;
         addr.addr[1] = addr_1;
         addr.addr[0] = addr_0;
-        app_dongle_ull_le_hid_connect_device(device_type, &addr);
+        app_dongle_ull_le_hid_connect_device(device_type, &addr, false);
         return  ATCI_RESPONSE_FLAG_APPEND_OK;
     }
 

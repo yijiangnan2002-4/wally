@@ -58,7 +58,7 @@
 #define USB_EVENT_LOG_E(msg, ...)     APPS_LOG_MSGID_E("[USB_EVENT]"msg, ##__VA_ARGS__)
 #define USB_EVENT_LOG_D(msg, ...)     APPS_LOG_MSGID_D("[USB_EVENT]"msg, ##__VA_ARGS__)
 
-#define USB_PORT_MAXIMUN_NUMBER 3
+#define USB_PORT_MAXIMUM_NUMBER 3
 
 typedef struct {
     app_usb_audio_port_t port_type;         /* spk/mic */
@@ -69,8 +69,8 @@ typedef struct {
     int32_t right_db;
 } app_usb_volume_data_t;
 
-static app_usb_volume_data_t app_usb_volume[USB_PORT_MAXIMUN_NUMBER]; /* 0:chat,1:gaming,2:mic */
-static app_usb_volume_data_t app_usb_volume_cache[USB_PORT_MAXIMUN_NUMBER]; /* 0:chat,1:gaming,2:mic */
+static app_usb_volume_data_t app_usb_volume[USB_PORT_MAXIMUM_NUMBER]; /* 0:chat,1:gaming,2:mic */
+static app_usb_volume_data_t app_usb_volume_cache[USB_PORT_MAXIMUM_NUMBER]; /* 0:chat,1:gaming,2:mic */
 
 /* flag to check volume delay timer is start or not */
 static volatile bool app_is_delay_timer_start = false;
@@ -167,7 +167,7 @@ void apps_event_usb_event_init()
     app_usb_volume[2].left_volume = 0xFF;   /* invalid volume */
     app_usb_volume[2].right_volume = 0xFF;  /* invalid volume */
     /* init cache volume */
-    memcpy(app_usb_volume_cache, app_usb_volume, sizeof(app_usb_volume_data_t)*USB_PORT_MAXIMUN_NUMBER);
+    memcpy(app_usb_volume_cache, app_usb_volume, sizeof(app_usb_volume_data_t)*USB_PORT_MAXIMUM_NUMBER);
 #ifdef AIR_USB_HID_ENABLE
     usb_hid_srv_init(apps_event_usb_hid_srv_event_callback);
 #endif
@@ -931,7 +931,7 @@ static void apps_event_usb_simulater_callback(void)
                             (void *)p_vol, sizeof(app_events_usb_volume_t), NULL, 0);
     }
 
-    memcpy(app_usb_volume_cache, app_usb_volume, sizeof(app_usb_volume_data_t)*USB_PORT_MAXIMUN_NUMBER);
+    memcpy(app_usb_volume_cache, app_usb_volume, sizeof(app_usb_volume_data_t)*USB_PORT_MAXIMUM_NUMBER);
     app_is_delay_timer_start = false;    /* reinit volume delay timer flag */
 }
 #endif

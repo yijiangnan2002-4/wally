@@ -96,6 +96,8 @@ extern const char BT_LE_AUDIO_006[];
 extern const char BT_LE_AUDIO_007[];
 extern const char BT_LE_AUDIO_008[];
 extern const char BT_LE_AUDIO_009[];
+extern const char BT_LE_AUDIO_010[];
+extern const char BT_LE_AUDIO_011[];
 
 /* CCP */
 extern const char BT_LE_AUDIO_CCP_000[];
@@ -307,6 +309,17 @@ extern const char BT_LE_AUDIO_BAPC_000[];
 extern const char BT_LE_AUDIO_BAPC_001[];
 extern const char BT_LE_AUDIO_BAPC_002[];
 extern const char BT_LE_AUDIO_BAPC_003[];
+
+/* GMAS */
+extern const char BT_LE_AUDIO_GMAS_001[];
+extern const char BT_LE_AUDIO_GMAS_002[];
+
+/* GMAP */
+extern const char BT_LE_AUDIO_GMAP_001[];
+extern const char BT_LE_AUDIO_GMAP_002[];
+extern const char BT_LE_AUDIO_GMAP_003[];
+extern const char BT_LE_AUDIO_GMAP_004[];
+extern const char BT_LE_AUDIO_GMAP_005[];
 
 #endif  /* __BT_LE_AUDIO_LOG_H__ */
 

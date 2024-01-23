@@ -262,6 +262,10 @@ typedef enum {
     FUNC_HEARTHROUGH_POST_PROC     = 0x87,             /**< Basic FUNCTION type: FUNC_HEARTHROUGH_POST_PROC. */
     FUNC_AUDIO_VOLUME_MONITOR      = 0x88,           /**< Basic FUNCTION type: FUNC_AUDIO_VOLUME_MONITOR. */
     FUNC_HW_VIVID_PT               = 0x89,             /**< Basic FUNCTION type: FUNC_HW_VIVID_PT. */
+    FUNC_CH_SEL_MULTISTREAM_MEMCPY = 0x8A,              /**< Basic FUNCTION type: FUNC_CH_SEL_MULTISTREAM_MEMCPY. */
+    FUNC_CH_SEL_MULTISTREAM_ADD_LATENCY = 0x8B,         /**< Basic FUNCTION type: FUNC_CH_SEL_MULTISTREAM_ADD_LATENCY. */
+    FUNC_DL_SW_GAIN                = 0x8C,          /**< Basic FUNCTION type: change LR output gain. */
+    FUNC_LINE_IN_POST_PEQ          = 0x8D,             /**< Basic FUNCTION type: FUNC_LINE_IN_POST_PEQ */
     FUNC_SAMPLE,                                /**< FUNCTION type: example for customer. */
 
     DSP_FEATURE_MAX_NUM,
@@ -782,10 +786,11 @@ EXTERN stream_feature_list_t stream_featuremulti_adaptive_eq_monitor[];
 #endif
 
 #ifdef AIR_DCHS_MODE_ENABLE
-EXTERN stream_feature_list_t stream_feature_list_dchs_dl_right[];
-EXTERN stream_feature_list_t stream_feature_list_dchs_dl_left[];
 EXTERN stream_feature_list_t stream_feature_list_dchs_uart_ul_right[];
-EXTERN stream_feature_list_t stream_feature_list_dchs_uart_ul_left[];
+EXTERN stream_feature_list_t stream_feature_list_dchs_uart_ul_left_wb[];
+EXTERN stream_feature_list_t stream_feature_list_dchs_uart_ul_left_swb[];
+EXTERN stream_feature_list_t stream_feature_list_dchs_uart_ul_left_wb_sw_gain[];
+EXTERN stream_feature_list_t stream_feature_list_dchs_uart_ul_left_swb_sw_gain[];
 #endif
 
 #ifdef AIR_BT_AUDIO_DONGLE_ENABLE

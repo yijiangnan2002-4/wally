@@ -32,8 +32,8 @@
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
 
-#ifndef __APP_LE_AUDIO_AIRD_UTILLITY_H__
-#define __APP_LE_AUDIO_AIRD_UTILLITY_H__
+#ifndef __APP_LE_AUDIO_AIRD_UTILITY_H__
+#define __APP_LE_AUDIO_AIRD_UTILITY_H__
 
 #ifdef AIR_LE_AUDIO_ENABLE
 
@@ -79,7 +79,7 @@ typedef uint8_t app_le_audio_aird_block_stream_t;
 typedef uint8_t app_le_audio_aird_event_t;
 
 /* AIRD mode */
-#define APP_LE_AUDIO_AIRD_MODE_NORMOL                           0
+#define APP_LE_AUDIO_AIRD_MODE_NORMAL                           0
 #define APP_LE_AUDIO_AIRD_MODE_SUPPORT_HID_CALL                 1
 typedef uint8_t app_le_audio_aird_mode_t;
 
@@ -125,6 +125,6 @@ typedef struct {
 }) app_le_audio_aird_event_volume_change_ind_t;
 
 #endif  /* AIR_LE_AUDIO_ENABLE */
-#endif  /* __APP_LE_AUDIO_AIRD_UTILLITY_H__ */
+#endif  /* __APP_LE_AUDIO_AIRD_UTILITY_H__ */
 
 

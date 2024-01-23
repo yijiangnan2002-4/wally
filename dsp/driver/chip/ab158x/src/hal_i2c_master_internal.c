@@ -52,22 +52,17 @@
 
 
 //static      uint32_t                            s_i2c_backupreg_mem[HAL_I2C_MASTER_MAX][5]= {0};
-static volatile  I2C_REGISTER_T      *const     s_i2c_master_reg_ao   = (I2C_REGISTER_T *)I2C_REG_FMT(I2C_AO_BASE);
-static volatile  airo_i2c_register_t *const     s_i2c_master_reg_airo[HAL_I2C_MASTER_MAX] = { (airo_i2c_register_t *) I2C_REG_FMT(I2C_0_BASE), (airo_i2c_register_t *) I2C_REG_FMT(I2C_1_BASE),
-                                                                                              (airo_i2c_register_t *) I2C_REG_FMT(I2C_2_BASE), NULL
-                                                                                            };
-static volatile I2C_PDMA_REGISTER_T  *const     s_i2c_pdma_register[HAL_I2C_MASTER_MAX]   = { (I2C_PDMA_REGISTER_T *) I2C_REG_FMT(I2C0_PDMA_BASE), (I2C_PDMA_REGISTER_T *) I2C_REG_FMT(I2C1_PDMA_BASE),
-                                                                                              (I2C_PDMA_REGISTER_T *) I2C_REG_FMT(I2C2_PDMA_BASE)
-                                                                                            };
-//static const  hal_clock_cg_id                   s_i2c_clk_pdn_table[HAL_I2C_MASTER_MAX]   = {HAL_CLOCK_CG_END, HAL_CLOCK_CG_I2C1, HAL_CLOCK_CG_END, HAL_CLOCK_CG_END};
-static const  hal_nvic_irq_t                    s_i2c_nvic_irq_num[HAL_I2C_MASTER_MAX]    = {IRQ_NUMBER_MAX, I2C1_IRQn, IRQ_NUMBER_MAX, IRQ_NUMBER_MAX};
+
+ATTR_RODATA_IN_RAM_FOR_MASK_IRQ static volatile  airo_i2c_register_t *const     s_i2c_master_reg_airo[HAL_I2C_MASTER_MAX] = { NULL, (airo_i2c_register_t *) I2C_REG_FMT(I2C_1_BASE), NULL, NULL };
+ATTR_RODATA_IN_RAM_FOR_MASK_IRQ static volatile I2C_PDMA_REGISTER_T  *const     s_i2c_pdma_register[HAL_I2C_MASTER_MAX]   = { NULL, (I2C_PDMA_REGISTER_T *) I2C_REG_FMT(I2C1_PDMA_BASE), NULL, NULL };
+ATTR_RODATA_IN_RAM_FOR_MASK_IRQ static const  hal_nvic_irq_t                    s_i2c_nvic_irq_num[HAL_I2C_MASTER_MAX]    = { IRQ_NUMBER_MAX, I2C1_IRQn, IRQ_NUMBER_MAX, IRQ_NUMBER_MAX };
 #ifdef HAL_SLEEP_MANAGER_ENABLED
-static volatile const sleep_management_lock_request_t    s_i2c_sleep_handle[HAL_I2C_MASTER_MAX] = {SLEEP_LOCK_INVALID_ID, SLEEP_LOCK_I2C1, SLEEP_LOCK_INVALID_ID, SLEEP_LOCK_INVALID_ID};
+ATTR_RODATA_IN_RAM_FOR_MASK_IRQ static volatile const sleep_management_lock_request_t    s_i2c_sleep_handle[HAL_I2C_MASTER_MAX] = {SLEEP_LOCK_INVALID_ID, SLEEP_LOCK_I2C1, SLEEP_LOCK_INVALID_ID, SLEEP_LOCK_INVALID_ID};
 #endif
-static volatile const pdma_channel_t                     s_i2c_pdma_chnl[HAL_I2C_MASTER_MAX][2] = { {        0xFF,         0xFF},
-    {PDMA_I2C1_TX, PDMA_I2C1_RX},
-    {        0xFF,         0xFF},
-    {        0xFF,         0xFF},
+ATTR_RODATA_IN_RAM_FOR_MASK_IRQ static volatile const pdma_channel_t                     s_i2c_pdma_chnl[HAL_I2C_MASTER_MAX][2] = { {        0xFF,         0xFF},
+                                                                                                    {PDMA_I2C1_TX, PDMA_I2C1_RX},
+                                                                                                    {        0xFF,         0xFF},
+                                                                                                    {        0xFF,         0xFF},
 };
 ////////////////////////////////////////////////static api ////////////////////////////////////////////////
 static bool    _i2c_calc_speed(uint32_t speed,
@@ -325,17 +320,16 @@ i2c_irq_status_t    i2c_get_irq_status_v2(uint32_t i2c_port)
 hal_i2c_status_t i2c_config_speed(hal_i2c_port_t  i2c_port, uint32_t i2c_speed, uint32_t i2c_hs_speed)
 {
     hal_i2c_status_t status = HAL_I2C_STATUS_OK;
+    uint32_t  t_timing = 0;
 
-    if (i2c_port != HAL_I2C_MASTER_AO) {
-        uint32_t  t_timing = 0;
-        status = i2c_config_speed_v2(i2c_port, i2c_speed, i2c_hs_speed);
-        if (i2c_speed < 400000) {
-            t_timing = 4700;
-        } else {
-            t_timing = 1200;
-        }
-        _i2c_config_timing(i2c_port, t_timing);
+    status = i2c_config_speed_v2(i2c_port, i2c_speed, i2c_hs_speed);
+    if (i2c_speed < 400000) {
+        t_timing = 4700;
+    } else {
+        t_timing = 1200;
     }
+    _i2c_config_timing(i2c_port, t_timing);
+
     return status;
 }
 
@@ -343,9 +337,8 @@ hal_i2c_status_t     i2c_config_io(hal_i2c_port_t  i2c_port, bool is_opendrain)
 {
     hal_i2c_status_t status = HAL_I2C_STATUS_OK;
 
-    if (i2c_port != HAL_I2C_MASTER_AO) {
-        i2c_config_io_v2(i2c_port, is_opendrain);
-    }
+    i2c_config_io_v2(i2c_port, is_opendrain);
+
     return status;
 }
 
@@ -353,9 +346,8 @@ hal_i2c_status_t    i2c_config_transfer(hal_i2c_port_t  i2c_port, i2c_transfer_c
 {
     hal_i2c_status_t status = HAL_I2C_STATUS_OK;
 
-    if (i2c_port != HAL_I2C_MASTER_AO) {
-        i2c_config_transfer_v2(i2c_port, config);
-    }
+    i2c_config_transfer_v2(i2c_port, config);
+
     return status;
 
 
@@ -365,9 +357,8 @@ hal_i2c_status_t i2c_config_fifo(uint32_t i2c_port, uint8_t op_code, uint8_t *bu
 {
     hal_i2c_status_t status = HAL_I2C_STATUS_OK;
 
-    if (i2c_port != HAL_I2C_MASTER_AO) {
-        i2c_fifo_control_v2(i2c_port, op_code, buff, buff_sz);
-    }
+    i2c_fifo_control_v2(i2c_port, op_code, buff, buff_sz);
+
     return status;
 }
 
@@ -377,9 +368,8 @@ i2c_irq_status_t    i2c_get_irq_status(uint32_t i2c_port)
 {
     i2c_irq_status_t status = I2C_IRQ_STAT_UNKNOWN_ERROR;
 
-    if (i2c_port != HAL_I2C_MASTER_AO) {
-        status = i2c_get_irq_status_v2(i2c_port);
-    }
+    status = i2c_get_irq_status_v2(i2c_port);
+
     return status;
 }
 
@@ -389,35 +379,19 @@ int i2c_op_ioctl(uint8_t i2c_port, uint8_t op_code, uint8_t args)
 
     switch (op_code) {
         case I2C_IOCTRL_GET_BUSY_STAT: {
-            if (i2c_port == HAL_I2C_MASTER_AO) {
-                result = s_i2c_master_reg_ao->START & 0x1;
-            } else {
-                result = s_i2c_master_reg_airo[i2c_port]->START & 0x1;
-            }
+            result = s_i2c_master_reg_airo[i2c_port]->START & 0x1;
         }
         break;
         case I2C_IOCTRL_CLR_IRQ_STAT: {
-            if (i2c_port == HAL_I2C_MASTER_AO) {
-                s_i2c_master_reg_ao->INTR_STAT = 0x010101;
-            } else {
-                s_i2c_master_reg_airo[i2c_port]->INTR_STA = 0xFFFF;
-            }
+            s_i2c_master_reg_airo[i2c_port]->INTR_STA = 0xFFFF;
         }
         break;
         case I2C_IOCTRL_START: {
-            if (i2c_port == HAL_I2C_MASTER_AO) {
-                s_i2c_master_reg_ao->START = 0x1;
-            } else {
-                s_i2c_master_reg_airo[i2c_port]->START = 0x1;
-            }
+            s_i2c_master_reg_airo[i2c_port]->START = 0x1;
         }
         break;
         case I2C_IOCTRL_GET_IRQ_STAT: {
-            if (i2c_port == HAL_I2C_MASTER_AO) {
-                result = s_i2c_master_reg_ao->INTR_STAT;
-            } else {
-                result = s_i2c_master_reg_airo[i2c_port]->INTR_STA;
-            }
+            result = s_i2c_master_reg_airo[i2c_port]->INTR_STA;
         }
         break;
 #ifdef HAL_SLEEP_MANAGER_ENABLED
@@ -457,11 +431,7 @@ int i2c_op_ioctl(uint8_t i2c_port, uint8_t op_code, uint8_t args)
         break;
 #endif*/
         case I2C_IOCTRL_GET_SLV_ADDR: {
-            if (i2c_port == HAL_I2C_MASTER_AO) {
-                result = ((s_i2c_master_reg_ao->SLAVE_ADDR) >> 1) & 0xFF;
-            } else {
-                result = ((s_i2c_master_reg_airo[i2c_port]->SLAVE_ADDR) >> 1) & 0xFF;
-            }
+            result = ((s_i2c_master_reg_airo[i2c_port]->SLAVE_ADDR) >> 1) & 0xFF;
         }
         break;
       /*  case I2C_IOCTRL_DISABLE_IRQ: {
@@ -476,11 +446,7 @@ int i2c_op_ioctl(uint8_t i2c_port, uint8_t op_code, uint8_t args)
         }
         break; */
         case I2C_IOCTRL_SET_INTR_MASK: {
-            if (i2c_port == HAL_I2C_MASTER_AO) {
-                s_i2c_master_reg_ao->INTR_MASK = args;
-            } else {
-                s_i2c_master_reg_airo[i2c_port]->INTR_MASK = args;
-            }
+            s_i2c_master_reg_airo[i2c_port]->INTR_MASK = args;
         }
         break;
     }
@@ -520,24 +486,20 @@ uint32_t    i2c_speed_enum_to_dec(hal_i2c_frequency_t freq)
     log_hal_i2c_info("[hal][i2c] set frequency to %dHz\r\n", 1, freq_dec);
     return freq_dec;
 }
-#define     I2C_WAIT_IDLE_TIME_UNIT     100 //0.1ms
-void    i2c_wait_idle_with_timeout_internal(uint32_t i2c_port, uint32_t timeout_us, uint32_t *max_ms, volatile uint32_t *ptemp, uint32_t *tick_pre)
-{
-    *max_ms = timeout_us / I2C_WAIT_IDLE_TIME_UNIT;
-    if (i2c_port != HAL_I2C_MASTER_AO) {
-        ptemp = &(s_i2c_master_reg_airo[i2c_port]->START);
-    }
-    hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, tick_pre);
-}
 
 ATTR_TEXT_IN_RAM_FOR_MASK_IRQ   int    i2c_wait_idle_with_timeout(uint32_t i2c_port, uint32_t timeout_us)
 {
-    uint32_t  save_mask;
+#define     I2C_WAIT_IDLE_TIME_UNIT     100 //0.1ms
+
     uint32_t  tick_pre = 0, tick_cur = 0, tick_dur = 0, count = 0, max_ms = 0;
+    uint32_t  save_mask;
     int       result = 0;
     volatile uint32_t *ptemp = NULL;
 
-    i2c_wait_idle_with_timeout_internal(i2c_port, timeout_us, &max_ms, ptemp, &tick_pre);
+    max_ms = timeout_us / I2C_WAIT_IDLE_TIME_UNIT;
+    ptemp = &(s_i2c_master_reg_airo[i2c_port]->START);
+
+    hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &tick_pre);
     while (1) {
         hal_nvic_save_and_set_interrupt_mask(&save_mask);
         if (((*ptemp) & 0x1) == 0) {
@@ -765,9 +727,7 @@ void    i2c_master_dump_register_infra(hal_i2c_port_t  i2c_port)
 
 void    hal_i2c_master_dump(hal_i2c_port_t  i2c_port)
 {
-    if (i2c_port != HAL_I2C_MASTER_AO) {
-        i2c_master_dump_register_infra(i2c_port);
-    }
+    i2c_master_dump_register_infra(i2c_port);
 }
 
 #endif /* #if defined(HAL_I2C_MASTER_MODULE_ENABLED) */

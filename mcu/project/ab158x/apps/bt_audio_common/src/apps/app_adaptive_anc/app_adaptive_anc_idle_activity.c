@@ -312,7 +312,7 @@ static bool app_adaptive_anc_proc_anc_ff_race_group(ui_shell_activity_t *self, u
                         audio_anc_control_result_t anc_result = audio_anc_control_disable(NULL);
                         APPS_LOG_MSGID_I(LOG_TAG" [RACE] ANC_ADAPTIVE_FF_START, disable anc_result=%d", 1, anc_result);
                         local_context->anc_suspend = true;
-                        local_context->app_state = APP_ADAPTIVE_ANC_SUEPENDING_ANC;
+                        local_context->app_state = APP_ADAPTIVE_ANC_SUSPENDING_ANC;
                         app_anc_service_set_user_trigger_state(true);
                         break;
                     }
@@ -493,7 +493,7 @@ static bool app_adaptive_anc_proc_audio_anc_group(ui_shell_activity_t *self, uin
 {
 #ifdef MTK_USER_TRIGGER_ADAPTIVE_FF_V2
     app_adaptive_anc_context_t *local_context = self->local_context;
-    if (event_id == AUDIO_ANC_CONTROL_EVENT_OFF && local_context->app_state == APP_ADAPTIVE_ANC_SUEPENDING_ANC) {
+    if (event_id == AUDIO_ANC_CONTROL_EVENT_OFF && local_context->app_state == APP_ADAPTIVE_ANC_SUSPENDING_ANC) {
         ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_ANC_FF_RACE, RACE_EVENT_TYPE_ANC_ADAPTIVE_FF_START, NULL, 0, NULL, 0);
     }
 #endif

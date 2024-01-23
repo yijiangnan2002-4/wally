@@ -112,7 +112,7 @@ static uint32_t ble_bas_battery_level_callback(const uint8_t rw, uint16_t handle
         if (rw == BT_GATTS_CALLBACK_READ) {
             if (0 != size) {
                 uint8_t *read_rsp_value = (uint8_t *)data;
-                *read_rsp_value = ble_bas_read_callback(BLE_BAS_EVENT_BATTRY_LEVEL_READ, handle);
+                *read_rsp_value = ble_bas_read_callback(BLE_BAS_EVENT_BATTERY_LEVEL_READ, handle);
                 LOG_MSGID_I(BLE_BAS, "read battery value = %d\r\n", 1, *read_rsp_value);
             }
             return sizeof(uint8_t);

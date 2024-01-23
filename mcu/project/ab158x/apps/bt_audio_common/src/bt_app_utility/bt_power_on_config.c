@@ -120,13 +120,21 @@ void bt_power_on_config_init(void)
         .relay_enable = false,
         .port_number = 0,
     };
+    bt_power_on_relay_config_t ull_relay_config = {
+        .relay_enable = false,
+        .port_number = 0,
+    };
     uint32_t relay_size = sizeof(bt_power_on_relay_config_t);
     uint32_t dut_size = sizeof(bool);
-    nvkey_status_t ret = nvkey_read_data(NVID_BT_HOST_RELAY_ENABLE, (uint8_t *)(&relay_config), &relay_size);
+
+	nvkey_status_t ret = nvkey_read_data(NVID_BT_HOST_RELAY_ENABLE, (uint8_t *)(&relay_config), &relay_size);
+    nvkey_status_t ret2 = nvkey_read_data(NVID_BT_ULL_HOST_RELAY_ENABLE, (uint8_t *)(&ull_relay_config), &relay_size);
     LOG_MSGID_I(common, "ret:%d, relay_enable:%d, port_number:%d\r\n", 3, ret, relay_config.relay_enable, relay_config.port_number);
+    LOG_MSGID_I(common, "ull ret:%d, ull relay_enable:%d, ull port_number:%d\r\n", 3, ret2, ull_relay_config.relay_enable, ull_relay_config.port_number);
+    ret = nvkey_read_data(NVID_BT_ULL_HOST_RELAY_ENABLE, (uint8_t *)(&dut_config), &dut_size);
     ret = nvkey_read_data(NVID_BT_HOST_DUT_ENABLE, (uint8_t *)(&dut_config), &dut_size);
     LOG_MSGID_I(common, "ret:%d, dut_config:%d\r\n", 2, ret, dut_config);
-    if (relay_config.relay_enable) {
+    if (relay_config.relay_enable || ull_relay_config.relay_enable) {
         /* Get BT power on mode from NVDM, set BT power on mode as BT_POWER_ON_RELAY. */
         bt_power_on_set_config_type(BT_POWER_ON_RELAY);
         g_relay_port_number = relay_config.port_number;

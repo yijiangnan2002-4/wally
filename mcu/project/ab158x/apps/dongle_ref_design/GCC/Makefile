@@ -112,6 +112,10 @@ MTK_PORT_SERVICE_BT_ENABLE          = y
 AIR_USB_DONGLE_PROJECT_ENABLE                   = y
 MTK_MUX_BT_ENABLE                   := y
 MTK_BLE_GAP_SRV_ENABLE              := y
+
+# HW IO
+AIR_AUDIO_BIAS_CONTROL_BY_TOOL        := y
+
 MTK_BT_CM_SUPPORT                   = y
 MTK_BT_ENABLE                       = y
 MTK_BLE_ONLY_ENABLE                 = n
@@ -142,6 +146,12 @@ ifeq ($(AIR_LE_AUDIO_ENABLE), n)
 AIR_LE_AUDIO_BIS_ENABLE             = n
 AIR_LE_AUDIO_UNICAST_ENABLE         = n
 endif
+
+# ULL audio 2.0 dongle
+ifeq ($(AIR_ULL_AUDIO_V2_DONGLE_ENABLE), y)
+CFLAGS += -DAIR_ULL_AUDIO_V2_DONGLE_ENABLE
+endif
+
 # Enhanced ATT bearer over LE Enable
 AIR_LE_EATT_ENABLE                              = n
 # Wireless MIC support battery
@@ -165,6 +175,12 @@ AIR_GATT_SRV_CLIENT_ENABLE = y
 # Support MIC Loopback AT command
 LINE_IN_PURE_FOR_AMIC_CLASS_G_HQA = y
 
+# LE Audio support LC3PLUS codec
+ifeq ($(AIR_AUDIO_LC3PLUS_CODEC_ENABLE)_$(AIR_LE_AUDIO_DONGLE_ENABLE), y_y)
+ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE), n)
+AIR_LE_AUDIO_LC3PLUS_ENABLE     = y
+endif
+endif
 #######################################################
 
 # LD Flags
@@ -341,20 +357,12 @@ CFLAGS += -DAIR_PURE_GAMING_ENABLE
 # HID PLC module
 include $(SOURCE_DIR)/middleware/airoha/hid_plc/GCC/module.mk
 
-# This option is used to enable QC mouse.
-ifeq ($(AIR_QC_DONGLE_ENABLE), y)
-CFLAGS += -DAIR_QC_DONGLE_ENABLE
-endif
-endif
-
-# Nvidia feature option.
-ifeq ($(AIR_NVIDIA_REFLEX_ENABLE), y)
-CFLAGS += -DAIR_NVIDIA_REFLEX_ENABLE
-endif
-
 # Pure gaming for mouse option.
 ifeq ($(AIR_PURE_GAMING_MS_ENABLE), y)
 CFLAGS += -DAIR_PURE_GAMING_MS_ENABLE
+ifeq ($(AIR_NVIDIA_REFLEX_ENABLE), y)
+CFLAGS += -DAIR_NVIDIA_REFLEX_ENABLE
+endif
 endif
 
 # Pure gaming for keyboard option.
@@ -365,6 +373,32 @@ endif
 # Pure gaming for mouse and keyboard option.
 ifeq ($(AIR_PURE_GAMING_MS_KB_ENABLE), y)
 CFLAGS += -DAIR_PURE_GAMING_MS_KB_ENABLE
+endif
+
+# This option is used to enable QC mouse.
+ifeq ($(AIR_QC_DONGLE_MS_ENABLE), y)
+CFLAGS += -DAIR_QC_DONGLE_MS_ENABLE
+CFLAGS += -DAIR_PURE_GAMING_MS_ENABLE
+endif
+
+# This option is used to enable QC keyboard.
+ifeq ($(AIR_QC_DONGLE_KB_ENABLE), y)
+CFLAGS += -DAIR_QC_DONGLE_KB_ENABLE
+CFLAGS += -DAIR_PURE_GAMING_KB_ENABLE
+endif
+
+endif
+
+# HID HOGP feature option.
+ifeq ($(AIR_HID_BT_HOGP_ENABLE), y)
+include $(SOURCE_DIR)/middleware/airoha/bt_hogp/module.mk
+CFLAGS += -DAIR_HID_BT_HOGP_ENABLE
+
+# HID HOGP vendor support feature option.
+ifeq ($(AIR_HID_HOGP_VENDOR_SUPPORT_ENABLE), y)
+CFLAGS += -DAIR_HID_HOGP_VENDOR_SUPPORT_ENABLE
+endif
+
 endif
 
 # Bluetooth module
@@ -567,7 +601,11 @@ CFLAGS += -DBT_LE_AUDIO_ENABLE
 CFLAGS += -DAIR_LE_AUDIO_ENABLE
 CFLAGS += -DAIR_LE_AUDIO_CIS_ENABLE
 CFLAGS += -DAIR_BT_CODEC_BLE_ENABLED
-#CFLAGS += -DAIR_LE_AUDIO_HAPC_ENABLE
+
+# LC3plus
+ifeq ($(AIR_LE_AUDIO_LC3PLUS_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_LC3PLUS_ENABLE
+endif
 
 # BLE audio dongle
 ifeq ($(AIR_LE_AUDIO_DONGLE_ENABLE), y)
@@ -576,6 +614,21 @@ endif
 
 ifeq ($(AIR_LE_AUDIO_BIS_ENABLE), y)
 CFLAGS += -DAIR_LE_AUDIO_BIS_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_TMAP_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_TMAP_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_HAP_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_HAPC_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_GMAP_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_GMAP_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_AURACAST_ENABLE), y)
 CFLAGS += -DAIR_LE_AUDIO_PBP_ENABLE
 endif
 
@@ -629,13 +682,26 @@ CFLAGS += -DAIR_MS_GIP_ENABLE
 include $(SOURCE_DIR)/middleware/airoha/ms_gip/module.mk
 endif
 
-# ULL audio 2.0 dongle
-ifeq ($(AIR_ULL_AUDIO_V2_DONGLE_ENABLE), y)
-CFLAGS += -DAIR_ULL_AUDIO_V2_DONGLE_ENABLE
-endif
-
 ifeq ($(AIR_WIRED_AUDIO_ENABLE), y)
 include $(SOURCE_DIR)/driver/board/component/bsp_audio_ext_codec/module.mk
+endif
+
+# bt_audio_common path
+ifneq ($(wildcard $(strip $(SOURCE_DIR))/project/ab157x_ab158x/),)
+APP_COMMON_PATH := project/ab157x_ab158x/apps/bt_audio_common
+endif
+
+ifneq ($(wildcard $(strip $(SOURCE_DIR))/project/ab15xx/),)
+APP_COMMON_PATH := project/ab15xx/apps/bt_audio_common
+endif
+
+
+# This option is used to enable microphone bias control by Airoha tool for AB157x SDK3.10.0
+#  y: enable config tool bias configuration
+#  n: disable tool configuration and configure by SW code
+# Please check the bias configuration by Airoha Tool if the option is enabled
+ifeq ($(AIR_AUDIO_BIAS_CONTROL_BY_TOOL), y)
+CFLAGS += -DAIR_AUDIO_BIAS_CONTROL_BY_TOOL
 endif
 
 #######################################################
@@ -650,6 +716,12 @@ include $(SOURCE_DIR)/$(APP_PATH_SRC)/apps/module.mk
 # Config bin path
 CONFIG_BIN_PATH := $(SOURCE_DIR)/$(APP_PATH)/config_bin/$(BOARD_TYPE)
 
+# customer file path
+ifneq ($(AIR_SDK_CUSTOMER), default)
+ifneq ($(wildcard $(strip $(SOURCE_DIR)/customer)),)
+include $(SOURCE_DIR)/customer/$(AIR_SDK_CUSTOMER)/project/chips/apps/bt_audio_common/src/apps/module.mk
+endif
+endif
 
 ##############################################################################
 #
@@ -849,6 +921,10 @@ all: cleanlog checkoption proj
 MOD_EXTRA = BUILD_DIR=$(BUILD_DIR) OUTPATH=$(OUTPATH) PROJ_PATH=$(PROJ_PATH) IC_CONFIG=$(IC_CONFIG)
 
 checkoption:
+# Check MCU include shared option or not
+# Shared optin is a option that MCU and DSP are both used, but should ONLY defined in DSP feature.mk
+	$(SOURCE_DIR)/tools/scripts/build/shared_option_checker.sh $(SOURCE_DIR) $(BOARD) $(FEATURE) >&2
+
 # USB : check the dependency of USB Audio/HID option
 ifneq ($(AIR_USB_AUDIO_VERSION),none)
 ifneq ($(AIR_USB_ENABLE),y)
@@ -892,6 +968,14 @@ ifneq ($(AIR_USB_ENABLE),y)
 endif
 endif
 
+ifeq ($(AIR_USB_MFI_ENABLE),y)
+ifneq ($(AIR_USB_ENABLE),y)
+	$(warning "Error: [Conflict feature option] To enable AIR_USB_MFI_ENABLE must support AIR_USB_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_USB_MFI_ENABLE must support AIR_USB_ENABLE";
+	@set -e; exit 2;
+endif
+endif
+
 # CFU : check the dependency of CFU option
 ifeq ($(AIR_CFU_ENABLE),y)
 ifneq ($(AIR_FOTA_ENABLE),y)
@@ -903,9 +987,9 @@ endif
 
 # fota related files
 ifeq ($(AIR_FOTA_VIA_RACE_CMD_ENABLE),y)
-ifneq ($(AIR_FOTA_ENABLE),y)
-	$(warning "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE")
-	@echo "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE";
+ifneq ($(AIR_FOTA_ENABLE)_$(AIR_RACE_CMD_ENABLE),y_y)
+	$(warning "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE/AIR_RACE_CMD_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE/AIR_RACE_CMD_ENABLE";
 	@set -e; exit 2;
 endif
 endif
@@ -984,6 +1068,42 @@ ifneq ($(AIR_USB_AUDIO_HID_ENABLE),y)
     $(warning "Error: [Conflict feature option] To enable AIR_BT_SOURCE_ENABLE must support AIR_BT_AUDIO_DONGLE_ENABLE and AIR_USB_AUDIO_HID_ENABLE")
     @echo "Error: [Conflict feature option] To enable AIR_BT_SOURCE_ENABLE must support AIR_BT_AUDIO_DONGLE_ENABLE and AIR_USB_AUDIO_HID_ENABLE";
     @set -e; exit 2;
+endif
+endif
+
+# Add make error for TMAP feature, MUST need LE audio support
+ifeq ($(AIR_LE_AUDIO_TMAP_ENABLE), y)
+ifneq ($(AIR_LE_AUDIO_ENABLE),y)
+	$(warning "Error: [Conflict feature option] To enable AIR_LE_AUDIO_TMAP_ENABLE must support AIR_LE_AUDIO_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_LE_AUDIO_TMAP_ENABLE must support AIR_LE_AUDIO_ENABLE";
+	@set -e; exit 2;
+endif
+endif
+
+# Add make error for GMAP feature, MUST need LE audio support
+ifeq ($(AIR_LE_AUDIO_GMAP_ENABLE), y)
+ifneq ($(AIR_LE_AUDIO_ENABLE),y)
+	$(warning "Error: [Conflict feature option] To enable AIR_LE_AUDIO_GMAP_ENABLE must support AIR_LE_AUDIO_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_LE_AUDIO_GMAP_ENABLE must support AIR_LE_AUDIO_ENABLE";
+	@set -e; exit 2;
+endif
+endif
+
+# Add make error for HAP feature, MUST need LE audio support
+ifeq ($(AIR_LE_AUDIO_HAP_ENABLE), y)
+ifneq ($(AIR_LE_AUDIO_ENABLE),y)
+	$(warning "Error: [Conflict feature option] To enable AIR_LE_AUDIO_HAP_ENABLE must support AIR_LE_AUDIO_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_LE_AUDIO_HAP_ENABLE must support AIR_LE_AUDIO_ENABLE";
+	@set -e; exit 2;
+endif
+endif
+
+# Add make error for TMAP feature, MUST need LE audio support
+ifeq ($(AIR_LE_AUDIO_AURACAST_ENABLE), y)
+ifneq ($(AIR_LE_AUDIO_ENABLE)_$(AIR_LE_AUDIO_BIS_ENABLE),y_y)
+	$(warning "Error: [Conflict feature option] To enable AIR_LE_AUDIO_TMAP_ENABLE must support AIR_LE_AUDIO_ENABLE and AIR_LE_AUDIO_BIS_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_LE_AUDIO_AURACAST_ENABLE must support AIR_LE_AUDIO_ENABLE and AIR_LE_AUDIO_BIS_ENABLE";
+	@set -e; exit 2;
 endif
 endif
 

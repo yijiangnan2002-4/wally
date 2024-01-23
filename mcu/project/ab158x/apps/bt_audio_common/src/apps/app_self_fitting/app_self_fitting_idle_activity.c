@@ -53,7 +53,7 @@
 #include "bt_aws_mce_report.h"
 #include "bt_aws_mce_srv.h"
 #endif
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 #include "bt_ull_service.h"
 #endif
 
@@ -72,15 +72,15 @@
 #define LOG_TAG "[APP_SELF_FITTING]"
 
 typedef struct {
-    uint8_t     receipent;
+    uint8_t     recipient;
     uint16_t    geq_band_count;
     uint32_t    geq_params[0];
-} PACKED app_self_fitting_qeq_recipent_t;
+} PACKED app_self_fitting_qeq_recipient_t;
 
 typedef struct {
-    uint16_t                            recipent_count;
+    uint16_t                            recipient_count;
     uint16_t                            geq_lib_version;
-    app_self_fitting_qeq_recipent_t     recipent[0];
+    app_self_fitting_qeq_recipient_t     recipient[0];
 } PACKED app_self_fitting_geq_t;
 
 static app_self_fitting_context_t s_app_self_fitting_context;
@@ -144,7 +144,7 @@ static bool app_self_fitting_idle_proc_race_set_config(ui_shell_activity_t *self
     self_fitting_config_cmd_t *param          = (self_fitting_config_cmd_t *)extra_data;
     audio_channel_t channel                   = ami_get_audio_channel();
     bt_aws_mce_role_t role                    = bt_connection_manager_device_local_info_get_aws_role();
-    APPS_LOG_MSGID_I(LOG_TAG" race_set_config: role=0x%x, config_type=%d, lenth=%d, channel=%d",
+    APPS_LOG_MSGID_I(LOG_TAG" race_set_config: role=0x%x, config_type=%d, length=%d, channel=%d",
                      4, role, param->config_type, param->data_lenth, channel);
 
 
@@ -162,10 +162,10 @@ static bool app_self_fitting_idle_proc_race_set_config(ui_shell_activity_t *self
     switch (param->config_type) {
         case SELF_FITTING_AH_MODE_ENABLE: {
             local_context->ah_transparency_mode = param->data[0];
-            bool  adavance_pt_enable            = app_advance_passthrough_is_enable();
+            bool  advance_pt_enable            = app_advance_passthrough_is_enable();
             bool  switch_status                 = false;
             if (local_context->ah_transparency_mode == 1) {
-                if (!adavance_pt_enable) {
+                if (!advance_pt_enable) {
                     switch_status = app_advance_passthrough_switch();
                     if (switch_status) {
                         set_status = advanced_passthrough_runtime_custom_mode_enable(local_context->ah_transparency_mode);
@@ -178,15 +178,15 @@ static bool app_self_fitting_idle_proc_race_set_config(ui_shell_activity_t *self
 
             } else {
                 set_status = advanced_passthrough_runtime_custom_mode_enable(local_context->ah_transparency_mode);
-                if (adavance_pt_enable) {
+                if (advance_pt_enable) {
                     switch_status = app_advance_passthrough_switch();
                     if (!switch_status) {
                         set_status = AUDIO_PSAP_STATUS_FAIL;
                     }
                 }
             }
-            APPS_LOG_MSGID_I(LOG_TAG" race_set_config_mode: mode=%d, adavance_pt_enable=%d, set_status=%d, switch_success=%d",
-                             4, local_context->ah_transparency_mode, adavance_pt_enable, set_status, switch_status);
+            APPS_LOG_MSGID_I(LOG_TAG" race_set_config_mode: mode=%d, advance_pt_enable=%d, set_status=%d, switch_success=%d",
+                             4, local_context->ah_transparency_mode, advance_pt_enable, set_status, switch_status);
             break;
         }
         case SELF_FITTING_AH_MODE_VOLUME: {
@@ -221,33 +221,33 @@ static bool app_self_fitting_idle_proc_race_set_config(ui_shell_activity_t *self
                 memset(self_fitting_peq, 0, param->data_lenth);
                 memcpy(self_fitting_peq, param->data, param->data_lenth);
 
-                if (self_fitting_peq->recipent_count == 1) {
-                    APPS_LOG_MSGID_I(LOG_TAG" race_set_config_GEQ: recipent_count=%d, receipent=%d, geq_band_count=%d",
-                                     3, self_fitting_peq->recipent_count, self_fitting_peq->recipent[0].receipent,
-                                     self_fitting_peq->recipent[0].geq_band_count);
-                    if (channel == AUDIO_CHANNEL_L && self_fitting_peq->recipent[0].receipent == 0) {
-                        set_status = advanced_passthrough_runtime_set_GEQ(self_fitting_peq->recipent[0].geq_band_count, self_fitting_peq->recipent[0].geq_params);
-                    } else if (channel == AUDIO_CHANNEL_R && self_fitting_peq->recipent[0].receipent == 1) {
-                        set_status = advanced_passthrough_runtime_set_GEQ(self_fitting_peq->recipent[0].geq_band_count, self_fitting_peq->recipent[0].geq_params);
+                if (self_fitting_peq->recipient_count == 1) {
+                    APPS_LOG_MSGID_I(LOG_TAG" race_set_config_GEQ: recipient_count=%d, recipient=%d, geq_band_count=%d",
+                                     3, self_fitting_peq->recipient_count, self_fitting_peq->recipient[0].recipient,
+                                     self_fitting_peq->recipient[0].geq_band_count);
+                    if (channel == AUDIO_CHANNEL_L && self_fitting_peq->recipient[0].recipient == 0) {
+                        set_status = advanced_passthrough_runtime_set_GEQ(self_fitting_peq->recipient[0].geq_band_count, self_fitting_peq->recipient[0].geq_params);
+                    } else if (channel == AUDIO_CHANNEL_R && self_fitting_peq->recipient[0].recipient == 1) {
+                        set_status = advanced_passthrough_runtime_set_GEQ(self_fitting_peq->recipient[0].geq_band_count, self_fitting_peq->recipient[0].geq_params);
                     }
-                } else if (self_fitting_peq->recipent_count == 2) {
-                    uint8_t recipent1_offset = sizeof(app_self_fitting_qeq_recipent_t) + (self_fitting_peq->recipent[0].geq_band_count * sizeof(uint32_t));
-                    app_self_fitting_qeq_recipent_t *recipent1_ptr = (app_self_fitting_qeq_recipent_t *)(((uint8_t *)self_fitting_peq->recipent) + recipent1_offset);
-                    APPS_LOG_MSGID_I(LOG_TAG" race_set_config_GEQ: recipent_count=%d, recipent1_location=%d, receipent0=%d, geq_band_count0=%d, receipent1=%d, geq_band_count1=%d",
-                                     6, self_fitting_peq->recipent_count, recipent1_offset,
-                                     self_fitting_peq->recipent[0].receipent, self_fitting_peq->recipent[0].geq_band_count,
-                                     recipent1_ptr->receipent, recipent1_ptr->geq_band_count);
+                } else if (self_fitting_peq->recipient_count == 2) {
+                    uint8_t recipient1_offset = sizeof(app_self_fitting_qeq_recipient_t) + (self_fitting_peq->recipient[0].geq_band_count * sizeof(uint32_t));
+                    app_self_fitting_qeq_recipient_t *recipient1_ptr = (app_self_fitting_qeq_recipient_t *)(((uint8_t *)self_fitting_peq->recipient) + recipient1_offset);
+                    APPS_LOG_MSGID_I(LOG_TAG" race_set_config_GEQ: recipient_count=%d, recipient1_location=%d, recipient0=%d, geq_band_count0=%d, recipient1=%d, geq_band_count1=%d",
+                                     6, self_fitting_peq->recipient_count, recipient1_offset,
+                                     self_fitting_peq->recipient[0].recipient, self_fitting_peq->recipient[0].geq_band_count,
+                                     recipient1_ptr->recipient, recipient1_ptr->geq_band_count);
                     if (channel == AUDIO_CHANNEL_L) {
-                        if (self_fitting_peq->recipent[0].receipent == 0) {
-                            set_status = advanced_passthrough_runtime_set_GEQ(self_fitting_peq->recipent[0].geq_band_count, self_fitting_peq->recipent[0].geq_params);
-                        } else if (recipent1_ptr->receipent == 0) {
-                            set_status = advanced_passthrough_runtime_set_GEQ(recipent1_ptr->geq_band_count, recipent1_ptr->geq_params);
+                        if (self_fitting_peq->recipient[0].recipient == 0) {
+                            set_status = advanced_passthrough_runtime_set_GEQ(self_fitting_peq->recipient[0].geq_band_count, self_fitting_peq->recipient[0].geq_params);
+                        } else if (recipient1_ptr->recipient == 0) {
+                            set_status = advanced_passthrough_runtime_set_GEQ(recipient1_ptr->geq_band_count, recipient1_ptr->geq_params);
                         }
                     } else if (channel == AUDIO_CHANNEL_R) {
-                        if (self_fitting_peq->recipent[0].receipent == 1) {
-                            set_status = advanced_passthrough_runtime_set_GEQ(self_fitting_peq->recipent[0].geq_band_count, self_fitting_peq->recipent[0].geq_params);
-                        } else if (recipent1_ptr->receipent == 1) {
-                            set_status = advanced_passthrough_runtime_set_GEQ(recipent1_ptr->geq_band_count, recipent1_ptr->geq_params);
+                        if (self_fitting_peq->recipient[0].recipient == 1) {
+                            set_status = advanced_passthrough_runtime_set_GEQ(self_fitting_peq->recipient[0].geq_band_count, self_fitting_peq->recipient[0].geq_params);
+                        } else if (recipient1_ptr->recipient == 1) {
+                            set_status = advanced_passthrough_runtime_set_GEQ(recipient1_ptr->geq_band_count, recipient1_ptr->geq_params);
                         }
                     }
                 }

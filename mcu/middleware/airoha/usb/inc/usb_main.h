@@ -35,6 +35,8 @@
 #ifndef USB_MAIN_H
 #define USB_MAIN_H
 
+#ifdef AIR_USB_ENABLE
+
 /* USB Middleware includes */
 #include "usb.h"
 
@@ -47,9 +49,6 @@ typedef enum {
 
 typedef enum {
     USB_HOST_TYPE_UNKNOWN = 0,
-    USB_HOST_TYPE_ANDROID,
-    USB_HOST_TYPE_MAC,
-    USB_HOST_TYPE_WINDOWS,
     USB_HOST_TYPE_XBOX,
 } USB_HOST_TYPE;
 
@@ -59,4 +58,7 @@ bool ap_usb_deinit(void);
 USB_HOST_TYPE Set_USB_Host_Type(USB_HOST_TYPE usb_host_type);
 USB_HOST_TYPE Get_USB_Host_Type();
 
+#endif /* AIR_USB_ENABLE */
+
 #endif /* USB_MAIN_H */
+

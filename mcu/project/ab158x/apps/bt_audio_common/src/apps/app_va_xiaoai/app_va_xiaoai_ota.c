@@ -69,16 +69,16 @@
 
 #define LOG_TAG           "[XIAOAI_VA][OTA]"
 
-static TimerHandle_t        g_xiaoai_slience_ota_timer = NULL;
+static TimerHandle_t        g_xiaoai_silence_ota_timer = NULL;
 static bool                 g_xiaoai_both_lid_close    = FALSE;
 
 
-static void app_va_xiaoai_slience_ota_timer_callback(void *timer_handle)
+static void app_va_xiaoai_silence_ota_timer_callback(void *timer_handle)
 {
-    APPS_LOG_MSGID_I(LOG_TAG" slience_ota_timer_callback", 0);
+    APPS_LOG_MSGID_I(LOG_TAG" silence_ota_timer_callback", 0);
     ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH,
                         EVENT_GROUP_UI_SHELL_XIAOAI,
-                        XIAOAI_EVENT_OTA_SLIENCE_OTA_TIMEROUT,
+                        XIAOAI_EVENT_OTA_SILENCE_OTA_TIMEOUT,
                         NULL, 0, NULL, 0);
 }
 
@@ -91,62 +91,62 @@ static void app_va_xiaoai_slience_ota_timer_callback(void *timer_handle)
 /**============================================================================*/
 void app_va_xiaoai_ota_init(void)
 {
-    if (g_xiaoai_slience_ota_timer == NULL) {
-        g_xiaoai_slience_ota_timer = xTimerCreate("sli_ota",
-                                                  (TickType_t)(APP_VA_XIAOAI_SLIENCE_OTA_TIMER / portTICK_PERIOD_MS),
+    if (g_xiaoai_silence_ota_timer == NULL) {
+        g_xiaoai_silence_ota_timer = xTimerCreate("sli_ota",
+                                                  (TickType_t)(APP_VA_XIAOAI_SILENCE_OTA_TIMER / portTICK_PERIOD_MS),
                                                   FALSE, NULL,
-                                                  (void *) app_va_xiaoai_slience_ota_timer_callback);
-        configASSERT(g_xiaoai_slience_ota_timer != NULL);
+                                                  (void *) app_va_xiaoai_silence_ota_timer_callback);
+        configASSERT(g_xiaoai_silence_ota_timer != NULL);
     }
 
     bool enable = FALSE;
 //    uint32_t size = sizeof(uint8_t);
-//    nvkey_status_t status = nvkey_read_data(NVKEYID_XIAOAI_SLIENCE_OTA, (uint8_t *)&enable, &size);
+//    nvkey_status_t status = nvkey_read_data(NVKEYID_XIAOAI_SILENCE_OTA, (uint8_t *)&enable, &size);
 //    APPS_LOG_MSGID_I(LOG_TAG" ota_init, read status=%d", 1, status);
 //    if (status == NVKEY_STATUS_ITEM_NOT_FOUND) {
 //        enable = FALSE;
 //        size = sizeof(uint8_t);
-//        status = nvkey_write_data(NVKEYID_XIAOAI_SLIENCE_OTA, (const uint8_t *)&enable, size);
+//        status = nvkey_write_data(NVKEYID_XIAOAI_SILENCE_OTA, (const uint8_t *)&enable, size);
 //        APPS_LOG_MSGID_I(LOG_TAG" ota_init, write status=%d", 1, status);
 //    }
 
-    xiaoai_enable_slience_ota(enable);
+    xiaoai_enable_silence_ota(enable);
     APPS_LOG_MSGID_I(LOG_TAG" ota_init, enable=%d", 1, enable);
 }
 
-bool app_va_xiaoai_ota_slience_enable(bool enable, bool sync_to_peer)
+bool app_va_xiaoai_ota_silence_enable(bool enable, bool sync_to_peer)
 {
     bool success = FALSE;
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
-    bool slience_ota_enable = xiaoai_is_slience_ota();
+    bool silence_ota_enable = xiaoai_is_silence_ota();
 
-    if (slience_ota_enable == enable) {
-        APPS_LOG_MSGID_E(LOG_TAG" ota_slience_enable fail, same enable=%d", 1, enable);
+    if (silence_ota_enable == enable) {
+        APPS_LOG_MSGID_E(LOG_TAG" ota_silence_enable fail, same enable=%d", 1, enable);
         return success;
     }
 
 #ifdef MTK_AWS_MCE_ENABLE
     bt_aws_mce_srv_link_type_t aws_link_type = bt_aws_mce_srv_get_link_type();
     if (sync_to_peer && aws_link_type == BT_AWS_MCE_SRV_LINK_NONE) {
-        APPS_LOG_MSGID_E(LOG_TAG" ota_slience_enable fail, must AWS connected", 0);
+        APPS_LOG_MSGID_E(LOG_TAG" ota_silence_enable fail, must AWS connected", 0);
         return success;
     }
 #endif
 
-    xiaoai_enable_slience_ota(enable);
-//    nvkey_status_t nvkey_status = nvkey_write_data(NVKEYID_XIAOAI_SLIENCE_OTA,
+    xiaoai_enable_silence_ota(enable);
+//    nvkey_status_t nvkey_status = nvkey_write_data(NVKEYID_XIAOAI_SILENCE_OTA,
 //                                                   (const uint8_t *)&enable, sizeof(uint8_t));
-    APPS_LOG_MSGID_I(LOG_TAG" ota_slience_enable, [%02X] enable=%d sync_to_peer=%d",
+    APPS_LOG_MSGID_I(LOG_TAG" ota_silence_enable, [%02X] enable=%d sync_to_peer=%d",
                      3, role, enable, sync_to_peer);
 
 #ifdef MTK_AWS_MCE_ENABLE
     if (sync_to_peer) {
         bt_status_t status = apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_XIAOAI,
-                                                            XIAOAI_EVENT_OTA_SLIENCE_OTA_SYNC,
+                                                            XIAOAI_EVENT_OTA_SILENCE_OTA_SYNC,
                                                             (uint8_t *)&enable,
                                                             sizeof(uint8_t));
         if (status != BT_STATUS_SUCCESS) {
-            APPS_LOG_MSGID_E(LOG_TAG" ota_slience_enable fail, sync_to_peer status=0x%08X", 1, status);
+            APPS_LOG_MSGID_E(LOG_TAG" ota_silence_enable fail, sync_to_peer status=0x%08X", 1, status);
         }
         success = (status == BT_STATUS_SUCCESS);
     }
@@ -157,10 +157,10 @@ bool app_va_xiaoai_ota_slience_enable(bool enable, bool sync_to_peer)
 void app_va_xiaoai_ota_check_both_close(bool both_lid_close)
 {
     bool old_both_lid_close = g_xiaoai_both_lid_close;
-    bool is_slience_ota = xiaoai_is_slience_ota();
-    if (old_both_lid_close == both_lid_close || !is_slience_ota) {
-        APPS_LOG_MSGID_I(LOG_TAG" check_both_close ignore, both_lid_close=%d is_slience_ota=%d",
-                         2, both_lid_close, is_slience_ota);
+    bool is_silence_ota = xiaoai_is_silence_ota();
+    if (old_both_lid_close == both_lid_close || !is_silence_ota) {
+        APPS_LOG_MSGID_I(LOG_TAG" check_both_close ignore, both_lid_close=%d is_silence_ota=%d",
+                         2, both_lid_close, is_silence_ota);
         return;
     }
     g_xiaoai_both_lid_close = both_lid_close;
@@ -169,12 +169,12 @@ void app_va_xiaoai_ota_check_both_close(bool both_lid_close)
         FOTA_ERRCODE check_ret = fota_check_fota_package_integrity(InternalFlash);
         APPS_LOG_MSGID_I(LOG_TAG" check_both_close, check_ret=%d", 1, check_ret);
         if (check_ret == FOTA_ERRCODE_SUCCESS) {
-            xTimerReset(g_xiaoai_slience_ota_timer, 0);
-            APPS_LOG_MSGID_I(LOG_TAG" check_both_close, start slience_ota timer", 0);
+            xTimerReset(g_xiaoai_silence_ota_timer, 0);
+            APPS_LOG_MSGID_I(LOG_TAG" check_both_close, start silence_ota timer", 0);
         }
     } else {
-        xTimerStop(g_xiaoai_slience_ota_timer, 0);
-        APPS_LOG_MSGID_I(LOG_TAG" check_both_close, stop slience_ota timer", 0);
+        xTimerStop(g_xiaoai_silence_ota_timer, 0);
+        APPS_LOG_MSGID_I(LOG_TAG" check_both_close, stop silence_ota timer", 0);
     }
 }
 
@@ -190,7 +190,7 @@ void app_va_xiaoai_ota_commit_reboot(void)
     }
     if (commit_ret == FOTA_ERRCODE_SUCCESS) {
         uint32_t delay_ms = 1000;
-        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                             EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                             APPS_EVENTS_INTERACTION_REQUEST_REBOOT,
                             NULL, 0, NULL,

@@ -69,6 +69,17 @@
 #endif
 #include "hal_audio_control.h"
 
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+#include "dsp_audio_process.h"
+#endif
+
+#ifdef AIR_MIXER_STREAM_ENABLE
+#include "stream_mixer.h"
+#endif
+#include "dsp_play_en.h"
+
+#include "scenario_audio_common.h"
+
 log_create_module(dsp_mw, PRINT_LEVEL_INFO);
 
 #ifdef AIR_DCHS_MODE_ENABLE
@@ -154,6 +165,7 @@ void Audio_Setup(void)
     aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_UL_PLAY_EN, CB_N9_BLE_UL_PLAY, 2);//close
     aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_UL_SUSPEND, CB_N9_BLE_UL_SUSPEND, 0);
     aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_UL_RESUME,  CB_N9_BLE_UL_RESUME, 0);
+    aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_UL_SET_VOLUME, CB_N9_BLE_UL_SET_VOLUME, 0);
 
     aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_DL_OPEN,    CB_N9_BLE_DL_OPEN, 2);//open
     aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_DL_START,   CB_N9_BLE_DL_START, 2);//play
@@ -167,11 +179,14 @@ void Audio_Setup(void)
     aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_UL_PLAYBACK_DATA_INFO,  CB_N9_BLE_UL_PLAYBACK_DATA_INFO, 0);//
 
     aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_INIT_PLAY_INFO, CB_N9_BLE_INIT_PLAY_INFO, 2); /* Initial play info from BT controller */
-#elif defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
-    aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_INIT_PLAY_INFO, ull_audio_v2_dongle_init_play_info, 0); /* Initial play info from BT controller */
+#elif defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
+    aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_INIT_PLAY_INFO, audio_dongle_init_le_play_info, 0); /* Initial play info from BT controller */
 #elif defined(AIR_WIRELESS_MIC_RX_ENABLE)
     aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_INIT_PLAY_INFO, wireless_mic_rx_init_play_info, 0); /* Initial play info from BT controller */
 #endif  //#AIR_BT_CODEC_BLE_ENABLED
+#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_LE_AUDIO_DONGLE_ENABLE) || defined(AIR_BT_LE_LC3PLUS_ENABLE)
+    aud_msg_rx_register_callback(MSG_MCU2DSP_BLE_AUDIO_SET_LC3_PARAM, lc3_set_param, 1);
+#endif
 
 #ifdef AIR_AUDIO_HARDWARE_ENABLE
     /*Volume control callback function register*/
@@ -181,7 +196,14 @@ void Audio_Setup(void)
     aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_MUTE_INPUT_DEVICE, DSP_GC_MuteInput, 2);
     aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_SET_OUTPUT_VOLUME_PARAMETERS, DSP_GC_SetGainParameters, 2);
     aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_POWER_OFF_DAC_IMMEDIATELY, DSP_GC_POWER_OFF_DAC_IMMEDIATELY, 2);
+#if (defined AIR_BTA_IC_PREMIUM_G2) || (defined AIR_BTA_IC_STEREO_HIGH_G3)
+    aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_MICBIAS_CONTROL, DSP_CTRL_AudioMicBiasControl, 2);
+#endif
 #endif /* AIR_AUDIO_HARDWARE_ENABLE */
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_SET_DL_SW_GAIN, DL_SW_gain_setting, 0);
+    aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_SET_DL_SW_GAIN_DEFAULT_PARA, DL_SW_get_default_para, 2);
+#endif
 
 #ifdef AIR_AUDIO_HARDWARE_ENABLE
     /*Device control callback function register*/
@@ -243,8 +265,8 @@ void Audio_Setup(void)
 #endif
 #endif
 #if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
-    aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_DAC_ENTER_DEACTIVE_MODE, dsp_dac_enter_deactive_mode, 0);
-    aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_DAC_EXIT_DEACTIVE_MODE, dsp_dac_exit_deactive_mode, 0);
+    aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_DAC_ENTER_DEACTIVE_MODE, dsp_dac_enter_deactive_mode, 1);
+    aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_DAC_EXIT_DEACTIVE_MODE, dsp_dac_exit_deactive_mode, 1);
 #endif
 #ifdef MTK_ANC_ENABLE
     aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_ANC_START, dsp_anc_start, 2);
@@ -267,6 +289,9 @@ void Audio_Setup(void)
     aud_msg_rx_register_callback(MSG_MCU2DSP_HW_VIVID_PT_SET_PARAM, dsp_hw_vivid_pt_set_param, 2);
     aud_msg_rx_register_callback(MSG_MCU2DSP_HW_VIVID_PT_QUERY_STATUS, dsp_hw_vivid_pt_query_status, 2);
 #endif
+#endif
+#ifdef AIR_MCU_DSP_DEPENDECY_CHECK_ENABLE
+    aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_AUDIO_CLOCK_DEPENDENCY_CHECK, dsp_a2dp_clock_dependency_check, 1);
 #endif
     aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_DC_COMPENSATION_START, dsp_dc_compensation_start, 2);
     aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_DC_COMPENSATION_STOP, dsp_dc_compensation_stop, 2);
@@ -327,11 +352,6 @@ void Audio_Setup(void)
 #endif
 #endif
 
-#ifdef AIR_DCHS_MODE_ENABLE
-    extern void dchs_mcu2dsp_msg_sync_callback(hal_ccni_message_t msg, hal_ccni_message_t *ack);
-    aud_msg_rx_register_callback(MSG_MCU2DSP_DCHS_COSYS_SYNC, dchs_mcu2dsp_msg_sync_callback, 2);
-#endif
-
     aud_msg_rx_register_callback(MSG_MCU2DSP_COMMON_SET_DRIVER_PARAM, dsp_set_audio_device_parameters, 2);
 
 
@@ -366,6 +386,15 @@ void Audio_Setup(void)
     aud_msg_rx_register_callback(MSG_MCU2DSP_LLF_ANC_BYPASS_MODE, dsp_llf_anc_bypass_mode, 2);
     llf_sharebuf_semaphore_create();
 #endif
+
+#ifdef AIR_MIXER_STREAM_ENABLE
+    aud_msg_rx_register_callback(MSG_MCU2DSP_MIXER_STREAM_MSG_SYNC, mixer_stream_mcu2dsp_msg_sync_callback, 2);
+    aud_msg_rx_register_callback(MSG_MCU2DSP_MIXER_STREAM_OPEN,     dsp_mixer_stream_open,  2);
+    aud_msg_rx_register_callback(MSG_MCU2DSP_MIXER_STREAM_START,    dsp_mixer_stream_start, 2);
+    aud_msg_rx_register_callback(MSG_MCU2DSP_MIXER_STREAM_STOP,     dsp_mixer_stream_stop,  2);
+    aud_msg_rx_register_callback(MSG_MCU2DSP_MIXER_STREAM_CLOSE,    dsp_mixer_stream_close, 2);
+#endif
+
 #ifdef AIR_AUDIO_IRQ_LEVEL_RX_ENABLE
     //here to register IRQ level callback, default MAX callback num IRQ_LEVEL_RX_CB_MAX=5
     //please ensure the cb function can run at IRQ level and the total execution time<100us
@@ -383,6 +412,7 @@ void Audio_Setup(void)
 #endif
 
     aud_msg_init();
+    DSP_play_en_init();
 
 #ifdef AIR_DCHS_MODE_ENABLE
 #ifdef AIR_AI_NR_PREMIUM_INEAR_500K_BROADSIDE_ENABLE
@@ -391,6 +421,9 @@ void Audio_Setup(void)
 #endif
 #if defined(AIR_FIXED_RATIO_SRC) && defined(AIR_FIXED_RATIO_SRC_USE_PIC)
     src_fixed_ratio_library_load(NULL, NULL, NULL);
+#endif
+#if defined(AIR_HEARTHROUGH_MAIN_ENABLE) || defined(AIR_CUSTOMIZED_LLF_ENABLE)
+    dsp_llf_init();
 #endif
 
     // mask for 2833 early porting

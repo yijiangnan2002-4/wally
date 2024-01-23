@@ -226,7 +226,7 @@ typedef uint8_t bt_aws_mce_ready_t;                       /**< The type of AWS-M
  */
 #define BT_AWS_MCE_INFORMATION_A2DP              (0x81)        /**< The type of Client to Sync A2DP Status. */
 #define BT_AWS_MCE_INFORMATION_SCO               (0x82)        /**< The type of Client to Sync Call Status. */
-#define BT_AWS_MCE_INFORMATION_REPORT_APP        (0x85)        /**< The type of Agent or Partner’s Application Data. */
+#define BT_AWS_MCE_INFORMATION_REPORT_APP        (0x85)        /**< The type of Agent or Partner's Application Data. */
 #define BT_AWS_MCE_INFORMATION_ROLE_HANDOVER     (0x87)        /**< The type of action to ask the Partner to Handover to the Agent role. */
 #define BT_AWS_MCE_INFORMATION_PARTNER_SELECTION (0x8C)        /**< The type of select a Partner based on its number. */
 #define BT_AWS_MCE_INFORMATION_MIC_SELECTION     (0x8E)        /**< The type of MIC selection for a speaker scenario. */

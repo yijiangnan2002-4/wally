@@ -181,14 +181,14 @@ static void *apps_dongle_sync_race_handler(ptr_race_pkt_t p_race_package, uint16
     CMD1 *cmd = (CMD1 *)p_race_package;
     APPS_LOG_MSGID_I(TAG"receive ull event sync data, len=%d, channel=%d", 2, length, channel_id);
 
-#if defined(AIR_DONGLE_ENABLE)
+#if 1
     uint8_t *shell_data = (uint8_t *)pvPortMalloc(length + sizeof(channel_id));
 #else
     uint8_t *shell_data = (uint8_t *)pvPortMalloc(length);
 #endif
     if (shell_data != NULL) {
         memcpy(shell_data, cmd->data, length);
-#if defined(AIR_DONGLE_ENABLE)
+#if 1
         *(shell_data + length) = channel_id;
 #endif
         ui_shell_status_t status = ui_shell_send_event(true, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_DONGLE_DATA,
@@ -215,9 +215,12 @@ void apps_dongle_sync_init(void)
     APPS_LOG_MSGID_I(TAG"init race ret=%d", 1, ret);
 }
 
-#if defined(AIR_DONGLE_ENABLE)
+#if 1
 uint8_t apps_dongle_sync_event_get_channel_id(void* extra_data, uint32_t len)
 {
+    if (extra_data == NULL || len == 0) {
+        return RACE_INVALID_CHANNEL_ID;
+    }
     uint8_t *sync_data = (uint8_t*)extra_data;
     return sync_data[len];
 }

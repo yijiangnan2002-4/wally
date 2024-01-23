@@ -72,7 +72,7 @@ void apps_init_touch_key_status(void);
 */
 uint8_t apps_set_touch_control_enable(uint8_t isEnable, bool isApp);
 
-bool apps_touch_key_status_update_notify(uint8_t isEnable, bool isAppnotify);
+bool apps_touch_key_status_update_notify(uint8_t isEnable, bool isAppNotify);
 
 /*!
   @brief        Get touch key status.

@@ -36,7 +36,9 @@
 #include "bt_sink_srv_le.h"
 #include "bt_sink_srv_le_cap.h"
 #include "bt_sink_srv_le_cap_stream.h"
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 #include "bt_sink_srv_music.h"
+#endif
 #include "bt_le_audio_sink.h"
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
 #include "bt_sink_srv_state_manager.h"
@@ -303,6 +305,7 @@ static void le_sink_srv_profile_status_notify(bt_sink_srv_profile_type_t profile
 
 static void le_sink_srv_mcp_state_change_notify(bt_handle_t handle, ble_mcs_media_state_t state)
 {
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     bt_avrcp_status_t avrcp_statre = BT_AVRCP_STATUS_PLAY_ERROR;
     bt_addr_t dev_addr;// = bt_sink_srv_cap_get_peer_bdaddr(0xFF);
     bt_sink_srv_memset(&dev_addr, 0, sizeof(bt_addr_t));
@@ -325,6 +328,7 @@ static void le_sink_srv_mcp_state_change_notify(bt_handle_t handle, ble_mcs_medi
             return;
     }
     bt_sink_srv_music_avrcp_status_change_notify(&dev_addr.addr, avrcp_statre);
+#endif
 }
 
 static void le_sink_srv_state_change_notify(bt_sink_srv_state_t previous, bt_sink_srv_state_t now)
@@ -414,6 +418,11 @@ static void le_sink_srv_event_callback(uint16_t event_id, void *p_msg)
                 }
 
             }
+            break;
+        }
+        case BT_SINK_SRV_CAP_EVENT_ASE_READY: {
+            bt_sink_srv_cap_event_ase_ready_t *parm = (bt_sink_srv_cap_event_ase_ready_t *)p_msg;
+            bt_sink_srv_report_id("[Sink] ASE ready, handle:%x, evt:%d", 2, parm->connect_handle, parm->ready_event);
             break;
         }
         case BT_LE_AUDIO_SINK_EVENT_MEDIA_SERVICE_READY: {
@@ -697,6 +706,7 @@ bt_sink_srv_state_t le_sink_srv_get_state(void)
     return g_le_sink_srv_state;
 }
 
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
 bt_status_t bt_sink_srv_state_manager_le_callback(bt_sink_srv_state_manager_event_t event, bt_bd_addr_t *address, void *parameter)
 {
     bt_sink_srv_report_id("[Sink] bt_sink_srv_state_manager_le_callback:%d", 1, event);
@@ -767,6 +777,7 @@ bt_status_t bt_sink_srv_state_manager_le_callback(bt_sink_srv_state_manager_even
         8, event, ret, addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
     return ret;
 }
+#endif
 
 bt_handle_t bt_sink_srv_le_action_parse_addr(uint32_t action, void *param)
 {

@@ -31,7 +31,7 @@
  * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
-
+#ifdef AIR_BT_HFP_ENABLE
 #include "bt_hfp_codec_internal.h"
 #include "bt_sink_srv_ami.h"
 #include "audio_nvdm_common.h"
@@ -59,7 +59,7 @@
 #endif
 #include "hal_dvfs_internal.h"
 #include "hal_audio_message_struct_common.h"
-
+#include "fixrate_control.h"
 
 #ifdef HAL_DVFS_MODULE_ENABLED
 #ifdef AIR_BTA_IC_PREMIUM_G2
@@ -400,14 +400,19 @@ static bt_codec_media_status_t bt_hfp_open(bt_hfp_audio_codec_type_t codec_type)
     AUDIO_ASSERT((open_param != NULL) && "[bt_hfp_open]open_param is NULL");
     void *p_param_share;
     sysram_status_t status;
-    DSP_FEATURE_TYPE_LIST AudioFeatureList_eSCO[2];
+    DSP_FEATURE_TYPE_LIST AudioFeatureList_eSCO[3];
 
     if (codec_type == BT_HFP_CODEC_TYPE_CVSD) {
         AudioFeatureList_eSCO[0] = FUNC_TX_NR;
     } else {
         AudioFeatureList_eSCO[0] = FUNC_RX_NR;
     }
+#ifdef AIR_AUDIO_VOLUME_MONITOR_ENABLE
+    AudioFeatureList_eSCO[1] = FUNC_SILENCE_DETECTION;
+    AudioFeatureList_eSCO[2] = FUNC_END;
+#else
     AudioFeatureList_eSCO[1] = FUNC_END;
+#endif
 
 #if defined(AIR_HFP_FEATURE_MODE_ENABLE) || defined(AIR_AUDIO_DETACHABLE_MIC_ENABLE)
     hfp_replace_feature_mode_nvkey_id(codec_type, AudioFeatureList_eSCO);
@@ -415,7 +420,7 @@ static bt_codec_media_status_t bt_hfp_open(bt_hfp_audio_codec_type_t codec_type)
 
     /* reset share buffer before put parameters*/
     audio_nvdm_reset_sysram();
-    status = audio_nvdm_set_feature(2, AudioFeatureList_eSCO);
+    status = audio_nvdm_set_feature(sizeof(AudioFeatureList_eSCO) / sizeof(DSP_FEATURE_TYPE_LIST), AudioFeatureList_eSCO);
     if (status != NVDM_STATUS_NAT_OK) {
         AUDIO_ASSERT(0 && "failed to set parameters to share memory");
     }
@@ -496,20 +501,29 @@ static bt_codec_media_status_t bt_hfp_open(bt_hfp_audio_codec_type_t codec_type)
 
     open_param->stream_out_param.afe.memory          = HAL_AUDIO_MEM1;
     open_param->stream_out_param.afe.format          = HAL_AUDIO_PCM_FORMAT_S16_LE;
-    open_param->stream_out_param.afe.stream_out_sampling_rate   = 16000;
-#if defined (FIXED_SAMPLING_RATE_TO_48KHZ)
-    open_param->stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
-#elif defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
-    open_param->stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
-#else
-    open_param->stream_out_param.afe.sampling_rate   = 16000;
+#if defined(AIR_HWSRC_IN_STREAM_ENABLE)
+     open_param->stream_out_param.afe.hwsrc_type      = HAL_AUDIO_HWSRC_IN_STREAM;
 #endif
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+    open_param->stream_out_param.afe.stream_out_sampling_rate   = 96000;
+#elif defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ)
+    open_param->stream_out_param.afe.stream_out_sampling_rate   = 48000;
+#else
+    open_param->stream_out_param.afe.stream_out_sampling_rate   = 16000;
+#endif
+
+    if (aud_fixrate_get_downlink_rate(open_param->audio_scenario_type) == FIXRATE_NONE) {
+        open_param->stream_out_param.afe.sampling_rate   = 16000;
+    } else {
+        open_param->stream_out_param.afe.sampling_rate = aud_fixrate_get_downlink_rate(open_param->audio_scenario_type);
+    }
+
     open_param->stream_out_param.afe.irq_period      = 15;
     open_param->stream_out_param.afe.frame_size      = 240;
     open_param->stream_out_param.afe.frame_number    = 4;
     open_param->stream_out_param.afe.hw_gain         = true;
 #ifdef ENABLE_HWSRC_CLKSKEW
-#if defined AIR_HWSRC_TX_TRACKING_ENABLE || defined AIR_HWSRC_RX_TRACKING_ENABLE
+#if defined(AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE)
     open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V1;
 #else
     open_param->stream_out_param.afe.clkskew_mode    = CLK_SKEW_V2;
@@ -520,6 +534,32 @@ static bt_codec_media_status_t bt_hfp_open(bt_hfp_audio_codec_type_t codec_type)
 #endif
 #if defined(MTK_EXTERNAL_DSP_NEED_SUPPORT)
     ami_set_afe_param(STREAM_OUT, HAL_AUDIO_SAMPLING_RATE_16KHZ, true);
+#endif
+
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    //hal_dvfs_lock_control(HAL_DVFS_OPP_HIGH, HAL_DVFS_LOCK);
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE
+    open_param->stream_out_param.afe.audio_device     = HAL_AUDIO_DEVICE_DAC_DUAL;
+    open_param->stream_out_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+    open_param->stream_out_param.afe.audio_device1    = HAL_AUDIO_DEVICE_I2S_MASTER;
+    open_param->stream_out_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_1;
+    open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_NONE;
+    open_param->stream_out_param.afe.audio_interface2 = HAL_AUDIO_DEVICE_NONE;
+    open_param->stream_out_param.afe.memory           |= HAL_AUDIO_MEM3;
+    open_param->stream_out_param.afe.is_low_jitter[0]    = true;
+#elif AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE
+    open_param->stream_out_param.afe.audio_device     = HAL_AUDIO_DEVICE_I2S_MASTER;
+    open_param->stream_out_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+    open_param->stream_out_param.afe.audio_device1    = HAL_AUDIO_DEVICE_I2S_MASTER;
+    open_param->stream_out_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_2;
+    open_param->stream_out_param.afe.audio_device2    = HAL_AUDIO_DEVICE_I2S_MASTER;
+    open_param->stream_out_param.afe.audio_interface2 = HAL_AUDIO_INTERFACE_3;
+    open_param->stream_out_param.afe.memory           |= HAL_AUDIO_MEM3|HAL_AUDIO_MEM4;
+#endif
+    TASK_LOG_MSGID_I("out_device0(0x%x), channel(%d), interface0(%d)", 3, open_param->stream_out_param.afe.audio_device, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface);
+    TASK_LOG_MSGID_I("out_device1(0x%x), channel(%d), interface1(%d)", 3, open_param->stream_out_param.afe.audio_device1, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface1);
+    TASK_LOG_MSGID_I("out_device2(0x%x), channel(%d), interface2(%d)", 3, open_param->stream_out_param.afe.audio_device2, open_param->stream_out_param.afe.stream_channel, open_param->stream_out_param.afe.audio_interface2);
+    TASK_LOG_MSGID_I("memory(0x%x)", 1, open_param->stream_out_param.afe.memory);
 #endif
 
     /* Turn on the power and set the volume */
@@ -653,14 +693,8 @@ static bt_codec_media_status_t bt_hfp_open(bt_hfp_audio_codec_type_t codec_type)
         open_param->stream_in_param.afe.memory          = HAL_AUDIO_MEM1;//remove HAL_AUDIO_MEM3 to enable echo reference from i2s slave;
 #endif
     }
-#if 0
-    if (open_param->stream_in_param.afe.audio_device & (HAL_AUDIO_DEVICE_I2S_MASTER | HAL_AUDIO_DEVICE_I2S_MASTER_L | HAL_AUDIO_DEVICE_I2S_MASTER_R)) {
-        //for esco UL Downsample
-        open_param->stream_in_param.afe.with_upwdown_sampler     = true;
-        open_param->stream_in_param.afe.audio_path_input_rate    = open_param->stream_in_param.afe.i2s_master_sampling_rate;
-        open_param->stream_in_param.afe.audio_path_output_rate   = open_param->stream_in_param.afe.sampling_rate;
-    }
-#endif
+    open_param->stream_in_param.afe.clkskew_mode    = CLK_SKEW_V1;
+
     /* Turn on the power */
     ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_HFP_UL, open_param, true);
 
@@ -708,9 +742,11 @@ static bt_codec_media_status_t bt_hfp_play(bt_media_handle_t *handle)
     start_param.param.stream_out    = STREAM_OUT_AFE;
 
     start_param.stream_out_param.afe.aws_flag   =  aws_flag;
+
 #ifdef AIR_DCHS_MODE_ENABLE
+    start_param.stream_out_param.afe.mce_flag   = true; //enable play en
     dchs_cosys_ctrl_cmd_relay(AUDIO_UART_COSYS_DL_START, AUDIO_SCENARIO_TYPE_HFP_DL , NULL, &start_param);
-	dchs_cosys_ctrl_cmd_relay(AUDIO_UART_COSYS_UL_START, AUDIO_SCENARIO_TYPE_HFP_UL , NULL, &start_param);
+    dchs_cosys_ctrl_cmd_relay(AUDIO_UART_COSYS_UL_START, AUDIO_SCENARIO_TYPE_HFP_UL , NULL, &start_param);
 #endif
     p_param_share = hal_audio_dsp_controller_put_paramter(&start_param, sizeof(mcu2dsp_start_param_t), AUDIO_MESSAGE_TYPE_BT_VOICE_DL);
 #if (DL_ONLY == TRUE)
@@ -726,6 +762,14 @@ static bt_codec_media_status_t bt_hfp_play(bt_media_handle_t *handle)
     p_param_share = hal_audio_dsp_controller_put_paramter(&start_param, sizeof(mcu2dsp_start_param_t), AUDIO_MESSAGE_TYPE_BT_VOICE_UL);
 #if (UL_ONLY == TRUE)
     hal_audio_dsp_controller_send_message(MSG_MCU2DSP_BT_VOICE_UL_START, 0, (uint32_t)p_param_share, true);
+#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
+        audio_volume_monitor_param_t param = {0};
+        param.cb = mute_mic_detection;
+        param.volume_len = 1;
+        param.ch         = 1;
+        param.user_data  = NULL;
+        audio_volume_monitor_start(AUDIO_SCENARIO_TYPE_HFP_UL, &param);
+#endif
 #endif
 
 #ifdef AIR_HFP_DNN_PATH_ENABLE
@@ -759,6 +803,9 @@ static bt_codec_media_status_t bt_hfp_stop(bt_media_handle_t *handle)
 #endif
 #if (UL_ONLY == TRUE)
     hal_audio_dsp_controller_send_message(MSG_MCU2DSP_BT_VOICE_UL_STOP, 0, 0, true);
+#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
+    audio_volume_monitor_stop(AUDIO_SCENARIO_TYPE_HFP_UL);
+#endif
 #endif
 #ifdef AIR_HFP_DNN_PATH_ENABLE
 #if (UL_DNN_EN == TRUE)
@@ -791,6 +838,10 @@ static bt_media_handle_t *bt_hfp_open_codec_internal(bt_hfp_audio_codec_type_t c
     if (p_info == NULL) {
         return NULL;
     }
+
+    #if defined(AIR_BTA_IC_PREMIUM_G2) && defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
+    clock_mux_sel(CLK_AUD_GPSRC_SEL, 1); // boost hwsrc convert speed
+    #endif
 
     memset(p_info, 0, sizeof(bt_hfp_codec_internal_handle_t));
     handle = &p_info->handle;
@@ -847,6 +898,10 @@ static bt_codec_media_status_t bt_hfp_close_codec_internal(void)
 
     bt_hfp_codec_is_running = false;
 
+    #if defined(AIR_BTA_IC_PREMIUM_G2) && defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
+    clock_mux_sel(CLK_AUD_GPSRC_SEL, 0); // boost hwsrc convert speed
+    #endif
+
     return BT_CODEC_MEDIA_STATUS_OK;
 }
 
@@ -875,4 +930,5 @@ bt_codec_media_status_t bt_codec_hfp_close(bt_media_handle_t *handle)
 
     return bt_hfp_close_codec_internal();
 }
+#endif
 

@@ -137,7 +137,7 @@ void voice_prompt_aws_init()
     bt_role_handover_callbacks_t role_callbacks = {NULL, NULL, NULL, NULL, voice_prompt_aws_rho_cb};
 #endif
 
-    g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_SNIFF;
+    g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF;
 
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
     bt_role_handover_register_callbacks(BT_ROLE_HANDOVER_MODULE_VP_APP, &role_callbacks);
@@ -227,8 +227,8 @@ bt_status_t voice_prompt_aws_enable_sniff(bool enable)
     bt_status_t ret = BT_STATUS_SUCCESS;
 
     if (voice_prompt_aws_get_remote_addr(&addr) != VP_STATUS_SUCCESS) {
-        //VP_LOG_MSGID_I(LOG_TAG" Error! cann't get sp addr,", 0);
-        g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_ACTIVE;
+        //VP_LOG_MSGID_I(LOG_TAG" Error! can't get sp addr,", 0);
+        g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_ACTIVE;
         return BT_STATUS_FAIL;
     }
     conn_handle = bt_cm_get_gap_handle(addr);
@@ -236,15 +236,15 @@ bt_status_t voice_prompt_aws_enable_sniff(bool enable)
     if (0 != conn_handle) {
         bt_gap_link_policy_setting_t setting;
         if (enable) {
-            g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_SNIFF;
+            g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF;
             setting.sniff_mode = BT_GAP_LINK_POLICY_ENABLE;
         } else {
-            g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_ACTIVE;
+            g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_ACTIVE;
             setting.sniff_mode = BT_GAP_LINK_POLICY_DISABLE;
         }
         ret = bt_gap_write_link_policy(conn_handle, &setting);
     } else {
-        g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_ACTIVE;
+        g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_ACTIVE;
         ret = BT_STATUS_FAIL;
     }
 
@@ -267,15 +267,15 @@ voice_prompt_status_t voice_prompt_aws_exit_sniff()
         return VP_STATUS_FAIL;
     }
 
-    if (g_voice_prompt_aws_ctx.aws_state != VOICE_PROMP_AWS_STATE_SNIFF) {
+    if (g_voice_prompt_aws_ctx.aws_state != VOICE_PROMPT_AWS_STATE_SNIFF) {
         VP_LOG_MSGID_I(LOG_TAG" already exited, state %d", 1, g_voice_prompt_aws_ctx.aws_state);
         return VP_STATUS_SUCCESS;
     }
 
-    /* always diable sniff first due to host will never return BT_CONNECTION_MANAGER_STATUS_STATE_ALREADY_EXIST */
+    /* always disable sniff first due to host will never return BT_CONNECTION_MANAGER_STATUS_STATE_ALREADY_EXIST */
     voice_prompt_aws_enable_sniff(false);
     if (voice_prompt_aws_get_remote_addr(&bd_addr) != BT_STATUS_SUCCESS) {
-        //VP_LOG_MSGID_I(LOG_TAG" Error! cann't get sp addr,", 0);
+        //VP_LOG_MSGID_I(LOG_TAG" Error! can't get sp addr,", 0);
         status = BT_STATUS_FAIL;
     } else {
         status = voice_prompt_aws_exit_sniff_mode(bd_addr);
@@ -284,14 +284,14 @@ voice_prompt_status_t voice_prompt_aws_exit_sniff()
     VP_LOG_MSGID_I(LOG_TAG" exiting sniff mode ret=0x%x", 1, status);
     if (status == BT_STATUS_SUCCESS || status == BT_STATUS_PENDING) {
         /* Waiting for exit sniff mode. */
-        g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_SNIFF_EXITING;
+        g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF_EXITING;
         return VP_STATUS_SNIFF_EXITING;
     } else if (status == BT_CONNECTION_MANAGER_STATUS_STATE_ALREADY_EXIST) {
         /* Disable sniff mode while VP playing. */
         voice_prompt_aws_enable_sniff(false);
         return VP_STATUS_SUCCESS;
     } else {
-        g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_ACTIVE;
+        g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_ACTIVE;
         return VP_STATUS_SUCCESS;
     }
 }
@@ -300,6 +300,7 @@ void voice_prompt_aws_exit_sniff_cnf(void *msg_data)
 {
     voice_prompt_aws_sniff_change_t *data = (voice_prompt_aws_sniff_change_t *)msg_data;
 
+    VP_LOG_MSGID_E(LOG_TAG" voice_prompt_aws_exit_sniff_cnf, cur_aws_state=%d", 1, g_voice_prompt_aws_ctx.aws_state);
     if (msg_data == NULL) {
         //VP_LOG_MSGID_E(LOG_TAG" exit_sniff_cnf msg data null", 0);
         return;
@@ -307,13 +308,16 @@ void voice_prompt_aws_exit_sniff_cnf(void *msg_data)
 
     if (data->status != BT_STATUS_SUCCESS) {
         /* Exit sniff mode fail, treat as sniff, play anyway. */
-        g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_SNIFF;
+        g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF;
     } else {
         if (data->ind.sniff_status == BT_GAP_LINK_SNIFF_TYPE_ACTIVE) {
-            /* Disable sniff mode while vp is playing. */
-            voice_prompt_aws_enable_sniff(false);
+            /* already disabled when exit. */
+            if (g_voice_prompt_aws_ctx.aws_state != VOICE_PROMPT_AWS_STATE_SNIFF_EXITING) {
+                /* Disable sniff mode while vp is playing. */
+                voice_prompt_aws_enable_sniff(false);
+            }
         } else {
-            g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_SNIFF;
+            g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF;
         }
     }
 
@@ -327,7 +331,7 @@ static bt_status_t voice_prompt_aws_gap_evt_cb(bt_msg_type_t msg, bt_status_t st
             bt_gap_sniff_mode_changed_ind_t *ind = (bt_gap_sniff_mode_changed_ind_t *)buffer;
             VP_LOG_MSGID_I(LOG_TAG" sniff mode change ind status: 0x%x, bt_state: %d, sniff status: %d", 3,
                            status, g_voice_prompt_aws_ctx.aws_state, ind ? ind->sniff_status : 0xff);
-            if (g_voice_prompt_aws_ctx.aws_state == VOICE_PROMP_AWS_STATE_SNIFF_EXITING) {
+            if (g_voice_prompt_aws_ctx.aws_state == VOICE_PROMPT_AWS_STATE_SNIFF_EXITING) {
                 voice_prompt_sniff_change_t *data = (voice_prompt_sniff_change_t *)pvPortMalloc(sizeof(voice_prompt_sniff_change_t));
                 if (data == NULL) {
                     VP_LOG_MSGID_E(LOG_TAG" sniff mode change ind status: data malloc fail", 0);
@@ -361,10 +365,10 @@ static void voice_prompt_aws_rho_cb(const bt_bd_addr_t *addr, bt_aws_mce_role_t 
     if (BT_ROLE_HANDOVER_COMPLETE_IND == event && status == BT_STATUS_SUCCESS) {
         /* Update sniff status. */
         if (role == BT_AWS_MCE_ROLE_AGENT) {
-            g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_SNIFF;
+            g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF;
         } else if (role == BT_AWS_MCE_ROLE_PARTNER) {
-            //g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_ACTIVE;
-            g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_SNIFF;
+            //g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_ACTIVE;
+            g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF;
         }
     }
 }
@@ -413,7 +417,7 @@ voice_prompt_status_t voice_prompt_aws_sync_play(voice_prompt_param_t *vp, uint1
         if (bt_ret == BT_STATUS_BUSY) {
             /* IF lock. */
             voice_prompt_aws_if_timer_start();
-            return VP_STATUS_AWS_IF_LOCEKD;
+            return VP_STATUS_AWS_IF_LOCKED;
         } else {
             return VP_STATUS_AWS_DISCONNECT;
         }
@@ -472,7 +476,7 @@ voice_prompt_status_t voice_prompt_aws_sync_stop(uint32_t vp_index, bool preempt
         if (bt_ret == BT_STATUS_BUSY) {
             /* IF lock. */
             voice_prompt_aws_if_timer_start();
-            return VP_STATUS_AWS_IF_LOCEKD;
+            return VP_STATUS_AWS_IF_LOCKED;
         } else {
             return VP_STATUS_FAIL;
         }
@@ -519,7 +523,7 @@ voice_prompt_status_t voice_prompt_aws_play_peer(voice_prompt_param_t *vp)
         if (bt_ret == BT_STATUS_BUSY) {
             /* IF lock. */
             voice_prompt_aws_if_timer_start();
-            return VP_STATUS_AWS_IF_LOCEKD;
+            return VP_STATUS_AWS_IF_LOCKED;
         }
 #endif
         return VP_STATUS_FAIL;
@@ -558,7 +562,7 @@ voice_prompt_status_t voice_prompt_aws_stop_peer(uint32_t vp_index, bool sync)
 #if 0
         if (bt_ret == BT_STATUS_BUSY) {
             /* IF lock. */
-            return VP_STATUS_AWS_IF_LOCEKD;
+            return VP_STATUS_AWS_IF_LOCKED;
         }
 #endif
         return VP_STATUS_FAIL;
@@ -596,7 +600,7 @@ voice_prompt_status_t voice_prompt_aws_sync_language(uint8_t lang_idx, voice_pro
 #if 0
         if (bt_ret == BT_STATUS_BUSY) {
             /* IF lock. */
-            return VP_STATUS_AWS_IF_LOCEKD;
+            return VP_STATUS_AWS_IF_LOCKED;
         }
 #endif
         return VP_STATUS_FAIL;
@@ -754,10 +758,10 @@ static void voice_prompt_aws_sync_cb(bt_aws_mce_report_info_t *info)
 void voice_prompt_aws_hdl_if_unlock()
 {
     voice_prompt_aws_if_timer_stop();
-    g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_SNIFF;
+    g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF;
 }
 
 void voice_prompt_aws_hdl_remote_disconnect()
 {
-    g_voice_prompt_aws_ctx.aws_state = VOICE_PROMP_AWS_STATE_SNIFF;
+    g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF;
 }

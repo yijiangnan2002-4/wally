@@ -107,9 +107,9 @@ typedef struct N9Ble_Source_Config_s {
 } N9Ble_Source_config_t;
 
 typedef enum {
-    BLE_PKT_FREE,
-    BLE_PKT_USED,
+    BLE_PKT_VALID = 0,
     BLE_PKT_LOST,
+    BLE_PKT_PADDING,
 } ble_packet_state;
 
 typedef struct Stream_n9ble_Config_s {
@@ -166,6 +166,12 @@ EXTERN void N9Ble_UL_SWB_Sample_Rate_Deinit(void);
 #if defined(AIR_MUTE_MIC_DETECTION_ENABLE)
 EXTERN void N9Ble_UL_Volume_Estimator_Init(SINK sink);
 EXTERN void N9Ble_UL_Volume_Estimator_Deinit(void);
+#endif
+
+#if defined(AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE) && defined(AIR_SOFTWARE_GAIN_ENABLE)
+EXTERN void N9Ble_UL_SW_Gain_Init(void);
+EXTERN void N9Ble_UL_Set_SW_Gain(int32_t new_gain);
+EXTERN void N9Ble_UL_Set_SW_Gain_Mute(bool mute);
 #endif
 
 #endif /* _STREAM_N9SCO_H_ */

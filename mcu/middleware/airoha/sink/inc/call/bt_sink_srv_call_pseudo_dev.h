@@ -43,7 +43,7 @@
 extern "C" {
 #endif
 
-#define BT_SINK_SRV_CALL_PSD_NUM 0x03
+#define BT_SINK_SRV_CALL_PSD_NUM 0x04
 
 #define BT_SINK_SRV_CALL_EVENT_CONNECT_LINK_REQ     0x80
 #define BT_SINK_SRV_CALL_EVENT_DISCONNECT_LINK_REQ  0x81
@@ -87,6 +87,7 @@ typedef uint8_t bt_sink_srv_call_state_event_t;
 #if defined (AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
 #define BT_SINK_SRV_CALL_PSD_EVENT_RESEND_CALL_INFO 0x0A
 #endif
+#define BT_SINK_SRV_CALL_PSD_EVENT_SWITCH_AWS_LINK  0x0B
 #define BT_SINK_SRV_CALL_PSD_EVENT_DEINIT           0xFF
 typedef uint8_t bt_sink_srv_call_pseudo_dev_event_t;
 
@@ -127,6 +128,10 @@ void bt_sink_srv_call_psd_set_codec_type(void *device, bt_sink_srv_call_audio_co
 void bt_sink_srv_call_psd_reset_user_callback(void *device, bt_sink_srv_call_pseudo_dev_callback callback);
 
 bt_sink_srv_call_audio_codec_type_t bt_sink_srv_call_psd_get_codec_type(void *device);
+
+void bt_sink_srv_call_psd_enable_sidetone(void *device);
+
+void bt_sink_srv_call_psd_disable_sidetone(void *device);
 
 #ifdef __cplusplus
 }

@@ -77,6 +77,8 @@ log_create_module(MUX_PORT, PRINT_LEVEL_INFO);
 #define handle_to_port(handle) (handle & 0xFF)
 #define handle_to_user_id(handle) ((handle >> 8) & 0xFF)
 #define user_id_to_handle(user_id, port) ((HANDLE_MAGIC_NUMBER << 16) | (user_id << 8) | port)
+#define SIZE_STATIC_CHECK_LE(checked_value, size)\
+    extern char size_static_check_var_##size##_[((checked_value) >= (size)) ? 0 : -1]
 
 typedef struct {
     uint32_t wptr;
@@ -100,6 +102,8 @@ volatile mux_port_config_t g_mux_port_configs[MUX_PORT_END];
 #else
 volatile mux_port_config_t *g_mux_port_configs = (volatile mux_port_config_t *)HW_SYSRAM_PRIVATE_MEMORY_MUX_VAR_PORT_START;
 #endif/* MTK_SINGLE_CPU_ENV */
+
+SIZE_STATIC_CHECK_LE(HW_SYSRAM_PRIVATE_MEMORY_MUX_VAR_PORT_LEN/sizeof(mux_port_config_t), MUX_PORT_END);
 
 volatile mux_user_config_t g_mux_user_configs[MAX_MUX_USER_COUNT];
 
@@ -1908,7 +1912,7 @@ ATTR_TEXT_IN_TCM mux_status_t mux_tx(mux_handle_t handle, const mux_buffer_t buf
 
 #ifdef AIR_LOW_LATENCY_MUX_ENABLE
     if (is_mux_ll_handle(handle)) {
-        return mux_tx_ll(handle, buffers, buffers_counter, send_done_data_len);
+        return mux_tx_ll_with_silence(handle, buffers, buffers_counter, send_done_data_len);
     }
 #endif
     *send_done_data_len = 0;

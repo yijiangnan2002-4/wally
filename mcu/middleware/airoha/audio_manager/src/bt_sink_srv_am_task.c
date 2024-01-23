@@ -58,7 +58,7 @@
 #include "bt_sink_srv_music.h"
 #include "bt_sink_srv_aws.h"
 #endif /* __BT_AWS_SUPPORT__ */
-#if defined (AIR_BT_A2DP_VENDOR_ENABLE) || defined (AIR_BT_A2DP_VENDOR_2_ENABLE)
+#ifdef AIR_BT_A2DP_VENDOR_CODEC_SUPPORT
 #include "bt_sink_srv_music.h"
 #endif
 
@@ -174,6 +174,10 @@ extern void RACE_DSPREALTIME_callback(uint32_t event_id);
 extern void RACE_DSPREALTIME_COSYS_GET_PARAM(am_feature_type_t audio_feature, void *data);
 #endif
 
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+extern uint8_t default_dac_mode;
+#endif
+
 #ifdef AIR_RECORD_ENABLE
 #include "record_playback.h"
 #endif
@@ -189,6 +193,11 @@ extern void RACE_DSPREALTIME_COSYS_GET_PARAM(am_feature_type_t audio_feature, vo
 #include "hal_audio_message_struct_common.h"
 #include "ecnr_setting.h"
 #endif /* AIR_BT_AUDIO_SYNC_ENABLE */
+
+
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+#include "downlink_sw_gain.h"
+#endif
 
 #ifndef _UNUSED
 #define _UNUSED(x)  ((void)(x))
@@ -225,7 +234,9 @@ static uint16_t g_lExpire_count = 0;
 #endif
 static bt_sink_srv_am_background_t g_rBackground_head = {0};
 static bt_sink_srv_am_sink_state_t g_rSink_state = A2DP_SINK_CODEC_CLOSE;
+#ifdef AIR_BT_HFP_ENABLE
 static bt_sink_srv_am_media_handle_t g_prHfp_sink_event_handle;
+#endif
 bt_media_handle_t *g_prHfp_media_handle = NULL;
 static bt_sink_srv_am_media_handle_t g_prA2dp_sink_event_handle;
 bt_media_handle_t *g_prA2dp_sink_handle = NULL;
@@ -326,8 +337,10 @@ static void bt_codec_am_a2dp_sink_open(bt_sink_srv_am_a2dp_codec_t *a2dp_codec_t
 static bt_status_t bt_codec_am_a2dp_sink_play(bt_sink_srv_am_id_t aud_id);
 static bt_status_t bt_codec_am_a2dp_sink_stop(bt_sink_srv_am_id_t aud_id);
 static bt_status_t bt_codec_am_a2dp_sink_close(void);
+#ifdef AIR_BT_HFP_ENABLE
 static void bt_codec_am_hfp_open(bt_sink_srv_am_hfp_codec_t *hfp_codec_t);
 static bt_status_t bt_codec_am_hfp_stop(void);
+#endif
 #ifdef AIR_BT_CODEC_BLE_ENABLED
 static void bt_codec_am_ble_open(bt_sink_srv_am_ble_codec_t *hfp_codec_t);
 static bt_status_t bt_codec_am_ble_stop(void);
@@ -373,12 +386,14 @@ static void audio_dl_resume_hdlr(bt_sink_srv_am_amm_struct *amm_ptr);
 static void audio_ul_suspend_hdlr(bt_sink_srv_am_amm_struct *amm_ptr);
 static void audio_ul_resume_hdlr(bt_sink_srv_am_amm_struct *amm_ptr);
 
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 extern void BT_A2DP_CONVERT_SBC_CODEC(bt_codec_capability_t *dst_codec,
                                       bt_a2dp_codec_capability_t *src_codec);
 
 extern void BT_A2DP_CONVERT_AAC_CODEC(bt_codec_capability_t *dst_codec,
                                       bt_a2dp_codec_capability_t *src_codec);
 
+#endif
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)||defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
 extern void RACE_DSPREALTIME_ANC_PASSTHRU_RELAY_COSYS_CALLBACK(bool is_critical, uint8_t *buff, uint32_t len);
 #endif
@@ -780,6 +795,16 @@ static void aud_prepare_linein_nvkey(bt_sink_srv_am_feature_t *local_feature, ui
     }else if(type == 2){
         aud_set_peq_param(PEQ_AUDIO_PATH_USB, &am_peq_param);
     }
+
+#ifndef MTK_ANC_ENABLE
+    /* set post PEQ*/
+    am_peq_param.phase_id = 1;
+    am_peq_param.enable = g_peq_handle.linein_post_peq_enable;
+    am_peq_param.sound_mode = g_peq_handle.linein_post_peq_sound_mode;
+    aud_set_peq_param(PEQ_AUDIO_PATH_LINEIN, &am_peq_param);
+#else
+    audio_set_anc_compensate(LINE_IN, 0, NULL);
+#endif
 #endif
     audio_nvdm_reset_sysram();
     // status = audio_nvdm_set_feature(sizeof(AudioFeatureList_LINEIN)/sizeof(DSP_FEATURE_TYPE_LIST), AudioFeatureList_LINEIN);
@@ -942,7 +967,9 @@ static void am_audio_record_sink_stop(void);
 #endif
 
 static void aud_dl_control(bool isCodecOpen);
+#if defined(AIR_BT_CODEC_BLE_ENABLED) || defined(AIR_BT_HFP_ENABLE) || defined(AIR_RECORD_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
 static void aud_ul_control(bool isCodecOpen);
+#endif
 
 #if defined(AIR_WIRED_AUDIO_ENABLE) || defined(LINE_IN_USB_IN_EXCLUSIVE_WITH_RECORD_ENABLE)
 typedef struct {
@@ -1197,8 +1224,8 @@ static void am_audio_set_play(bt_sink_srv_am_background_t *background_ptr)
         };
         audio_transmitter_suspend_by_other_scenario(audio_transmitter_scenario_list, 3, AUDIO_SCENARIO_TYPE_BLE_UL, false);
 #endif
-        if (background_ptr->local_context.ble_format.ble_codec.channel_mode != CHANNEL_MODE_DL_ONLY) {
-            am_set_HFP_volume(BT_HFP_CODEC_TYPE_CVSD,  stream_in->audio_device, stream_in->audio_volume,stream_out->audio_device,stream_out->audio_volume, false, true);
+        if ((background_ptr->local_context.ble_format.ble_codec.channel_mode != CHANNEL_MODE_DL_ONLY)||((background_ptr->local_context.ble_format.ble_codec.context_type & AUDIO_CONTENT_TYPE_CONVERSATIONAL) != 0)) {
+            am_set_HFP_volume(BT_HFP_CODEC_TYPE_MSBC,  stream_in->audio_device, stream_in->audio_volume,stream_out->audio_device,stream_out->audio_volume, false, true);
         } else {
             am_set_A2DP_volume(stream_out->audio_device, stream_out->audio_volume);
         }
@@ -1211,18 +1238,23 @@ static void am_audio_set_play(bt_sink_srv_am_background_t *background_ptr)
         hal_audio_mute_stream_out(stream_out->audio_mute);
 #endif
 
-        am_set_HFP_volume(BT_HFP_CODEC_TYPE_CVSD, stream_in->audio_device, stream_in->audio_volume,stream_out->audio_device,stream_out->audio_volume, true, false);
+        am_set_HFP_volume(BT_HFP_CODEC_TYPE_MSBC, stream_in->audio_device, stream_in->audio_volume,stream_out->audio_device,stream_out->audio_volume, true, false);
 #endif
         if ((background_ptr->local_context.ble_format.ble_codec.context_type & AUDIO_CONTENT_TYPE_GAME) != 0){
             audio_src_srv_report("LE audio context type force gaminge 0x%x", 1, background_ptr->local_context.ble_format.ble_codec.context_type);
             background_ptr->local_context.ble_format.ble_codec.context_type = AUDIO_CONTENT_TYPE_GAME;
         }
-        if (background_ptr->local_context.ble_format.ble_codec.channel_mode == CHANNEL_MODE_DL_ONLY) {
+        else if ((background_ptr->local_context.ble_format.ble_codec.context_type & AUDIO_CONTENT_TYPE_CONVERSATIONAL) != 0)
+        {
+            audio_src_srv_report("LE audio context type force conversational 0x%x", 1, background_ptr->local_context.ble_format.ble_codec.context_type);
+            background_ptr->local_context.ble_format.ble_codec.context_type = AUDIO_CONTENT_TYPE_CONVERSATIONAL;
+        }
+        if ((background_ptr->local_context.ble_format.ble_codec.channel_mode == CHANNEL_MODE_DL_ONLY)&&(background_ptr->local_context.ble_format.ble_codec.context_type != AUDIO_CONTENT_TYPE_CONVERSATIONAL)) {
             if(background_ptr->local_context.ble_format.ble_codec.context_type != AUDIO_CONTENT_TYPE_GAME){
                 background_ptr->local_context.ble_format.ble_codec.context_type = AUDIO_CONTENT_TYPE_MEDIA;
             }
             aud_prepare_a2dp_nvkey(&(background_ptr->local_feature));
-        } else if (background_ptr->local_context.ble_format.ble_codec.channel_mode == CHANNEL_MODE_DL_UL_BOTH) {
+        } else if ((background_ptr->local_context.ble_format.ble_codec.channel_mode == CHANNEL_MODE_DL_UL_BOTH)||(background_ptr->local_context.ble_format.ble_codec.context_type == AUDIO_CONTENT_TYPE_CONVERSATIONAL)) {
             if(background_ptr->local_context.ble_format.ble_codec.context_type != AUDIO_CONTENT_TYPE_GAME){
                 background_ptr->local_context.ble_format.ble_codec.context_type = AUDIO_CONTENT_TYPE_CONVERSATIONAL;
             }
@@ -1360,14 +1392,14 @@ static void am_audio_set_play(bt_sink_srv_am_background_t *background_ptr)
                 }
             }
 
-        am_set_HFP_volume(BT_HFP_CODEC_TYPE_CVSD, stream_in->audio_device, stream_in->audio_volume,stream_out->audio_device,stream_out->audio_volume, true, false);
+        am_set_HFP_volume(BT_HFP_CODEC_TYPE_MSBC, stream_in->audio_device, stream_in->audio_volume,stream_out->audio_device,stream_out->audio_volume, true, false);
 
         #if defined (AIR_DCHS_MODE_ENABLE)
                 mcu2dsp_open_param_p open_param;
                 open_param = (mcu2dsp_open_param_p)pvPortMalloc(sizeof(mcu2dsp_open_param_t));
                 memset(open_param, 0, sizeof(mcu2dsp_open_param_t));
 
-                open_param->stream_in_param.vol_info.codec = BT_HFP_CODEC_TYPE_CVSD;
+                open_param->stream_in_param.vol_info.codec = BT_HFP_CODEC_TYPE_MSBC;
                 open_param->stream_in_param.vol_info.dev_in = stream_in->audio_device;
                 open_param->stream_in_param.vol_info.dev_out = stream_out->audio_device;
                 open_param->stream_in_param.vol_info.lev_in = stream_in->audio_volume;
@@ -1468,6 +1500,7 @@ static void am_audio_set_play(bt_sink_srv_am_background_t *background_ptr)
 #endif
 
     }
+#ifdef AIR_BT_HFP_ENABLE
     else if (background_ptr->type == HFP) {
 #ifdef MTK_VENDOR_SOUND_EFFECT_ENABLE
         ami_execute_vendor_se(EVENT_HFP_START);
@@ -1578,6 +1611,7 @@ static void am_audio_set_play(bt_sink_srv_am_background_t *background_ptr)
         //bt_sink_srv_event_callback(BT_SINK_SRV_EVENT_HFP_ON, NULL);
 #endif
     }
+#endif
 #if !defined(MTK_AWS_MCE_ENABLE)
     else if (background_ptr->type == AWS) {
 
@@ -1904,7 +1938,15 @@ static void am_audio_set_play(bt_sink_srv_am_background_t *background_ptr)
                 }
 
                 /* Line-in pre-setting before play */
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
+                if (scenario_and_id == ((AUDIO_TRANSMITTER_WIRED_AUDIO << 8) + AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN)) {
+                    am_set_LINE_IN_volume(VOL_LINE_IN, AUDIO_SINK_SRV_LINE_IN_INPUT_DEVICE,AUD_VOL_IN_LEVEL0,AUDIO_SINK_SRV_LINE_IN_OUTPUT_DEVICE,AUD_VOL_OUT_LEVEL0, true, true);
+                } else {
+                    am_set_LINE_IN_volume(VOL_LINE_IN_DL3, AUDIO_SINK_SRV_LINE_IN_INPUT_DEVICE,AUD_VOL_IN_LEVEL0,AUDIO_SINK_SRV_LINE_IN_OUTPUT_DEVICE,AUD_VOL_OUT_LEVEL0, true, true);
+                }
+#else
                 am_set_LINE_IN_volume(VOL_LINE_IN_DL3, AUDIO_SINK_SRV_LINE_IN_INPUT_DEVICE,AUD_VOL_IN_LEVEL0,AUDIO_SINK_SRV_LINE_IN_OUTPUT_DEVICE,AUD_VOL_OUT_LEVEL0, true, true);
+#endif
 #if defined(MTK_LINE_IN_ENABLE) || (defined(AIR_BTA_IC_STEREO_HIGH_G3) && defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE))
 #if defined(MTK_LINEIN_PEQ_ENABLE) || defined(MTK_LINEIN_INS_ENABLE)
                 aud_prepare_linein_nvkey(&(background_ptr->local_feature),0);
@@ -2098,7 +2140,9 @@ static void am_audio_set_suspend(bt_sink_srv_am_type_t lead, bt_sink_srv_am_back
 #ifdef MTK_VENDOR_SOUND_EFFECT_ENABLE
         ami_execute_vendor_se(EVENT_A2DP_STOP);
 #endif
-    } else if (background_ptr->type == HFP) {
+    }
+#ifdef AIR_BT_HFP_ENABLE
+    else if (background_ptr->type == HFP) {
         if (bt_codec_am_hfp_stop() == BT_CODEC_MEDIA_STATUS_ERROR) {
 #ifdef __AM_DEBUG_INFO__
             audio_src_srv_report("[Sink][AM][ERROR] Suspend HFP", 0);
@@ -2109,6 +2153,7 @@ static void am_audio_set_suspend(bt_sink_srv_am_type_t lead, bt_sink_srv_am_back
         ami_execute_vendor_se(EVENT_HFP_STOP);
 #endif
     }
+#endif
 #if !defined(MTK_AWS_MCE_ENABLE)
     else if (background_ptr->type == AWS) {
 #ifdef __BT_AWS_SUPPORT__
@@ -2310,7 +2355,9 @@ static void am_audio_set_stop(bt_sink_srv_am_background_t *background_ptr)
         ami_execute_vendor_se(EVENT_BLE_STOP);
 #endif
 #endif //#ifdef AIR_BT_CODEC_BLE_ENABLED
-    } else if (background_ptr->type == HFP) {
+    }
+#ifdef AIR_BT_HFP_ENABLE
+    else if (background_ptr->type == HFP) {
         if (bt_codec_am_hfp_stop() == BT_CODEC_MEDIA_STATUS_ERROR) {
 #ifdef __AM_DEBUG_INFO__
             audio_src_srv_report("[Sink][AM][ERROR] Close HFP", 0);
@@ -2325,6 +2372,7 @@ static void am_audio_set_stop(bt_sink_srv_am_background_t *background_ptr)
         ami_execute_vendor_se(EVENT_HFP_STOP);
 #endif
     }
+#endif
 #if !defined(MTK_AWS_MCE_ENABLE)
     else if (background_ptr->type == AWS) {
 #ifdef __BT_AWS_SUPPORT__
@@ -2540,6 +2588,16 @@ static void aud_initial(void)
     if (bt_aws_mce_report_register_callback(BT_AWS_MCE_REPORT_MODULE_PEQ, bt_aws_mce_report_peq_callback) != BT_STATUS_SUCCESS) {
         audio_src_srv_err("peq failed to register aws mce report callback\r\n", 0);
     }
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    extern void bt_aws_mce_report_DL_SW_gain_callback(bt_aws_mce_report_info_t *info);
+    bt_status_t st = bt_aws_mce_report_register_callback(BT_AWS_MCE_REPORT_MODULE_AUDIO_GAIN, bt_aws_mce_report_DL_SW_gain_callback);
+    if (st != BT_STATUS_SUCCESS)
+    {
+        audio_src_srv_err("[DL_SW_GAIN] failed to register aws mce report callback err:0x%x\r\n", 1, st);
+    }
+    extern bt_status_t bc_cm_event_DL_SW_gain_callback(bt_cm_event_t event_id, void *params, uint32_t params_len);
+    bt_cm_register_event_callback(bc_cm_event_DL_SW_gain_callback);
+#endif
 #endif
 
 }
@@ -2806,6 +2864,11 @@ static void am_audio_record_sink_play(bt_sink_srv_am_background_t *background_pt
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
         audio_src_srv_report("[RECORD_LC]hal_audio_start_stream_in_leakage_compensation, codec_type:0x%x\r\n", 1, g_stream_in_code_type);
         result = hal_audio_start_stream_in_leakage_compensation();
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+    } else if (g_stream_in_code_type == AUDIO_DSP_CODEC_TYPE_FADP_ANC_COMP) {
+        audio_src_srv_report("[RECORD_SzD]hal_audio_start_stream_in_fadp_anc_compensation, codec_type:0x%x\r\n", 1, g_stream_in_code_type);
+        result = hal_audio_start_stream_in_fadp_anc_compensation();
+#endif
 #else
         result = HAL_AUDIO_STATUS_INVALID_PARAMETER;
 #endif
@@ -2870,6 +2933,10 @@ static void am_audio_record_sink_stop(void)
     if (g_stream_in_code_type == AUDIO_DSP_CODEC_TYPE_ANC_LC) {
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
         hal_audio_stop_stream_in_leakage_compensation();
+#endif
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+    } else if (g_stream_in_code_type == AUDIO_DSP_CODEC_TYPE_FADP_ANC_COMP) {
+        hal_audio_stop_stream_in_fadp_anc_compensation();
 #endif
     } else {
         hal_audio_stop_stream_in();
@@ -2983,6 +3050,9 @@ static void test_aud_set_play_stream_req_hdlr(bt_sink_srv_am_amm_struct *amm_ptr
             if (am_arbitration.am_arbitration_status == AM_PLAYBACK_REJECT) {
 #ifdef AIR_RECORD_ENABLE
                 if ((recoder_current_ptr->type == RECORD) && ((recoder_current_ptr->local_context.record_format.record_codec.codec_cap.codec_type == AUDIO_DSP_CODEC_TYPE_ANC_LC)
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+                                                              || (recoder_current_ptr->local_context.record_format.record_codec.codec_cap.codec_type == AUDIO_DSP_CODEC_TYPE_FADP_ANC_COMP)
+#endif
 #ifdef MTK_USER_TRIGGER_ADAPTIVE_FF_V2
                                                               || (recoder_current_ptr->local_context.record_format.record_codec.codec_cap.codec_type == AUDIO_DSP_CODEC_TYPE_ANC_USER_TRIGGER_FF_PZ)
                                                               || (recoder_current_ptr->local_context.record_format.record_codec.codec_cap.codec_type == AUDIO_DSP_CODEC_TYPE_ANC_USER_TRIGGER_FF_PZ_FIR)
@@ -3230,6 +3300,16 @@ static void aud_set_volume_stream_req_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
     audio_src_srv_report("[AudM]volume setting start, current player type:%d out device:%d volume:%d ", 3,g_prCurrent_player->type,g_prCurrent_player->audio_stream_out.audio_device,g_prCurrent_player->audio_stream_out.audio_volume);
 
     if (am_background_temp->in_out == STREAM_OUT) {
+        if(am_background_temp->audio_stream_out.audio_volume_set_by_gain_value == true){
+            g_prCurrent_player->audio_stream_out.audio_gain_value = am_background_temp->audio_stream_out.audio_gain_value;
+            if((g_prCurrent_player->type == HFP)||(g_prCurrent_player->type == BLE)||(g_prCurrent_player->type == ULL_BLE_DL)||(g_prCurrent_player->type == A2DP)||(g_prCurrent_player->type == AWS)){
+                hal_audio_set_stream_out_volume(HAL_AUDIO_STREAM_OUT1, g_prCurrent_player->audio_stream_out.audio_gain_value, 0x7FFF);
+            } else {
+                audio_src_srv_err("[AudM]set volume by gain not support, type %d",1,g_prCurrent_player->type);
+                assert(0);
+            }
+            return;
+        }
         level = (bt_sink_srv_am_volume_level_t)am_background_temp->audio_stream_out.audio_volume;
         g_prCurrent_player->audio_stream_out.audio_volume = (bt_sink_srv_am_volume_level_out_t)level;
         if (g_prCurrent_player->type == HFP) {
@@ -3247,12 +3327,12 @@ static void aud_set_volume_stream_req_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
                 {
                     audio_src_srv_report("[AudM]volume setting for ULL BLE DL type: %d\n", 1, g_prCurrent_player->type);
                 am_set_A2DP_volume(g_prCurrent_player->audio_stream_out.audio_device, g_prCurrent_player->audio_stream_out.audio_volume);
-                } else if (g_prCurrent_player->local_context.ble_format.ble_codec.channel_mode != CHANNEL_MODE_DL_ONLY)
+                } else if ((g_prCurrent_player->local_context.ble_format.ble_codec.channel_mode != CHANNEL_MODE_DL_ONLY)||(g_prCurrent_player->local_context.ble_format.ble_codec.context_type == AUDIO_CONTENT_TYPE_CONVERSATIONAL))
                 #else
-                if (g_prCurrent_player->local_context.ble_format.ble_codec.channel_mode != CHANNEL_MODE_DL_ONLY)
+                if ((g_prCurrent_player->local_context.ble_format.ble_codec.channel_mode != CHANNEL_MODE_DL_ONLY)||(g_prCurrent_player->local_context.ble_format.ble_codec.context_type == AUDIO_CONTENT_TYPE_CONVERSATIONAL))
                 #endif
                 {
-                am_set_HFP_volume(BT_HFP_CODEC_TYPE_CVSD,
+                am_set_HFP_volume(BT_HFP_CODEC_TYPE_MSBC,
                             g_prCurrent_player->audio_stream_in.audio_device,
                             g_prCurrent_player->audio_stream_in.audio_volume,
                             g_prCurrent_player->audio_stream_out.audio_device,
@@ -3312,14 +3392,20 @@ static void aud_set_volume_stream_req_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
                             true, false);
 #ifdef AIR_BT_CODEC_BLE_ENABLED
         }   else if ((g_prCurrent_player->type == BLE)||(g_prCurrent_player->type == ULL_BLE_UL)) {
-            level = (bt_sink_srv_am_volume_level_t)am_background_temp->audio_stream_in.audio_volume;
-            g_prCurrent_player->audio_stream_in.audio_volume = (bt_sink_srv_am_volume_level_in_t)level;
-            am_set_HFP_volume(BT_HFP_CODEC_TYPE_CVSD,
-                g_prCurrent_player->audio_stream_in.audio_device,
-                g_prCurrent_player->audio_stream_in.audio_volume,
-                g_prCurrent_player->audio_stream_out.audio_device,
-                g_prCurrent_player->audio_stream_out.audio_volume,
-                true, false);
+            if(am_background_temp->audio_stream_in.audio_volume_set_by_gain_value) {
+                int32_t ble_gain = audio_get_gain_in_in_dB(am_background_temp->audio_stream_in.audio_gain_value, GAIN_DIGITAL, VOL_USB_VOICE_SW_OUT);
+                audio_src_srv_report("[AudM][BLE] UL set SW gain to level %d->%d dB\r\n", 2, am_background_temp->audio_stream_in.audio_gain_value,ble_gain);
+                hal_audio_dsp_controller_send_message(MSG_MCU2DSP_BLE_AUDIO_UL_SET_VOLUME, 0, ble_gain, false);
+            } else {
+                level = (bt_sink_srv_am_volume_level_t)am_background_temp->audio_stream_in.audio_volume;
+                g_prCurrent_player->audio_stream_in.audio_volume = (bt_sink_srv_am_volume_level_in_t)level;
+                am_set_HFP_volume(BT_HFP_CODEC_TYPE_MSBC,
+                    g_prCurrent_player->audio_stream_in.audio_device,
+                    g_prCurrent_player->audio_stream_in.audio_volume,
+                    g_prCurrent_player->audio_stream_out.audio_device,
+                    g_prCurrent_player->audio_stream_out.audio_volume,
+                    true, false);
+            }
 #endif
         } else if (g_prCurrent_player->type == LINE_IN) {
 #ifdef MTK_LINE_IN_ENABLE
@@ -3971,6 +4057,7 @@ static void aud_process_a2dp_callback_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
     }
 }
 
+#ifdef AIR_BT_HFP_ENABLE
 /*****************************************************************************
  * FUNCTION
  *  aud_process_hfp_callback_hdlr
@@ -3998,6 +4085,7 @@ static void aud_process_hfp_callback_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
         g_prCurrent_player->notify_cb(g_prCurrent_player->aud_id, AUD_HFP_EVENT_IND, (bt_sink_srv_am_cb_sub_msg_t)event_id, NULL);
     }
 }
+#endif
 
 /*****************************************************************************
  * FUNCTION
@@ -4188,10 +4276,12 @@ void aud_process_a2dp_open_callback_hdlr(void)
     }
 }
 
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 static void bt_codec_am_a2dp_sink_open_callback(void)
 {
     aud_process_a2dp_open_callback_hdlr();
 }
+#endif
 
 #endif
 
@@ -4332,7 +4422,7 @@ void aud_dl_resume(void)
             } else if ((g_prCurrent_player->type == BLE)|| (g_prCurrent_player->type == ULL_BLE_DL)) {
 #ifdef AIR_BT_CODEC_BLE_ENABLED
                 if (g_prCurrent_player->local_context.ble_format.ble_codec.channel_mode != CHANNEL_MODE_DL_ONLY) {
-                    am_set_HFP_volume(BT_HFP_CODEC_TYPE_CVSD,
+                    am_set_HFP_volume(BT_HFP_CODEC_TYPE_MSBC,
                                         g_prCurrent_player->audio_stream_in.audio_device, g_prCurrent_player->audio_stream_in.audio_volume,
                                         g_prCurrent_player->audio_stream_out.audio_device, g_prCurrent_player->audio_stream_out.audio_volume,
                                         true,true);
@@ -4425,6 +4515,10 @@ static void aud_ul_resume(void)
         } else {
             if (g_prHfp_media_handle != NULL) {
                 hal_audio_dsp_controller_send_message(MSG_MCU2DSP_BT_VOICE_UL_RESUME, 0, 0, true);
+#ifdef AIR_BT_CODEC_BLE_ENABLED
+            } else if (g_prBle_media_handle != NULL) {
+                hal_audio_dsp_controller_send_message(MSG_MCU2DSP_BLE_AUDIO_UL_RESUME, 0, 0, true);
+#endif
             } else {
                 audio_src_srv_report("[Sink][AM]aud_ul_resume Fail: HFP handler was NULL.\n", 0);
             }
@@ -4474,6 +4568,7 @@ static void aud_dl_control(bool isCodecOpen)
     }
 }
 
+#if defined(AIR_BT_CODEC_BLE_ENABLED) || defined(AIR_BT_HFP_ENABLE) || defined(AIR_RECORD_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
 static void aud_ul_control(bool isCodecOpen)
 {
     if ((g_am_task_mask & AM_TASK_MASK_VP_HAPPENING)
@@ -4491,6 +4586,7 @@ static void aud_ul_control(bool isCodecOpen)
         }
     }
 }
+#endif
 
 /*****************************************************************************
  * FUNCTION
@@ -4507,13 +4603,15 @@ void bt_codec_am_a2dp_sink_open(bt_sink_srv_am_a2dp_codec_t *a2dp_codec_t)
     /*----------------------------------------------------------------*/
     /* Local Variables                                                */
     /*----------------------------------------------------------------*/
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     bt_codec_a2dp_audio_t a2dp_codec = {{0}};
-
+#endif
     /*----------------------------------------------------------------*/
     /* Code Body                                                      */
     /*----------------------------------------------------------------*/
     AUD_LOG_W("[AM]Open A2DP codec = %d.", 1, a2dp_codec_t->role);
     switch (a2dp_codec_t->role) {
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
         case BT_A2DP_SINK:
             a2dp_codec.role = a2dp_codec_t->role;
             if (a2dp_codec_t->codec_cap.type == BT_A2DP_CODEC_SBC) {
@@ -4531,7 +4629,7 @@ void bt_codec_am_a2dp_sink_open(bt_sink_srv_am_a2dp_codec_t *a2dp_codec_t)
                 g_aws_sample_rate = a2dp_codec.codec_cap.codec.aac.sample_rate;
 #endif /* __BT_AWS_SUPPORT__ */
             } else if (a2dp_codec_t->codec_cap.type == BT_A2DP_CODEC_VENDOR) {
-#if defined (AIR_BT_A2DP_VENDOR_ENABLE) || defined (AIR_BT_A2DP_VENDOR_2_ENABLE)
+#ifdef AIR_BT_A2DP_VENDOR_CODEC_SUPPORT
                 BT_A2DP_CONVERT_VENDOR_CODEC(&(a2dp_codec.codec_cap), &(a2dp_codec_t->codec_cap));
                 //AUD_LOG_W("[AM]Open A2DP VENDOR codec.", 0);
 #ifdef __BT_AWS_SUPPORT__
@@ -4569,6 +4667,7 @@ void bt_codec_am_a2dp_sink_open(bt_sink_srv_am_a2dp_codec_t *a2dp_codec_t)
         default:
             audio_src_srv_report("[sink][AM]a2dp sink open: undefined role:%d", 1, a2dp_codec_t->role);
             break;
+#endif
     }
     if (g_bBT_Ringbuf == NULL) {
 #ifndef WIN32_UT
@@ -4746,14 +4845,17 @@ bt_status_t bt_codec_am_a2dp_sink_stop(bt_sink_srv_am_id_t aud_id)
  * RETURNS
  *  bt_status_t
  *****************************************************************************/
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 extern uint32_t g_Rdebug_a2dp_ltcs_last_time;
+#endif
 bt_status_t bt_codec_am_a2dp_sink_close(void)
 {
     /*----------------------------------------------------------------*/
     /* Local Variables                                                */
     /*----------------------------------------------------------------*/
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     bt_status_t eResult = BT_CODEC_MEDIA_STATUS_ERROR;
-
+#endif
     /*----------------------------------------------------------------*/
     /* Code Body                                                      */
     /*----------------------------------------------------------------*/
@@ -4761,7 +4863,7 @@ bt_status_t bt_codec_am_a2dp_sink_close(void)
 #if defined(MTK_AVM_DIRECT)
         aud_dl_control(false);
 #endif
-
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
         eResult = bt_codec_a2dp_close(g_prA2dp_sink_handle);
         /* for A2DP LTCS debug*/
         g_Rdebug_a2dp_ltcs_last_time = 0;
@@ -4780,6 +4882,7 @@ bt_status_t bt_codec_am_a2dp_sink_close(void)
             }
             return BT_CODEC_MEDIA_STATUS_OK;
         }
+#endif
     }
     return BT_CODEC_MEDIA_STATUS_ERROR;
 }
@@ -5321,7 +5424,7 @@ void bt_codec_am_speech_nvdm_changed_callback(void *data)
 }
 #endif /* __BT_SINK_AUDIO_TUNING__ */
 
-
+#ifdef AIR_BT_HFP_ENABLE
 /*****************************************************************************
  * FUNCTION
  *  bt_codec_am_hfp_open
@@ -5413,6 +5516,7 @@ bt_status_t bt_codec_am_hfp_stop(void)
 
     return BT_CODEC_MEDIA_STATUS_ERROR;
 }
+#endif
 
 #ifdef AIR_BT_CODEC_BLE_ENABLED
 static uint32_t lc3_sampling_rate_enum_to_value(uint8_t sampling_rate_enum)
@@ -5428,6 +5532,8 @@ static uint32_t lc3_sampling_rate_enum_to_value(uint8_t sampling_rate_enum)
             return 44100;
         case SAMPLING_RATE_48K:
             return 48000;
+        case SAMPLING_RATE_96K:
+            return 96000;
         default:
             audio_src_srv_report("[sink][am][error]CONVERT_LC3 sampling_frequency not support(%d)", 1, sampling_rate_enum);
             return 0;
@@ -5503,7 +5609,15 @@ void bt_codec_am_ble_open(bt_sink_srv_am_ble_codec_t *ble_codec_t)
     /*----------------------------------------------------------------*/
     if (ble_codec_t->codec == CODEC_LC3) {
         BT_BLE_CONVERT_LC3_CODEC(&ble_codec, ble_codec_t);
-    } else {
+    }
+    #ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+    else if ((ble_codec_t->codec == CODEC_LC3PLUS_CBR)||(ble_codec_t->codec == CODEC_LC3PLUS_VBR)){
+        BT_BLE_CONVERT_LC3_CODEC(&ble_codec, ble_codec_t);
+        ble_codec.dl_param.codec = BT_CODEC_TYPE_LE_AUDIO_LC3PULS;
+        ble_codec.ul_param.codec = BT_CODEC_TYPE_LE_AUDIO_LC3PULS;
+    }
+    #endif
+    else{
         audio_src_srv_report("[sink][AM]ble open codec fail--not support codec: %d", 1, ble_codec_t->codec);
     }
 
@@ -5894,7 +6008,9 @@ static void audio_set_voice_mic_type_hdlr(bt_sink_srv_am_amm_struct *amm_pt)
     mic_used_flag = 0;
 
     background_ptr->local_feature.feature_param.sidetone_param.scenario = g_sidetone_user;
-
+    #ifdef AIR_DCHS_MODE_ENABLE
+    dchs_uart_detachable_mic_sync(voice_mic_type, SYNC_START);
+    #endif
     //Restart sidetone if sidetone is enabled
     if ((ST_MECH_FIR_IND == am_audio_side_tone_query_method()) || (ST_MECH_IIR_IND == am_audio_side_tone_query_method())) {
         if ((g_am_task_mask & AM_TASK_MASK_SIDE_TONE_ENABLE)
@@ -5941,11 +6057,24 @@ static void audio_set_voice_mic_type_hdlr(bt_sink_srv_am_amm_struct *amm_pt)
                 audio_src_srv_report("[DETACHABLE_MIC][Sink][AM]audio_set_voice_mic_type_hdlr: \
                 scenario_and_id = %x is running, change mic to %d\n", 2, scenario_and_id, voice_mic_type);
 
+                //DSP NVKEY PARA
+                sysram_status_t status;
+                DSP_FEATURE_TYPE_LIST AudioFeatureList_GameVoiceHead[2] = {
+                    FUNC_GAMING_HEADSET,
+                    FUNC_END,
+                };
+
                 //SUSPEND TRANSMITTER
                 hal_audio_dsp_controller_send_message(MSG_MCU2DSP_AUDIO_TRANSMITTER_SUSPEND, scenario_and_id, 0, true);
                 if ((audio_transmitter_scenario_list[i].scenario_type == AUDIO_TRANSMITTER_GAMING_MODE) && (audio_transmitter_scenario_list[i].scenario_sub_id == AUDIO_TRANSMITTER_GAMING_MODE_VOICE_HEADSET)) {
                     ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_GAMING_MODE_VOICE_HEADSET, NULL, false);
                     ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_GAMING_MODE_VOICE_HEADSET, open_param, true);
+
+                    if (voice_mic_type == VOICE_MIC_TYPE_FIXED) {
+                        AudioFeatureList_GameVoiceHead[0] = FUNC_GAMING_HEADSET;
+                    } else if (voice_mic_type == VOICE_MIC_TYPE_DETACHABLE) {
+                        AudioFeatureList_GameVoiceHead[0] = FUNC_GAMING_BOOM_MIC;
+                    }
                 }
 #ifdef AIR_WIRED_AUDIO_ENABLE
                 else {
@@ -5961,19 +6090,15 @@ static void audio_set_voice_mic_type_hdlr(bt_sink_srv_am_amm_struct *amm_pt)
                         ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER, NULL, false);
                         ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER, open_param, true);
                     }
+
+                    if (voice_mic_type == VOICE_MIC_TYPE_FIXED) {
+                        AudioFeatureList_GameVoiceHead[0] = FUNC_RX_NR;
+                    } else if (voice_mic_type == VOICE_MIC_TYPE_DETACHABLE) {
+                        AudioFeatureList_GameVoiceHead[0] = FUNC_WB_BOOM_MIC;
+                    }
                 }
 #endif
-                //DSP NVKEY PARA
-                sysram_status_t status;
-                DSP_FEATURE_TYPE_LIST AudioFeatureList_GameVoiceHead[2] = {
-                    FUNC_GAMING_HEADSET,
-                    FUNC_END,
-                };
-                if (voice_mic_type == VOICE_MIC_TYPE_FIXED) {
-                    AudioFeatureList_GameVoiceHead[0] = FUNC_GAMING_HEADSET;
-                } else if (voice_mic_type == VOICE_MIC_TYPE_DETACHABLE) {
-                    AudioFeatureList_GameVoiceHead[0] = FUNC_GAMING_BOOM_MIC;
-                }
+
                 /* reset share buffer before put parameters*/
                 audio_nvdm_reset_sysram();
                 status = audio_nvdm_set_feature(2, AudioFeatureList_GameVoiceHead);
@@ -6015,10 +6140,39 @@ static void audio_set_voice_mic_type_hdlr(bt_sink_srv_am_amm_struct *amm_pt)
         }
     }
 
+    #ifdef AIR_DCHS_MODE_ENABLE
+    audio_scenario_type_t scenario_type = AUDIO_SCENARIO_TYPE_COMMON;
+    U32 code_type   = BT_HFP_CODEC_TYPE_NONE;
+    U32 sample_rate = 0;
+    dchs_check_ul_running_scenario(&scenario_type, &code_type, &sample_rate);
+    if(scenario_type && code_type != AUDIO_CONTENT_TYPE_ULL_BLE){ //ULL2.0 will restart stream
+        scenario_and_id = (AUDIO_TRANSMITTER_DCHS << 8) | AUDIO_TRANSMITTER_DCHS_UART_UL;
+        //SUSPEND DCHS UL
+        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_AUDIO_TRANSMITTER_SUSPEND, scenario_and_id, 0, true);
+        //update nvkey
+        dchs_ul_replace_feature_nvkey(scenario_type, code_type, sample_rate);
+        audio_src_srv_report("[DETACHABLE_MIC][DCHS UL] mic type:%d change done, scenario_type:%d, code_type:%d, sample_rate:%d\n", 4, voice_mic_type, scenario_type, code_type, sample_rate);
+        // update MIC gain settings
+        am_set_HFP_volume(BT_HFP_CODEC_TYPE_MSBC, HAL_AUDIO_DEVICE_MAIN_MIC, 0, HAL_AUDIO_DEVICE_HEADSET, 0, true, false);
+        //RESUME DCHS UL
+        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_AUDIO_TRANSMITTER_RESUME, scenario_and_id, (uint32_t)p_param_share, true);
+    }
+    #endif
+
     //Check MIC user HFP
     if (g_prCurrent_player == NULL) {
         audio_src_srv_report("[DETACHABLE_MIC][Sink][AM]audio_set_voice_mic_type_hdlr: no current player\n", 0);
         vPortFree(open_param);
+        #ifdef AIR_DCHS_MODE_ENABLE
+        dchs_uart_detachable_mic_sync(voice_mic_type, SYNC_END);
+        #endif
+        //unmute stream in
+        hal_audio_mute_stream_in_by_scenario(HAL_AUDIO_STREAM_IN_SCENARIO_HFP, FALSE);
+        //Restart sidetone if sidetone is enabled
+        if (g_am_task_mask & AM_TASK_MASK_SIDE_TONE_RESTART){
+            ami_set_audio_mask(AM_TASK_MASK_SIDE_TONE_RESTART, false);
+            audio_side_tone_enable_hdlr(amm_pt);
+        }
         return;
     } else {
         audio_src_srv_report("[DETACHABLE_MIC][Sink][AM]audio_set_voice_mic_type_hdlr: g_prCurrent_player = 0x%08x, type = %d\n", 2, g_prCurrent_player, g_prCurrent_player->type);
@@ -6031,8 +6185,13 @@ static void audio_set_voice_mic_type_hdlr(bt_sink_srv_am_amm_struct *amm_pt)
                 mic_used_flag = 3;
                 //SUSPEND HFP
                 hal_audio_dsp_controller_send_message(MSG_MCU2DSP_BT_VOICE_UL_SUSPEND, 0, 0, true);
+#ifndef AIR_DCHS_MODE_ENABLE
                 ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_HFP_UL, NULL, false);
                 ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_HFP_UL, open_param, true);
+#else
+                ami_hal_audio_status_set_running_flag_detach_mic(AUDIO_SCENARIO_TYPE_HFP_UL, NULL, false);
+                ami_hal_audio_status_set_running_flag_detach_mic(AUDIO_SCENARIO_TYPE_HFP_UL, open_param, true);
+#endif
                 //DSP NVKEY PARA
                 sysram_status_t status;
                 DSP_FEATURE_TYPE_LIST AudioFeatureList_WBeSCO[2] = {
@@ -6070,8 +6229,13 @@ static void audio_set_voice_mic_type_hdlr(bt_sink_srv_am_amm_struct *amm_pt)
                 mic_used_flag = 4;
                 //SUSPEND BLE
                 hal_audio_dsp_controller_send_message(MSG_MCU2DSP_BLE_AUDIO_UL_SUSPEND, 0, 0, true);
+#ifndef AIR_DCHS_MODE_ENABLE
                 ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_BLE_UL, NULL, false);
                 ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_BLE_UL, open_param, true);
+#else
+                ami_hal_audio_status_set_running_flag_detach_mic(AUDIO_SCENARIO_TYPE_BLE_UL, NULL, false);
+                ami_hal_audio_status_set_running_flag_detach_mic(AUDIO_SCENARIO_TYPE_BLE_UL, open_param, true);
+#endif
                 //DSP NVKEY PARA
                 sysram_status_t status;
                 DSP_FEATURE_TYPE_LIST AudioFeatureList_LEAudioBoom[2] = {
@@ -6130,6 +6294,19 @@ static void audio_set_voice_mic_type_hdlr(bt_sink_srv_am_amm_struct *amm_pt)
         }
     }
     vPortFree(open_param);
+    //unmute stream in
+    hal_audio_mute_stream_in_by_scenario(HAL_AUDIO_STREAM_IN_SCENARIO_HFP, FALSE);
+
+    #ifdef AIR_DCHS_MODE_ENABLE
+    dchs_uart_detachable_mic_sync(voice_mic_type, SYNC_END);
+    #endif
+
+    //Restart sidetone if sidetone is enabled
+    if (g_am_task_mask & AM_TASK_MASK_SIDE_TONE_RESTART){
+        ami_set_audio_mask(AM_TASK_MASK_SIDE_TONE_RESTART, false);
+        audio_side_tone_enable_hdlr(amm_pt);
+    }
+
     audio_src_srv_report("[DETACHABLE_MIC][Sink][AM]audio_set_voice_mic_type_hdlr: current MIC user is %d\n", 1, mic_used_flag);
 }
 #endif
@@ -6177,7 +6354,7 @@ QueueHandle_t g_xQueue_am;
 bool g_audio_nvdm_init_flg = false;
 extern void bt_sink_srv_audio_setting_init_vol_level(void);
 
-#ifdef AIR_HFP_FEATURE_MODE_ENABLE
+#if defined(AIR_HFP_FEATURE_MODE_ENABLE) && defined(AIR_BT_HFP_ENABLE)
 extern SemaphoreHandle_t g_xSemaphore_hfp_nvkey_change_notify;
 extern void hfp_feature_mode_notify_callback(audio_nvdm_user_t user, audio_nvdm_status_t status, void *user_data);
 #endif
@@ -6255,7 +6432,7 @@ void am_task_main(void *arg)
         //Register audio callback
         hal_audio_service_hook_callback(AUDIO_MESSAGE_TYPE_AFE, audio_message_audio_handler, NULL);
 
-#ifdef AIR_HFP_FEATURE_MODE_ENABLE
+#if defined(AIR_HFP_FEATURE_MODE_ENABLE) && defined(AIR_BT_HFP_ENABLE)
         //Register hfp nvkey real time change process callback
         g_xSemaphore_hfp_nvkey_change_notify = xSemaphoreCreateBinary();
         audio_nvdm_register_user_callback(AUDIO_NVDM_USER_HFP, hfp_feature_mode_notify_callback, NULL);
@@ -6365,7 +6542,9 @@ void am_task_main(void *arg)
 #ifdef AIR_3RD_PARTY_AUDIO_PLATFORM_ENABLE
     bt_sink_srv_audio_setting_init_audio_platform_info();
 #endif
-
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+        DL_SW_gain_init();
+#endif
 #ifdef FPGA_ENV
         audio_src_srv_report("[Sink][AM] AM task start ok", 0);
 #endif
@@ -6455,7 +6634,9 @@ void am_receive_msg(bt_sink_srv_am_amm_struct *amm_ptr)
             aud_process_a2dp_callback_hdlr(amm_ptr);
             break;
         case MSG_ID_MEDIA_HFP_EVENT_CALL_EXT_REQ:
+#ifdef AIR_BT_HFP_ENABLE
             aud_process_hfp_callback_hdlr(amm_ptr);
+#endif
             break;
         case MSG_ID_MEDIA_EVENT_STREAM_OUT_CALL_EXT_REQ:
             aud_event_stream_callback_hdlr(amm_ptr);
@@ -6913,13 +7094,20 @@ static void audio_set_resume_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
             ami_peq_param.sound_mode = g_peq_handle.linein_pre_peq_sound_mode;
             ami_peq_param.setting_mode = PEQ_DIRECT;
             aud_set_peq_param(aud_get_peq_audio_path(g_prCurrent_player->type), &ami_peq_param);
+
+            ami_peq_param.phase_id = 1;
+            ami_peq_param.enable = g_peq_handle.linein_post_peq_enable;
+            ami_peq_param.sound_mode = g_peq_handle.linein_post_peq_sound_mode;
+            ami_peq_param.setting_mode = PEQ_DIRECT;
+            aud_set_peq_param(aud_get_peq_audio_path(g_prCurrent_player->type), &ami_peq_param);
 #endif
             break;
         }
+#ifdef AIR_BT_HFP_ENABLE
         case HFP: {
             sysram_status_t status;
             bt_hfp_audio_codec_type_t codec_type;
-            DSP_FEATURE_TYPE_LIST AudioFeatureList_eSCO[2];
+            DSP_FEATURE_TYPE_LIST AudioFeatureList_eSCO[3];
 
             codec_type = g_prCurrent_player->local_context.hfp_format.hfp_codec.type;
             if (codec_type == BT_HFP_CODEC_TYPE_CVSD) {
@@ -6927,7 +7115,12 @@ static void audio_set_resume_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
             } else {
                 AudioFeatureList_eSCO[0] = FUNC_RX_NR;
             }
-            AudioFeatureList_eSCO[1] = FUNC_END;
+#ifdef AIR_AUDIO_VOLUME_MONITOR_ENABLE
+                AudioFeatureList_eSCO[1] = FUNC_SILENCE_DETECTION;
+                AudioFeatureList_eSCO[2] = FUNC_END;
+#else
+                AudioFeatureList_eSCO[1] = FUNC_END;
+#endif
 
 #if defined(AIR_HFP_FEATURE_MODE_ENABLE) || defined(AIR_AUDIO_DETACHABLE_MIC_ENABLE)
             hfp_replace_feature_mode_nvkey_id(codec_type, AudioFeatureList_eSCO);
@@ -6935,12 +7128,13 @@ static void audio_set_resume_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
 
             /* reset share buffer before put parameters*/
             audio_nvdm_reset_sysram();
-            status = audio_nvdm_set_feature(2, AudioFeatureList_eSCO);
+            status = audio_nvdm_set_feature(sizeof(AudioFeatureList_eSCO) / sizeof(DSP_FEATURE_TYPE_LIST), AudioFeatureList_eSCO);
             if (status != NVDM_STATUS_NAT_OK) {
                 audio_src_srv_err("eSCO set resume is failed to set parameters to share memory - err(%d)\r\n", 1, status);
             }
             break;
         }
+#endif
 #ifdef AIR_BT_CODEC_BLE_ENABLED
         case BLE:
         {
@@ -6999,16 +7193,23 @@ static void audio_set_resume_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
 #endif
 #if defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
         case ULL_BLE_DL:
+        {
+            aud_prepare_a2dp_nvkey(&(am_background_temp->local_feature));
+            hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_STREAM_DEINIT, AUDIO_STRAM_DEINIT_ULL_DL, 0, false);
+            break;
+        }
+
+        // TODO: ULL UL support runting turning
         case ULL_BLE_UL:
         {
             sysram_status_t status;
-            DSP_FEATURE_TYPE_LIST AudioFeatureList_LEAudioCall[3] = {
+            DSP_FEATURE_TYPE_LIST AudioFeatureList_LEAudioCall[] = {
                 #if defined(AIR_BT_ULL_SWB_ENABLE)
                 FUNC_RX_NR_SWB,
                 #else
                 FUNC_RX_NR,
                 #endif
-                FUNC_PEQ_A2DP,
+                //FUNC_PEQ_A2DP,
                 FUNC_END,
             };
             #if defined(AIR_BT_ULL_FB_ENABLE)
@@ -7053,11 +7254,6 @@ static void audio_set_resume_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
             #ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
             audio_transmitter_scenario_list_t voice_headset_scenario_list[]  =
                 {{AUDIO_TRANSMITTER_GAMING_MODE, AUDIO_TRANSMITTER_GAMING_MODE_VOICE_HEADSET},
-#ifdef AIR_WIRED_AUDIO_ENABLE
-                {AUDIO_TRANSMITTER_WIRED_AUDIO, AUDIO_TRANSMITTER_WIRED_AUDIO_USB_OUT},
-                {AUDIO_TRANSMITTER_WIRED_AUDIO, AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_OUT},
-                {AUDIO_TRANSMITTER_WIRED_AUDIO, AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER},
-#endif
                 };
             if(true == audio_transmitter_get_is_running_by_scenario_list(voice_headset_scenario_list, sizeof(voice_headset_scenario_list) / sizeof(audio_transmitter_scenario_list_t))){
                 voice_mic_type_t mic_cur_type = hal_audio_query_voice_mic_type();
@@ -7077,6 +7273,35 @@ static void audio_set_resume_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
                 /* reset share buffer before put parameters*/
                 audio_nvdm_reset_sysram();
                 status = audio_nvdm_set_feature(2, AudioFeatureList_GameVoiceHead);
+                if (status != NVDM_STATUS_NAT_OK) {
+                    audio_src_srv_report("[Sink][AM]audio_set_resume_hdlr audio transmitter set resume failed to set parameters to share memory - err(%d)\r\n", 1, status);
+                }
+            }
+            #endif
+            #if defined(AIR_AUDIO_DETACHABLE_MIC_ENABLE) && defined(AIR_WIRED_AUDIO_ENABLE)
+            audio_transmitter_scenario_list_t voice_wired_audio_out_list[]  =
+                {{AUDIO_TRANSMITTER_WIRED_AUDIO, AUDIO_TRANSMITTER_WIRED_AUDIO_USB_OUT},
+                {AUDIO_TRANSMITTER_WIRED_AUDIO, AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_OUT},
+                {AUDIO_TRANSMITTER_WIRED_AUDIO, AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER},
+                };
+            if(true == audio_transmitter_get_is_running_by_scenario_list(voice_wired_audio_out_list, sizeof(voice_wired_audio_out_list) / sizeof(audio_transmitter_scenario_list_t))){
+                voice_mic_type_t mic_cur_type = hal_audio_query_voice_mic_type();
+
+                //DSP NVKEY PARA
+                sysram_status_t status;
+                DSP_FEATURE_TYPE_LIST AudioFeatureList_WiredAudioOut[2] = {
+                    FUNC_RX_NR,
+                    FUNC_END,
+                };
+                audio_src_srv_report("[Sink][AM]audio_set_resume_hdlr audio transmitter mic type = %d", 1, mic_cur_type);
+                if(mic_cur_type == VOICE_MIC_TYPE_FIXED) {
+                    AudioFeatureList_WiredAudioOut[0] = FUNC_RX_NR;
+                } else if(mic_cur_type == VOICE_MIC_TYPE_DETACHABLE) {
+                    AudioFeatureList_WiredAudioOut[0] = FUNC_WB_BOOM_MIC;
+                }
+                /* reset share buffer before put parameters*/
+                audio_nvdm_reset_sysram();
+                status = audio_nvdm_set_feature(2, AudioFeatureList_WiredAudioOut);
                 if (status != NVDM_STATUS_NAT_OK) {
                     audio_src_srv_report("[Sink][AM]audio_set_resume_hdlr audio transmitter set resume failed to set parameters to share memory - err(%d)\r\n", 1, status);
                 }
@@ -7107,7 +7332,9 @@ static void audio_set_resume_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
             break;
     }
 
-    hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_STREAM_DEINIT, 0, 0, false);
+    if(am_background_temp->type != ULL_BLE_DL)
+        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_STREAM_DEINIT, AUDIO_STRAM_DEINIT_ALL, 0, false);
+
     hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_MUTE_OUTPUT_DEVICE, 0, ((HAL_AUDIO_STREAM_OUT_ALL << 16) | 0), false);
     if(g_prCurrent_player != NULL) {
         am_background_temp->in_out = STREAM_IN;
@@ -7642,7 +7869,13 @@ static void audio_set_feature_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
                 break;
             }
 #endif
-
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+            case AM_AUDIO_UPDATE_DAC_MODE: {
+                audio_src_srv_report("[AM][DAC Change Mode] receive am event type:0x%x , param:0x%x", 2, ami_feature->feature_param.dac_mode_update_param.event_type,ami_feature->feature_param.dac_mode_update_param.param);
+                hal_audio_status_set_ha_flag_and_update_dac_mode(ami_feature->feature_param.dac_mode_update_param.event_type, ami_feature->feature_param.dac_mode_update_param.param);
+                break;
+            }
+#endif
 #ifdef AIR_BT_CODEC_BLE_ENABLED
             case AM_BLE: {
                 void *p_param_share;
@@ -7714,6 +7947,18 @@ void bt_sink_srv_am_set_volume_change(bool enable)
 }
 
 #ifdef __BT_SINK_SRV_AUDIO_SETTING_SUPPORT__
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+extern uint8_t g_DL_SW_gain_remember_main_level;
+extern uint8_t g_DL_SW_gain_remember_main_codec_type;
+extern uint8_t g_DL_SW_gain_remember_main_level_2;
+extern uint8_t g_DL_SW_gain_remember_main_level_3;
+
+void am_set_volume_to_DL_SW_gain(void)
+{
+    set_volume_to_DL_SW_gain(&g_DL_SW_gain_lr_balance_para);
+}
+#endif
+
 void bt_sink_srv_am_set_volume(bt_sink_srv_am_stream_type_t in_out, bt_sink_srv_audio_setting_vol_info_t *vol_info)
 {
 #ifdef MTK_VENDOR_STREAM_OUT_VOLUME_TABLE_ENABLE
@@ -7755,6 +8000,49 @@ void bt_sink_srv_am_set_volume(bt_sink_srv_am_stream_type_t in_out, bt_sink_srv_
     vol = (bt_sink_srv_audio_setting_vol_t *)pvPortMalloc(sizeof(bt_sink_srv_audio_setting_vol_t));
     vol_type_t type;
     uint32_t digital = 0;
+
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    if(in_out == STREAM_OUT){
+        if((vol_info->type == VOL_A2DP)&&
+#ifdef AIR_BT_CODEC_BLE_ENABLED
+            ((((g_prCurrent_player->type == A2DP)||(g_prCurrent_player->type == AWS)) && (g_DL_SW_gain_default_para->enable_a2dp))
+            || ((g_prCurrent_player->type == ULL_BLE_DL) && (g_DL_SW_gain_default_para->enable_ull_music))
+            || ((g_prCurrent_player->type == BLE)&&(g_prCurrent_player->local_context.ble_format.ble_codec.channel_mode == CHANNEL_MODE_DL_ONLY) && (g_DL_SW_gain_default_para->enable_ble_music)))
+#else
+            (((g_prCurrent_player->type == A2DP)||(g_prCurrent_player->type == AWS)) && (g_DL_SW_gain_default_para->enable_a2dp))
+#endif
+        ){
+            g_DL_SW_gain_remember_main_level = vol_info->vol_info.a2dp_vol_info.lev;
+            am_set_volume_to_DL_SW_gain();
+            return;
+        } else if((vol_info->type == VOL_HFP)&&
+#ifdef AIR_BT_CODEC_BLE_ENABLED
+            (((g_prCurrent_player->type == HFP) && (g_DL_SW_gain_default_para->enable_hfp))
+            ||((g_prCurrent_player->type == BLE)&&(g_prCurrent_player->local_context.ble_format.ble_codec.channel_mode != CHANNEL_MODE_DL_ONLY) && (g_DL_SW_gain_default_para->enable_ble_call)))
+#else
+            ((g_prCurrent_player->type == HFP) && (g_DL_SW_gain_default_para->enable_hfp))
+#endif
+        ){
+            g_DL_SW_gain_remember_main_codec_type =  vol_info->vol_info.hfp_vol_info.codec;
+            g_DL_SW_gain_remember_main_level = vol_info->vol_info.hfp_vol_info.lev_out;
+            am_set_volume_to_DL_SW_gain();
+            return;
+        } else if(vol_info->type == VOL_LINE_IN){
+            audio_transmitter_scenario_list_t list_line_in[] = {{AUDIO_TRANSMITTER_WIRED_AUDIO, AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_OUT}};
+            audio_transmitter_scenario_list_t list_usb_in[] = {{AUDIO_TRANSMITTER_WIRED_AUDIO, AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_0},
+                                                                {AUDIO_TRANSMITTER_WIRED_AUDIO, AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_1}};
+             if((audio_transmitter_get_is_running_by_scenario_list(list_line_in, 1) && g_DL_SW_gain_default_para->enable_line_in)
+                ||(audio_transmitter_get_is_running_by_scenario_list(list_usb_in, 1) && g_DL_SW_gain_default_para->enable_usb_in)
+            ){
+                g_DL_SW_gain_remember_main_level_3 = vol_info->vol_info.lineIN_vol_info.lev_out;
+                am_set_volume_to_DL_SW_gain();
+                return;
+            }
+        }
+    }
+#endif
+
+
 #ifdef MTK_AUDIO_GAIN_SETTING_ENHANCE
 #ifdef HAL_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
     bt_sink_audio_setting_multi_vol_config_t *multi_vol_config = NULL;
@@ -8318,6 +8606,9 @@ bt_sink_srv_am_result_t audio_nvdm_configure_init(void)
         audio_src_srv_report("[AM][Warning]NVDM HWIO_config_init Fail 2. Status:%d pNvdmMp3Vol:0x%x\n", 2, nvdm_status, (unsigned int)&audio_nvdm_HW_config);
         status = AUD_EXECUTION_FAIL;
     }
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+        default_dac_mode = audio_nvdm_HW_config.adc_dac_config.ADDA_DAC_Mode_Sel;
+#endif
 #ifndef MTK_AUDIO_HW_IO_CONFIG_ENHANCE
     audio_nvdm_configure_init_mapping(SW_version, nvdm_version);
 #endif
@@ -8531,6 +8822,10 @@ void audio_request_sync_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
                 audio_src_srv_report("[DSP SYNC] am type error [%d]", (uint32_t)background_info->sync_parm.sync_scenario_type);
                 return;
                 break;
+        }
+    } else if (background_info->sync_parm.sync_action_type == MCU2DSP_SYNC_REQUEST_SET_MUTE) {
+        if (background_info->sync_parm.sync_scenario_type == MCU2DSP_SYNC_REQUEST_LLF) {
+            info->vol_gain_info.gain = background_info->sync_parm.vol_out.vol_level;
         }
     } else if (background_info->sync_parm.sync_action_type == MCU2DSP_SYNC_REQUEST_SET_RX_EQ) {
         bool hfp_cvsd = false;

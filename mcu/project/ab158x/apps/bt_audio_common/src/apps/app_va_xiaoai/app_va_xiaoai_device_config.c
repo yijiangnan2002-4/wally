@@ -134,7 +134,7 @@ static void app_va_xiaoai_device_config_reply(uint8_t opcode, uint8_t status, ui
 
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
 typedef enum {
-    XIAOAI_LEAKAGE_UNKOWN = 0,
+    XIAOAI_LEAKAGE_UNKNOWN = 0,
     XIAOAI_LEAKAGE_GOOD,
     XIAOAI_LEAKAGE_BAD,
     XIAOAI_LEAKAGE_CAN_CHECK = 3,
@@ -156,7 +156,7 @@ typedef struct {
 
 static xiaoai_leakage_result g_xiaoai_leakage_result = {0};
 static TimerHandle_t         g_xiaoai_leakage_timer;
-static bool                  g_xiaoai_ld_ongoing = FALSE;
+//static bool                  g_xiaoai_ld_ongoing = FALSE;
 
 static void xiaoai_leakage_agent_check_result()
 {
@@ -194,14 +194,14 @@ static void xiaoai_leakage_agent_check_result()
         // Agent resume music & ANC (sync to partner)
         audio_anc_leakage_detection_resume_dl();
 
-        g_xiaoai_ld_ongoing = FALSE;
+        //g_xiaoai_ld_ongoing = FALSE;
     }
 }
 
 static void xiaoai_leakage_detection_timer_cb(TimerHandle_t xTimer)
 {
     APPS_LOG_MSGID_I(LOG_TAG" leakage_detection timer callback", 0);
-    app_va_xiaoai_agent_handle_partner_leakage_result(XIAOAI_LEAKAGE_UNKOWN);
+    app_va_xiaoai_agent_handle_partner_leakage_result(XIAOAI_LEAKAGE_UNKNOWN);
 }
 
 static void xiaoai_leakage_detection_callback(uint16_t leakage_result)
@@ -214,7 +214,7 @@ static void xiaoai_leakage_detection_callback(uint16_t leakage_result)
     } else if (leakage_result == LD_STATUS_FAIL_CASE_1 || leakage_result == LD_STATUS_FAIL_CASE_2) {
         leakage_result = XIAOAI_LEAKAGE_BAD;
     } else {
-        leakage_result = XIAOAI_LEAKAGE_UNKOWN;
+        leakage_result = XIAOAI_LEAKAGE_UNKNOWN;
     }
 
     // stop detection
@@ -290,8 +290,8 @@ static bool app_va_xiaoai_start_leakage_detection()
 #endif
 
     g_xiaoai_leakage_result.status = 0;
-    g_xiaoai_leakage_result.left_result = XIAOAI_LEAKAGE_UNKOWN;
-    g_xiaoai_leakage_result.right_result = XIAOAI_LEAKAGE_UNKOWN;
+    g_xiaoai_leakage_result.left_result = XIAOAI_LEAKAGE_UNKNOWN;
+    g_xiaoai_leakage_result.right_result = XIAOAI_LEAKAGE_UNKNOWN;
     audio_anc_leakage_detection_execution_t anc_ret = audio_anc_leakage_detection_prepare(xiaoai_leakage_detection_callback);
     APPS_LOG_MSGID_I(LOG_TAG" leakage_detection, anc_ret=%d",
                      1, anc_ret);
@@ -334,7 +334,8 @@ void app_va_xiaoai_agent_handle_partner_leakage_result(uint8_t leakage_result)
 
 bool app_va_xiaoai_is_ld_ongoing()
 {
-    return g_xiaoai_ld_ongoing;
+    extern uint8_t audio_anc_leakage_compensation_get_status();
+    return (audio_anc_leakage_compensation_get_status() == AUDIO_LEAKAGE_DETECTION_STATE_START);
 }
 #endif
 
@@ -547,8 +548,9 @@ void app_va_xiaoai_handle_anc_event(bool on_event, void *extra_data)
 #ifdef MTK_ANC_ENABLE
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
     uint8_t new_anc_state = XIAOAI_ANC_STATE_DISABLE;
-    if (role != BT_AWS_MCE_ROLE_AGENT) {
-        APPS_LOG_MSGID_E(LOG_TAG" ANC EVENT, not Agent role", 0);
+    xiaoai_conn_info_t conn_info = xiaoai_get_connection_info();
+    if (role != BT_AWS_MCE_ROLE_AGENT && conn_info.conn_state != XIAOAI_STATE_CONNECTED) {
+        //APPS_LOG_MSGID_E(LOG_TAG" ANC EVENT, not Agent role", 0);
         return;
     }
 
@@ -567,7 +569,7 @@ void app_va_xiaoai_handle_anc_event(bool on_event, void *extra_data)
         APPS_LOG_MSGID_I(LOG_TAG" ANC EVENT OFF", 0);
     }
     xiaoai_notify_sp_status(XIAOAI_APP_NOTIFY_ANC_STATUS, new_anc_state);
-    app_va_xiaoai_hfp_miui_more_atcmd_report_anc();
+    app_va_xiaoai_hfp_miui_more_atcmd_report_anc(NULL);
 
     uint8_t f4_anc_state = new_anc_state;
     if (new_anc_state == XIAOAI_ANC_STATE_ANTI_WIND) {
@@ -652,7 +654,7 @@ bool app_va_xiaoai_own_set_device_name(uint8_t *name, uint8_t len)
         APPS_LOG_MSGID_I(LOG_TAG" [%02X] own_set_device_name, status=0x%08X",
                          2, role, status);
         if (status == BT_STATUS_SUCCESS) {
-            ui_shell_status_t ui_status = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_status_t ui_status = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                                               EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                                               APPS_EVENTS_INTERACTION_REQUEST_REBOOT,
                                                               NULL, 0, NULL, 1000);
@@ -675,7 +677,7 @@ void app_va_xiaoai_peer_set_device_name(uint8_t *name, uint8_t len)
     APPS_LOG_MSGID_I(LOG_TAG" [%02X] set_device_name, nvkey_status=%d len=%d",
                      3, role, nvkey_status, len);
     if (nvkey_status == NVKEY_STATUS_OK) {
-        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                             EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                             APPS_EVENTS_INTERACTION_REQUEST_REBOOT,
                             NULL, 0, NULL, 0);
@@ -729,12 +731,12 @@ static bool app_va_xiaoai_enable_wwe(bool enable)
     }
 
     if (enable) {
-        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                             EVENT_GROUP_UI_SHELL_XIAOAI,
                             XIAOAI_EVENT_START_WWE_ACTION,
                             NULL, 0, NULL, 0);
     } else {
-        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                             EVENT_GROUP_UI_SHELL_XIAOAI,
                             XIAOAI_EVENT_STOP_WWE_ACTION,
                             NULL, 0, NULL, 0);
@@ -1075,7 +1077,7 @@ void app_va_xiaoai_set_device_config(bool sync_reply, void *param)
         case XIAOAI_DEVICE_CONFIG_MULTI_POINT_ENABLE: {
             opcode = XIAOAI_MMA_SET_DEVICE_CONFIG_OPCODE;
 #ifdef AIR_MULTI_POINT_ENABLE
-            bool ret = app_bt_emp_enable((value == 1));
+            bool ret = app_bt_emp_enable((value == 1), TRUE);
             if (!ret) {
                 rsp_status = XIAOAI_MMA_RSP_STATUS_FAIL;
             }
@@ -1093,7 +1095,7 @@ void app_va_xiaoai_set_device_config(bool sync_reply, void *param)
             } else {
                 bool ret = app_va_xiaoai_start_leakage_detection();
                 if (ret) {
-                    g_xiaoai_ld_ongoing = TRUE;
+                    //g_xiaoai_ld_ongoing = TRUE;
                 } else {
                     rsp_status = XIAOAI_MMA_RSP_STATUS_FAIL;
                 }
@@ -1411,14 +1413,14 @@ void app_va_xiaoai_notify_device_config(uint8_t type, uint8_t *data, uint8_t len
         APPS_LOG_MSGID_E(LOG_TAG" device_config Notify, not xiaoai connected, peer_lea_mma=%d",
                          1, peer_lea_mma);
         if (peer_lea_mma) {
-            int total_len = sizeof(xiaoai_device_config_notfiy_t) - 1 + len;
+            int total_len = sizeof(xiaoai_device_config_notify_t) - 1 + len;
             uint8_t *param_data = (uint8_t *)pvPortMalloc(total_len);
             if (param_data == NULL) {
                 APPS_LOG_MSGID_E(LOG_TAG" [LEA_MMA_LINK] device_config Notify, sync to peer_lea_mma malloc fail", 0);
                 return;
             }
             memset(param_data, 0, total_len);
-            xiaoai_device_config_notfiy_t *param = (xiaoai_device_config_notfiy_t *)param_data;
+            xiaoai_device_config_notify_t *param = (xiaoai_device_config_notify_t *)param_data;
             param->type = type;
             param->len = len;
             memcpy(&param->data[0], data, len);

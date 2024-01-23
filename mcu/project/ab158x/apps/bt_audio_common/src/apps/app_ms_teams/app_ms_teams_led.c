@@ -108,7 +108,11 @@ bool app_ms_teams_set_background_led(usb_hid_srv_event_t call_event, ms_teams_no
 void app_ms_teams_set_foreground_led(app_ms_teams_ui_event_t event)
 {
     if (event == APP_MS_TEAMS_UI_EVENT_INVOKE_FAIL) {
-        apps_config_set_foreground_led_pattern(LED_INDEX_TEAMS_INVOKE_FAIL, 15, APPS_CONFIG_LED_AWS_SYNC_PRIO_HIGH);
+#ifdef AIR_HEADSET_ENABLE
+        apps_config_set_foreground_led_pattern(LED_INDEX_TEAMS_INVOKE_FAIL, 15, false);
+#else
+        apps_config_set_foreground_led_pattern(LED_INDEX_TEAMS_INVOKE_FAIL, 15 + 6, true);
+#endif
     }
 }
 

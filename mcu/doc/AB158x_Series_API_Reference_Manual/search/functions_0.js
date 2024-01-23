@@ -19,6 +19,7 @@ var searchData=
   ['audio_5fanc_5fcontrol_5fenable_5fseamless',['audio_anc_control_enable_seamless',['../group__anc__control.html#ga06949f9f2bda088f29d514753afa5c54',1,'anc_control_api.h']]],
   ['audio_5fanc_5fcontrol_5fget_5fattach_5fenable',['audio_anc_control_get_attach_enable',['../group__anc__control.html#ga331fb08ea62ead50c5dc2bbc14d9b44e',1,'anc_control_api.h']]],
   ['audio_5fanc_5fcontrol_5fget_5fcalibrate_5fgain_5ffrom_5fflash',['audio_anc_control_get_calibrate_gain_from_flash',['../group__anc__control.html#gaab5be5292a874f705b5ae3b93f388713',1,'anc_control_api.h']]],
+  ['audio_5fanc_5fcontrol_5fget_5fextend_5fgain',['audio_anc_control_get_extend_gain',['../group__anc__control.html#ga94b3a19a2c6fd61511105aa920bfb956',1,'anc_control_api.h']]],
   ['audio_5fanc_5fcontrol_5fget_5framp_5fcapability',['audio_anc_control_get_ramp_capability',['../group__anc__control.html#ga850636e2ac598548c91dd819aa1c6928',1,'anc_control_api.h']]],
   ['audio_5fanc_5fcontrol_5fget_5fruntime_5fgain',['audio_anc_control_get_runtime_gain',['../group__anc__control.html#ga363180c9455d3dee2204d8d40cd0a7bf',1,'anc_control_api.h']]],
   ['audio_5fanc_5fcontrol_5fget_5fstatus',['audio_anc_control_get_status',['../group__anc__control.html#ga473575cbfc4564dfef4d176f13dcaef3',1,'anc_control_api.h']]],

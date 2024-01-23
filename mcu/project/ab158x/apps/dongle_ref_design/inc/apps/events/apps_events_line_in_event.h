@@ -54,9 +54,15 @@ typedef enum {
     APP_LINE_IN_VOL_SET,         /**< Set line in volume level. */
 } app_line_in_volume_action_t;
 
+typedef enum {
+    APP_LINE_IN_VOL_SRC,
+    APP_LINE_IN_VOL_SINK,
+} app_line_in_volume_src_t;
+
 typedef struct {
     app_line_in_volume_action_t vol_action;
     uint8_t                     vol_level;
+    app_line_in_volume_src_t    vol_src;
 } app_line_in_volume_t;
 
 

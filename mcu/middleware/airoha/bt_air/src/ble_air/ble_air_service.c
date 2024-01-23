@@ -167,7 +167,7 @@ static void ble_air_init_all_cntx(void);
 #if (defined(MTK_AWS_MCE_ENABLE) && defined (BT_ROLE_HANDOVER_WITH_SPP_BLE) || (defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)))
 static bt_status_t ble_air_srv_notify_user(bt_handle_t connection_handle, bt_bd_addr_t *address);
 #endif
- #if defined(MTK_AWS_MCE_ENABLE) && defined (BT_ROLE_HANDOVER_WITH_SPP_BLE)
+#if defined(MTK_AWS_MCE_ENABLE) && defined (BT_ROLE_HANDOVER_WITH_SPP_BLE)
 static void ble_air_reset_connection_cntx_with_rho(void);
 static ble_air_cntx_t *ble_air_get_free_conn_cntx(void);
 #endif
@@ -582,7 +582,7 @@ ble_air_cntx_t *ble_air_get_cntx_by_handle(uint16_t conn_handle)
     return NULL;
 }
 #if (defined(MTK_AWS_MCE_ENABLE) && defined (BT_ROLE_HANDOVER_WITH_SPP_BLE) || (defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)))
- static bt_status_t ble_air_srv_notify_user(bt_handle_t connection_handle, bt_bd_addr_t *address)
+static bt_status_t ble_air_srv_notify_user(bt_handle_t connection_handle, bt_bd_addr_t *address)
 {
     ble_air_connect_t connect_param;
     LOG_MSGID_I(AIR, "[AIR][LE] ble_air_srv_notify_user BLE_AIR_EVENT_CONNECT_IND\r\n", 0);
@@ -606,21 +606,7 @@ static ble_air_cntx_t *ble_air_srv_get_highlight_context(void)
     LOG_MSGID_I(AIR, "[AIR][LE] get highlight context:%02x\r\n", 1, g_le_air_highlight_context);
     return g_le_air_highlight_context;
 }
-#if 0
-bt_status_t ble_air_srv_switch_link(bt_handle_t connection_handle)
-{
-    LOG_MSGID_I(AIR, "[AIR][LE] switch link connection handle %02x\r\n", 1, connection_handle);
-    ble_air_cntx_t *temp_cntx = ble_air_get_cntx_by_handle(connection_handle);
-    if (temp_cntx == NULL) {
-        LOG_MSGID_I(AIR, "[AIR][LE] switch link fail, connection handle is invaild = %02x\r\n", 1, connection_handle);
-        return BT_STATUS_FAIL;
-    }
-    temp_cntx->receive_buffer = g_rx_buffer;
-    temp_cntx->receive_buffer_length = 0;
-    ble_air_srv_update_highlight_context(temp_cntx);
-    return ble_air_srv_notify_user(temp_cntx->conn_handle, &temp_cntx->peer_addr);
-}
-#endif
+
 bt_status_t ble_air_link_performace_optimization_internel(bt_handle_t connection_handle)
 {
     /* Set LE max data length. */
@@ -727,29 +713,24 @@ static bt_status_t ble_air_save_connection_info(void *buff)
         if (BT_HANDLE_INVALID == g_air_cntx[i].conn_handle) {
             g_air_cntx[i].conn_handle = conn_ind->connection_handle;
             memcpy(g_air_cntx[i].peer_addr, conn_ind->peer_addr.addr, sizeof(conn_ind->peer_addr.addr));
-#if 0//def AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
-            if (BT_ULL_ROLE_CLIENT == bt_ull_le_hid_srv_get_role()) { // headset
-                g_air_cntx[i].is_real_connected = true;
-            }
-#endif
+            LOG_MSGID_I(AIR, "[AIR][LE] connection context:%02x, connection_handle = %02x,BT_CONNECTION_MAX =%02x", 3, &g_air_cntx[i], g_air_cntx[i].conn_handle, BT_CONNECTION_MAX);
 #ifdef BLE_AIR_LOW_POWER_CONTROL
             g_air_cntx[i].low_power_t.conn_interval = conn_ind->conn_interval;
 #endif
 #if (defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE))
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
-        if (BT_ULL_ROLE_SERVER == bt_ull_le_srv_get_role())
+            if (BT_ULL_ROLE_SERVER == bt_ull_le_srv_get_role())
 #elif defined AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
-        if (BT_ULL_ROLE_SERVER == bt_ull_le_hid_srv_get_role())
+            if (BT_ULL_ROLE_SERVER == bt_ull_le_hid_srv_get_role())
 #endif
-        {
-            /* BLE air service client, notify user. */
-            g_air_cntx[i].receive_buffer = g_rx_buffer;
-            g_air_cntx[i].receive_buffer_length = 0;
-            LOG_MSGID_I(AIR, "[AIR][LE] connection context:%02x, connection_handle = %02x,BT_CONNECTION_MAX =%02x", 3, &g_air_cntx[i], g_air_cntx[i].conn_handle, BT_CONNECTION_MAX);
+            {
+                /* BLE air service client, notify user. */
+                g_air_cntx[i].receive_buffer = g_rx_buffer;
+                g_air_cntx[i].receive_buffer_length = 0;
 
                 ble_air_srv_notify_user(g_air_cntx[i].conn_handle, &g_air_cntx[i].peer_addr);
-            ble_air_link_performace_optimization_internel(conn_ind->connection_handle);
-        }
+                ble_air_link_performace_optimization_internel(conn_ind->connection_handle);
+            }
 #endif
             g_air_cntx[i].revert_interval = conn_ind->conn_interval;
             g_air_cntx[i].revert_supervision_timeout = conn_ind->supervision_timeout;
@@ -792,7 +773,7 @@ bt_status_t ble_air_link_adjust_conn_interval(bt_bd_addr_t *addr)
             LOG_MSGID_I(AIR, "[BLE][AIR]  ble_air_link_adjust_conn_interval = %02x", 1, update_status);
         }
     }
-   return BT_STATUS_SUCCESS;
+    return BT_STATUS_SUCCESS;
 }
 
 static bt_status_t ble_air_delete_connection_info(void *buff)
@@ -812,16 +793,16 @@ static bt_status_t ble_air_delete_connection_info(void *buff)
 
 #if (defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE))
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
-        if (BT_ULL_ROLE_SERVER == bt_ull_le_srv_get_role())
+            if (BT_ULL_ROLE_SERVER == bt_ull_le_srv_get_role())
 #elif defined AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
-        if (BT_ULL_ROLE_SERVER == bt_ull_le_hid_srv_get_role())
+            if (BT_ULL_ROLE_SERVER == bt_ull_le_hid_srv_get_role())
 #endif
 
-        {
-            if (ble_air_srv_get_highlight_context() == &g_air_cntx[i]) {
-                ble_air_srv_update_highlight_context(NULL);
+            {
+                if (ble_air_srv_get_highlight_context() == &g_air_cntx[i]) {
+                    ble_air_srv_update_highlight_context(NULL);
+                }
             }
-        }
 #endif
             break;
         }
@@ -1020,7 +1001,7 @@ static bt_status_t ble_air_common_event_handler(bt_msg_type_t msg, bt_status_t s
     switch (msg) {
         case BT_GAP_LE_CONNECT_IND: {
             if (status == BT_STATUS_SUCCESS) {
-            ble_air_save_connection_info(buff);
+                ble_air_save_connection_info(buff);
             } else {
                 LOG_MSGID_I(AIR, "connect status :%x", 1, status);
             }
@@ -1070,14 +1051,14 @@ static bt_status_t ble_air_common_event_handler(bt_msg_type_t msg, bt_status_t s
                 buffer_t->low_power_t.conn_interval = ind->conn_interval;
                 buffer_t->low_power_t.conn_priority = ble_air_get_current_connection_interval(conn_handle, ind->conn_interval);
 #endif
-            if (link_update_state == BLE_AIR_LINK_UPDATE_STATE_OPTIMIZING) {
+                if (link_update_state == BLE_AIR_LINK_UPDATE_STATE_OPTIMIZING) {
                     ble_air_link_performace_optimization();
-            } else if(link_update_state == BLE_AIR_LINK_UPDATE_STATE_OPTIMIZE_REVERT) {
+                } else if (link_update_state == BLE_AIR_LINK_UPDATE_STATE_OPTIMIZE_REVERT) {
                     ble_air_link_performace_optimization_revert();
                 } else {
-                if ((buffer_t->is_link_optimization) && (ind->conn_interval != 0x0018)) {
-                    ble_air_link_performace_optimization_by_handle(conn_handle);
-                }
+                    if ((buffer_t->is_link_optimization) && (ind->conn_interval != 0x0018)) {
+                        ble_air_link_performace_optimization_by_handle(conn_handle);
+                    }
                     buffer_t->revert_interval = ind->conn_interval;
                     buffer_t->revert_supervision_timeout = ind->supervision_timeout;
                 }
@@ -1283,8 +1264,7 @@ uint32_t ble_air_write_data(uint16_t conn_handle, uint8_t *buffer, uint32_t size
         return send_size;
     }
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
-    else if (BT_ULL_ROLE_CLIENT == bt_ull_le_srv_get_role())
-    {
+    else if (BT_ULL_ROLE_CLIENT == bt_ull_le_srv_get_role()) {
         if ((conn_handle != BT_HANDLE_INVALID) && (buffer_t) &&
             (buffer_t->is_real_connected)) {
 
@@ -1300,8 +1280,7 @@ uint32_t ble_air_write_data(uint16_t conn_handle, uint8_t *buffer, uint32_t size
         }
     }
 #elif defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
-    else if (BT_ULL_ROLE_CLIENT == bt_ull_le_hid_srv_get_role())
-    {
+    else if (BT_ULL_ROLE_CLIENT == bt_ull_le_hid_srv_get_role()) {
         if ((conn_handle != BT_HANDLE_INVALID) && (buffer_t) &&
             (buffer_t->is_real_connected)) {
 
@@ -1353,30 +1332,30 @@ static uint32_t read_data(ble_air_cntx_t *buffer_t, uint8_t *buffer, uint32_t si
     BLEAIR_MUTEX_LOCK();
     uint32_t read_size = 0;
     if (!buffer_t || !buffer) {
-            BLEAIR_MUTEX_UNLOCK();
-            return 0;
-        }
-        if (buffer_t->receive_buffer_length > size) {
-            read_size = size;
-        } else {
-            read_size = buffer_t->receive_buffer_length;
-        }
-        if (0 == read_size) {
-            LOG_MSGID_I(AIR, "[BLE_AIR] ble_air_read_data: read buffer is null\r\n", 0);
-            BLEAIR_MUTEX_UNLOCK();
-            return 0;
-        }
-        memcpy(buffer, buffer_t->receive_buffer, read_size);
-        if (buffer_t->receive_buffer_length > read_size) {
-            memmove(buffer_t->receive_buffer, (uint8_t *)(buffer_t->receive_buffer + read_size), (buffer_t->receive_buffer_length - read_size));
-            buffer_t->receive_buffer_length -= read_size;
-        } else {
-            buffer_t->receive_buffer_length = 0;
-            memset(&g_rx_buffer, 0x0, BLE_AIR_RECEIVE_BUFFER_SIZE);
-        }
-        LOG_MSGID_I(AIR, "[BLE_AIR] ble_air_read_data: read_size is [%d]\r\n", 1, read_size);
         BLEAIR_MUTEX_UNLOCK();
-        return read_size;
+        return 0;
+    }
+    if (buffer_t->receive_buffer_length > size) {
+        read_size = size;
+    } else {
+        read_size = buffer_t->receive_buffer_length;
+    }
+    if (0 == read_size) {
+        LOG_MSGID_I(AIR, "[BLE_AIR] ble_air_read_data: read buffer is null\r\n", 0);
+        BLEAIR_MUTEX_UNLOCK();
+        return 0;
+    }
+    memcpy(buffer, buffer_t->receive_buffer, read_size);
+    if (buffer_t->receive_buffer_length > read_size) {
+        memmove(buffer_t->receive_buffer, (uint8_t *)(buffer_t->receive_buffer + read_size), (buffer_t->receive_buffer_length - read_size));
+        buffer_t->receive_buffer_length -= read_size;
+    } else {
+        buffer_t->receive_buffer_length = 0;
+        memset(&g_rx_buffer, 0x0, BLE_AIR_RECEIVE_BUFFER_SIZE);
+    }
+    LOG_MSGID_I(AIR, "[BLE_AIR] ble_air_read_data: read_size is [%d]\r\n", 1, read_size);
+    BLEAIR_MUTEX_UNLOCK();
+    return read_size;
 }
 
 /**
@@ -1387,8 +1366,8 @@ uint32_t ble_air_read_data(uint16_t conn_handle, uint8_t *buffer, uint32_t size)
     ble_air_cntx_t *buffer_t = ble_air_get_cntx_by_handle(conn_handle);
     if (!buffer_t || !buffer) {
         LOG_MSGID_I(AIR, "[BLE_AIR] ble_air_read_data null\r\n", 0);
-            return 0;
-        }
+        return 0;
+    }
 #if (defined (AIR_BLE_AUDIO_DONGLE_ENABLE) || defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE))
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
     if ((conn_handle != BT_HANDLE_INVALID) && (buffer_t->is_real_connected) && (BT_ULL_ROLE_CLIENT == bt_ull_le_srv_get_role())) {
@@ -1479,30 +1458,30 @@ static uint32_t read_ull_data(ble_air_ull_cntx_t *buffer_t, uint8_t *buffer, uin
     BLEAIR_MUTEX_LOCK();
     uint32_t read_size = 0;
     if (!buffer_t || !buffer) {
-            BLEAIR_MUTEX_UNLOCK();
-            return 0;
-        }
-        if (buffer_t->receive_buffer_length > size) {
-            read_size = size;
-        } else {
-            read_size = buffer_t->receive_buffer_length;
-        }
-        if (0 == read_size) {
-            LOG_MSGID_I(AIR, "[BLE_AIR] ull_read_data: read buffer is null\r\n", 0);
-            BLEAIR_MUTEX_UNLOCK();
-            return 0;
-        }
-        memcpy(buffer, buffer_t->receive_buffer, read_size);
-        if (buffer_t->receive_buffer_length > read_size) {
-            memmove(buffer_t->receive_buffer, (uint8_t *)(buffer_t->receive_buffer + read_size), (buffer_t->receive_buffer_length - read_size));
-            buffer_t->receive_buffer_length -= read_size;
-        } else {
-            buffer_t->receive_buffer_length = 0;
-            memset(&g_rx_buffer, 0x0, BLE_AIR_RECEIVE_BUFFER_SIZE);
-        }
-        LOG_MSGID_I(AIR, "[BLE_AIR] ull_read_data: read_size is [%d]\r\n", 1, read_size);
         BLEAIR_MUTEX_UNLOCK();
-        return read_size;
+        return 0;
+    }
+    if (buffer_t->receive_buffer_length > size) {
+        read_size = size;
+    } else {
+        read_size = buffer_t->receive_buffer_length;
+    }
+    if (0 == read_size) {
+        LOG_MSGID_I(AIR, "[BLE_AIR] ull_read_data: read buffer is null\r\n", 0);
+        BLEAIR_MUTEX_UNLOCK();
+        return 0;
+    }
+    memcpy(buffer, buffer_t->receive_buffer, read_size);
+    if (buffer_t->receive_buffer_length > read_size) {
+        memmove(buffer_t->receive_buffer, (uint8_t *)(buffer_t->receive_buffer + read_size), (buffer_t->receive_buffer_length - read_size));
+        buffer_t->receive_buffer_length -= read_size;
+    } else {
+        buffer_t->receive_buffer_length = 0;
+        memset(&g_rx_buffer, 0x0, BLE_AIR_RECEIVE_BUFFER_SIZE);
+    }
+    LOG_MSGID_I(AIR, "[BLE_AIR] ull_read_data: read_size is [%d]\r\n", 1, read_size);
+    BLEAIR_MUTEX_UNLOCK();
+    return read_size;
 }
 
 uint32_t ble_air_ull_read_data(uint16_t conn_handle, uint8_t *buffer, uint32_t size)
@@ -1591,7 +1570,7 @@ bt_status_t ble_air_switch_link(bt_ull_le_hid_srv_link_mode_t mode, bt_bd_addr_t
         case BT_ULL_LE_HID_SRV_LINK_MODE_FOTA: {
             for (i = 0; i < BT_CONNECTION_MAX; i ++) {
                 if ((g_air_ull_cntx[i].handle != 0 && g_air_ull_cntx[i].handle != BT_HANDLE_INVALID) &&
-                (bt_utils_memcmp(&g_air_ull_cntx[i].peer_address, addr, sizeof(bt_bd_addr_t)) == 0)) {
+                    (bt_utils_memcmp(&g_air_ull_cntx[i].peer_address, addr, sizeof(bt_bd_addr_t)) == 0)) {
                     link_mode.handle = g_air_ull_cntx[i].handle;
                     link_mode.link_mode = mode;
                     status = bt_ull_le_hid_srv_action(BT_ULL_ACTION_LE_HID_SWITCH_LINK_MODE, &link_mode, sizeof(bt_ull_le_hid_srv_switch_link_mode_t));
@@ -1608,7 +1587,7 @@ bt_status_t ble_air_switch_link(bt_ull_le_hid_srv_link_mode_t mode, bt_bd_addr_t
         case BT_ULL_LE_HID_SRV_LINK_MODE_NORMAL: {
             for (i = 0; i < BT_CONNECTION_MAX; i ++) {
                 if ((g_air_cntx[i].conn_handle != 0 && g_air_cntx[i].conn_handle != BT_HANDLE_INVALID) && (true == g_air_cntx[i].is_real_connected) &&
-                (bt_utils_memcmp(&g_air_cntx[i].peer_addr, addr, sizeof(bt_bd_addr_t)) == 0)) {
+                    (bt_utils_memcmp(&g_air_cntx[i].peer_addr, addr, sizeof(bt_bd_addr_t)) == 0)) {
                     link_mode.handle = g_air_cntx[i].conn_handle;
                     link_mode.link_mode = mode;
                     status = bt_ull_le_hid_srv_action(BT_ULL_ACTION_LE_HID_SWITCH_LINK_MODE, &link_mode, sizeof(bt_ull_le_hid_srv_switch_link_mode_t));
@@ -1684,6 +1663,7 @@ static void ble_air_ull_init_all_cntx(void)
     }
     memset(&g_rx_buffer, 0x0, BLE_AIR_RECEIVE_BUFFER_SIZE);
 }
+
 static bt_status_t ble_air_ull_set_cccd(bt_handle_t handle, uint16_t att_handle, uint16_t cccd)
 {
     bt_status_t ret;
@@ -1720,54 +1700,44 @@ void ble_air_ull_le_hid_callback(bt_ull_event_t event, void *param, uint32_t par
                         conn_ind->peer_addr.addr[0], conn_ind->peer_addr.addr[1], conn_ind->peer_addr.addr[2], conn_ind->peer_addr.addr[3], conn_ind->peer_addr.addr[4], conn_ind->peer_addr.addr[5]);
             uint8_t i = 0;
             uint8_t j = 0;
-            {
-                /* first check whether LE link connected or not*/
-                for (i = 0; i < BT_CONNECTION_MAX; i ++) {
-                    if (g_air_cntx[i].peer_addr != 0 && memcmp(&g_air_cntx[i].peer_addr, conn_ind->peer_addr.addr, sizeof(bt_bd_addr_t)) == 0) {
-                        g_air_cntx[i].remote_type = b_ull_info.device_type;
-                        g_air_cntx[i].remote_att_handle_rx = b_ull_info.att_handle_rx;
-                        g_air_cntx[i].remote_att_handle_tx = b_ull_info.att_handle_tx;
-                        g_air_cntx[i].remote_att_handle_cccd = b_ull_info.att_handle_cccd;
+            /* first check whether LE link connected or not*/
+            for (i = 0; i < BT_CONNECTION_MAX; i ++) {
+                if (g_air_cntx[i].peer_addr != 0 && memcmp(&g_air_cntx[i].peer_addr, conn_ind->peer_addr.addr, sizeof(bt_bd_addr_t)) == 0) {
+                    g_air_cntx[i].remote_type = b_ull_info.device_type;
+                    g_air_cntx[i].remote_att_handle_rx = b_ull_info.att_handle_rx;
+                    g_air_cntx[i].remote_att_handle_tx = b_ull_info.att_handle_tx;
+                    g_air_cntx[i].remote_att_handle_cccd = b_ull_info.att_handle_cccd;
 
-                        LOG_MSGID_I(AIR, "ble_air_ull_le_hid_callback device:%x, %x, %x, %x", 4, b_ull_info.device_type, b_ull_info.att_handle_rx,
-                            b_ull_info.att_handle_tx, b_ull_info.att_handle_cccd);
-                        /*dongle role*/
-                        if (BT_ULL_ROLE_SERVER == bt_ull_le_srv_get_role()) {
-                            LOG_MSGID_I(AIR, "ble_air_ull_le_hid_callback device set cccd!", 0);
-                            ble_air_ull_set_cccd(conn_ind->handle, b_ull_info.att_handle_cccd, BLE_AIR_ULL_ENABLE_NOTIFICATION);
-                        }
-                    }
-                }
-                /*LE link is not connected, its cis*/
-                if (i >= BT_CONNECTION_MAX) {
-#if 0
-                    if ((BT_ULL_ROLE_SERVER == bt_ull_le_srv_get_role() && b_ull_info->device_type == BT_ULL_LE_HID_SRV_DEVICE_HEADSET)
-                        || BT_ULL_ROLE_CLIENT == bt_ull_le_srv_get_role())
-#endif
-                     {
-                        for (j = 0; j < BT_CONNECTION_MAX; j ++) {
-                            if (g_air_ull_cntx[j].handle != 0 && g_air_ull_cntx[j].handle != BT_HANDLE_INVALID && g_air_ull_cntx[j].handle == conn_ind->handle) {
-                                g_air_ull_cntx[j].remote_type = b_ull_info.device_type;
-                                g_air_ull_cntx[j].mtu = b_ull_info.mtu;
-                                LOG_MSGID_I(AIR, "ble_air_ull_le_hid_callback handle:%x, %x, %x", 3, conn_ind->handle, b_ull_info.device_type,
-                                b_ull_info.mtu);
-                                memset(&g_rx_buffer, 0x0, BLE_AIR_RECEIVE_BUFFER_SIZE);
-                                g_air_ull_cntx[j].receive_buffer = g_rx_buffer;
-                                g_air_ull_cntx[j].receive_buffer_length = 0;
-                                memcpy(&g_air_ull_cntx[j].peer_address, conn_ind->peer_addr.addr, sizeof(bt_bd_addr_t));
-                                ble_air_connect_t connect_param;
-                                memset(&connect_param, 0x0, sizeof(ble_air_connect_t));
-                                connect_param.conn_handle = conn_ind->handle;
-                                memcpy(&(connect_param.bdaddr), conn_ind->peer_addr.addr, BT_BD_ADDR_LEN);
-                                LOG_MSGID_I(AIR, "ULL BLE_AIR_EVENT_CONNECT_IND\r\n", 0);
-                                ble_air_event_callback(BLE_AIR_EVENT_CONNECT_IND, (void *)&connect_param);
-                            }
-                        }
+                    LOG_MSGID_I(AIR, "ble_air_ull_le_hid_callback device:%x, %x, %x, %x", 4, b_ull_info.device_type, b_ull_info.att_handle_rx,
+                                b_ull_info.att_handle_tx, b_ull_info.att_handle_cccd);
+                    /*dongle role*/
+                    if (BT_ULL_ROLE_SERVER == bt_ull_le_srv_get_role()) {
+                        LOG_MSGID_I(AIR, "ble_air_ull_le_hid_callback device set cccd!", 0);
+                        ble_air_ull_set_cccd(conn_ind->handle, b_ull_info.att_handle_cccd, BLE_AIR_ULL_ENABLE_NOTIFICATION);
                     }
                 }
             }
-            //ble_air_ull_set_cccd(conn_ind->handle, b_ull_info->att_handle_cccd, BLE_AIR_ULL_ENABLE_NOTIFICATION);
-            //bt_ull_user_data_t
+            /*LE link is not connected, its cis*/
+            if (i >= BT_CONNECTION_MAX) {
+                for (j = 0; j < BT_CONNECTION_MAX; j ++) {
+                    if (g_air_ull_cntx[j].handle != 0 && g_air_ull_cntx[j].handle != BT_HANDLE_INVALID && g_air_ull_cntx[j].handle == conn_ind->handle) {
+                        g_air_ull_cntx[j].remote_type = b_ull_info.device_type;
+                        g_air_ull_cntx[j].mtu = b_ull_info.mtu;
+                        LOG_MSGID_I(AIR, "BT_ULL_EVENT_LE_HID_SERVICE_CONNECTED_IND handle:%x, %x, %x", 3, conn_ind->handle, b_ull_info.device_type,
+                                    b_ull_info.mtu);
+                        memset(&g_rx_buffer, 0x0, BLE_AIR_RECEIVE_BUFFER_SIZE);
+                        g_air_ull_cntx[j].receive_buffer = g_rx_buffer;
+                        g_air_ull_cntx[j].receive_buffer_length = 0;
+                        memcpy(&g_air_ull_cntx[j].peer_address, conn_ind->peer_addr.addr, sizeof(bt_bd_addr_t));
+                        ble_air_connect_t connect_param;
+                        memset(&connect_param, 0x0, sizeof(ble_air_connect_t));
+                        connect_param.conn_handle = conn_ind->handle;
+                        memcpy(&(connect_param.bdaddr), conn_ind->peer_addr.addr, BT_BD_ADDR_LEN);
+                        LOG_MSGID_I(AIR, "ULL BT_ULL_EVENT_LE_HID_SERVICE_CONNECTED_IND:%x\r\n", 1, conn_ind->handle);
+                        ble_air_event_callback(BLE_AIR_EVENT_CONNECT_IND, (void *)&connect_param);
+                    }
+                }
+            }
             break;
         }
         /* cis link connected*/
@@ -1778,10 +1748,6 @@ void ble_air_ull_le_hid_callback(bt_ull_event_t event, void *param, uint32_t par
                 break;
             }
             uint8_t j = 0;
-#if 0
-                    if ((BT_ULL_ROLE_SERVER == bt_ull_le_srv_get_role() && b_ull_info->device_type == BT_ULL_LE_HID_SRV_DEVICE_HEADSET)
-                        || BT_ULL_ROLE_CLIENT == bt_ull_le_srv_get_role())
-#endif
             for (j = 0; j < BT_CONNECTION_MAX; j ++) {
                 if (g_air_ull_cntx[j].handle == 0 || g_air_ull_cntx[j].handle == BT_HANDLE_INVALID) {
                     g_air_ull_cntx[j].handle = conn_ind->handle;
@@ -1795,27 +1761,17 @@ void ble_air_ull_le_hid_callback(bt_ull_event_t event, void *param, uint32_t par
                     memset(&connect_param, 0x0, sizeof(ble_air_connect_t));
                     connect_param.conn_handle = conn_ind->handle;
                     memcpy(&(connect_param.bdaddr), conn_ind->peer_addr.addr, BT_BD_ADDR_LEN);
-                    LOG_MSGID_I(AIR, "ULL BLE_AIR_EVENT_CONNECT_IND,handle:%x\r\n", 1, connect_param.conn_handle);
+                    LOG_MSGID_I(AIR, "ULL BT_ULL_EVENT_LE_HID_CONNECTED_IND,handle:%x\r\n", 1, connect_param.conn_handle);
                     ble_air_event_callback(BLE_AIR_EVENT_CONNECT_IND, (void *)&connect_param);
+                    break;
                 }
             }
             break;
         }
-        /*
-        case BT_ULL_EVENT_LE_HID_SWITCH_LINK_MODE_IND: {
-            bt_ull_le_hid_srv_switch_link_mode_ind_t *switch_link_mode = (bt_ull_le_hid_srv_switch_link_mode_ind_t *)param;
-            LOG_MSGID_I(AIR, "BT_ULL_EVENT_LE_HID_SWITCH_LINK_MODE_IND,handle:%x, mode:%x \r\n", 2, switch_link_mode->handle, switch_link_mode->link_mode);
-            ble_air_ull_cntx_t *buffer_t = ble_air_ull_get_cntx_by_handle(switch_link_mode->handle);
-            if ((switch_link_mode->handle != BT_HANDLE_INVALID) && (switch_link_mode->handle != 0) && (buffer_t)
-                && BT_ULL_LE_HID_SRV_LINK_MODE_FOTA == switch_link_mode->link_mode) {
-                g_switch_cis_link_flag = true;
-            }
-            break;
-        }
-        */
         /*cis disconnect*/
         case BT_ULL_EVENT_LE_HID_DISCONNECTED_IND: {
             bt_ull_le_hid_srv_disconnected_ind_t *disconn_ind = (bt_ull_le_hid_srv_disconnected_ind_t *)param;
+            LOG_MSGID_I(AIR, "ULL BT_ULL_EVENT_LE_HID_DISCONNECTED_IND handle:%x\r\n", 1, disconn_ind->handle);
             ble_air_ull_cntx_t *buffer_t = ble_air_ull_get_cntx_by_handle(disconn_ind->handle);
             if ((disconn_ind->handle != BT_HANDLE_INVALID) && (disconn_ind->handle != 0) && (buffer_t)) {
                 LOG_MSGID_I(AIR, "ULL g_switch_cis_link_flag:%x\r\n", 1, g_switch_cis_link_flag);
@@ -1827,7 +1783,7 @@ void ble_air_ull_le_hid_callback(bt_ull_event_t event, void *param, uint32_t par
             }
             break;
         }
-         /* received cis data*/
+        /* received cis data*/
         case BT_ULL_EVENT_LE_HID_RACE_DATA_IND: {
             bt_ull_le_hid_srv_race_data_t *user_data = (bt_ull_le_hid_srv_race_data_t *)param;
             ble_air_ull_cntx_t *buffer_t = NULL;
@@ -1847,7 +1803,7 @@ void ble_air_ull_le_hid_callback(bt_ull_event_t event, void *param, uint32_t par
                         ready_to_read.conn_handle = g_air_ull_cntx[i].handle;
                         memcpy(&(ready_to_read.bdaddr), g_air_ull_cntx[i].peer_address, BT_BD_ADDR_LEN);
                         LOG_MSGID_I(AIR, "ble_air_ull_le_hid_callback ready to read handle:%x,addr: %x:%x:%x:%x:%x:%x", 7, ready_to_read.conn_handle,
-                        ready_to_read.bdaddr[0], ready_to_read.bdaddr[1], ready_to_read.bdaddr[2], ready_to_read.bdaddr[3], ready_to_read.bdaddr[4], ready_to_read.bdaddr[5]);
+                                    ready_to_read.bdaddr[0], ready_to_read.bdaddr[1], ready_to_read.bdaddr[2], ready_to_read.bdaddr[3], ready_to_read.bdaddr[4], ready_to_read.bdaddr[5]);
                         ble_air_event_callback(BLE_AIR_EVENT_READY_TO_READ_IND, (void *)&ready_to_read);
                     } else {
                         LOG_MSGID_I(AIR, "ULL ble_air_ull_le_hid_callback ready to read is null\r\n", 0);
@@ -1867,11 +1823,6 @@ void ble_air_ull_le_hid_callback(bt_ull_event_t event, void *param, uint32_t par
 
 void ble_air_main(void)
 {
-#if 0
-#ifdef BLE_AIR_LOW_POWER_CONTROL
-    g_xTimer_low_power = ble_air_create_timer();
-#endif
-#endif
     ble_air_init_all_cntx();
 #if defined(MTK_AWS_MCE_ENABLE) && defined (BT_ROLE_HANDOVER_WITH_SPP_BLE)
     bt_role_handover_register_callbacks(BT_ROLE_HANDOVER_MODULE_BLE_AIR, &ble_air_rho_callbacks);
@@ -2004,15 +1955,11 @@ ble_air_device_id_t ble_air_get_device_id_by_address(bt_bd_addr_t *peer_address)
     uint32_t i = 0;
     for (i = 0; i < BT_CONNECTION_MAX; i++) {
         if ((g_air_cntx[i].conn_handle != BT_HANDLE_INVALID) && (bt_utils_memcmp(&g_air_cntx[i].peer_addr, peer_address, sizeof(bt_bd_addr_t)) == 0)) {
-            //LOG_MSGID_I(AIR, "[AIR][LE] get device id index = %02x, address = %02x:%02x:%02x:%02x:%02x:%02x", 7, i,
-                //peer_address[0], peer_address[1], peer_address[2], peer_address[3], peer_address[4], peer_address[5]);
             LOG_MSGID_I(AIR, "[AIR][LE] get device id index = %d, addr %x:%x:%x:%x:%x:%x", 7, i,
-                ((uint8_t *)peer_address)[0], ((uint8_t *)peer_address)[1], ((uint8_t *)peer_address)[2], ((uint8_t *)peer_address)[3], ((uint8_t *)peer_address)[4], ((uint8_t *)peer_address)[5]);
+                        ((uint8_t *)peer_address)[0], ((uint8_t *)peer_address)[1], ((uint8_t *)peer_address)[2], ((uint8_t *)peer_address)[3], ((uint8_t *)peer_address)[4], ((uint8_t *)peer_address)[5]);
             return (BLE_AIR_DEVICE_ID_BASE + i);
         }
     }
-    //LOG_MSGID_I(AIR, "[AIR][LE] get device id fail by address = %02x:%02x:%02x:%02x:%02x:%02x", 6,
-                //peer_address[0], peer_address[1], peer_address[2], peer_address[3], peer_address[4], peer_address[5]);
     LOG_MSGID_I(AIR, "[AIR][LE]get device id fail by addr %x:%x:%x:%x:%x:%x", 6,
                 ((uint8_t *)peer_address)[0], ((uint8_t *)peer_address)[1], ((uint8_t *)peer_address)[2], ((uint8_t *)peer_address)[3], ((uint8_t *)peer_address)[4], ((uint8_t *)peer_address)[5]);
     return BT_AIR_DEVICE_ID_INVAILD;

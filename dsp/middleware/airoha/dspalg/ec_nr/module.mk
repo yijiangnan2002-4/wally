@@ -60,8 +60,13 @@ ifeq ($(AIR_VOICE_NR_ENABLE), y)
 			else ifeq ($(AIR_BTA_IC_PREMIUM_G3), y)
 				PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/pisplit_ecnr_inear_v2_swb.o
 			else ifeq ($(AIR_BTA_IC_STEREO_HIGH_G3), y)
-				PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/pisplit_ecnr_inear_v2_swb_prcs.o
-				LIBS += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/libecnr_v2_swb_init.a
+				ifeq ($(AIR_VOICE_MULTIBAND_DRC_ENABLE), y)
+				    PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/mbdrc_lib/pisplit_ecnr_inear_v2_swb_prcs.o
+				    LIBS += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/mbdrc_lib/libecnr_v2_swb_init.a
+				else
+				    PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/pisplit_ecnr_inear_v2_swb_prcs.o
+				    LIBS += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/libecnr_v2_swb_init.a
+				endif
 			endif
 		else ifeq ($(AIR_ECNR_2MIC_INEAR_ENABLE), y)
 			ifeq ($(AIR_BTA_IC_PREMIUM_G2), y)
@@ -70,8 +75,13 @@ ifeq ($(AIR_VOICE_NR_ENABLE), y)
 			else ifeq ($(AIR_BTA_IC_PREMIUM_G3), y)
 				PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/pisplit_ecnr_inear_v2_swb.o
 			else ifeq ($(AIR_BTA_IC_STEREO_HIGH_G3), y)
-				PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/pisplit_ecnr_inear_v2_swb_prcs.o
-				LIBS += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/libecnr_v2_swb_init.a
+				ifeq ($(AIR_VOICE_MULTIBAND_DRC_ENABLE), y)
+				    PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/mbdrc_lib/pisplit_ecnr_inear_v2_swb_prcs.o
+				    LIBS += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/mbdrc_lib/libecnr_v2_swb_init.a
+				else
+				    PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/pisplit_ecnr_inear_v2_swb_prcs.o
+				    LIBS += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/libecnr_v2_swb_init.a
+				endif
 			endif
 		else ifeq ($(AIR_ECNR_1_OR_2_MIC_ENABLE), y)
 			ifeq ($(AIR_BTA_IC_PREMIUM_G2), y)
@@ -80,8 +90,13 @@ ifeq ($(AIR_VOICE_NR_ENABLE), y)
 			else ifeq ($(AIR_BTA_IC_PREMIUM_G3), y)
 				PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/pisplit_ecnr_inear_v2_swb.o
 			else ifeq ($(AIR_BTA_IC_STEREO_HIGH_G3), y)
-				PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/pisplit_ecnr_inear_v2_swb_prcs.o
-				LIBS += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/libecnr_v2_swb_init.a
+			    ifeq ($(AIR_VOICE_MULTIBAND_DRC_ENABLE), y)
+				    PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/mbdrc_lib/pisplit_ecnr_inear_v2_swb_prcs.o
+				    LIBS += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/mbdrc_lib/libecnr_v2_swb_init.a
+				else
+				    PIC += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/pisplit_ecnr_inear_v2_swb_prcs.o
+				    LIBS += $(strip $(LIBDIR2))/ec_nr/$(IC_CONFIG)/pisplit/libecnr_v2_swb_init.a
+				endif
 			endif
 		else ifeq ($(AIR_3RD_PARTY_NR_ENABLE), y)
 			ifeq ($(AIR_BTA_IC_PREMIUM_G2), y)

@@ -1,3 +1,4 @@
+
 /* Copyright Statement:
  *
  * (C) 2021  Airoha Technology Corp. All rights reserved.
@@ -32,23 +33,12 @@
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
 
+/**
+ * NOTE:
+ * Keep this header empty for compatibility test
+ */
+
 #ifndef USB_HOST_DETECT_H
 #define USB_HOST_DETECT_H
 
-/**
- * Unmark below macro to enable host_detect function.
- */
-/* #define USB_HOST_DETECT_ENABLE */
-
-#ifdef USB_HOST_DETECT_ENABLE
-
-/* USB Middleware includes */
-#include "usb.h"
-#include "usb_main.h"
-
-void USB_HostDetect_ResetRecorder(void);
-void USB_HostDetect_RecordStdcmd(Usb_Ep0_Status *pep0state, Usb_Command *pcmd);
-void USB_HostDetect_Recohnize(void);
-
-#endif /* USB_HOST_DETECT_ENABLE */
 #endif /* USB_HOST_DETECT_H */

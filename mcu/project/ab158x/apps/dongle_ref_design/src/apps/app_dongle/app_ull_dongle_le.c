@@ -81,6 +81,9 @@
 #define APP_ULL_DONGLE_GATT_CLIENT_MTU 512
 #define APP_ULL_DONGLE_AIR_PAIRING_CLEAR_BOND_INFO
 
+#define APP_ULL_DONGLE_CONN_INTERVAL_7p5_ms  0x0006
+#define APP_ULL_DONGLE_CONN_INTERVAL_30p0_ms 0x0018
+
 /**************************************************************************************************
 * Structure
 **************************************************************************************************/
@@ -170,7 +173,7 @@ static uint8_t g_app_ull_dongle_le_uuid128_default[16] = { \
 * Prototype
 **************************************************************************************************/
 static void app_ull_dongle_le_reset_param(void);
-static bt_status_t app_ull_dongle_le_disconnect(bt_handle_t conn_handle);
+static bt_status_t app_ull_dongle_le_disconnect(bt_handle_t conn_handle, uint8_t reason);
 static void app_ull_dongle_le_update_bonded_info(void);
 static bt_status_t app_ull_dongle_le_start_scan_device(app_ull_dongle_le_scan_t scan_type, bool use_white_list);
 static bt_status_t app_ull_dongle_le_stop_scan_device(app_ull_dongle_le_scan_t scan_type);
@@ -183,6 +186,8 @@ extern void bt_app_common_at_cmd_print_report(char *string);
 static void app_ull_dongle_gap_le_srv_event_callback(bt_gap_le_srv_event_t event, void *data);
 bt_status_t app_ull_dongle_le_cancel_create_connection(void);
 extern bt_gap_le_srv_link_t bt_device_manager_le_get_link_type_by_addr(bt_bd_addr_t *remote_addr);
+bt_status_t app_ull_dongle_le_enable_subrate(bt_handle_t handle, uint16_t sniff_interval, uint16_t sniff_latency, uint16_t continue_num);
+extern bt_status_t bt_gap_le_srv_set_extended_scan(bt_gap_le_srv_set_extended_scan_parameters_t *param, bt_gap_le_srv_set_extended_scan_enable_t *enable, void *callback);
 
 /**************************************************************************************************
 * Functions
@@ -225,6 +230,13 @@ static bt_status_t app_ull_dongle_le_set_sniff(bool enable)
 }
 #endif
 
+static app_ull_dongle_le_subrate_info_t *app_ull_dongle_le_get_subrate_info(app_ull_dongle_le_link_info_t *link)
+{
+    if (link) {
+        return &link->subrate_info;
+    }
+    return NULL;
+}
 static void app_ull_dongle_le_reset_link_info(uint8_t link_idx)
 {
     memset(&g_app_ull_le_link_info[link_idx], 0, sizeof(app_ull_dongle_le_link_info_t));
@@ -280,6 +292,7 @@ static bt_status_t app_ull_dongle_le_save_link_info(bt_gap_le_connection_ind_t *
     app_ull_dongle_le_reset_link_info(link_idx);
     g_app_ull_le_link_info[link_idx].handle = ind->connection_handle;
     g_app_ull_le_link_info[link_idx].conn_interval = ind->conn_interval;
+    g_app_ull_le_link_info[link_idx].conn_to = ind->supervision_timeout;
     memcpy(&(g_app_ull_le_link_info[link_idx].addr), &(ind->peer_addr), sizeof(bt_addr_t));
 
 #ifdef APP_ULL_DONGLE_LE_DEBUG
@@ -424,8 +437,7 @@ static void app_ull_dongle_le_add_bonded_device_to_white_list(uint8_t idx)
         g_app_ull_le_set_white_list.curr_idx = idx;
         g_app_ull_le_set_white_list.state = APP_ULL_DONGLE_LE_SET_WHITE_LIST_STATE_ADD_ON_GOING;
 
-        ret = bt_gap_le_set_white_list(BT_GAP_LE_ADD_TO_WHITE_LIST, &device);
-
+        ret = bt_gap_le_srv_operate_white_list(BT_GAP_LE_ADD_TO_WHITE_LIST, &device, NULL);
         APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"[APP][U] add_white_list, ret:%x", 1, ret);
     }
 }
@@ -589,7 +601,7 @@ static bool app_ull_dongle_le_is_in_black_list(bt_addr_t *addr)
 }
 
 
-static bt_status_t app_ull_dongle_le_update_conn_param(bt_handle_t handle, app_ull_dongle_le_conn_param_t type)
+bt_status_t app_ull_dongle_le_update_conn_param(bt_handle_t handle, app_ull_dongle_le_conn_param_t type)
 {
     bt_status_t status;
     bt_hci_cmd_le_connection_update_t conn_params;
@@ -597,20 +609,19 @@ static bt_status_t app_ull_dongle_le_update_conn_param(bt_handle_t handle, app_u
     conn_params.connection_handle = handle;
     conn_params.minimum_ce_length = 0x06;
     conn_params.maximum_ce_length = 0x06;
-
     switch (type) 
     {
         case APP_ULL_DONGLE_LE_CONN_PARAM_DEFAULT_SPEED:
         {
-            conn_params.conn_interval_min = 0x0018;/** TBC: 7.5ms : 6 * 1.25 ms. */
-            conn_params.conn_interval_max = 0x0018;/** TBC: 12.5ms : 10 * 1.25 ms. */
+            conn_params.conn_interval_min = APP_ULL_DONGLE_CONN_INTERVAL_30p0_ms;/** TBC: 7.5ms : 6 * 1.25 ms. */
+            conn_params.conn_interval_max = APP_ULL_DONGLE_CONN_INTERVAL_30p0_ms;/** TBC: 12.5ms : 10 * 1.25 ms. */
             conn_params.conn_latency = 0;
             break;
         }
         case APP_ULL_DONGLE_LE_CONN_PARAM_HIGH_SPEED:
         {
-            conn_params.conn_interval_min = 0x0006;/** TBC: 7.5ms : 6 * 1.25 ms. */
-            conn_params.conn_interval_max = 0x0006;/** TBC: 12.5ms : 10 * 1.25 ms. */
+            conn_params.conn_interval_min = APP_ULL_DONGLE_CONN_INTERVAL_7p5_ms;/** TBC: 7.5ms : 6 * 1.25 ms. */
+            conn_params.conn_interval_max = APP_ULL_DONGLE_CONN_INTERVAL_7p5_ms;/** TBC: 12.5ms : 10 * 1.25 ms. */
             conn_params.conn_latency = 0;
             break;
         }
@@ -660,8 +671,8 @@ bt_status_t app_ull_dongle_le_connect(bt_addr_t *addr)
         .le_scan_window = 0x10,
         .initiator_filter_policy = BT_HCI_CONN_FILTER_ASSIGNED_ADDRESS,
         .own_address_type = BT_ADDR_RANDOM,
-        .conn_interval_min = 0x0006,
-        .conn_interval_max = 0x0006,
+        .conn_interval_min = APP_ULL_DONGLE_CONN_INTERVAL_30p0_ms,
+        .conn_interval_max = APP_ULL_DONGLE_CONN_INTERVAL_30p0_ms,
         .conn_latency = 0x0000,
         .supervision_timeout = 0x01F4,
         .minimum_ce_length = 0x0002,
@@ -751,7 +762,7 @@ static bt_status_t app_ull_dongle_le_start_scan_device(app_ull_dongle_le_scan_t 
     param.scanning_filter_policy = use_white_list ? BT_HCI_SCAN_FILTER_ACCEPT_ONLY_ADVERTISING_PACKETS_IN_WHITE_LIST : BT_HCI_SCAN_FILTER_ACCEPT_ALL_ADVERTISING_PACKETS;
     g_app_ull_le_ctrl.curr_scan = (APP_ULL_DONGLE_LE_SCAN_COORDINATED_SET_BY_SIRK == scan_type)? APP_ULL_DONGLE_LE_SCAN_CS_ENABLING: APP_ULL_DONGLE_LE_SCAN_ENABLING;
 
-    if (BT_STATUS_SUCCESS != (status = bt_gap_le_set_extended_scan(&param, &enable))) {
+    if (BT_STATUS_SUCCESS != (status = bt_gap_le_srv_set_extended_scan(&param, &enable, NULL))) {
         g_app_ull_le_ctrl.curr_scan = APP_ULL_DONGLE_LE_SCAN_NONE;
         APPS_LOG_MSGID_E(APP_ULL_LOG_TAG"start scan device failed, status:%x", 1,  status);
         if (BT_STATUS_OUT_OF_MEMORY == status) {
@@ -818,7 +829,7 @@ static bt_status_t app_ull_dongle_le_stop_scan_device(app_ull_dongle_le_scan_t s
     /**To Stop Scan. */
     g_app_ull_le_ctrl.curr_scan = (APP_ULL_DONGLE_LE_SCAN_COORDINATED_SET_BY_SIRK == scan_type) ? APP_ULL_DONGLE_LE_SCAN_CS_DISABLING : APP_ULL_DONGLE_LE_SCAN_DISABLING;
 
-    if (BT_STATUS_SUCCESS != (status = bt_gap_le_set_extended_scan(NULL, &enable))) {
+    if (BT_STATUS_SUCCESS != (status = bt_gap_le_srv_set_extended_scan(NULL, &enable, NULL))) {
         g_app_ull_le_ctrl.curr_scan = (APP_ULL_DONGLE_LE_SCAN_COORDINATED_SET_BY_SIRK == scan_type) ? APP_ULL_DONGLE_LE_SCAN_CS_ENABLED : APP_ULL_DONGLE_LE_SCAN_ENABLED;
         APPS_LOG_MSGID_E(APP_ULL_LOG_TAG"stop_scan failed, status:%x", 1,  status);
     } else {
@@ -1152,10 +1163,12 @@ static void app_ull_dongle_le_handle_reconnect_adv(bt_gap_le_ext_advertising_rep
     }
     while (index < ind->data_length) {
         length = ind->data[index];
-        if (length >= 0x3 \
+        if (length >= 0x5 \
             && BT_GAP_LE_AD_TYPE_MANUFACTURER_SPECIFIC == ind->data[index + 1] \
-            && (ind->data[index + 2] == (APP_DONGLE_CM_RECONNECT_MODE_ADV_DATA & 0xFF)) \
-            && (ind->data[index + 3] == ((APP_DONGLE_CM_RECONNECT_MODE_ADV_DATA & 0xFF00)) >> 8)) {
+            && (ind->data[index + 2] == 0x94) \
+            && (ind->data[index + 3] == 0x00) \
+            && (ind->data[index + 4] == ((APP_DONGLE_CM_RECONNECT_MODE_ADV_DATA & 0xFF00)) >> 8) \
+            && (ind->data[index + 5] == (APP_DONGLE_CM_RECONNECT_MODE_ADV_DATA & 0xFF))) {
             if (APP_ULL_DONGLE_LE_CONN_RECONNECT_DEVICE == g_app_ull_le_ctrl.curr_conn) {
                 APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"app_ull_dongle_le_handle_reconnect_adv, is ull reconnect adv", 0);
                 //app_ull_dongle_le_stop_scan_device(APP_ULL_DONGLE_LE_SCAN_COORDINATED_SET_BY_SIRK);
@@ -1227,6 +1240,7 @@ static void app_ull_dongle_le_handle_connect_ind(bt_status_t status, bt_gap_le_c
         g_app_ull_le_ctrl.is_creating_connection = false;
         return;
     }
+
     BT_GATTC_NEW_EXCHANGE_MTU_REQ(req, APP_ULL_DONGLE_GATT_CLIENT_MTU);
     bt_gattc_exchange_mtu(ind->connection_handle, &req);
 
@@ -1274,7 +1288,7 @@ static void app_ull_dongle_le_handle_connect_ind(bt_status_t status, bt_gap_le_c
 #ifdef APP_ULL_DONGLE_AIR_PAIRING_CLEAR_BOND_INFO
     if (is_pairing) {
         //app_ull_dongle_le_reset_bonded_info();
-        bt_gap_le_set_white_list(BT_GAP_LE_CLEAR_WHITE_LIST, NULL);
+        bt_gap_le_srv_operate_white_list(BT_GAP_LE_CLEAR_WHITE_LIST, NULL, NULL);
         if (NULL != g_app_ull_le_bonded_info.addr && g_app_ull_le_bonded_info.num != 0) {
             bt_addr_t tempaddr = {0};
             uint8_t *ptempaddr = NULL;
@@ -1304,16 +1318,26 @@ static void app_ull_dongle_le_handle_connect_ind(bt_status_t status, bt_gap_le_c
     /** Connect Successful, save connection info. */
     g_app_ull_le_ctrl.curr_conn = APP_ULL_DONGLE_LE_CONN_NONE;
     app_ull_dongle_le_save_link_info(ind);
+    //app_ull_dongle_le_enable_subrate(ind->connection_handle, 30, 0, 2);
 }
 
 static void app_ull_dongle_le_handle_conn_update_ind(bt_status_t status, bt_gap_le_connection_update_ind_t *ind)
 {
     app_ull_dongle_le_link_info_t *p_info = NULL;
-
     if ((!ind) || (NULL == (p_info = app_ull_dongle_le_get_link_info(ind->conn_handle)))) {
         return;
     }
+    APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"LE_CONN_UPDATE_IND, handle: 0x%x, interval:%d, state: %d", 3, ind->conn_handle, p_info->conn_interval, p_info->subrate_info.state);
+
     p_info->conn_interval = ind->conn_interval;
+/*    if (ind->conn_interval > APP_ULL_DONGLE_CONN_INTERVAL_7p5_ms) {
+        if (APP_ULL_DONGLE_LE_SUBRATE_STATE_ENABLED == p_info->subrate_info.state) {
+            APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"LE_CONN_UPDATE_IND, LE Subrate enabled ,update to high speed!", 0);
+            app_ull_dongle_le_update_conn_param(ind->conn_handle, APP_ULL_DONGLE_LE_CONN_PARAM_HIGH_SPEED);
+        
+        }
+    }
+*/
 
     APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"LE_CONN_UPDATE_IND, interval:%d", 1, p_info->conn_interval);
 }
@@ -1422,11 +1446,10 @@ static void app_ull_dongle_le_handle_ull_connect_ind(bt_ull_le_connected_info_t 
             }
             
             /** To disconnect the current link. */
-            app_ull_dongle_le_disconnect(ind->conn_handle);
+            app_ull_dongle_le_disconnect(ind->conn_handle, BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST);
             return;
         }
     }
-
     if (BT_STATUS_SUCCESS == ind->status) {
         if ((0 != g_app_ull_le_ctrl.set_size) && (g_app_ull_le_ctrl.set_size != ind->set_size)) {// not the fisrt CS, need have same CS size
             APPS_LOG_MSGID_E(APP_ULL_LOG_TAG"ULL Connect fail! CS size error! To disconnect LE ACL", 0);
@@ -1440,7 +1463,7 @@ static void app_ull_dongle_le_handle_ull_connect_ind(bt_ull_le_connected_info_t 
             }
 
             /** To disconnect the current link. */
-            app_ull_dongle_le_disconnect(ind->conn_handle);
+            app_ull_dongle_le_disconnect(ind->conn_handle, BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST);
             return;
         }
 #ifdef AIR_WIRELESS_MIC_ENABLE
@@ -1457,7 +1480,7 @@ static void app_ull_dongle_le_handle_ull_connect_ind(bt_ull_le_connected_info_t 
             }
 
             /** To disconnect the current link. */
-            app_ull_dongle_le_disconnect(ind->conn_handle);
+            app_ull_dongle_le_disconnect(ind->conn_handle, BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST);
             return;
         }
 #endif        
@@ -1473,10 +1496,10 @@ static void app_ull_dongle_le_handle_ull_connect_ind(bt_ull_le_connected_info_t 
         g_app_ull_le_ctrl.client_type = ind->client_type;
         g_app_ull_le_ctrl.set_size = ind->set_size;
         memcpy((uint8_t *)&g_app_ull_le_ctrl.sirk, (uint8_t *)&(ind->sirk), sizeof(bt_key_t));
-        app_ull_dongle_le_update_conn_param(ind->conn_handle, APP_ULL_DONGLE_LE_CONN_PARAM_DEFAULT_SPEED);
+        //app_ull_dongle_le_update_conn_param(ind->conn_handle, APP_ULL_DONGLE_LE_CONN_PARAM_DEFAULT_SPEED);
         /* add to white list */
         if (app_ull_dongle_le_is_bonded_device(&(p_info->addr))) {
-            bt_status_t ret = bt_gap_le_set_white_list(BT_GAP_LE_ADD_TO_WHITE_LIST, &(p_info->addr));
+            bt_status_t ret = bt_gap_le_srv_operate_white_list(BT_GAP_LE_ADD_TO_WHITE_LIST, &(p_info->addr), NULL);
             APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"[APP][U] add_white_list, ret:%x", 1, ret);
         }
 #if defined (MTK_RACE_CMD_ENABLE) && defined (AIR_WIRELESS_MIC_ENABLE)
@@ -1555,6 +1578,22 @@ bt_status_t app_ull_dongle_le_cancel_create_connection(void)
     }
     return status;
 }
+
+app_ull_dongle_le_link_info_t* app_ull_dongle_le_get_other_link(bt_handle_t handle)
+{
+
+    uint8_t i = BT_ULL_LE_MAX_LINK_NUM;
+    while (i > 0) {
+        i--;
+        if (handle != g_app_ull_le_link_info[i].handle && \
+            g_app_ull_le_link_info[i].handle != BT_HANDLE_INVALID) {
+            return &g_app_ull_le_link_info[i];
+        }
+    }
+    return NULL;
+
+}
+
 static void app_ull_dongle_le_handle_disconnect_ind(bt_status_t status, bt_gap_le_disconnect_ind_t *ind)
 {
     uint8_t link_idx, link_num;
@@ -1630,6 +1669,12 @@ static void app_ull_dongle_le_handle_disconnect_ind(bt_status_t status, bt_gap_l
                     app_dongle_cm_notify_event(APP_DONGLE_CM_SOURCE_ULL_V2, APP_DONGLE_CM_EVENT_SOURCE_END, status, NULL);
                 }
 */
+            } else {
+                app_ull_dongle_le_link_info_t *other_link = app_ull_dongle_le_get_other_link(ind->connection_handle);
+                if (other_link) {
+                    APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"Need disconnect other link, hanlde: 0x%d", 1, other_link->handle);
+                    app_ull_dongle_le_disconnect(other_link->handle, BT_HCI_STATUS_REMOTE_TERMINATED_CONNECTION_DUE_TO_LOW_RESOURCES);
+                }
             }
             return;
         }
@@ -1693,6 +1738,59 @@ static void app_ull_dongle_le_handle_disconnect_ind(bt_status_t status, bt_gap_l
     //}
 }
 
+bt_status_t app_ull_dongle_le_enable_subrate(bt_handle_t handle, uint16_t sniff_interval, uint16_t sniff_latency, uint16_t continue_num)
+{
+    bt_status_t status = BT_STATUS_FAIL;
+    app_ull_dongle_le_link_info_t *link = app_ull_dongle_le_get_link_info(handle);
+    if (!link) {
+        APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"app_ull_dongle_le_enable_subrate, err handle!!", 0);
+        return BT_STATUS_FAIL;
+    }
+    app_ull_dongle_le_subrate_info_t *subrate = app_ull_dongle_le_get_subrate_info(link);
+    if (!subrate) {
+        APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"app_ull_dongle_le_enable_subrate, err subrate info!!", 0);
+        return BT_STATUS_FAIL;
+    }
+    APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"app_ull_dongle_le_enable_subrate, state: %d, sniff interval: %d, sniff latency: %d, continue num: %d, conn interval: %d, conn to: %d", 6, \
+        subrate->state, sniff_interval, sniff_latency, continue_num, link->conn_interval);
+    if (APP_ULL_DONGLE_LE_SUBRATE_STATE_ENABLING == subrate->state || APP_ULL_DONGLE_LE_SUBRATE_STATE_ENABLED == subrate->state) {
+        return BT_STATUS_SUCCESS;
+    }
+    subrate->state = APP_ULL_DONGLE_LE_SUBRATE_STATE_ENABLING;
+    bt_hci_le_subrate_t subrate_param = {0};
+    uint16_t interval = sniff_interval /1.25f;
+    uint16_t factor = interval/(link->conn_interval);
+    subrate_param.subrate_min = factor;
+    subrate_param.subrate_max = factor;
+    subrate_param.max_latency = sniff_latency;
+    subrate_param.continuation_number = continue_num;
+    subrate_param.supervision_timeout = link->conn_to;
+
+    status = bt_gap_le_enable_subrate(handle, &subrate_param);
+    APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"app_ull_dongle_le_enable_subrate, status: %x, %d, %d", 3, status, interval, factor);
+    return status;
+}
+static void app_ull_dongle_le_handle_subrate_change_ind(bt_status_t status, bt_gap_le_subrate_change_ind_t *ind)
+{
+    APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"app_ull_dongle_le_handle_subrate_change_ind, status: %d, factor: %d, latency: %d, conn to: %d, cont num: %d", 5, \
+        status, ind->subrate_factor, ind->peripheral_latency, ind->supervision_timeout, ind->continuation_number);
+    app_ull_dongle_le_link_info_t *link = app_ull_dongle_le_get_link_info(ind->connection_handle);
+    if (!link) {
+        return;
+    }
+    app_ull_dongle_le_subrate_info_t *subrate_info = app_ull_dongle_le_get_subrate_info(link);
+    if (BT_STATUS_SUCCESS != status) {
+        subrate_info->state = APP_ULL_DONGLE_LE_SUBRATE_STATE_DISABLED;
+        return;
+    }
+
+    subrate_info->state = APP_ULL_DONGLE_LE_SUBRATE_STATE_ENABLED;
+    subrate_info->factor = ind->subrate_factor;
+    subrate_info->latency = ind->peripheral_latency;
+    subrate_info->supervision_timeout = ind->supervision_timeout;
+    subrate_info->continuation_number = ind->continuation_number;
+}
+
 static bt_status_t app_ull_dongle_le_event_callback(bt_msg_type_t msg, bt_status_t status, void *buff)
 {
     //APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"[APP] app_ull_dongle_le_event_callback, msg is 0x%4x, status is 0x%4x", 2, msg, status);
@@ -1745,6 +1843,10 @@ static bt_status_t app_ull_dongle_le_event_callback(bt_msg_type_t msg, bt_status
             if ((BT_STATUS_SUCCESS == status) && (APP_ULL_DONGLE_LE_STATE_DISABLED != g_app_ull_le_ctrl.ull_state)) {
                 //g_app_ull_le_ctrl.is_creating_connection = false;
             }
+            break;
+        }
+        case BT_GAP_LE_SUBRATE_CHANGE_IND: {
+            app_ull_dongle_le_handle_subrate_change_ind(status, (bt_gap_le_subrate_change_ind_t *)buff);
             break;
         }
         default :
@@ -1980,7 +2082,7 @@ void app_ull_dongle_le_reset_bonded_info(void)
 
     bt_device_manager_le_clear_all_bonded_info();
     app_ull_dongle_le_update_bonded_info();
-    bt_gap_le_set_white_list(BT_GAP_LE_CLEAR_WHITE_LIST, NULL);
+    bt_gap_le_srv_operate_white_list(BT_GAP_LE_CLEAR_WHITE_LIST, NULL, NULL);
 
     g_app_ull_le_ctrl.curr_conn = APP_ULL_DONGLE_LE_CONN_NONE;
     app_ull_dongle_le_stop_scan();
@@ -2014,7 +2116,7 @@ bt_addr_t *app_ull_dongle_le_get_bt_addr_by_conn_handle(uint16_t conn_handle)
 }
 
 /** To disconnect LE link, when LE link connected, but ULL le connected fail. */
-static bt_status_t app_ull_dongle_le_disconnect(bt_handle_t conn_handle)
+static bt_status_t app_ull_dongle_le_disconnect(bt_handle_t conn_handle, uint8_t reason)
 {
     bt_status_t status;
     bt_hci_cmd_disconnect_t param;
@@ -2025,7 +2127,7 @@ static bt_status_t app_ull_dongle_le_disconnect(bt_handle_t conn_handle)
     }
 
     param.connection_handle = conn_handle;
-    param.reason = BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST;
+    param.reason = reason;
     status = bt_gap_le_disconnect(&param);
     APPS_LOG_MSGID_I(APP_ULL_LOG_TAG"[APP][U] disconnect, handle:%x ret:%x", 2, param.connection_handle, status);
 
@@ -2041,7 +2143,7 @@ bt_status_t app_ull_dongle_le_disconnect_device(bt_addr_t *addr)
         return BT_STATUS_FAIL;
     }
 
-    return app_ull_dongle_le_disconnect(conn_handle);
+    return app_ull_dongle_le_disconnect(conn_handle, BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST);
 }
 
 /** To disconnect LE link, when LE link connected, but ULL le connected fail. */
@@ -2053,7 +2155,7 @@ bt_status_t app_ull_dongle_le_disconnect_all_device(void)
     while (0 != i) {
         i--;
         if (BT_HANDLE_INVALID != g_app_ull_le_link_info[i].handle) {
-            status = app_ull_dongle_le_disconnect(g_app_ull_le_link_info[i].handle);
+            status = app_ull_dongle_le_disconnect(g_app_ull_le_link_info[i].handle, BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST);
             if (BT_STATUS_SUCCESS != status && BT_STATUS_PENDING != status) {
                 status = BT_STATUS_FAIL;
             } else {
@@ -2105,7 +2207,7 @@ void app_ull_dongle_le_delete_device(bt_addr_t *addr)
     /* disconnect device */
     app_ull_dongle_le_disconnect_device(addr);
     /* rm from white list */
-    bt_gap_le_set_white_list(BT_GAP_LE_REMOVE_FROM_WHITE_LIST, addr);
+    bt_gap_le_srv_operate_white_list(BT_GAP_LE_REMOVE_FROM_WHITE_LIST, addr, NULL);
     /* rm from bonded list */
     bt_device_manager_le_remove_bonded_device(addr);
     /* update bonded info */

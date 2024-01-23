@@ -262,7 +262,7 @@ void *RACE_MODULE_QUERY_HDR(PTR_RACE_COMMON_HDR_STRU pCmdMsg, uint8_t channel_id
 
     PTR_THIS_RACE_CMD_STRU pThisCmd = (PTR_THIS_RACE_CMD_STRU)pCmdMsg;
 
-    if (pThisCmd->Hdr.length != 3) {// 05 5A 03 00 0A 1E 【00/FF】
+    if (pThisCmd->Hdr.length != 3) {// 05 5A 03 00 0A 1E <00/FF>
         return NULL;
     }
 
@@ -353,7 +353,7 @@ void *RACE_MODULE_SET_HDR(PTR_RACE_COMMON_HDR_STRU pCmdMsg, uint8_t channel_id)
     } PACKED *PTR_THIS_RACE_CMD_STRU;
     PTR_THIS_RACE_CMD_STRU pThisCmd = (PTR_THIS_RACE_CMD_STRU)pCmdMsg;
 
-    if (pThisCmd->Hdr.length != 5) { //05 5A 05 00 0B 1E 【00 00 00】 cpu id / filter id / filter info
+    if (pThisCmd->Hdr.length != 5) { //05 5A 05 00 0B 1E <00 00 00> cpu id / filter id / filter info
         return NULL;
     }
 

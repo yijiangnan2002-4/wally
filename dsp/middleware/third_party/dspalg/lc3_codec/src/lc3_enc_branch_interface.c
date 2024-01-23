@@ -298,10 +298,18 @@ FIND_ENCODER_INDEX:
 
     if (p_lc3i_tab_common == NULL) {
         /*Table Common*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        lc3i_tab_common_size = LC3PLUSN_Tab_Common_Get_MemSize();
+#else
         lc3i_tab_common_size = LC3I_Tab_Common_Get_MemSize();
+#endif
         lc3i_tab_common_size = (lc3i_tab_common_size + 7) / 8 * 8;
         p_lc3i_tab_common = (void*) preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE , lc3i_tab_common_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Tab_Common_Init(p_lc3i_tab_common);
+#else
         ret = LC3I_Tab_Common_Init(p_lc3i_tab_common);
+#endif
         if (ret != LC3_OK) {
             DSP_MW_LOG_E("[lc3][fail] LC3I_Tab_Common_Init() %d", 1, ret);
             return true;
@@ -312,10 +320,18 @@ FIND_ENCODER_INDEX:
     param.frame_ms = lc3_para->frame_interval/100;
     param.sr = lc3_para->sample_rate;
     /*Table Enc*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+    lc3i_tab_enc_size = LC3PLUSN_Tab_Enc_Get_MemSize(&param);
+#else
     lc3i_tab_enc_size = LC3I_Tab_Enc_Get_MemSize(&param);
+#endif
     lc3i_tab_enc_size = (lc3i_tab_enc_size + 7) / 8 * 8;
     p_lc3i_tab_enc = (void*) preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE , lc3i_tab_enc_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+    ret = LC3PLUSN_Tab_Enc_Init(p_lc3i_tab_common, p_lc3i_tab_enc, &param);
+#else
     ret = LC3I_Tab_Enc_Init(p_lc3i_tab_common, p_lc3i_tab_enc, &param);
+#endif
     if (ret != LC3_OK) {
         DSP_MW_LOG_E("[lc3][fail] LC3I_Tab_Enc_Init() %d", 1, ret);
         return true;
@@ -323,7 +339,11 @@ FIND_ENCODER_INDEX:
     DSP_MW_LOG_I("[lc3][enc] LC3I_Tab_Enc_Init() Done",1, p_lc3i_tab_enc);
 
     /*Decoder Working Buffer*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+    lc3i_enc_size = LC3PLUSN_Enc_Get_MemSize(1, lc3_para->sample_rate, lc3_para->frame_interval/100);
+#else
     lc3i_enc_size = LC3I_Enc_Get_MemSize(1, lc3_para->sample_rate, lc3_para->frame_interval/100);
+#endif
     lc3_para->work_buffer_size = (lc3i_enc_size + 7) / 8 * 8;
     lc3_para->work_mem_ptr = (void*) preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE , lc3_para->work_buffer_size * lc3_para->channel_no);
     if (lc3_para->work_mem_ptr == NULL) {
@@ -340,7 +360,11 @@ FIND_ENCODER_INDEX:
     /* do encoder init one by one channel */
     for (i = 0; i < lc3_para->channel_no; i++) {
         p_lc3i_enc = (void *)((uint8_t *)lc3_para->work_mem_ptr + i * lc3_para->work_buffer_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Enc_Init(p_lc3i_enc, lc3_para->sample_bits, lc3_para->sample_rate, 1, lc3_para->bit_rate, lc3_para->frame_interval / 100, lc3_para->delay, 0);
+#else
         ret = LC3I_Enc_Init(p_lc3i_enc, lc3_para->sample_bits, lc3_para->sample_rate, 1, lc3_para->bit_rate, lc3_para->frame_interval / 100, lc3_para->delay, 0);
+#endif
         if (ret != LC3_OK) {
             DSP_MW_LOG_E("[lc3][enc][branch] init fail %d", 1, ret);
             AUDIO_ASSERT(0);
@@ -348,7 +372,9 @@ FIND_ENCODER_INDEX:
         }
     }
 
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
     DSP_MW_LOG_I("[lc3][enc][branch] init done, version = 0x%x", 1, LC3I_Get_Version());
+#endif
 
     return false;
 }
@@ -410,7 +436,11 @@ FIND_ENCODER_INDEX:
         }
 
         /* do encode and output to the stream buffer */
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Enc_Prcs(p_lc3i_enc, p_lc3i_tab_common, (uint8_t *)out_buf, (uint8_t *)remain_mem, &out_size, &lc3_FFTx);
+#else
         ret = LC3I_Enc_Prcs(p_lc3i_enc, p_lc3i_tab_common, (uint8_t *)out_buf, (uint8_t *)remain_mem, &out_size, &lc3_FFTx);
+#endif
         if (ret != LC3_OK) {
             DSP_MW_LOG_E("[lc3][enc][branch] process fail %d", 1, ret);
             AUDIO_ASSERT(0);

@@ -166,4 +166,6 @@ usbms_msdc_driver_t usbms_msdc_driver = {
 };
 
 #endif /* HAL_SD_MODULE_ENABLED */
+
 #endif /* AIR_USB_MSC_ENABLE */
+

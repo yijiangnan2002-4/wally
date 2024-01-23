@@ -43,8 +43,6 @@
 #include "hal_sleep_manager.h"
 #include "hal_sleep_manager_internal.h"
 
-#include "esc_device_config.h"
-
 #if defined(ESC_FLASH_ENABLE) && defined(ESC_PSRAM_ENABLE)
 #error "ESC can't support Flash and PSRAM at the same time."
 #endif
@@ -273,6 +271,10 @@ typedef struct {
 
 #define WB_ENTER_4_BYTE_ADDRESS_MODE (0xB7)
 
+#define FLASH_BUSY_STATUS            (0x1)
+
+#define FLASH_OEPRATON_MAX_DURATION  (6 * 1000 * 1000)
+
 /* Private functions ---------------------------------------------------------*/
 #define ESC_ReadReg8(addr)           *((volatile unsigned char *)(addr))
 #define ESC_ReadReg32(addr)          *((volatile unsigned int *)(addr))
@@ -292,6 +294,9 @@ bool esc_judge_device(void);
 void set_initial_state(bool state);
 bool get_initial_state(void);
 void esc_flash_return_ready(void);
+uint32_t esc_base_address(void);
+uint32_t esc_flash_length();
+
 #endif /* ESC_FLASH_ENABLE */
 
 #endif /* HAL_ESC_MODULE_ENABLED */

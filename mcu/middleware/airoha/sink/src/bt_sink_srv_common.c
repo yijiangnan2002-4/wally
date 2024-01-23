@@ -39,13 +39,19 @@
 #include "bt_sink_srv_utils.h"
 #include "bt_sink_srv_common.h"
 #include "bt_connection_manager_internal.h"
-#include "bt_sink_srv_call.h"
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 #include "bt_sink_srv_a2dp.h"
 #include "bt_sink_srv_avrcp.h"
-#include "bt_sink_srv_pbapc.h"
-#include "bt_sink_srv_hf.h"
 #include "bt_sink_srv_music.h"
+#endif
+
+#ifdef AIR_BT_SINK_CALL_ENABLE
+#include "bt_sink_srv_hf.h"
 #include "bt_sink_srv_call.h"
+#ifdef MTK_BT_PBAP_ENABLE
+#include "bt_sink_srv_pbapc.h"
+#endif
+#endif
 #include "bt_sink_srv_state_manager.h"
 #include "bt_sink_srv_state_manager_internal.h"
 #ifdef MTK_AWS_MCE_ENABLE
@@ -94,32 +100,45 @@ bt_status_t bt_sink_srv_common_callback(bt_msg_type_t msg, bt_status_t status, v
 #ifndef MTK_BT_CM_SUPPORT
             result = bt_sink_srv_cm_gap_callback(msg, status, buffer);
 #endif
+#ifdef AIR_BT_SINK_CALL_ENABLE
             result = bt_sink_srv_hf_gap_callback(msg, status, buffer);
+#endif
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
             result = bt_sink_srv_a2dp_common_callback(msg, status, buffer);
+#endif
             break;
 
         case BT_MODULE_HFP:
         case BT_MODULE_HSP:
+#ifdef AIR_BT_SINK_CALL_ENABLE
             result = bt_sink_srv_call_common_callback(msg, status, buffer);
+#endif
             break;
 
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
         case BT_MODULE_A2DP:
             result = bt_sink_srv_a2dp_common_callback(msg, status, buffer);
-            break;
-
-        case BT_MODULE_AVM:
-            result = bt_sink_srv_a2dp_common_callback(msg, status, buffer);
-#ifdef MTK_AWS_MCE_ENABLE
-            result = bt_sink_srv_aws_mce_common_callback(msg, status, buffer);
-#endif
             break;
 
         case BT_MODULE_AVRCP:
             result = bt_sink_srv_avrcp_common_callback(msg, status, buffer);
             break;
+#endif
+
+        case BT_MODULE_AVM:
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
+            result = bt_sink_srv_a2dp_common_callback(msg, status, buffer);
+#endif
+#ifdef MTK_AWS_MCE_ENABLE
+            result = bt_sink_srv_aws_mce_common_callback(msg, status, buffer);
+#endif
+            break;
+
 
         case BT_MODULE_PBAPC:
+#if defined(AIR_BT_SINK_CALL_ENABLE) && defined(MTK_BT_PBAP_ENABLE)
             result = bt_sink_srv_pbapc_common_callback(msg, status, buffer);
+#endif
             break;
 
 #ifdef MTK_AWS_MCE_ENABLE
@@ -129,8 +148,11 @@ bt_status_t bt_sink_srv_common_callback(bt_msg_type_t msg, bt_status_t status, v
 #endif
 
         case BT_MODULE_MM:
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
             result = bt_sink_srv_a2dp_common_callback(msg, status, buffer);
             break;
+#endif
+
 #ifdef AIR_BT_HID_ENABLE
         case BT_MODULE_HID:
 #ifdef AIR_HEAD_TRACKER_ENABLE
@@ -270,12 +292,16 @@ void bt_sink_srv_register_callback_init(void)
                                                      MODULE_MASK_MM | MODULE_MASK_AVM | MODULE_MASK_SDP
                                                      | MODULE_MASK_HID),
                                           (void *)bt_sink_srv_common_callback);
+#ifdef AIR_BT_SINK_CALL_ENABLE
     bt_callback_manager_register_callback(bt_callback_type_hfp_get_init_params,
                                           0,
                                           (void *)bt_sink_srv_hf_get_init_params);
+#endif
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     bt_callback_manager_register_callback(bt_callback_type_a2dp_get_init_params,
                                           0,
                                           (void *)bt_sink_srv_a2dp_get_init_params);
+#endif
 }
 
 #ifdef MTK_AWS_MCE_ENABLE
@@ -290,9 +316,13 @@ uint32_t bt_sink_srv_get_volume(bt_bd_addr_t *bd_addr, bt_sink_srv_volume_type_t
 {
     uint32_t volume = 0xffffffff;
     if (type == BT_SINK_SRV_VOLUME_HFP) {
+#ifdef AIR_BT_SINK_CALL_ENABLE
         bt_sink_srv_hf_get_speaker_volume(bd_addr, &volume);
+#endif
     } else if (type == BT_SINK_SRV_VOLUME_A2DP) {
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
         bt_sink_srv_a2dp_get_volume(bd_addr, &volume);
+#endif
     }
 
     return volume;
@@ -351,9 +381,12 @@ uint32_t bt_sink_srv_get_device_state(const bt_bd_addr_t *device_address, bt_sin
             bt_sink_srv_device_state_t device_state = {{0}};
 
             bt_sink_srv_memcpy(&device_state.address, &address_list[i], sizeof(bt_bd_addr_t));
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
             device_state.music_state = bt_sink_srv_music_get_music_state(&device_state.address);
+#endif
+#ifdef AIR_BT_SINK_CALL_ENABLE
             bt_sink_srv_call_get_device_state(&device_state);
-
+#endif
             bt_sink_srv_report_id("[Sink][Common]get device state, address:0x%x-%x-%x-%x-%x-%x", 6,
                                   device_state.address[0], device_state.address[1], device_state.address[2],
                                   device_state.address[3], device_state.address[4], device_state.address[5]);
@@ -386,7 +419,9 @@ bt_status_t bt_sink_srv_set_mute(bt_sink_srv_mute_t type, bool mute)
                 bt_sink_srv_report_id("[Sink]set mute, mute 0x%x speaker", 1, device->type);
                 if ((device->type == AUDIO_SRC_SRV_PSEUDO_DEVICE_A2DP) ||
                     (device->type == AUDIO_SRC_SRV_PSEUDO_DEVICE_AWS_A2DP)) {
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
                     status = bt_sink_srv_music_set_mute(mute);
+#endif
                 } else if ((device->type == AUDIO_SRC_SRV_PSEUDO_DEVICE_HFP) ||
                            (device->type == AUDIO_SRC_SRV_PSEUDO_DEVICE_AWS_HFP)) {
                     status = bt_sink_srv_call_set_mute(type, mute);
@@ -405,12 +440,55 @@ bt_status_t bt_sink_srv_set_mute(bt_sink_srv_mute_t type, bool mute)
     bt_sink_srv_report_id("[Sink]set mute, type:%x mute:%d status:0x%x", 3, type, mute, status);
     return status;
 }
+
+#ifndef AIR_BT_SINK_MUSIC_ENABLE
+bt_status_t bt_sink_srv_music_set_mute(bool is_mute)
+{
+    return BT_STATUS_FAIL;
+}
+#endif
+#ifndef AIR_BT_A2DP_ENABLE
+void bt_a2dp_set_mtu_size(uint32_t mtu_size)
+{
+    return;
+}
+#endif
+#ifndef MTK_BT_HFP_ENABLE
+void bt_hfp_enable_ag_service_record(bool enable)
+{
+    return;
+}
+void bt_hfp_enable_service_record(bool enable)
+{
+    return;
+}
+#endif
+#ifndef MTK_BT_HSP_ENABLE
+void bt_hsp_enable_service_record(bool enable)
+{
+    return;
+}
+#endif
+#ifndef AIR_BT_A2DP_ENABLE
+void bt_a2dp_enable_service_record(bool enable)
+{
+    return;
+}
+#endif
+#ifndef AIR_BT_AVRCP_ENABLE
+void bt_avrcp_disable_sdp(bool is_disable)
+{
+    return;
+}
+#endif
+
+
 #ifdef MTK_AUDIO_SYNC_ENABLE
 #define BT_SINK_SRV_MAX_SYNC_MODULE_NUMBER 4
 #define BT_SINK_SRV_MAX_SYNC_DATA_LENGTH   32
 
 static bt_sink_srv_sync_callback_t sync_callback[BT_SINK_SRV_MAX_SYNC_MODULE_NUMBER];
-static volatile uint8_t bt_sink_sync_stop_counter = 0;
+static volatile uint32_t bt_sink_sync_stop_counter = 0;
 
 typedef struct {
     uint8_t type;
@@ -564,7 +642,7 @@ void bt_sink_srv_set_sync_state(bool is_running)
     bt_sink_srv_report_id("bt_sink_srv_set_sync_state:0x%x, counter: 0x%x", 2, is_running, bt_sink_sync_stop_counter);
 }
 
-uint8_t bt_sink_srv_get_sync_counter(void)
+uint32_t bt_sink_srv_get_sync_counter(void)
 {
     bt_sink_srv_report_id("bt_sink_srv_get_sync_counter, counter:0x%x", 1, bt_sink_sync_stop_counter);
     return bt_sink_sync_stop_counter;

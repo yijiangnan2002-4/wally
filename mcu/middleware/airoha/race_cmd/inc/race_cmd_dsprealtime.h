@@ -881,7 +881,8 @@ typedef struct {
     uint8_t  sub_event;
     uint16_t rate;
     uint16_t Reserve_3;
-    uint16_t Reserve_4;
+    uint8_t  lc_setting;
+    uint8_t  Reserve_4;
 } PACKED RACE_RSP_FADP_ANC_GET_INFO_PARAM;
 
 typedef struct {
@@ -1001,6 +1002,8 @@ typedef struct {
 #define SCENARIO_CLASSIFICATION_MODE   1
 #define ADAPTIVE_FF_ANC_MODE           2
 #define ADAPTIVE_FB_ANC_MODE           3
+#define FADP_ANC_COMPENSATION_MODE     4
+#define ANC_DEFAULT_FIR_MODE           5
 #define USER_UNAWARE_DUBUG_MODE        9
 #define USER_UNAWARE_MODE             (10)
 #define ADAPTIVE_ANC_STREAM_MODE      (11)
@@ -1248,6 +1251,10 @@ void RACE_AirDump_Send(uint8_t channelId, uint8_t RaceType, uint8_t *ptr, uint16
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
 void anc_leakage_detection_racecmd_callback(uint16_t leakage_status);
 void anc_leakage_detection_racecmd_response(uint16_t leakage_status, uint8_t fromPartner);
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+void anc_fadp_compensation_racecmd_callback(uint16_t leakage_status);
+void anc_fadp_compensation_racecmd_response(uint16_t leakage_status, uint8_t state_ctrl);
+#endif
 #endif
 #ifdef MTK_ANC_ENABLE
 #ifdef MTK_USER_TRIGGER_FF_ENABLE
@@ -1308,6 +1315,7 @@ typedef struct {
 } PACKED anc_gain_control_param_t;
 
 void race_dsprealtime_anc_gain_control_response(uint8_t status, uint8_t type, bool enable);
+void race_dsprealtime_anc_gain_control_notify(uint8_t status, uint8_t type, bool enable);
 #endif /* MTK_ANC_ENABLE */
 #endif
 

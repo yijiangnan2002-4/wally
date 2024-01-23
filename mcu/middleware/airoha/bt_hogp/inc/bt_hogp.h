@@ -109,12 +109,12 @@
  *               switch (event) {
  *                     case BT_HOGP_EVENT_CONNECT_IND:
  *                     {
- *                        bt_hofp_connect_ind_t *ind = (bt_hofp_connect_ind_t *)buffer;
+ *                        bt_hogp_connect_ind_t *ind = (bt_hogp_connect_ind_t *)buffer;
  *                     }
  *                     break;
  *                     case BT_HOGP_EVENT_DISCONNECT_IND:
  *                     {
- *                        bt_hofp_disconnect_ind_t *ind = (bt_hofp_disconnect_ind_t *)buffer;
+ *                        bt_hogp_disconnect_ind_t *ind = (bt_hogp_disconnect_ind_t *)buffer;
  *                     }
  *                     break;
  *                     case BT_HOGP_EVENT_GET_REPORT_ID_IND:
@@ -167,14 +167,19 @@
  * @brief The event report to user
  */
 typedef uint8_t bt_hogp_event_t;                                              /**< The type of HOGP event. */
-#define BT_HOGP_EVENT_CONNECT_IND                            (0x01)           /**< The connection confirmation event is triggered when the connection is established between the local and remote devices, the structure for this event is defined as #bt_hofp_connect_ind_t. */
-#define BT_HOGP_EVENT_DISCONNECT_IND                         (0x02)           /**< The disconnect indication event shows the local device and the remote device are disconnected, the structure for this event is defined as #bt_hofp_disconnect_ind_t. */
-#define BT_HOGP_EVENT_GET_REPORT_ID_IND                      (0x03)           /**< The get report id request is received from the Host, the structure for this event is defined as #bt_hogp_get_report_id_t.
-                                                                                        The user needs to reply with report id in the output parameter, the structure for this response is defined as #bt_hogp_get_report_id_response_t*/
-#define BT_HOGP_EVENT_CONTORL_IND                            (0x04)           /**< The hid control request is received from host, the structure for this event is defined as #bt_hogp_control_ind_t. */
-#define BT_HOGP_EVENT_GET_REPORT_IND                         (0x05)           /**< The get report request is received from the host, the structure for this event is defined as #bt_hogp_get_report_ind_t.
-                                                                                        The user needs to reply with report data in the output parameter, the structure for this response is defined as #bt_hogp_get_report_response_t*/
-#define BT_HOGP_EVENT_SET_REPORT_IND                         (0x06)           /**< The set report request is received from host, the structure for this event is defined as #bt_hogp_set_report_ind_t. */
+#define BT_HOGP_EVENT_CONNECT_IND                            (0x01)           /**< The connection confirmation event is triggered when the connection is established between the local and remote devices. The structure for this event is defined as #bt_hogp_connect_ind_t. */
+#define BT_HOGP_EVENT_DISCONNECT_IND                         (0x02)           /**< The disconnect indication event shows the local device and the remote device are disconnected. The structure for this event is defined as #bt_hogp_disconnect_ind_t. */
+#define BT_HOGP_EVENT_GET_REPORT_ID_IND                      (0x03)           /**< The get report id request is received from the Host. The structure for this event is defined as #bt_hogp_get_report_id_t.
+                                                                                        The user needs to reply with report id in the output parameter. The structure for this response is defined as #bt_hogp_get_report_id_response_t.*/
+#define BT_HOGP_EVENT_CONTROL_IND                            (0x04)           /**< The hid control request is received from host. The structure for this event is defined as #bt_hogp_control_ind_t. */
+#define BT_HOGP_EVENT_GET_REPORT_IND                         (0x05)           /**< The get report request is received from the host. The structure for this event is defined as #bt_hogp_get_report_ind_t.
+                                                                                        The user needs to reply with report data in the output parameter. The structure for this response is defined as #bt_hogp_get_report_response_t*/
+#define BT_HOGP_EVENT_SET_REPORT_IND                         (0x06)           /**< The set report request is received from host. The structure for this event is defined as #bt_hogp_set_report_ind_t. */
+
+/**
+ * @deprecated Use #BT_HOGP_EVENT_CONTROL_IND instead.
+ */
+#define BT_HOGP_EVENT_CONTORL_IND                            (BT_HOGP_EVENT_CONTROL_IND)      /**< This event will be phased out and removed in the next SDK major version. Do not use. */
 
 /**
  * @brief The HOGP protocol mode.
@@ -252,14 +257,24 @@ typedef struct {
 typedef struct {
     bt_handle_t connection_handle;                         /**< The connection handle of the BLE. */
     bt_addr_t   *addr;                                     /**< The address of a remote device. */
-} bt_hofp_connect_ind_t;
+} bt_hogp_connect_ind_t;
 
 /**
 *  @brief This structure define for #BT_HOGP_EVENT_DISCONNECT_IND, disconnect complete.
 */
 typedef struct {
     bt_handle_t connection_handle;                         /**< The connection handle of the BLE. */
-} bt_hofp_disconnect_ind_t;
+} bt_hogp_disconnect_ind_t;
+
+/**
+ * @deprecated Use #bt_hogp_connect_ind_t instead.
+ */
+typedef bt_hogp_connect_ind_t bt_hofp_connect_ind_t;       /* This structure will be phased out and removed in the next SDK major version. Do not use. */
+
+/**
+ * @deprecated Use #bt_hogp_disconnect_ind_t instead.
+ */
+typedef bt_hogp_disconnect_ind_t bt_hofp_disconnect_ind_t; /* This structure will be phased out and removed in the next SDK major version. Do not use. */
 
 /**
 *  @brief This structure define for #BT_HOGP_EVENT_GET_REPORT_ID_IND.

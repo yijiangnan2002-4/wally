@@ -53,6 +53,7 @@
 #include "voice_prompt_aws.h"
 #include "bt_callback_manager.h"
 #include "bt_gap.h"
+#include "bt_sink_srv_call.h"
 #include "apps_config_vp_index_list.h"
 #include "app_hearing_aid_key_handler.h"
 #include "apps_events_interaction_event.h"
@@ -83,6 +84,7 @@
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
 #include "app_music_utils.h"
 #include "bt_ull_service.h"
+#Include "bt_ull_le_service.h"
 #endif /* AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE */
 
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
@@ -96,6 +98,7 @@
 #define APP_HA_ACTIVITY_TAG        "[HearingAid][ACTIVITY]"
 
 
+#define APP_HA_CONTROL_HEARING_AID_BY_A2DP_TIMEOUT_UNIT  (1000) // Unit : 1s
 #define APP_HA_CONTROL_HEARING_AID_BY_A2DP_TIMEOUT  (3 * 1000) // 3s
 #define APP_HA_REQUEST_POWER_OFF_DELAY              (300) // 500ms
 
@@ -119,6 +122,9 @@ static bool app_hearing_aid_activity_proc_app_interaction(uint32_t event_id,
                                                           void *extra_data,
                                                           size_t data_len);
 static void app_hearing_aid_activity_operate_dvfs(bool lock);
+static void app_hearing_aid_activity_update_sco_side_tone_status();
+static void app_hearing_aid_activity_handle_sco_status_change(bool sco_start);
+static void app_hearing_aid_activity_handle_music_status_change(bool music_start);
 extern uint32_t sub_chip_version_get();
 
 static const uint8_t app_hearing_aid_mode_vp_index_list[] = {
@@ -132,9 +138,11 @@ static const uint8_t app_hearing_aid_mode_vp_index_list[] = {
     VP_INDEX_HEARING_AID_MODE_8,
 };
 
+#if 0
 typedef struct {
     uint8_t                 sco_connected;
 } __attribute__((packed)) app_hearing_aid_app_sync_info_t;
+#endif
 
 typedef struct {
     bool                    inited;
@@ -143,6 +151,7 @@ typedef struct {
     bool                    is_open_fwk_done;
     bool                    is_opening_fwk;
     bool                    is_powering_off;
+    bool                    is_closing_fwk;
     bool                    anc_path_mask_enable;
     bool                    enter_mp_test_mode;
     bool                    is_anc_suspended_before_enter_mp_test_mode;
@@ -173,6 +182,11 @@ bool app_hearing_aid_activity_is_out_case()
     return (app_ha_activity_context.is_charger_in == true) ? false : true;
 }
 
+bool app_hearing_aid_activity_is_power_off()
+{
+    return app_ha_activity_context.is_powering_off;
+}
+
 void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
 {
 #ifdef AIR_TWS_ENABLE
@@ -180,16 +194,16 @@ void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
     bool is_aws_connected = app_hearing_aid_aws_is_connected();
 
     APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_play_vp] aws_connected : %d, aws_role : 0x%02x, vp_index : %d, need_sync : %d",
-                     4,
-                     is_aws_connected,
-                     aws_role,
-                     vp_index,
-                     need_sync);
+                        4,
+                        is_aws_connected,
+                        aws_role,
+                        vp_index,
+                        need_sync);
 #else
     APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_play_vp] vp_index : %d, need_sync : %d",
-                     2,
-                     vp_index,
-                     need_sync);
+                        2,
+                        vp_index,
+                        need_sync);
 #endif /* AIR_TWS_ENABLE */
 
     voice_prompt_param_t vp = {0};
@@ -261,11 +275,6 @@ void app_hearing_aid_activity_play_ha_on_vp(bool enable, bool need_mode_vp, bool
                         2,
                         aws_role,
                         is_aws_connected);
-
-    // app_hearing_aid_activity_play_vp(VP_INDEX_DOORBELL, need_sync_play);
-    // if (module_result == true) {
-    //     app_hearing_aid_activity_play_mode_index_vp(mode_index, need_sync_play);
-    // }
 
     if ((is_aws_connected == true) && (need_sync_play == true)) {
         if (aws_role == BT_AWS_MCE_ROLE_AGENT) {
@@ -389,9 +398,6 @@ void app_hearing_aid_activity_pre_proc_operate_ha(uint8_t which, bool on, bool n
         }
 #endif /* AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE */
 
-        // if (sink_srv_state >= BT_SINK_SRV_STATE_INCOMING) {
-        //     table.sco_streaming = true;
-        // }
         if (app_ha_activity_context.sco_connected != 0) {
             table.sco_streaming = true;
         }
@@ -455,35 +461,7 @@ void app_hearing_aid_activity_pre_proc_operate_ha(uint8_t which, bool on, bool n
                             internal_need_execute,
                             app_ha_activity_context.is_open_fwk_done,
                             app_ha_activity_context.is_opening_fwk);
-
-        // if ((internal_need_execute == false) || (internal_is_origin_on == internal_mix_table_to_enable)) {
-        //     return;
-        // }
     }
-
-#if 0
-#ifdef AIR_TWS_ENABLE
-    /**
-     * @brief Fix issue that do not sync operate HA if trigger from VP.
-     */
-    if ((need_aws_sync == true) && (is_aws_connected == true)/* && (which != APP_HEARING_AID_CHANGE_CAUSE_VP) */) {
-        app_hearing_aid_aws_sync_operate_ha_t operate_ha = {
-            .which = which,
-            .from_key = trigger_from_key,
-            .mix_table_need_execute = internal_need_execute,
-            .is_origin_on = internal_is_origin_on,
-            .mix_table_to_enable = internal_mix_table_to_enable,
-            .drc_to_enable = internal_drc_to_enable,
-        };
-
-        app_hearing_aid_aws_send_operate_command(APP_HEARING_AID_OP_COMMAND_CONTROL_HA,
-                                                    (uint8_t *)&operate_ha,
-                                                    sizeof(app_hearing_aid_aws_sync_operate_ha_t),
-                                                    true,
-                                                    APP_HEARING_AID_SYNC_EVENT_DEFAULT_TIMEOUT);
-    } else {
-#endif /* AIR_TWS_ENABLE */
-#endif
 
         if (internal_need_execute == true) {
             if ((table.sco_streaming == true) || (table.a2dp_streaming == true)) {
@@ -506,11 +484,6 @@ void app_hearing_aid_activity_pre_proc_operate_ha(uint8_t which, bool on, bool n
             APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_pre_proc_operate_ha] Operate HA failed", 0);
             return;
         }
-#if 0
-#ifdef AIR_TWS_ENABLE
-    }
-#endif /* AIR_TWS_ENABLE */
-#endif
 }
 
 bool app_hearing_aid_activity_process_race_cmd(void *race_data, size_t race_data_len)
@@ -599,16 +572,16 @@ bool app_hearing_aid_activity_process_race_cmd(void *race_data, size_t race_data
                 APPS_LOG_MSGID_E(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_process_race_cmd] Unknown device role", 0);
                 return false;
             }
-            app_hear_through_race_cmd_send_get_response(request->op_type, rsp_data, APP_HEARING_AID_RESPONSE_MAX_LEN * 2);
+            app_hear_through_race_cmd_send_get_response(request->op_type, RACE_ERRCODE_SUCCESS, rsp_data, APP_HEARING_AID_RESPONSE_MAX_LEN * 2);
 
             vPortFree(rsp_data);
             rsp_data = NULL;
         } else {
-            app_hear_through_race_cmd_send_get_response(request->op_type, get_response, get_response_len);
+            app_hear_through_race_cmd_send_get_response(request->op_type, RACE_ERRCODE_SUCCESS, get_response, get_response_len);
         }
     } else {
         bool set_result = app_hearing_aid_activity_handle_set_race_cmd(race_data, race_data_len);
-        app_hear_through_race_cmd_send_set_response(request->op_type, set_result);
+        app_hear_through_race_cmd_send_set_response(request->op_type, ((set_result == true) ? RACE_ERRCODE_SUCCESS : RACE_ERRCODE_FAIL));
     }
 
 #ifdef AIR_TWS_ENABLE
@@ -686,6 +659,12 @@ bool app_hearing_aid_activity_open_hearing_aid_fwk()
         return false;
     }
 
+    if (app_ha_activity_context.is_closing_fwk == true) {
+        APPS_LOG_MSGID_W(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_open_hearing_aid_fwk] Current is closing FWK", 0);
+        app_ha_activity_context.need_re_open_fwk = true;
+        return false;
+    }
+
     bool fwk_result = app_hearing_aid_utils_control_fwk(true, app_ha_activity_context.anc_path_mask_enable);
     APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_open_hearing_aid_fwk] Enable framework result : %d, anc_path_mask_enable : %d",
                         2,
@@ -703,11 +682,17 @@ bool app_hearing_aid_activity_open_hearing_aid_fwk()
 
 void app_hearing_aid_activity_open_hearing_aid_fwk_with_zero_path()
 {
-    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_open_hearing_aid_fwk_with_zero_path] is_opening_fwk : %d",
-                        1,
-                        app_ha_activity_context.is_opening_fwk);
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_open_hearing_aid_fwk_with_zero_path] is_opening_fwk : %d, is_closing_fwk : %d",
+                        2,
+                        app_ha_activity_context.is_opening_fwk,
+                        app_ha_activity_context.is_closing_fwk);
 
     app_ha_activity_context.anc_path_mask_enable = false;
+
+    if (app_ha_activity_context.is_closing_fwk == true) {
+        app_ha_activity_context.need_re_open_fwk = true;
+        return;
+    }
 
     if (app_ha_activity_context.is_opening_fwk == true) {
         app_ha_activity_context.need_re_open_fwk = true;
@@ -724,18 +709,21 @@ void app_hearing_aid_activity_set_open_fwk_done(bool result)
         return;
     }
 
-    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_set_open_fwk_done] Result : %d, need_disable_anc : %d, anc_disable_done : %d, mp_test_mode : %d",
-                        4,
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_set_open_fwk_done] Result : %d, need_disable_anc : %d, anc_disable_done : %d, mp_test_mode : %d, need_reopen_fwk : %d, opening_fwk : %d, closing_fwk : %d",
+                        7,
                         result,
                         app_ha_activity_context.is_need_disable_anc,
                         app_ha_activity_context.is_anc_disable_done,
-                        app_ha_activity_context.enter_mp_test_mode);
+                        app_ha_activity_context.enter_mp_test_mode,
+                        app_ha_activity_context.need_re_open_fwk,
+                        app_ha_activity_context.is_opening_fwk,
+                        app_ha_activity_context.is_closing_fwk);
 
     if (result == true) {
 
         /**
          * @brief Workaround - when MIC changed, need disable ANC and then enable HA FWK again
-         * If is openning framework before, need disable ANC.
+         * If is opening framework before, need disable ANC.
          */
         if (app_ha_activity_context.is_need_disable_anc == true) {
             app_ha_activity_context.need_re_open_fwk = false;
@@ -767,13 +755,14 @@ void app_hearing_aid_activity_set_open_fwk_done(bool result)
     } else {
         app_ha_activity_context.is_open_fwk_done = false;
         app_ha_activity_context.is_opening_fwk = false;
-
+        app_ha_activity_context.is_closing_fwk = false;
+#if 0
         if ((app_ha_activity_context.enter_mp_test_mode == true)
                 && (app_ha_activity_context.is_need_disable_anc == false)) {
             app_hearing_aid_utils_enable_mp_test_mode(false);
             app_ha_activity_context.enter_mp_test_mode = false;
         }
-
+#endif
         app_hearing_aid_activity_operate_dvfs(false);
 
         /**
@@ -783,6 +772,13 @@ void app_hearing_aid_activity_set_open_fwk_done(bool result)
         if ((app_ha_activity_context.is_need_disable_anc == false)
                 && (app_ha_activity_context.is_anc_disable_done == true)) {
             app_ha_activity_context.is_anc_disable_done = false;
+            app_hearing_aid_activity_open_hearing_aid_fwk();
+        }
+
+        if (app_ha_activity_context.need_re_open_fwk == true) {
+            app_ha_activity_context.is_open_fwk_done = false;
+            app_ha_activity_context.is_opening_fwk = false;
+            app_ha_activity_context.need_re_open_fwk = false;
             app_hearing_aid_activity_open_hearing_aid_fwk();
         }
     }
@@ -812,6 +808,11 @@ bool app_hearing_aid_activity_is_sco_ongoing()
     return ((app_ha_activity_context.sco_connected > 0) ? true : false);
 }
 
+bool app_hearing_aid_activity_is_need_reopen_fwk()
+{
+    return app_ha_activity_context.need_re_open_fwk;
+}
+
 bool app_hearing_aid_activity_enable_hearing_aid(bool from_key)
 {
     if (app_ha_activity_context.inited == false) {
@@ -826,13 +827,20 @@ bool app_hearing_aid_activity_enable_hearing_aid(bool from_key)
          * If user switch is off, should close HA FWK
          */
         app_hearing_aid_utils_control_fwk(false, false);
+        app_ha_activity_context.is_closing_fwk = true;
+        app_ha_activity_context.ha_state = APP_HA_STATE_DISABLED;
         return false;
     }
 
-    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_enable_hearing_aid] HA is only FWK open state, mp_test_mode : %d, ha_state_before_mp_test_mode : %d",
-                        2,
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_enable_hearing_aid] HA is only FWK open state, mp_test_mode : %d, ha_state_before_mp_test_mode : %d, closing_fwk : %d",
+                        3,
                         app_ha_activity_context.enter_mp_test_mode,
-                        app_ha_activity_context.ha_state_before_enter_mp_test_mode);
+                        app_ha_activity_context.ha_state_before_enter_mp_test_mode,
+                        app_ha_activity_context.is_closing_fwk);
+
+    if (app_ha_activity_context.is_closing_fwk == true) {
+        return false;
+    }
 
     if ((app_ha_activity_context.enter_mp_test_mode == false)
         && (app_ha_activity_context.ha_state_before_enter_mp_test_mode != APP_HA_STATE_ENABLE)) {
@@ -903,6 +911,9 @@ bool app_hearing_aid_activity_disable_hearing_aid(bool need_vp)
 
         if ((disable_ha_result == true) && (fwk_result == true)) {
             app_ha_activity_context.ha_state = APP_HA_STATE_DISABLED;
+        }
+        if (fwk_result == true) {
+            app_ha_activity_context.is_closing_fwk = true;
         }
     } else {
         APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_disable_hearing_aid] Hearing Aid Already closed", 0);
@@ -1002,15 +1013,23 @@ bool app_hearing_aid_activity_operate_ha(bool trigger_from_key, uint8_t which, b
                         mix_table_to_enable,
                         drc_to_enable);
 
-    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_operate_ha] fwk_done : %d, opening_fwk : %d, is_key_triggered : %d, anc_path_mask_enable : %d",
-                        4,
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_operate_ha] fwk_done : %d, opening_fwk : %d, closing_fwk : %d, is_key_triggered : %d, anc_path_mask_enable : %d",
+                        5,
                         app_ha_activity_context.is_open_fwk_done,
                         app_ha_activity_context.is_opening_fwk,
+                        app_ha_activity_context.is_closing_fwk,
                         trigger_from_key,
                         app_ha_activity_context.anc_path_mask_enable);
 
     if (((mix_table_to_enable == true) && (mix_table_need_execute == true))
         || (drc_to_enable == true)) {
+
+        if (app_ha_activity_context.is_closing_fwk == true) {
+            app_ha_activity_context.ha_open_caused_by_which_reason = which;
+            app_ha_activity_context.anc_path_mask_enable = true;
+            app_ha_activity_context.need_re_open_fwk = true;
+            return true;
+        }
 
         if (app_ha_activity_context.is_open_fwk_done == false) {
             app_ha_activity_context.anc_path_mask_enable = true;
@@ -1040,12 +1059,21 @@ bool app_hearing_aid_activity_operate_ha(bool trigger_from_key, uint8_t which, b
                     return true;
                 } else {
                     control_ha_result = app_hearing_aid_utils_control_ha(mix_table_to_enable);
+                    app_ha_activity_context.is_need_play_locally = false;
                 }
 
                 if (control_ha_result == false) {
                     APPS_LOG_MSGID_E(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_operate_ha] Failed to control HA (%d)", 1, mix_table_to_enable);
 
                     app_hearing_aid_utils_control_fwk(false, false);
+                    app_ha_activity_context.is_closing_fwk = true;
+                    app_ha_activity_context.ha_state = APP_HA_STATE_DISABLED;
+
+                    /**
+                     * @brief Fix issue - 49332
+                     * Workaround, need disable side tone if SCO is ongoing and PSAP is on.
+                     */
+                    app_hearing_aid_activity_update_sco_side_tone_status();
                     return false;
                 }
 
@@ -1075,6 +1103,8 @@ bool app_hearing_aid_activity_operate_ha(bool trigger_from_key, uint8_t which, b
     if ((mix_table_to_enable == false) && (mix_table_need_execute == true) && (drc_to_enable == false)) {
 
         app_hearing_aid_activity_disable_hearing_aid(false);
+
+        app_ha_activity_context.is_need_play_locally = false;
 
         need_notify = true;
         need_vp = true;
@@ -1111,9 +1141,9 @@ bool app_hearing_aid_activity_operate_ha(bool trigger_from_key, uint8_t which, b
 
                         app_hearing_aid_activity_play_ha_on_vp(notify_result, need_play_mode_index, need_sync_play);
 
-                        app_ha_activity_context.is_need_play_locally = false;
                         app_ha_activity_context.is_mode_index_vp_played = true;
                     }
+                    app_ha_activity_context.is_need_play_locally = false;
                 }
             }
 
@@ -1130,6 +1160,8 @@ bool app_hearing_aid_activity_operate_ha(bool trigger_from_key, uint8_t which, b
         }
     }
 
+    app_hearing_aid_activity_update_sco_side_tone_status();
+
 #ifdef AIR_TWS_ENABLE
     /**
      * @brief Fix issue : 45276
@@ -1138,9 +1170,9 @@ bool app_hearing_aid_activity_operate_ha(bool trigger_from_key, uint8_t which, b
      * Solution : Sync the middleware configuration to partner side after the HA changed.
      * Limitation : There are some timing delay between agent and partner side.
      */
-    /*if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) {
+    if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) {
         app_hearing_aid_aws_sync_agent_middleware_configuration_to_partner();
-    }*/
+    }
 #endif /* AIR_TWS_ENABLE */
 
     if (need_notify == true) {
@@ -1224,6 +1256,55 @@ bool app_hearing_aid_is_need_enable_ha()
     return ((app_ha_activity_context.enter_mp_test_mode == false) && (app_ha_activity_context.is_need_disable_anc == false));
 }
 
+/**
+ * @brief Fix issue - 49332
+ * Workaround, need disable side tone if SCO is ongoing and PSAP is on.
+ */
+bool app_hearing_aid_is_ready_to_enable_side_tone()
+{
+    // bool is_sco_mix_mode_on = app_hearing_aid_utils_is_sco_mix_mode_on();
+    bool is_ha_running = app_hearing_aid_utils_is_ha_running();
+    bool is_user_switch_on = app_hearing_aid_utils_is_ha_user_switch_on();
+    bool is_out_case = app_hearing_aid_activity_is_out_case();
+
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_is_ready_to_enable_side_tone] inited : %d, user_switch_on : %d, ha_running : %d, out_case : %d, fwk_open status : %d - %d",
+                        6,
+                        app_ha_activity_context.inited,
+                        is_user_switch_on,
+                        is_ha_running,
+                        is_out_case,
+                        app_ha_activity_context.is_open_fwk_done,
+                        app_ha_activity_context.is_opening_fwk);
+
+    /**
+     * @brief Fix issue - 51169
+     * When in charger case, no need to enable side tone while calling.
+     */
+    if (is_out_case == false) {
+        return false;
+    }
+
+    if ((app_ha_activity_context.inited == true)
+            && (is_user_switch_on == true)
+            // && (is_sco_mix_mode_on == true)
+            && ((is_ha_running == true)
+                || (app_ha_activity_context.is_open_fwk_done == true)
+                || (app_ha_activity_context.is_opening_fwk == true))) {
+        return false;
+    }
+
+    return true;
+}
+
+bool app_hearing_aid_is_supported_cmd(uint16_t cmd_type)
+{
+    if ((cmd_type == APP_HEARING_AID_CONFIG_TYPE_NONE)
+        || (cmd_type >= APP_HEARING_AID_CONFIG_TYPE_MAX)) {
+        return false;
+    }
+    return true;
+}
+
 #ifdef AIR_TWS_ENABLE
 void app_hearing_aid_activity_handle_rssi_operation(int8_t rssi)
 {
@@ -1269,6 +1350,134 @@ void app_hearing_aid_activity_handle_rssi_operation(int8_t rssi)
     }
 }
 #endif /* AIR_TWS_ENABLE */
+
+static void app_hearing_aid_activity_handle_music_status_change(bool music_start)
+{
+    bool user_switch = app_hearing_aid_utils_is_ha_user_switch_on();
+    bool is_out_case = app_hearing_aid_activity_is_out_case();
+    bool music_operate_delay_switch = false;
+    uint8_t music_operate_delay_timeout = 0;
+
+    app_hearing_aid_storage_get_music_operate_ha_configuration(&music_operate_delay_switch, &music_operate_delay_timeout);
+
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_handle_music_status_change] user_switch : %d, inited : %d, music_start : %d, music_operate_delay_switch : %d, delay_timeout : %d, out_case : %d",
+                        6,
+                        user_switch,
+                        app_ha_activity_context.inited,
+                        music_start,
+                        music_operate_delay_switch,
+                        music_operate_delay_timeout,
+                        is_out_case);
+
+    if ((user_switch == true)
+            && (app_ha_activity_context.inited == true)
+            && (is_out_case == true)) {
+        /**
+         * @brief remove the request to control HA event
+         *  if received the A2DP started again in 3s to avoid execute operate HA multiple times.
+         *  if receive A2DP stopped in 3s to avoid execute operate HA again.
+         */
+        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HEARING_AID, APP_HEARING_AID_EVENT_ID_REQUEST_TO_CONTROL_HA);
+        bool need_aws_sync = true;
+
+        if (music_start == true) {
+
+            uint32_t delay_timeout = APP_HA_CONTROL_HEARING_AID_BY_A2DP_TIMEOUT;
+
+            /**
+             * @brief if music_operate_delay_switch is false and music_operate_delay_timeout is 0, need
+             * delay to control HA according to the macro APP_HA_CONTROL_HEARING_AID_BY_A2DP_TIMEOUT.
+             * otherwise, if music_operate_delay_switch is true and music_operate_delay_timeout > 0, then need
+             * delay the music_operate_delay_timeout * APP_HA_CONTROL_HEARING_AID_BY_A2DP_TIMEOUT_UNIT to control HA.
+             */
+            if ((music_operate_delay_switch == true) || (music_operate_delay_timeout > 0)) {
+                delay_timeout = 0;
+                if ((music_operate_delay_switch == true) && (music_operate_delay_timeout > 0)) {
+                    delay_timeout = music_operate_delay_timeout * APP_HA_CONTROL_HEARING_AID_BY_A2DP_TIMEOUT_UNIT;
+                }
+            }
+
+            ui_shell_send_event(false,
+                                EVENT_PRIORITY_MIDDLE,
+                                EVENT_GROUP_UI_SHELL_HEARING_AID,
+                                APP_HEARING_AID_EVENT_ID_REQUEST_TO_CONTROL_HA,
+                                (void *)need_aws_sync,
+                                0,
+                                NULL,
+                                delay_timeout);
+        } else {
+            ui_shell_send_event(false,
+                                EVENT_PRIORITY_MIDDLE,
+                                EVENT_GROUP_UI_SHELL_HEARING_AID,
+                                APP_HEARING_AID_EVENT_ID_REQUEST_TO_CONTROL_HA,
+                                (void *)need_aws_sync,
+                                0,
+                                NULL,
+                                0);
+        }
+    }
+}
+
+static void app_hearing_aid_activity_handle_sco_status_change(bool sco_start)
+{
+    bool user_switch = app_hearing_aid_utils_is_ha_user_switch_on();
+    bool is_out_case = app_hearing_aid_activity_is_out_case();
+    uint8_t old_sco_connected = app_ha_activity_context.sco_connected;
+
+    if (sco_start == true) {
+        app_ha_activity_context.sco_connected += 1;
+    } else {
+        if (app_ha_activity_context.sco_connected > 0) {
+            app_ha_activity_context.sco_connected -= 1;
+        }
+    }
+
+    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HEARING_AID, APP_HEARING_AID_EVENT_ID_REQUEST_TO_CONTROL_HA);
+
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_handle_sco_status_change] SCO state change from : %d -> %d, out_case : %d",
+                        3,
+                        old_sco_connected,
+                        app_ha_activity_context.sco_connected,
+                        is_out_case);
+
+    if ((old_sco_connected != app_ha_activity_context.sco_connected)
+            && (user_switch == true)
+            && (app_ha_activity_context.inited == true)
+            && (is_out_case == true)) {
+        if (app_ha_activity_context.sco_connected > 0) {
+            audio_anc_psap_control_senario_notification(LLF_SCENARIO_CHANGE_UL_CALL, true);
+        } else {
+            audio_anc_psap_control_senario_notification(LLF_SCENARIO_CHANGE_UL_CALL, false);
+        }
+
+        app_hearing_aid_activity_update_sco_side_tone_status();
+
+        app_hearing_aid_activity_pre_proc_operate_ha(APP_HEARING_AID_CHANGE_CAUSE_SCO, false, false);
+    }
+}
+
+/**
+ * @brief Fix issue - 49332
+ * Workaround, need disable side tone if SCO is ongoing and PSAP is on.
+ */
+static void app_hearing_aid_activity_update_sco_side_tone_status()
+{
+    bool ready_to_enable_side_tone = app_hearing_aid_is_ready_to_enable_side_tone();
+
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_update_sco_side_tone_status] ready_to_enable_side_tone : %d, sco_connected : %d",
+                        2,
+                        ready_to_enable_side_tone,
+                        app_ha_activity_context.sco_connected);
+
+    bt_sink_srv_call_sidetone_config_change_notify(ready_to_enable_side_tone);
+
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+        bt_ull_client_sidetone_switch_t ull_sidetone = {
+            .sidetone_enable = ready_to_enable_side_tone,
+        };
+        bt_ull_action(BT_ULL_ACTION_SET_CLIENT_SIDETONE_SWITCH, &ull_sidetone, sizeof(ull_sidetone));
+#endif /* AIR_BT_ULTRA_LOW_LATENCY_ENABLE || AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE */
+}
 
 static void app_hearing_aid_activity_handle_utils_notify_notification(uint8_t role, uint32_t type, uint8_t *notify_data, uint16_t notify_data_len)
 {
@@ -1738,8 +1947,6 @@ static bool app_hearing_aid_activity_proc_bt_sink_event(uint32_t event_id,
                                                         void *extra_data,
                                                         size_t data_len)
 {
-    bool user_switch = app_hearing_aid_utils_is_ha_user_switch_on();
-
     if (event_id == BT_SINK_SRV_EVENT_STATE_CHANGE) {
         bt_sink_srv_event_param_t *event = (bt_sink_srv_event_param_t *)extra_data;
         if (event != NULL) {
@@ -1749,65 +1956,21 @@ static bool app_hearing_aid_activity_proc_bt_sink_event(uint32_t event_id,
                                 event->state_change.previous);
             bool a2dp_changed = false;
 
-            if ((event->state_change.current >= BT_SINK_SRV_STATE_INCOMING)
-                && (event->state_change.previous < BT_SINK_SRV_STATE_INCOMING)) {
-                audio_anc_psap_control_senario_notification(LLF_SCENARIO_CHANGE_UL_CALL, true);
-            }
-            if ((event->state_change.current < BT_SINK_SRV_STATE_INCOMING)
-                && (event->state_change.previous >= BT_SINK_SRV_STATE_INCOMING)) {
-                audio_anc_psap_control_senario_notification(LLF_SCENARIO_CHANGE_UL_CALL, false);
-            }
-
             if (((event->state_change.current == BT_SINK_SRV_STATE_STREAMING) && (event->state_change.previous != BT_SINK_SRV_STATE_STREAMING))
                 || ((event->state_change.current != BT_SINK_SRV_STATE_STREAMING) && (event->state_change.previous == BT_SINK_SRV_STATE_STREAMING))) {
                 a2dp_changed = true;
             }
 
-#ifdef AIR_TWS_ENABLE
-            bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
-            APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_bt_sink_event] aws_role : 0x%02x, a2dp_changed : %d",
-                                2,
-                                aws_role,
-                                a2dp_changed);
-#else
             APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_bt_sink_event] a2dp_changed : %d",
                                 1,
                                 a2dp_changed);
-#endif /* AIR_TWS_ENABLE */
 
-            if ((a2dp_changed == true)
-                    && (user_switch == true)
-                    && (app_ha_activity_context.inited == true)) {
-                /**
-                 * @brief remove the request to control HA event
-                 *  if received the A2DP started again in 3s to avoid execute operate HA multiple times.
-                 *  if receive A2DP stopped in 3s to avoid execute operate HA again.
-                 */
-                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HEARING_AID, APP_HEARING_AID_EVENT_ID_REQUEST_TO_CONTROL_HA);
-                bool need_aws_sync = true;
-
+            if (a2dp_changed == true) {
                 if ((event->state_change.current == BT_SINK_SRV_STATE_STREAMING) && (event->state_change.previous != BT_SINK_SRV_STATE_STREAMING)) {
-                    ui_shell_send_event(false,
-                                        EVENT_PRIORITY_MIDDLE,
-                                        EVENT_GROUP_UI_SHELL_HEARING_AID,
-                                        APP_HEARING_AID_EVENT_ID_REQUEST_TO_CONTROL_HA,
-                                        (void *)need_aws_sync,
-                                        0,
-                                        NULL,
-                                        APP_HA_CONTROL_HEARING_AID_BY_A2DP_TIMEOUT);
+                    app_hearing_aid_activity_handle_music_status_change(true);
                 } else {
-                    // app_hearing_aid_activity_pre_proc_operate_ha(APP_HEARING_AID_CHANGE_CAUSE_A2DP, false, false);
-
-                    ui_shell_send_event(false,
-                                        EVENT_PRIORITY_MIDDLE,
-                                        EVENT_GROUP_UI_SHELL_HEARING_AID,
-                                        APP_HEARING_AID_EVENT_ID_REQUEST_TO_CONTROL_HA,
-                                        (void *)need_aws_sync,
-                                        0,
-                                        NULL,
-                                        0);
+                    app_hearing_aid_activity_handle_music_status_change(false);
                 }
-                return false;
             }
         }
     }
@@ -1819,38 +1982,21 @@ static bool app_hearing_aid_activity_proc_bt_sink_event(uint32_t event_id,
             return false;
         }
 
-        uint8_t old_sco_connected = app_ha_activity_context.sco_connected;
+        bool sco_start = false;
 
         if (event_id == BT_SINK_SRV_EVENT_HF_SCO_STATE_UPDATE) {
             bt_sink_srv_sco_state_update_t *sco_state = (bt_sink_srv_sco_state_update_t *)extra_data;
             if (sco_state->state == BT_SINK_SRV_SCO_CONNECTION_STATE_CONNECTED) {
-                app_ha_activity_context.sco_connected += 1;
-            } else {
-                if (app_ha_activity_context.sco_connected > 0) {
-                    app_ha_activity_context.sco_connected -= 1;
-                }
+                sco_start = true;
             }
         } else {
             bt_sink_srv_bidirection_lea_state_update_t *lea_state = (bt_sink_srv_bidirection_lea_state_update_t *)extra_data;
             if (lea_state->state == BT_SINK_SRV_BIDIRECTION_LEA_STATE_ENABLE) {
-                app_ha_activity_context.sco_connected += 1;
-            } else if (lea_state->state == BT_SINK_SRV_BIDIRECTION_LEA_STATE_DISABLE) {
-                if (app_ha_activity_context.sco_connected > 0) {
-                    app_ha_activity_context.sco_connected -= 1;
-                }
+                sco_start = true;
             }
         }
 
-        APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_bt_sink_event] SCO state change from : %d -> %d",
-                            2,
-                            old_sco_connected,
-                            app_ha_activity_context.sco_connected);
-
-        if ((old_sco_connected != app_ha_activity_context.sco_connected)
-                && (user_switch == true)
-                && (app_ha_activity_context.inited == true)) {
-            app_hearing_aid_activity_pre_proc_operate_ha(APP_HEARING_AID_CHANGE_CAUSE_SCO, false, false);
-        }
+        app_hearing_aid_activity_handle_sco_status_change(sco_start);
     }
 
     return false;
@@ -2273,10 +2419,15 @@ static bool app_hearing_aid_activity_proc_cm_event(uint32_t event_id,
                  * @brief Fix issue - 44600
                  * When AWS connected, need sync app information to partner side.
                  * Then partner side need execute HA mix table flow.
+                 *
+                 * Fix issue - 50008
+                 * No need to sync the sco info to partner.
                  */
+#if 0
                 app_hearing_aid_app_sync_info_t info = {0};
                 info.sco_connected = app_ha_activity_context.sco_connected;
                 app_hearing_aid_aws_sync_agent_app_info_to_partner((uint8_t *)&info, sizeof(app_hearing_aid_app_sync_info_t));
+#endif
             }
 
         } else if (!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)
@@ -2307,8 +2458,10 @@ static bool app_hearing_aid_activity_proc_dm_event(uint32_t event_id,
             app_hearing_aid_storage_save_configuration();
 
             app_ha_activity_context.is_powering_off = true;
-
-            app_hearing_aid_activity_disable_hearing_aid(false);
+            app_ha_activity_context.need_re_open_fwk = false;
+            app_ha_activity_context.is_open_fwk_done = false;
+            app_ha_activity_context.is_opening_fwk = false;
+            app_ha_activity_context.is_closing_fwk = false;
 
         } else if (evt == BT_DEVICE_MANAGER_POWER_EVT_ACTIVE_COMPLETE) {
             APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_dm_event] BT Powering ON", 0);
@@ -2355,6 +2508,7 @@ static bool app_hearing_aid_activity_proc_aws_data(uint32_t event_id,
     return false;
 }
 
+#if 0
 void app_hearing_aid_activity_handle_app_info_sync(uint8_t *data, uint32_t data_len)
 {
     /**
@@ -2375,6 +2529,7 @@ void app_hearing_aid_activity_handle_app_info_sync(uint8_t *data, uint32_t data_
         app_hearing_aid_activity_pre_proc_operate_ha(APP_HEARING_AID_CHANGE_CAUSE_SCO, false, false);
     }
 }
+#endif
 
 void app_hearing_aid_activity_set_powering_off()
 {
@@ -2483,28 +2638,24 @@ static bool app_hearing_aid_activity_proc_ultra_low_latency_event(uint32_t event
         ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HEARING_AID, APP_HEARING_AID_EVENT_ID_REQUEST_TO_CONTROL_HA);
         bool need_aws_sync = true;
 
+        bt_ull_le_streaming_start_ind_t *ind = (bt_ull_le_streaming_start_ind_t *)extra_data;
+
         if (event_id == BT_ULL_EVENT_LE_STREAMING_START_IND) {
-            APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_ultra_low_latency_event], ULL Start Streaming", 0);
-
-            ui_shell_send_event(false,
-                                EVENT_PRIORITY_MIDDLE,
-                                EVENT_GROUP_UI_SHELL_HEARING_AID,
-                                APP_HEARING_AID_EVENT_ID_REQUEST_TO_CONTROL_HA,
-                                (void *)need_aws_sync,
-                                0,
-                                NULL,
-                                APP_HA_CONTROL_HEARING_AID_BY_A2DP_TIMEOUT);
-        } else  {
-            APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_ultra_low_latency_event], ULL Stop Streaming", 0);
-
-            ui_shell_send_event(false,
-                                EVENT_PRIORITY_MIDDLE,
-                                EVENT_GROUP_UI_SHELL_HEARING_AID,
-                                APP_HEARING_AID_EVENT_ID_REQUEST_TO_CONTROL_HA,
-                                (void *)need_aws_sync,
-                                0,
-                                NULL,
-                                0);
+            if (ind->stream_mode == BT_ULL_LE_STREAM_MODE_UPLINK) {
+                APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_ultra_low_latency_event], ULL - UL Start Streaming", 0);
+                app_hearing_aid_activity_handle_sco_status_change(true);
+            } else {
+                APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_ultra_low_latency_event], ULL - DL Start Streaming", 0);
+                app_hearing_aid_activity_handle_music_status_change(true);
+            }
+        } else {
+            if (ind->stream_mode == BT_ULL_LE_STREAM_MODE_UPLINK) {
+                APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_ultra_low_latency_event], ULL - UL Stop Streaming", 0);
+                app_hearing_aid_activity_handle_sco_status_change(false);
+            } else {
+                APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_ultra_low_latency_event], ULL - DL Stop Streaming", 0);
+                app_hearing_aid_activity_handle_music_status_change(false);
+            }
         }
     }
 }

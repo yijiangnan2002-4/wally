@@ -43,11 +43,6 @@
 #include "hal.h"
 #include "hal_log.h"
 #include "hal_clock.h"
-#include "esc_device_config.h"
-
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-extern sleep_management_lock_request_t g_esc_sleep_handle;
-#endif /* HAL_SLEEP_MANAGER_ENABLED */
 
 ATTR_TEXT_IN_TCM hal_esc_status_t hal_esc_init(void)
 {
@@ -62,42 +57,25 @@ ATTR_TEXT_IN_TCM hal_esc_status_t hal_esc_init(void)
     hal_clock_enable(HAL_CLOCK_CG_ESC);
 #endif
 
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-    hal_sleep_manager_lock_sleep(g_esc_sleep_handle);
-#endif
     reset_esc_register();
     device_is_support = esc_judge_device();
+
     if (device_is_support) {
         esc_internal_init();
         set_initial_state(true);
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-        hal_sleep_manager_unlock_sleep(g_esc_sleep_handle);
-#endif
         esc_memory_access_enable();
         return HAL_ESC_STATUS_OK;
     } else {
         log_hal_msgid_warning("unsupport ESC device\r\n", 0);
         set_initial_state(false);
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-        hal_sleep_manager_unlock_sleep(g_esc_sleep_handle);
-#endif
         return HAL_ESC_STATUS_ERROR;
     }
 
 #elif defined(ESC_PSRAM_ENABLE)
 
     hal_clock_enable(HAL_CLOCK_CG_ESC);
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-    /* Can't has unlock sleep action here,
-     * otherwise the MCU cannot directly access the data of ESC PSRAM! ! ! */
-    hal_sleep_manager_lock_sleep(g_esc_sleep_handle);
-#endif
     esc_internal_init();
     esc_memory_access_enable();
-
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-    hal_sleep_manager_unlock_sleep(g_esc_sleep_handle);
-#endif
 
     return HAL_ESC_STATUS_OK;
 #else

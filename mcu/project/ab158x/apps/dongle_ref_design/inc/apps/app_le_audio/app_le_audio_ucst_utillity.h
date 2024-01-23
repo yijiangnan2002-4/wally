@@ -32,8 +32,8 @@
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
 
-#ifndef __APP_LE_AUDIO_UCST_UTILLITY_H__
-#define __APP_LE_AUDIO_UCST_UTILLITY_H__
+#ifndef __APP_LE_AUDIO_UCST_UTILITY_H__
+#define __APP_LE_AUDIO_UCST_UTILITY_H__
 
 #ifdef AIR_LE_AUDIO_ENABLE
 
@@ -103,7 +103,6 @@ typedef uint8_t app_le_audio_ucst_stream_port_t;
 #define APP_LE_AUDIO_UCST_CREATE_CIS_MODE_MAX               0x13
 typedef uint8_t app_le_audio_ucst_create_cis_mode_t;
 
-
 #define APP_LE_AUDIO_UCST_TEST_MODE_ENABLE                  0x01
 #define APP_LE_AUDIO_UCST_TEST_MODE_PAUSE_BEFORE_CONFIG_ASE 0x02
 #define APP_LE_AUDIO_UCST_TEST_MODE_SCAN_RSI_DATA           0x04
@@ -142,6 +141,7 @@ typedef struct {
     app_le_audio_ucst_group_id_t next_group;        /* the group id of the next active group */
     app_le_audio_ucst_group_id_t latest_group;      /* the group id of the latest connected group */
     //uint8_t is_creating_connection;
+    app_le_audio_qos_params_type_t qos_params_type;
 #ifdef APP_LE_AUDIO_UCST_UPLINK_MIX_ENABLE
     bool uplink_mix_enable;
 #endif
@@ -206,6 +206,14 @@ bool app_le_audio_ucst_is_delay_disconnect_timer_exist(void);
 void app_le_audio_ucst_start_delay_disconnect_timer(void);
 void app_le_audio_ucst_stop_delay_disconnect_timer(void);
 
+app_le_audio_qos_params_t *app_le_audio_ucst_get_qos_params(app_le_audio_ucst_stream_port_t port, app_le_audio_qos_params_type_t qos_params_type);
+
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+void app_le_audio_ucst_get_qos_params_type(app_le_audio_qos_params_type_t *qos_params_type);
+
+bool app_le_audio_ucst_gmap_set_qos_params(uint8_t sel_setting, uint8_t audio_config_level, app_le_audio_ucst_stream_port_t port);
+#endif /* AIR_LE_AUDIO_GMAP_ENABLE */
+
 #endif /* AIR_LE_AUDIO_ENABLE */
-#endif /* __APP_LE_AUDIO_UCST_UTILLITY_H__ */
+#endif /* __APP_LE_AUDIO_UCST_UTILITY_H__ */
 

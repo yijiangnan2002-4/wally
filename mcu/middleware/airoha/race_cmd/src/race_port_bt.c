@@ -207,7 +207,7 @@ static RACE_ERRCODE race_event_bt_cb(int32_t register_id, race_event_type_enum e
 static RACE_ERRCODE race_event_bt_cb(race_event_type_enum event_type, void *param, void *user_data);
 #endif
 
-static void race_port_bt_check_connected_before_open(race_port_t port);
+//static void race_port_bt_check_connected_before_open(race_port_t port);
 
 /**************************************************************************************************
 * Static Functions for RHO
@@ -666,12 +666,11 @@ static RACE_ERRCODE race_port_bt_open_internal(race_port_t port, race_port_type_
 #endif
 #endif
 
-    race_port_bt_check_connected_before_open(port);
+    //race_port_bt_check_connected_before_open(port);
 
     return RACE_ERRCODE_SUCCESS;
 }
-
-/* BTA-44623: For such corner case: BT/BLE link has connected before open this port. */
+/* BTA-44623: For such corner case: BT/BLE link has connected before open this port. 
 static void race_port_bt_check_connected_before_open(race_port_t port)
 {
     mux_status_t mux_res;
@@ -691,7 +690,7 @@ static void race_port_bt_check_connected_before_open(race_port_t port)
         RACE_LOG_MSGID_I("port[%d] has connected before mux_open", 1, port);
     }
 }
-
+*/
 /**************************************************************************************************
 * Public Functions
 **************************************************************************************************/
@@ -782,7 +781,7 @@ bt_bd_addr_t *race_get_bt_connection_addr(uint8_t channel_id)
         return NULL;
     }
 
-    RACE_LOG_MSGID_I("race_get_bt_connection_addr, dev %d(channel %d)", 2, dev, channel_id);
+    //RACE_LOG_MSGID_I("race_get_bt_connection_addr, dev %d(channel %d)", 2, dev, channel_id);
     return &(info->addr);
 }
 

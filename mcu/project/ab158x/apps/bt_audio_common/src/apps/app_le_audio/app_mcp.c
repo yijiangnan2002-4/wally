@@ -82,6 +82,8 @@ static bool                              app_lea_otp_is_last = FALSE;
 **************************************************************************************************/
 extern bool bt_le_audio_sink_is_link_valid(bt_handle_t handle);
 
+extern bool bt_le_audio_pts_test_enable;
+
 /**************************************************************************************************
  * Static function
 **************************************************************************************************/
@@ -162,8 +164,13 @@ static bool app_le_audio_mcp_discovery_callback(bt_gattc_discovery_event_t *even
         param.charc_num = app_lea_mcp_service.char_count_found;
     }
 
-    extern void app_lea_conn_mgr_update_discovery_result(bt_handle_t conn_handle, bool tbs, bool general, uint8_t char_num);
-    app_lea_conn_mgr_update_discovery_result(event->conn_handle, FALSE, is_gmcs, app_lea_mcp_service.char_count_found);
+    if (bt_le_audio_pts_test_enable) {
+        /* PTS Test may not contain MCS/GMCS/TBS/GTBS, to avoid disconnection we should enable flag when testing */
+    } else {
+        /* Some SP's COD have LE ability without supporting MCS/GMCS/TBS/GTBS, we will disconnect LE */
+        extern void app_lea_conn_mgr_update_discovery_result(bt_handle_t conn_handle, bool tbs, bool general, uint8_t char_num);
+        app_lea_conn_mgr_update_discovery_result(event->conn_handle, FALSE, is_gmcs, app_lea_mcp_service.char_count_found);
+    }
 
     param.is_gmcs = is_gmcs;
     param.is_complete = event->last_instance;

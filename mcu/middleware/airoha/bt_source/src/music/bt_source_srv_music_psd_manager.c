@@ -111,13 +111,12 @@ static void bt_source_srv_music_psd_take_audio_src_complete(bt_source_srv_music_
     if (context && context->detect_flag) {
         need_resume_special_mode = true;
     }
-    LOG_MSGID_I(source_srv, "[MUSIC][PSD][MGR] take_audio_src_complete:need resume = 0x%0x", 1, need_resume_special_mode);
-
-    if (!need_resume_special_mode && !(BT_SOURCE_SRV_MUSIC_PSD_FLAG_IS_SET(device,BT_SOURCE_SRV_MUSIC_PSD_FLAG_ENTER_SPECIAL_MODE))) {
-        bt_source_srv_music_psd_event_notify(device, BT_SOURCE_SRV_MUSIC_PSD_EVENT_MUSIC_START, NULL);
-    }
-
-    if (BT_SOURCE_SRV_MUSIC_PSD_FLAG_IS_SET(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_SPEAKER_ADD_WL)) {
+    LOG_MSGID_I(source_srv, "[MUSIC][PSD][MGR] take_audio_src_complete:need resume = 0x%0x, flags:%x", 2, need_resume_special_mode, device->flags);
+    if (!BT_SOURCE_SRV_MUSIC_PSD_FLAG_IS_SET(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_SPEAKER_ADD_WL)) {
+        if (!need_resume_special_mode && !(BT_SOURCE_SRV_MUSIC_PSD_FLAG_IS_SET(device,BT_SOURCE_SRV_MUSIC_PSD_FLAG_ENTER_SPECIAL_MODE))) {
+            bt_source_srv_music_psd_event_notify(device, BT_SOURCE_SRV_MUSIC_PSD_EVENT_MUSIC_START, NULL);
+        }
+    } else {
         BT_SOURCE_SRV_MUSIC_PSD_REMOVE_FLAG(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_SPEAKER_ADD_WL);
         if (device->user_musicback) {
             device->user_musicback(BT_SOURCE_SRV_MUSIC_PSD_USER_EVENT_RESUME, (void *)device, NULL);
@@ -359,6 +358,8 @@ static void bt_source_srv_music_psd_run_next_state_with_state_ready(bt_source_sr
 
 static bt_status_t bt_source_srv_music_psd_sub_state_none_handle(bt_source_srv_music_pseduo_dev_t *device, bt_source_srv_music_psd_event_t event, void *parameter)
 {
+    LOG_MSGID_I(source_srv, "[MUSIC][PSD][MGR]sub_state_none_handle event:%02x give codec type = %02x", 1,event, device->flags);
+
     switch (device->state) {
         case BT_SOURCE_SRV_MUSIC_PSD_STATE_READY: {
             switch (event) {
@@ -379,11 +380,17 @@ static bt_status_t bt_source_srv_music_psd_sub_state_none_handle(bt_source_srv_m
                 }
                 break;
                 case BT_SOURCE_SRV_MUSIC_PSD_EVENT_AUDIO_STOP_IND: {
-                    LOG_MSGID_I(source_srv, "[MUSIC][PSD][MGR]sub_state_none_handle event:%02x give codec type = %02x", 1,event, device->flags);
+
                     /*only for is inttrrupt by call when music is muted, so not clear flags*/
                     if (BT_SOURCE_SRV_MUSIC_PSD_FLAG_IS_SET(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_ENTER_SPECIAL_MODE)) {
                         bt_source_srv_music_audio_deinit(device->audio_id[device->port]);
                         BT_SOURCE_SRV_MUSIC_PSD_REMOVE_FLAG(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_ENTER_SPECIAL_MODE);
+                    }
+                }
+                break;
+                case BT_SOURCE_SRV_MUSIC_PSD_EVENT_AUDIO_PLAY_IND: {
+                    if (BT_SOURCE_SRV_MUSIC_PSD_FLAG_IS_SET(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_ENTER_SPECIAL_MODE)) {
+                        bt_source_srv_music_exit_with_out_bt_mode(device->port,device);
                     }
                 }
                 break;
@@ -564,6 +571,9 @@ static bt_status_t bt_source_srv_music_psd_sub_state_play_idle_handle(bt_source_
                 /* give mic resource */
                 bt_source_srv_music_psd_update_next_state(device, BT_SOURCE_SRV_MUSIC_PSD_NEXT_STATE_READY);
                 bt_source_srv_music_psd_give_audio_source(device);
+                if (device->user_musicback) {
+                    device->user_musicback(BT_SOURCE_SRV_MUSIC_PSD_USER_EVENT_AUDIO_START_FAIL, (void *)device, NULL);
+                }
 
             } else {
                 /**/
@@ -863,8 +873,9 @@ static void bt_source_srv_music_psd_run_next_state_with_codec_stoping_handle(bt_
         break;
         case BT_SOURCE_SRV_MUSIC_PSD_NEXT_STATE_PLAY: {
             if (BT_SOURCE_SRV_MUSIC_PSD_FLAG_IS_SET(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_RESTART)) {
-                BT_SOURCE_SRV_MUSIC_PSD_REMOVE_FLAG(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_RESTART);
-                bt_source_srv_music_psd_event_notify(device, BT_SOURCE_SRV_MUSIC_PSD_EVENT_MUSIC_REPLAY, NULL);
+                bt_source_srv_music_psd_audio_replay_req_t audio_replay_req = {0};
+                audio_replay_req.port = device->port;
+                bt_source_srv_music_psd_event_notify(device, BT_SOURCE_SRV_MUSIC_PSD_EVENT_MUSIC_REPLAY, &audio_replay_req);
             } else {
                 bt_source_srv_music_psd_event_notify(device, BT_SOURCE_SRV_MUSIC_PSD_EVENT_AUDIO_PLAY_IND, NULL);
             }
@@ -893,6 +904,11 @@ void bt_source_srv_music_psd_audio_transmitter_callback(audio_transmitter_event_
             if (ret == BT_STATUS_SUCCESS) {
                 device->audio_id[device->port] = BT_SOURCE_SRV_MUSIC_AUDIO_INVALID_ID;
             }
+            if (BT_SOURCE_SRV_MUSIC_PSD_FLAG_IS_SET(device, BT_SOURCE_SRV_MUSIC_PSD_FLAG_ENTER_SPECIAL_MODE)) {
+                BT_SOURCE_SRV_MUSIC_PSD_REMOVE_FLAG(device,BT_SOURCE_SRV_MUSIC_PSD_FLAG_ENTER_SPECIAL_MODE);
+                break;
+            }
+
             bt_source_srv_music_psd_event_notify(device, BT_SOURCE_SRV_MUSIC_PSD_EVENT_AUDIO_STOP_IND, NULL);
         }
         break;
@@ -993,8 +1009,10 @@ bt_status_t bt_source_srv_music_exit_with_out_bt_mode(bt_source_srv_port_t audio
     if (device && device->audio_id[audio_port] != BT_SOURCE_SRV_MUSIC_AUDIO_INVALID_ID) {
         LOG_MSGID_I(source_srv,"[MUSIC][PSD][MGR]exit_with_out_bt_mode:device=%x,aud_id=0x%x,", 2, device, device->audio_id[audio_port]);
         ret = bt_source_srv_music_audio_stop(device->audio_id[audio_port]);
+    } else {
+        ret = BT_STATUS_SUCCESS;
     }
-    LOG_MSGID_I(source_srv,"[MUSIC][PSD][MGR]exit_with_out_bt_mode:device=%x,port:0x%x,ret=0x%x", 2, audio_port, ret);
+    LOG_MSGID_I(source_srv,"[MUSIC][PSD][MGR]exit_with_out_bt_mode:port:0x%x,ret=0x%x", 2, audio_port, ret);
 
     return ret;
 }

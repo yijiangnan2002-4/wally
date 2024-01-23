@@ -429,6 +429,7 @@ framesize_adjustor_status_t stream_function_framesize_adjustor_init(framesize_ad
     watermark_max_size = ((prefill_samples + config->inout_sample_num)<<(config->process_sample_resolution==RESOLUTION_16BIT?1:2)) + FRAMESIZE_ADJUSTOR_A2DP_SBC_SIZE;
 
     /* config buffer settings */
+    port->trustInitParam = config->trustInitParam;
     port->mode = config->mode;
     port->type = config->type;
     port->process_sample_resolution = config->process_sample_resolution;
@@ -936,8 +937,14 @@ ATTR_TEXT_IN_IRAM bool stream_function_framesize_adjustor_process(void *para)
     }
 
     if (channel_number != port->total_channels) {
-        channel_number = (channel_number<port->total_channels)?channel_number:port->total_channels;
-        //DSP_MW_LOG_E("[FRAMESIZE_ADJUSTOR] channel number is not right %d %d!", 2, channel_number, port->total_channels);
+        if (port->trustInitParam) {
+            //Force to InitParam
+            channel_number = port->total_channels;
+            DSP_MW_LOG_W("[FRAMESIZE_ADJUSTOR] channel number is not match %d %d!, enforce modification to InitParam, and please check your init total_channels, or mark this warning log", 2, channel_number, port->total_channels);
+        } else {
+            channel_number = (channel_number<port->total_channels)?channel_number:port->total_channels;
+            DSP_MW_LOG_W("[FRAMESIZE_ADJUSTOR] channel number is not right %d %d!, enforce modification to samller one, and please check your init total_channels", 2, channel_number, port->total_channels);
+        }
         //AUDIO_ASSERT(FALSE);
         //return true;
     }
@@ -949,7 +956,7 @@ ATTR_TEXT_IN_IRAM bool stream_function_framesize_adjustor_process(void *para)
     }
 
     if (in_frame_size != port->inout_size) {
-        DSP_MW_LOG_W("[FRAMESIZE_ADJUSTOR] in frame size %d is not match to config size %d!", 2, in_frame_size, port->inout_size);
+        DSP_MW_LOG_W("[FRAMESIZE_ADJUSTOR] in frame size %d is not match to config size %d! Please check your init inout_sample_num", 2, in_frame_size, port->inout_size);
     }
 
     /*if ((port->type == FRAMESIZE_ADJUSTOR_FUNCTION_INTERLEAVED) && (channel_number != 2)) {

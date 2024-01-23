@@ -109,6 +109,7 @@ MTK_CAPID_IN_NVDM_AT_COMMAND_ENABLE  := y
 # HW IO
 MTK_AUDIO_SUPPORT_MULTIPLE_MICROPHONE := y
 MTK_AUDIO_HW_IO_CONFIG_ENHANCE        := y
+AIR_AUDIO_BIAS_CONTROL_BY_TOOL        := y
 
 MTK_MUX_AWS_MCE_ENABLE = n
 # bluetooth connection manager feature support.
@@ -135,6 +136,35 @@ ifeq ($(AIR_DUAL_CHIP_MIXING_MODE),slave)
 AIR_RACE_DUAL_CMD_ENABLE = y
 endif
 endif
+
+# dual chip mixing
+ifeq ($(AIR_DUAL_CHIP_MIXING_MODE),master)
+ifeq ($(AIR_DUAL_CHIP_AUDIO_INTERFACE),uart)
+else
+AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE := y
+AIR_WIRED_AUDIO_ENABLE                := y
+AIR_AUDIO_HW_LOOPBACK_ENABLE          := y
+AIR_DUAL_CHIP_NR_ON_MASTER_ENABLE     := y
+AIR_HWSRC_RX_TRACKING_ENABLE          := y
+AIR_DUAL_CHIP_MASTER_HWSRC_RX_TRACKING_ENABLE := y
+AIR_NLE_ENABLE:= n
+endif
+endif
+
+ifeq ($(AIR_DUAL_CHIP_MIXING_MODE),slave)
+ifeq ($(AIR_DUAL_CHIP_AUDIO_INTERFACE),uart)
+else
+AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE := y
+AIR_WIRED_AUDIO_ENABLE                := y
+AIR_AUDIO_HW_LOOPBACK_ENABLE          := y
+AIR_DUAL_CHIP_NR_ON_MASTER_ENABLE     := y
+AIR_HWSRC_RX_TRACKING_ENABLE          := y
+AIR_HWSRC_TX_TRACKING_ENABLE          := y
+AIR_DUAL_CHIP_I2S_ENABLE              := y
+AIR_NLE_ENABLE:= n
+endif
+endif
+
 
 # avm direct feature
 MTK_AVM_DIRECT                        = y
@@ -241,6 +271,12 @@ endif
 # Support MIC Loopback AT command
 LINE_IN_PURE_FOR_AMIC_CLASS_G_HQA = y
 
+# Support multiple stream out
+ifeq ($(AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE), y)
+AIR_AUDIO_MULTIPLE_STREAM_OUT_1DAC_1I2S_ENABLE        := y
+AIR_AUDIO_MULTIPLE_STREAM_OUT_3I2S_ENABLE             := n
+endif
+
 # ANC User Trigger module
 USER_TRIGGER_FF_CODE = $(strip $(SOURCE_DIR))/middleware/airoha/audio/user_trigger_adaptive_ff/readme.txt
 ifneq ($(USER_TRIGGER_FF_CODE), $(wildcard $(USER_TRIGGER_FF_CODE)))
@@ -283,6 +319,13 @@ AIR_LE_EATT_ENABLE                              = n
 
 # Disable always because it is for dongle only.
 AIR_LE_AUDIO_DONGLE_ENABLE                      = n
+
+# LE Audio support LC3PLUS codec
+ifeq ($(AIR_AUDIO_LC3PLUS_CODEC_ENABLE)_$(AIR_LE_AUDIO_ENABLE), y_y)
+ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE), n)
+AIR_LE_AUDIO_LC3PLUS_ENABLE     = y
+endif
+endif
 #######################################################
 
 # This option is used to enable HOGP
@@ -683,9 +726,31 @@ CFLAGS += -DAIR_LE_AUDIO_ENABLE
 CFLAGS += -DAIR_LE_AUDIO_CIS_ENABLE
 CFLAGS += -DAIR_BT_CODEC_BLE_ENABLED
 CFLAGS += -DAPPS_MULTI_INSTANCE_SERVICE_DISCOVERY_ENABLE
-#CFLAGS += -DAIR_LE_AUDIO_HAPS_ENABLE
+
+ifeq ($(AIR_LE_AUDIO_BIS_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_BIS_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_TMAP_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_TMAP_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_HAP_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_HAPS_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_GMAP_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_GMAP_ENABLE
+endif
+
+ifeq ($(AIR_LE_AUDIO_AURACAST_ENABLE), y)
 CFLAGS += -DAIR_LE_AUDIO_PBP_ENABLE
-#CFLAGS += -DAIR_LE_AUDIO_LC3PLUS_ENABLE
+endif
+
+
+ifeq ($(AIR_LE_AUDIO_LC3PLUS_ENABLE), y)
+CFLAGS += -DAIR_LE_AUDIO_LC3PLUS_ENABLE
+endif
 
 ifeq ($(AIR_LE_AUDIO_DUAL_MODE_ENABLE), y)
 CFLAGS += -DAIR_LE_AUDIO_DUALMODE_ENABLE
@@ -698,9 +763,7 @@ CFLAGS += -DAIR_LE_AUDIO_HEADSET_ENABLE
 ifeq ($(AIR_MULTI_POINT_ENABLE), y)
 CFLAGS += -DAIR_LE_AUDIO_MULTIPOINT_ENABLE
 endif
-ifeq ($(AIR_LE_AUDIO_BIS_ENABLE), y)
-CFLAGS += -DAIR_LE_AUDIO_BIS_ENABLE
-endif
+
 ifneq ($(AIR_XIAOAI_ENABLE), y)
 #CFLAGS += -DAIR_LE_AUDIO_MTK_HFP_AT_CMD
 endif
@@ -734,15 +797,6 @@ ifeq ($(AIR_BT_INTEL_EVO_ENABLE), y)
 CFLAGS += -DAIR_BT_INTEL_EVO_ENABLE
 CFLAGS += -DAIR_LE_AUDIO_DIRECT_ADV
 CFLAGS += -DAPP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE
-endif
-
-# BT Takeover
-ifeq ($(AIR_BT_TAKEOVER_ENABLE),y)
-CFLAGS += -DAIR_BT_TAKEOVER_ENABLE
-
-CFLAGS += -DAPP_CONN_MGR_RECONNECT_CONTROL
-CFLAGS += -DAPP_CONN_MGR_RECONNECT_SAVE_LAST_TWO_DEVICE
-#CFLAGS += -DAPP_CONN_MGR_RECONNECT_ONLY_ONE
 endif
 
 ifeq ($(AIR_WIRELESS_MIC_ENABLE), y)
@@ -800,9 +854,21 @@ ifneq ($(wildcard $(strip $(SOURCE_DIR))/project/ab157x_ab158x/),)
 APP_COMMON_PATH := project/ab157x_ab158x/apps/bt_audio_common
 endif
 
+ifneq ($(wildcard $(strip $(SOURCE_DIR))/project/ab15xx/),)
+APP_COMMON_PATH := project/ab15xx/apps/bt_audio_common
+endif
+
 # latency test mode
 ifeq ($(AIR_BT_LATENCY_TEST_MODE_ENABLE), y)
 CFLAGS += -DAIR_BT_LATENCY_TEST_MODE_ENABLE
+endif
+
+# This option is used to enable microphone bias control by Airoha tool for AB157x SDK3.10.0
+#  y: enable config tool bias configuration
+#  n: disable tool configuration and configure by SW code
+# Please check the bias configuration by Airoha Tool if the option is enabled
+ifeq ($(AIR_AUDIO_BIAS_CONTROL_BY_TOOL), y)
+CFLAGS += -DAIR_AUDIO_BIAS_CONTROL_BY_TOOL
 endif
 
 #######################################################
@@ -817,6 +883,12 @@ include $(SOURCE_DIR)/$(APP_COMMON_SRC)/apps/module.mk
 # Config bin path
 CONFIG_BIN_PATH := $(SOURCE_DIR)/$(APP_PATH)/config_bin/$(BOARD_TYPE)
 
+# customer file path
+ifneq ($(AIR_SDK_CUSTOMER), default)
+ifneq ($(wildcard $(strip $(SOURCE_DIR)/customer)),)
+include $(SOURCE_DIR)/customer/$(AIR_SDK_CUSTOMER)/project/chips/apps/bt_audio_common/src/apps/module.mk
+endif
+endif
 
 ##############################################################################
 #
@@ -889,6 +961,9 @@ endif
 
 ifeq ($(AIR_MULTI_POINT_ENABLE),y)
 CFLAGS += -DAIR_MULTI_POINT_ENABLE
+ifeq ($(AIR_MULTI_POINT_MAX_CONNECTION),3)
+CFLAGS += -DAIR_3_LINK_MULTI_POINT_ENABLE
+endif
 endif
 
 
@@ -1038,6 +1113,10 @@ endif
 MOD_EXTRA = BUILD_DIR=$(BUILD_DIR) OUTPATH=$(OUTPATH) PROJ_PATH=$(PROJ_PATH) IC_CONFIG=$(IC_CONFIG)
 
 checkoption:
+# Check MCU include shared option or not
+# Shared optin is a option that MCU and DSP are both used, but should ONLY defined in DSP feature.mk
+	$(SOURCE_DIR)/tools/scripts/build/shared_option_checker.sh $(SOURCE_DIR) $(BOARD) $(FEATURE) >&2
+
 # USB : In headset projects only ab1577am support USB
 ifeq ($(AIR_USB_ENABLE), y)
 ifeq ($(findstring ab157x, $(IC_CONFIG)), ab157x)
@@ -1092,11 +1171,19 @@ ifneq ($(AIR_USB_ENABLE),y)
 endif
 endif
 
+ifeq ($(AIR_USB_MFI_ENABLE),y)
+ifneq ($(AIR_USB_ENABLE),y)
+	$(warning "Error: [Conflict feature option] To enable AIR_USB_MFI_ENABLE must support AIR_USB_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_USB_MFI_ENABLE must support AIR_USB_ENABLE";
+	@set -e; exit 2;
+endif
+endif
+
 # fota related files
 ifeq ($(AIR_FOTA_VIA_RACE_CMD_ENABLE),y)
-ifneq ($(AIR_FOTA_ENABLE),y)
-	$(warning "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE")
-	@echo "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE";
+ifneq ($(AIR_FOTA_ENABLE)_$(AIR_RACE_CMD_ENABLE),y_y)
+	$(warning "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE/AIR_RACE_CMD_ENABLE")
+	@echo "Error: [Conflict feature option] To enable AIR_FOTA_VIA_RACE_CMD_ENABLE must support AIR_FOTA_ENABLE/AIR_RACE_CMD_ENABLE";
 	@set -e; exit 2;
 endif
 endif
@@ -1302,6 +1389,15 @@ ifneq ($(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE),y)
 	@echo "Error: [Conflict feature option] To enable AIR_MS_GIP_ENABLE must support AIR_BT_ULTRA_LOW_LATENCY_ENABLE or AIR_BLE_ULTRA_LOW_LATENCY_ENABLE";
 	@set -e; exit 2;
 endif
+endif
+endif
+
+# Add make error for AIR_MULTI_POINT_MAX_CONNECTION set
+ifeq ($(shell test $(AIR_MULTI_POINT_MAX_CONNECTION) -ge 2; echo $$?),0)
+ifneq ($(AIR_MULTI_POINT_ENABLE),y)
+    $(warning "Error: [Conflict feature option] To enable multiple connections exist simultaneously must support AIR_MULTI_POINT_ENABLE")
+    @echo "Error: [Conflict feature option] To enable multiple connections exist simultaneously must support AIR_MULTI_POINT_ENABLE";
+    @set -e; exit 2;
 endif
 endif
 

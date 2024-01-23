@@ -259,7 +259,7 @@ static bool app_le_audio_usb_check_usb_config_changed(app_events_usb_port_t *p_r
     }
     //check sample_size changed
     sample_size = app_le_audio_get_usb_sample_size_in_use(stream_port);
-    LE_AUDIO_MSGLOG_I("[APP][USB] [%d]SAMPLE_SIZE_%x_%x, usb size:%x stream size:%x", 5, interface_id, p_rate->port_type, p_rate->port_num, app_record->sample_size, sample_size);
+    LE_AUDIO_MSGLOG_I("[APP][USB] [%d]SAMPLE_SIZE_%x_%x, usb size:%d stream size:%d", 5, interface_id, p_rate->port_type, p_rate->port_num, app_record->sample_size, sample_size);
     if (!sample_size) {
         usb_event = APP_LE_AUDIO_USB_EVENT_SAMPLE_SIZE_OBTAIN;
     } else if (sample_size != app_record->sample_size) {
@@ -267,7 +267,7 @@ static bool app_le_audio_usb_check_usb_config_changed(app_events_usb_port_t *p_r
     }
     //check channel changed
     channel = app_le_audio_get_usb_channel_in_use(stream_port);
-    LE_AUDIO_MSGLOG_I("[APP][USB] [%d]CHANNEL_%x_%x, usb channel:%x stream channel:%x", 5, interface_id, p_rate->port_type, p_rate->port_num, app_record->channel, channel);
+    LE_AUDIO_MSGLOG_I("[APP][USB] [%d]CHANNEL_%x_%x, usb channel:%d stream channel:%d", 5, interface_id, p_rate->port_type, p_rate->port_num, app_record->channel, channel);
     if (!channel) {
         usb_event = APP_LE_AUDIO_USB_EVENT_CHANNEL_OBTAIN;
     } else if (channel != app_record->channel) {
@@ -277,7 +277,7 @@ static bool app_le_audio_usb_check_usb_config_changed(app_events_usb_port_t *p_r
     //check sample_rate changed
     sample_rate = app_le_audio_get_usb_sample_rate_in_use(stream_port);
     rate = app_record->sample_rate;
-    LE_AUDIO_MSGLOG_I("[APP][USB] [%d]SAMPLE_RATE_%x_%x, usb rate:%x stream rate:%x", 5, interface_id, p_rate->port_type, p_rate->port_num, rate, sample_rate);
+    LE_AUDIO_MSGLOG_I("[APP][USB] [%d]SAMPLE_RATE_%x_%x, usb rate:%d stream rate:%d", 5, interface_id, p_rate->port_type, p_rate->port_num, rate, sample_rate);
     if (!sample_rate) {
         usb_event = APP_LE_AUDIO_USB_EVENT_SAMPLE_RATE_OBTAIN;
     } else if (sample_rate != rate) {
@@ -479,7 +479,6 @@ static bool app_le_audio_usb_handle_mute_event(app_events_usb_mute_t *p_mute)
     return true;
 }
 
-
 /**************************************************************************************************
 * Public Functions
 **************************************************************************************************/
@@ -531,6 +530,10 @@ bool app_le_audio_idle_usb_event_proc(ui_shell_activity_t *self, uint32_t event_
         }
         case APPS_EVENTS_USB_AUDIO_MUTE: {
             app_le_audio_usb_handle_mute_event((app_events_usb_mute_t *) & (usb_data));
+            break;
+        }
+        case APPS_EVENTS_USB_AUDIO_SAMPLE_RATE: {
+            app_le_audio_usb_check_usb_config_changed((app_events_usb_port_t *) & (usb_data));
             break;
         }
         default:

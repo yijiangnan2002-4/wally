@@ -226,7 +226,7 @@ multiple_click: supported multiple clicks or not*/
 
 
 #define AIRO_CONFIG_KEY_6 \
-    DEVICE_KEY_0,\
+    DEVICE_KEY_A,\
     {default_t_p,\
     default_t_r,\
     default_t_end,\
@@ -244,7 +244,7 @@ multiple_click: supported multiple clicks or not*/
 
 
 #define AIRO_CONFIG_KEY_7 \
-    DEVICE_KEY_1,\
+    DEVICE_KEY_B,\
     {default_t_p,\
     default_t_r,\
     default_t_end,\
@@ -262,7 +262,7 @@ multiple_click: supported multiple clicks or not*/
 
 
 #define AIRO_CONFIG_KEY_8 \
-    DEVICE_KEY_2,\
+    DEVICE_KEY_C,\
     {default_t_p,\
     default_t_r,\
     default_t_end,\
@@ -279,7 +279,7 @@ multiple_click: supported multiple clicks or not*/
     CFG_SUPPORT_MULTIPLE_CLICK_TRIPLE}
 
 #define AIRO_CONFIG_KEY_9 \
-    DEVICE_KEY_3,\
+    DEVICE_KEY_D,\
     {default_t_p,\
     default_t_r,\
     default_t_end,\

@@ -102,6 +102,7 @@ typedef enum {
     EVENT_GROUP_UI_SHELL_BT_SOURCE_APP,     /**< group for BT Source APP */
     EVENT_GROUP_UI_SHELL_APP_AUDIO_TRANS_MGR,/**< group for app audio manager. */
 	EVENT_GROUP_UI_SHELL_APP_AUDIO_TRANSMITTER,/**< group for app audio transmitter. */
+	EVENT_GROUP_UI_SHELL_APP_SESSION_MANAGER,/**< group for app audio transmitter. */
     /* Customer event grounp*/
     EVENT_GROUP_ULL_SEND_CUSTOM_DATA,
     EVENT_GROUP_UI_SHELL_USB_HID_GENARIC_DATA,

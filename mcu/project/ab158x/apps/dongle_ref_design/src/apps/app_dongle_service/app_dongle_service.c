@@ -197,7 +197,7 @@ static bool _proc_bt_ull_data_event(struct _ui_shell_activity *self, uint32_t ev
             }
             break;
 
-            case APP_DONGLE_SERVICE_HEADSET_EVENT_HADNSHAKE_DONE: {
+            case APP_DONGLE_SERVICE_HEADSET_EVENT_HANDSHAKE_DONE: {
                 APPS_LOG_MSGID_I(TAG" Headset connected. Handshake done with Headset, response done ACK", 0);
                 s_srv_ctx.ctx_is_handshake_done = true;
 

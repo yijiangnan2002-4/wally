@@ -35,29 +35,115 @@
 #include "bt_sink_srv_state_manager.h"
 #include "bt_sink_srv_state_manager_internal.h"
 
-#define BT_SINK_SRV_STATE_MANAGER_CALL_ACTION_MASK \
+#define BT_SINK_SRV_STATE_MANAGER_CALL_ACTION_MASK          \
     (SINK_MODULE_MASK_HFP | SINK_MODULE_MASK_HSP)
 
-#define BT_SINK_SRV_STATE_MANAGER_MEDIA_ACTION_MASK \
+#define BT_SINK_SRV_STATE_MANAGER_MEDIA_ACTION_MASK         \
     (SINK_MODULE_MASK_A2DP | SINK_MODULE_MASK_AVRCP)
 
-#define BT_SINK_SRV_STATE_MANAGER_DISPATCH_TABLE_SIZE \
-    (sizeof(g_bt_sink_srv_state_manager_dispatch_table) / \
+#define BT_SINK_SRV_STATE_MANAGER_DISPATCH_TABLE_SIZE       \
+    (sizeof(g_bt_sink_srv_state_manager_dispatch_table) /   \
      sizeof(bt_sink_srv_state_manager_dispatch_table_t))
 
-#define BT_SINK_SRV_STATE_MANAGER_EDR_ACTION_TABLE_SIZE \
-    (sizeof(bt_sink_srv_action_callback_table) / \
+#define BT_SINK_SRV_STATE_MANAGER_EDR_ACTION_TABLE_SIZE     \
+    (sizeof(bt_sink_srv_action_callback_table) /            \
      sizeof(bt_sink_srv_action_callback_table_t))
 
-#define BT_SINK_SRV_STATE_MANAGER_IS_CALL_ACTION(mask) \
+#define BT_SINK_SRV_STATE_MANAGER_IS_CALL_ACTION(mask)      \
     ((mask) & BT_SINK_SRV_STATE_MANAGER_CALL_ACTION_MASK)
 
-#define BT_SINK_SRV_STATE_MANAGER_IS_MEDIA_ACTION(mask) \
+#define BT_SINK_SRV_STATE_MANAGER_IS_MEDIA_ACTION(mask)     \
     ((mask) & BT_SINK_SRV_STATE_MANAGER_MEDIA_ACTION_MASK)
 
 extern const bt_sink_srv_action_callback_table_t bt_sink_srv_action_callback_table[BT_SINK_SRV_MAX_ACTION_TABLE_SIZE];
 
 static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_manager_dispatch_table[] = {
+#ifdef AIR_MS_TEAMS_UE_ENABLE
+    /* 1 TWC_INCOMING*/
+    {
+        BT_SINK_SRV_STATE_HELD_ACTIVE,
+        BT_SINK_SRV_STATE_INCOMING,
+        BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,//hold judgement
+        BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
+        BT_SINK_SRV_ACTION_ANSWER,
+        true
+    },
+    /* 1 TWC_INCOMING*/
+    {
+        BT_SINK_SRV_STATE_HELD_ACTIVE,
+        BT_SINK_SRV_STATE_INCOMING,
+        BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
+        0,
+        BT_SINK_SRV_ACTION_REJECT,
+        false
+    },
+    /* 1 TWC_OUTGOING*/
+    {
+        BT_SINK_SRV_STATE_HELD_ACTIVE,
+        BT_SINK_SRV_STATE_OUTGOING,
+        BT_SINK_SRV_ACTION_HANG_UP,
+        0,
+        BT_SINK_SRV_ACTION_HANG_UP,
+        false
+    },
+
+    /*2 TWC_INCOMING*/
+    {
+        BT_SINK_SRV_STATE_TWC_INCOMING,
+        BT_SINK_SRV_STATE_HELD_REMAINING,
+        BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
+        BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
+        0,
+        false
+    },
+    /*2 TWC_INCOMING*/
+    {
+        BT_SINK_SRV_STATE_TWC_INCOMING,
+        BT_SINK_SRV_STATE_HELD_REMAINING,
+        BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
+        BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
+        0,
+        false
+    },
+    /*2 TWC_OUTGOING*/
+    {
+        BT_SINK_SRV_STATE_TWC_OUTGOING,
+        BT_SINK_SRV_STATE_HELD_REMAINING,
+        BT_SINK_SRV_ACTION_HANG_UP,
+        BT_SINK_SRV_ACTION_HANG_UP,
+        0,
+        false
+    },
+
+    /*3 TWC_INCOMING*/
+    {
+        BT_SINK_SRV_STATE_ACTIVE,
+        BT_SINK_SRV_STATE_TWC_INCOMING,
+        BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
+        BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
+        BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
+        true
+    },
+    /*3 TWC_INCOMING*/
+    {
+        BT_SINK_SRV_STATE_ACTIVE,
+        BT_SINK_SRV_STATE_TWC_INCOMING,
+        BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
+        0,
+        BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
+        false
+    },
+    /*3 TWC_OUTGOING*/
+    {
+        BT_SINK_SRV_STATE_ACTIVE,
+        BT_SINK_SRV_STATE_TWC_OUTGOING,
+        BT_SINK_SRV_ACTION_HANG_UP,
+        0,
+        BT_SINK_SRV_ACTION_HANG_UP,
+        false
+    },
+#endif
+
     /* INCOMING + OUTGOING. */
     {
         BT_SINK_SRV_STATE_INCOMING,
@@ -65,6 +151,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_ANSWER,
         0,
+        false,
         false
     },
     {
@@ -73,7 +160,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
         BT_SINK_SRV_ACTION_REJECT,
         0,
-        true
+        true,
+        false
     },
 #if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
     {
@@ -82,6 +170,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_HANG_UP,
         0,
         BT_SINK_SRV_ACTION_HANG_UP,
+        false,
         false
     },
 #endif
@@ -92,6 +181,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_ANSWER,
         0,
+        false,
         false
     },
     {
@@ -100,7 +190,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
         BT_SINK_SRV_ACTION_REJECT,
         0,
-        true
+        true,
+        false
     },
     /* OUTGOING + INCOMING. */
 #if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
@@ -110,7 +201,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_HANG_UP,
         BT_SINK_SRV_ACTION_ANSWER,
-        true
+        true,
+        false
     },
 #else
     {
@@ -119,7 +211,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_HANG_UP,
         0,
-        true
+        true,
+        false
     },
 #endif
 #if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
@@ -129,7 +222,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_ANSWER,
         0,
         BT_SINK_SRV_ACTION_ANSWER,
-        true
+        true,
+        false
     },
     {
         BT_SINK_SRV_STATE_OUTGOING,
@@ -137,6 +231,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
         0,
         BT_SINK_SRV_ACTION_REJECT,
+        false,
         false
     },
     {
@@ -145,6 +240,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_REJECT,
         0,
         BT_SINK_SRV_ACTION_REJECT,
+        false,
         false
     },
 #endif
@@ -156,6 +252,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
         0,
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
+        false,
         false
     },
 #endif
@@ -167,6 +264,17 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_ANSWER,
+        true,
+        false
+    },
+#else
+#ifdef AIR_MS_TEAMS_UE_ENABLE
+    {
+        BT_SINK_SRV_STATE_ACTIVE,
+        BT_SINK_SRV_STATE_INCOMING,
+        BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
+        BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
+        0,
         true
     },
 #else
@@ -176,10 +284,24 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_HANG_UP,
         0,
-        true
+        true,
+        false
     },
 #endif
+#endif
 #if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
+    {
+        BT_SINK_SRV_STATE_ACTIVE,
+        BT_SINK_SRV_STATE_INCOMING,
+        BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
+        0,
+        BT_SINK_SRV_ACTION_REJECT,
+        false,
+        false
+    },
+#else
+
+#ifdef AIR_MS_TEAMS_UE_ENABLE
     {
         BT_SINK_SRV_STATE_ACTIVE,
         BT_SINK_SRV_STATE_INCOMING,
@@ -195,8 +317,11 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         0,
+        false,
         false
     },
+#endif
+
 #endif
 #if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
     {
@@ -205,7 +330,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_ANSWER,
         0,
         BT_SINK_SRV_ACTION_ANSWER,
-        true
+        true,
+        false
     },
     {
         BT_SINK_SRV_STATE_ACTIVE,
@@ -213,6 +339,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_REJECT,
         0,
         BT_SINK_SRV_ACTION_REJECT,
+        false,
         false
     },
 #endif
@@ -224,6 +351,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
         0,
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
+        false,
         false
     },
 #else
@@ -233,7 +361,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
         BT_SINK_SRV_ACTION_HANG_UP,
         0,
-        true
+        true,
+        false
     },
 #endif
 #if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
@@ -243,7 +372,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
-        true
+        true,
+        false
     },
 #else
     {
@@ -252,6 +382,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         0,
+        false,
         false
     },
 #endif
@@ -263,7 +394,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         0,
         BT_SINK_SRV_ACTION_ANSWER,
-        true
+        true,
+        false
     },
 #else
     {
@@ -272,7 +404,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
         0,
-        true
+        true,
+        false
     },
 #endif
 #if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
@@ -291,6 +424,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
         BT_SINK_SRV_ACTION_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         0,
+        false,
         false
     },
 #endif
@@ -302,6 +436,7 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_HANG_UP,
         0,
         BT_SINK_SRV_ACTION_HANG_UP,
+        false,
         false
     },
 #else
@@ -311,7 +446,8 @@ static const bt_sink_srv_state_manager_dispatch_table_t g_bt_sink_srv_state_mana
         BT_SINK_SRV_ACTION_HANG_UP,
         BT_SINK_SRV_ACTION_3WAY_RELEASE_ALL_HELD,
         0,
-        true
+        true,
+        false
     },
 #endif
 };
@@ -320,30 +456,43 @@ static bt_status_t bt_sink_srv_state_manager_action_handler_internal(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_action_t action,
     void *parameter);
+
 static bt_status_t bt_sink_srv_state_manager_call_action_handler(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_action_t action,
     void *parameter);
+
 static bt_status_t bt_sink_srv_state_manager_media_action_handler(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_action_t action,
     void *parameter);
+
+static bt_sink_srv_state_manager_device_t *bt_sink_srv_state_manager_get_call_action_device(
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_t other_state,
+    bool find_last_device);
+
 static bt_status_t bt_sink_srv_state_manager_le_action_handler(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_action_t action,
     void *parameter);
+
+#if defined(MTK_AWS_MCE_ENABLE)
 static void bt_sink_srv_state_manager_sync_focus(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_state_manager_focus_device_t type,
     bt_sink_srv_state_manager_device_t *device);
-#ifdef AIR_MULTI_POINT_ENABLE
-#ifdef MTK_AWS_MCE_ENABLE
-static uint32_t bt_sink_srv_state_manager_get_parameter_length(
+#endif
+
+#if defined(MTK_AWS_MCE_ENABLE) && defined(AIR_MULTI_POINT_ENABLE)
+static void bt_sink_srv_state_manager_sync_action(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_action_t action,
     void *parameter);
 #endif
-static void bt_sink_srv_state_manager_sync_action(
+
+#if defined(MTK_AWS_MCE_ENABLE) && defined(AIR_MULTI_POINT_ENABLE)
+static uint32_t bt_sink_srv_state_manager_get_parameter_length(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_action_t action,
     void *parameter);
@@ -355,6 +504,8 @@ bt_status_t bt_sink_srv_state_manager_action_handler(bt_sink_srv_action_t action
     bt_sink_module_mask_t mask = SINK_MODULE_MASK_OFFSET(action);
     bt_sink_srv_state_manager_context_t *context = bt_sink_srv_state_manager_get_context();
 
+    bt_sink_srv_mutex_lock();
+
     if (BT_SINK_SRV_STATE_MANAGER_IS_CALL_ACTION(mask)) {
         status = bt_sink_srv_state_manager_call_action_handler(context, action, parameter);
     } else if (BT_SINK_SRV_STATE_MANAGER_IS_MEDIA_ACTION(mask)) {
@@ -362,6 +513,8 @@ bt_status_t bt_sink_srv_state_manager_action_handler(bt_sink_srv_action_t action
     } else {
         status = bt_sink_srv_state_manager_action_handler_internal(context, action, parameter);
     }
+
+    bt_sink_srv_mutex_unlock();
 
     return status;
 }
@@ -390,105 +543,93 @@ static bt_status_t bt_sink_srv_state_manager_call_action_handler(
 
     bt_sink_srv_state_manager_device_t *other_device = NULL;
     bt_sink_srv_state_t focus_state = BT_SINK_SRV_STATE_NONE;
-    bt_sink_srv_state_t other_state = BT_SINK_SRV_STATE_NONE;
 
     /* 1. If no device is playing, trigger LE device at first. */
-    if (NULL == context->focus_call_device) {
+    if (NULL == context->focus_device) {
         return bt_sink_srv_state_manager_action_handler_internal(context, action, parameter);
     }
 
-    /* 2. Get focus state & other state. */
-    focus_state = context->focus_call_device->call_state;
-
-#ifdef AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE
-    other_device = bt_sink_srv_state_manager_get_device_by_call_state_ext(
-        context,
-        BT_SINK_SRV_STATE_MANAGER_CALL_STATE,
-        &context->focus_call_device->address);
-#else
-    other_device = bt_sink_srv_state_manager_get_device_by_call_state(
-        context,
-        BT_SINK_SRV_STATE_MANAGER_CALL_STATE,
-        context->focus_call_device);
-#endif
-
-    if (NULL != other_device) {
-        other_state = other_device->call_state;
-    }
+    /* 2. Get focus state. */
+    focus_state = context->focus_device->call_state;
 
     /* 3. Handle action by dispatch table. */
     for (uint32_t i = 0; i < BT_SINK_SRV_STATE_MANAGER_DISPATCH_TABLE_SIZE; i++) {
         if (g_bt_sink_srv_state_manager_dispatch_table[i].action == action &&
-            g_bt_sink_srv_state_manager_dispatch_table[i].focus_state == focus_state &&
-            g_bt_sink_srv_state_manager_dispatch_table[i].other_state == other_state) {
-            /* 3.1. Check if need to swap focus device. */
-            bt_sink_srv_report_id(
-                    "[Sink][StaMgr]call action handler, focus_action:0x%x other_action:0x%x",
-                    2,
-                    g_bt_sink_srv_state_manager_dispatch_table[i].focus_action,
-                    g_bt_sink_srv_state_manager_dispatch_table[i].other_action);
+            g_bt_sink_srv_state_manager_dispatch_table[i].focus_state == focus_state) {
+            other_device = bt_sink_srv_state_manager_get_call_action_device(
+                               context,
+                               g_bt_sink_srv_state_manager_dispatch_table[i].other_state,
+                               g_bt_sink_srv_state_manager_dispatch_table[i].find_last_other);
+        }
 
+        if (NULL != other_device) {
+            bt_sink_srv_report_id("[Sink][StaMgr]call action handler, focus_action:0x%x other_action:0x%x", 2,
+                                  g_bt_sink_srv_state_manager_dispatch_table[i].focus_action,
+                                  g_bt_sink_srv_state_manager_dispatch_table[i].other_action);
+
+            /* 3.1. Check if need to swap focus device. */
             if (g_bt_sink_srv_state_manager_dispatch_table[i].swap_focus) {
                 swap_focus = true;
-
-                if (NULL != other_device && BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE == other_device->type) {
+#if defined(MTK_AWS_MCE_ENABLE)
+                if (NULL != other_device &&
+                    !(BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == context->focus_device->type &&
+                      BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == other_device->type)) {
                     bt_sink_srv_state_manager_sync_focus(
-                            context,
-                            BT_SINK_SRV_STATE_MANAGER_FOCUS_DEVICE_CALL,
-                            other_device);
+                        context, BT_SINK_SRV_STATE_MANAGER_FOCUS_DEVICE_CALL, other_device);
                 }
+#endif
             }
 
             /* 3.2. If focus device & other device type are same, send action to focus device. */
 #if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
-            if (NULL == other_device || context->focus_call_device->type == other_device->type) {
+            if (NULL == other_device || context->focus_device->type == other_device->type) {
                 break;
             }
 #endif
 
             /* 3.3. Send focus action & other action. */
-            if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == context->focus_call_device->type) {
+            if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == context->focus_device->type) {
                 status = bt_sink_srv_state_manager_edr_action_handler(
-                        context,
-                        g_bt_sink_srv_state_manager_dispatch_table[i].focus_action,
-                        parameter);
+                             context,
+                             g_bt_sink_srv_state_manager_dispatch_table[i].focus_action,
+                             parameter);
             } else {
                 status = bt_sink_srv_state_manager_le_action_handler(
-                        context,
-                        g_bt_sink_srv_state_manager_dispatch_table[i].focus_action,
-                        parameter);
+                             context,
+                             g_bt_sink_srv_state_manager_dispatch_table[i].focus_action,
+                             parameter);
             }
 
             if (NULL != other_device && BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == other_device->type) {
                 status = bt_sink_srv_state_manager_edr_action_handler(
-                        context,
-                        g_bt_sink_srv_state_manager_dispatch_table[i].other_action,
-                        parameter);
+                             context,
+                             g_bt_sink_srv_state_manager_dispatch_table[i].other_action,
+                             parameter);
             } else {
                 status = bt_sink_srv_state_manager_le_action_handler(
-                        context,
-                        g_bt_sink_srv_state_manager_dispatch_table[i].other_action,
-                        parameter);
+                             context,
+                             g_bt_sink_srv_state_manager_dispatch_table[i].other_action,
+                             parameter);
             }
 
             if (swap_focus) {
-                bt_sink_srv_state_manager_set_focus_call_device(context, other_device, true);
+                bt_sink_srv_state_manager_set_focus_device(context, other_device, true);
             }
 
             return status;
         }
     }
 
-    if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == context->focus_call_device->type) {
-#if defined(AIR_MULTI_POINT_ENABLE)
+    if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == context->focus_device->type) {
+#if defined(MTK_AWS_MCE_ENABLE) && defined(AIR_MULTI_POINT_ENABLE)
         if (BT_AWS_MCE_ROLE_PARTNER == bt_connection_manager_device_local_info_get_aws_role()) {
             status = BT_STATUS_SUCCESS;
             bt_sink_srv_state_manager_sync_action(context, action, parameter);
         } else {
-#endif
             status = bt_sink_srv_state_manager_edr_action_handler(context, action, parameter);
-#if defined(AIR_MULTI_POINT_ENABLE)
         }
+#else
+        status = bt_sink_srv_state_manager_edr_action_handler(context, action, parameter);
 #endif
     } else {
         status = bt_sink_srv_state_manager_le_action_handler(context, action, parameter);
@@ -496,7 +637,7 @@ static bt_status_t bt_sink_srv_state_manager_call_action_handler(
 
 #if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
     if (swap_focus) {
-        bt_sink_srv_state_manager_set_focus_call_device(context, other_device, true);
+        bt_sink_srv_state_manager_set_focus_device(context, other_device, true);
     }
 #endif
 
@@ -511,18 +652,49 @@ static bt_status_t bt_sink_srv_state_manager_media_action_handler(
     bt_status_t status = BT_STATUS_FAIL;
 
     /* 1. If no device is playing, trigger LE device at first. */
-    if (NULL == context->focus_media_device) {
+    if (NULL == context->focus_device) {
         return bt_sink_srv_state_manager_action_handler_internal(context, action, parameter);
     }
 
     /* 2. Trigger the playing device. */
-    if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == context->focus_media_device->type) {
+    if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == context->focus_device->type) {
         status = bt_sink_srv_state_manager_edr_action_handler(context, action, parameter);
     } else {
         status = bt_sink_srv_state_manager_le_action_handler(context, action, parameter);
     }
 
     return status;
+}
+
+static bt_sink_srv_state_manager_device_t *bt_sink_srv_state_manager_get_call_action_device(
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_t other_state,
+    bool find_last_device)
+{
+    bt_sink_srv_state_manager_device_t *device = NULL;
+
+    for (uint32_t i = 0; i < BT_SINK_SRV_STATE_MANAGER_MAX_DEVICE_NUM; i++) {
+#if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
+        if (0 == bt_sink_srv_memcmp(
+                context->focus_device->address, context->devices[i].address, sizeof(bt_bd_addr_t))) {
+            continue;
+        }
+#else
+        if (&context->devices[i] == context->focus_device) {
+            continue;
+        }
+#endif
+
+        if (0 != (context->devices[i].call_state & other_state)) {
+            device = &context->devices[i];
+
+            if (!find_last_device) {
+                break;
+            }
+        }
+    }
+
+    return device;
 }
 
 bt_status_t bt_sink_srv_state_manager_edr_action_handler(
@@ -566,44 +738,42 @@ static bt_status_t bt_sink_srv_state_manager_le_action_handler(
     return status;
 }
 
+#if defined(MTK_AWS_MCE_ENABLE)
 static void bt_sink_srv_state_manager_sync_focus(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_state_manager_focus_device_t type,
     bt_sink_srv_state_manager_device_t *device)
 {
-#ifdef MTK_AWS_MCE_ENABLE
     bt_status_t status = BT_STATUS_FAIL;
-    (void)status;
-    uint8_t buffer[sizeof(bt_sink_srv_state_manager_sync_focus_t)] = {0};
-    bt_sink_srv_state_manager_sync_focus_t *sync_focus = (bt_sink_srv_state_manager_sync_focus_t *)&buffer;
+    bt_sink_srv_state_manager_sync_focus_t sync_focus = {{0}};
 
     bt_aws_mce_report_info_t report_info = {0};
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
 
     /* 1. Check parameters. */
-    if (NULL == device || BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == device->type) {
-        bt_sink_srv_report_id("[Sink][StaMgr]sync focus, NULL device or EDR type", 0);
+    if (NULL == device) {
+        bt_sink_srv_report_id("[Sink][StaMgr]sync focus, NULL device", 0);
         return;
     }
 
     /* 2. Fill data. */
-    sync_focus->header.type = BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_FOCUS;
-    sync_focus->header.length = sizeof(buffer);
+    sync_focus.header.type = BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_FOCUS;
+    sync_focus.header.length = sizeof(bt_sink_srv_state_manager_sync_focus_t);
 
     if (BT_AWS_MCE_ROLE_AGENT == role) {
-        sync_focus->header.direction = BT_SINK_SRV_STATE_MANAGER_SYNC_DIRECTION_PARTNER;
+        sync_focus.header.direction = BT_SINK_SRV_STATE_MANAGER_SYNC_DIRECTION_PARTNER;
     } else {
-        sync_focus->header.direction = BT_SINK_SRV_STATE_MANAGER_SYNC_DIRECTION_AGENT;
+        sync_focus.header.direction = BT_SINK_SRV_STATE_MANAGER_SYNC_DIRECTION_AGENT;
     }
 
-    sync_focus->focus_type = type;
-    sync_focus->device_type = device->type;
-    bt_sink_srv_memcpy(&sync_focus->address, &device->address, sizeof(bt_bd_addr_t));
+    sync_focus.focus_type = type;
+    sync_focus.device_type = device->type;
+    bt_sink_srv_memcpy(sync_focus.address, device->address, sizeof(bt_bd_addr_t));
 
     /* 3. Fill report info. */
     report_info.module_id = BT_AWS_MCE_REPORT_MODULE_SINK_STAMGR;
-    report_info.param = (void *)&buffer;
-    report_info.param_len = sizeof(buffer);
+    report_info.param = (void *)&sync_focus;
+    report_info.param_len = sizeof(bt_sink_srv_state_manager_sync_focus_t);
 
     if (BT_AWS_MCE_ROLE_AGENT == role) {
         status = bt_aws_mce_report_send_urgent_event(&report_info);
@@ -611,12 +781,55 @@ static void bt_sink_srv_state_manager_sync_focus(
         status = bt_aws_mce_report_send_event(&report_info);
     }
 
+    (void)status;
     bt_sink_srv_report_id("[Sink][StaMgr]sync focus, status: 0x%x", 1, status);
-#endif
 }
+#endif
 
-#ifdef AIR_MULTI_POINT_ENABLE
-#ifdef MTK_AWS_MCE_ENABLE
+#if defined(MTK_AWS_MCE_ENABLE) && defined(AIR_MULTI_POINT_ENABLE)
+static void bt_sink_srv_state_manager_sync_action(
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_action_t action,
+    void *parameter)
+{
+    bt_status_t status = BT_STATUS_FAIL;
+    bt_aws_mce_report_info_t report_info = {0};
+
+    uint32_t parameter_length
+        = bt_sink_srv_state_manager_get_parameter_length(context, action, parameter);
+
+    bt_sink_srv_state_manager_sync_action_t *sync_action
+        = bt_sink_srv_memory_alloc(sizeof(bt_sink_srv_state_manager_sync_action_t) + parameter_length);
+
+    /* 1. Fill data. */
+    if (NULL == sync_action) {
+        return;
+    }
+
+    sync_action->header.type = BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_ACTION;
+    sync_action->header.length = sizeof(bt_sink_srv_state_manager_sync_action_t);
+    sync_action->header.direction = BT_SINK_SRV_STATE_MANAGER_SYNC_DIRECTION_AGENT;
+
+    sync_action->action = action;
+    sync_action->parameter_length = parameter_length;
+    bt_sink_srv_memcpy(sync_action->parameter, parameter, parameter_length);
+
+    /* 2. Fill report info. */
+    report_info.module_id = BT_AWS_MCE_REPORT_MODULE_SINK_STAMGR;
+    report_info.param = (void *)sync_action;
+    report_info.param_len = sizeof(bt_sink_srv_state_manager_sync_action_t);
+
+    if (BT_AWS_MCE_ROLE_PARTNER == bt_connection_manager_device_local_info_get_aws_role()) {
+        status = bt_aws_mce_report_send_event(&report_info);
+    }
+
+    (void)status;
+    bt_sink_srv_memory_free(sync_action);
+    bt_sink_srv_report_id("[Sink][StaMgr]sync action, status: 0x%x", 1, status);
+}
+#endif
+
+#if defined(MTK_AWS_MCE_ENABLE) && defined(AIR_MULTI_POINT_ENABLE)
 static uint32_t bt_sink_srv_state_manager_get_parameter_length(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_action_t action,
@@ -673,47 +886,5 @@ static uint32_t bt_sink_srv_state_manager_get_parameter_length(
 
     bt_sink_srv_report_id("[Sink][StaMgr]get parameter length: %d", 1, parameter_length);
     return parameter_length;
-}
-#endif
-
-static void bt_sink_srv_state_manager_sync_action(
-    bt_sink_srv_state_manager_context_t *context,
-    bt_sink_srv_action_t action,
-    void *parameter)
-{
-#ifdef MTK_AWS_MCE_ENABLE
-    bt_status_t status = BT_STATUS_FAIL;
-    bt_aws_mce_report_info_t report_info = {0};
-
-    uint32_t parameter_length
-        = bt_sink_srv_state_manager_get_parameter_length(context, action, parameter);
-
-    bt_sink_srv_state_manager_sync_action_t *sync_action
-        = bt_sink_srv_memory_alloc( sizeof(bt_sink_srv_state_manager_sync_action_t) + parameter_length);
-
-    if (NULL == sync_action) {
-        return;
-    }
-
-    sync_action->header.type = BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_ACTION;
-    sync_action->header.length = sizeof(bt_sink_srv_state_manager_sync_action_t);
-    sync_action->header.direction = BT_SINK_SRV_STATE_MANAGER_SYNC_DIRECTION_AGENT;
-
-    sync_action->action = action;
-    sync_action->parameter_length = parameter_length;
-    bt_sink_srv_memcpy(sync_action->parameter, parameter, parameter_length);
-
-    report_info.module_id = BT_AWS_MCE_REPORT_MODULE_SINK_STAMGR;
-    report_info.param = (void *)sync_action;
-    report_info.param_len = sizeof(bt_sink_srv_state_manager_sync_action_t);
-
-    if (BT_AWS_MCE_ROLE_PARTNER == bt_connection_manager_device_local_info_get_aws_role()) {
-        status = bt_aws_mce_report_send_event(&report_info);
-    }
-
-    (void)status;
-    bt_sink_srv_report_id("[Sink][StaMgr]sync action, status: 0x%x", 1, status);
-    bt_sink_srv_memory_free(sync_action);
-#endif
 }
 #endif

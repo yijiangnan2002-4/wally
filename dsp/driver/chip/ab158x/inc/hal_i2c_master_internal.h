@@ -46,14 +46,8 @@
 #include "hal_i2c_master.h"
 #include "hal_sleep_manager_internal.h"
 
-#ifndef HAL_I2C_MASTER_0_FIFO_DEPTH
-    #define     HAL_I2C_MASTER_0_FIFO_DEPTH   5
-#endif
 #ifndef HAL_I2C_MASTER_1_FIFO_DEPTH
     #define     HAL_I2C_MASTER_1_FIFO_DEPTH   5
-#endif
-#ifndef HAL_I2C_MASTER_2_FIFO_DEPTH
-    #define     HAL_I2C_MASTER_2_FIFO_DEPTH   5
 #endif
 
 #ifdef I2C_PLAIN_LOG_ENABLE

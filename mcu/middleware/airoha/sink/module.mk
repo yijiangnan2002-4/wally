@@ -1,4 +1,22 @@
 ifeq ($(MTK_BT_DUO_ENABLE), y)
+
+AIR_BT_SINK_MUSIC_ENABLE    ?= y
+AIR_BT_SINK_CALL_ENABLE     ?= y
+
+ifeq ($(AIR_BT_AUDIO_DONGLE_ENABLE), y)
+AIR_BT_SINK_MUSIC_ENABLE    = n
+AIR_BT_SINK_CALL_ENABLE     = n
+else ifeq ($(AIR_LE_AUDIO_DONGLE_ENABLE), y)
+AIR_BT_SINK_MUSIC_ENABLE    = n
+AIR_BT_SINK_CALL_ENABLE     = n
+endif
+
+ifeq ($(AIR_BT_SINK_CALL_ENABLE), y)
+CFLAGS   += -DAIR_BT_SINK_CALL_ENABLE
+endif
+
+ifeq ($(AIR_BT_SINK_MUSIC_ENABLE), y)
+CFLAGS   += -DAIR_BT_SINK_MUSIC_ENABLE
 ifeq ($(findstring y,$(AIR_BT_A2DP_VENDOR_ENABLE) $(AIR_BT_A2DP_VENDOR_1_ENABLE)),y)
 CFLAGS   += -DAIR_BT_A2DP_VENDOR_ENABLE
 CFLAGS   += -DAIR_BT_A2DP_VENDOR_CODEC_SUPPORT
@@ -22,6 +40,15 @@ include $(SOURCE_DIR)/middleware/third_party/lhdc_decoder/module.mk
 endif
 endif
 
+LC3PLUS_REPO=$(SOURCE_DIR)/middleware/airoha/bt_vendor_codec_interface/lc3plus/
+ifeq ($(AIR_AUDIO_LC3PLUS_CODEC_ENABLE), y)
+ifeq ($(LC3PLUS_REPO), $(wildcard $(LC3PLUS_REPO)))
+CFLAGS += -DAIR_BT_A2DP_LC3PLUS_ENABLE
+CFLAGS += -DAIR_BT_A2DP_VENDOR_CODEC_SUPPORT
+include $(SOURCE_DIR)/middleware/airoha/bt_vendor_codec_interface/lc3plus/module.mk
+endif
+endif
+
 ifeq ($(MTK_AUDIO_SYNC_ENABLE), y)
 CFLAGS += -DMTK_AUDIO_SYNC_ENABLE
 endif
@@ -33,6 +60,8 @@ endif
 ifeq ($(AIR_BT_MHDT_ENABLE), y)
 CFLAGS += -DAIR_FEATURE_SINK_MHDT_SUPPORT
 endif
+#ifeq ($(AIR_BT_SINK_MUSIC_ENABLE), y) end
+endif
 
 # BT sink source files
 BT_SINK_SRV_SRC = $(MIDDLEWARE_PROPRIETARY)/sink/src
@@ -43,6 +72,7 @@ BT_SINK_SRV_FILES = $(BT_SINK_SRV_SRC)/bt_sink_srv.c \
                     $(BT_SINK_SRV_SRC)/bt_sink_srv_utils.c \
 
 # Sink call related
+ifeq ($(AIR_BT_SINK_CALL_ENABLE), y)
 BT_SINK_SRV_CALL_SRC = $(MIDDLEWARE_PROPRIETARY)/sink/src/call
 BT_SINK_SRV_FILES += $(BT_SINK_SRV_CALL_SRC)/bt_sink_srv_call_audio.c \
                      $(BT_SINK_SRV_CALL_SRC)/bt_sink_srv_call.c \
@@ -57,8 +87,9 @@ BT_SINK_SRV_FILES += $(BT_SINK_SRV_CALL_SRC)/bt_sink_srv_aws_mce_call.c \
 		             $(BT_SINK_SRV_CALL_SRC)/bt_sink_srv_call_rho.c
 endif
 BT_SINK_SRV_FILES += $(BT_SINK_SRV_CALL_SRC)/bt_sink_srv_hsp.c
-
+endif
 # Sink bt_music related
+ifeq ($(AIR_BT_SINK_MUSIC_ENABLE), y)
 BT_SINK_SRV_BT_MUSIC_SRC = $(MIDDLEWARE_PROPRIETARY)/sink/src/bt_music
 BT_SINK_SRV_FILES += $(BT_SINK_SRV_BT_MUSIC_SRC)/bt_sink_srv_a2dp.c \
                      $(BT_SINK_SRV_BT_MUSIC_SRC)/bt_sink_srv_a2dp_callback.c \
@@ -72,7 +103,8 @@ ifeq ($(MTK_BT_SPEAKER_FEC_ENABLE), y)
 CFLAGS += -DMTK_BT_SPEAKER_FEC_ENABLE
 BT_SINK_SRV_FILES += $(BT_SINK_SRV_BT_MUSIC_SRC)/speaker_fec.c
 endif
-
+# ifeq ($(AIR_BT_SINK_MUSIC_ENABLE), y) end
+endif
 # Sink le audio related
 ifeq ($(AIR_LE_AUDIO_ENABLE), y)
 # LE Audio
@@ -111,11 +143,14 @@ endif
 BT_SINK_SRV_AVM_DIRECT = $(MIDDLEWARE_PROPRIETARY)/sink/src/avm_direct
 BT_SINK_SRV_FILES += $(BT_SINK_SRV_AVM_DIRECT)/avm_direct_util.c \
 
+ifeq ($(AIR_BT_SINK_MUSIC_ENABLE), y)
 ifeq ($(MTK_AWS_MCE_ENABLE), y)
 BT_SINK_SRV_FILES += $(BT_SINK_SRV_BT_MUSIC_SRC)/bt_sink_srv_aws_mce_a2dp.c
 ifeq ($(AIR_BT_ROLE_HANDOVER_SERVICE_ENABLE), y)
 BT_SINK_SRV_FILES += $(BT_SINK_SRV_BT_MUSIC_SRC)/bt_sink_srv_music_rho.c
 endif
+endif
+# ifeq ($(AIR_BT_SINK_MUSIC_ENABLE), y) end
 endif
 # AWS MCE related
 ifeq ($(MTK_AWS_MCE_ENABLE), y)
@@ -160,8 +195,12 @@ endif
 # Include bt sink path
 CFLAGS += -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/bluetooth_service/inc
 CFLAGS += -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/sink/inc
+ifeq ($(AIR_BT_SINK_CALL_ENABLE), y)
 CFLAGS += -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/sink/inc/call
+endif
+ifeq ($(AIR_BT_SINK_MUSIC_ENABLE), y)
 CFLAGS += -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/sink/inc/bt_music
+endif
 CFLAGS += -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/sink/inc/le_audio
 CFLAGS += -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/sink/inc/state_manager
 #CFLAGS += -I$(SOURCE_DIR)/$(MIDDLEWARE_PROPRIETARY)/bt_sink/inc/audio_command_receiver

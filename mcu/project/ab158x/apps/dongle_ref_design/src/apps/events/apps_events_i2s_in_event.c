@@ -134,15 +134,33 @@ static atci_status_t _i2s_in_vol_atci(atci_parse_cmd_param_t *parse_cmd)
             if(0 == memcmp("up", param, strlen("up")))
             {
                 vol->vol_action = APP_I2S_IN_VOL_UP;
+                param = strchr(param, ',');
+                param++;
+                //sscanf(param, "%lu,", &vol->vol_level);
+                vol->vol_level = (uint8_t)strtoul(param, NULL, 10);
+                param = strchr(param, ',');
+                param++;
+                vol->vol_src = (uint8_t)strtoul(param, NULL, 10);
                 response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
             } else if (0 == memcmp("down",param, strlen("down"))) {
                 vol->vol_action = APP_I2S_IN_VOL_DOWN;
+                param = strchr(param, ',');
+                param++;
+                //sscanf(param, "%lu,", &vol->vol_level);
+                vol->vol_level = (uint8_t)strtoul(param, NULL, 10);
+                param = strchr(param, ',');
+                param++;
+                vol->vol_src = (uint8_t)strtoul(param, NULL, 10);
                 response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
             } else if (0 == memcmp("level",param, strlen("level"))) {
                 vol->vol_action = APP_I2S_IN_VOL_SET;
                 param = strchr(param, ',');
                 param++;
+                //sscanf(param, "%d,", &vol->vol_level);
                 vol->vol_level = (uint8_t)strtoul(param, NULL, 10);
+                param = strchr(param, ',');
+                param++;
+                vol->vol_src = (uint8_t)strtoul(param, NULL, 10);
                 response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
             } else {
                 response.response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
@@ -150,7 +168,7 @@ static atci_status_t _i2s_in_vol_atci(atci_parse_cmd_param_t *parse_cmd)
                 vol = NULL;
             }
             if (response.response_flag == ATCI_RESPONSE_FLAG_APPEND_OK) {
-                APPS_LOG_MSGID_I(TAG" _i2s_in_vol_atci: port=%d, action:%d, level=%d.", 3, vol->vol_port, vol->vol_action, vol->vol_level);
+                APPS_LOG_MSGID_I(TAG" _i2s_in_vol_atci: port=%d, action:%d, level=%d, src=%d.", 4, vol->vol_port, vol->vol_action, vol->vol_level,vol->vol_src);
                 ui_shell_status_t status = ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_I2S_IN,
                                                                APPS_EVENTS_I2S_IN_VOLUME_CHANGE, (void *)vol, sizeof(app_i2s_in_vol_t), NULL, 0);
                 if (UI_SHELL_STATUS_OK != status) {

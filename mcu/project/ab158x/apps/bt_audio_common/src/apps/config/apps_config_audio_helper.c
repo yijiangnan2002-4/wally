@@ -64,6 +64,7 @@
 #ifdef AIR_MS_TEAMS_ENABLE
 #include "app_ms_teams_telemetry.h"
 #endif
+#include "bt_sink_srv_call.h"
 
 
 #define LOG_TAG                                             "[app_audio_helper]"
@@ -71,6 +72,7 @@
 #define APP_CONFIG_AUDIO_HELPER_SIDETONE_DISABLE_VALUE      (-100)
 
 static app_config_audio_helper_sidetone_data_t s_sidetone_data;
+static bool s_temporary_disable;
 
 #ifdef MTK_AWS_MCE_ENABLE
 static void apps_config_audio_helper_aws_sync_sidetone_data(void)
@@ -94,6 +96,23 @@ const app_config_audio_helper_sidetone_data_t *apps_config_audio_helper_get_side
     return &s_sidetone_data;
 }
 
+bool apps_config_audio_helper_get_sidetone_temporary_disabled(void)
+{
+    return s_temporary_disable;
+}
+
+static void apps_config_audio_helper_set_sidetone_enable_to_low_layer(void)
+{
+    bool enable = s_sidetone_data.enable && !s_temporary_disable;
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+    bt_ull_client_sidetone_switch_t ull_sidetone = {
+        .sidetone_enable = enable,
+    };
+    bt_ull_action(BT_ULL_ACTION_SET_CLIENT_SIDETONE_SWITCH, &ull_sidetone, sizeof(ull_sidetone));
+#endif
+    bt_sink_srv_call_sidetone_config_change_notify(enable);
+}
+
 static bt_sink_srv_am_result_t apps_config_audio_helper_change_sidetone_enable(bool enable, bool need_sync)
 {
     bt_sink_srv_am_result_t am_ret = AUD_EXECUTION_SUCCESS;
@@ -104,12 +123,7 @@ static bt_sink_srv_am_result_t apps_config_audio_helper_change_sidetone_enable(b
     } else {
         s_sidetone_data.enable = enable;
     }
-#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
-    bt_ull_client_sidetone_switch_t ull_sidetone = {
-        .sidetone_enable = enable,
-    };
-    bt_ull_action(BT_ULL_ACTION_SET_CLIENT_SIDETONE_SWITCH, &ull_sidetone, sizeof(ull_sidetone));
-#endif
+    apps_config_audio_helper_set_sidetone_enable_to_low_layer();
     nvkey_write_data(NVID_APP_SIDETONE_VALUE, (uint8_t *)&s_sidetone_data, sizeof(s_sidetone_data));
     if (need_sync) {
 #ifdef MTK_AWS_MCE_ENABLE
@@ -167,6 +181,18 @@ bt_sink_srv_am_result_t apps_config_audio_helper_set_sidetone_value(int32_t valu
     return apps_config_audio_helper_change_sidetone_value(value, true);
 }
 
+bt_sink_srv_am_result_t apps_config_audio_helper_sidetone_temporary_disable(bool disable)
+{
+    bt_sink_srv_am_result_t am_ret = AUD_EXECUTION_SUCCESS;
+    if (s_temporary_disable != disable) {
+        s_temporary_disable = disable;
+        if (s_sidetone_data.enable) {
+            apps_config_audio_helper_set_sidetone_enable_to_low_layer();
+        }
+    }
+    return am_ret;
+}
+
 void apps_config_audio_helper_sidetone_init(void)
 {
     uint32_t read_nvdm_len = sizeof(s_sidetone_data);
@@ -181,12 +207,7 @@ void apps_config_audio_helper_sidetone_init(void)
         s_sidetone_data.enable = true;
         s_sidetone_data.value = am_audio_side_tone_get_volume_by_scenario(SIDETONE_SCENARIO_HFP);
     }
-#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
-    bt_ull_client_sidetone_switch_t ull_sidetone = {
-        .sidetone_enable = s_sidetone_data.enable,
-    };
-    bt_ull_action(BT_ULL_ACTION_SET_CLIENT_SIDETONE_SWITCH, &ull_sidetone, sizeof(ull_sidetone));
-#endif
+    apps_config_audio_helper_set_sidetone_enable_to_low_layer();
 }
 
 #ifdef MTK_AWS_MCE_ENABLE

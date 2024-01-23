@@ -424,12 +424,12 @@ static bool app_speaker_le_ass_stop_scan(void)
 static bool app_speaker_le_ass_start_scan(void)
 {
 #ifdef AIR_LE_AUDIO_BIS_ENABLE
-     if (bt_sink_srv_cap_stream_is_scanning_broadcast_source()) {
-         APPS_LOG_MSGID_I(LOG_TAG" start_scan, BIS is scanning", 0);
-         bt_sink_srv_cap_stream_stop_scanning_broadcast_source();
-         app_le_ass_wait_start_scan = TRUE;
-         return false;
-     }
+    if (bt_sink_srv_cap_stream_is_scanning_broadcast_source()) {
+        APPS_LOG_MSGID_I(LOG_TAG" start_scan, BIS is scanning", 0);
+        bt_sink_srv_cap_stream_stop_scanning_broadcast_source();
+        app_le_ass_wait_start_scan = TRUE;
+        return false;
+    }
 #endif
 
     le_ext_scan_item_t ext_scan_1M_item = {
@@ -647,7 +647,7 @@ static bt_status_t app_speaker_le_ass_bt_event_handler(bt_msg_type_t msg, bt_sta
 
                 app_le_ass_ctx.handle = conn_ind->connection_handle;
                 APPS_LOG_MSGID_I(LOG_TAG" bt_event, LE_CONNECT_IND handle=0x%04X, interval_ret=%d", 2,
-                    app_le_ass_ctx.handle, interval_ret);
+                                 app_le_ass_ctx.handle, interval_ret);
 
                 if (conn_ind->role == BT_ROLE_MASTER) {
                     bt_app_common_bond_le_ass(app_le_ass_ctx.handle);

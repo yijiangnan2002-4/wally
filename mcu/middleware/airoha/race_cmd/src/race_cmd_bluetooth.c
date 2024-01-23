@@ -67,7 +67,9 @@
 #include "hal_audio_cm4_dsp_message.h"
 #include "hal_audio_internal.h"
 #ifdef MTK_BT_DUO_ENABLE
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 #include "bt_sink_srv_a2dp.h"
+#endif
 #endif
 #include "bt_connection_manager.h"
 #include "bt_gap_le_service.h"
@@ -111,8 +113,10 @@ static void *RACE_BLUETOOTH_GET_EDR_LINK_KEY_HDR(ptr_race_pkt_t pCmdMsg, uint8_t
 static void *RACE_BLUETOOTH_GET_LE_LTK_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id);
 static void *RACE_BLUETOOTH_AWS_ENABLE_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id);
 #ifdef MTK_BT_DUO_ENABLE
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 static void *RACE_BLUETOOTH_GET_A2DP_CODEC_PARAMETERS_EXT_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id);
 static void *RACE_BLUETOOTH_GET_A2DP_CODEC_PARAMETERS_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id);
+#endif
 #endif
 static void *RACE_BULETOOTH_SET_LOCAL_ADDR_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id);
 static void *RACE_BLUETOOTH_GET_EDR_CONNECTED_DEV_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id);
@@ -594,6 +598,7 @@ void *RACE_CmdHandler_BLUETOOTH(ptr_race_pkt_t pRaceHeaderCmd, uint16_t length, 
                 break;
             }
 #ifdef MTK_BT_DUO_ENABLE
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
             case RACE_BLUETOOTH_GET_A2DP_CODEC_PARAMETERS_EXT: {
                 ptr = RACE_BLUETOOTH_GET_A2DP_CODEC_PARAMETERS_EXT_HDR(pRaceHeaderCmd, channel_id);
                 break;
@@ -602,6 +607,7 @@ void *RACE_CmdHandler_BLUETOOTH(ptr_race_pkt_t pRaceHeaderCmd, uint16_t length, 
                 ptr = RACE_BLUETOOTH_GET_A2DP_CODEC_PARAMETERS_HDR(pRaceHeaderCmd, channel_id);
                 break;
             }
+#endif
 #endif
             case RACE_BLUETOOTH_SET_LOCAL_ADDR: {
                 ptr = RACE_BULETOOTH_SET_LOCAL_ADDR_HDR(pRaceHeaderCmd, channel_id);
@@ -1233,6 +1239,7 @@ static void *RACE_BLUETOOTH_AWS_ENABLE_HDR(ptr_race_pkt_t pCmdMsg, uint8_t chann
     return pEvt;
 }
 #ifdef MTK_BT_DUO_ENABLE
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 static void *RACE_BLUETOOTH_GET_A2DP_CODEC_PARAMETERS_EXT_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
     bt_sink_srv_a2dp_basic_config_2_t *pEvt = RACE_ClaimPacketAppID(pCmdMsg->hdr.pktId.field.app_id,
@@ -1256,6 +1263,8 @@ static void *RACE_BLUETOOTH_GET_A2DP_CODEC_PARAMETERS_HDR(ptr_race_pkt_t pCmdMsg
     return pEvt;
 }
 #endif
+#endif
+
 bt_status_t bt_race_set_local_addr_callback(bt_device_manager_power_reset_progress_t type, void *user_data)
 {
     if (BT_DEVICE_MANAGER_POWER_RESET_PROGRESS_MEDIUM == type) {

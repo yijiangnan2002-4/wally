@@ -123,7 +123,7 @@
 #define APP_ONLY_ALLOW_TAKE_OVER_BY_FAST_PAIR       (false) /* When it's true, only allow BT take over by fast pair flow. */
 
 #define APP_FAST_PAIR_DISCOVER_MODE_ADV_INTERVAL    (0xA0)  /* The adv interval when BT is discoverable. 0xA0 means 100ms */
-#define APP_FAST_PAIR_NONDISCOVER_MODE_ADV_INTERVAL (0x190) /* The adv interval when BT is not discoverable. 0x190 means 250ms */
+#define APP_FAST_PAIR_NON_DISCOVER_MODE_ADV_INTERVAL (0x190) /* The adv interval when BT is not discoverable. 0x190 means 250ms */
 #define REMAINING_BATTERY_TIME_WHEN_FULL            (240)   /* The remaining battery time in minutes when battery is 100%. */
 
 #define FAST_PAIR_PRIVATE_PROTECTED     /* If defined, the module id is encrypted and stored in NVKEY. */
@@ -181,8 +181,6 @@ const char app_fast_pair_nvdm_key[32] = {0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x5
 #define APP_FAST_PAIR_COMPONENT_RIGHT               (1) /* In fast pair spec, the battery value of right earbud is bit 1. */
 #define APP_FAST_PAIR_COMPONENT_CASE                (2) /* In fast pair spec, the battery value of charger case is bit 2. */
 
-#define APP_FAST_PAIR_PERSONALIZED_NAME_SIZE        (128)   /* The size of maximum size of personalized name. */
-
 #ifdef AIR_BT_FAST_PAIR_SASS_ENABLE
 #define FAST_PAIR_SASS_DEFAULT_ENABLED              (1)
 #define FAST_PAIR_SASS_VERSION_CODE                 (0x0201)    /* Spec is 0x0101, but the format of Fast pair is big-endian. */
@@ -201,7 +199,7 @@ const char app_fast_pair_nvdm_key[32] = {0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x5
 typedef struct {
     bt_bd_addr_t addr;
     bt_fast_pair_message_stream_t msg_data;
-} __attribute__((packed)) app_fastpair_sass_aws_sync_ctrl_msg_t;
+} __attribute__((packed)) app_fast_pair_sass_aws_sync_ctrl_msg_t;
 #endif
 #endif /* #ifdef AIR_BT_FAST_PAIR_SASS_ENABLE */
 
@@ -441,7 +439,7 @@ static uint32_t app_fast_pair_get_adv_data(multi_ble_adv_info_t *adv_data)
     } else {
         type = BT_FAST_PAIR_ADVERTISING_DATA_ACCOUNT_AND_BATTERY;
         if (g_app_fast_pair_context.battery.ui_show) {
-            interval = APP_FAST_PAIR_NONDISCOVER_MODE_ADV_INTERVAL;
+            interval = APP_FAST_PAIR_NON_DISCOVER_MODE_ADV_INTERVAL;
         } else {
             interval = APP_FAST_PAIR_DISCOVER_MODE_ADV_INTERVAL;
         }
@@ -633,7 +631,7 @@ static uint32_t app_fast_pair_spot_get_adv_data(multi_ble_adv_info_t *adv_data)
     if (app_bt_connection_service_get_current_status()->bt_visible) {
         interval = APP_FAST_PAIR_DISCOVER_MODE_ADV_INTERVAL;
     } else {
-        interval = APP_FAST_PAIR_NONDISCOVER_MODE_ADV_INTERVAL;
+        interval = APP_FAST_PAIR_NON_DISCOVER_MODE_ADV_INTERVAL;
     }
 #else
     interval = APP_FAST_PAIR_DISCOVER_MODE_ADV_INTERVAL;
@@ -984,7 +982,7 @@ static void app_fast_pair_update_battery(app_fast_pair_local_context_t *context,
     }
     if (true == need_update) {
         context->battery = *battery;
-        /* Call middleware API to updata battery information. */
+        /* Call middleware API to update battery information. */
         bt_fast_pair_update_battery(cur_cntx);
         /* Because the battery information is contained in adv data, must update adv once. */
         app_fast_pair_trigger_advertising(context);
@@ -1043,7 +1041,7 @@ static void app_fast_pair_stop_find_me(void)
 */
 static void app_fast_pair_ring_request_handle(bt_fast_pair_ring_request_t *ring)
 {
-    APPS_LOG_MSGID_I(LOG_TAG" Recived ring request from remote device R:%d, L:%d, duration:%d",
+    APPS_LOG_MSGID_I(LOG_TAG" Received ring request from remote device R:%d, L:%d, duration:%d",
                      3, ring->ring_status[0], ring->ring_status[1], ring->ring_duration);
 #ifdef RACE_FIND_ME_ENABLE
     app_find_me_param_struct *find_self_param = (app_find_me_param_struct *)pvPortMalloc(sizeof(app_find_me_param_struct));
@@ -1090,7 +1088,7 @@ static void app_fast_pair_ring_request_handle(bt_fast_pair_ring_request_t *ring)
 static void app_fast_pair_additional_data_handle(app_fast_pair_local_context_t *local_context, bt_fast_pair_additional_data_t *data, uint32_t data_len)
 {
     nvkey_status_t status = 0;
-    APPS_LOG_MSGID_I(LOG_TAG" Additional data recived data_id %d, data_length %d.", 2, data->data_id, data->data_length);
+    APPS_LOG_MSGID_I(LOG_TAG" Additional data received data_id %d, data_length %d.", 2, data->data_id, data->data_length);
     /* If the additional data is changing personalized name. */
     if (BT_FAST_PAIR_ADDITIONAL_DATA_ID_PERSONALIZED_NAME == data->data_id) {
         if (data->data_length > sizeof(g_app_fast_pair_context.nvkey.personalized_name) - 1) {
@@ -1147,7 +1145,7 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
 #endif
     switch (msg_data->code_ID) {
         case BT_FAST_PAIR_MESSAGE_CODE_SASS_GET_CAPABILITY: {
-            /* Processed by middleare. */
+            /* Processed by middleware. */
             break;
         }
         case BT_FAST_PAIR_MESSAGE_CODE_SASS_NOTIFY_CAPABILITY: {
@@ -1157,7 +1155,7 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
 #ifdef AIR_MULTI_POINT_ENABLE
         case BT_FAST_PAIR_MESSAGE_CODE_SASS_SET_MULTIPOINT_STATE: {
             bt_fast_pair_sass_set_multipoint_state_data_t *multi_point = (bt_fast_pair_sass_set_multipoint_state_data_t *) & (msg_data->data);
-            app_bt_emp_enable(multi_point->switch_on);
+            app_bt_emp_enable(multi_point->switch_on, TRUE);
             break;
         }
 #endif
@@ -1172,7 +1170,7 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
             break;
         }
         case BT_FAST_PAIR_MESSAGE_CODE_SASS_GET_SWITCHING_PREFERENCE: {
-            /* Processed by middleare. */
+            /* Processed by middleware. */
             break;
         }
         case BT_FAST_PAIR_MESSAGE_CODE_SASS_NOTIFY_SWITCHING_PREFERENCE: {
@@ -1200,7 +1198,7 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
             if (bt_connection_manager_device_local_info_get_aws_role() & (BT_AWS_MCE_ROLE_PARTNER)
                 && BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type()) {
                 if (bond_info) {
-                    app_fastpair_sass_aws_sync_ctrl_msg_t aws_msg = { 0 };
+                    app_fast_pair_sass_aws_sync_ctrl_msg_t aws_msg = { 0 };
                     memcpy(&aws_msg.addr, &bond_info->info.identity_addr.address.addr, sizeof(aws_msg.addr));
                     memcpy(&aws_msg.msg_data, msg_data, sizeof(aws_msg.msg_data));
                     apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_BT_FAST_PAIR,
@@ -1220,12 +1218,12 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
             bt_ret = bt_sink_srv_get_playing_device_state(&device_state);
 #endif
-            const bt_device_manager_link_record_item_t *switch_to_src_link = NULL;
             const bt_device_manager_link_record_item_t *switch_away_src_link = NULL;
             const bt_device_manager_link_record_item_t *the_other_src_link = NULL;
             const bt_device_manager_link_record_item_t *current_src_link = NULL;
+            uint32_t i;
 
-            for (uint32_t i = 0; link_info && i < link_info->connected_num; i++) {
+            for (i = 0; link_info && i < link_info->connected_num; i++) {
                 if ((bond_info && BT_DEVICE_MANAGER_LINK_TYPE_LE == link_info->connected_device[i].link_type
                      && memcmp(link_info->connected_device[i].remote_addr, bond_info->info.identity_addr.address.addr, sizeof(bt_bd_addr_t)) == 0)
                     || (BT_DEVICE_MANAGER_LINK_TYPE_EDR == link_info->connected_device[i].link_type
@@ -1259,25 +1257,33 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
                 //break;
             }
             if ((1 << BT_FAST_PAIR_SASS_SWITCH_ACTIVE_AUDIO_SOURCE_SWITCH_TO_THIS_BIT) & switch_audio_flags) {
-                switch_to_src_link = current_src_link;
                 switch_away_src_link = the_other_src_link;
             } else {
-                switch_to_src_link = the_other_src_link;
                 switch_away_src_link = current_src_link;
             }
+            bt_sink_srv_state_manager_played_device_t played_list[2];
+            uint32_t played_list_count = 2;
+            played_list_count = bt_sink_srv_state_manager_get_played_device_list(played_list, played_list_count);
+            bt_sink_srv_state_manager_played_device_t *last_played = NULL;
+            for (i = 0; switch_away_src_link && i < played_list_count; i++) {
+                if (memcmp(played_list[i].address, switch_away_src_link->remote_addr, sizeof(played_list[i].address)) != 0) {
+                    last_played = &played_list[i];
+                    break;
+                }
+            }
 
-            if (switch_to_src_link == NULL || switch_away_src_link == NULL) {
-                APPS_LOG_MSGID_I(LOG_TAG" Address is NULL: 0x%x, 0x%x", 2, switch_to_src_link, switch_away_src_link);
+            if (last_played == NULL || switch_away_src_link == NULL) {
+                APPS_LOG_MSGID_I(LOG_TAG" Address is NULL: 0x%x, 0x%x", 2, last_played, switch_away_src_link);
                 break;
             }
 
             if (BT_STATUS_SUCCESS == bt_ret) {
-                if (memcmp(switch_to_src_link->remote_addr, device_state.address, sizeof(bt_bd_addr_t)) == 0) {
+                if (memcmp(last_played->address, device_state.address, sizeof(bt_bd_addr_t)) == 0) {
                     /* Already playing. */
                     APPS_LOG_MSGID_I(LOG_TAG" already playing on addr [%02X:%02X:%02X:%02X:%02X:%02X]", 6,
-                                     (switch_to_src_link->remote_addr)[5], (switch_to_src_link->remote_addr)[4],
-                                     (switch_to_src_link->remote_addr)[3], (switch_to_src_link->remote_addr)[2],
-                                     (switch_to_src_link->remote_addr)[1], (switch_to_src_link->remote_addr)[0]);
+                                     (last_played->address)[5], (last_played->address)[4],
+                                     (last_played->address)[3], (last_played->address)[2],
+                                     (last_played->address)[1], (last_played->address)[0]);
                     ack.action = BT_FAST_PAIR_MESSAGE_CODE_ACKNOWLEDGEMENT_NAK;
                     ack.reason = BT_FAST_PAIR_ACKNOWLEDGEMENT_NAK_REASON_REDUNDANT_DEVICE_ACTION;
                 } else {
@@ -1287,21 +1293,21 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
                         }
                     }
                     if ((1 << BT_FAST_PAIR_SASS_SWITCH_ACTIVE_AUDIO_SOURCE_RESUME_PLAYING_BIT) & switch_audio_flags) {
-                        memcpy(g_app_fast_pair_context.allow_switch_audio_addr, switch_to_src_link->remote_addr, sizeof(bt_bd_addr_t));
+                        memcpy(g_app_fast_pair_context.allow_switch_audio_addr, last_played->address, sizeof(bt_bd_addr_t));
                         ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                               APPS_EVENTS_INTERACTION_FAST_PAIR_CLEAR_ACTIVE_SWITCH_RECORD);
                         ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
                                             EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                             APPS_EVENTS_INTERACTION_FAST_PAIR_CLEAR_ACTIVE_SWITCH_RECORD,
                                             NULL, 0, NULL, 1000);
-                        bt_sink_srv_send_action(BT_SINK_SRV_ACTION_PLAY, (void *)&switch_to_src_link->remote_addr);
+                        bt_sink_srv_send_action(BT_SINK_SRV_ACTION_PLAY, (void *)&last_played->address);
                     }
                 }
             }
             APPS_LOG_MSGID_I(LOG_TAG" switch to play on addr [%02X:%02X:%02X:%02X:%02X:%02X]", 6,
-                             (switch_to_src_link->remote_addr)[5], (switch_to_src_link->remote_addr)[4],
-                             (switch_to_src_link->remote_addr)[3], (switch_to_src_link->remote_addr)[2],
-                             (switch_to_src_link->remote_addr)[1], (switch_to_src_link->remote_addr)[0]);
+                             (last_played->address)[5], (last_played->address)[4],
+                             (last_played->address)[3], (last_played->address)[2],
+                             (last_played->address)[1], (last_played->address)[0]);
 
             if ((1 << BT_FAST_PAIR_SASS_SWITCH_ACTIVE_AUDIO_SOURCE_DISCONNECT) & switch_audio_flags) {
                 APPS_LOG_MSGID_I(LOG_TAG" disconnect addr [%02X:%02X:%02X:%02X:%02X:%02X]", 6,
@@ -1332,7 +1338,7 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
 #ifdef AIR_TWS_ENABLE
             if (bt_connection_manager_device_local_info_get_aws_role() & (BT_AWS_MCE_ROLE_PARTNER)
                 && BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type()) {
-                app_fastpair_sass_aws_sync_ctrl_msg_t aws_msg = { 0 };
+                app_fast_pair_sass_aws_sync_ctrl_msg_t aws_msg = { 0 };
                 memcpy(&aws_msg.addr, addr, sizeof(aws_msg.addr));
                 memcpy(&aws_msg.msg_data, msg_data, sizeof(aws_msg.msg_data));
                 apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_BT_FAST_PAIR,
@@ -1346,16 +1352,25 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
 #endif
             const bt_device_manager_link_record_item_t *current_link = NULL;
 #endif
-            const bt_device_manager_link_record_item_t *another_link = NULL;
             uint32_t i = 0;
+#ifdef AIR_MULTI_POINT_ENABLE
+            bt_sink_srv_state_manager_played_device_t played_list[2];
+            uint32_t played_list_count = 2;
+            played_list_count = bt_sink_srv_state_manager_get_played_device_list(played_list, played_list_count);
+            bt_sink_srv_state_manager_played_device_t *last_played = NULL;
+            for (i = 0; i < played_list_count; i++) {
+                if (memcmp(played_list[i].address, *addr, sizeof(played_list[i].address)) != 0) {
+                    last_played = &played_list[i];
+                    break;
+                }
+            }
+#endif
             const bt_device_manager_link_record_t *link_info = bt_device_manager_link_record_get_connected_link();
             app_bt_takeover_service_get_last_takeover_device(&takeover_device);
             uint8_t *takeover_addr = takeover_device.addr;
             for (i = 0; link_info && i < link_info->connected_num; i++) {
                 if (memcmp(link_info->connected_device[i].remote_addr, addr, sizeof(bt_bd_addr_t)) != 0) {
-                    if (another_link == NULL) {
-                        another_link = &link_info->connected_device[i];
-                    }
+
                 } else {
 #ifdef AIR_BT_FAST_PAIR_LE_AUDIO_ENABLE
                     current_link = &link_info->connected_device[i];
@@ -1383,19 +1398,19 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
                 bt_cm_disconnect(&connect_param);
             }
 #ifdef AIR_MULTI_POINT_ENABLE
-            if (another_link) {
+            if (last_played) {
                 APPS_LOG_MSGID_I(LOG_TAG" BT_FAST_PAIR_MESSAGE_CODE_SASS_SWITCH_BACK another connected device:[%02X:%02X:%02X:%02X:%02X:%02X].", 6,
-                                 another_link->remote_addr[5], another_link->remote_addr[4], another_link->remote_addr[3],
-                                 another_link->remote_addr[2], another_link->remote_addr[1], another_link->remote_addr[0]);
+                                 last_played->address[5], last_played->address[4], last_played->address[3],
+                                 last_played->address[2], last_played->address[1], last_played->address[0]);
                 if (switch_back_event & BT_FAST_PAIR_SASS_SWITCH_BACK_EVENT_RESUME_PLAYING) {
-                    memcpy(g_app_fast_pair_context.allow_switch_audio_addr, another_link->remote_addr, sizeof(bt_bd_addr_t));
+                    memcpy(g_app_fast_pair_context.allow_switch_audio_addr, last_played->address, sizeof(bt_bd_addr_t));
                     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                           APPS_EVENTS_INTERACTION_FAST_PAIR_CLEAR_ACTIVE_SWITCH_RECORD);
                     ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
                                         EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                         APPS_EVENTS_INTERACTION_FAST_PAIR_CLEAR_ACTIVE_SWITCH_RECORD,
                                         NULL, 0, NULL, 1000);
-                    bt_sink_srv_send_action(BT_SINK_SRV_ACTION_PLAY, (void *) & (another_link->remote_addr));
+                    bt_sink_srv_send_action(BT_SINK_SRV_ACTION_PLAY, (void *) & (last_played->address));
                 }
             }
 #endif
@@ -1419,7 +1434,7 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
             break;
         }
         case BT_FAST_PAIR_MESSAGE_CODE_SASS_GET_CONNECTION_STATUS: {
-            /* Processed by middleare. */
+            /* Processed by middleware. */
             break;
         }
         case BT_FAST_PAIR_MESSAGE_CODE_SASS_NOTIFY_CONNECTION_STATUS: {
@@ -1431,7 +1446,7 @@ static bool app_fast_pair_app_event_proc_sass_msg(bt_bd_addr_t *addr, bt_fast_pa
             break;
         }
         case BT_FAST_PAIR_MESSAGE_CODE_SASS_INDICATE_IN_USE_ACCOUNT_KEY: {
-            /* Processed by middleare. */
+            /* Processed by middleware. */
             app_fast_pair_connection_state_change();
             break;
         }
@@ -1681,7 +1696,7 @@ uint8_t bt_fast_pair_sass_get_connection_state(void)
     /* Multipoint must be not defined when AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE is not defined */
     if (link_info && link_info->connected_num > 0) {
         le_audio_playing = link_info->connected_device[0].link_type == BT_DEVICE_MANAGER_LINK_TYPE_LE;
-        p_remote_addr = &(link_info->connected_device[0].remote_address);
+        p_remote_addr = &(link_info->connected_device[0].remote_addr);
     }
 #endif
 #endif
@@ -1704,11 +1719,11 @@ uint8_t bt_fast_pair_sass_get_connection_state(void)
             break;
         case APP_HFP_INCOMING:
         case APP_HFP_OUTGOING:
-        case APP_HFP_CALLACTIVE:
-        case APP_HFP_CALLACTIVE_WITHOUT_SCO:
+        case APP_HFP_CALL_ACTIVE:
+        case APP_HFP_CALL_ACTIVE_WITHOUT_SCO:
         case APP_HFP_TWC_INCOMING:
         case APP_HFP_TWC_OUTGOING:
-        case APP_HFP_MULTITPART_CALL:
+        case APP_HFP_MULTIPARTY_CALL:
         case APP_STATE_HELD_ACTIVE:
         case APP_STATE_VA:
             fast_pair_state = BT_FAST_PAIR_CONNECTION_STATE_HFP;
@@ -1749,6 +1764,11 @@ uint8_t bt_fast_pair_sass_get_connection_state(void)
         default:
             break;
     }
+#ifdef MTK_BT_SPEAKER_DISABLE_BROADCAST_EDR
+    if (BT_AWS_MCE_SRV_MODE_BROADCAST == bt_aws_mce_srv_get_mode()) {
+        fast_pair_state = BT_FAST_PAIR_CONNECTION_STATE_LE_AUDIO_DISABLE_CONNECTION_SWITCH;
+    }
+#endif
 
     /* Connection flags. */
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
@@ -1761,12 +1781,16 @@ uint8_t bt_fast_pair_sass_get_connection_state(void)
     if (link_info) {
         connected_count = link_info->connected_num;
     }
-    /* uint32_t connected_count = app_bt_state_service_get_connected_disinclude_aws(NULL, 0); */
+    /* uint32_t connected_count = app_bt_state_service_get_connected_exclude_aws(NULL, 0); */
 
     uint32_t max_connect = 1;
 #ifdef AIR_MULTI_POINT_ENABLE
     if (app_bt_emp_is_enable()) {
+#ifdef AIR_3_LINK_MULTI_POINT_ENABLE
         max_connect = BT_MAX_LINK_NUM - 1;
+#else
+        max_connect = 2;
+#endif
     }
 #endif
     APPS_LOG_MSGID_I(LOG_TAG" connected_count: %d, max_connect: %d", 2, connected_count, max_connect);
@@ -1827,7 +1851,7 @@ bool bt_fast_pair_set_le_io_capability(bool is_display_yesno)
 #endif
 
     }
-    APPS_LOG_MSGID_I(LOG_TAG" set_le_io_capability: set_result=0x%x, is_display_yesno=%d", 2, set_result, io_capability);
+    APPS_LOG_MSGID_I(LOG_TAG" set_le_io_capability: set_result=0x%x, is_display_yesno=%d", 2, set_result, is_display_yesno);
     return ret;
 }
 #endif
@@ -2028,7 +2052,7 @@ static void app_fast_pair_aws_mce_data_app_action_callback(app_fast_pair_local_c
         }
 #if defined(AIR_BT_FAST_PAIR_LE_AUDIO_ENABLE)
         case APP_FAST_PAIR_AWS_SYNC_SASS_CONTROL_MSG: {
-            app_fastpair_sass_aws_sync_ctrl_msg_t *ctrl_msg = (app_fastpair_sass_aws_sync_ctrl_msg_t *)extra_aws;
+            app_fast_pair_sass_aws_sync_ctrl_msg_t *ctrl_msg = (app_fast_pair_sass_aws_sync_ctrl_msg_t *)extra_aws;
             app_fast_pair_app_event_proc_sass_msg(&ctrl_msg->addr, &ctrl_msg->msg_data, false);
             break;
         }
@@ -2153,15 +2177,15 @@ static bool app_fast_pair_init(ui_shell_activity_t *self)
     atci_register_handler(fast_pair_test_atci_cmd, sizeof(fast_pair_test_atci_cmd) / sizeof(atci_cmd_hdlr_item_t));
     protect_sets = (app_fast_pair_protected_t *)pvPortMalloc(sizeof(app_fast_pair_protected_t));
     if (protect_sets != NULL && 0 == app_fast_pair_load_configure_info(&g_app_fast_pair_context, protect_sets)) {
-        if (g_app_fast_pair_context.nvkey.seleceted_set >= APP_FAST_PAIR_MODEL_SET_MAX_NUMBER) {
-            g_app_fast_pair_context.nvkey.seleceted_set = APP_FAST_PAIR_MODEL_SET_MAX_NUMBER - 1;
+        if (g_app_fast_pair_context.nvkey.selected_set >= APP_FAST_PAIR_MODEL_SET_MAX_NUMBER) {
+            g_app_fast_pair_context.nvkey.selected_set = APP_FAST_PAIR_MODEL_SET_MAX_NUMBER - 1;
         }
-        app_fast_pair_model_id = protect_sets->sets[g_app_fast_pair_context.nvkey.seleceted_set].model_id;
-        memcpy(app_fast_pair_private_key, &(protect_sets->sets[g_app_fast_pair_context.nvkey.seleceted_set].private_key), 32 * sizeof(uint8_t));
+        app_fast_pair_model_id = protect_sets->sets[g_app_fast_pair_context.nvkey.selected_set].model_id;
+        memcpy(app_fast_pair_private_key, &(protect_sets->sets[g_app_fast_pair_context.nvkey.selected_set].private_key), 32 * sizeof(uint8_t));
         vPortFree(protect_sets);
         APPS_LOG_MSGID_W(LOG_TAG" init model id 0x%x, max account %d, tx_power_exist %d, tx_power %d, component num %d select %d!",
                          6, app_fast_pair_model_id, g_app_fast_pair_context.nvkey.max_account, g_app_fast_pair_context.nvkey.tx_power_available,
-                         g_app_fast_pair_context.nvkey.tx_power_level, g_app_fast_pair_context.nvkey.component_num, g_app_fast_pair_context.nvkey.seleceted_set);
+                         g_app_fast_pair_context.nvkey.tx_power_level, g_app_fast_pair_context.nvkey.component_num, g_app_fast_pair_context.nvkey.selected_set);
         if (!g_app_fast_pair_context.nvkey.fps_enable) {
             return false;
         }
@@ -2169,7 +2193,7 @@ static bool app_fast_pair_init(ui_shell_activity_t *self)
         /* Load fail must stop init process */
         g_app_fast_pair_context.nvkey.fps_enable = 1;
         g_app_fast_pair_context.nvkey.max_account = APP_FAST_PAIR_DEFAULT_MAX_ACCOUNT;
-        g_app_fast_pair_context.nvkey.seleceted_set = 0;
+        g_app_fast_pair_context.nvkey.selected_set = 0;
         g_app_fast_pair_context.nvkey.tx_power_available = 1;
         g_app_fast_pair_context.nvkey.tx_power_level = APP_FAST_PAIR_DEFAULT_TX_POWER_LEVEL;
         g_app_fast_pair_context.nvkey.component_num = APP_FAST_PAIR_COMPONENT_NUM;
@@ -2240,10 +2264,10 @@ uint32_t app_fast_pair_get_model_id(void)
 
     protect_sets = (app_fast_pair_protected_t *)pvPortMalloc(sizeof(app_fast_pair_protected_t));
     if (protect_sets != NULL && 0 == app_fast_pair_load_configure_info(&g_app_fast_pair_context, protect_sets)) {
-        if (g_app_fast_pair_context.nvkey.seleceted_set >= APP_FAST_PAIR_MODEL_SET_MAX_NUMBER) {
-            g_app_fast_pair_context.nvkey.seleceted_set = APP_FAST_PAIR_MODEL_SET_MAX_NUMBER - 1;
+        if (g_app_fast_pair_context.nvkey.selected_set >= APP_FAST_PAIR_MODEL_SET_MAX_NUMBER) {
+            g_app_fast_pair_context.nvkey.selected_set = APP_FAST_PAIR_MODEL_SET_MAX_NUMBER - 1;
         }
-        model_id = protect_sets->sets[g_app_fast_pair_context.nvkey.seleceted_set].model_id;
+        model_id = protect_sets->sets[g_app_fast_pair_context.nvkey.selected_set].model_id;
     }
     if (protect_sets != NULL) {
         vPortFree(protect_sets);
@@ -3011,7 +3035,7 @@ void app_fast_pair_connection_state_change(void)
                 need_notify_switch = true;
             }
         } else if (g_app_fast_pair_context.switch_reason == BT_FAST_PAIR_SASS_MULTIPOINT_AUDIO_SRC_SWITCH_REASON_HFP) {
-            if ((apps_config_key_get_mmi_state() >= APP_HFP_INCOMING && apps_config_key_get_mmi_state() <= APP_HFP_MULTITPART_CALL)
+            if ((apps_config_key_get_mmi_state() >= APP_HFP_INCOMING && apps_config_key_get_mmi_state() <= APP_HFP_MULTIPARTY_CALL)
                 || apps_config_key_get_mmi_state() == APP_STATE_HELD_ACTIVE) {
                 need_notify_switch = true;
             }
@@ -3072,9 +3096,7 @@ bt_sink_srv_allow_result_t app_fast_pair_multi_link_get_allow_play(bt_sink_srv_d
             allow = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
             if (current_device->music_state == BT_SINK_SRV_STATE_STREAMING
                 && coming_device->music_state == BT_SINK_SRV_STATE_STREAMING) {
-                if (!(g_app_fast_pair_context.sass_switch_prefer_flags & (1 << BT_FAST_PAIR_SASS_MULTIPOINT_SWITCH_A_A_BIT))) {
-                    allow = BT_SINK_SRV_ALLOW_RESULT_ALLOW; /* Already allowed by switch active device message. */
-                }
+                allow = BT_SINK_SRV_ALLOW_RESULT_ALLOW; /* Already allowed by switch active device message. */
             } else if ((current_device->call_state >= BT_SINK_SRV_STATE_INCOMING || current_device->sco_state == BT_SINK_SRV_SCO_CONNECTION_STATE_CONNECTED)
                        && (coming_device->call_state >= BT_SINK_SRV_STATE_INCOMING || coming_device->sco_state == BT_SINK_SRV_SCO_CONNECTION_STATE_CONNECTED)) {
                 if (!(g_app_fast_pair_context.sass_switch_prefer_flags & (1 << BT_FAST_PAIR_SASS_MULTIPOINT_SWITCH_H_H_BIT))) {
@@ -3195,7 +3217,7 @@ int32_t bt_sink_srv_a2dp_int_user_conf_get(bt_bd_addr_ptr_t coming_addr, bt_bd_a
     }
 }
 
-#ifdef AIR_BT_FAST_PAIR_LE_AUDIO_ENABLE
+#ifdef AIR_LE_AUDIO_ENABLE
 int32_t bt_sink_srv_cap_am_lea_int_user_conf_get(bt_bd_addr_ptr_t coming_addr, bt_bd_addr_ptr_t cur_addr)
 {
     APPS_LOG_MSGID_I(LOG_TAG" 2 SP LE connected SASS use the same account key", 0);

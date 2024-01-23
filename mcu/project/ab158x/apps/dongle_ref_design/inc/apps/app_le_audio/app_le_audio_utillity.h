@@ -32,8 +32,8 @@
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
 
-#ifndef __APP_LE_AUDIO_UTILLITY_H__
-#define __APP_LE_AUDIO_UTILLITY_H__
+#ifndef __APP_LE_AUDIO_UTILITY_H__
+#define __APP_LE_AUDIO_UTILITY_H__
 
 #ifdef AIR_LE_AUDIO_ENABLE
 #include "FreeRTOS.h"
@@ -62,6 +62,7 @@ typedef enum {
     APP_LE_AUDIO_EVENT_START_SCAN_NEW_DEVICE,
     APP_LE_AUDIO_EVENT_STOP_SCAN_NEW_DEVICE,
     APP_LE_AUDIO_EVENT_TIMER_EXPIRED,
+    APP_LE_AUDIO_EVENT_STOP_TIMER,
     APP_LE_AUDIO_EVENT_VCP_RETRY,
     APP_LE_AUDIO_EVENT_MICP_RETRY,
     APP_LE_AUDIO_EVENT_ACTIVE_DEVICE_CHANGED,
@@ -164,5 +165,5 @@ bt_status_t app_le_audio_start_streaming_port(app_le_audio_stream_port_t port);
 bt_status_t app_le_audio_stop_streaming_port(app_le_audio_stream_port_t port);
 
 #endif /* AIR_LE_AUDIO_ENABLE */
-#endif /* __APP_LE_AUDIO_UTILLITY_H__ */
+#endif /* __APP_LE_AUDIO_UTILITY_H__ */
 

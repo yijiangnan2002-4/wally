@@ -49,10 +49,7 @@ ifeq ($(USE_DRC),y)
 ###################################################
 
 C_SRC += $(CPD_FUNC_PATH)/src/dsp_para_cpd.c
-
-ifeq ($(MTK_BT_HFP_SPE_ALG_V2),y)
-    C_SRC += $(CPD_FUNC_PATH)/src/compander_interface.c
-endif
+C_SRC += $(CPD_FUNC_PATH)/src/compander_interface.c
 
 ifeq ($(AIR_SOFTWARE_DRC_ENABLE),y)
 C_SRC += $(CPD_FUNC_PATH)/src/compander_interface_sw.c

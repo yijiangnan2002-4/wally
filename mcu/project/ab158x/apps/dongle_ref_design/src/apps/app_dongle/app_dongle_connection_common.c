@@ -177,8 +177,14 @@ static uint8_t g_app_dongle_ull_v2_uuid128_default[16] = { \
     0x41, 0x07, 0xAB, 0x2D, 0x4D, 0x49, 0x52, 0x50 \
 };
 #endif
+
+#ifdef AIR_LE_AUDIO_UNICAST_ENABLE
+extern bool app_lea_dongle_customer_check_adv_data(bt_gap_le_ext_advertising_report_ind_t *ind);
+#endif
+
 extern bt_gap_le_srv_link_t bt_device_manager_le_get_link_type_by_addr(bt_bd_addr_t *remote_addr);
 extern void app_dongle_cm_notify_switch_dongle_mode_result(bt_status_t status, app_dongle_cm_dongle_mode_t dongle_mode);
+extern bt_status_t bt_gap_le_srv_set_extended_scan(bt_gap_le_srv_set_extended_scan_parameters_t *param, bt_gap_le_srv_set_extended_scan_enable_t *enable, void *callback);
 static app_dongle_cm_ctrl_contex_t *app_dongle_cm_get_ctrl_context(void);
 static app_dongle_cm_source_info_t *app_dongle_cm_get_source_info(app_dongle_cm_source_t type);
 static bt_status_t app_dongle_cm_source_started_ull_v1_handler(app_dongle_cm_source_t type, bt_status_t status, void *data);
@@ -579,7 +585,7 @@ bt_status_t app_dongle_cm_rm_white_list(bt_addr_t *addr)
     if (ctrl_ctx->le_scan.scan_state_mask & APP_DONGLE_CM_SCAN_STATE_DISABLED) {
         ctrl_ctx->wl_info.set_wl_state = APP_DONGLE_CM_SET_WHITE_LIST_STATE_REMOVE_ON_GOING;
         app_dongle_cm_memcpy(&device, addr, sizeof(bt_addr_t));
-        status = bt_gap_le_set_white_list(BT_GAP_LE_REMOVE_FROM_WHITE_LIST, &device);
+        status = bt_gap_le_srv_operate_white_list(BT_GAP_LE_REMOVE_FROM_WHITE_LIST, &device, NULL);
         APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"app_dongle_cm_rm_white_list, status:%x", 1, status);
         return status;
     }
@@ -592,7 +598,7 @@ bt_status_t app_dongle_cm_clear_white_list(void)
     app_dongle_cm_ctrl_contex_t *ctrl_ctx = app_dongle_cm_get_ctrl_context();
     if (ctrl_ctx->le_scan.scan_state_mask & APP_DONGLE_CM_SCAN_STATE_DISABLED) {
         ctrl_ctx->wl_info.set_wl_state = APP_DONGLE_CM_SET_WHITE_LIST_STATE_CLEAR_ON_GOING;
-        status = bt_gap_le_set_white_list(BT_GAP_LE_CLEAR_WHITE_LIST, NULL);
+        status = bt_gap_le_srv_operate_white_list(BT_GAP_LE_CLEAR_WHITE_LIST, NULL, NULL);
         APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"app_dongle_cm_clear_white_list, status:%x", 1, status);
         return status;
     }
@@ -602,7 +608,7 @@ bt_status_t app_dongle_cm_clear_white_list(void)
 static bt_status_t app_dongle_cm_add_white_list(bt_addr_t *addr)
 {
     bt_status_t status;
-    status = bt_gap_le_set_white_list(BT_GAP_LE_ADD_TO_WHITE_LIST, addr);
+    status = bt_gap_le_srv_operate_white_list(BT_GAP_LE_ADD_TO_WHITE_LIST, addr, NULL);
     APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"app_dongle_cm_add_white_list, status:%x", 1, status);
     return status;
 }
@@ -760,7 +766,14 @@ static bt_status_t app_dongle_cm_set_white_list(void)
             //IDA
             p_bonded_info = bt_device_manager_le_get_bonding_info_by_addr_ext(&device.addr);
             if ((NULL != p_bonded_info) && (0 != app_dongle_cm_memcmp(p_bonded_info->info.identity_addr.address.addr, empty_addr, sizeof(bt_bd_addr_t)))) {
-                status = app_dongle_cm_add_white_list(&p_bonded_info->info.identity_addr.address);
+                bt_addr_t set_addr = {0};
+                if (p_bonded_info->info.identity_addr.address.type >= BT_ADDR_PUBLIC_IDENTITY) {
+                    set_addr.type = p_bonded_info->info.identity_addr.address.type - 2;
+                } else {
+                    set_addr.type = p_bonded_info->info.identity_addr.address.type;
+                }
+                app_dongle_cm_memcpy(&set_addr, &p_bonded_info->info.identity_addr.address, sizeof(bt_addr_t));
+                status = app_dongle_cm_add_white_list(&set_addr);
                 ida_cnt++;
             }
         }
@@ -807,6 +820,17 @@ static app_dongle_cm_source_t app_dongle_cm_check_uuid(bt_gap_le_ext_advertising
                     source_type = APP_DONGLE_CM_SOURCE_ULL_V2;
             }
         } else if (adv_report->data[i] >= 3) {
+            if (adv_report->data[i] >= 5) {
+                if ((adv_report->data[i + 1] == BT_GAP_LE_AD_TYPE_MANUFACTURER_SPECIFIC) \
+                && (adv_report->data[i + 2] == 0x94) \
+                && (adv_report->data[i + 3] == 0x00) \
+                && (adv_report->data[i + 4] == ((APP_DONGLE_CM_PAIRING_MODE_ADV_DATA & 0xFF00)) >> 8) \
+                && (adv_report->data[i + 5] == (APP_DONGLE_CM_PAIRING_MODE_ADV_DATA & 0xFF))) {
+                    is_pairing_mode_adv = true;
+                    APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"PAIRONG MODE ADV!!", 0);
+                }
+
+            }
             if ((ctrl_ctx->link_mode & APP_DONGLE_CM_LINK_MODE_LEA) && \
                 (APP_DONGLE_CM_STATE_START_SCAN_INQUIRY == source_info_lea->conn_state) && \
                 (adv_report->data[i + 1] == BT_GAP_LE_AD_TYPE_SERVICE_DATA) && \
@@ -814,11 +838,6 @@ static app_dongle_cm_source_t app_dongle_cm_check_uuid(bt_gap_le_ext_advertising
                 (adv_report->data[i + 3] == ((BT_GATT_UUID16_ASCS_SERVICE & 0xFF00) >> 8))) {
                 is_lea_adv = true;
                 APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"FIND LEA ADV!!", 0);
-            } else if ((adv_report->data[i + 1] == BT_GAP_LE_AD_TYPE_MANUFACTURER_SPECIFIC) \
-                && (adv_report->data[i + 2] == (APP_DONGLE_CM_PAIRING_MODE_ADV_DATA & 0xFF)) \
-                && (adv_report->data[i + 3] == ((APP_DONGLE_CM_PAIRING_MODE_ADV_DATA & 0xFF00)) >> 8)) {
-                 is_pairing_mode_adv = true;
-                 APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"PAIRONG MODE ADV!!", 0);
              }
         }
         i += (adv_report->data[i] + 1);
@@ -826,7 +845,11 @@ static app_dongle_cm_source_t app_dongle_cm_check_uuid(bt_gap_le_ext_advertising
     if (APP_DONGLE_CM_SOURCE_ULL_V2 == source_type && !is_pairing_mode_adv) {
         APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"FIND GENERIC MODE ULL2.0 ADV", 0);
         return APP_DONGLE_CM_SOURCE_ULL_V2;
-    } else if (is_lea_adv && !is_pairing_mode_adv) {
+    } else if (is_lea_adv && !is_pairing_mode_adv
+#ifdef AIR_LE_AUDIO_UNICAST_ENABLE
+    && app_lea_dongle_customer_check_adv_data(adv_report)
+#endif
+    ) {
         APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"FIND GENERIC MODE LEA ADV", 0);
         return APP_DONGLE_CM_SOURCE_LEA;
     }
@@ -886,7 +909,11 @@ static uint8_t app_dongle_cm_check_uuid_ex(bt_gap_le_ext_advertising_report_ind_
         }
         i += (adv_report->data[i] + 1);
     }
-    if (is_lea_adv) {
+    if (is_lea_adv
+#ifdef AIR_LE_AUDIO_UNICAST_ENABLE
+        && app_lea_dongle_customer_check_adv_data(adv_report)
+#endif
+        ) {
         APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"FIND LEA ADV", 0);
         source_type_mask |= (1 << APP_DONGLE_CM_SOURCE_LEA);
     }
@@ -930,6 +957,16 @@ static app_dongle_cm_source_t app_dongle_cm_check_uuid_ex2(bt_gap_le_ext_adverti
                     source_type = APP_DONGLE_CM_SOURCE_ULL_V2;
             }
         } else if (adv_report->data[i] >= 3) {
+            if (adv_report->data[i] >= 5) {
+                if ((adv_report->data[i + 1] == BT_GAP_LE_AD_TYPE_MANUFACTURER_SPECIFIC) \
+                && (adv_report->data[i + 2] == 0x94) \
+                && (adv_report->data[i + 3] == 0x00) \
+                && (adv_report->data[i + 4] == ((APP_DONGLE_CM_PAIRING_MODE_ADV_DATA & 0xFF00)) >> 8) \
+                && (adv_report->data[i + 5] == (APP_DONGLE_CM_PAIRING_MODE_ADV_DATA & 0xFF))) {
+                    is_pairing_mode_adv = true;
+                    APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"PAIRONG MODE ADV!!", 0);
+                }
+            }
             if ((ctrl_ctx->link_mode & APP_DONGLE_CM_LINK_MODE_LEA) && \
                 (APP_DONGLE_CM_STATE_START_SCAN_INQUIRY == source_info_lea->conn_state) && \
                 (adv_report->data[i + 1] == BT_GAP_LE_AD_TYPE_SERVICE_DATA) && \
@@ -937,11 +974,6 @@ static app_dongle_cm_source_t app_dongle_cm_check_uuid_ex2(bt_gap_le_ext_adverti
                 (adv_report->data[i + 3] == ((BT_GATT_UUID16_ASCS_SERVICE & 0xFF00) >> 8))) {
                 is_lea_adv = true;
                 APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"FIND LEA ADV!!", 0);
-             } else if ((adv_report->data[i + 1] == BT_GAP_LE_AD_TYPE_MANUFACTURER_SPECIFIC) \
-                && (adv_report->data[i + 2] == (APP_DONGLE_CM_PAIRING_MODE_ADV_DATA & 0xFF)) \
-                && (adv_report->data[i + 3] == ((APP_DONGLE_CM_PAIRING_MODE_ADV_DATA & 0xFF00)) >> 8)) {
-                 is_pairing_mode_adv = true;
-                 APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"PAIRONG MODE ADV!!", 0);
              }
         }
         i += (adv_report->data[i] + 1);
@@ -949,7 +981,11 @@ static app_dongle_cm_source_t app_dongle_cm_check_uuid_ex2(bt_gap_le_ext_adverti
     if (APP_DONGLE_CM_SOURCE_ULL_V2 == source_type && is_pairing_mode_adv) {
         APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"FIND PAIRING MODE ULL2.0 ADV", 0);
         return APP_DONGLE_CM_SOURCE_ULL_V2;
-    } else if (is_lea_adv && is_pairing_mode_adv) {
+    } else if (is_lea_adv && is_pairing_mode_adv
+#ifdef AIR_LE_AUDIO_UNICAST_ENABLE
+    && app_lea_dongle_customer_check_adv_data(adv_report)
+#endif
+    ) {
         APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"FIND PAIRING MODE LEA ADV", 0);
         return APP_DONGLE_CM_SOURCE_LEA;
     }
@@ -979,7 +1015,7 @@ static bt_status_t app_dongle_cm_enable_scan(bool wl_enable)
         .params_phy_coded = NULL,
     };
     param.scanning_filter_policy = wl_enable ? BT_HCI_SCAN_FILTER_ACCEPT_ONLY_ADVERTISING_PACKETS_IN_WHITE_LIST : BT_HCI_SCAN_FILTER_ACCEPT_ALL_ADVERTISING_PACKETS;
-    if (BT_STATUS_SUCCESS != (status = bt_gap_le_set_extended_scan(&param, &enable))) {
+    if (BT_STATUS_SUCCESS != (status = bt_gap_le_srv_set_extended_scan(&param, &enable, NULL))) {
         APPS_LOG_MSGID_E(APP_DONGLE_CM_LOG_TAG"enable adv scan failed, status:%x", 1, status);
         if (BT_STATUS_OUT_OF_MEMORY == status) {
             assert(0);
@@ -999,7 +1035,7 @@ static bt_status_t app_dongle_cm_disable_scan(void)
         .duration = 0,
         .period = 0
     };
-    if (BT_STATUS_SUCCESS != (status = bt_gap_le_set_extended_scan(NULL, &enable))) {
+    if (BT_STATUS_SUCCESS != (status = bt_gap_le_srv_set_extended_scan(NULL, &enable, NULL))) {
         APPS_LOG_MSGID_E(APP_DONGLE_CM_LOG_TAG"disable adv scan failed, status:%x", 1, status);
         if (BT_STATUS_OUT_OF_MEMORY == status) {
             assert(0);
@@ -1393,7 +1429,6 @@ static void app_dongle_cm_pairing_mode_timeout_handler(uint8_t timer_id, void *d
     }
     APPS_LOG_MSGID_I(APP_DONGLE_CM_LOG_TAG"app_dongle_cm_pairing_mode_timeout_handler", 0);
     status = app_dongle_cm_exit_le_pairing_mode();
-    if (BT_STATUS_SUCCESS == status) {
         if (ctrl_ctx->le_list.num != 0)
             connect_style_le = APP_DONGLE_CM_CONNECTION_USING_BONDING_LIST;
         else if (ctrl_ctx->le_scan.use_sirk)
@@ -1401,9 +1436,13 @@ static void app_dongle_cm_pairing_mode_timeout_handler(uint8_t timer_id, void *d
         else
             connect_style_le = APP_DONGLE_CM_CONNECTION_USING_UNKNOWN;
 
+    if (BT_STATUS_SUCCESS == status) {
         if (APP_DONGLE_CM_CONNECTION_USING_UNKNOWN != connect_style_le) {
             app_dongle_cm_le_start_scan_device(connect_style_le);
         }
+    } else if (BT_STATUS_PENDING == status) {
+        ctrl_ctx->connect_style_le = connect_style_le;
+        ctrl_ctx->le_scan.next_action = APP_DONGLE_CM_NEXT_ACTION_START_SCAN;
     } else {
         APPS_LOG_MSGID_E(APP_DONGLE_CM_LOG_TAG"app_dongle_cm_pairing_mode_timeout_handler, exit pairming mode error", 0);
     }

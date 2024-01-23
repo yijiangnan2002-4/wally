@@ -78,7 +78,7 @@
 #define TAG "[CFU] idle_activity "
 
 /* Init firmware version and product info.*/
-#define  CFU_FW_VESION          (0x01000100)        /* 0.1.0.0.0.1.0.0 (initial version). */
+#define  CFU_FW_VERSION          (0x01000100)        /* 0.1.0.0.0.1.0.0 (initial version). */
 #if defined(MTK_AWS_MCE_ENABLE)
 #define  CFU_PRODUCT_INFO       (0x00000300)        /* 03 is earbud component id.*/
 #else
@@ -248,7 +248,7 @@ static void app_ms_cfu_init()
 #else
     init_para.component_id         = CFU_COMPONENT_ID_HEADSET;    /* Customer configure component id. */
 #endif
-    init_para.firmware_version     = CFU_FW_VESION;               /* Customer configure option: 1.0.0.0.0.1.0.0 (initial version). */
+    init_para.firmware_version     = CFU_FW_VERSION;               /* Customer configure option: 1.0.0.0.0.1.0.0 (initial version). */
     init_para.product_info         = CFU_PRODUCT_INFO;            /* Customer configure product information. */
     init_para.event_fun            = app_ms_cfu_event_callback;
 #ifdef AIR_LE_AUDIO_ENABLE

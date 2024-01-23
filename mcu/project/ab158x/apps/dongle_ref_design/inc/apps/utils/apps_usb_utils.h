@@ -35,9 +35,21 @@
 #ifndef __APPS_USB_UTILS_H__
 #define __APPS_USB_UTILS_H__
 
-void app_usb_utils_register_bt_cb(void);
-void app_usb_utils_register_preintr_cb(void);
-void app_usb_utils_register_intr_cb(void);
-void app_usb_utils_register_hid_output_cb(void);
+void app_usb_utils_hid_bt_reg(void);
+
+#if defined(AIR_NVIDIA_REFLEX_ENABLE)
+void app_usb_utils_hid_preintr_reg(void);
+//void app_usb_utils_hid_intr_reg(void);
+#endif
+
+#if defined(AIR_PURE_GAMING_KB_ENABLE)
+void app_usb_utils_hid_kb_intr_reg(void);
+void app_usb_utils_hid_output_reg(void);
+void app_usb_utils_hid_output_cache_send();
+#endif
+
+void app_usb_utils_hid_ms_release_pkt();
+void app_usb_utils_hid_kb_release_pkt();
+void app_usb_utils_hid_nkey_release_pkt();
 
 #endif /* __APPS_USB_UTILS_H__ */

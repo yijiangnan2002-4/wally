@@ -105,6 +105,7 @@ typedef enum {
     RACE_FOTA_SP_TRANS_METHOD_HID,
 #endif
     RACE_FOTA_SP_TRANS_METHOD_1WIRE,
+    RACE_FOTA_SP_TRANS_METHOD_UART,
     RACE_FOTA_SP_TRANS_METHOD_MAX
 } race_fota_sp_trans_method_enum;
 
@@ -169,6 +170,7 @@ typedef struct {
 #ifdef RACE_LPCOMM_SENDER_ROLE_ENABLE
     race_lpcomm_role_enum fota_role; /* The device that receives the fota start cmd from SP directly is the Agent. */
 #endif
+    bt_bd_addr_t   remote_address;          /**< The Bluetooth address of the sp device. */
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
     uint8_t switch_link_timer_id;
 #endif
@@ -341,7 +343,7 @@ RACE_ERRCODE race_fota_set_sp_trans_method_by_channel_id(uint8_t channel_id);
 /* Return the channel_id fota is used based on sp_trans_method. */
 RACE_ERRCODE race_fota_channel_id_get(uint8_t *channel_id);
 
-bool race_fota_is_cmd_allowed(race_fota_stop_reason_enum *reason, uint16_t cmd_id, uint8_t channel_id);
+bool race_fota_is_cmd_allowed(race_fota_stop_reason_enum *reason, uint16_t cmd_id, uint8_t channel_id, bt_bd_addr_t *peer_address);
 
 RACE_ERRCODE race_fota_cmd_preprocess(uint16_t cmd_id,
                                       uint8_t cmd_type,

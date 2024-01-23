@@ -43,6 +43,10 @@ extern "C" {
 #include "stddef.h"
 #include "stdint.h"
 
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_SPEAKER_ENABLE)
+#error "For Speaker, not enable APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE"
+#endif
+
 enum {
     APP_SWIFT_PAIR_EVENT_RESTART_ADV             = 0,
     APP_SWIFT_PAIR_EVENT_SWIFT_ADV_TIMEOUT,
@@ -53,10 +57,14 @@ enum {
     APP_SWIFT_PAIR_EVENT_CUST_ADV_STOP,
     APP_SWIFT_PAIR_EVENT_CUST_GFP_ADV_RESTORE,
     APP_SWIFT_PAIR_EVENT_CUST_LEA_ADV_ADJUST,
+    APP_SWIFT_PAIR_EVENT_CUST_TRY_EDR_CONN,
     APP_SWIFT_PAIR_EVENT_CUST_CONN_TIMER_BASE    = 0x1000,
+    APP_SWIFT_PAIR_EVENT_CUST_DISCONNECT_BASE    = 0x2000,
 };
 
 void       app_swift_pair_restart_adv(void);
+
+uint16_t   app_swift_pair_get_conn_handle(void);
 
 #ifdef __cplusplus
 }

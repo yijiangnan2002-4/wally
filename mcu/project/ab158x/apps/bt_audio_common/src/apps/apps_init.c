@@ -52,6 +52,9 @@
 #include "apps_events_usb_event.h"
 #endif
 #include "apps_race_cmd_event.h"
+#ifdef AIR_RACE_CMD_CUSTOM_ENABLE
+#include "apps_race_cmd_event_custom.h"
+#endif
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_ENABLE)
 #include "apps_race_cmd_co_sys_event.h"
 #endif
@@ -194,7 +197,7 @@ extern void DrvCharger_SmartCase_Init(void);
 
 #if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 #include "app_dongle_service.h"
-#endif /* AIR_BT_ULTRA_LOW_LATENCY_ENABLE */
+#endif /* AIR_BLE_ULTRA_LOW_LATENCY_ENABLE */
 
 #ifdef MTK_ANC_ENABLE
 #include "app_adaptive_anc_idle_activity.h"
@@ -258,6 +261,9 @@ static void apps_init_events_senders(void)
 #ifdef MTK_RACE_CMD_ENABLE
     bt_race_app_event_init();
     apps_race_cmd_event_init();
+#ifdef AIR_RACE_CMD_CUSTOM_ENABLE
+    apps_race_cmd_event_custom_init();
+#endif
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_ENABLE)
     apps_race_cmd_co_sys_event_init();
 #endif

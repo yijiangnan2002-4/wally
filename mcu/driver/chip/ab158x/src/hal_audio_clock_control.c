@@ -472,6 +472,10 @@ void hal_audio_status_set_dac(audio_scenario_type_t type, mcu2dsp_open_param_t *
             return;
         }
         hal_audio_device_t out_device = param->stream_out_param.afe.audio_device;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+        out_device |= (param->stream_out_param.afe.audio_device1) | (param->stream_out_param.afe.audio_device2);
+#endif
+
         if (out_device & HAL_AUDIO_DEVICE_DAC_DUAL) {
             if (!hal_audio_status_get_clock_gate_status(AUDIO_POWER_DAC)) { // Power on DAC
                 hal_audio_status_enable_dac(true);
@@ -752,6 +756,9 @@ void hal_audio_status_set_dl_hires(audio_scenario_type_t type, mcu2dsp_open_para
         }
         uint32_t device_out_rate = param->stream_out_param.afe.sampling_rate;
         hal_audio_device_t out_device = param->stream_out_param.afe.audio_device;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+        out_device |= (param->stream_out_param.afe.audio_device1) | (param->stream_out_param.afe.audio_device2);
+#endif
         if (((out_device & HAL_AUDIO_DEVICE_DAC_DUAL) && (device_out_rate > 48000)) ||
             (hal_audio_status_get_clock_gate_status(AUDIO_CLOCK_DWLINK))) { // hi-res
             hires_flag = true;
@@ -1421,6 +1428,9 @@ void hal_audio_status_set_amp_lock(audio_scenario_type_t type, mcu2dsp_open_para
     /* AMP control should align with DSP side. */
     /* We can add DAC and I2S out into amp control mechanism, default: DAC */
     hal_audio_device_t out_device = param->stream_out_param.afe.audio_device;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    out_device |= (param->stream_out_param.afe.audio_device1) | (param->stream_out_param.afe.audio_device2);
+#endif
     uint32_t i = 0;
     hal_audio_device_t tmp_device = HAL_AUDIO_DEVICE_NONE;
     for (i = 0; i < AUDIO_AMP_DELAY_OFF_DEVICE_NUMBER; i ++) {
@@ -1449,12 +1459,13 @@ void hal_audio_status_set_amp_lock(audio_scenario_type_t type, mcu2dsp_open_para
             hal_audio_status_set_clock_gate(AUDIO_SCENARIO_TYPE_AMP, cg_amp, control);
             log_hal_msgid_info("[Audio Clock][AMP] lock clock [%d]!", 1, cg_amp);
         }
-
-        /* AMP lock for SPM state1 to avoid pop noise of ending */
-        if ((hal_audio_status_get_clock_gate_status(AUDIO_DSP_SPM_STATE1)) &&
-            (!hal_audio_status_check_clock_gate_status(AUDIO_SCENARIO_TYPE_AMP, AUDIO_DSP_SPM_STATE1))) { // DAC is already on
-            hal_audio_status_set_clock_gate(AUDIO_SCENARIO_TYPE_AMP, AUDIO_DSP_SPM_STATE1, control);
-            log_hal_msgid_info("[Audio Clock][AMP] lock SPM state1", 0);
+        /* Audio should lock S4 at least. */
+        if (!hal_audio_status_check_clock_gate_status(AUDIO_SCENARIO_TYPE_AMP, AUDIO_DSP_SPM_STATE4)) { // DAC is already on
+            if (!hal_audio_status_get_clock_gate_status(AUDIO_DSP_SPM_STATE4)) {
+                log_hal_msgid_info("[Audio Clock] lock SPM state4", 0);
+                spm_audio_lowpower_setting(SPM_STATE4, SPM_ENABLE); // DSP can sleep
+            }
+            hal_audio_status_set_clock_gate(AUDIO_SCENARIO_TYPE_AMP, AUDIO_DSP_SPM_STATE4, control);
         }
 
         /* AMP lock special clock */
@@ -1508,7 +1519,10 @@ void hal_audio_status_set_audio_clock_gate(audio_scenario_type_t type, mcu2dsp_o
         bool spdif_flag = false;
         if (param) {
             hal_audio_device_t out_device = param->stream_out_param.afe.audio_device;
-            if ((param->param.stream_out == STREAM_OUT_AFE) && (out_device == HAL_AUDIO_DEVICE_SPDIF)) {
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+            out_device |= (param->stream_out_param.afe.audio_device1) | (param->stream_out_param.afe.audio_device2);
+#endif
+            if ((param->param.stream_out == STREAM_OUT_AFE) && (out_device & HAL_AUDIO_DEVICE_SPDIF)) {
                 spdif_flag = true; // USE SPDIF
             }
         }

@@ -254,7 +254,7 @@ typedef struct {
     uint32_t send_csm_kbd_req        :3;
     uint32_t send_std_empty_kbd_req  :1;
     uint32_t send_csm_empty_kbd_req  :1;    // 21 bits
-    uint32_t gpt_timer_active        :1;    // 22 bits dongle side timer always on
+    uint32_t process_timer_active    :1;    // 22 bits
     uint32_t firekey_repeat_times    :8;    // 30 bits
     uint32_t during_resotre          :1;    // 31 bits
     uint32_t disconnection_req       :1;
@@ -278,11 +278,18 @@ static uint32_t remap_macro_key_press_event_cb(uint8_t key_idx);
 static uint32_t remap_fire_key_press_event_cb(uint8_t key_idx);
 static uint8_t app_mouse_attach_keyboard_report(T_KEY_REPORT_S *p_kbd);
 static uint8_t app_mouse_attach_consumer_report(T_KEY_REPORT_CONSUMER_S *p_csm);
+static bool app_key_remap_request_send_package(void);
+static uint16_t app_key_remap_get_report_rate(void);
 #define SET_KEY_OUTPUT(mouse_keys) {g_key_output = mouse_keys;}
 
 ATTR_RODATA_IN_TCM const uint8_t s_mouse_button_mask[] = {
     /* L,    M,    R,   S1,   S2 */
     0x01, 0x02, 0x04, 0x10, 0x08
+};
+
+ATTR_RODATA_IN_TCM const uint16_t s_scenario_rr_map[] = {
+    /* 4,    5,    6,   7,   8,   9 */
+    4000u, 2000u, 1000u, 500u, 250u, 125u
 };
 
 volatile uint8_t g_key_output;
@@ -297,6 +304,7 @@ ATTR_RWDATA_IN_TCM static uint8_t s_app_key_remap_events[APP_KEY_NUMBER] = {
 
 ATTR_ZIDATA_IN_TCM static uint8_t s_key_remap_profile[APP_KEY_NUMBER][KEYMAPPING_PATTERN_SIZE] = {0};
 static uint8_t s_key_remap_profile_valid_len[APP_KEY_NUMBER] = {0};
+ATTR_ZIDATA_IN_TCM static TimerHandle_t s_key_remap_timer = NULL;
 
 void app_key_remap_print_array(uint8_t *ptr, uint32_t len)
 {
@@ -677,17 +685,67 @@ static void app_key_remap_init_key_report(key_report_type_e type, key_report_u *
     }
 }
 
-ATTR_TEXT_IN_TCM
-void app_key_remap_key_status_update(uint8_t *p_button_mask, uint8_t pkt_reason)
+#if defined(AIR_PURE_GAMING_MS_ENABLE)
+/* true => send this package
+ * false => don't need to send this package
+ */
+static uint8_t s_report_package[7] = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 };
+ATTR_TEXT_IN_TCM static bool app_usb_utils_filter_repeat_pkt(uint8_t* data, uint16_t len)
 {
+    int cmp_result = 0;
+    if ((data == NULL) || (len != 7)) {
+        // APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"F @ %d", 1, __LINE__);
+        return false;
+    }
+    cmp_result = memcmp(data, s_report_package, 7);
+    memcpy(s_report_package, data, 7);
+    if(cmp_result){
+        // APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"T @ %d", 1, __LINE__);
+        return true;
+    }
+
+    // APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"F @ %d", 1, __LINE__);
+    return false;
+}
+#endif
+
+
+ATTR_TEXT_IN_TCM
+void app_key_remap_key_status_update(uint8_t *data, uint8_t len, uint8_t plc_reason)
+{
+    uint8_t tx_status = USB_HID_SEND_DATA_ERROR;
+    bool send_package_req = false;
     SET_GPIO_HIGH(14);
 
-    // APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"I:%02X", 1, *p_button_mask);
+    uint8_t* p_button_mask = &data[1];
+    // static uint32_t print_i_zero_cnt = 1;
+    // if(*p_button_mask){
+    //     print_i_zero_cnt = 1;
+    //     APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"I:%02X", 1, *p_button_mask);
+    // } else {
+    //     if(print_i_zero_cnt){
+    //         APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"I:%02X", 1, *p_button_mask);
+    //         print_i_zero_cnt = 0;
+    //     }
+    // }
 
     static uint8_t pre_phy_button_mask = 0xFF;
-    if((pre_phy_button_mask == *p_button_mask) || (pkt_reason != 0x0)){
+    if((pre_phy_button_mask == *p_button_mask) || (plc_reason != 0x0)){
         *p_button_mask = g_key_output;
-        // APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"CO:%02X", 1, g_key_output);
+        send_package_req = app_key_remap_request_send_package();
+        // APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"CO:%02X, plc_reason: %d, pre_phy_button_mask: %d, req: %d, len: %d", 5,
+        //     g_key_output, plc_reason, pre_phy_button_mask, send_package_req, len);
+        if(((plc_reason == 0x03) || (plc_reason == 0x04)) \
+           && (send_package_req == true)){
+            /* For scenarios where the mouse is not moving, special processing is provided
+             * when firekey or macro needs to be played. */
+            if(app_usb_utils_filter_repeat_pkt(data, len)){
+                tx_status = usb_hid_tx_non_blocking(usb_hid_find_port_by_report(USB_REPORT_DSCR_TYPE_GMOUSE), data, len);
+                if (tx_status != USB_HID_STATUS_OK) {
+                    memset(s_report_package, 0xFF, sizeof(s_report_package));
+                }
+            }
+        }
         SET_GPIO_LOW(14);
         return;
     } else {
@@ -822,7 +880,26 @@ void app_key_remap_key_status_update(uint8_t *p_button_mask, uint8_t pkt_reason)
 
     SET_KEY_OUTPUT(krcb.mouse_key_o);
     *p_button_mask = krcb.mouse_key_o;
-    // APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"O:%02X", 1, krcb.mouse_key_o);
+    // static uint32_t print_zero_cnt = 1;
+    // if(krcb.mouse_key_o){
+    //     print_zero_cnt = 1;
+    //     APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"O:%02X", 1, krcb.mouse_key_o);
+    // } else {
+    //     if(print_zero_cnt){
+    //         APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"O:%02X", 1, krcb.mouse_key_o);
+    //         print_zero_cnt = 0;
+    //     }
+    // }
+
+    if((krcb.p_current_macro || (krcb.firekey_req != NO_FIRE_KEY_REQUEST)) && \
+        (krcb.process_timer_active == 0)
+    ){
+        BaseType_t xHigherPriorityTaskWoken;
+        xTimerStartFromISR(s_key_remap_timer, &xHigherPriorityTaskWoken);
+        (void)xHigherPriorityTaskWoken;
+        krcb.process_timer_active = 1;
+        // APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"start key remap timer", 0);
+    }
 
     SET_GPIO_LOW(14);
 }
@@ -843,11 +920,13 @@ void app_dongle_key_remap_routine(TimerHandle_t xTimer)
     static uint8_t retry_curr_kbd = 0;
 
     uint8_t firekey_repeat_times;
+    uint32_t firekey_interval;
     uint8_t button_mask = 0;
     uint32_t diff_cnt, idx, irq_mask;
     T_KEY_REPORT_S *p_kbd = &(krcb.empty_std_kbd);
     uint8_t macro_refresh_req = 1;
     uint8_t send_res;
+    uint16_t report_rate;
 
     if(krcb.disconnection_req == 1){
         if(krcb.p_current_macro){
@@ -857,6 +936,7 @@ void app_dongle_key_remap_routine(TimerHandle_t xTimer)
             krcb.firekey_req = NO_FIRE_KEY_REQUEST;
             krcb.firekey_sig = 0;
             krcb.firekey_repeat_times = 0;
+            APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"dis conn, firekey output 0", 0);
             SET_KEY_OUTPUT(0);
         } else {
             /* only macro/firekey need to be stoped */
@@ -865,7 +945,7 @@ void app_dongle_key_remap_routine(TimerHandle_t xTimer)
         routine_cnt_firekey_start = 0;
         firekey_round = 0;
         routine_cnt = 0;
-        nothing_todo_cnt = 0;
+        nothing_todo_cnt = 10;
         krcb.disconnection_req = 0;
     }
 
@@ -1028,7 +1108,23 @@ void app_dongle_key_remap_routine(TimerHandle_t xTimer)
     } else if (krcb.firekey_req != NO_FIRE_KEY_REQUEST) {
         if(routine_cnt_firekey_start == 0){
             routine_cnt_firekey_start = routine_cnt;
-            firekey_period_cnt = (*(krcb.p_firekey_param + 2)) * 1000 / krcb.routine_interval_in_us;
+            firekey_interval = *(krcb.p_firekey_param + 2);
+            report_rate = app_key_remap_get_report_rate();
+            switch(report_rate){
+                case 4000:
+                case 2000:
+                case 1000:
+                    /* fall through */
+                    break;
+                case 500:
+                case 250:
+                case 125:
+                    /* fall through */
+                    firekey_interval *= 1000/report_rate;
+                    APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"firekey interval: %d", 1, firekey_interval);
+                    break;
+            }
+            firekey_period_cnt = (firekey_interval) * 1000 / krcb.routine_interval_in_us;
         }
         diff_cnt = routine_cnt - routine_cnt_firekey_start;
         if((diff_cnt != 0) && ((diff_cnt % firekey_period_cnt) == 0)){
@@ -1059,6 +1155,7 @@ void app_dongle_key_remap_routine(TimerHandle_t xTimer)
         }
         if(routine_mouse_key_o != button_mask){
             SET_KEY_OUTPUT(button_mask);
+            // APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"O: %d( firekey )", 1, button_mask);
         }
         routine_mouse_key_o = button_mask;
     } else {
@@ -1068,6 +1165,13 @@ void app_dongle_key_remap_routine(TimerHandle_t xTimer)
         ++nothing_todo_cnt;
         if(nothing_todo_cnt >= 10){
             nothing_todo_cnt = 0;
+            if(krcb.process_timer_active == 1){
+                BaseType_t xHigherPriorityTaskWoken;
+                xTimerStopFromISR(s_key_remap_timer, &xHigherPriorityTaskWoken);
+                (void)xHigherPriorityTaskWoken;
+                krcb.process_timer_active = 0;
+                // APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"stop key remap timer", 0);
+            }
         }
     }
 
@@ -1293,46 +1397,7 @@ static void app_key_remap_load_data(void)
     }
 }
 
-static TimerHandle_t s_key_remap_timer = NULL;
-static bool s_key_remap_timer_is_started = false;
-
-void app_key_remap_timer_start(void)
-{
-    uint32_t irq_mask;
-    bool do_operation = false;
-
-    hal_nvic_save_and_set_interrupt_mask(&irq_mask);
-    if ((!s_key_remap_timer_is_started) && (s_key_remap_timer != NULL)) {
-        s_key_remap_timer_is_started = true;
-        do_operation = true;
-    }
-    hal_nvic_restore_interrupt_mask(irq_mask);
-
-    if (do_operation) {
-        xTimerStart(s_key_remap_timer, 0);
-        APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"start key remap timer", 0);
-    }
-}
-
-void app_key_remap_timer_stop(void)
-{
-    uint32_t irq_mask;
-    bool do_operation = false;
-
-    hal_nvic_save_and_set_interrupt_mask(&irq_mask);
-    if ((s_key_remap_timer_is_started) && (s_key_remap_timer != NULL)) {
-        s_key_remap_timer_is_started = false;
-        do_operation = true;
-    }
-    hal_nvic_restore_interrupt_mask(irq_mask);
-
-    if (do_operation) {
-        xTimerStop(s_key_remap_timer, 0);
-        APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"stop key remap timer", 0);
-    }
-}
-
-bool app_key_remap_init()
+bool app_key_remap_init(void)
 {
     s_key_remap_timer = xTimerCreate("key remap", 0x1, pdTRUE, NULL, app_dongle_key_remap_routine);
     APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"create key remap timer return 0x%08X", 1, s_key_remap_timer);
@@ -1340,7 +1405,6 @@ bool app_key_remap_init()
         krcb.routine_interval_in_us = 1000;
         app_key_remap_load_data();
         app_key_remap_prepare_data();
-        app_key_remap_timer_start();
         return true;
     }
     return false;
@@ -1351,5 +1415,43 @@ void app_key_remap_disconnection_request(void)
     APPS_LOG_MSGID_I(KEY_REMAP_LOG_TAG"disconnection request", 0);
     memset(&s_app_key_remap_events[0], (uint8_t)key_event_release, APP_KEY_NUMBER);
     krcb.disconnection_req = 1;
+    app_dongle_key_remap_routine(s_key_remap_timer);
 }
+
+ATTR_TEXT_IN_TCM static bool app_key_remap_request_send_package(void)
+{
+    static uint32_t send_req_confirm = 0;
+    if((krcb.firekey_req != NO_FIRE_KEY_REQUEST) || \
+       (krcb.p_current_macro != NULL)
+    ) {
+        send_req_confirm = 0;
+        return true;
+    } else {
+        if(send_req_confirm >= 2){
+            return false;
+        } else {
+            /* On the dongle side, key remap only operates one byte of the mouse report.
+             * It is asynchronous with the packet send by the dongle side in BT ISR,
+             * so multiple confirmations are required.
+             * The empty end packet was never send, causing the firekey signal to be abnormal.
+             */
+            send_req_confirm++;
+            return true;
+        }
+    }
+}
+
+ATTR_TEXT_IN_TCM
+static uint16_t app_key_remap_get_report_rate(void)
+{
+    bt_ull_le_hid_srv_app_scenario_t scenario = app_dongle_ull_le_get_scenario_from_ctx();
+    if((scenario > BT_ULL_LE_HID_SRV_APP_SCENARIO_9) || \
+       (scenario < BT_ULL_LE_HID_SRV_APP_SCENARIO_4)
+    ){
+        return 125;
+    } else {
+        return s_scenario_rr_map[scenario - BT_ULL_LE_HID_SRV_APP_SCENARIO_4];
+    }
+}
+
 #endif /* defined(AIR_PURE_GAMING_MS_ENABLE) */

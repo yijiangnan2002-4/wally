@@ -88,8 +88,9 @@ bool INS_MemInit(void *para,eINS_AU_MODE au_path)
     DSP_STREAMING_PARA_PTR stream_ptr;
     stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
     U32 InstanceSize = 0;
+#ifdef AIR_DRC_ENABLE
     InstanceSize = get_INS_memsize();
-    
+#endif
     if (!INS_MemCheck(au_path)) {
         if(au_path == MODE_AU1_INS){
             if (!(InsMemoryPtr && (InsMemoryPtr->MemoryCheck == INS_RUNTIME_INVALID_MEMORY_CHECK_VALUE))) {
@@ -164,7 +165,9 @@ void stream_function_ins_deinitialize(void)
  */
 bool ins_audio_initialize(VOID *para, INS_INSTANCE_ptr au_ins_instance)
 {
+#ifdef AIR_DRC_ENABLE
     void *p_scratch = &au_ins_instance->ScratchMemory[0];
+#endif
     void *p_nvkey = &au_ins_instance->NvKey;
 
     UNUSED(para);
@@ -177,11 +180,14 @@ bool ins_audio_initialize(VOID *para, INS_INSTANCE_ptr au_ins_instance)
     if ((wired_audio_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_0) ||
         (wired_audio_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_1) ||
         (wired_audio_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_IN)) {
+#ifdef AIR_DRC_ENABLE
         INS_SetFrame8_Init(p_scratch);
+#endif
     }
 #endif
-
+#ifdef AIR_DRC_ENABLE
     INS_Init(p_scratch, p_nvkey);
+#endif
     return FALSE;
 }
 
@@ -213,10 +219,12 @@ bool ins_audio_process(VOID *para,INS_INSTANCE_ptr au_ins_instance)
     S16 dev_channels = (S16)stream_function_get_device_channel_number(para);
     U16 InsSampleSize;
     S16 channel_mode = 2; // 2:stereo 1:mono
+#ifdef AIR_DRC_ENABLE
     void *p_scratch = &au_ins_instance->ScratchMemory[0];
+#endif
     void *p_nvkey = &au_ins_instance->NvKey;
     UNUSED(p_nvkey);
-	
+
     if (au_ins_instance->NvKey.ENABLE == 0) {
         return FALSE;
     }
@@ -248,8 +256,9 @@ bool ins_audio_process(VOID *para,INS_INSTANCE_ptr au_ins_instance)
 #endif
 
     channel_mode = (BufR == NULL) ? 1 : 2;
+#ifdef AIR_DRC_ENABLE
     INS_Prcs(p_scratch, BufL, BufR, InsSampleSize, channel_mode);
-
+#endif
 #ifdef AIR_AUDIO_DUMP_ENABLE
     LOG_AUDIO_DUMP((U8 *)BufL, (U32)(InsSampleSize << 2), AUDIO_INS_OUT_L);
     if (BufR) {

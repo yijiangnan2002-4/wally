@@ -122,7 +122,7 @@ bool app_hearing_aid_aws_is_connected();
 
 bool app_hearing_aid_aws_set_vp_streaming_state(bool streaming);
 
-void app_hearing_aid_aws_sync_agent_app_info_to_partner(uint8_t *data, uint32_t data_len);
+// void app_hearing_aid_aws_sync_agent_app_info_to_partner(uint8_t *data, uint32_t data_len);
 
 void app_hearing_aid_aws_handle_sync_execute_event(uint32_t event_id,
                                                     void *extra_data,

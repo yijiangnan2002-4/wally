@@ -36,6 +36,11 @@
 #include "bt_sink_srv_state_manager_internal.h"
 
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
+static bool g_bt_sink_srv_state_manager_is_rho_update;
+
+static void bt_sink_srv_state_manager_set_rho_update(
+    bt_sink_srv_state_manager_context_t *context, bool is_rho_update);
+
 uint8_t bt_sink_srv_state_manager_rho_get_len(const bt_bd_addr_t *address)
 {
     uint8_t len = 0;
@@ -44,12 +49,12 @@ uint8_t bt_sink_srv_state_manager_rho_get_len(const bt_bd_addr_t *address)
 
     if (NULL != address) {
         device = bt_sink_srv_state_manager_get_device(
-                context,
-                BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
-                (bt_bd_addr_t *)address);
+                     context,
+                     BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
+                     (bt_bd_addr_t *)address);
 
         if (NULL != device) {
-            if (device == context->focus_call_device || device == context->focus_media_device) {
+            if (device == context->focus_device) {
                 len = sizeof(bt_sink_srv_state_manager_rho_data_t);
             }
         }
@@ -72,17 +77,17 @@ bt_status_t bt_sink_srv_state_manager_rho_get_data(const bt_bd_addr_t *address, 
 
     if (NULL != address) {
         device = bt_sink_srv_state_manager_get_device(
-                context,
-                BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
-                (bt_bd_addr_t *)address);
+                     context,
+                     BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
+                     (bt_bd_addr_t *)address);
 
         if (NULL != device) {
-            if (device == context->focus_call_device) {
-                rho_data->focus_type |= BT_SINK_SRV_STATE_MANAGER_FOCUS_DEVICE_CALL;
-            }
-
-            if (device == context->focus_media_device) {
-                rho_data->focus_type |= BT_SINK_SRV_STATE_MANAGER_FOCUS_DEVICE_MEDIA;
+            if (device == context->focus_device) {
+                if (BT_SINK_SRV_STATE_MANAGER_IS_CALL_DEVICE(device)) {
+                    rho_data->focus_type = BT_SINK_SRV_STATE_MANAGER_FOCUS_DEVICE_CALL;
+                } else {
+                    rho_data->focus_type = BT_SINK_SRV_STATE_MANAGER_FOCUS_DEVICE_MEDIA;
+                }
             }
         }
     }
@@ -109,9 +114,9 @@ bt_status_t bt_sink_srv_state_manager_rho_update(bt_role_handover_update_info_t 
             bt_sink_srv_report_id("[Sink][StaMgr]RHO update, focus_type: 0x%x", 1, rho_data->focus_type);
             if (rho_data->focus_type & BT_SINK_SRV_STATE_MANAGER_FOCUS_DEVICE_CALL) {
                 device = bt_sink_srv_state_manager_get_device(
-                        context,
-                        BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
-                        (bt_bd_addr_t *)info->addr);
+                             context,
+                             BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
+                             (bt_bd_addr_t *)info->addr);
 
                 if (NULL == device) {
                     new_device.type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR;
@@ -119,14 +124,14 @@ bt_status_t bt_sink_srv_state_manager_rho_update(bt_role_handover_update_info_t 
                     device = bt_sink_srv_state_manager_add_device(context, &new_device);
                 }
 
-                bt_sink_srv_state_manager_set_focus_call_device(context, device, true);
+                bt_sink_srv_state_manager_set_focus_device(context, device, true);
             }
 
             if (rho_data->focus_type & BT_SINK_SRV_STATE_MANAGER_FOCUS_DEVICE_MEDIA) {
                 device = bt_sink_srv_state_manager_get_device(
-                        context,
-                        BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
-                        (bt_bd_addr_t *)info->addr);
+                             context,
+                             BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
+                             (bt_bd_addr_t *)info->addr);
 
                 if (NULL == device) {
                     new_device.type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR;
@@ -134,7 +139,7 @@ bt_status_t bt_sink_srv_state_manager_rho_update(bt_role_handover_update_info_t 
                     device = bt_sink_srv_state_manager_add_device(context, &new_device);
                 }
 
-                bt_sink_srv_state_manager_set_focus_media_device(context, device, true);
+                bt_sink_srv_state_manager_set_focus_device(context, device, true);
             }
         }
     }
@@ -143,10 +148,10 @@ bt_status_t bt_sink_srv_state_manager_rho_update(bt_role_handover_update_info_t 
 }
 
 void bt_sink_srv_state_manager_rho_status(
-        const bt_bd_addr_t *address,
-        bt_aws_mce_role_t role,
-        bt_role_handover_event_t event,
-        bt_status_t status)
+    const bt_bd_addr_t *address,
+    bt_aws_mce_role_t role,
+    bt_role_handover_event_t event,
+    bt_status_t status)
 {
     bt_sink_srv_state_manager_context_t *context = bt_sink_srv_state_manager_get_context();
     bt_sink_srv_report_id("[Sink][StaMgr]RHO status, event: 0x%x, status: 0x%x", 2, event, status);
@@ -154,7 +159,9 @@ void bt_sink_srv_state_manager_rho_status(
     switch (event) {
         case BT_ROLE_HANDOVER_COMPLETE_IND: {
             if (BT_STATUS_SUCCESS == status) {
+                bt_sink_srv_state_manager_set_rho_update(context, true);
                 bt_sink_srv_state_manager_update_edr_devices(context);
+                bt_sink_srv_state_manager_set_rho_update(context, false);
             }
             break;
         }
@@ -164,5 +171,20 @@ void bt_sink_srv_state_manager_rho_status(
         }
     }
 }
+
+bool bt_sink_srv_state_manager_is_rho_update(bt_sink_srv_state_manager_context_t *context)
+{
+    (void)context;
+    return g_bt_sink_srv_state_manager_is_rho_update;
+}
+
+static void bt_sink_srv_state_manager_set_rho_update(
+    bt_sink_srv_state_manager_context_t *context, bool is_rho_update)
+{
+    (void)context;
+    g_bt_sink_srv_state_manager_is_rho_update = is_rho_update;
+    bt_sink_srv_report_id("[Sink][StaMgr]set RHO update: %d", 1, is_rho_update);
+}
+
 #endif
 

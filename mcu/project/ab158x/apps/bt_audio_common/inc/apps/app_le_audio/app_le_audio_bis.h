@@ -38,6 +38,7 @@
 #include "ui_shell_activity.h"
 #include "stdbool.h"
 #include "stdint.h"
+#include "bt_type.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,6 +55,8 @@ bool app_le_audio_bis_is_streaming(void);
 bool app_le_audio_bis_stop_streaming(bool sync_stop_state);
 
 void app_le_audio_config_bis_scan_params(void *data);
+
+bt_addr_t *app_le_audio_bis_get_scanning_address(void);
 
 void app_le_audio_forward_scan_action(void);
 

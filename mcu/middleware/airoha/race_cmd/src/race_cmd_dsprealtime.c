@@ -181,6 +181,13 @@ uint8_t g_leakage_detection_race_ch_id = 0;
 static uint16_t g_LD_result_agent = 0;  //bit[0:7]:result, bit[15]:done_or_not
 static uint16_t g_LD_result_partner = 0;//bit[0:7]:result, bit[15]:done_or_not
 static TimerHandle_t   s_xLeakageDetectionOneShotTimer = NULL;
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+uint8_t g_fadp_anc_compensation_race_ch_id = 0;
+int16_t g_SzD_result_L = 0;
+int16_t g_SzD_result_R = 0;
+static TimerHandle_t s_xFADPANCCompensationOneShotTimer = NULL;
+extern uint8_t g_FADP_USE_DEFAULT_FIR;
+#endif
 #endif
 #ifdef MTK_USER_TRIGGER_FF_ENABLE
 #ifndef MTK_USER_TRIGGER_ADAPTIVE_FF_V2
@@ -1263,6 +1270,105 @@ void audio_anc_leakage_detection_timer_check_result(void)
     }
 
 }
+
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+static void audio_fadp_anc_compensation_oneshot_timer_callback(TimerHandle_t xTimer)
+{
+    RACE_LOG_MSGID_I("[RECORD_SzD]audio_anc_fadp_compensation_oneshot_timer_callback\r\n", 0);
+    if ((g_SzD_result_L != LD_STATUS_FANC_PASS) && (g_SzD_result_R != LD_STATUS_FANC_PASS)) {
+        RACE_LOG_MSGID_I("[RECORD_SzD]stop waiting for FADP ANC result\r\n", 0);
+        audio_fadp_anc_compensation_fanc_stop(LD_STATUS_FANC_PASS);
+        anc_fadp_compensation_racecmd_response(LD_STATUS_FANC_PASS, 0);
+    }
+}
+
+void audio_fadp_anc_compensation_timer_check_result(void)
+{
+    if (s_xFADPANCCompensationOneShotTimer == NULL) {
+        s_xFADPANCCompensationOneShotTimer = xTimerCreate("FADPANCOneShot",
+                                                       3000 / portTICK_PERIOD_MS,
+                                                       pdFALSE,
+                                                       0,
+                                                       audio_fadp_anc_compensation_oneshot_timer_callback);
+        if (s_xFADPANCCompensationOneShotTimer == NULL) {
+            RACE_LOG_MSGID_I("[RECORD_SzD]create one_shot Timer error.\n", 0);
+
+        } else {
+            if (xTimerStart(s_xFADPANCCompensationOneShotTimer, 0) != pdPASS) {
+                RACE_LOG_MSGID_I("[RECORD_SzD]Timer start error.\r\n", 0);
+
+            }
+        }
+    } else {
+        if (xTimerReset(s_xFADPANCCompensationOneShotTimer, 0) != pdPASS) {
+            RACE_LOG_MSGID_I("[RECORD_SzD]Timer reset error.\r\n", 0);
+
+        }
+    }
+
+}
+
+void anc_fadp_compensation_racecmd_callback(uint16_t leakage_status)
+{
+    RACE_LOG_MSGID_I("[RECORD_SzD] anc_leakage_detection_racecmd_callback result:%d", 1, leakage_status);
+
+    if (leakage_status == LD_STATUS_SZD_PASS) {
+        audio_fadp_anc_compensation_timer_check_result();
+        audio_fadp_anc_compensation_szd_stop();
+    } else if (leakage_status == LD_STATUS_FANC_PASS) {
+        audio_fadp_anc_compensation_fanc_stop(LD_STATUS_FANC_PASS);
+        anc_fadp_compensation_racecmd_response(LD_STATUS_FANC_PASS, 0);
+    } else {
+        audio_fadp_anc_compensation_stop();
+        anc_fadp_compensation_racecmd_response(leakage_status, 0);
+    }
+}
+
+void anc_fadp_compensation_racecmd_response(uint16_t leakage_status, uint8_t state_ctrl)
+{
+    typedef struct {
+        adaptive_check_notify_t header;
+        uint8_t agent_status;
+        uint8_t partner_status;
+    } PACKED leakage_detection_notify_t;
+
+    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+
+    race_anc_mutex_take();
+
+    g_SzD_result_L = leakage_status;
+    g_SzD_result_R = leakage_status;
+    RACE_LOG_MSGID_I("[RECORD_SzD] State:%d, Get SzD result:%d, race_ch_id:%d", 3, state_ctrl, leakage_status, g_leakage_detection_race_ch_id);
+
+    if (role != BT_AWS_MCE_ROLE_NONE) {
+        leakage_detection_notify_t *pEvt = RACE_ClaimPacket(RACE_TYPE_NOTIFICATION,
+                                                            RACE_DSPREALTIME_ANC_ADAPTIVE_CHECK,
+                                                            sizeof(leakage_detection_notify_t),
+                                                            g_leakage_detection_race_ch_id);
+        if (pEvt) {
+            pEvt->header.start_or_stop     = 1;
+            pEvt->header.mode              = FADP_ANC_COMPENSATION_MODE;
+            pEvt->header.bit_per_sample    = 2;
+            pEvt->header.channel_num       = 0;
+            pEvt->header.frame_size        = 0;
+            pEvt->header.seq_num           = 0;
+            pEvt->header.total_data_length = 2;
+            pEvt->header.data_length       = 2;
+            pEvt->agent_status             = (uint8_t)(g_SzD_result_L & 0xFF);
+            pEvt->partner_status           = (uint8_t)(g_SzD_result_R & 0xFF);
+            RACE_LOG_MSGID_I("[RECORD_SzD] Send SzD result to APK : %d %d", 2, pEvt->agent_status, pEvt->partner_status);
+            race_flush_packet((void *)pEvt, g_fadp_anc_compensation_race_ch_id);
+        }
+        g_SzD_result_L= 0;
+        g_SzD_result_R = 0;
+        if (state_ctrl == 0) {
+            audio_fadp_anc_compensation_resume_dl();
+        }
+    }
+    race_anc_mutex_give();
+}
+#endif
+
 #endif
 #endif
 
@@ -1609,7 +1715,7 @@ void *RACE_DSPREALTIME_PEQ_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 #ifdef AIR_WIRED_AUDIO_ENABLE
         } else if (LINE_INENABLE == true && (pCmd->peq_PhaseAndPath == 0x10 || pCmd->peq_PhaseAndPath == 0x11)) {
             audio_path_id = AM_LINEIN_PEQ;
-        } else if ((USB_IN_ENABLE == true) && (pCmd->peq_PhaseAndPath == 0x04)) {
+        } else if ((USB_IN_ENABLE == true) && (pCmd->peq_PhaseAndPath == 0x04 || pCmd->peq_PhaseAndPath == 0x10)) {
             audio_path_id = AM_USB_IN_PEQ;
         } else if (((LINE_OUT_ENABLE == true)||(ami_hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_BLE_UL)==true)) && (pCmd->peq_PhaseAndPath == 0x05)) {
             audio_path_id = AM_MIC_PEQ;
@@ -3291,9 +3397,7 @@ void *RACE_DSPREALTIME_ANC_PASSTHRU_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_
                 g_adaptive_ANC_stream_MP_control_flag = true; //enter MP mode
 #endif
                 /* Enter MP mode, reset extend gain. */
-                audio_anc_control_extend_ramp_cap_t init_ramp_cap;
-                init_ramp_cap.extend_gain_1 = 0;
-                init_ramp_cap.extend_gain_2 = 0;
+                audio_anc_control_extend_ramp_cap_t init_ramp_cap = {0};
                 init_ramp_cap.gain_type = AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_WIND_NOISE;
                 anc_ret = audio_anc_control_set_extend_gain(init_ramp_cap.gain_type, &init_ramp_cap, NULL);
                 init_ramp_cap.gain_type = AUDIO_ANC_CONTROL_EXTEND_RAMP_TYPE_USER_UNAWARE;
@@ -3316,6 +3420,9 @@ void *RACE_DSPREALTIME_ANC_PASSTHRU_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_
             }
             case RACE_ANC_LEAVE_MP_MODE: {
                 anc_ret = audio_anc_control_command_handler(AUDIO_ANC_CONTROL_SOURCE_FROM_RACE, 0, (void *)pAnc_cmd);
+                /* Leave MP mode, reset anc sync time to default. */
+                audio_anc_control_set_sync_time(500);
+
                 /* Leave MP mode, enable Adaptive ANC. */
                 /* Important, DO NOT SET any NVDM. MP mode was temp control flow for MP test.*/
                 //;
@@ -3742,6 +3849,11 @@ void *RACE_DSPREALTIME_FADP_ANC_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
                 #ifdef AIR_ANC_ADAPTIVE_EVENT_DRIVEN_ENABLE
                 pEvt->param.getInfoRsp.Reserve_3 = g_FADP_ADAPTIVE_TIME_MS;
                 #endif
+                #ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+                pEvt->param.getInfoRsp.lc_setting = g_FADP_USE_DEFAULT_FIR;
+                #else
+                pEvt->param.getInfoRsp.lc_setting = 1;
+                #endif
                 pEvt->param.getInfoRsp.header.ancId   = RACE_FADP_ANC_GET_INFO;
                 pEvt->param.getInfoRsp.header.status  = anc_ret;
                 break;
@@ -4029,6 +4141,64 @@ void *RACE_DSPREALTIME_ANC_ADAPTIVE_CHECK_HDR(ptr_race_pkt_t pCmdMsg, uint8_t ch
             }
             break;
         }
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+        case FADP_ANC_COMPENSATION_MODE: {
+            g_fadp_anc_compensation_race_ch_id = channel_id;
+            race_anc_mutex_take();
+            g_SzD_result_L = 0;
+            g_SzD_result_R = 0;
+            race_anc_mutex_give();
+            pEvt = RACE_ClaimPacket(RACE_TYPE_RESPONSE, pCmd->Hdr.id, sizeof(RACE_DSPREALTIME_ANC_ADAPTIVE_CHECK_EVT_STRU), channel_id);
+            if (pEvt) {
+                pEvt->mode = FADP_ANC_COMPENSATION_MODE;
+                pEvt->enable = pCmd->enable;
+                pEvt->status = 0;
+                if (pCmd->enable == 1) {
+                    if (bt_sink_srv_ami_get_current_scenario() == HFP) {
+                        RACE_LOG_MSGID_I("[RECORD_SzD] FADP ANC compensation is terminated by HFP", 0);
+                        race_flush_packet((void *)pEvt, g_fadp_anc_compensation_race_ch_id);
+                        anc_fadp_compensation_racecmd_response(LD_STATUS_TERMINATE, 0);
+                        pEvt = NULL;
+                    } else {
+                        RACE_LOG_MSGID_I("[RECORD_SzD] receive race cmd", 0);
+                        audio_anc_leakage_detection_execution_t anc_ret = audio_fadp_anc_compensation_prepare(anc_fadp_compensation_racecmd_callback);
+
+                        if (anc_ret != AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) {
+                            if (anc_ret == AUDIO_LEAKAGE_DETECTION_EXECUTION_NOT_ALLOWED) {
+                                anc_fadp_compensation_racecmd_response(LD_STATUS_TERMINATE, LD_STATUS_TERMINATE);
+                                RACE_LOG_MSGID_I("[RECORD_SzD] FADP ANC compensation is not allowed:%d", 1, anc_ret);
+                            } else {
+                                anc_fadp_compensation_racecmd_response(LD_STATUS_TERMINATE, 0);
+                                RACE_LOG_MSGID_I("[RECORD_SzD] FADP ANC compensation is terminate:%d", 1, anc_ret);
+                            }
+                        }
+                        pEvt->status = (anc_ret == AUDIO_LEAKAGE_DETECTION_EXECUTION_SUCCESS) ? RACE_ERRCODE_SUCCESS : RACE_ERRCODE_FAIL;
+                    }
+                } else {
+                    audio_anc_control_result_t anc_ret = audio_fadp_anc_compensation_send_stop();
+                    pEvt->status = (anc_ret == AUDIO_ANC_CONTROL_EXECUTION_SUCCESS) ? RACE_ERRCODE_SUCCESS : RACE_ERRCODE_FAIL;
+                    RACE_LOG_MSGID_I("[RECORD_SzD] FADP ANC compensation is terminated by end-user", 0);
+                }
+            }
+            break;
+        }
+        case ANC_DEFAULT_FIR_MODE: {
+            pEvt = RACE_ClaimPacket(RACE_TYPE_RESPONSE, pCmd->Hdr.id, sizeof(RACE_DSPREALTIME_ANC_ADAPTIVE_CHECK_EVT_STRU), channel_id);
+            if (pEvt) {
+                pEvt->mode = ANC_DEFAULT_FIR_MODE;
+                pEvt->enable = pCmd->enable;
+                pEvt->status = 0;
+                if (pCmd->enable == 1) {
+                    g_FADP_USE_DEFAULT_FIR = 1;
+                    RACE_LOG_MSGID_I("[RECORD_SzD] ANC use default FIR: %d", 1, g_FADP_USE_DEFAULT_FIR);
+                } else {
+                    g_FADP_USE_DEFAULT_FIR = 0;
+                    RACE_LOG_MSGID_I("[RECORD_SzD] ANC use default FIR: %d", 1, g_FADP_USE_DEFAULT_FIR);
+                }
+            }
+            break;
+        }
+#endif
 #endif
 #ifdef MTK_USER_TRIGGER_FF_ENABLE
 #ifndef MTK_USER_TRIGGER_ADAPTIVE_FF_V2
@@ -5453,9 +5623,9 @@ void race_dsprealtime_anc_notify_gain_error(uint8_t status, uint8_t event_id)
 
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
     RACE_LOG_MSGID_I("[anc_gain] anc_notify_gain_error, [%02X] status=%d type=%d", 3, role, status, type);
-    if (role != BT_AWS_MCE_ROLE_AGENT && role != BT_AWS_MCE_ROLE_NONE) {
-        return;
-    }
+    // if (role != BT_AWS_MCE_ROLE_AGENT && role != BT_AWS_MCE_ROLE_NONE) {
+    //     return;
+    // }
 
     RACE_DSPREALTIME_ANC_REPLY_GAIN_EVT_STRU *event = RACE_ClaimPacket(RACE_TYPE_RESPONSE,
                                                                        RACE_DSPREALTIME_ANC_NOTIFY_GAIN,
@@ -5478,14 +5648,12 @@ void race_dsprealtime_anc_gain_control_response(uint8_t status, uint8_t type, bo
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
     RACE_LOG_MSGID_I("[anc_gain] anc_gain_control_response, [%02X] status=%d type=%d enable=%d",
                      4, role, status, type, enable);
-    if (role != BT_AWS_MCE_ROLE_AGENT && role != BT_AWS_MCE_ROLE_NONE) {
-        return;
-    }
 
     RACE_DSPREALTIME_ANC_GAIN_CONTROL_RSP_EVT_STRU *event = RACE_ClaimPacket(RACE_TYPE_RESPONSE,
-                                                                             RACE_DSPREALTIME_ANC_GAIN_CONTROL,
-                                                                             sizeof(RACE_DSPREALTIME_ANC_GAIN_CONTROL_RSP_EVT_STRU),
-                                                                             g_anc_race_ch_id);
+                                                            RACE_DSPREALTIME_ANC_GAIN_CONTROL,
+                                                            sizeof(RACE_DSPREALTIME_ANC_GAIN_CONTROL_RSP_EVT_STRU),
+                                                            g_anc_race_ch_id);
+
     if (event != NULL) {
         event->status = status;
         event->type = type;
@@ -5494,7 +5662,24 @@ void race_dsprealtime_anc_gain_control_response(uint8_t status, uint8_t type, bo
     }
 }
 
+void race_dsprealtime_anc_gain_control_notify(uint8_t status, uint8_t type, bool enable)
+{
+    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    RACE_LOG_MSGID_I("[anc_gain] anc_gain_control_notify, [%02X] status=%d type=%d enable=%d",
+                     4, role, status, type, enable);
 
+    RACE_DSPREALTIME_ANC_GAIN_CONTROL_RSP_EVT_STRU *event = RACE_ClaimPacket(RACE_TYPE_NOTIFICATION,
+                                                            RACE_DSPREALTIME_ANC_GAIN_CONTROL,
+                                                            sizeof(RACE_DSPREALTIME_ANC_GAIN_CONTROL_RSP_EVT_STRU),
+                                                            g_anc_race_ch_id);
+
+    if (event != NULL) {
+        event->status = status;
+        event->type = type;
+        event->enable = enable;
+        race_flush_packet((void *)event, g_anc_race_ch_id);
+    }
+}
 
 #if (defined AIR_ANC_USER_UNAWARE_ENABLE) || (defined AIR_ANC_WIND_DETECTION_ENABLE) || (defined AIR_ANC_ENVIRONMENT_DETECTION_ENABLE)
 static void race_dsprealtime_anc_notify_gain_result(anc_notfiy_gain_type_t type,
@@ -5509,9 +5694,9 @@ static void race_dsprealtime_anc_notify_gain_result(anc_notfiy_gain_type_t type,
     RACE_LOG_MSGID_I("[anc_gain] anc_notify_gain, [%02X] type=%d is_response=%d gain_1=%d gain_2=%d level=%d local_stationary_noise=%d peer_stationary_noise=%d",
                      8, role, type, is_response, gain_1, gain_2, level, local_stationary_noise, peer_stationary_noise);
 
-    if (role != BT_AWS_MCE_ROLE_AGENT && role != BT_AWS_MCE_ROLE_NONE) {
-        return;
-    }
+    // if (role != BT_AWS_MCE_ROLE_AGENT && role != BT_AWS_MCE_ROLE_NONE) {
+    //     return;
+    // }
 
     if (is_response) {
         RACE_DSPREALTIME_ANC_REPLY_GAIN_EVT_STRU *event = RACE_ClaimPacket(RACE_TYPE_RESPONSE,

@@ -61,13 +61,14 @@
 #include "bt_aws_mce_report.h"
 #include "bt_aws_mce_srv.h"
 #endif
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 #include "bt_ull_service.h"
 #endif
 
 #ifdef AIR_LE_AUDIO_ENABLE
 #include "bt_sink_srv_le_cap_audio_manager.h"
 #include "bt_sink_srv_le_cap_stream.h"
+#include "bt_gap_le_service.h"
 #endif
 
 
@@ -186,7 +187,7 @@ static void app_adaptive_eq_audio_resource_init(void)
 }
 #endif //APP_AEQ_MUTEX_AUDIO
 
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 static bool app_aeq_check_ull_streaming_status(void)
 {
     bt_ull_streaming_info_t info = {0};
@@ -218,7 +219,7 @@ static bool app_aeq_get_current_streaming_state(void)
 #ifdef AIR_LE_AUDIO_BIS_ENABLE
     is_bis_streaming = app_le_audio_bis_is_streaming();
 #endif
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     if (app_aeq_check_ull_streaming_status()) {
         is_ull_streaming = true;
     }
@@ -389,10 +390,15 @@ static bool app_aeq_idle_proc_bt_sink_event_group(ui_shell_activity_t *self,
             audio_src_srv_resource_manager_take(local_context->resource_handle);
 #elif defined(AIR_AUDIO_TRANSMITTER_ENABLE)
 #ifdef AIR_LE_AUDIO_ENABLE
-            bt_handle_t handle = bt_sink_srv_cap_get_ble_link_by_streaming_mode(bt_sink_srv_cap_am_get_current_mode());
-            if (handle != BT_HANDLE_INVALID) {
-                return false;
+        bt_sink_srv_device_state_t curr_state = {0};
+        if (bt_sink_srv_get_playing_device_state(&curr_state) == BT_STATUS_SUCCESS) {
+            if (curr_state.type == BT_SINK_SRV_DEVICE_LE) {
+                if (bt_sink_srv_cap_am_is_dsp_streaming_with_conversational_context()) {
+                    APPS_LOG_MSGID_W(LOG_TAG" LEA conversation", 0);
+                    return false;
+                }
             }
+        }
 #endif
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_AEQ_START_TIMER, NULL, 0, NULL, 200);
@@ -529,7 +535,7 @@ static aeq_control_status_t app_aeq_race_control_aeq_detect(bt_aws_mce_role_t ro
     return status;
 }
 
-static void app_aeq_race_query_detectiion_status(uint8_t channel_id)
+static void app_aeq_race_query_detection_status(uint8_t channel_id)
 {
     aeq_detect_status_t aeq_detect_status = RACE_AEQ_DETECT_STATUS_UNKNOWN;
     aeq_detect_status = app_aeq_get_detect_status();
@@ -555,7 +561,7 @@ static void app_aeq_race_control(aeq_control_param_t *param)
         && role == BT_AWS_MCE_ROLE_AGENT
 #endif
        ) {
-        app_aeq_race_query_detectiion_status(s_app_aeq_context.race_channel_id);
+        app_aeq_race_query_detection_status(s_app_aeq_context.race_channel_id);
         return;
     }
 
@@ -754,7 +760,7 @@ aeq_detect_status_t app_aeq_get_detect_status(void)
     } else if (!s_app_aeq_context.is_transmitter_start) {
         aeq_detect_status =  RACE_AEQ_DETECT_STATUS_NOT_RUNNING;
     }
-    APPS_LOG_MSGID_I(LOG_TAG " query_detectiion_status: eq_status=%d, detect_status=%d, streaming_status=%d, ANC_status=%d",
+    APPS_LOG_MSGID_I(LOG_TAG " query_detection_status: eq_status=%d, detect_status=%d, streaming_status=%d, ANC_status=%d",
                      4, eq_status, aeq_detect_nvdm, streaming_status, anc_enable);
     return aeq_detect_status;
 }

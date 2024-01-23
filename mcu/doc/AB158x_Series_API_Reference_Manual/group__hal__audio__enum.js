@@ -34,40 +34,6 @@ var group__hal__audio__enum =
       [ "AUDIO_AMP_PERFORMANCE_HIGH", "group__hal__audio__enum.html#gga199ebc446547baf42f76a1d543fbc3a4a8ece9539a6ac893efe1969ad968d21ed", null ],
       [ "AUDIO_AMP_PERFORMANCE_TYPE_DUMMY", "group__hal__audio__enum.html#gga199ebc446547baf42f76a1d543fbc3a4a7334742676203bb2145dcffda316f062", null ]
     ] ],
-    [ "audio_clock_setting_type_t", "group__hal__audio__enum.html#ga26b9b384e2c38d8f1dace5049102c92e", [
-      [ "AUDIO_CLOCK_INT", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea7a537ca3a56daad23c26c64cc37a1674", null ],
-      [ "AUDIO_CLOCK_ENGINE", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eae03e5970f165179f8c341a66ab6d0f2f", null ],
-      [ "AUDIO_CLOCK_GPSRC", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea6b6e5d0956ab0ab471ef6b91cb436f88", null ],
-      [ "AUDIO_CLOCK_UPLINK", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eaec312d6c8f9a4dc2e2542c75e5565e48", null ],
-      [ "AUDIO_CLOCK_DWLINK", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eaadf0a207de68dc26b8ccb1c8d94023e5", null ],
-      [ "AUDIO_CLOCK_SPDIF", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea677207f2cadb74cf1649c3f670352a4d", null ],
-      [ "AUDIO_CLOCK_INTF0_IN", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea2cc3e8ce920f388fd614704748dd3237", null ],
-      [ "AUDIO_CLOCK_INTF1_IN", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ead77a1047dbd17c36357d71be407460e9", null ],
-      [ "AUDIO_CLOCK_INTF0_OUT", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea2ac05ccb3965d9d34e65f48edc586d85", null ],
-      [ "AUDIO_CLOCK_INTF1_OUT", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eab537dc089a85f599b5ba2fe683483440", null ],
-      [ "AUDIO_CLOCK_TEST", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eafd66c3235ffa6151d7bd24933bc80587", null ],
-      [ "AUDIO_CLOCK_ANC", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eae29384c9370ffc53a959aadfc5d62dd3", null ],
-      [ "AUDIO_CLOCK_CLD", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eace985287fb6d42b6b77354cd7923236c", null ],
-      [ "AUDIO_CLOCK_VOW", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea1607080927435f0466d1142d2f5ae8ff", null ],
-      [ "AUDIO_POWER_MICBIAS_0_HP", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea68546d71846a2a5275595b0463d4e356", null ],
-      [ "AUDIO_POWER_MICBIAS_1_HP", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eafb288909b0cb524d149ba21bdf0b7764", null ],
-      [ "AUDIO_POWER_MICBIAS_2_HP", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea77bede425a12fc5d77822da46116e02c", null ],
-      [ "AUDIO_POWER_MICBIAS_0_NM", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea1a629cb4a7d2bdb57c6724e3ceae6f65", null ],
-      [ "AUDIO_POWER_MICBIAS_1_NM", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea62b31a761aef2fb5e3bef8f5a348f1b6", null ],
-      [ "AUDIO_POWER_MICBIAS_2_NM", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea74b8845d96e7004c926275e7030a9a5d", null ],
-      [ "AUDIO_POWER_MICBIAS_0_LP", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea85ca6715499756d3fa64594073ecdc4e", null ],
-      [ "AUDIO_POWER_MICBIAS_1_LP", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea19cebd7bd710464b4ccaec016ed4c11e", null ],
-      [ "AUDIO_POWER_MICBIAS_2_LP", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eab717943926da782284bdec29084eba78", null ],
-      [ "AUDIO_POWER_MICBIAS_END", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ead7e5f346a35ba9a096affb25cef3d3a0", null ],
-      [ "AUDIO_POWER_MICBIAS_SHARE", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eab7b9400b286ffc8ba53045749d8674a9", null ],
-      [ "AUDIO_POWER_DAC", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea78d94de322e874ffa5508dadd987d4ea", null ],
-      [ "AUDIO_POWER_I2S", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea66ebb9a79661ef5ac9e6160b9e8c91a4", null ],
-      [ "AUDIO_DSP_SPM_STATE1", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea62cf5463a12f8e6092bbbcbdd6ebebdb", null ],
-      [ "AUDIO_DSP_SPM_STATE3", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eab08da825dcf77d73530be77342e9a80f", null ],
-      [ "AUDIO_DSP_SPM_STATE4", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ead3f85751094c4836750d0dab21858942", null ],
-      [ "AUDIO_POWER_END", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92ea42b32459adc5bbabb4b9612f5887cfda", null ],
-      [ "AUDIO_CLOCK_MAX", "group__hal__audio__enum.html#gga26b9b384e2c38d8f1dace5049102c92eaaf1dc5ae6b3bd27ae2bdb67ab9919337", null ]
-    ] ],
     [ "AUDIO_DSP_CHANNEL_SELECTION", "group__hal__audio__enum.html#gaf40df8922a8339bc3d79b42edcea0d3a", [
       [ "AUDIO_DSP_CHANNEL_SELECTION_STEREO", "group__hal__audio__enum.html#ggaf40df8922a8339bc3d79b42edcea0d3aa1b50c8954dc0f9dffb4a80941381fc3f", null ],
       [ "AUDIO_DSP_CHANNEL_SELECTION_MONO", "group__hal__audio__enum.html#ggaf40df8922a8339bc3d79b42edcea0d3aabef61c9558a0b13ac889118fa87c7eb0", null ],
@@ -114,17 +80,6 @@ var group__hal__audio__enum =
     [ "hal_audio_bits_per_sample_t", "group__hal__audio__enum.html#gacc2bf0bb6346847e86755bc5e1a4c4dc", [
       [ "HAL_AUDIO_BITS_PER_SAMPLING_16", "group__hal__audio__enum.html#ggacc2bf0bb6346847e86755bc5e1a4c4dca9cd202fe23878a9820461f406de61642", null ],
       [ "HAL_AUDIO_BITS_PER_SAMPLING_24", "group__hal__audio__enum.html#ggacc2bf0bb6346847e86755bc5e1a4c4dca5613f1925512e8e778cafc0591fb68ff", null ]
-    ] ],
-    [ "hal_audio_dmic_selection_t", "group__hal__audio__enum.html#ga0fe1145ea865ef61b081e8a257df4096", [
-      [ "HAL_AUDIO_DMIC_GPIO_DMIC0", "group__hal__audio__enum.html#gga0fe1145ea865ef61b081e8a257df4096a0f9cb4e1e6db2d6898ccccd0a992472a", null ],
-      [ "HAL_AUDIO_DMIC_GPIO_DMIC1", "group__hal__audio__enum.html#gga0fe1145ea865ef61b081e8a257df4096ace8e1168e650ce90961e7a882a7b0eca", null ],
-      [ "HAL_AUDIO_DMIC_ANA_DMIC0", "group__hal__audio__enum.html#gga0fe1145ea865ef61b081e8a257df4096a4f28db875db19fe0016262e4ccce8b04", null ],
-      [ "HAL_AUDIO_DMIC_ANA_DMIC1", "group__hal__audio__enum.html#gga0fe1145ea865ef61b081e8a257df4096a49e8729d01c6ed2877d2536cb3309aa9", null ],
-      [ "HAL_AUDIO_DMIC_ANA_DMIC2", "group__hal__audio__enum.html#gga0fe1145ea865ef61b081e8a257df4096adc36e9335643fd8e31311ddf818e1943", null ],
-      [ "HAL_AUDIO_DMIC_ANA_DMIC3", "group__hal__audio__enum.html#gga0fe1145ea865ef61b081e8a257df4096a1fe63312af28794aa8dd362b5de2a29f", null ],
-      [ "HAL_AUDIO_DMIC_ANA_DMIC4", "group__hal__audio__enum.html#gga0fe1145ea865ef61b081e8a257df4096a75a0ae91fd63efd21d6288dea72de18f", null ],
-      [ "HAL_AUDIO_DMIC_ANA_DMIC5", "group__hal__audio__enum.html#gga0fe1145ea865ef61b081e8a257df4096a3eb1250d742b2a2cdc14727eda3fb6d4", null ],
-      [ "HAL_AUDIO_DMIC_DUMMY", "group__hal__audio__enum.html#gga0fe1145ea865ef61b081e8a257df4096a94dceaae1a99c6426c4c37336060f0de", null ]
     ] ],
     [ "hal_audio_event_t", "group__hal__audio__enum.html#ga95c1a2313b6bf4e0eef81759cc3a1678", [
       [ "HAL_AUDIO_EVENT_ERROR", "group__hal__audio__enum.html#gga95c1a2313b6bf4e0eef81759cc3a1678a6817dbe9453b5894abf0d8dc2b694c91", null ],

@@ -45,6 +45,9 @@
 #ifdef AIR_BT_FAST_PAIR_ENABLE
 #include "bt_fast_pair.h"
 #endif
+#ifdef AIR_CUST_PAIR_ENABLE
+#include "cust_pair.h"
+#endif
 #ifdef AIR_LE_AUDIO_ENABLE
 #include "app_lea_service_conn_mgr.h"
 #include "app_lea_service.h"
@@ -76,7 +79,12 @@ extern const bt_gatts_service_t bt_if_dtp_service;
 #ifdef MTK_BLE_BAS
 extern const bt_gatts_service_t ble_bas_service;
 #endif
+
+#ifdef AIR_CUST_PAIR_ENABLE
+extern const bt_gatts_service_t bt_if_gatt_service_without_data_hash;
+#endif
 //extern const bt_gatts_service_t bt_if_gatt_service;
+
 //extern const bt_gatts_service_t bt_if_gap_service;
 //extern const bt_gatts_service_t bt_if_dogp_service;
 
@@ -104,6 +112,7 @@ extern const bt_gatts_service_t xiaowei_ble_service;
 extern const bt_gatts_service_t xiaoai_ble_service;
 #ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
 extern const bt_gatts_service_t miui_fast_connect_service;
+extern uint16_t miui_fc_get_conn_handle(void);
 #endif
 #endif
 
@@ -129,6 +138,10 @@ extern const bt_gatts_service_t ble_mps_service;
 #ifdef AIR_LE_AUDIO_HAPS_ENABLE
 extern const bt_gatts_service_t ble_has_service;
 #endif
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+extern const bt_gatts_service_t ble_gmas_service;
+#endif
+
 extern bool bt_le_audio_sink_is_link_valid(bt_handle_t handle);
 #endif
 
@@ -172,10 +185,10 @@ const bt_gatts_service_t *bt_if_clm_gatt_server[] = {
     &xiaowei_ble_service,                 /**< handle range: 0x00E0 to 0x00E5. */
 #endif
 #ifdef AIR_XIAOAI_ENABLE
-    &xiaoai_ble_service,                  /**< handle range: 0x00F0 to 0x00F5. */
 #ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
-    &miui_fast_connect_service,     /**< handle range: 0x00E0 to 0x00EB. */
+    &miui_fast_connect_service,           /**< handle range: 0x00E0 to 0x00EB. */
 #endif
+    &xiaoai_ble_service,                  /**< handle range: 0x00F0 to 0x00F5. */
 #endif
 #ifdef AIR_BT_FAST_PAIR_ENABLE
     &bt_fast_pair_service,                /**< handle range: 0x0100 to 0x0110. */
@@ -206,17 +219,20 @@ const bt_gatts_service_t *bt_if_lea_gatt_server[] = {
     &ble_air_service,                     /**< handle range: 0x0051 to 0x0056. */
 #endif
     &ble_dis_service,                     /**< handle range: 0x0060 to 0x0072. */
-#ifdef AIR_BT_FAST_PAIR_ENABLE
-    &bt_fast_pair_service,                /**< handle range: 0x0100 to 0x0110. */
-#endif
-#ifdef AIR_BLE_HRS_ENABLE
-    &ble_hrs_service,                     /**< handle range: 0x0541 to 0x0548. */
+#if defined(AIR_CUST_PAIR_ENABLE) && defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE)
+    &cust_pair_srv_service,               /**< handle range: 0x0080 to 0x0083. */
 #endif
 #ifdef AIR_XIAOAI_ENABLE
 #ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
     &miui_fast_connect_service,           /**< handle range: 0x00E0 to 0x00EB. */
 #endif
     &xiaoai_ble_service,                  /**< handle range: 0x00F0 to 0x00F5. */
+#endif
+#ifdef AIR_BT_FAST_PAIR_ENABLE
+    &bt_fast_pair_service,                /**< handle range: 0x0100 to 0x0110. */
+#endif
+#ifdef AIR_BLE_HRS_ENABLE
+    &ble_hrs_service,                     /**< handle range: 0x0541 to 0x0548. */
 #endif
 #ifdef AIR_HOGP_ENABLE
     &bt_hid_service,                      /**< handle range: 0x0200 to 0x0217. */
@@ -247,7 +263,42 @@ const bt_gatts_service_t *bt_if_lea_gatt_server[] = {
 #ifdef AIR_LE_AUDIO_HAPS_ENABLE
     &ble_has_service,                     /**< handle range: 0xA600 to 0xA608. */
 #endif
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    &ble_gmas_service,                    /**< handle range: 0xA701 to 0xA703. */
 #endif
+#endif
+    NULL
+};
+#endif
+
+#ifdef AIR_XIAOAI_ENABLE
+const bt_gatts_service_t *bt_if_xiaoai_gatt_server[] = {
+    &bt_if_gap_service,                   /**< handle range: 0x0001 to 0x0009. */
+    &bt_if_gatt_service,                  /**< handle range: 0x0011 to 0x0015. */
+#ifdef MTK_BLE_BAS
+    &ble_bas_service,                     /**< handle range: 0x0031 to 0x0034. */
+#endif
+    &ble_dis_service,                     /**< handle range: 0x0060 to 0x0072. */
+#ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
+    &miui_fast_connect_service,           /**< handle range: 0x00E0 to 0x00EB. */
+#endif
+    &xiaoai_ble_service,                  /**< handle range: 0x00F0 to 0x00F5. */
+    NULL
+};
+#endif
+
+#ifdef AIR_CUST_PAIR_ENABLE
+const bt_gatts_service_t *bt_cust_pair_gatt_server[] = {
+    &bt_if_gap_service,                    /**< handle range: 0x0001 to 0x0009. */
+    &bt_if_gatt_service_without_data_hash, /**< handle range: 0x0011 to 0x0015. */
+#ifdef MTK_BLE_BAS
+    &ble_bas_service,                      /**< handle range: 0x0031 to 0x0034. */
+#endif
+#ifdef MTK_PORT_SERVICE_BT_ENABLE
+    &ble_air_service,                      /**< handle range: 0x0051 to 0x0056. */
+#endif
+    &ble_dis_service,                      /**< handle range: 0x0060 to 0x0072. */
+    &cust_pair_srv_service,                /**< handle range: 0x0080 to 0x0083. */
     NULL
 };
 #endif
@@ -256,6 +307,17 @@ const bt_gatts_service_t *bt_if_lea_gatt_server[] = {
 /**< You have to return the DB(bt_gatts_service_t pointer) to gatts stack. */
 const bt_gatts_service_t **bt_gatts_get_server_by_handle(bt_handle_t connection_handle)
 {
+#if defined(AIR_CUST_PAIR_ENABLE) && !defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE)
+    cust_pair_conn_type conn_type = cust_pair_get_conn_type(connection_handle);
+    if (conn_type == CUST_PAIR_CONN_TYPE_CUST || conn_type == CUST_PAIR_CONN_TYPE_STD) {
+        return bt_cust_pair_gatt_server;
+    }
+#endif
+#ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
+    if (connection_handle != BT_HANDLE_INVALID && connection_handle == miui_fc_get_conn_handle()) {
+        return bt_if_xiaoai_gatt_server;
+    }
+#endif
 #ifdef AIR_LE_AUDIO_ENABLE
     if (app_lea_service_is_enabled_lea()) {
         uint8_t conn_type = app_lea_conn_mgr_get_conn_type(connection_handle);

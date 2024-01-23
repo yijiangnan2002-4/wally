@@ -76,7 +76,7 @@
 #define APP_BT_SOURCE_SCAN_MAX_NUM                   10
 
 #define APP_BT_SOURCE_CONN_MAX_NUM                   1
-#define APP_BT_SOURCE_CONN_INVAILD_INDEX             0xFF
+#define APP_BT_SOURCE_CONN_INVALID_INDEX             0xFF
 
 #define APP_BT_SOURCE_BOND_MAX_NUM                   4
 
@@ -420,7 +420,7 @@ static bool app_bt_source_conn_mgr_check_empty_addr(const uint8_t *addr)
 
 static uint8_t app_bt_source_conn_mgr_get_unused_index(void)
 {
-    uint8_t index = APP_BT_SOURCE_CONN_INVAILD_INDEX;
+    uint8_t index = APP_BT_SOURCE_CONN_INVALID_INDEX;
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
     for (int i = 0; i < APP_BT_SOURCE_CONN_MAX_NUM; i++) {
         if (memcmp(app_bt_source_conn_mgr_ctx.device[i].addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
@@ -434,7 +434,7 @@ static uint8_t app_bt_source_conn_mgr_get_unused_index(void)
 
 static uint8_t app_bt_source_conn_mgr_get_index_by_addr(const uint8_t *addr)
 {
-    uint8_t index = APP_BT_SOURCE_CONN_INVAILD_INDEX;
+    uint8_t index = APP_BT_SOURCE_CONN_INVALID_INDEX;
     if (app_bt_source_conn_mgr_check_empty_addr(addr)) {
         return index;
     }
@@ -453,14 +453,14 @@ static uint8_t app_bt_source_conn_mgr_find_and_update_index_by_addr(const uint8_
 {
     uint8_t index = app_bt_source_conn_mgr_get_index_by_addr(addr);
 
-    if (index == APP_BT_SOURCE_CONN_INVAILD_INDEX) {
+    if (index == APP_BT_SOURCE_CONN_INVALID_INDEX) {
         APPS_LOG_MSGID_I(LOG_TAG" find_and_update_index, not conn_device addr", 0);
 
         if (bt_device_manager_is_paired(addr)) {
             index = app_bt_source_conn_mgr_get_unused_index();
             APPS_LOG_MSGID_I(LOG_TAG" find_and_update_index, find unused_index[%d]", 1, index);
 
-            if (index != APP_BT_SOURCE_CONN_INVAILD_INDEX) {
+            if (index != APP_BT_SOURCE_CONN_INVALID_INDEX) {
                 memset(&app_bt_source_conn_mgr_ctx.device[index], 0, sizeof(app_bt_source_conn_device_t));
                 memcpy(app_bt_source_conn_mgr_ctx.device[index].addr, addr, BT_BD_ADDR_LEN);
             } else {
@@ -891,7 +891,7 @@ static bool app_bt_source_conn_mgr_proc_bt_cm_group(uint32_t event_id,
             bt_cm_remote_info_update_ind_t *remote_update = (bt_cm_remote_info_update_ind_t *)extra_data;
             if (remote_update != NULL) {
                 uint8_t *addr = (uint8_t *)remote_update->address;
-                uint8_t index = APP_BT_SOURCE_CONN_INVAILD_INDEX;
+                uint8_t index = APP_BT_SOURCE_CONN_INVALID_INDEX;
                 bt_status_t reason = remote_update->reason;
                 APPS_LOG_MSGID_I(LOG_TAG" BT_CM event, addr=%08X%04X acl=%d->%d srv=0x%04X->0x%04X reason=%02X",
                                  7, *((uint32_t *)(addr + 2)), *((uint16_t *)addr),
@@ -903,7 +903,7 @@ static bool app_bt_source_conn_mgr_proc_bt_cm_group(uint32_t event_id,
                 if (remote_update->pre_acl_state < BT_CM_ACL_LINK_CONNECTED
                     && remote_update->acl_state >= BT_CM_ACL_LINK_CONNECTED) {
                     index = app_bt_source_conn_mgr_find_and_update_index_by_addr(addr);
-                    if (index == APP_BT_SOURCE_CONN_INVAILD_INDEX && !app_bt_source_conn_mgr_ctx.is_bonded) {
+                    if (index == APP_BT_SOURCE_CONN_INVALID_INDEX && !app_bt_source_conn_mgr_ctx.is_bonded) {
                         // workaround for PTS
                         APPS_LOG_MSGID_E(LOG_TAG" BT_CM event, Connected by peer", 0);
                         memcpy(app_bt_source_conn_mgr_ctx.device[0].addr, addr, BT_BD_ADDR_LEN);
@@ -917,7 +917,7 @@ static bool app_bt_source_conn_mgr_proc_bt_cm_group(uint32_t event_id,
                     && remote_update->acl_state == BT_CM_ACL_LINK_DISCONNECTED
                     && reason == BT_HCI_STATUS_PIN_OR_KEY_MISSING) {
                     index = app_bt_source_conn_mgr_get_index_by_addr(addr);
-                    if (index != APP_BT_SOURCE_CONN_INVAILD_INDEX) {
+                    if (index != APP_BT_SOURCE_CONN_INVALID_INDEX) {
                         uint8_t state = app_bt_source_conn_mgr_ctx.device[index].state;
                         if (state == APP_BT_SOURCE_CONN_STATE_CONNECTING
                             || state == APP_BT_SOURCE_CONN_STATE_POWER_ON_RECONNECT) {
@@ -933,7 +933,7 @@ static bool app_bt_source_conn_mgr_proc_bt_cm_group(uint32_t event_id,
                     index = app_bt_source_conn_mgr_find_and_update_index_by_addr(addr);
                     APPS_LOG_MSGID_I(LOG_TAG" BT_CM event, [%d] A2DP Connected", 1, index);
 
-                    if (index != APP_BT_SOURCE_CONN_INVAILD_INDEX) {
+                    if (index != APP_BT_SOURCE_CONN_INVALID_INDEX) {
                         bt_cm_connect_t connect_param = {
                             .profile = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AIR),
                         };
@@ -945,7 +945,7 @@ static bool app_bt_source_conn_mgr_proc_bt_cm_group(uint32_t event_id,
                     app_bt_source_conn_mgr_notify_dongle_cm(TRUE);
                     app_bt_source_conn_mgr_state_machine_run(index, APP_BT_SOURCE_CONN_EVENT_CONNECTED);
 #if (APP_BT_SOURCE_SCAN_POLICY == APP_BT_SOURCE_SCAN_POLICY_BY_TOOL)
-                    if (index != APP_BT_SOURCE_CONN_INVAILD_INDEX) {
+                    if (index != APP_BT_SOURCE_CONN_INVALID_INDEX) {
 #ifdef MTK_RACE_CMD_ENABLE
                         app_dongle_le_race_notify_connect_event(0, APP_DONGLE_LE_RACE_SINK_DEVICE_BT_SRC, TRUE,
                                                                 BT_ADDR_PUBLIC, addr, APP_DONGLE_DEVICE_ID_BASE, 0);
@@ -975,7 +975,7 @@ static bool app_bt_source_conn_mgr_proc_bt_cm_group(uint32_t event_id,
                     }
 
 #if (APP_BT_SOURCE_SCAN_POLICY == APP_BT_SOURCE_SCAN_POLICY_BY_TOOL) && defined(MTK_RACE_CMD_ENABLE)
-                    if (index != APP_BT_SOURCE_CONN_INVAILD_INDEX) {
+                    if (index != APP_BT_SOURCE_CONN_INVALID_INDEX) {
                         app_dongle_le_race_notify_connect_event(0, APP_DONGLE_LE_RACE_SINK_DEVICE_BT_SRC, FALSE,
                                                                 BT_ADDR_PUBLIC, addr, 0xFF, 0xFF);
                     }
@@ -990,7 +990,7 @@ static bool app_bt_source_conn_mgr_proc_bt_cm_group(uint32_t event_id,
                 if (remote_update->pre_acl_state == BT_CM_ACL_LINK_CONNECTING
                     && remote_update->acl_state == BT_CM_ACL_LINK_DISCONNECTED) {
                     uint8_t index = app_bt_source_conn_mgr_get_index_by_addr(addr);
-                    if (index != APP_BT_SOURCE_CONN_INVAILD_INDEX) {
+                    if (index != APP_BT_SOURCE_CONN_INVALID_INDEX) {
                         if (app_bt_source_conn_mgr_ctx.device[index].state == APP_BT_SOURCE_CONN_STATE_POWER_ON_RECONNECT
                             || app_bt_source_conn_mgr_ctx.device[index].state == APP_BT_SOURCE_CONN_STATE_LINK_LOST_RECONNECT) {
                             APPS_LOG_MSGID_W(LOG_TAG" BT_CM event, [%d] continue to reconnect", 1, index);
@@ -1354,7 +1354,7 @@ void app_bt_source_conn_mgr_connect_addr_bt_atcmd(uint8_t *addr)
     app_bt_source_conn_mgr_ctx.scan_num = 1;
 
     uint8_t index = app_bt_source_conn_mgr_get_unused_index();
-    if (index == APP_BT_SOURCE_CONN_INVAILD_INDEX) {
+    if (index == APP_BT_SOURCE_CONN_INVALID_INDEX) {
         index = 0;
     }
 

@@ -100,7 +100,7 @@ static bt_status_t bt_source_srv_cmd_entry(const char *string)
         bt_source_srv_music_cntx_set_bqb_flag();
         status = BT_STATUS_SUCCESS;
     } else if (0 == bt_source_srv_memcmp(string, CMD_PARAM("NOTIFY_CHANGE"))) {
-        extern bt_status_t bt_source_srv_avrcp_BQB_notify_volume_change(bool is_notify,uint8_t volume);
+        extern bt_status_t bt_source_srv_avrcp_BQB_notify_volume_change(bool is_notify, uint8_t volume);
         uint8_t bt_volume = (uint8_t)strtoul(string + strlen("VOLUME_CHANGE,"), NULL, 16);
         bt_source_srv_avrcp_BQB_notify_volume_change(1, bt_volume);
         status = BT_STATUS_SUCCESS;
@@ -197,7 +197,7 @@ static bt_status_t bt_source_srv_cmd_entry(const char *string)
     }
 #endif
 #ifdef AIR_SOURCE_SRV_AVRCP_CT_BQB_ENABLE
-    else if(0 == bt_source_srv_memcmp(string, CMD_PARAM("AVRCPBQB,"))) {
+    else if (0 == bt_source_srv_memcmp(string, CMD_PARAM("AVRCPBQB,"))) {
         extern atci_status_t bt_avrcp_bqb_atci_callback(const char *string);
         status = bt_avrcp_bqb_atci_callback(string + strlen("AVRCPBQB,"));
     }
@@ -262,13 +262,13 @@ typedef struct {
 #define BT_SOURCE_SRV_BQB_CALL_MAX_NUM   2
 
 static bt_source_srv_bqb_call_context_t g_bqb_call_context[BT_SOURCE_SRV_BQB_CALL_MAX_NUM
-] = {0};
+                                                          ] = {0};
 
 static bt_source_srv_bqb_call_context_t *bt_source_srv_bqb_call_get_free_context(void)
 {
     bt_source_srv_bqb_call_context_t *context = NULL;
     for (uint32_t i = 0; i < BT_SOURCE_SRV_BQB_CALL_MAX_NUM
-    ; i++) {
+            ; i++) {
         if (g_bqb_call_context[i].call_state == BT_SOURCE_SRV_CALL_STATE_NONE) {
             context = &g_bqb_call_context[i];
             break;
@@ -282,7 +282,7 @@ static bt_source_srv_bqb_call_context_t *bt_source_srv_bqb_call_find_context_by_
 {
     bt_source_srv_bqb_call_context_t *context = NULL;
     for (uint32_t i = 0; i < BT_SOURCE_SRV_BQB_CALL_MAX_NUM
-    ; i++) {
+            ; i++) {
         if ((g_bqb_call_context[i].call_index == 0) && (g_bqb_call_context[i].call_state != BT_SOURCE_SRV_CALL_STATE_NONE)) {
             context = &g_bqb_call_context[i];
             break;

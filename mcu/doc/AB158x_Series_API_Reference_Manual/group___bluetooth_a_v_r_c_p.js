@@ -2,6 +2,7 @@ var group___bluetooth_a_v_r_c_p =
 [
     [ "Define", "group___bluetoothbt__avrcp__define.html", "group___bluetoothbt__avrcp__define" ],
     [ "Struct", "group___bluetoothbt__avrcp__struct.html", "group___bluetoothbt__avrcp__struct" ],
+    [ "bt_avrcp_send_set_absoulte_volume_response", "group___bluetooth_a_v_r_c_p.html#ga13525131bccde38902e255fc1d50b1d1", null ],
     [ "bt_avrcp_abort_continuing_response", "group___bluetooth_a_v_r_c_p.html#gafdeff47c6236af3bd705268d6adc73d6", null ],
     [ "bt_avrcp_browse_change_path", "group___bluetooth_a_v_r_c_p.html#ga413cdaf1f0c64e83deee588513a25f5e", null ],
     [ "bt_avrcp_browse_change_path_response", "group___bluetooth_a_v_r_c_p.html#gaa1b0618a7447c4c4c9580fc8a32a2314", null ],
@@ -39,7 +40,7 @@ var group___bluetooth_a_v_r_c_p =
     [ "bt_avrcp_send_pass_through_response", "group___bluetooth_a_v_r_c_p.html#ga409bf6a99e4e3d6cdda3129f1613218c", null ],
     [ "bt_avrcp_send_play_item_response", "group___bluetooth_a_v_r_c_p.html#ga8dc09fa5f1b76816d12443701f28e19f", null ],
     [ "bt_avrcp_send_register_notification_response", "group___bluetooth_a_v_r_c_p.html#ga3898bb187b406f80fba79dbaa2c5c520", null ],
-    [ "bt_avrcp_send_set_absoulte_volume_response", "group___bluetooth_a_v_r_c_p.html#ga98e5fc7d3edd593f03a580435894568a", null ],
+    [ "bt_avrcp_send_set_absolute_volume_response", "group___bluetooth_a_v_r_c_p.html#ga68edbdb1bb5b1a0cababf8bcd11d3814", null ],
     [ "bt_avrcp_send_set_addressed_player_response", "group___bluetooth_a_v_r_c_p.html#gabf126a81ac19c5a80c52a497cb115076", null ],
     [ "bt_avrcp_set_absolute_volume", "group___bluetooth_a_v_r_c_p.html#gaa6aa7620ded71dbad7e02ffcf1ee9081", null ],
     [ "bt_avrcp_set_app_setting_value", "group___bluetooth_a_v_r_c_p.html#ga19f0ee36b678657e62330cfda705e785", null ]

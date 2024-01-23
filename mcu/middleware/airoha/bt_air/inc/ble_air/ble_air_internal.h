@@ -144,11 +144,6 @@ ble_air_conn_param_priority_t ble_air_get_current_connection_interval(uint16_t c
 ble_air_cntx_t *ble_air_get_cntx_by_handle(uint16_t conn_handle);
 uint16_t ble_air_get_real_connected_handle(void);
 
-#if (defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE))
-//bt_status_t ble_air_srv_switch_link(bt_handle_t connection_handle);
-#endif
-
-
 bt_status_t ble_air_link_performace_optimization(void);
 bt_status_t ble_air_link_performace_optimization_revert(void);
 

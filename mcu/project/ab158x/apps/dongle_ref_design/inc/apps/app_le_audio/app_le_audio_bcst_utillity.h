@@ -117,6 +117,10 @@ bt_status_t app_le_audio_bcst_write_qos_params_nvkey(uint8_t sampling_rate, uint
 
 bt_status_t app_le_audio_bcst_read_qos_params_nvkey(app_le_audio_bcst_qos_params_db_t *bcst_qos_params_db);
 
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+bool app_le_audio_bcst_gmap_set_qos_params(uint8_t sel_setting, uint8_t audio_config_level);
+#endif /* AIR_LE_AUDIO_GMAP_ENABLE */
+
 #endif /* AIR_LE_AUDIO_ENABLE */
 #endif /* __APP_LE_AUDIO_BCST_UTILLITY_H__ */
 

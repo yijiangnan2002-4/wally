@@ -32,28 +32,6 @@
  * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
  */
 
-
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    usbms_drv.c
- *
- * Project:
- * --------
- *   Maui_Software
- *
- * Description:
- * ------------
- *   This file implements usb MASS STORAGE class driver
- *
- * Author:
- * -------
- *   Jensen Hu
- *   CJung Chen
- *
- *****************************************************************************/
-
 #ifdef AIR_USB_MSC_ENABLE
 
 /* C library */
@@ -540,3 +518,4 @@ static void USB_Ms_BulkOut_Reset(void)
 }
 
 #endif /* AIR_USB_MSC_ENABLE */
+

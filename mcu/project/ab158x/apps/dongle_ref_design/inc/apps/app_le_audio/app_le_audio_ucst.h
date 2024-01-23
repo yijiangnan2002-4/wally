@@ -145,6 +145,8 @@ uint16_t app_le_audio_ucst_get_audio_context_type(void);
 
 app_le_audio_ase_codec_t * app_le_audio_ucst_get_ase_codec_config(uint16_t context_type, bt_le_audio_direction_t direction);
 
+bool app_le_audio_ucst_check_close_audio_stream(void);
+
 #endif /* AIR_LE_AUDIO_ENABLE */
 #endif /* __APP_LE_AUDIO_UCST_H__ */
 

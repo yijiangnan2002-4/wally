@@ -44,6 +44,7 @@
 
 #include "hal_uart_internal.h"
 #include "mux_ll_uart.h"
+#include "mux_ll_uart_latch.h"
 #include "mux_ll_uart_sync.h"
 
 #ifdef HAL_SLEEP_MANAGER_ENABLED
@@ -62,7 +63,7 @@ uint32_t device_sync_start_count = 0;
 volatile dchs_mode_t g_device_mode = DCHS_MODE_ERROR;
 volatile static bool is_other_ready = false;
 volatile static bool is_self_ready = false;
-static uint16_t detect_seq = 0;
+volatile static uint16_t detect_seq = 0;
 
 ATTR_TEXT_IN_FAST_MEM bool mux_ll_uart_send_sync_data(uint16_t id, uint16_t seq)
 {
@@ -82,10 +83,25 @@ ATTR_TEXT_IN_FAST_MEM bool mux_ll_uart_send_sync_data(uint16_t id, uint16_t seq)
     return true;
 }
 
+static void mux_ll_uart_sync_done(void)
+{
+    hal_gpt_sw_stop_timer_ms(device_sync_timer_handle);
+    hal_gpt_sw_free_timer(device_sync_timer_handle);
+    LOG_MSGID_I(common, "[device sync] sync done [%u]", 1, g_device_mode);
+    DCHS_UNLOCK_UART_TX();
+    hal_nvic_set_pending_irq(SW_IRQn);
+}
+
 static void mux_ll_uart_set_device_mode(dchs_mode_t device_mode)
 {
     mux_ll_config.device_mode = device_mode;
     g_device_mode = device_mode;
+    mux_ll_uart_sync_done();
+}
+
+dchs_mode_t mux_ll_uart_get_device_mode(void)
+{
+    return mux_ll_config.device_mode;
 }
 
 void mux_ll_uart_device_sync_gpt_callback(void *user_data)
@@ -111,19 +127,17 @@ void mux_ll_uart_device_sync_gpt_callback(void *user_data)
         RB_LOG_E("[device sync] tx buffer full", 0);
     }
     if (g_device_mode != DCHS_MODE_ERROR ) {
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-        hal_sleep_manager_unlock_sleep(MUX_LL_UART_SLEEP_LOCK_HANDLE);
-#endif
-        LOG_MSGID_I(common, "[device sync] sync done [%u], return", 1, g_device_mode);
+        mux_ll_uart_sync_done();
         return ;
     }
 #ifdef AIR_DCHS_MODE_MASTER_ENABLE
-    mux_ll_uart_send_sync_data(DCHS_SYNC_DETECT_SLAVE, detect_seq++);
-    LOG_MSGID_I(common, "[device sync] timer send DCHS_SYNC_DETECT_SLAVE", 0);
+    mux_ll_uart_send_sync_data(DCHS_SYNC_DETECT_SLAVE, detect_seq);
+    LOG_MSGID_I(common, "[device sync] timer send DCHS_SYNC_DETECT_SLAVE, seq=%u", 1, detect_seq);
 #else
     mux_ll_uart_send_sync_data(DCHS_SYNC_DETECT_MASTER, detect_seq++);
-    LOG_MSGID_I(common, "[device sync] timer send DCHS_SYNC_DETECT_MASTER", 0);
+    LOG_MSGID_I(common, "[device sync] timer send DCHS_SYNC_DETECT_MASTER, seq=%u", 1, detect_seq);
 #endif
+    detect_seq++;
     gpt_status = hal_gpt_sw_start_timer_ms(device_sync_timer_handle, (uint32_t)user_data, mux_ll_uart_device_sync_gpt_callback, user_data);
     if (HAL_GPT_STATUS_OK != gpt_status) {
         RB_LOG_E("[device sync] start timer fail:%d", 1, gpt_status);
@@ -181,15 +195,13 @@ ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_sync_do_recv_detect_cmd_and_send_response
         mux_ll_uart_send_sync_data(response_cmd, rsp_seq);
         is_self_ready = true;
         if (is_other_ready) {
-            hal_gpt_sw_stop_timer_ms(device_sync_timer_handle);
-            hal_gpt_sw_free_timer(device_sync_timer_handle);
             mux_ll_uart_set_device_mode(device_mode);
         }
         LOG_MSGID_I(common, "[device sync] [devid:%d] recv detect_cmd, current dev mode = %d, is_other_ready:%d is_self_ready:%d", 4, device_mode, g_device_mode, is_other_ready, is_self_ready);
     }
 }
 
-ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_sync_do_recv_self_detect(uint16_t detect_cmd)
+ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_sync_do_recv_self_detect(uint16_t detect_cmd, uint16_t recvd_seq)
 {
     static uint32_t single_mode_confirm_counter = 0;
 
@@ -197,17 +209,16 @@ ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_sync_do_recv_self_detect(uint16_t detect_
         LOG_MSGID_I(common, "[device sync] recv detect_cmd:0x%x, single mode,  is_other_ready:%d is_self_ready:%d", 3, detect_cmd, is_other_ready, is_self_ready);
         mux_ll_uart_set_device_mode(DCHS_MODE_SINGLE);
     } else {
-        mux_ll_uart_send_sync_data(detect_cmd, 0x8000|detect_seq++);
+        mux_ll_uart_send_sync_data(detect_cmd, 0x8000|(recvd_seq + 1));
         LOG_MSGID_I(common, "[device sync] recv detect_cmd:0x%x, confirm counter=%d,  is_other_ready:%d is_self_ready:%d", 4, detect_cmd, single_mode_confirm_counter, is_other_ready, is_self_ready);
     }
+
 }
 
 ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_sync_do_recv_device_response(dchs_mode_t device_mode)
 {
     is_other_ready = true;
     if (is_self_ready) {
-        hal_gpt_sw_stop_timer_ms(device_sync_timer_handle);
-        hal_gpt_sw_free_timer(device_sync_timer_handle);
         mux_ll_uart_set_device_mode(device_mode);
     }
     LOG_MSGID_I(common, "[device sync] recv response, is_other_ready:%d is_self_ready:%d", 2, is_other_ready, is_self_ready);
@@ -219,13 +230,15 @@ static ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_sync_callback(uint8_t *buff, uint3
     uint16_t id = *pbuf++;
     uint16_t seq = *pbuf;
 
+    LOG_MSGID_I(common, "[device sync] recv cmd:0x%x, seq:0x%x", 2, id, seq);
+
     switch(id) {
 #ifdef AIR_DCHS_MODE_MASTER_ENABLE
     case DCHS_SYNC_DETECT_MASTER: /*CMD from Slave, send response to Slave.*/
         mux_ll_uart_sync_do_recv_detect_cmd_and_send_response(DCHS_SYNC_DETECT_RESPONSE_FROM_MASTER, DCHS_MODE_RIGHT, seq);
         break;
     case DCHS_SYNC_DETECT_SLAVE: /*TX RX connect, FT single mode*/
-        mux_ll_uart_sync_do_recv_self_detect(DCHS_SYNC_DETECT_SLAVE);
+        mux_ll_uart_sync_do_recv_self_detect(DCHS_SYNC_DETECT_SLAVE, seq);
         break;
     case DCHS_SYNC_DETECT_RESPONSE_FROM_SLAVE:
         mux_ll_uart_sync_do_recv_device_response(DCHS_MODE_RIGHT);
@@ -237,7 +250,7 @@ static ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_sync_callback(uint8_t *buff, uint3
         mux_ll_uart_sync_do_recv_detect_cmd_and_send_response(DCHS_SYNC_DETECT_RESPONSE_FROM_SLAVE, DCHS_MODE_LEFT, seq);
         break;
     case DCHS_SYNC_DETECT_MASTER: /*TX RX connect, FT single mode*/
-        mux_ll_uart_sync_do_recv_self_detect(DCHS_SYNC_DETECT_MASTER);
+        mux_ll_uart_sync_do_recv_self_detect(DCHS_SYNC_DETECT_MASTER, seq);
         break;
     case DCHS_SYNC_DETECT_RESPONSE_FROM_MASTER:
         mux_ll_uart_sync_do_recv_device_response(DCHS_MODE_LEFT);
@@ -299,7 +312,4 @@ void mux_ll_uart_sync_init(void)
     hal_nvic_enable_irq(SW1_IRQn);
     hal_nvic_set_pending_irq(SW1_IRQn);
     hal_gpt_sw_get_timer(&device_sync_timer_handle);
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-    hal_sleep_manager_lock_sleep(MUX_LL_UART_SLEEP_LOCK_HANDLE);
-#endif
 }
