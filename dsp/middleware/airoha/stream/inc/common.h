@@ -61,7 +61,7 @@
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
 #ifdef AIR_FULL_ADAPTIVE_ANC_STEREO_ENABLE
-#define BUFFER_INFO_CH_NUM      9
+#define BUFFER_INFO_CH_NUM      10
 #else
 #ifdef AIR_HW_VIVID_PT_STEREO_ENABLE
 #define BUFFER_INFO_CH_NUM      7
@@ -249,8 +249,7 @@ typedef struct {
     BOOL skip_after_drop;
     BOOL IsPlayInfoReceived;
     BOOL IsSubPlayInfoReceived;
-    U8  pkt_lost_cnt;
-    U8  pkt_lost_cnt_sub;
+    U8  pkt_lost_cnt[2];
     U8  dl_afe_skip_time;
     U16 write_offset_advance;
     U32 ul_play_gpt; /* record the time to trigger UL start up */
@@ -262,8 +261,7 @@ typedef struct {
     U32 sampling_rate;
     U32 seq_num; /* total sequence number of received frame */
     U32 predict_timestamp;
-    U16 predict_packet_cnt;
-    U16 predict_packet_cnt_sub;
+    U16 predict_packet_cnt[2];
     U32 frame_interval;   /* unit: us   (7500 = 7.5ms) */
     U32 ret_window_len; /* unit :us */
     U16 iso_interval; /* unit :us */
@@ -363,30 +361,8 @@ typedef struct {
     hal_audio_interface_t            audio_interface7;
 #endif
 #endif
-    uint32_t audio_device_rate;
-#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
-    uint32_t audio_device_rate1;
-    uint32_t audio_device_rate2;
-    uint32_t audio_device_rate3;
-#ifdef MTK_AUDIO_HW_IO_CONFIG_ENHANCE
-    uint32_t audio_device_rate4;
-    uint32_t audio_device_rate5;
-    uint32_t audio_device_rate6;
-    uint32_t audio_device_rate7;
-#endif
-#endif
-    uint32_t audio_memory_rate;
-#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
-    uint32_t audio_memory_rate1;
-    uint32_t audio_memory_rate2;
-    uint32_t audio_memory_rate3;
-#ifdef MTK_AUDIO_HW_IO_CONFIG_ENHANCE
-    uint32_t audio_memory_rate4;
-    uint32_t audio_memory_rate5;
-    uint32_t audio_memory_rate6;
-    uint32_t audio_memory_rate7;
-#endif
-#endif
+    uint32_t audio_device_rate[8];
+    uint32_t audio_memory_rate[8];
 
     audio_pcm_ops_p                         ops;
     uint32_t                                misc_parms;
@@ -411,6 +387,7 @@ typedef struct {
     hal_audio_memory_parameter_t mem_handle;
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
     hal_audio_memory_parameter_t mem_handle1;
+    hal_audio_memory_parameter_t mem_handle2;
 #endif
     //for hal_audio_set_device
     hal_audio_device_parameter_t device_handle;
@@ -427,16 +404,14 @@ typedef struct {
 #endif
 #endif
     uint8_t sw_channels;
-    bool                     with_upwdown_sampler; /*if need up or down sampler flag*/
-    uint32_t                 audio_path_input_rate; /**< for audio_path_input_rate */
-    uint32_t                 audio_path_output_rate; /**< for audio_path_output_rate */
 #ifdef AIR_HFP_DNN_PATH_ENABLE
     bool enable_ul_dnn;
 #endif
     uint32_t scenario_id;
     uint32_t scenario_sub_id;
     bool     drop_redundant_data_at_first_time;
-    bool     enable_clk_skew;
+    clkskew_mode_t clk_skew_mode;
+    hal_audio_afe_hwsrc_type_t hwsrc_type;
 } AUDIO_PARAMETER;
 
 typedef struct {
@@ -514,7 +489,8 @@ typedef struct {
 #define BT_HFP_CODEC_CVSD  (1)           /**< SBC codec. */
 #define BT_HFP_CODEC_mSBC  (2)           /**< AAC codec. */
 
-#define BT_A2DP_CODEC_VENDOR_2_CODEC_ID (0x4C35)
+#define BT_A2DP_CODEC_LHDC_CODEC_ID     (0x4C35)
+#define BT_A2DP_CODEC_LC3PLUS_CODEC_ID  (0x0001)
 
 typedef U8 bt_a2dp_codec_type_t;    /**< The type of A2DP codec. */
 
@@ -558,7 +534,7 @@ typedef struct {
     uint8_t channels;           /**< b0: 2, b1: 1. */
     uint8_t sample_rate;       /**< b0~b11: 96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000. */
     uint32_t vendor_id;          /**< Constant/peak bits per second in 23 bit UiMsbf. A value of 0 indicates that the bit rate is unknown. */
-    uint8_t resolution;         /**< bits per sample b0: 32bit, b1: 24bit. b2: 16bit.*/
+    uint8_t duration_resolution; /**< b4~b6: 2.5ms, 5ms, 10ms, bits per sample b0: 32bit, b1: 24bit. b2: 16bit.*/
     BOOL is_raw_mode;           /**< Indicate raw mode. 1: enable, 0:disable. */
     BOOL is_low_latency;        /**< 1: low latency 0: normal latency. */
     BOOL is_lossless_mode;      /**< 1: lossless mode 0: lossy mode. */
@@ -689,6 +665,8 @@ typedef struct {
     U32  *a2dp_lostnum_report; // U32 lostnum U32 current_ts
     volatile AUDIO_SYNC_INFO *sync_info;
     U32  *pcdc_info_buf;
+    BOOL is_plc_frame;
+    U32  plc_state_len;
 #ifdef AIR_A2DP_REINIT_V2_ENABLE
     U32  reinit_request_cnt;
     bool reinit_request;
@@ -1077,6 +1055,7 @@ typedef struct {
     uint32_t        target_bt_clk;
     uint8_t         phase_id;
     uint8_t         drc_force_disable;
+    uint8_t         gpt_time_sync;
 } mcu2dsp_peq_param_t, *mcu2dsp_peq_param_p;
 #endif
 

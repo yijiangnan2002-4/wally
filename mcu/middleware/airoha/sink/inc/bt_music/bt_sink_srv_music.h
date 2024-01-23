@@ -56,6 +56,7 @@
 #include "bt_system.h"
 #include "bt_avrcp.h"
 #include "bt_sink_srv_state_manager.h"
+#include "bt_init.h"
 
 #define bt_sink_srv_music_get_aws_handle_by_addr(addr) bt_aws_mce_query_handle_by_address(BT_MODULE_AWS_MCE, (const bt_bd_addr_t *)addr)
 
@@ -73,6 +74,7 @@
 #define bt_sink_srv_music_get_spk_mode(void) BT_AWS_MCE_SRV_MODE_NORMAL
 #endif
 #define BT_SINK_SRV_MUSIC_MODE_BROADCAST BT_AWS_MCE_SRV_MODE_BROADCAST
+#define BT_SINK_SRV_IMPROVE_RESYNC
 
 #define __BT_SINK_SRV_A2DP_V13_SUPPORT__
 
@@ -129,7 +131,6 @@ typedef uint8_t bt_sink_srv_ctx_flag_t;
 
 /**< Deveice flag */
 /* Stable flag */
-#define BT_SINK_SRV_MUSIC_FLAG_ADD_WAITING_LIST             (1 << 0)
 #define BT_SINK_SRV_MUSIC_NORMAL_STOP_FLAG                  (1 << 1)
 #define BT_SINK_SRV_MUSIC_FLAG_DEV_TO_CON_AVRCP             (1 << 2)
 #define BT_SINK_SRV_MUSIC_FLAG_A2DP_INTERRUPT               (1 << 3)
@@ -190,7 +191,7 @@ typedef uint8_t bt_sink_srv_ctx_flag_t;
 } while(0);
 
 
-#define BT_SINK_SRV_MUISC_DEV_COUNT     (6)     /**< Max device count */
+#define BT_SINK_SRV_MUISC_DEV_COUNT     (BT_A2DP_TOTAL_LINK_NUM+BT_AWS_MCE_TOTAL_CONNECTION_NUM)     /**< Max device count */
 #ifdef MTK_BT_SPEAKER_ENABLE
 #define BT_SINK_SRV_A2DP_SBC_MAX_BP_IN_SPEAKER_MODE                     (35)
 #endif
@@ -212,6 +213,9 @@ typedef uint8_t bt_sink_srv_ctx_flag_t;
 #define BT_SINK_SRV_A2DP_SPECIAL_DEVICE_LATENCY                         (250000)
 #define BT_SINK_SRV_A2DP_SPECIAL_DEVICE_LATENCY_170MS                   (170000)
 #define BT_SINK_SRV_A2DP_SPEAKER_MODE_DEFAULT_SINK_LATENCY              (190000)
+#ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
+#define BT_SINK_SRV_A2DP_LHDC_LL_MODE_LATENCY                           (60000)
+#endif
 #define BT_SINK_SRV_A2DP_AVM_TIMER_MIN_DUR_TO_PLAY_BY_TICK                  (192)
 #define BT_SINK_SRV_A2DP_MIN_STA_DUR_TO_PLAY                                (384)
 #endif
@@ -261,6 +265,12 @@ typedef enum {
     /**< waiting stop cnf */
 } bt_sink_srv_music_transient_state_t;
 
+#if (BT_A2DP_TOTAL_LINK_NUM>3)
+typedef enum {
+    BT_SINK_SRV_MUSIC_A2DP_COUNT = 0,
+    BT_SINK_SRV_MUSIC_AVRCP_COUNT,
+} bt_sink_srv_music_state_count_t;
+#endif
 
 #define BT_SINK_SRV_MUSIC_EVT_BASE              (0x800000)
 
@@ -383,6 +393,10 @@ typedef struct {
 #define BT_SINK_SRV_MUSIC_PLAYBACK_STATE_NONE                    (0x00)
 #define BT_SINK_SRV_MUSIC_PLAYBACK_STATE_STOPPED                 (0x01)
 #define BT_SINK_SRV_MUSIC_PLAYBACK_STATE_PLAYING                 (0x02)
+
+#define BT_SINK_STATE_MANAGER_STATE_COUNT_INVALID 0
+#define BT_SINK_STATE_MANAGER_STATE_COUNT_1ST 1
+
 typedef uint8_t bt_sink_srv_music_playback_state_t;
 
 typedef struct {
@@ -427,6 +441,10 @@ typedef struct {
     uint32_t aws_hd;
 #endif
     bt_avrcp_role_t avrcp_role;//[TD-PLAYER]
+#if (BT_A2DP_TOTAL_LINK_NUM>3)
+    bt_sink_srv_state_manager_play_count_t avrcp_play_count; //to recorder AVRCP Playing order
+    bt_sink_srv_state_manager_play_count_t a2dp_start_count;  //to recorder A2DP start order
+#endif
 } bt_sink_srv_music_device_t;
 
 typedef struct {
@@ -558,6 +576,11 @@ void BT_A2DP_MAKE_VENDOR_CODEC_2(bt_a2dp_codec_capability_t *codec,
                                  codec_id, uint8_t sample_frequency, uint8_t
                                  mode);
 #endif
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+void BT_A2DP_MAKE_VENDOR_CODEC_3(bt_a2dp_codec_capability_t *codec,
+                                 bt_a2dp_role_t role, uint32_t vendor_id, uint16_t
+                                 codec_id, uint8_t frame_duration, uint16_t sample_frequency);
+#endif
 
 void BT_A2DP_CONVERT_SBC_CODEC(bt_codec_capability_t *dst_codec,
                                bt_a2dp_codec_capability_t *src_codec);
@@ -581,7 +604,6 @@ void bt_sink_srv_music_drv_stop(bt_sink_srv_music_device_t *dev, uint8_t aid);
 void bt_sink_srv_music_fill_am_aud_param(bt_sink_srv_am_audio_capability_t  *aud_cap,
                                          bt_a2dp_codec_capability_t *a2dp_cap, bt_a2dp_role_t role, uint16_t a2dp_mtu);
 void bt_sink_srv_music_update_base_parameters_to_dsp(int16_t drift_value, uint32_t nclk, uint32_t asi_base, uint32_t asi_cur);
-void bt_sink_srv_music_cancel_audio_play_en(bt_sink_srv_music_device_t *a2dp_dev);
 bt_sink_srv_audio_rtp_header_t *bt_sink_srv_music_get_media_info(uint32_t *end_addr, void *start_addr, uint32_t pre_sn, bool
                                                                  is_agent);
 void bt_sink_srv_music_reject_a2dp_1M(void);
@@ -630,16 +652,15 @@ bool bt_sink_srv_music_get_a2dp_nvdm_data(bt_bd_addr_t *bt_addr, void *data_p, u
 
 bt_status_t bt_sink_srv_music_set_a2dp_nvdm_data(bt_bd_addr_t *bt_addr, void *data_p, uint32_t size);
 
-void bt_sink_srv_music_set_ALC_enable(uint8_t is_enable);
+void bt_sink_srv_music_set_ALC_enable(uint32_t is_enable);
 
-uint8_t bt_sink_srv_music_get_ALC_enable(void);
+uint32_t bt_sink_srv_music_get_ALC_enable(void);
 
 void bt_sink_srv_music_device_waiting_list_operation(uint32_t *device_list, uint32_t device_count, bool is_add);
 
 bt_sink_srv_music_playback_state_t bt_sink_srv_get_music_state();
 
 bt_status_t bt_sink_srv_set_must_play_tone_flag(bt_bd_addr_t *sp_addr, bt_sink_srv_notification_voice_t type, bool is_open);
-bt_sink_srv_music_device_t *bt_sink_srv_music_get_other_streaming_devices(bt_sink_srv_music_device_t *current_streaming_dev);
 void bt_sink_srv_music_get_waiting_list_devices(uint32_t *device_list, uint32_t *device_count);
 bt_sink_srv_state_t bt_sink_srv_music_get_music_state(bt_bd_addr_t *addr);
 bt_status_t bt_sink_srv_music_audio_switch(bool switch_on, bt_sink_srv_action_t action);
@@ -654,7 +675,9 @@ bool bt_sink_srv_music_state_change_handler(bt_sink_srv_music_device_t *change_d
     uint32_t old_a2dp_status, uint32_t old_avrcp_status);
 bt_status_t bt_sink_srv_music_pause_remote_music(bt_sink_srv_music_device_t *dev);
 void bt_sink_srv_music_set_am_volume(uint32_t vol_levl);
+#ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
 bool bt_sink_srv_music_is_lhdc_ll_mode(bt_a2dp_codec_capability_t* codec);
+#endif
 
 #ifdef __cplusplus
 }

@@ -594,20 +594,20 @@ ATTR_TEXT_IN_TCM int i2c_op_ioctl(uint8_t i2c_port, uint8_t op_code, uint8_t arg
         break;
 #ifdef HAL_SLEEP_MANAGER_ENABLED
         case I2C_IOCTRL_LOCK_SLEEP: {
-            static bool  sleep_st = false;
+            static bool  sleep_st[HAL_I2C_MASTER_MAX] = {false};
             hal_sleep_manager_status_t status;
 
             if (s_i2c_sleep_handle[i2c_port] != SLEEP_LOCK_INVALID_ID) {
-                if (args != 0 && sleep_st == false) {
+                if (args != 0 && sleep_st[i2c_port] == false) {
                     status = hal_sleep_manager_lock_sleep(s_i2c_sleep_handle[i2c_port]);
                     if (status == HAL_SLEEP_MANAGER_OK) {
-                        sleep_st = true;
+                        sleep_st[i2c_port] = true;
                     } else {
                     }
-                } else if (args == 0 && sleep_st == true) {
+                } else if (args == 0 && sleep_st[i2c_port] == true) {
                     status = hal_sleep_manager_unlock_sleep(s_i2c_sleep_handle[i2c_port]);
                     if (status == HAL_SLEEP_MANAGER_OK) {
-                        sleep_st = false;
+                        sleep_st[i2c_port] = false;
                     } else {
                     }
                 }

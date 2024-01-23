@@ -63,8 +63,8 @@ static int g_unix_tm_isdst = 0;
 log_create_module(offline_dump, PRINT_LEVEL_INFO);
 
 #if !defined(MTK_DEBUG_LEVEL_NONE)
-ATTR_LOG_STRING_LIB offline_dump_001[] = LOG_INFO_PREFIX(offline_dump) "Offline dump type[%d] address[0x%08x] region_size[0x%x] cell_size[%d] cell_count[%d] cell_valid_size[%d]";
-ATTR_LOG_STRING_LIB offline_dump_002[] = LOG_INFO_PREFIX(offline_dump) "Offline dump check region:%d region_integrity fail.";
+ATTR_LOG_STRING_LIB offline_dump_001[] = LOG_INFO_PREFIX(offline_dump) "offline_dump type[%d] address[0x%08x] region_size[0x%x] cell_size[%d] cell_count[%d] cell_valid_size[%d]";
+ATTR_LOG_STRING_LIB offline_dump_002[] = LOG_INFO_PREFIX(offline_dump) "offline_dump check region:%d region_integrity fail.";
 #else
 ATTR_LOG_STRING_LIB offline_dump_001[] = "";
 ATTR_LOG_STRING_LIB offline_dump_002[] = "";
@@ -136,15 +136,23 @@ void offline_dump_log_port_msgid_error(const char *message, uint32_t arg_cnt, ..
 
 uint32_t offline_dump_query_FOTA_address(void)
 {
-    return FOTA_RESERVED_BASE;
+    if ((FOTA_RESERVED_BASE == 0x0) || (FOTA_RESERVED_BASE == 0xFFFFFFFF)) {
+        return 0x0;
+    }
+
+    return (FOTA_RESERVED_BASE + OFFLINE_FOTA_HEAD_RESERVE);
 }
 
 uint32_t offline_dump_query_FOTA_reserve(void)
 {
-    return FOTA_RESERVED_LENGTH;
+    if ((FOTA_RESERVED_LENGTH == 0x0) || (FOTA_RESERVED_LENGTH < (OFFLINE_FOTA_HEAD_RESERVE + OFFLINE_FOTA_TAIL_RESERVE))) {
+        return 0x0;
+    }
+
+    return (FOTA_RESERVED_LENGTH - OFFLINE_FOTA_HEAD_RESERVE - OFFLINE_FOTA_TAIL_RESERVE);
 }
 
-#if defined(MTK_FOTA_ENABLE) && defined(MTK_FOTA_VIA_RACE_CMD)
+#if defined(MTK_FOTA_VIA_RACE_CMD)
 #include "race_fota.h"
 bool offline_dump_region_is_busy(void)
 {
@@ -183,10 +191,11 @@ bool offline_dump_query_region_info(uint8_t region_type, uint32_t *base_address,
         return false;
     }
 
-    /* region config error */
-    if ((OFFLINE_FOTA_RESERVE < OFFLINE_REGION_EXCEPTION_LOG_REGION_SIZE) ||
-        (OFFLINE_FOTA_RESERVE < OFFLINE_REGION_OFFLINE_LOG_REGION_SIZE) ||
-        (OFFLINE_FOTA_RESERVE < (OFFLINE_REGION_EXCEPTION_LOG_REGION_SIZE + OFFLINE_REGION_OFFLINE_LOG_REGION_SIZE))) {
+    /* region config error, total region head reserve 4k and tail reserve 4k for FOTA */
+    if ((OFFLINE_FOTA_RESERVE < (OFFLINE_REGION_EXCEPTION_LOG_REGION_SIZE)) ||
+        (OFFLINE_FOTA_RESERVE < (OFFLINE_REGION_OFFLINE_LOG_REGION_SIZE)) ||
+        (OFFLINE_FOTA_RESERVE < (OFFLINE_REGION_EXCEPTION_LOG_REGION_SIZE + OFFLINE_REGION_OFFLINE_LOG_REGION_SIZE)) ||
+        (OFFLINE_FOTA_RESERVE < (SERIAL_FLASH_BLOCK_SIZE * 2))) {
             return false;
     }
 

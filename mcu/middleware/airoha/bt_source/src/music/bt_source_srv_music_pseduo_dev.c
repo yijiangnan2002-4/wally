@@ -302,9 +302,9 @@ bool bt_source_srv_music_psd_is_idle(void *device)
 }
 
 
-uint8_t bt_source_srv_music_get_audio_number(void *device)
+uint32_t bt_source_srv_music_get_audio_number(void *device)
 {
-    uint8_t num = 0;
+    uint32_t num = 0;
     bt_source_srv_assert(device && "get is playing state device is NULL");
     bt_source_srv_music_pseduo_dev_t *music_device = (bt_source_srv_music_pseduo_dev_t *)device;
 

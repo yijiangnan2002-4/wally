@@ -280,7 +280,7 @@ typedef union {
 // } bt_codec_a2dp_sbc_media_pkt_wo_cp_t;
 uint32_t a2dp_get_samplingrate(SOURCE source);
 uint32_t a2dp_get_channel(SOURCE source);
-EXTERN void Au_DL_send_reinit_request(DSP_REINIT_CAUSE reinit_msg);
+EXTERN void Au_DL_send_reinit_request(DSP_REINIT_CAUSE reinit_msg, uint32_t from_ISR);
 #ifdef AIR_A2DP_REINIT_V2_ENABLE
 EXTERN void A2DP_SpeDev_Setting(N9_A2DP_PARAMETER *n9_a2dp_param,bool Is_SpeDev_Setting);
 #endif

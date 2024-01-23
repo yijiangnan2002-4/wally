@@ -33,26 +33,33 @@
  */
 
 #include "hal_ice_debug.h"
-
-#ifdef AIR_ICE_DEBUG_ENABLE
 #include "hal_resource_assignment.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#ifdef AIR_ICE_DEBUG_ENABLE
+
 uint32_t ice_debug_backup_restore_buffer[16];
 volatile uint32_t ice_debug_value_addr = HW_SYSRAM_PRIVATE_MEMORY_DSP_ICE_DEBUG_START;
 bool hal_ice_debug_is_enabled(void)
 {
     if (*(volatile uint32_t *)ice_debug_value_addr != 0) {
-        return TRUE;
+        return true;
     } else {
-        return FALSE;
+        return false;
     }
 }
+
+#else
+bool hal_ice_debug_is_enabled(void)
+{
+    return false;
+}
+#endif
 
 #ifdef __cplusplus
 }
 #endif
-#endif
+

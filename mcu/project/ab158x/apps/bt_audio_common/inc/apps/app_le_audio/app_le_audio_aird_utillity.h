@@ -50,7 +50,7 @@
 #define APP_LE_AUDIO_AIRD_ACTION_PREVIOUS_TRACK                             7
 #define APP_LE_AUDIO_AIRD_ACTION_NEXT_TRACK                                 8
 #define APP_LE_AUDIO_AIRD_ACTION_SWITCH_DEVICE                              9
-#define APP_LE_AUDIO_AIRD_ACTION_UPDATE_CONNECTION_STATUS                   10
+#define APP_LE_AUDIO_AIRD_ACTION_UPDATE_MULTI_POINT_STATUS                  10
 #define APP_LE_AUDIO_AIRD_ACTION_MAX                                        11
 typedef uint8_t app_le_audio_aird_action_t;
 
@@ -76,22 +76,23 @@ typedef uint8_t app_le_audio_aird_block_stream_t;
 #define APP_LE_AUDIO_AIRD_EVENT_MODE_INFO                       0x00
 #define APP_LE_AUDIO_AIRD_EVENT_MIC_MUTE                        0x01
 #define APP_LE_AUDIO_AIRD_EVENT_VOLUME_CHANGE                   0x02
+#define APP_LE_AUDIO_AIRD_EVENT_EXTENDED_VOLUME_CHANGE          0x03
 typedef uint8_t app_le_audio_aird_event_t;
 
 /* AIRD mode */
-#define APP_LE_AUDIO_AIRD_MODE_NORMOL                           0
-#define APP_LE_AUDIO_AIRD_MODE_SUPPORT_HID_CALL                 1        /**< Support Teams. */
+#define APP_LE_AUDIO_AIRD_MODE_NORMAL                           0
+#define APP_LE_AUDIO_AIRD_MODE_SUPPORT_HID_CALL                 1
 typedef uint8_t app_le_audio_aird_mode_t;
 
-/* AIRD mode */
+/* AIRD volume */
 #define APP_LE_AUDIO_AIRD_VOLUME_MAX    100
 #define APP_LE_AUDIO_AIRD_VOLUME_MIN    0
 typedef uint8_t app_le_audio_aird_volume_t;
 
-/* AIRD for Dongle silence detection, inform SP EDR/LEA connection status to Dongle */
-#define APP_LE_AUDIO_AIRD_CONNECTION_STATUS_DISCONNECTED        0x00
-#define APP_LE_AUDIO_AIRD_CONNECTION_STATUS_CONNECTED           0x01
-typedef uint8_t app_le_audio_aird_sp_connected_t;
+/* AIRD for Dongle silence detection, inform multi-point connection status to Dongle */
+#define APP_LE_AUDIO_AIRD_MULTI_POINT_STATUS_DISCONNECTED        0x00
+#define APP_LE_AUDIO_AIRD_MULTI_POINT_STATUS_CONNECTED           0x01
+typedef uint8_t app_le_audio_aird_multi_point_status_t;
 
 typedef struct {
     app_le_audio_aird_streaming_interface_t     streaming_interface;    /* The streaming type. */
@@ -122,7 +123,18 @@ typedef struct {
     app_le_audio_aird_streaming_interface_t streaming_interface;    /* The streaming type. */
     app_le_audio_aird_streaming_port_t streaming_port;              /* The streaming port number. */
     app_le_audio_aird_volume_t volume;
+    int32_t volume_db;
 }) app_le_audio_aird_event_volume_change_ind_t;
+
+BT_PACKED (
+typedef struct {
+    app_le_audio_aird_event_t event;
+    app_le_audio_aird_streaming_interface_t streaming_interface;    /* The streaming type. */
+    app_le_audio_aird_streaming_port_t streaming_port;              /* The streaming port number. */
+    app_le_audio_aird_volume_t volume;
+    bool mute;
+    int32_t volume_db;
+}) app_le_audio_aird_event_extended_volume_change_ind_t;
 
 #endif  /* AIR_LE_AUDIO_ENABLE */
 #endif  /* __APP_LE_AUDIO_AIRD_UTILLITY_H__ */

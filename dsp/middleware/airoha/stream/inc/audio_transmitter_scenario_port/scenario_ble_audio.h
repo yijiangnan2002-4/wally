@@ -86,6 +86,7 @@ typedef enum {
 typedef enum {
     BLE_AUDIO_SOURCE_STREAM_MIXER_UNMIX = 0,
     BLE_AUDIO_SOURCE_STREAM_MIXER_MIX,
+    BLE_AUDIO_SOURCE_STREAM_MIXER_DISCON,
 } ble_audio_source_stream_mixer_status_t;
 
 typedef enum {
@@ -100,6 +101,7 @@ typedef struct  {
     uint16_t lc3_packet_frame_size;
     uint16_t lc3_packet_frame_samples;
     uint16_t lc3_packet_frame_interval;
+    uint16_t lc3_packet_frame_sample_byte;
     uint16_t share_buffer_blk_size;
     uint16_t share_buffer_blk_num;
     uint16_t share_buffer_blk_index;
@@ -114,6 +116,23 @@ typedef union {
         audio_dongle_afe_in_info_t afe_in;
     #endif
 } ble_audio_dongle_source_info_t;
+
+typedef struct {
+    audio_dsp_codec_type_t codec_type;
+    uint32_t channel_num;
+    uint32_t sample_rate;
+    hal_audio_format_t sample_format;
+    uint32_t frame_size;
+    uint32_t frame_samples;
+    uint32_t frame_interval;
+    uint32_t bit_rate;
+} ble_audio_dongle_bt_out_info_t;
+
+typedef union {
+    uint32_t reserved;
+    ble_audio_dongle_bt_out_info_t bt_out;
+} ble_audio_dongle_sink_info_t;
+
 typedef enum {
     BLE_AUDIO_DONGLE_DL_STREAM_DEINIT = 0,
     BLE_AUDIO_DONGLE_DL_STREAM_INIT,
@@ -133,6 +152,7 @@ struct ble_audio_dongle_dl_handle_t {
     ble_audio_dongle_dl_stream_status_t stream_status;
     ble_audio_source_stream_data_status_t data_status;
     ble_audio_dongle_source_info_t source_info;
+    ble_audio_dongle_sink_info_t sink_info;
     uint32_t ccni_bt_count;
     uint32_t ccni_gpt_count;
     uint32_t data_in_gpt_count;
@@ -143,8 +163,6 @@ struct ble_audio_dongle_dl_handle_t {
     uint16_t usb_channel_num;
     uint16_t usb_frame_samples;
     uint16_t usb_min_start_frames;
-    src_fixed_ratio_port_t *src_fixed_ratio_port;
-    sw_src_port_t *src_port;
     uint16_t src_out_frame_size;
     uint16_t src_out_frame_samples;
     sw_gain_port_t *gain_port;
@@ -160,6 +178,10 @@ struct ble_audio_dongle_dl_handle_t {
     sw_buffer_port_t *buffer_port;
     ble_audio_source_stream_mixer_status_t mixer_status;
     sw_mixer_member_t *mixer_member;
+    uint32_t process_sample_rate_max;
+    src_fixed_ratio_port_t *src0_port;
+    src_fixed_ratio_port_t *src1_port;
+    void     *src_port;
 #if defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
     audio_dongle_afe_in_info_t afe_in;
 #endif

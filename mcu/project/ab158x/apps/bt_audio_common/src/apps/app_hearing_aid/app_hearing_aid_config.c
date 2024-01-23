@@ -430,7 +430,21 @@ const app_hearing_aid_execute_handler_t app_ha_exe_handler_list[] = {
         .ha_cmd_get_combine_response_len = app_hearing_aid_utils_get_mic_calibration_data_combine_response_len,
         .ha_cmd_get_combine_handler = app_hearing_aid_utils_get_mic_calibration_data_combine_response,
         .ha_notify = NULL,
-    }
+    },
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+    {
+        // 0x0020, HA_HEARING_TEST_MODE, Get, Set
+        .execute_get_where = APP_HEARING_AID_EXECUTE_ON_AGENT,
+        .execute_set_where = APP_HEARING_AID_EXECUTE_ON_BOTH,
+        .notify_need_sync = false,
+        .need_execute_set_sync = true,
+        .ha_cmd_get_handler = app_hearing_aid_utils_get_hearing_test_mode,
+        .ha_cmd_set_handler = app_hearing_aid_utils_set_hearing_test_mode,
+        .ha_cmd_get_combine_response_len = NULL,
+        .ha_cmd_get_combine_handler = NULL,
+        .ha_notify = NULL,
+    },
+#endif /* AIR_DAC_MODE_RUNTIME_CHANGE */
 };
 
 const uint8_t app_ha_exe_handler_count = sizeof(app_ha_exe_handler_list) / sizeof(app_ha_exe_handler_list[0]);

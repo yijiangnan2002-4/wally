@@ -78,7 +78,7 @@ static bool bt_aws_mce_role_recovery_is_first_scan = false;
 static void bt_aws_mce_role_recovery_restart(void);
 static void bt_aws_mce_role_recovery_deinit(void);
 static bt_status_t bt_aws_mce_role_recovery_handle_callback(bt_cm_event_t event_id, void *params, uint32_t params_len);
-static void bt_aws_mce_role_recovery_bt_power_state_notify(uint8_t is_on);
+static void bt_aws_mce_role_recovery_bt_power_state_notify(uint32_t is_on);
 static void bt_aws_mce_role_recovery_action_handler(bt_cm_event_t event, void *param);
 static void bt_aws_mce_role_recovery_sink_event_callback(bt_cm_event_t event_id, void *param, uint32_t param_len);
 static int32_t bt_aws_mce_role_recovery_state_switch(bt_aws_mce_role_recovery_state_t to, uint32_t reason, void *user_data);
@@ -105,6 +105,7 @@ static void bt_aws_mce_role_recovery_state_conn_ls_misc_func(bt_aws_mce_role_rec
 static bt_status_t bt_aws_mce_role_recovery_state_scan_bt_func(bt_msg_type_t msg, bt_status_t status, void *buffer);
 static void bt_aws_mce_role_recovery_state_scan_sink_func(bt_cm_event_t event_id, void *params);
 static void bt_aws_mce_role_recovery_state_scan_misc_func(bt_aws_mce_role_recovery_misc_func_type_t type, void *params);
+uint32_t bt_aws_mce_role_recovery_generate_random(uint32_t min, uint32_t max, uint32_t resolution);
 
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
 static void bt_aws_mce_role_recovery_rho_event_notify(bt_role_handover_event_t event, bt_status_t status);
@@ -121,7 +122,7 @@ static void bt_aws_mce_role_recovery_start_agent_change_timer();
 static void bt_aws_mce_role_recovery_stop_agent_change_timer();
 static void bt_aws_mce_role_recovery_start_standby_timer();
 static void bt_aws_mce_role_recovery_stop_standby_timer();
-static uint8_t bt_aws_mce_role_recovery_is_aws_peer_addr_empty();
+static uint32_t bt_aws_mce_role_recovery_is_aws_peer_addr_empty();
 static void bt_aws_mce_role_recovery_set_reconnect(bool is_allow, bool is_initiate_connection);
 bt_aws_mce_role_recovery_state_t bt_connection_manager_state_machine_get_state(void);
 
@@ -418,7 +419,7 @@ void bt_aws_mce_role_recovery_sink_event_callback(bt_cm_event_t event_id, void *
     }
 }
 
-uint8_t bt_aws_mce_role_recovery_is_in_role_resetup()
+uint32_t bt_aws_mce_role_recovery_is_in_role_resetup()
 {
     if (bt_aws_mce_role_recovery_get_reinit_flag() == BT_AWS_MCE_ROLE_RECOVERY_REINIT_BY_NONE) {
         return 0;
@@ -427,7 +428,7 @@ uint8_t bt_aws_mce_role_recovery_is_in_role_resetup()
     }
 }
 
-void bt_aws_mce_role_recovery_bt_power_state_notify(uint8_t is_on)
+void bt_aws_mce_role_recovery_bt_power_state_notify(uint32_t is_on)
 {
     const bt_aws_mce_role_recovery_state_machine_item_t *active_state = bt_aws_mce_role_recovery_get_active_state();
     if (active_state && active_state->misc_fun) {
@@ -511,7 +512,8 @@ void bt_aws_mce_role_recovery_start_standby_timer()
 #ifdef MTK_BT_TIMER_EXTERNAL_ENABLE
     uint32_t time_out = 0;
     if (bt_device_manager_aws_local_info_get_real_role() & BT_AWS_MCE_ROLE_AGENT) {
-        time_out = BT_AWS_MCE_ROLE_RECOVERY_STANDBY_STATE_TIMER + 650;
+        //time_out = BT_AWS_MCE_ROLE_RECOVERY_STANDBY_STATE_TIMER + 650;        
+        time_out = bt_aws_mce_role_recovery_generate_random(BT_AWS_MCE_ROLE_RECOVERY_STANDBY_STATE_TIMER + 450, BT_AWS_MCE_ROLE_RECOVERY_STANDBY_STATE_TIMER + 850, BT_AWS_MCE_ROLE_RECOVERY_ROLE_CHANGE_SHORT_TIMER_RESOLUTION);
         bt_timer_ext_start(BT_SINK_SRV_CM_AUTO_ROLE_CHANGE_TIMER_ID, BT_AWS_MCE_ROLE_RECOVERY_TIMER_STANDBY_WITH_OLD_ROLE,
                            time_out, bt_aws_mce_role_recovery_timeout_callback);
     } else {
@@ -537,7 +539,8 @@ void bt_aws_mce_role_recovery_stop_standby_timer()
 void bt_aws_mce_role_recovery_start_check_link_timer()
 {
 #ifdef MTK_BT_TIMER_EXTERNAL_ENABLE
-    uint32_t timeout = 3000;
+    //uint32_t timeout = 3000;
+    uint32_t timeout = bt_aws_mce_role_recovery_generate_random(2500, 3500, BT_AWS_MCE_ROLE_RECOVERY_ROLE_CHANGE_LONG_TIMER_RESOLUTION);
 
     bt_cmgr_report_id("[BT_CM_SM][I] start_check_link_timer: %d ms", 1, timeout);
 
@@ -656,10 +659,11 @@ void bt_aws_mce_role_recovery_start_agent_change_timer()
                         BT_AWS_MCE_ROLE_RECOVERY_ROLE_CHANGE_SHORT_TIMER_DUR_MAX, BT_AWS_MCE_ROLE_RECOVERY_ROLE_CHANGE_SHORT_TIMER_RESOLUTION);
         }
         bt_cmgr_report_id("[BT_CM_SM][I] start agent change timer: %d ms", 1, timeout);
-    */
-    bt_cmgr_report_id("[BT_CM_SM][I] start agent change timer: 8000 ms", 0);
+    */    
+    uint32_t timeout = bt_aws_mce_role_recovery_generate_random(7000, 9000, BT_AWS_MCE_ROLE_RECOVERY_ROLE_CHANGE_LONG_TIMER_RESOLUTION);
+    bt_cmgr_report_id("[BT_CM_SM][I] start agent change timer: %d ms", 1, timeout);
     bt_timer_ext_start(BT_SINK_SRV_CM_AUTO_ROLE_CHANGE_TIMER_ID, BT_AWS_MCE_ROLE_RECOVERY_TIMER_AGENT_TO_PARTNER,
-                       8000, bt_aws_mce_role_recovery_timeout_callback);
+                       timeout, bt_aws_mce_role_recovery_timeout_callback);
     hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_32K, &bt_aws_mce_role_recovery_gpt_start);
 
 #endif
@@ -696,9 +700,10 @@ void bt_aws_mce_role_recovery_start_link_conflict_timer()
 {
     /* connection conflick wait timer */
     bt_cmgr_report_id("[BT_CM_SM][I] start link conflict waitting timer", 0);
-    bt_cm_reconn_is_allow(false, false);
+    bt_cm_reconn_is_allow(false, false);    
+    uint32_t timeout = bt_aws_mce_role_recovery_generate_random(1000, 2000, BT_AWS_MCE_ROLE_RECOVERY_ROLE_CHANGE_SHORT_TIMER_RESOLUTION);
     bt_timer_ext_start(BT_SINK_SRV_CM_STATE_EXT_ASYNC_TIMER_ID, 0,
-                       1500, bt_aws_mce_role_recovery_async_timeout_callback);
+                       timeout, bt_aws_mce_role_recovery_async_timeout_callback);
 }
 
 void bt_aws_mce_role_recovery_stop_link_conflict_timer()
@@ -728,7 +733,7 @@ void bt_aws_mce_role_recovery_stop_partner_sync_agent_timer()
 
 }
 
-uint8_t bt_aws_mce_role_recovery_is_partner_connected_with_agent()
+uint32_t bt_aws_mce_role_recovery_is_partner_connected_with_agent()
 {
     if (bt_cm_get_connected_profile_services(*(bt_device_manager_aws_local_info_get_peer_address())) & BT_CM_PROFILE_SERVICE_AWS) {
         return 1;
@@ -737,7 +742,7 @@ uint8_t bt_aws_mce_role_recovery_is_partner_connected_with_agent()
     }
 }
 
-uint8_t bt_aws_mce_role_recovery_is_agent_connected_with_partner()
+uint32_t bt_aws_mce_role_recovery_is_agent_connected_with_partner()
 {
     bt_aws_mce_agent_state_type_t agent_state = bt_sink_srv_cm_get_aws_link_state();
     if (agent_state == BT_AWS_MCE_AGENT_STATE_ATTACHED) {
@@ -747,7 +752,7 @@ uint8_t bt_aws_mce_role_recovery_is_agent_connected_with_partner()
     }
 }
 
-uint8_t bt_aws_mce_role_recovery_agent_connected_with_sp()
+uint32_t bt_aws_mce_role_recovery_agent_connected_with_sp()
 {
     bt_bd_addr_t addr_list = {0};
     uint32_t connect_devie_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK_NONE, &addr_list, 1);
@@ -790,7 +795,7 @@ void bt_aws_mce_role_recovery_action_handler(bt_cm_event_t event, void *param)
 *******************************************************************************
 *******************************************************************************
 ********************************************************************************/
-uint8_t bt_aws_mce_role_recovery_is_aws_peer_addr_empty()
+uint32_t bt_aws_mce_role_recovery_is_aws_peer_addr_empty()
 {
     bt_bd_addr_t empty_addr = {0};
     bt_bd_addr_t *remote_addr = bt_device_manager_aws_local_info_get_peer_address();
@@ -960,7 +965,8 @@ void bt_aws_mce_role_recovery_state_standby_misc_func(bt_aws_mce_role_recovery_m
             }
 
             if (role & BT_AWS_MCE_ROLE_AGENT) {
-                if ((bt_device_manager_get_paired_number() != 0) || (0x01 == AGENT_KEEP_ROLE_RECOVER)) {
+                //if ((bt_device_manager_get_paired_number() != 0) || (0x01 == AGENT_KEEP_ROLE_RECOVER)) {                    
+                if ((0x01 == AGENT_KEEP_ROLE_RECOVER)) {
                     if (BT_AWS_MCE_ROLE_RECOVERY_LOCK == bt_aws_mce_role_recovery_get_lock_state()) {
                         /* role recovert was disallow, then switch to REC_LS for agent role power on */
                         bt_aws_mce_role_recovery_state_switch(BT_AWS_MCE_ROLE_RECOVERY_STATE_REC_LS, 0, NULL);
@@ -978,7 +984,8 @@ void bt_aws_mce_role_recovery_state_standby_misc_func(bt_aws_mce_role_recovery_m
                     bt_aws_mce_role_recovery_state_switch(BT_AWS_MCE_ROLE_RECOVERY_STATE_REC_LS, 0, NULL);
                 }
             } else {
-                if (bt_device_manager_get_paired_number() != 0) {
+                //if (bt_device_manager_get_paired_number() != 0) {
+                if (1) {
                     bt_aws_mce_role_recovery_state_switch(BT_AWS_MCE_ROLE_RECOVERY_STATE_SCAN, 0, NULL);
                     bt_aws_mce_role_recovery_start_scan_timer();
                 } else {
@@ -1013,8 +1020,8 @@ void bt_aws_mce_role_recovery_state_standby_misc_func(bt_aws_mce_role_recovery_m
             break;
         }
         case BT_AWS_MCE_ROLE_RECOVERY_MISC_FUNC_EVENT_PARTNER_RECEIVE_AGENT_SYNC_TIMEOUT: {
-            if (bt_device_manager_get_paired_number() != 0
-                && !bt_aws_mce_role_recovery_is_aws_peer_addr_empty()
+            //if (bt_device_manager_get_paired_number() != 0
+              if (!bt_aws_mce_role_recovery_is_aws_peer_addr_empty()
                 && BT_AWS_MCE_ROLE_RECOVERY_UNLOCK == bt_aws_mce_role_recovery_get_lock_state()) {
                 bt_aws_mce_role_recovery_set_reinit_flag(BT_AWS_MCE_ROLE_RECOVERY_REINIT_BY_ROLE_SWITCH);
                 if (BT_STATUS_SUCCESS != bt_aws_mce_srv_switch_role(BT_AWS_MCE_ROLE_AGENT)) {
@@ -1195,10 +1202,12 @@ void bt_aws_mce_role_recovery_state_rec_ls_on_enter(bt_aws_mce_role_recovery_sta
 {
     /* temp set role recovery timer to 7s */
     bt_timer_ext_stop(BT_SINK_SRV_CM_AUTO_ROLE_CHANGE_TIMER_ID);
+    
+    uint32_t timeout = bt_aws_mce_role_recovery_generate_random(6000, 8000, BT_AWS_MCE_ROLE_RECOVERY_ROLE_CHANGE_LONG_TIMER_RESOLUTION);
     bt_timer_ext_start(BT_SINK_SRV_CM_AUTO_ROLE_CHANGE_TIMER_ID, BT_AWS_MCE_ROLE_RECOVERY_TIMER_AGENT_TO_PARTNER,
-                       7000, bt_aws_mce_role_recovery_timeout_callback);
+                       timeout, bt_aws_mce_role_recovery_timeout_callback);
     hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_32K, &bt_aws_mce_role_recovery_gpt_start);
-    bt_cmgr_report_id("[BT_CM_SM][I] rec_ls state in, start 7000ms timer to check SP connection", 0);
+    bt_cmgr_report_id("[BT_CM_SM][I] rec_ls state in, start %d timer to check SP connection", 1, timeout);
 
     return;
 }
@@ -1280,11 +1289,12 @@ void bt_aws_mce_role_recovery_state_rec_ls_sink_func(bt_cm_event_t event_id, voi
                         //bt_cmgr_report_id("[BT_CM_SM][I]rec_ls sink fun: page sp timeout, will be do role recovery", 0);
                         bt_aws_mce_role_recovery_stop_agent_change_timer();
                         /* switch role due to page timeout */
-                        uint32_t paired_num = bt_device_manager_get_paired_number();
+                        //uint32_t paired_num = bt_device_manager_get_paired_number();
                         //bt_cmgr_report_id("[BT_CM_SM][I] rec_ls misc fun: paired number(%d)", 1, paired_num);
                         bt_aws_mce_role_t real_role = bt_device_manager_aws_local_info_get_real_role();
                         if (BT_AWS_MCE_ROLE_RECOVERY_UNLOCK == bt_aws_mce_role_recovery_get_lock_state()) {
-                            if (paired_num && !bt_aws_mce_role_recovery_is_aws_peer_addr_empty()) {
+                            //if (paired_num && !bt_aws_mce_role_recovery_is_aws_peer_addr_empty()) {                            
+                            if (!bt_aws_mce_role_recovery_is_aws_peer_addr_empty()) {
                                 if (BT_AWS_MCE_ROLE_RECOVERY_REINIT_BY_NONE == bt_aws_mce_role_recovery_get_reinit_flag()) {
                                     bt_aws_mce_role_recovery_set_reinit_flag(BT_AWS_MCE_ROLE_RECOVERY_REINIT_BY_REC_LS_TIMEOUT);
                                     if (BT_STATUS_SUCCESS != bt_aws_mce_srv_switch_role(BT_AWS_MCE_ROLE_PARTNER)) {
@@ -1318,12 +1328,13 @@ void bt_aws_mce_role_recovery_state_rec_ls_misc_func(bt_aws_mce_role_recovery_mi
     bt_cmgr_report_id("[BT_CM_SM][I] rec_ls misc fun: type is %d ", 1, type);
     switch (type) {
         case BT_AWS_MCE_ROLE_RECOVERY_MISC_FUNC_EVENT_REC_LS_TIMEOUT: {
-            uint32_t paired_num = bt_device_manager_get_paired_number();
+            //uint32_t paired_num = bt_device_manager_get_paired_number();
             //bt_cmgr_report_id("[BT_CM_SM][I] rec_ls misc fun: paired number(%d)", 1, paired_num);
             bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_real_role();
 
             if (BT_AWS_MCE_ROLE_RECOVERY_UNLOCK == bt_aws_mce_role_recovery_get_lock_state()) {
-                if (paired_num && !bt_aws_mce_role_recovery_is_aws_peer_addr_empty()) {
+                //if (paired_num && !bt_aws_mce_role_recovery_is_aws_peer_addr_empty()) {                
+                if (!bt_aws_mce_role_recovery_is_aws_peer_addr_empty()) {
                     if (BT_AWS_MCE_ROLE_RECOVERY_REINIT_BY_NONE == bt_aws_mce_role_recovery_get_reinit_flag()) {
                         bt_aws_mce_role_recovery_set_reinit_flag(BT_AWS_MCE_ROLE_RECOVERY_REINIT_BY_REC_LS_TIMEOUT);
                         if (BT_STATUS_SUCCESS != bt_aws_mce_srv_switch_role(BT_AWS_MCE_ROLE_PARTNER)) {
@@ -1512,12 +1523,13 @@ void bt_aws_mce_role_recovery_state_scan_misc_func(bt_aws_mce_role_recovery_misc
     switch (type) {
         case BT_AWS_MCE_ROLE_RECOVERY_MISC_FUNC_EVENT_SCAN_TIMEOUT: {
             //bt_cmgr_report_id("[BT_CM_SM][I] scan misc fun: connect agent time out", 0);
-            uint32_t paired_num = bt_device_manager_get_paired_number();
+            //uint32_t paired_num = bt_device_manager_get_paired_number();
             //bt_cmgr_report_id("[BT_CM_SM][I] scan misc fun: paired number(%d)", 1, paired_num);
             bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_real_role();
 
             if (BT_AWS_MCE_ROLE_RECOVERY_UNLOCK == bt_aws_mce_role_recovery_get_lock_state()) {
-                if (!bt_aws_mce_role_recovery_is_aws_peer_addr_empty() && paired_num) {
+                //if (!bt_aws_mce_role_recovery_is_aws_peer_addr_empty() && paired_num) {                
+                if (!bt_aws_mce_role_recovery_is_aws_peer_addr_empty()) {
                     if (BT_AWS_MCE_ROLE_RECOVERY_REINIT_BY_NONE == bt_aws_mce_role_recovery_get_reinit_flag()) {
                         bt_aws_mce_role_recovery_set_reinit_flag(BT_AWS_MCE_ROLE_RECOVERY_REINIT_BY_SCAN_TIMEOUT);
                         if (BT_STATUS_SUCCESS != bt_aws_mce_srv_switch_role(BT_AWS_MCE_ROLE_AGENT)) {
@@ -1545,11 +1557,12 @@ void bt_aws_mce_role_recovery_state_scan_misc_func(bt_aws_mce_role_recovery_misc
             if (BT_AWS_MCE_ROLE_AGENT == role_update->cur_aws_role) {
                 bt_aws_mce_role_recovery_stop_scan_timer();
                 bt_aws_mce_role_recovery_state_switch(BT_AWS_MCE_ROLE_RECOVERY_STATE_REC_LS, 0, NULL);
-                uint32_t paired_num = bt_device_manager_get_paired_number();
+                //uint32_t paired_num = bt_device_manager_get_paired_number();
                 //bt_cmgr_report_id("[BT_CM_SM][I] scan misc fun: paired number(%d)", 1, paired_num);
                 bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_real_role();
                 /* if real role is agent && no paired device, continue do role recover */
-                if (!paired_num && (role & BT_AWS_MCE_ROLE_AGENT) && (0x01 == AGENT_KEEP_ROLE_RECOVER)) {
+                //if (!paired_num && (role & BT_AWS_MCE_ROLE_AGENT) && (0x01 == AGENT_KEEP_ROLE_RECOVER)) {                
+                if ((role & BT_AWS_MCE_ROLE_AGENT) && (0x01 == AGENT_KEEP_ROLE_RECOVER)) {
                     bt_aws_mce_role_recovery_start_agent_change_timer();
                 }
             } else {
@@ -1570,8 +1583,8 @@ void bt_aws_mce_role_recovery_state_scan_misc_func(bt_aws_mce_role_recovery_misc
         }
 
         case BT_AWS_MCE_ROLE_RECOVERY_MISC_FUNC_EVENT_PARTNER_RECEIVE_AGENT_SYNC_TIMEOUT: {
-            if (bt_device_manager_get_paired_number() != 0
-                && !bt_aws_mce_role_recovery_is_aws_peer_addr_empty()
+            //if (bt_device_manager_get_paired_number() != 0
+                if (!bt_aws_mce_role_recovery_is_aws_peer_addr_empty()
                 && BT_AWS_MCE_ROLE_RECOVERY_UNLOCK == bt_aws_mce_role_recovery_get_lock_state()) {
                 if (BT_AWS_MCE_ROLE_RECOVERY_REINIT_BY_NONE == bt_aws_mce_role_recovery_get_reinit_flag()) {
                     bt_aws_mce_role_recovery_set_reinit_flag(BT_AWS_MCE_ROLE_RECOVERY_REINIT_BY_ROLE_SWITCH);

@@ -102,8 +102,8 @@ static void app_hfp_activity_ready_to_finish(hfp_context_t *hfp_ctx, ui_shell_ac
     if (le_audio_call_ongoing) {
         return;
     }
-    if (hfp_ctx->transient_actived) {
-        hfp_ctx->transient_actived = false;
+    if (hfp_ctx->transient_active) {
+        hfp_ctx->transient_active = false;
         hfp_ctx->curr_state        = BT_SINK_SRV_STATE_NONE;
         ui_shell_finish_activity(self, self);
     }
@@ -321,24 +321,26 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
                     /* Agent send hfp state to partner before finish hfp activity,
                      * because partner don't finish activity by bt_sink_srv hfp. */
                     app_hfp_sync_sink_state_to_peer(self);
-                    if (true == hfp_context->transient_actived
+                    if (true == hfp_context->transient_active
                         && (hfp_context->esco_connected == 0)
 #if 0
                         && !(bt_sink_srv_cap_am_get_current_mode() <= CAP_AM_UNICAST_CALL_MODE_END)
 #endif
                     ) {
-                        hfp_context->transient_actived = false;
+                        hfp_context->transient_active = false;
+                        hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
                         ui_shell_finish_activity(self, self);
                     }
                 }
 #else
-                if (true == hfp_context->transient_actived
+                if (true == hfp_context->transient_active
                     && (hfp_context->esco_connected == 0)
 #if 0
                     && !(bt_sink_srv_cap_am_get_current_mode() <= CAP_AM_UNICAST_CALL_MODE_END)
 #endif
                 ) {
-                    hfp_context->transient_actived = false;
+                    hfp_context->transient_active = false;
+                    hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
                     ui_shell_finish_activity(self, self);
                 }
 #endif
@@ -378,7 +380,7 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
                 if (sco_state->state == BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED
                     && (hfp_context->esco_connected - 1 == 0)
                     && (bt_sink_srv_get_state() < BT_SINK_SRV_STATE_INCOMING)) {
-                        hfp_context->transient_actived = false;
+                        hfp_context->transient_active = false;
                         hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
                         ui_shell_finish_activity(self, self);
                 }
@@ -447,8 +449,8 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
                 /* No any BLE link is connected. */
                 if (bt_sink_state < BT_SINK_SRV_STATE_INCOMING && le_handle == BT_HANDLE_INVALID) {
                     app_hfp_stop_vp();
-                    if (true == hfp_context->transient_actived) {
-                        hfp_context->transient_actived = false;
+                    if (true == hfp_context->transient_active) {
+                        hfp_context->transient_active = false;
                         hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
                         ui_shell_finish_activity(self, self);
                     }
@@ -467,8 +469,8 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
             APPS_LOG_MSGID_I(APP_HFP_ACTI",[BIDIRECTION_LEA_STATE] le call end ,event_state=%d, bt_sink_state=%d", 2, event->state, bt_sink_state);
             if (BT_SINK_SRV_BIDIRECTION_LEA_STATE_DISABLE == event->state) {
                 //APPS_LOG_MSGID_I(APP_HFP_ACTI",[BIDIRECTION_LEA_STATE] le call end ,bt_sink_state=%d", 1, bt_sink_state);
-                if (true == hfp_context->transient_actived && bt_sink_state < BT_SINK_SRV_STATE_INCOMING) {
-                    hfp_context->transient_actived = false;
+                if (true == hfp_context->transient_active && bt_sink_state < BT_SINK_SRV_STATE_INCOMING) {
+                    hfp_context->transient_active = false;
                     hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
                     ui_shell_finish_activity(self, self);
                 }
@@ -515,8 +517,8 @@ static bool app_hfp_proc_bt_cm_event(ui_shell_activity_t *self,
 #ifdef AIR_LE_AUDIO_ENABLE
                         app_hfp_activity_ready_to_finish(hfp_context, self);
 #else
-                        if (true == hfp_context->transient_actived) {
-                            hfp_context->transient_actived = false;
+                        if (true == hfp_context->transient_active) {
+                            hfp_context->transient_active = false;
                             hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
                             ui_shell_finish_activity(self, self);
                         }
@@ -561,8 +563,9 @@ static bool app_hfp_proc_aws_data(ui_shell_activity_t *self, uint32_t event_id, 
                 hfp_context->pre_state = hfp_state_change->previous;
                 hfp_context->curr_state = hfp_state_change->current;
                 if ((hfp_context->pre_state > BT_SINK_SRV_STATE_STREAMING) && (hfp_context->curr_state <= BT_SINK_SRV_STATE_STREAMING)) {
-                    if (true == hfp_context->transient_actived) {
-                        hfp_context->transient_actived = false;
+                    if (true == hfp_context->transient_active) {
+                        hfp_context->transient_active = false;
+                        hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
                         ui_shell_finish_activity(self, self);
                         ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                             APPS_EVENTS_INTERACTION_UPDATE_MMI_STATE, NULL, 0, NULL, 0);

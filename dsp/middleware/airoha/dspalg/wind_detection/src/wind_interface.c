@@ -291,11 +291,7 @@ int16_t stream_function_wind_check_headset(void)
 #endif
 }
 
-#ifdef AIR_BTA_IC_PREMIUM_G3
-ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool stream_function_wind_initialize(void *para)
-#else
-ATTR_TEXT_IN_IRAM_LEVEL_2 bool stream_function_wind_initialize(void *para)
-#endif
+bool stream_function_wind_initialize(void *para)
 {
     uint32_t scratch_memory_size, need_size;
 
@@ -350,6 +346,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 bool stream_function_wind_initialize(void *para)
     return false;
 }
 
+static uint32_t proc_log_cnt = 0;
 #ifdef AIR_BTA_IC_PREMIUM_G3
 ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool stream_function_wind_process(void *para)
 #else
@@ -367,6 +364,13 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 bool stream_function_wind_process(void *para)
     int32_t samples;
     S16 detect_result, detect_result_r = -1;
     S16 mix_detect_result = -1;
+
+    proc_log_cnt++;
+
+    if(proc_log_cnt == 40){
+        DSP_MW_LOG_I("[Wind Detection] processing",0);
+        proc_log_cnt = 0;
+    }
 
     if (!wind_check_memory() || !wind_instance->init_done) {
         stream_function_wind_initialize(para);

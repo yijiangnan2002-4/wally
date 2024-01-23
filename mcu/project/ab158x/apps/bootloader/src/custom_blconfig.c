@@ -62,6 +62,11 @@ uint32_t bl_custom_fota_size(void)
 }
 
 #ifdef MTK_SECURE_BOOT_ENABLE
+uint32_t bl_custom_secure_header1_start_address(void)
+{
+    return SEC_HEADER1_BASE;
+}
+
 uint32_t bl_custom_header_start_address(void)
 {
     return SEC_HEADER2_BASE;

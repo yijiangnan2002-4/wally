@@ -53,7 +53,7 @@
 #define RACE_OFFLINE_QUERY_CELL_INVALID_STATE           0x1E11
 #define RACE_OFFLINE_QUERY_LOG_TO_FLASH_SWITCH          0x1E14
 #define RACE_OFFLINE_SET_LOG_TO_FLASH_SWITCH            0x1E15
-
+#define RACE_OFFLINE_SET_UNIX_TIME                      0x1E16
 
 ////////////////////////////////////////////////////////////////////////////////
 // TYPE DEFINITIONS ////////////////////////////////////////////////////////////

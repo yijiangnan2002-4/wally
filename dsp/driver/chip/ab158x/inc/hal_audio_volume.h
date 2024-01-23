@@ -158,6 +158,7 @@ typedef enum {
     AFE_VOLUME_MUTE_ZERO_PADDING    = HAL_AUDIO_VOLUME_MUTE_ZERO_PADDING,
     AFE_VOLUME_MUTE_BLOCK_DISABLE   = HAL_AUDIO_VOLUME_MUTE_NUMBER,
     AFE_VOLUME_MUTE_CHANGE_DL_RATE,
+    AFE_VOLUME_MUTE_LLF,
 } afe_volume_mute_control_t;
 
 typedef enum {
@@ -196,7 +197,7 @@ typedef enum {
 } afe_db_conversion_table_t;
 
 typedef struct {
-    afe_volume_mute_control_t mute;
+    uint32_t mute;
     uint32_t register_value;
     uint32_t register_value_with_compensation;
     uint32_t sample_per_step;

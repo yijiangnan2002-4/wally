@@ -44,6 +44,8 @@
 #endif
 #include "hal_gpt.h"
 #include "hal_gpio.h"
+#include "scenario_dongle_common.h"
+
 /*------------------------------------------------PORT----AIR_BT_ULTRA_LOW_LATENCY_ENABLE------------------------------------------------------------------*/
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
 
@@ -90,62 +92,6 @@ static const uint8_t NVKEY_E450[] = {
 #endif /* AIR_GAME_CHAT_VOLUME_SMART_BALANCE_ENABLE */
 
 #if defined(AIR_USB_AUDIO_1_SPK_ENABLE)
-#if GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY
-static void usb_audio_rx_cb_latency_debug(uint32_t port, uint8_t *p_source_buf)
-{
-    static uint32_t last_level = 0;
-    static int16_t last_sample = 0x0;
-    int16_t *start_address = NULL;
-    uint32_t current_level = 0;
-    uint32_t i;
-    uint32_t gaming_mode_latency_debug = 0;
-    uint32_t curr_payload_size;
-
-    if ((port == 0) && (gaming_mode_latency_debug_0 != 0))
-    {
-        gaming_mode_latency_debug = 1;
-        curr_payload_size = g_usb_0_stream_curr_payload_size;
-    }
-    else if ((port == 1) && (gaming_mode_latency_debug_1 != 0))
-    {
-        gaming_mode_latency_debug = 1;
-        curr_payload_size = g_usb_1_stream_curr_payload_size;
-    } else {
-        gaming_mode_latency_debug = 0;
-        curr_payload_size = 0;
-    }
-
-    if (gaming_mode_latency_debug) {
-        current_level = last_level;
-        start_address = (int16_t *)(p_source_buf + BLK_HEADER_SIZE);
-        if ((*(start_address + 2 * 0) > last_sample) &&
-            (*(start_address + 2 * 0) - last_sample > 40000)) {
-            current_level = 1;
-        } else if ((*(start_address + 2 * 0) < last_sample) &&
-                    (last_sample - * (start_address + 2 * 0) > 40000)) {
-            current_level = 0;
-        }
-        for (i = 0; i < curr_payload_size / 4 - 1; i++) {
-            if ((*(start_address + 2 * i) > *(start_address + 2 * (i + 1))) &&
-                (*(start_address + 2 * i) - * (start_address + 2 * (i + 1)) > 40000)) {
-                current_level = 0;
-                break;
-            } else if ((*(start_address + 2 * i) < * (start_address + 2 * (i + 1))) &&
-                        (*(start_address + 2 * (i + 1)) - * (start_address + 2 * i) > 40000)) {
-                current_level = 1;
-                break;
-            } else {
-            }
-        }
-        last_sample = *(start_address + 2 * (curr_payload_size / 4 - 1));
-        if (current_level != last_level) {
-            hal_gpio_set_output(HAL_GPIO_13, current_level);
-            last_level = current_level;
-        }
-    }
-}
-#endif /* GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY */
-
 static void usb_audio_rx_cb_gaming_dongle_0(void)
 {
     static uint32_t previous_count = 0;
@@ -193,6 +139,9 @@ static void usb_audio_rx_cb_gaming_dongle_0(void)
 #ifdef AIR_AUDIO_DUMP_ENABLE
         //LOG_AUDIO_DUMP(p_source_buf + BLK_HEADER_SIZE, g_usb_0_stream_curr_payload_size, SOURCE_IN4);
 #endif
+#if GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY
+        audio_usb_rx_scenario_latency_debug(0, p_source_buf + BLK_HEADER_SIZE);
+#endif /* GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY */
         hal_audio_buf_mgm_get_write_data_done(p_dsp_info, g_usb_0_stream_curr_payload_size + BLK_HEADER_SIZE); /* always keep same block size */
 
 #if 0
@@ -206,9 +155,6 @@ static void usb_audio_rx_cb_gaming_dongle_0(void)
         }
 #endif
 
-#if GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY
-        usb_audio_rx_cb_latency_debug(0, p_source_buf);
-#endif /* GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY */
         available_data_size = USB_Audio_Get_Len_Received_Data(0);
     }
 }
@@ -260,6 +206,9 @@ static void usb_audio_rx_cb_gaming_dongle_1(void)
 #ifdef AIR_AUDIO_DUMP_ENABLE
         //LOG_AUDIO_DUMP(p_source_buf + BLK_HEADER_SIZE, g_usb_1_stream_curr_payload_size, SOURCE_IN5);
 #endif
+#if GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY
+        audio_usb_rx_scenario_latency_debug(1, p_source_buf + BLK_HEADER_SIZE);
+#endif /* GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY */
         hal_audio_buf_mgm_get_write_data_done(p_dsp_info, g_usb_1_stream_curr_payload_size + BLK_HEADER_SIZE);
 
 #if 0
@@ -273,9 +222,6 @@ static void usb_audio_rx_cb_gaming_dongle_1(void)
         }
 #endif
 
-#if GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY
-        usb_audio_rx_cb_latency_debug(1, p_source_buf);
-#endif /* GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY */
         available_data_size = USB_Audio_Get_Len_Received_Data(1);
     }
 }
@@ -403,12 +349,6 @@ void gaming_mode_open_playback(audio_transmitter_config_t *config, mcu2dsp_open_
         open_param->stream_in_param.afe.frame_number    = 6;
         open_param->stream_in_param.afe.hw_gain         = false;
         open_param->stream_in_param.afe.misc_parms      = MICBIAS_SOURCE_ALL | MICBIAS3V_OUTVOLTAGE_2p4v;
-        if (open_param->stream_in_param.afe.audio_device == HAL_AUDIO_DEVICE_I2S_MASTER) {
-            //for ULL UL Downsample
-            open_param->stream_in_param.afe.with_upwdown_sampler     = true;
-            open_param->stream_in_param.afe.audio_path_input_rate    = HAL_AUDIO_FIXED_AFE_SAMPLE_RATE;
-            open_param->stream_in_param.afe.audio_path_output_rate   = open_param->stream_in_param.afe.sampling_rate;
-        }
 
         open_param->param.stream_out = STREAM_OUT_AUDIO_TRANSMITTER;
         open_param->stream_out_param.data_ul.scenario_type = config->scenario_type;
@@ -520,6 +460,13 @@ void gaming_mode_open_playback(audio_transmitter_config_t *config, mcu2dsp_open_
         } else {
             g_usb_1_stream_curr_payload_size = open_param->stream_in_param.data_dl.max_payload_size;
         }
+
+#if GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY
+        audio_usb_rx_scenario_latency_debug_init(config->scenario_sub_id - AUDIO_TRANSMITTER_GAMING_MODE_MUSIC_DONGLE_USB_IN_0,
+                                                    open_param->stream_in_param.data_dl.max_payload_size,
+                                                    config->scenario_config.gaming_mode_config.music_dongle_config.usb_param.pcm.channel_mode,
+                                                    config->scenario_config.gaming_mode_config.music_dongle_config.usb_param.pcm.format);
+#endif /* GAMING_MODE_MUSIC_DONGLE_DEBUG_LANTENCY */
 
         uint32_t gain = audio_get_gain_out_in_dB(0, GAIN_DIGITAL, VOL_USB_AUDIO_SW_IN);
         uint32_t gain_default = gain;
@@ -732,11 +679,7 @@ void gaming_mode_open_playback(audio_transmitter_config_t *config, mcu2dsp_open_
         open_param->stream_in_param.afe.frame_number        = 8;
         open_param->stream_in_param.afe.irq_period          = 0;
         open_param->stream_in_param.afe.hw_gain             = false;
-        if(open_param->stream_in_param.afe.audio_device == HAL_AUDIO_DEVICE_I2S_MASTER){
-            //open_param->stream_in_param.afe.with_upwdown_sampler     = true;
-            open_param->stream_in_param.afe.audio_path_input_rate    = open_param->stream_in_param.afe.sampling_rate;
-            //open_param->stream_in_param.afe.audio_path_output_rate   = open_param->stream_in_param.afe.sampling_rate;
-        }
+
         // I2S setting
         open_param->stream_in_param.afe.i2s_format          = config->scenario_config.gaming_mode_config.i2s_in_dongle_config.i2s_fromat;
         open_param->stream_in_param.afe.i2s_word_length     = config->scenario_config.gaming_mode_config.i2s_in_dongle_config.i2s_word_length;

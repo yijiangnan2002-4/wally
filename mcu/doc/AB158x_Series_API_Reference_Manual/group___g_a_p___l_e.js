@@ -12,6 +12,7 @@ var group___g_a_p___l_e =
     [ "bt_gap_le_disconnect", "group___g_a_p___l_e.html#ga30d2c922a559075896771b00bd753d0d", null ],
     [ "bt_gap_le_enable_extended_advertising", "group___g_a_p___l_e.html#ga693d7a5425bd64e65f10090869268d31", null ],
     [ "bt_gap_le_enable_periodic_advertising", "group___g_a_p___l_e.html#ga6ca78a15b56b8a4676f6dd61613d231e", null ],
+    [ "bt_gap_le_enable_subrate", "group___g_a_p___l_e.html#ga73dceabf8ca001c6b17aacc8104223b4", null ],
     [ "bt_gap_le_get_bonding_info", "group___g_a_p___l_e.html#ga4c87069eeeb8b0dcd9a1860f1dfbcbda", null ],
     [ "bt_gap_le_get_connection_information", "group___g_a_p___l_e.html#ga38066262bbecb450906331bcb4dd937e", null ],
     [ "bt_gap_le_get_local_config", "group___g_a_p___l_e.html#ga149cd908a12b10288c47e55f798a332a", null ],

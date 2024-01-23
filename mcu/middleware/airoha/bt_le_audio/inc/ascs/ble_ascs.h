@@ -64,6 +64,17 @@ uint8_t *ble_ascs_get_ltv_value_from_metadata(uint8_t type, uint8_t metadata_len
 /**
  * @brief                           This function used to get ASCS qos preference parameters.
  * @param[in] target_latency        is the target latency.
+ * @param[in] frame_duration        is the frame duration.
+ * @param[in] configuration_len     is the configed octets per codec frame.
+ * @param[in] direction             is the ASE direction.
+ * @return                          the pointer of qos preference.
+ *
+ */
+ble_ascs_default_qos_parameters_t *ble_gaming_ascs_get_qos_preference(uint8_t target_latency, uint8_t frame_duration, uint16_t configed_octets_per_codec_frame, uint8_t direction);
+
+/**
+ * @brief                           This function used to get ASCS qos preference parameters.
+ * @param[in] target_latency        is the target latency.
  * @param[in] configuration_len     is the frame duration.
  * @param[in] configuration_len     is the configed octets per codec frame.
  * @return                          the pointer of qos preference.

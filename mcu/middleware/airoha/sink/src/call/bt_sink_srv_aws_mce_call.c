@@ -57,7 +57,7 @@
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
 extern void bt_sink_srv_call_role_handover_init(void);
 #endif
-#define BT_SINK_SRV_AWS_MCE_CALL_CONNECTION_NUM 4
+#define BT_SINK_SRV_AWS_MCE_CALL_CONNECTION_NUM 6
 bt_sink_srv_aws_mce_call_context_t bt_sink_srv_mce_call_context[BT_SINK_SRV_AWS_MCE_CALL_CONNECTION_NUM];
 
 const static bt_sink_srv_aws_mce_call_state_trans_t bt_sink_srv_call_state_trans_struct_p[] = {
@@ -93,7 +93,7 @@ bt_sink_srv_aws_mce_call_context_t *bt_sink_srv_aws_mce_call_get_free_context(vo
     bt_sink_srv_aws_mce_call_context_t *context = NULL;
 
     for (; i < BT_SINK_SRV_AWS_MCE_CALL_CONNECTION_NUM; i++) {
-        if (bt_sink_srv_mce_call_context[i].aws_handle == 0) {
+        if (!bt_sink_srv_mce_call_context[i].is_used) {
             context = &bt_sink_srv_mce_call_context[i];
             break;
         }
@@ -123,15 +123,11 @@ bt_sink_srv_aws_mce_call_context_t *bt_sink_srv_aws_mce_call_get_context_by_addr
 {
     uint32_t i = 0;
     bt_sink_srv_aws_mce_call_context_t *context = NULL;
-    bt_bd_addr_t *addr =NULL;
 
     for (; i < BT_SINK_SRV_AWS_MCE_CALL_CONNECTION_NUM; i++) {
-        if (bt_sink_srv_mce_call_context[i].aws_handle != 0) {
-            addr = (bt_bd_addr_t*)bt_aws_mce_get_bd_addr_by_handle(bt_sink_srv_mce_call_context[i].aws_handle);
-            if (addr && (bt_sink_srv_memcmp(addr, address, sizeof(bt_bd_addr_t)) == 0)) {
-                    context = &bt_sink_srv_mce_call_context[i];
-                    break;
-            }
+        if (address && (bt_sink_srv_memcmp(bt_sink_srv_mce_call_context[i].address, address, sizeof(bt_bd_addr_t))) == 0) {
+            context = &bt_sink_srv_mce_call_context[i];
+            break;
         }
     }
 
@@ -618,9 +614,14 @@ bt_status_t  bt_sink_srv_aws_mce_call_callback(bt_msg_type_t msg, bt_status_t st
             bt_aws_mce_connected_t *conn = (bt_aws_mce_connected_t *)buffer;
             if (status == BT_STATUS_SUCCESS) {
                 //alloc aws call context.
-                aws_call_cntx = bt_sink_srv_aws_mce_call_get_free_context();
+                aws_call_cntx = bt_sink_srv_aws_mce_call_get_context_by_address(conn->address);
+                if (aws_call_cntx == NULL) {
+                    aws_call_cntx = bt_sink_srv_aws_mce_call_get_free_context();
+                }
                 if (aws_call_cntx) {
+                    aws_call_cntx->is_used = true;
                     aws_call_cntx->aws_handle = conn->handle;
+                    bt_sink_srv_memcpy((void *)&aws_call_cntx->address, (void *)conn->address, sizeof(bt_bd_addr_t));
                     if (role == BT_AWS_MCE_ROLE_CLINET || role == BT_AWS_MCE_ROLE_PARTNER) {
                         bt_bd_addr_t *local_addr = bt_connection_manager_device_local_info_get_local_address();
                         if (0 != bt_sink_srv_memcmp(conn->address, local_addr, sizeof(bt_bd_addr_t))) {
@@ -650,8 +651,12 @@ bt_status_t  bt_sink_srv_aws_mce_call_callback(bt_msg_type_t msg, bt_status_t st
                             (bt_sink_srv_get_state() <= BT_SINK_SRV_STATE_MULTIPARTY)) {
                             bt_sink_srv_state_set(BT_SINK_SRV_STATE_NONE);
                         }
+                    } else {
+                        aws_call_cntx->is_used = false;
+                        bt_sink_srv_memset((void *)&aws_call_cntx->address, 0, sizeof(bt_bd_addr_t));
                     }
                 } else if (role == BT_AWS_MCE_ROLE_AGENT) {
+                    aws_call_cntx->is_used = false;
                     bt_sink_srv_memset((void *)&aws_call_cntx->call_info, 0, sizeof(bt_sink_srv_aws_mce_call_info_t));
                 }
             }
@@ -709,23 +714,7 @@ bt_status_t  bt_sink_srv_aws_mce_call_callback(bt_msg_type_t msg, bt_status_t st
                             bt_aws_mce_send_information(aws_call_cntx->aws_handle, (const bt_aws_mce_information_t *)&send_sco_info, true);
 #endif
                         }
-                    } else if (state_change->state == BT_AWS_MCE_AGENT_STATE_NONE) {
-                        //RHO case, if hfp is not connected, aws call context need alloc a audio_src.
-                        bt_bd_addr_t *rem_addr = (bt_bd_addr_t *)bt_aws_mce_get_bd_addr_by_handle(aws_call_cntx->aws_handle);
-                        bt_utils_assert(rem_addr);
-                        if (!bt_sink_srv_hf_check_is_connected(rem_addr)
-#ifdef MTK_BT_HSP_ENABLE
-                            && !bt_sink_srv_hsp_check_is_connected(rem_addr)
-#endif
-                           ) {
-                            bt_bd_addr_t *agent_addr = bt_connection_manager_device_local_info_get_local_address();
-                            bt_utils_assert(agent_addr);
-                            aws_call_cntx->device = bt_sink_srv_call_psd_alloc_device(agent_addr, bt_sink_srv_aws_mce_call_pseudo_dev_callback);
-                            bt_utils_assert(aws_call_cntx->device);
-                            bt_sink_srv_call_psd_state_event_notify(aws_call_cntx->device, BT_SINK_SRV_CALL_EVENT_CONNECT_LINK_REQ_IND, NULL);
-                            bt_sink_srv_call_psd_state_event_notify(aws_call_cntx->device, BT_SINK_SRV_CALL_EVENT_LINK_CONNECTED, NULL);
-                        }
-                    }
+                    } 
                 }
             }
         }
@@ -889,9 +878,11 @@ void bt_sink_srv_aws_mce_call_update_agent(void)
             if (address != NULL) {
                 if (bt_sink_srv_memcmp(address, new_agent_address, sizeof(bt_bd_addr_t)) == 0) {
                     bt_sink_srv_report_id("[CALL][AWS_MCE]update agent, context[%d] is active link", 1, i);
+                    bt_sink_srv_memcpy(&bt_sink_srv_mce_call_context[i].address, new_agent_address, sizeof(bt_bd_addr_t));
                     continue;
                 } else if (bt_sink_srv_memcmp(address, new_partner_address, sizeof(bt_bd_addr_t)) == 0) {
                     bt_sink_srv_report_id("[CALL][AWS_MCE]update agent, context[%d] is special link", 1, i);
+                    bt_sink_srv_memcpy(&bt_sink_srv_mce_call_context[i].address, new_partner_address, sizeof(bt_bd_addr_t));
                     continue;
                 } else {
                     /* Destory in-active link context. */
@@ -908,6 +899,16 @@ void bt_sink_srv_aws_mce_call_update_partner(void)
 {
     bt_bd_addr_t connected_address[BT_SINK_SRV_AWS_MCE_CALL_CONNECTION_NUM] = {{0}};
 
+    /* exchange aws context address */
+    for (uint32_t i = 0; i < BT_SINK_SRV_AWS_MCE_CALL_CONNECTION_NUM; i++) {
+        if (bt_sink_srv_mce_call_context[i].aws_handle != BT_AWS_MCE_INVALID_HANDLE) {
+            bt_bd_addr_t *address = (bt_bd_addr_t *)bt_aws_mce_get_bd_addr_by_handle(bt_sink_srv_mce_call_context[i].aws_handle);
+            if(address != NULL) {
+                bt_sink_srv_memcpy((void *)&bt_sink_srv_mce_call_context[i].address, (void *)address, sizeof(bt_bd_addr_t));
+            }
+        }
+    }
+
     /* Create in-active link context. */
     uint32_t connected_number = bt_cm_get_connected_devices(
                                     ~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS),
@@ -916,6 +917,7 @@ void bt_sink_srv_aws_mce_call_update_partner(void)
 
     for (uint32_t i = 0; i < connected_number; i++) {
         bt_sink_srv_aws_mce_call_context_t *context = bt_sink_srv_aws_mce_call_get_context_by_address((const bt_bd_addr_t *)&connected_address[i]);
+
         if (context == NULL) {
             bt_sink_srv_aws_mce_call_context_t *context = bt_sink_srv_aws_mce_call_get_free_context();
             bt_utils_assert((context != NULL) && "Can not alloc a Sink AWS MCE CALL context!");
@@ -923,6 +925,8 @@ void bt_sink_srv_aws_mce_call_update_partner(void)
             context->aws_handle = bt_aws_mce_query_handle_by_address(
                                       BT_MODULE_AWS_MCE,
                                       (const bt_bd_addr_t *)&connected_address[i]);
+            context->is_used = true;
+            bt_sink_srv_memcpy((void *)&context->address, (void *)&connected_address[i], sizeof(bt_bd_addr_t));
         } else {
             if (context->device != NULL) {
                 bt_sink_srv_report_id("[CALL][AWS_MCE]update partner, context 0x%x's device is not NULL(0x%x), need to be freed", 2,

@@ -1257,3 +1257,4 @@ void USB_Acm_IntrIn_Reset(uint8_t port)
 }
 
 #endif /* AIR_USB_CDC_ENABLE */
+

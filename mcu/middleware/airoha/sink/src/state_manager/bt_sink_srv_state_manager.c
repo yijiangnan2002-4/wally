@@ -50,8 +50,15 @@ static void bt_sink_srv_state_manager_set_played_device_mask(
     bt_sink_srv_state_manager_played_device_t *played_device,
     bt_sink_srv_state_manager_device_mask_t mask);
 
+static void bt_sink_srv_state_manager_sync_play_count(
+    bt_sink_srv_state_manager_context_t *context);
+
 void bt_sink_srv_state_manager_initialize(void)
 {
+    bt_sink_srv_state_manager_context_t *context = bt_sink_srv_state_manager_get_context();
+
+    context->play_count = BT_SINK_SRV_STATE_MANAGER_PLAY_COUNT_MIN;
+
 #ifdef MTK_AWS_MCE_ENABLE
     bt_aws_mce_report_register_callback(
         BT_AWS_MCE_REPORT_MODULE_SINK_STAMGR,
@@ -73,6 +80,15 @@ void bt_sink_srv_state_manager_initialize(void)
 #ifdef AIR_LE_AUDIO_ENABLE
     bt_gap_le_srv_register_event_callback(bt_sink_srv_state_manager_gap_le_srv_callback);
 #endif
+}
+
+bt_sink_srv_state_manager_play_count_t bt_sink_srv_state_manager_get_play_count(void)
+{
+    bt_sink_srv_state_manager_context_t *context = bt_sink_srv_state_manager_get_context();
+    bt_sink_srv_report_id("[Sink][StaMgr]play count: %d", 1, context->play_count);
+    bt_sink_srv_state_manager_sync_play_count(context);
+
+    return context->play_count++;
 }
 
 bt_sink_srv_state_manager_context_t *bt_sink_srv_state_manager_get_context(void)
@@ -105,15 +121,10 @@ bt_sink_srv_state_manager_device_t *bt_sink_srv_state_manager_add_device(
 
     /* 3. Set focus device. */
     if (BT_SINK_SRV_STATE_MANAGER_IS_CALL_STATE(device->call_state) ||
-        BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED != device->call_audio_state) {
-        if (context->focus_call_device == NULL) {
-            bt_sink_srv_state_manager_set_focus_call_device(context, free_device, true);
-        }
-    }
-
-    if (BT_SINK_SRV_STATE_MANAGER_IS_MEDIA_STATE(device->media_state)) {
-        if (context->focus_media_device == NULL) {
-            bt_sink_srv_state_manager_set_focus_media_device(context, free_device, true);
+        BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED != device->call_audio_state ||
+        BT_SINK_SRV_STATE_MANAGER_IS_MEDIA_STATE(device->media_state)) {
+        if (context->focus_device == NULL) {
+            bt_sink_srv_state_manager_set_focus_device(context, free_device, true);
         }
     }
 
@@ -128,12 +139,8 @@ void bt_sink_srv_state_manager_remove_device(
     bt_sink_srv_state_manager_device_t *device)
 {
     /* 1. Reset focus device. */
-    if (context->focus_call_device == device) {
-        bt_sink_srv_state_manager_set_focus_call_device(context, device, false);
-    }
-
-    if (context->focus_media_device == device) {
-        bt_sink_srv_state_manager_set_focus_media_device(context, device, false);
+    if (context->focus_device == device) {
+        bt_sink_srv_state_manager_set_focus_device(context, device, false);
     }
 
     /* 2. Reset device. */
@@ -249,48 +256,20 @@ bt_sink_srv_state_manager_device_t *bt_sink_srv_state_manager_get_device_by_flag
     return NULL;
 }
 
-void bt_sink_srv_state_manager_set_focus_call_device(
+void bt_sink_srv_state_manager_set_focus_device(
     bt_sink_srv_state_manager_context_t *context,
     bt_sink_srv_state_manager_device_t *device,
     bool is_add)
 {
     if (is_add) {
-        context->focus_call_device = device;
+        context->focus_device = device;
     } else {
-        context->focus_call_device
-            = bt_sink_srv_state_manager_get_device_by_call_state(
-                  context,
-                  BT_SINK_SRV_STATE_MANAGER_CALL_STATE,
-                  device);
-        if (context->focus_call_device == NULL) {
-            context->focus_call_device
-                = bt_sink_srv_state_manager_get_device_by_call_audio_state(
-                      context,
-                      BT_SINK_SRV_SCO_CONNECTION_STATE_CONNECTED,
-                      device);
-        }
+        context->focus_device = NULL;
     }
 
-    bt_sink_srv_report_id("[Sink][StaMgr]set call focus device, 0x%x", 1, context->focus_call_device);
+    bt_sink_srv_report_id("[Sink][StaMgr]set focus device, 0x%x", 1, context->focus_device);
 }
 
-void bt_sink_srv_state_manager_set_focus_media_device(
-    bt_sink_srv_state_manager_context_t *context,
-    bt_sink_srv_state_manager_device_t *device,
-    bool is_add)
-{
-    if (is_add) {
-        context->focus_media_device = device;
-    } else {
-        context->focus_media_device
-            = bt_sink_srv_state_manager_get_device_by_media_state(
-                  context,
-                  BT_SINK_SRV_STATE_MANAGER_MEDIA_STATE,
-                  device);
-    }
-
-    bt_sink_srv_report_id("[Sink][StaMgr]set media focus device, 0x%x", 1, context->focus_media_device);
-}
 
 static void bt_sink_srv_state_manager_add_played_device(
     bt_sink_srv_state_manager_context_t *context,
@@ -446,6 +425,32 @@ void bt_sink_srv_state_manager_sync_played_devices(bt_sink_srv_state_manager_con
 #endif
 }
 
+static void bt_sink_srv_state_manager_sync_play_count(
+    bt_sink_srv_state_manager_context_t *context)
+{
+#if defined(MTK_AWS_MCE_ENABLE)
+    bt_status_t status = BT_STATUS_FAIL;
+    bt_aws_mce_report_info_t report_info = {0};
+    bt_sink_srv_state_manager_sync_play_count_t sync_count = {{0}};
+
+    if (BT_AWS_MCE_ROLE_AGENT != bt_connection_manager_device_local_info_get_aws_role()) {
+        return;
+    }
+
+    sync_count.header.type = BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_PLAY_COUNT;
+    sync_count.header.length = sizeof(bt_sink_srv_state_manager_sync_play_count_t);
+    sync_count.header.direction = BT_SINK_SRV_STATE_MANAGER_SYNC_DIRECTION_PARTNER;
+
+    report_info.module_id = BT_AWS_MCE_REPORT_MODULE_SINK_STAMGR;
+    report_info.param = (void *)&sync_count;
+    report_info.param_len = sizeof(bt_sink_srv_state_manager_sync_play_count_t);
+
+    status = bt_aws_mce_report_send_urgent_event(&report_info);
+    (void)status;
+    bt_sink_srv_report_id("[Sink][StaMgr]sync play count, status 0x%x", 1, status);
+#endif
+}
+
 uint32_t bt_sink_srv_state_manager_get_played_device_list(
     bt_sink_srv_state_manager_played_device_t *list,
     uint32_t list_number)
@@ -494,7 +499,7 @@ bt_status_t bt_sink_srv_state_manager_cm_callback(
                 (update_ind->pre_connected_service & BT_SINK_SRV_STATE_MANAGER_PROFILE_MASK) &&
                 !(update_ind->connected_service & BT_SINK_SRV_STATE_MANAGER_PROFILE_MASK)) {
                 bt_sink_srv_state_manager_remove_played_device(BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR,
-                        &update_ind->address);
+                                                               &update_ind->address);
             }
 
 #ifdef MTK_AWS_MCE_ENABLE
@@ -546,9 +551,9 @@ void bt_sink_srv_state_manager_gap_le_srv_callback(bt_gap_le_srv_event_t event, 
             }
 
             dev = bt_sink_srv_state_manager_get_device(
-                context,
-                BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE,
-                &disconnect_ind->peer_address.addr);
+                      context,
+                      BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE,
+                      &disconnect_ind->peer_address.addr);
 
             if (NULL != dev) {
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_DUMMY_DEIVCE_ENABLE
@@ -562,6 +567,149 @@ void bt_sink_srv_state_manager_gap_le_srv_callback(bt_gap_le_srv_event_t event, 
                 }
 #endif
             }
+            break;
+        }
+
+        default: {
+            break;
+        }
+    }
+}
+#endif
+
+#if defined(MTK_AWS_MCE_ENABLE)
+bt_status_t bt_sink_srv_aws_mce_state_manager_callback(bt_msg_type_t msg, bt_status_t status, void *buffer)
+{
+    bt_sink_srv_state_manager_context_t *context = bt_sink_srv_state_manager_get_context();
+
+    switch (msg) {
+        case BT_AWS_MCE_STATE_CHANGED_IND: {
+            bt_aws_mce_state_change_ind_t *state_change = (bt_aws_mce_state_change_ind_t *)buffer;
+
+            if (NULL == state_change || 0 == (state_change->state & BT_AWS_MCE_AGENT_STATE_ATTACHED)) {
+                break;
+            }
+
+            if (BT_AWS_MCE_ROLE_AGENT == bt_connection_manager_device_local_info_get_aws_role()) {
+                if (!BT_SINK_SRV_STATE_MANAGER_IS_MEDIA_STATE(context->previous_state)) {
+                    bt_sink_srv_state_manager_sync_state_change(context, context->previous_state);
+                }
+
+                // bt_sink_srv_state_manager_sync_played_devices(context);
+            }
+
+            break;
+        }
+
+        default: {
+            break;
+        }
+    }
+
+    return BT_STATUS_SUCCESS;
+}
+#endif
+
+#if defined(MTK_AWS_MCE_ENABLE)
+void bt_sink_srv_state_manager_aws_mce_report_callback(bt_aws_mce_report_info_t *info)
+{
+    bt_sink_srv_state_manager_sync_header_t *header = NULL;
+    bt_sink_srv_state_manager_context_t *context = bt_sink_srv_state_manager_get_context();
+
+    if (NULL == info || BT_AWS_MCE_REPORT_MODULE_SINK_STAMGR != info->module_id) {
+        return;
+    }
+
+    /* 1. Get header. */
+    header = (bt_sink_srv_state_manager_sync_header_t *)info->param;
+
+    bt_sink_srv_report_id("[Sink][StaMgr]aws mce report callback, type: 0x%x direction: 0x%x",
+                          2, header->type, header->direction);
+
+    /* 2. Dispatch data. */
+    switch (header->type) {
+        case BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_STATE: {
+            bt_sink_srv_state_manager_sync_state_t *sync_state
+                = (bt_sink_srv_state_manager_sync_state_t *)info->param;
+            bt_sink_srv_state_manager_notify_state_change_internal(context, sync_state->state, true);
+            break;
+        }
+
+        case BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_FOCUS: {
+            bt_sink_srv_state_manager_device_t *device = NULL;
+
+            bt_sink_srv_state_manager_sync_focus_t *sync_focus
+                = (bt_sink_srv_state_manager_sync_focus_t *)info->param;
+
+            if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE == sync_focus->device_type) {
+                device = bt_sink_srv_state_manager_get_device(
+                             context, sync_focus->device_type, &sync_focus->address);
+            } else {
+                bt_bd_addr_t address = {0};
+
+                bt_cm_get_connected_devices(
+                    BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), &address, 1);
+
+                device = bt_sink_srv_state_manager_get_device(
+                             context, BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR, &address);
+            }
+
+            if (NULL != device) {
+                bt_sink_srv_state_manager_set_focus_device(context, device, true);
+            } else {
+                bt_sink_srv_report_id("[Sink][StaMgr]aws report callback, cannot find device!", 0);
+            }
+
+            break;
+        }
+
+        case BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_PLAYED: {
+            bt_sink_srv_state_manager_sync_played_t *sync_played
+                = (bt_sink_srv_state_manager_sync_played_t *)info->param;
+
+            bt_sink_srv_memcpy(
+                context->played_devices,
+                sync_played->played_devices,
+                BT_SINK_SRV_STATE_MANAGER_MAX_PLAYED_DEVICE_NUM * sizeof(bt_sink_srv_state_manager_played_device_t));
+
+            break;
+        }
+
+        case BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_ACTION: {
+            bt_sink_srv_state_manager_sync_action_t *sync_action
+                = (bt_sink_srv_state_manager_sync_action_t *)info->param;
+
+            bt_sink_srv_report_id("[Sink][StaMgr]aws report callback, parameter_length: %d", 1,
+                                  sync_action->parameter_length);
+
+            if (0 != sync_action->parameter_length) {
+                bt_sink_srv_state_manager_action_handler(sync_action->action, sync_action->parameter);
+            } else {
+                bt_sink_srv_state_manager_action_handler(sync_action->action, NULL);
+            }
+
+            break;
+        }
+
+        case BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_PLAY_COUNT: {
+            bt_sink_srv_state_manager_sync_play_count_t *sync_count
+                = (bt_sink_srv_state_manager_sync_play_count_t *)info->param;
+
+            bt_sink_srv_report_id("[Sink][StaMgr]aws report callback, play_count: %d", 1,
+                                  sync_count->play_count);
+
+            context->play_count = sync_count->play_count;
+
+            break;
+        }
+
+        case BT_SINK_SRV_STATE_MANAGER_SYNC_TYPE_REQUEST_STATE: {
+            if (BT_AWS_MCE_ROLE_AGENT == bt_connection_manager_device_local_info_get_aws_role() &&
+                BT_AWS_MCE_SRV_LINK_NORMAL == bt_aws_mce_srv_get_link_type() &&
+                BT_SINK_SRV_STATE_MANAGER_IS_CALL_STATE(context->previous_state)) {
+                bt_sink_srv_state_manager_sync_state_change(context, context->previous_state);
+            }
+
             break;
         }
 

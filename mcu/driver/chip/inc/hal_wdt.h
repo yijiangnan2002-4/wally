@@ -254,7 +254,7 @@ typedef void (*hal_wdt_callback_t)(hal_wdt_reset_status_t wdt_reset_status);
 
 /**
  * @brief This function is mainly used to initialize the watchdog hardware. It is used to set the WDT to either reset or interrupt modes.
- *  For more details on reset and interrupt modes, please refer to overview in @ref HAL_WDT_Features_Chapter. It’s also used to set the timeout value
+ *  For more details on reset and interrupt modes, please refer to overview in @ref HAL_WDT_Features_Chapter. It's also used to set the timeout value
  *  of the watchdog timer. This function will not enable the WDT. To enable WDT, the #hal_wdt_enable() must be called.
  * @param[in] wdt_config is the init configuration parameter. For more details about this parameter, please refer to #hal_wdt_config_t.
  * @return    #HAL_WDT_STATUS_OK means success; \n
@@ -428,7 +428,7 @@ hal_wdt_mode_t hal_wdt_get_mode(void);
 
 /**
  * @brief This function is mainly used to initialize the watchdog hardware. It is used to set the WDT to either reset or interrupt modes.
- *  For more details on reset and interrupt modes, please refer to overview in @ref HAL_WDT_Features_Chapter. It’s also used to set the timeout value
+ *  For more details on reset and interrupt modes, please refer to overview in @ref HAL_WDT_Features_Chapter. It's also used to set the timeout value
  *  of the watchdog timer. This function will not enable the WDT. To enable WDT, the #hal_wdt_enable() must be called.
  * @param[in] wdt_config is the init configuration parameter. For more details about this parameter, please refer to #hal_wdt_config_t.
  * @return    #HAL_WDT_STATUS_OK means success; \n

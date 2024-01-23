@@ -87,7 +87,7 @@ typedef uint8_t telemetry_bool;
 typedef struct {
     uint8_t *endpoint_fw;
     uint8_t *base_fw;
-    telemetry_bool don_to_seeting;
+    telemetry_bool don_to_setting;
     uint8_t *endpoint_mode_id;
     uint8_t *endpoint_sn;
     uint8_t *base_sn;

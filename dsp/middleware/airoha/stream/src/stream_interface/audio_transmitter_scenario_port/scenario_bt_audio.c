@@ -66,6 +66,12 @@ log_create_module(bt_dongle_log, PRINT_LEVEL_INFO);
 #define BT_AUDIO_DONGLE_DEBUG_GPT_TEST_ENABLE          (0)
 #define BT_AUDIO_DONGLE_DL_CLK_SKEW_DEBUG_ENABLE       (1)
 #define AIR_BT_AUDIO_DONGLE_LATENCY_DEBUG_ENABLE       (0)  // GPIO22 -> first data copy     // GPIO23 -> first data sink
+/* SRC Quality Mode */
+#define AUDIO_SRC_QUALITY_MODE_HIGH_ENABLE             (1)
+/* eSCO mode ouput (L+R)/2 */
+#define BT_AUDIO_DONGLE_ESCO_MIXING_MODE_ENABLE        (1)
+#define BT_AUDIO_ESCO_BASE_GAIN_DB                     (-600)
+
 #define GPIO_PIN_FIRST_RECEIVE                         (HAL_GPIO_0)
 #define GPIO_PIN_FIRST_SEND                            (HAL_GPIO_1)
 
@@ -79,12 +85,10 @@ log_create_module(bt_dongle_log, PRINT_LEVEL_INFO);
 #define BT_AUDIO_UL_PREFILL_FRAME_NUM                  (1)     // prefill 1ms for usb audio
 #define BT_AUDIO_UL_ANCHOR_INTERVAL                    (7500)  // 7.5ms
 
-/* SRC Quality Mode */
-#define AUDIO_SRC_QUALITY_MODE_HIGH_ENABLE             (0)
 #if AUDIO_SRC_QUALITY_MODE_HIGH_ENABLE
-    #define AUDIO_SRC_QUALITY_MODE                     (SRC_FIXED_RATIO_PORT_NORMAL_QUALITY)
-#else
     #define AUDIO_SRC_QUALITY_MODE                     (SRC_FIXED_RATIO_PORT_HIGH_QUALITY)
+#else
+    #define AUDIO_SRC_QUALITY_MODE                     (SRC_FIXED_RATIO_PORT_NORMAL_QUALITY)
 #endif
 
 /* ABR Control */
@@ -154,6 +158,8 @@ static sco_fwd_info g_sco_fwd_info = {0};
 static bool first_dl_copy_data = false;
 #endif
 
+static uint32_t g_a2dp_drop_frames = 0;
+
 #if BT_AUDIO_DONGLE_DL_CLK_SKEW_DEBUG_ENABLE
 static uint32_t clk_skew_pre_usb_wo = 0;
 static uint32_t clk_skew_bt_out_wo = 0;
@@ -178,36 +184,6 @@ typedef struct {
     bt_audio_dongle_runtime_config_operation_t          config_operation;
     bt_audio_dongle_runtime_config_operation_param_t    config_param;
 } bt_audio_dongle_runtime_config_param_t, *bt_audio_dongle_runtime_config_param_p;
-
-#define BT_AUDIO_DONGLE_USB_IN_FS_MAX_NUM  (5)
-const static uint32_t bt_audio_usb_in_sample_rate[BT_AUDIO_DONGLE_USB_IN_FS_MAX_NUM] = {
-    16000, 32000, 48000, 96000, 192000
-};
-
-const static uint32_t bt_audio_usb_unified_sample_rate_setting_common[BT_AUDIO_DONGLE_USB_IN_FS_MAX_NUM][3] = {
-    { 16000,  48000, 48000 },
-    { 32000,  96000, 48000 },
-    { 48000,  48000, 48000 },
-    { 96000,  48000, 48000 },
-    { 192000, 48000, 48000 }
-};
-
-const static uint32_t bt_audio_usb_unified_sample_rate_setting_nb[BT_AUDIO_DONGLE_USB_IN_FS_MAX_NUM][3] = {
-    { 16000,  16000, 16000 },
-    { 32000,  16000, 16000 },
-    { 48000,  16000, 16000 },
-    { 96000,  48000, 16000 },
-    { 192000, 64000, 16000 }
-};
-#ifdef AIR_BT_AUDIO_DONGLE_LHDC_ENABLE
-const static uint32_t bt_audio_usb_unified_sample_rate_setting_lhdc[BT_AUDIO_DONGLE_USB_IN_FS_MAX_NUM][3] = {
-    { 16000,  48000, 96000 },
-    { 32000,  96000, 96000 },
-    { 48000,  96000, 96000 },
-    { 96000,  96000, 96000 },
-    { 192000, 96000, 96000 }
-};
-#endif /* AIR_BT_AUDIO_DONGLE_LHDC_ENABLE */
 /* Public variables ----------------------------------------------------------*/
 
 /* Private functions ---------------------------------------------------------*/
@@ -381,6 +357,9 @@ ATTR_TEXT_IN_IRAM static void bt_audio_dongle_dl_mixer_post_callback(sw_mixer_me
         stream_function_sw_mixer_member_input_buffers_clean(c_handle->mixer_member, false);
         /* change this handle data status */
         c_handle->data_status = AUDIO_DONGLE_DL_DATA_EMPTY;
+        #ifdef AUDIO_A2DP_VBR_ENABLE
+            bt_audio_dongle_dl_sink_buffer_monitor(c_handle->sink);
+        #endif /* AUDIO_A2DP_VBR_ENABLE */
         /* this stream is unmixed now, so we can directly return here */
         goto _end;
     } else if (c_handle->first_packet_status == AUDIO_DONGLE_DL_FIRST_PACKET_NOT_READY) {
@@ -419,6 +398,9 @@ ATTR_TEXT_IN_IRAM static void bt_audio_dongle_dl_mixer_post_callback(sw_mixer_me
         /* all_streams_in_mixer is true, so all stream data is in this mixer.
            So we can clean all mixed streams' input buffers now and the mix result are sent to the sink */
         c_handle = bt_audio_dongle_dl_handle_list;
+        #ifdef AUDIO_A2DP_VBR_ENABLE
+            bt_audio_dongle_dl_sink_buffer_monitor(c_handle->sink);
+        #endif /* AUDIO_A2DP_VBR_ENABLE */
         for (i = 0; i < dl_stream_count; i++) {
             if (c_handle->mixer_status != AUDIO_DONGLE_MIXER_UNMIX) {
                 /* clear this stream's input buffer */
@@ -654,12 +636,12 @@ ATTR_TEXT_IN_IRAM static void bt_audio_dongle_dl_ccni_handler(hal_ccni_event_t e
                     AUDIO_ASSERT(0);
                     break;
             }
-            /* the first stream check the abr control */
-            if ((i == 0) && (c_handle->first_packet_status == AUDIO_DONGLE_DL_FIRST_PACKET_READY)) {
-                #ifdef AUDIO_A2DP_VBR_ENABLE
-                    bt_audio_dongle_dl_sink_buffer_monitor(c_handle->sink);
-                #endif /* AUDIO_A2DP_VBR_ENABLE */
-            }
+            // /* the first stream check the abr control */
+            // if ((i == 0) && (c_handle->first_packet_status == AUDIO_DONGLE_DL_FIRST_PACKET_READY)) {
+            //     #ifdef AUDIO_A2DP_VBR_ENABLE
+            //         bt_audio_dongle_dl_sink_buffer_monitor(c_handle->sink);
+            //     #endif /* AUDIO_A2DP_VBR_ENABLE */
+            // }
         }
         /* switch to the next dl stream */
         c_handle = c_handle->next_handle;
@@ -730,64 +712,6 @@ static void bt_audio_dongle_dl_stop_sw_timer(void)
 
 #endif /* AIR_BT_AUDIO_DONGLE_SILENCE_DETECTION_ENABLE */
 
-static bool bt_audio_dongle_dl_usb_in_check_sample_rate(stream_resolution_t resolution, uint32_t sample_rate)
-{
-    bool ret = false;
-    if ((resolution == RESOLUTION_16BIT) || (resolution == RESOLUTION_32BIT)) {
-        for (uint32_t i = 0; i < BT_AUDIO_DONGLE_USB_IN_FS_MAX_NUM; i ++) {
-            if (sample_rate == bt_audio_usb_in_sample_rate[i]) {
-                ret = true;
-            }
-        }
-    } else {
-        ret = true; // avoid false alarm
-    }
-    return ret;
-}
-
-static uint32_t bt_audio_dongle_dl_fs_convert_sample_rate_get(uint32_t in_rate, audio_dsp_codec_type_t codec_type, uint8_t sequence)
-{
-    uint32_t raw_index = 0;
-    uint32_t sample_rate = 0;
-    if (sequence > 2) {
-        AUDIO_ASSERT(0 && "BT Audio input param error");
-        return 0;
-    }
-    UNUSED(codec_type);
-    switch (in_rate) {
-        case 16000:
-        case 32000:
-        case 48000:
-            raw_index = in_rate / 16000 - 1;
-            break;
-        case 96000:
-            raw_index = 3;
-            break;
-        case 192000:
-            raw_index = 4;
-            break;
-        default:
-            AUDIO_ASSERT(0 && "BT Audio dl sample rate error");
-            break;
-    }
-    switch (codec_type) {
-#ifdef AIR_BT_AUDIO_DONGLE_LHDC_ENABLE
-        case AUDIO_DSP_CODEC_TYPE_LHDC:
-            /* code */
-            sample_rate = bt_audio_usb_unified_sample_rate_setting_lhdc[raw_index][sequence];
-            break;
-#endif
-        case AUDIO_DSP_CODEC_TYPE_MSBC:
-        case AUDIO_DSP_CODEC_TYPE_CVSD:
-            sample_rate = bt_audio_usb_unified_sample_rate_setting_nb[raw_index][sequence];
-            break;
-        default:
-            sample_rate = bt_audio_usb_unified_sample_rate_setting_common[raw_index][sequence];
-            break;
-    }
-    return sample_rate;
-}
-
 void bt_audio_dongle_dl_init(SOURCE source, SINK sink, audio_transmitter_open_param_p audio_transmitter_open_param, bt_common_open_param_p bt_common_open_param)
 {
     /* get handle for application config */
@@ -819,6 +743,9 @@ void bt_audio_dongle_dl_init(SOURCE source, SINK sink, audio_transmitter_open_pa
         case AUDIO_SCENARIO_TYPE_BT_AUDIO_DONGLE_DL_HFP_USB_IN_0:
         case AUDIO_SCENARIO_TYPE_BT_AUDIO_DONGLE_DL_HFP_USB_IN_1:
             dongle_handle->link_type = BT_AUDIO_TYPE_HFP;
+            #if BT_AUDIO_DONGLE_ESCO_MIXING_MODE_ENABLE
+                dongle_handle->gain_compensation = BT_AUDIO_ESCO_BASE_GAIN_DB;
+            #endif /* BT_AUDIO_DONGLE_ESCO_MIXING_MODE_ENABLE */
             bt_audio_dongle_dl_usb_in_init(dongle_handle, audio_transmitter_open_param, bt_common_open_param);
             bt_audio_dongle_dl_bt_out_init(dongle_handle, audio_transmitter_open_param, bt_common_open_param);
             source->taskId = DAV_TASK_ID;
@@ -849,6 +776,9 @@ void bt_audio_dongle_dl_init(SOURCE source, SINK sink, audio_transmitter_open_pa
         case AUDIO_SCENARIO_TYPE_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_1:
         case AUDIO_SCENARIO_TYPE_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_2:
             dongle_handle->link_type = BT_AUDIO_TYPE_HFP;
+            #if BT_AUDIO_DONGLE_ESCO_MIXING_MODE_ENABLE
+                dongle_handle->gain_compensation = BT_AUDIO_ESCO_BASE_GAIN_DB;
+            #endif /* BT_AUDIO_DONGLE_ESCO_MIXING_MODE_ENABLE */
             bt_audio_dongle_dl_afe_in_init(dongle_handle, audio_transmitter_open_param, bt_common_open_param);
             bt_audio_dongle_dl_bt_out_init(dongle_handle, audio_transmitter_open_param, bt_common_open_param);
             break;
@@ -1065,7 +995,7 @@ bool bt_audio_dongle_dl_config(SOURCE source, stream_config_type type, U32 value
                     break;
                 case BT_AUDIO_DONGLE_CONFIG_OP_SET_UNMUTE:
                     for (i = 0; i < source_info->usb_in.channel_num; i ++) {
-                        stream_function_sw_gain_configure_gain_target(dongle_handle->gain_port, i + 1, 0);
+                        stream_function_sw_gain_configure_gain_target(dongle_handle->gain_port, i + 1, 0 + dongle_handle->gain_compensation);
                     }
                     BT_DONGLE_LOG_I("[BT Audio][DL][config] set un-mute, type %d", 1, source->scenario_type);
                     break;
@@ -1081,6 +1011,23 @@ bool bt_audio_dongle_dl_config(SOURCE source, stream_config_type type, U32 value
         case AUDIO_SCENARIO_TYPE_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_0:
         case AUDIO_SCENARIO_TYPE_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_1:
         case AUDIO_SCENARIO_TYPE_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_2:
+            switch (config_param->config_operation) {
+                case BT_AUDIO_DONGLE_CONFIG_OP_SET_VOLUME_LEVEL:
+                    {
+                        bt_audio_dongle_gain_info_t *gain_info = (bt_audio_dongle_gain_info_t *)(&(config_param->config_param));
+                        for (i = 0; i < BT_AUDIO_VOLUME_CH_MAX; i++) {
+                            stream_function_sw_gain_configure_gain_target(dongle_handle->gain_port, i + 1, gain_info[i].gain_value);
+                            BT_DONGLE_LOG_I("[BT Audio][DL][config] set volume, type %d, ch %d, gain_dB %d", 3,
+                                dongle_handle->source->scenario_type,
+                                i,
+                                gain_info[i].gain_value
+                                );
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
             break;
 #endif
         default:
@@ -1147,6 +1094,19 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void bt_audio_dongle_dl_common_init(bt_audi
     out_ch_config.resolution                = resolution;
     dongle_handle->mixer_member             = stream_function_sw_mixer_member_create((void *)dongle_handle->source, SW_MIXER_MEMBER_MODE_NO_BYPASS, &callback_config, &in_ch_config, &out_ch_config);
     stream_function_sw_mixer_member_register(SW_MIXER_PORT_0, dongle_handle->mixer_member, true);
+    #if BT_AUDIO_DONGLE_ESCO_MIXING_MODE_ENABLE
+        if (dongle_handle->link_type == BT_AUDIO_TYPE_HFP) {
+            if (source_in_ch == 2) {
+                dongle_handle->mixer_status = AUDIO_DONGLE_MIXER_MIX;
+                /* Mix L+R */
+                stream_function_sw_mixer_channel_connect(dongle_handle->mixer_member, 1, SW_MIXER_CHANNEL_ATTRIBUTE_NORMAL, dongle_handle->mixer_member, 2);
+                stream_function_sw_mixer_channel_connect(dongle_handle->mixer_member, 2, SW_MIXER_CHANNEL_ATTRIBUTE_NORMAL, dongle_handle->mixer_member, 1);
+                /* Mix Self */
+                stream_function_sw_mixer_channel_connect(dongle_handle->mixer_member, 1, SW_MIXER_CHANNEL_ATTRIBUTE_NORMAL, dongle_handle->mixer_member, 1);
+                stream_function_sw_mixer_channel_connect(dongle_handle->mixer_member, 2, SW_MIXER_CHANNEL_ATTRIBUTE_NORMAL, dongle_handle->mixer_member, 2);
+            }
+        }
+    #endif /* BT_AUDIO_DONGLE_ESCO_MIXING_MODE_ENABLE */
     if (dl_stream_count == 1) {
         /* update mixer status */
         hal_nvic_save_and_set_interrupt_mask(&saved_mask);
@@ -1279,143 +1239,24 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void bt_audio_dongle_dl_common_init(bt_audi
             DSP_ALG_UpdateEscoRxMode(VOICE_WB);
         }
     }
-    /* fs convert */
-    // for msbc/cvsd/sbc, 2 fixed ratio + sw src
-    // for lhdc, 3 fixed ratio
-    bool is_bypass_src = (source_in_rate == sink_info->bt_out.sample_rate) ? true : false;
-    uint32_t src_fixed_ratio_depth = 2;
-    #ifdef AIR_BT_AUDIO_DONGLE_LHDC_ENABLE
-        if (codec_type == AUDIO_DSP_CODEC_TYPE_LHDC) {
-            src_fixed_ratio_depth = 3;
-        }
-    #endif
-    if ((codec_type == AUDIO_DSP_CODEC_TYPE_MSBC) || (codec_type == AUDIO_DSP_CODEC_TYPE_CVSD)) {
-        src_fixed_ratio_depth = 3;
-    }
-    /* 1st src fixed ratio, msbc/cvsd/sbc: 16k/48k/96k -> 48k, 32k -> 96k, 192k -> 96k */
-    /* 1st src fixed ratio, lhdc: 16k/48k/96k -> 48k, 32k -> 96k, 192k -> 96k */
-    src_fixed_ratio_config_t sw_src0_config  = {0};
-    sw_src0_config.channel_number            = source_in_ch;
-    sw_src0_config.in_sampling_rate          = source_in_rate;
-    sw_src0_config.out_sampling_rate         = is_bypass_src ? source_in_rate :
-                                                               bt_audio_dongle_dl_fs_convert_sample_rate_get(source_in_rate, codec_type, 1);
-    sw_src0_config.resolution                = resolution;
-    sw_src0_config.multi_cvt_mode            = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
-    sw_src0_config.cvt_num                   = src_fixed_ratio_depth;
-    sw_src0_config.with_codec                = false;
-    sw_src0_config.quality_mode              = AUDIO_SRC_QUALITY_MODE;
-    dongle_handle->src0_port                 = stream_function_src_fixed_ratio_get_port(dongle_handle->source);
-    dongle_handle->process_sample_rate_max   = MAX(dongle_handle->process_sample_rate_max, sw_src0_config.out_sampling_rate);
-    BT_DONGLE_LOG_I("[BT Audio][DL][scenario type %d][handle 0x%x] sw fixed src0 0x%x bypass %d, info, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d", 15,
-                dongle_handle->source->scenario_type,
-                dongle_handle,
-                dongle_handle->src0_port,
-                is_bypass_src,
-                sw_src0_config.multi_cvt_mode,
-                sw_src0_config.cvt_num,
-                sw_src0_config.with_codec,
-                sw_src0_config.channel_number,
-                sw_src0_config.resolution,
-                sw_src0_config.in_sampling_rate,
-                sw_src0_config.out_sampling_rate,
-                dongle_handle->src_in_frame_samples,
-                dongle_handle->src_in_frame_size,
-                dongle_handle->src_out_frame_samples,
-                dongle_handle->src_out_frame_size
-                );
-    stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)dongle_handle->src0_port, &sw_src0_config);
-
-    /* 2nd src fixed ratio, 48k -> 48k, 96k -> 48k */
-    src_fixed_ratio_config_t sw_src1_config = {0};
-    sw_src1_config.channel_number            = source_in_ch;
-    sw_src1_config.in_sampling_rate          = sw_src0_config.out_sampling_rate;
-    sw_src1_config.out_sampling_rate         = is_bypass_src ? sw_src0_config.out_sampling_rate :
-                                                               bt_audio_dongle_dl_fs_convert_sample_rate_get(source_in_rate, codec_type, 2);
-    sw_src1_config.resolution                = resolution;
-    sw_src1_config.multi_cvt_mode            = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
-    sw_src1_config.cvt_num                   = src_fixed_ratio_depth;
-    sw_src1_config.with_codec                = false;
-    sw_src1_config.quality_mode              = AUDIO_SRC_QUALITY_MODE;
-    dongle_handle->src1_port                 = stream_function_src_fixed_ratio_get_2nd_port(dongle_handle->source);
-    dongle_handle->process_sample_rate_max   = MAX(dongle_handle->process_sample_rate_max, sw_src1_config.out_sampling_rate);
-    BT_DONGLE_LOG_I("[BT Audio][DL][scenario type %d][handle 0x%x] sw fixed src1 0x%x info, %d, %d, %d, %d, %d, %d", 10,
-                dongle_handle->source->scenario_type,
-                dongle_handle,
-                dongle_handle->src1_port,
-                sw_src1_config.multi_cvt_mode,
-                sw_src1_config.cvt_num,
-                sw_src1_config.with_codec,
-                sw_src1_config.channel_number,
-                sw_src1_config.resolution,
-                sw_src1_config.in_sampling_rate,
-                sw_src1_config.out_sampling_rate
-                );
-    stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)dongle_handle->src1_port, &sw_src1_config);
-    /* 3st sbc: sw src, 48k -> 48k/44.1k/32k/16k/8k */
-    /* 3st lhdc: fixed ratio, 48k -> 48k/44.1k/32k/16k/8k */
-    if ((codec_type == AUDIO_DSP_CODEC_TYPE_MSBC) || (codec_type == AUDIO_DSP_CODEC_TYPE_CVSD)
-#ifdef AIR_BT_AUDIO_DONGLE_LHDC_ENABLE
-        || (codec_type == AUDIO_DSP_CODEC_TYPE_LHDC)
-#endif /* AIR_BT_AUDIO_DONGLE_LHDC_ENABLE */
-    ) {
-        /* 3nd src fixed ratio, 48k -> 48k, 96k -> 48k */
-        src_fixed_ratio_config_t sw_src2_config = {0};
-        sw_src2_config.channel_number            = source_in_ch;
-        sw_src2_config.in_sampling_rate          = sw_src1_config.out_sampling_rate;
-        sw_src2_config.out_sampling_rate         = is_bypass_src ? sw_src1_config.out_sampling_rate :
-                                                                   sink_info->bt_out.sample_rate;
-        sw_src2_config.resolution                = resolution;
-        sw_src2_config.multi_cvt_mode            = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
-        sw_src2_config.cvt_num                   = src_fixed_ratio_depth;
-        sw_src2_config.with_codec                = false;
-        sw_src2_config.quality_mode              = AUDIO_SRC_QUALITY_MODE;
-        dongle_handle->src_port                  = stream_function_src_fixed_ratio_get_3rd_port(dongle_handle->source);
-        dongle_handle->process_sample_rate_max   = MAX(dongle_handle->process_sample_rate_max, sw_src2_config.out_sampling_rate);
-        BT_DONGLE_LOG_I("[BT Audio][DL][scenario type %d][handle 0x%x] sw fixed src2 0x%x info, %d, %d, %d, %d, %d, %d", 10,
-                    dongle_handle->source->scenario_type,
-                    dongle_handle,
-                    dongle_handle->src_port,
-                    sw_src2_config.multi_cvt_mode,
-                    sw_src2_config.cvt_num,
-                    sw_src2_config.with_codec,
-                    sw_src2_config.channel_number,
-                    sw_src2_config.resolution,
-                    sw_src2_config.in_sampling_rate,
-                    sw_src2_config.out_sampling_rate
-                    );
-        stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)dongle_handle->src_port, &sw_src2_config);
-    } else {
-        uint32_t format_bytes = audio_dongle_get_format_bytes(sink_info->bt_out.sample_format);
-        sw_src_config_t sw_src_config    = {0};
-        uint32_t frame_samples_base = 0;
-        AUDIO_ASSERT((sink_info->bt_out.sample_rate <= 48000) && "classic audio not support sample rate over 48000");
-        sw_src_config.mode               = SW_SRC_MODE_NORMAL;
-        sw_src_config.channel_num        = source_in_ch;
-        sw_src_config.in_res             = resolution;
-        sw_src_config.in_sampling_rate   = sw_src1_config.out_sampling_rate;
-        frame_samples_base = dongle_handle->src_out_frame_samples / (sink_info->bt_out.sample_rate / AUDIO_DONGLE_SAMPLE_RATE_8K);
-        sw_src_config.in_frame_size_max  = sw_src1_config.out_sampling_rate / AUDIO_DONGLE_SAMPLE_RATE_8K * frame_samples_base;
-        sw_src_config.in_frame_size_max *= format_bytes;
-        sw_src_config.out_res            = resolution;
-        sw_src_config.out_sampling_rate  = sink_info->bt_out.sample_rate;
-        sw_src_config.out_frame_size_max = dongle_handle->src_out_frame_size;
-        dongle_handle->src_port          = stream_function_sw_src_get_port(dongle_handle->source);
-        dongle_handle->process_sample_rate_max   = MAX(dongle_handle->process_sample_rate_max, sw_src_config.out_sampling_rate);
-        BT_DONGLE_LOG_I("[BT Audio][DL][scenario type %d][handle 0x%x] sw src 0x%x info, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 11,
-                    dongle_handle->source->scenario_type,
-                    dongle_handle,
-                    dongle_handle->src_port,
-                    sw_src_config.mode,
-                    sw_src_config.channel_num,
-                    sw_src_config.in_res,
-                    sw_src_config.in_sampling_rate,
-                    sw_src_config.in_frame_size_max,
-                    sw_src_config.out_res,
-                    sw_src_config.out_sampling_rate,
-                    sw_src_config.out_frame_size_max
-                    );
-        stream_function_sw_src_init((sw_src_port_t *)dongle_handle->src_port, &sw_src_config);
-    }
+    /* unified fs convertor */
+    uint8_t                               sample_size = audio_dongle_get_format_bytes(bt_out->sample_format);
+    audio_dl_unified_fs_convertor_param_t fs_param    = {0};
+    // get param from dongle
+    fs_param.in_rate    = source_in_rate;
+    fs_param.out_rate   = sink_info->bt_out.sample_rate;
+    fs_param.period_ms  = bt_out->frame_interval;
+    fs_param.in_ch_num  = source_in_ch;
+    fs_param.pcm_format = bt_out->sample_format;
+    fs_param.source     = dongle_handle->source;
+    fs_param.codec_type = codec_type;
+    fs_param.process_max_size = (bt_out->frame_interval + 500) / 1000 * sample_size * fs_param.in_rate / 1000;
+    audio_dl_unified_fs_convertor_init(&fs_param);
+    // set param to dongle
+    dongle_handle->process_sample_rate_max = fs_param.process_sample_rate_max;
+    dongle_handle->src0_port = (src_fixed_ratio_port_t *) fs_param.src0_port;
+    dongle_handle->src1_port = (src_fixed_ratio_port_t *) fs_param.src1_port;
+    dongle_handle->src_port  = fs_param.src2_port;
 }
 
 ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void bt_audio_dongle_dl_common_deinit(bt_audio_dongle_handle_t *dongle_handle)
@@ -1461,28 +1302,23 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void bt_audio_dongle_dl_common_deinit(bt_au
     hal_nvic_save_and_set_interrupt_mask(&saved_mask);
     dongle_handle->mixer_status = AUDIO_DONGLE_MIXER_UNMIX;
     hal_nvic_restore_interrupt_mask(saved_mask);
-    /* 1st src fixed ratio */
-    stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)dongle_handle->src0_port);
-    /* 2nd src fixed ratio */
-    stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)dongle_handle->src1_port);
+    /* unified fs convertor */
+    audio_dl_unified_fs_convertor_param_t fs_param = {0};
+    fs_param.src0_port  = dongle_handle->src0_port;
+    fs_param.src1_port  = dongle_handle->src1_port;
+    fs_param.src2_port  = dongle_handle->src_port;
+    fs_param.pcm_format = bt_out->sample_format;
+    audio_dl_unified_fs_convertor_deinit(&fs_param);
 
     /* codec deinit */
 #ifdef AIR_BT_AUDIO_DONGLE_LHDC_ENABLE
     if (codec_type == AUDIO_DSP_CODEC_TYPE_LHDC) {
         /* LHDC */
         stream_codec_encoder_lhdc_deinit(dongle_handle->source->scenario_type);
-        /* 3rd src fixed ratio */
-        stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)dongle_handle->src_port);
     } else
 #endif /* AIR_BT_AUDIO_DONGLE_LHDC_ENABLE */
     if (codec_type == AUDIO_DSP_CODEC_TYPE_SBC) {
         stream_codec_encoder_sbc_deinit();
-        stream_function_sw_src_deinit((sw_src_port_t *)dongle_handle->src_port);
-    } else if ((codec_type == AUDIO_DSP_CODEC_TYPE_MSBC) || (codec_type == AUDIO_DSP_CODEC_TYPE_CVSD)) {
-        /* 3rd src fixed ratio */
-        stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)dongle_handle->src_port);
-    } else {
-        stream_function_sw_src_deinit((sw_src_port_t *)dongle_handle->src_port);
     }
 #ifdef AIR_BT_AUDIO_DONGLE_SILENCE_DETECTION_ENABLE
     if ((g_bt_audio_dongle_with_out_bt_link_mode) && (dl_stream_count == 1)) {
@@ -1520,8 +1356,8 @@ static void bt_audio_dongle_dl_usb_in_init(
     format_bytes   = audio_dongle_get_format_bytes(sink_info->bt_out.sample_format);
     resolution     = (source_info->usb_in.sample_format < HAL_AUDIO_PCM_FORMAT_S24_LE) ? RESOLUTION_16BIT : RESOLUTION_32BIT;
     out_resolution = (sink_info->bt_out.sample_format < HAL_AUDIO_PCM_FORMAT_S24_LE) ? RESOLUTION_16BIT : RESOLUTION_32BIT;
-    bool ret = bt_audio_dongle_dl_usb_in_check_sample_rate(out_resolution, source_info->usb_in.sample_rate);
-    AUDIO_ASSERT(ret && "[BT Audio][DL] fs is not right check usb in sample rate and bt out sample rate");
+    // bool ret = bt_audio_dongle_dl_usb_in_check_sample_rate(out_resolution, source_info->usb_in.sample_rate);
+    // AUDIO_ASSERT(ret && "[BT Audio][DL] fs is not right check usb in sample rate and bt out sample rate");
     /* init src in/out frame size, base on 8k */
     dongle_handle->process_sample_rate_max = MAX(sink_info->bt_out.sample_rate, source_info->usb_in.sample_rate);
     frame_samples_base                   = sink_info->bt_out.frame_interval * AUDIO_DONGLE_SAMPLE_RATE_8K / 1000 / 1000; // 8K base frame
@@ -1595,13 +1431,13 @@ static void bt_audio_dongle_dl_usb_in_init(
                 sw_clk_skew_config.continuous_frame_size,
                 dongle_handle->clk_skew_watermark_samples);
     /* sw gian */
-    int32_t default_gain = 0; // -120 dB to mute avoid pop noise
+    int32_t default_gain = 0 + dongle_handle->gain_compensation; // -120 dB to mute avoid pop noise
     sw_gain_config_t default_config;
     default_config.resolution               = out_resolution;
     default_config.target_gain              = default_gain; //audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_L;
-    default_config.up_step                  = 1;
+    default_config.up_step                  = 25;
     default_config.up_samples_per_step      = 2;
-    default_config.down_step                = -1;
+    default_config.down_step                = -25;
     default_config.down_samples_per_step    = 2;
     dongle_handle->gain_port                = stream_function_sw_gain_get_port(dongle_handle->source);
     stream_function_sw_gain_init(dongle_handle->gain_port, 2, &default_config);
@@ -1647,6 +1483,14 @@ static void bt_audio_dongle_dl_bt_out_init(
     UNUSED(audio_transmitter_open_param);
     UNUSED(bt_common_open_param);
     UNUSED(dongle_handle);
+    bt_audio_dongle_dl_sink_info_t   *sink_info = &(dongle_handle->stream_info.dl_info.sink);
+    if ((sink_info->bt_out.ts_not_reset_flag) && (dongle_handle->link_type == BT_AUDIO_TYPE_A2DP)) {
+        dongle_handle->drop_frames = g_a2dp_drop_frames;
+        BT_DONGLE_LOG_I("[BT Audio][DL][scenario type %d][handle 0x%x] keep the time stamp for A2DP", 2,
+            dongle_handle->source->scenario_type,
+            dongle_handle
+            );
+    }
 }
 
 static void bt_audio_dongle_dl_bt_out_deinit(bt_audio_dongle_handle_t *dongle_handle)
@@ -2225,7 +2069,7 @@ ATTR_TEXT_IN_IRAM void bt_audio_dongle_dl_sink_buffer_monitor(SINK sink)
         else if (sink_info->bt_out.bt_info[0].codec_type == AUDIO_DSP_CODEC_TYPE_LHDC) {
             /* lhdc abr */
             #if AIR_AUDIO_LHDC_ABR_ENABLE
-            stream_codec_encoder_lhdc_abr_control(sink->scenario_type, block_num);
+            stream_codec_encoder_lhdc_abr_control(sink->scenario_type, block_num, p_share_info->sub_info.block_info.block_num);
             #endif /* AIR_AUDIO_LHDC_ABR_ENABLE */
         }
 #endif /* AIR_BT_AUDIO_DONGLE_LHDC_ENABLE */
@@ -2264,6 +2108,7 @@ ATTR_TEXT_IN_IRAM void bt_audio_dongle_dl_sink_flush_postprocess(SINK sink, uint
                 /* this stream is the last stream that all data are mixed */
                 sink_flag = true;
                 hal_gpt_get_duration_count(c_handle->ccni_in_gpt_count, c_handle->data_out_gpt_count, &duration);
+                g_a2dp_drop_frames = c_handle->drop_frames;
             } else {
                 sink_flag = false;
             }
@@ -2394,6 +2239,7 @@ uint32_t bt_audio_dongle_dl_get_stream_in_max_size_each_channel(SOURCE source, S
             AUDIO_ASSERT(0);
             break;
     }
+    stream_in_size = EIGHT_BYTE_ALIGNED(stream_in_size);
     return stream_in_size;
 }
 
@@ -2503,6 +2349,7 @@ uint32_t bt_audio_dongle_dl_get_stream_out_max_size_each_channel(SOURCE source, 
             AUDIO_ASSERT(0);
             break;
     }
+    stream_out_size = EIGHT_BYTE_ALIGNED(stream_out_size);
     return stream_out_size;
 }
 
@@ -3685,7 +3532,7 @@ ATTR_TEXT_IN_IRAM uint32_t bt_audio_dongle_ul_sink_copy_payload(SINK sink, uint8
                 //                                         cur_samples);
                 memcpy(cur_ptr, stream->callback.EntryPara.out_ptr[0] + copy_offset, copy_size);
                 payload_size = dongle_handle->stream_info.ul_info.sink.usb_out.frame_size;
-                // LOG_AUDIO_DUMP(cur_ptr, (dongle_handle->stream_info.ul_info.sink.usb_out.frame_samples - cur_samples) * 2, AUDIO_BT_SRC_DONGLE_UL_USB_OUT);
+                LOG_AUDIO_DUMP(cur_ptr, copy_size, AUDIO_BT_SRC_DONGLE_UL_USB_OUT);
                 copy_offset += copy_size;
             }
         } else {
@@ -4013,6 +3860,9 @@ ATTR_TEXT_IN_IRAM static void sco_fwd_rx_ul_irq_handler(void)
     if (!g_sco_fwd_info.is_ul_stream_ready) {
         c_handle = bt_audio_dongle_ul_handle_list;
         for (uint32_t i = 0; i < ul_stream_count; i ++) {
+            if (c_handle->link_type != BT_AUDIO_TYPE_HFP) {
+                break;
+            }
             source = c_handle->source;
             if ((c_handle->stream_status == AUDIO_DONGLE_STREAM_START) || (c_handle->stream_status == AUDIO_DONGLE_STREAM_RUNNING)) {
                 if ((c_handle->sink == NULL) || (source->transform == NULL) || (c_handle->source == NULL)) {
@@ -4173,6 +4023,9 @@ ATTR_TEXT_IN_IRAM static void sco_fwd_tx_dl_irq_handler(void)
     if (!g_sco_fwd_info.is_dl_stream_ready) {
         c_handle = bt_audio_dongle_dl_handle_list;
         for (uint32_t i = 0; i < dl_stream_count; i ++) {
+            if (c_handle->link_type != BT_AUDIO_TYPE_HFP) {
+                break;
+            }
             if ((c_handle->stream_status == AUDIO_DONGLE_STREAM_START) || (c_handle->stream_status == AUDIO_DONGLE_STREAM_RUNNING)) {
                 if ((c_handle->sink == NULL) || (c_handle->sink->transform == NULL) || (c_handle->source == NULL)) {
                     break;
@@ -4329,34 +4182,35 @@ static void bt_audio_dongle_dl_afe_in_init(
     //     );
     // stream_function_sw_buffer_init(dongle_handle->buffer_port_0, &buffer_config);
 
-    // /* sw gian */
-    // int32_t default_gain = 0; // -120 dB to mute avoid pop noise
-    // sw_gain_config_t default_config;
-    // default_config.resolution               = RESOLUTION_16BIT;
-    // default_config.target_gain              = default_gain; //audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_L;
-    // default_config.up_step                  = 1;
-    // default_config.up_samples_per_step      = 2;
-    // default_config.down_step                = -1;
-    // default_config.down_samples_per_step    = 2;
-    // dongle_handle->gain_port                = stream_function_sw_gain_get_port(dongle_handle->source);
-    // stream_function_sw_gain_init(dongle_handle->gain_port, 2, &default_config);
-    // // default_gain = audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_L;
-    // stream_function_sw_gain_configure_gain_target(dongle_handle->gain_port, 1, default_gain);
-    // // default_gain = audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_R;
-    // stream_function_sw_gain_configure_gain_target(dongle_handle->gain_port, 2, default_gain);
-    // BT_DONGLE_LOG_I("[BT Audio][DL][scenario type %d][handle 0x%x] sw gain 0x%x info, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 11,
-    //             dongle_handle->source->scenario_type,
-    //             dongle_handle,
-    //             dongle_handle->gain_port,
-    //             default_config.resolution,
-    //             default_config.target_gain,
-    //             default_config.up_step,
-    //             default_config.up_samples_per_step,
-    //             default_config.down_step,
-    //             default_config.down_samples_per_step,
-    //             default_gain, // audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_L
-    //             default_gain  // audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_R
-    //             );
+    /* sw gian */
+    int32_t default_gain = 0 + dongle_handle->gain_compensation; // -120 dB to mute avoid pop noise
+    sw_gain_config_t default_config;
+    default_config.resolution               = (sink_info->bt_out.sample_format < HAL_AUDIO_PCM_FORMAT_S24_LE) ? RESOLUTION_16BIT : RESOLUTION_32BIT;;
+    default_config.target_gain              = default_gain; //audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_L;
+    default_config.up_step                  = 1;
+    default_config.up_samples_per_step      = 2;
+    default_config.down_step                = -1;
+    default_config.down_samples_per_step    = 2;
+    // default_config.current_gain             = -14400;
+    dongle_handle->gain_port                = stream_function_sw_gain_get_port(dongle_handle->source);
+    stream_function_sw_gain_init(dongle_handle->gain_port, 2, &default_config);
+    // default_gain = audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_L;
+    stream_function_sw_gain_configure_gain_target(dongle_handle->gain_port, 1, default_gain);
+    // default_gain = audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_R;
+    stream_function_sw_gain_configure_gain_target(dongle_handle->gain_port, 2, default_gain);
+    BT_DONGLE_LOG_I("[BT Audio][DL][scenario type %d][handle 0x%x] sw gain 0x%x info, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 11,
+                dongle_handle->source->scenario_type,
+                dongle_handle,
+                dongle_handle->gain_port,
+                default_config.resolution,
+                default_config.target_gain,
+                default_config.up_step,
+                default_config.up_samples_per_step,
+                default_config.down_step,
+                default_config.down_samples_per_step,
+                default_gain, // audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_L
+                default_gain  // audio_transmitter_open_param->scenario_param.bt_audio_dongle_param.gain_default_R
+                );
 #ifdef AIR_SOFTWARE_DRC_ENABLE
     /* sw drc init */
     sw_compander_config_t drc_config;
@@ -4477,7 +4331,7 @@ void bt_audio_dongle_silence_detection_init(audio_scenario_type_t scenario)
 
     /* init volume estimator port */
     config.resolution = RESOLUTION_32BIT;
-    config.frame_size = g_bt_audio_dongle_silence_detection_sample_rate / 1000 * sizeof(int32_t) * 5 / 2;
+    config.frame_size = VOLUME_ESTIMATOR_CALCULATE_FRAME_SAMPLE_SIZE * sizeof(int32_t);
     config.channel_num = 1;
     config.mode = VOLUME_ESTIMATOR_CHAT_INSTANT_MODE;
     config.sample_rate = g_bt_audio_dongle_silence_detection_sample_rate;
@@ -4624,7 +4478,7 @@ void bt_audio_dongle_silence_detection_process(audio_scenario_type_t scenario)
     hal_ccni_message_t msg;
     bt_audio_dongle_silence_detection_status_t silence_detection_status_backup;
     bool is_silence_status, is_not_silence_status;
-
+    uint32_t volume_estimator_calculate_frame_time_us = 0;
     /* get handle */
     if ((scenario < AUDIO_SCENARIO_TYPE_BT_AUDIO_DONGLE_UL_HFP_USB_OUT_0) || (scenario > AUDIO_SCENARIO_TYPE_BT_AUDIO_DONGLE_DL_HFP_AFE_IN_2))
     {
@@ -4634,6 +4488,7 @@ void bt_audio_dongle_silence_detection_process(audio_scenario_type_t scenario)
     silence_detection_handle = &g_bt_audio_dongle_silence_detection_handle;
     if (silence_detection_handle->enable)
     {
+        volume_estimator_calculate_frame_time_us = VOLUME_ESTIMATOR_CALCULATE_FRAME_SAMPLE_SIZE * 1000000 / g_bt_audio_dongle_silence_detection_sample_rate;
         port = silence_detection_handle->port;
         #ifdef AIR_AUDIO_DUMP_ENABLE
         LOG_AUDIO_DUMP(silence_detection_handle->data_buf, silence_detection_handle->data_size, AUDIO_WOOFER_CPD_OUT);
@@ -4643,17 +4498,28 @@ void bt_audio_dongle_silence_detection_process(audio_scenario_type_t scenario)
         for (i = 0; i < silence_detection_handle->total_channel; i++) {
             for (frame_num = 0; frame_num < (silence_detection_handle->data_size_channel/silence_detection_handle->frame_size); frame_num++)
             {
-                /* get the latest volume of each 2.5ms frame and the current_db will be updated */
+                /* get the latest volume of each 40 sample frame and the current_db will be updated */
                 if (volume_estimator_process(port, (void *)((uint8_t *)(silence_detection_handle->data_buf) + silence_detection_handle->data_size_channel*i + silence_detection_handle->frame_size*frame_num), silence_detection_handle->frame_size, &silence_detection_handle->current_db) != VOLUME_ESTIMATOR_STATUS_OK)
                 {
                     AUDIO_ASSERT(0);
                 }
-                //DSP_MW_LOG_I("[ULL Audio V2][DL][silence_detection][volume]:scenario %d, ch %d, current_db %d\r\n", 3, scenario, i, silence_detection_handle->current_db);
+                // volume_estimator_get_peak_db(port, 0, &peak_db);
+#if BT_AUDIO_DONGLE_DL_DEBUG_ENABLE
+                // DSP_MW_LOG_I("[BT Audio][DL][silence_detection][volume]:scenario %d, ch %d, frame %d, current_db %d, peak_db %d\r\n", 5, scenario, i, frame_num, silence_detection_handle->current_db, peak_db);
+                DSP_MW_LOG_I("[BT Audio][DL][silence_detection][volume]:scenario %d, ch %d, frame %d, current_db %d silence time %d non-silence time %d\r\n", 6,
+                    scenario,
+                    i,
+                    frame_num,
+                    silence_detection_handle->current_db,
+                    silence_detection_handle->effective_delay_us_count[i],
+                    silence_detection_handle->failure_delay_us_count[i]
+                    );
+#endif
                 /* check this frame's volume */
                 if (silence_detection_handle->current_db <= silence_detection_handle->effective_threshold_db)
                 {
                     silence_detection_handle->failure_delay_us_count[i] = 0;
-                    silence_detection_handle->effective_delay_us_count[i] += 2500;
+                    silence_detection_handle->effective_delay_us_count[i] += volume_estimator_calculate_frame_time_us;
                     if (silence_detection_handle->effective_delay_us_count[i] >= silence_detection_handle->effective_delay_ms*1000)
                     {
                         if (silence_detection_handle->status != BT_AUDIO_DONGLE_SILENCE_DETECTION_STATUS_SILENCE)
@@ -4675,7 +4541,7 @@ void bt_audio_dongle_silence_detection_process(audio_scenario_type_t scenario)
                 {
                     is_silence_status = false;
                     silence_detection_handle->effective_delay_us_count[i] = 0;
-                    silence_detection_handle->failure_delay_us_count[i] += 2500;
+                    silence_detection_handle->failure_delay_us_count[i] += volume_estimator_calculate_frame_time_us;
                     if (silence_detection_handle->failure_delay_us_count[i] >= silence_detection_handle->failure_delay_ms*1000)
                     {
                         if (silence_detection_handle->status != BT_AUDIO_DONGLE_SILENCE_DETECTION_STATUS_NOT_SILENCE)

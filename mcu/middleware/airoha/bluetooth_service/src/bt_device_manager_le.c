@@ -55,13 +55,17 @@
 #include "bt_utils.h"
 #include "bt_device_manager_nvkey_struct.h"
 #include "bt_os_layer_api.h"
-#include "bt_device_manager.h"
+
+#ifdef MTK_AWS_MCE_ENABLE
+#include "bt_connection_manager.h"
+#include "bt_aws_mce_report.h"
+#endif
 
 log_create_module(BT_DM, PRINT_LEVEL_INFO);
 
 #define BT_ADDR_TYPE_UNKNOW         (0xFF)
 
-#define BT_DM_LE_INVAILD_INDEX      0xFF
+#define BT_DM_LE_INVAILD_INDEX      0xFFFFFFFFU
 
 #define BT_DM_LE_RPA_HASH_LENGTH    3U
 
@@ -115,6 +119,8 @@ static bt_dm_le_bond_info_context_t bond_info_context[BT_DEVICE_MANAGER_LE_BONDE
 
 typedef uint8_t bt_dm_le_bond_info_order_t;
 static bt_dm_le_bond_info_order_t bond_info_order[BT_DEVICE_MANAGER_LE_BONDED_ORDER_MAX];
+
+static bool is_edr_ctkd_ongoing = false;
 
 #define BT_DM_LE_NVDM_FLAG_MASK                         (BT_DM_LE_FLAG_NOT_SYNC | BT_DM_LE_FLAG_BONDED_COMPLETE)
 #define BT_DM_LE_SET_FLAG(context, flag)                (context->flags |= flag)
@@ -170,12 +176,12 @@ static void bt_device_manager_le_reset_connection_infos(void);
 static void bt_device_manager_le_save_connection_params(void *buff);
 static void bt_device_manager_le_delete_connection_params(void *buff);
 static void bt_device_manager_le_event_callback_register(void);
-static void bt_device_manager_le_store_bonded_info_to_nvdm(uint8_t index);
+static void bt_device_manager_le_store_bonded_info_to_nvdm(uint32_t index);
 #ifdef AIR_NVDM_ENABLE
-static bt_status_t bt_device_manager_le_write_nvdm(bt_device_manager_le_bonded_info_t *p_bond_info, uint8_t index);
+static bt_status_t bt_device_manager_le_write_nvdm(bt_device_manager_le_bonded_info_t *p_bond_info, uint32_t index);
 #endif
-static uint8_t bt_device_manager_le_get_index_by_address(bt_addr_t *address);
-static void bt_device_manager_le_restore_bonded_info_from_nvdm(uint8_t index);
+static uint32_t bt_device_manager_le_get_index_by_address(bt_addr_t *address);
+static void bt_device_manager_le_restore_bonded_info_from_nvdm(uint32_t index);
 static void bt_device_manager_le_update_current_conn_interval(void *conn_params);
 static bt_gap_le_local_config_req_ind_t *bt_device_manager_le_get_local_config(void);
 static bt_gap_le_bonding_info_t *bt_device_manager_le_get_bonding_info(const bt_addr_t remote_addr);
@@ -187,12 +193,18 @@ extern void bt_gap_le_srv_rsl_update_event_handler(void);
 extern bt_status_t bt_gap_le_srv_prepare_set_rsl(void);
 extern bt_gap_le_srv_link_attribute_t bt_gap_le_srv_get_link_attribute_by_handle(bt_handle_t handle);
 extern bt_status_t bt_gap_le_redirect_bond_info(bt_handle_t connection_handle, bt_gap_le_bonding_info_t *bond_info);
+bool bt_smp_edr_ctkd_is_ongoing(bt_addr_t *peer_addr);
 static bt_status_t bt_dm_le_add_waiting_list(bt_dm_le_wl_action_t action, bt_dm_le_bond_info_context_t *context);
 static bt_gap_le_srv_error_t bt_dm_le_remove_waiting_list_node(bt_dm_le_wl_context_t *context);
 static void bt_dm_le_clear_waiting_list(void);
 static bt_status_t bt_dm_le_run_waiting_list(void);
 #endif
 static bt_status_t bt_dm_le_analysis_rpa(bt_dm_le_bond_info_context_t *context, uint8_t *prand, uint8_t *hash);
+static bt_status_t bt_dm_le_aws_send_bond_info(bt_dm_le_bond_info_context_t *context, bt_device_manager_le_bonded_event_t action);
+#ifdef MTK_AWS_MCE_ENABLE
+static void bt_dm_le_aws_init(void);
+static void bt_dm_le_aws_deinit(void);
+#endif
 
 #if defined(MTK_AWS_MCE_ENABLE) && defined (SUPPORT_ROLE_HANDOVER_SERVICE)
 #include "bt_role_handover.h"
@@ -211,43 +223,47 @@ static bt_status_t bt_device_manager_le_rho_allowed_cb(const bt_bd_addr_t *addr)
 
 static uint8_t bt_device_manager_le_rho_get_data_length_cb(const bt_bd_addr_t *addr)
 {
-    uint8_t i, counter = 0;
+    uint32_t i = 0, counter = 0;
 #ifdef AIR_MULTI_POINT_ENABLE
     if (addr != NULL) {
         LOG_MSGID_I(BT_DM, "[DM][LE][RHO] get data length addr != NULL for EMP", 0);
         return 0;
     }
 #endif
-    for (i = 0; i < BT_DEVICE_MANAGER_LE_CONNECTION_MAX; i++) {
-        if (dm_info[i].connection_handle) {
+
+    while (i < BT_DEVICE_MANAGER_LE_CONNECTION_MAX) {
+        if (dm_info[i].connection_handle != 0 && dm_info[i].connection_handle != BT_HANDLE_INVALID) {
             counter++;
         }
+        ++i;
     }
+
     rho_header.connected_dev_num = counter;
-    if (rho_header.connected_dev_num) {
-        return (sizeof(ble_dm_rho_header_t) + (sizeof(bt_device_manager_le_connection_struct_t) * rho_header.connected_dev_num));
+    if (counter != 0) {
+        return (sizeof(ble_dm_rho_header_t) + (sizeof(bt_device_manager_le_connection_struct_t) * counter));
     }
     return 0;
 }
 
 static bt_status_t bt_device_manager_le_rho_get_data_cb(const bt_bd_addr_t *addr, void *data)
 {
-    uint8_t j;
+    uint32_t src_idx;
 #ifdef AIR_MULTI_POINT_ENABLE
     if (addr != NULL) {
         LOG_MSGID_I(BT_DM, "[DM][LE][RHO] get data addr != NULL for EMP", 0);
         return BT_STATUS_FAIL;
     }
 #endif
+
     if (data && (rho_header.connected_dev_num)) {
-        uint8_t index = 0;
+        uint32_t dst_idx = 0;
         ble_dm_rho_header_t *rho_head = (ble_dm_rho_header_t *)data;
         rho_head->connected_dev_num = rho_header.connected_dev_num;
-        bt_device_manager_le_connection_struct_t *rho_cntx = (bt_device_manager_le_connection_struct_t *)(rho_head + 1);
-        for (j = 0; ((j < BT_DEVICE_MANAGER_LE_CONNECTION_MAX) && (index < rho_header.connected_dev_num)); j++) {
-            if (dm_info[j].connection_handle) {
-                bt_utils_memcpy((bt_device_manager_le_connection_struct_t *)(rho_cntx + index), &(dm_info[j]), sizeof(bt_device_manager_le_connection_struct_t));
-                index++;
+        bt_device_manager_le_connection_struct_t *rho_cntx = (bt_device_manager_le_connection_struct_t *)(data + 1);
+        for (src_idx = 0; (src_idx < BT_DEVICE_MANAGER_LE_CONNECTION_MAX) && (dst_idx < rho_header.connected_dev_num); src_idx++) {
+            if (dm_info[src_idx].connection_handle) {
+                bt_utils_memcpy(rho_cntx + dst_idx, &(dm_info[src_idx]), sizeof(bt_device_manager_le_connection_struct_t));
+                dst_idx++;
             }
         }
     }
@@ -257,23 +273,23 @@ static bt_status_t bt_device_manager_le_rho_get_data_cb(const bt_bd_addr_t *addr
 
 static void bt_device_manager_le_rho_status_cb(const bt_bd_addr_t *addr, bt_aws_mce_role_t role, bt_role_handover_event_t event, bt_status_t status)
 {
-    uint8_t j;
     switch (event) {
         case BT_ROLE_HANDOVER_COMPLETE_IND: {
             if ((BT_AWS_MCE_ROLE_AGENT == role) && (BT_STATUS_SUCCESS == status)) {
-                for (j = 0; j < BT_DEVICE_MANAGER_LE_CONNECTION_MAX ; j++) {
-                    bt_utils_memset(&(dm_info[j]), 0x00, sizeof(bt_device_manager_le_connection_struct_t));
-                }
-                for (j = 0; j < BT_DEVICE_MANAGER_LE_BONDED_MAX; j++) {
-                    if (!(BT_DM_LE_GET_FLAG_BY_INDEX(j) & BT_DM_LE_FLAG_NOT_SYNC)) {
-                        BT_DM_LE_REMOVE_FLAG_BY_INDEX(j, BT_DM_LE_FLAG_USING);
+                bt_utils_memset(dm_info, 0x00, sizeof(dm_info));
+
+                uint32_t index = 0;
+                while (index < BT_DEVICE_MANAGER_LE_BONDED_MAX) {
+                    if (!(BT_DM_LE_GET_FLAG_BY_INDEX(index) & BT_DM_LE_FLAG_NOT_SYNC)) {
+                        BT_DM_LE_REMOVE_FLAG_BY_INDEX(index, BT_DM_LE_FLAG_USING);
                     }
+                    index++;
                 }
                 rho_header.connected_dev_num = 0;
-            } else if ((BT_AWS_MCE_ROLE_PARTNER == role) && (BT_STATUS_SUCCESS == status)) {
             }
+            break;
         }
-        break;
+
         default:
             break;
     }
@@ -281,13 +297,13 @@ static void bt_device_manager_le_rho_status_cb(const bt_bd_addr_t *addr, bt_aws_
 
 static bt_status_t bt_device_manager_le_rho_update_cb(bt_role_handover_update_info_t *info)
 {
-    uint8_t j;
     if (info && (BT_AWS_MCE_ROLE_PARTNER == info->role)) {
         if ((info->length > 0) && (info->data)) {//copy data to context
-            ble_dm_rho_header_t *rho_head = (ble_dm_rho_header_t *)info->data;
-            bt_device_manager_le_connection_struct_t *rho_cntx = (bt_device_manager_le_connection_struct_t *)(rho_head + 1);
-            for (j = 0; j < rho_head->connected_dev_num; j++) {
-                bt_utils_memcpy(&(dm_info[j]), (bt_device_manager_le_connection_struct_t *)(rho_cntx + j), sizeof(bt_device_manager_le_connection_struct_t));
+            uint32_t conn_dev_num = *((uint8_t*)info->data);
+
+            bt_utils_assert(conn_dev_num <= BT_DEVICE_MANAGER_LE_CONNECTION_MAX && "[DM][LE]RHO CONN NUM ERROR!");
+            if (conn_dev_num <= BT_DEVICE_MANAGER_LE_CONNECTION_MAX) {
+                bt_utils_memcpy(dm_info, info->data + 1, sizeof(bt_device_manager_le_connection_struct_t) * conn_dev_num);
             }
         } else {
             //error log
@@ -307,16 +323,32 @@ bt_role_handover_callbacks_t bt_device_manager_le_rho_callbacks = {
 
 #endif /*__MTK_AWS_MCE_ENABLE__ */
 
+static uint32_t bt_device_manager_le_get_ctkd_index_by_address(bt_addr_t *address)
+{
+    uint32_t i = 0;
+    for (i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_MAX ; i++) {
+        bt_device_manager_le_bonded_info_t *bond_info = &bond_info_context[i].bonded_info;
+        if (((bond_info_context[i].flags & BT_DM_LE_FLAG_CTKD_CONVERT)) &&
+            ((0 == bt_utils_memcmp(&address->addr, bond_info->bt_addr.addr, sizeof(bt_bd_addr_t))) ||
+            (0 == bt_utils_memcmp(&address->addr, bond_info->info.identity_addr.address.addr, sizeof(bt_bd_addr_t))))) {
+            LOG_MSGID_I(BT_DM, "[DM][LE] get ctkd index = %02x", 1, i);
+            return i;
+        }
+    }
+    LOG_MSGID_E(BT_DM, "[DM][LE] get ctkd index fail", 0);
+    return BT_DM_LE_INVAILD_INDEX;
+}
+
 static void bt_device_manager_le_reset_bond_info_order(void)
 {
     LOG_MSGID_I(BT_DM, "[DM][LE] reset device manager le bond info order", 0);
-    bt_utils_memset(bond_info_order, 0xff, BT_DEVICE_MANAGER_LE_BONDED_ORDER_MAX); 
+    bt_utils_memset(bond_info_order, 0xff, BT_DEVICE_MANAGER_LE_BONDED_ORDER_MAX);
 }
 
 #ifdef AIR_NVDM_ENABLE
 static void  bt_dm_le_bond_info_order_print(void)
 {
-    int i;
+    uint32_t i;
     for (i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_ORDER_MAX; i++){
         LOG_MSGID_I(BT_DM, "[DM][LE] bond_info_order[%d] = bond_info_index_%d ", 2, i, bond_info_order[i]);
     }
@@ -335,22 +367,25 @@ void bt_device_manager_le_write_nvdm_callback(nvkey_status_t status, void *user_
 
 static bt_status_t bt_device_manager_le_write_bond_info_order_nvdm(void)
 {
+    bt_status_t status = BT_STATUS_SUCCESS;
+
 #ifdef AIR_NVDM_ENABLE
-    nvkey_status_t write_status;
+    nvkey_status_t write_status = NVKEY_STATUS_OK;
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_write_bond_info_order_nvdm.", 0);
     bt_device_manager_le_db_bonded_info_order_t bond_info_order_db  = {0};
-    bt_utils_memcpy(bond_info_order_db.bond_info_order, bond_info_order, BT_DEVICE_MANAGER_LE_BONDED_ORDER_MAX);
-    
+
+    bt_utils_memcpy(bond_info_order_db.bond_info_order, bond_info_order, sizeof(bond_info_order));
     bt_dm_le_bond_info_order_print();
-    write_status = nvkey_write_data_non_blocking(NVID_BT_HOST_LE_BOND_INFO_ORDER, (const uint8_t *)&bond_info_order_db, 
+    write_status = nvkey_write_data_non_blocking(NVID_BT_HOST_LE_BOND_INFO_ORDER, (const uint8_t *)&bond_info_order_db,
                                                 sizeof(bt_device_manager_le_db_bonded_info_order_t), bt_device_manager_le_write_nvdm_order_callback, NULL);
+
+    LOG_MSGID_I(BT_DM, "[DM][LE] Write bond_info_order nvdm, result: %02x", 1, write_status);
+
     if (write_status != NVKEY_STATUS_OK) {
-        LOG_MSGID_I(BT_DM, "Write bond_info_order nvdm fail", 0);
-        return BT_STATUS_FAIL;
+        status = BT_STATUS_FAIL;
     }
-    LOG_MSGID_I(BT_DM, "Write bond_info_order nvdm success", 0);
 #endif
-    return BT_STATUS_SUCCESS;
+    return status;
 }
 
 static bt_status_t bt_device_manager_le_read_bond_info_order_nvdm(void)
@@ -390,15 +425,15 @@ static bt_status_t bt_device_manager_le_add_bond_info_order(uint8_t index)
     return BT_STATUS_FAIL;
 }
 
-static bt_status_t bt_device_manager_le_remove_bond_info_order(uint8_t index)
+static bt_status_t bt_device_manager_le_remove_bond_info_order(uint32_t index)
 {
-    int i, j;
+    uint32_t i = 0, j = 0;
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_remove_bond_info_order, index = %d", 1, index);
 
     for (i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_ORDER_MAX; i++) {
         if ((bond_info_order[i] != 0xff) &&
             (bond_info_order[i] == index)) {
-            
+
             for (j = i; j < BT_DEVICE_MANAGER_LE_BONDED_ORDER_MAX; j++) {
                 if (j == BT_DEVICE_MANAGER_LE_BONDED_ORDER_MAX - 1) {
                     bond_info_order[j] = 0xff;
@@ -414,7 +449,7 @@ static bt_status_t bt_device_manager_le_remove_bond_info_order(uint8_t index)
     return BT_STATUS_FAIL;
 }
 
-static bt_status_t bt_device_manager_le_update_bond_info_order(uint8_t index)
+static bt_status_t bt_device_manager_le_update_bond_info_order(uint32_t index)
 {
     int ret;
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_update_bond_info_order, index = %d", 1, index);
@@ -448,7 +483,7 @@ static uint8_t bt_device_manager_le_get_latest_bonded_info_index(void)
     return 0xff;
 }
 #endif
-static uint8_t bt_device_manager_le_get_oldest_bonded_info_index(void)
+static uint32_t bt_device_manager_le_get_oldest_bonded_info_index(void)
 {
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_get_oldest_bonded_info_index, index = %d", 1, bond_info_order[0]);
     return bond_info_order[0];
@@ -456,8 +491,7 @@ static uint8_t bt_device_manager_le_get_oldest_bonded_info_index(void)
 
 static void bt_device_manager_le_bonded_event_cb(bt_device_manager_le_bonded_event_t event, bt_addr_t *address)
 {
-    uint8_t i = 0;
-    for (i = 0; i < BT_DEVICE_MANAGER_LE_CB_MAX_NUM; i++) {
+    for (uint32_t i = 0; i < BT_DEVICE_MANAGER_LE_CB_MAX_NUM; i++) {
         if (ble_dm_cb_list[i].in_use && ble_dm_cb_list[i].callback != NULL) {
             ble_dm_cb_list[i].callback(event, address);
         }
@@ -466,7 +500,7 @@ static void bt_device_manager_le_bonded_event_cb(bt_device_manager_le_bonded_eve
 
 static bt_status_t bt_device_manager_le_cb_register_int(bt_device_manager_le_bonded_event_callback callback)
 {
-    uint8_t i = 0;
+    uint32_t i = 0;
     bt_status_t status = 0;
     for (i = 0; i < BT_DEVICE_MANAGER_LE_CB_MAX_NUM; i++) {
         if (!ble_dm_cb_list[i].in_use) {
@@ -484,7 +518,7 @@ static bt_status_t bt_device_manager_le_cb_register_int(bt_device_manager_le_bon
 
 static bt_status_t bt_device_manager_le_cb_deregister_int(bt_device_manager_le_bonded_event_callback callback)
 {
-    uint8_t i = 0;
+    uint32_t i = 0;
     bt_status_t status = 0;
     for (i = 0; i < BT_DEVICE_MANAGER_LE_CB_MAX_NUM; i++) {
         if (ble_dm_cb_list[i].in_use && ble_dm_cb_list[i].callback == callback) {
@@ -600,7 +634,7 @@ static bt_status_t bt_dm_le_add_device_to_resolving_list(bt_dm_le_bond_info_cont
     return status;
 }
 
-static bt_status_t bt_dm_le_add_device_to_resolving_list_by_index(uint8_t index)
+static bt_status_t bt_dm_le_add_device_to_resolving_list_by_index(uint32_t index)
 {
     bt_status_t status = BT_STATUS_FAIL;
     bt_device_manager_le_bonded_info_t *p_bond_info;
@@ -622,13 +656,14 @@ static bt_status_t bt_dm_le_add_device_to_resolving_list_by_index(uint8_t index)
 
 static void bt_dm_le_reset_context(bt_dm_le_bond_info_context_t *context)
 {
+    LOG_MSGID_I(BT_DM, "[DM][LE] reset context = %02x", 1, context);
     bt_utils_memset(context, 0x00, sizeof(bt_dm_le_bond_info_context_t));
     context->bonded_info.bt_addr.type = BT_ADDR_TYPE_UNKNOW;
     context->bonded_info.info.identity_addr.address.type = BT_ADDR_TYPE_UNKNOW;
     context->privacy_mode = BT_HCI_PRIVACY_MODE_DEVICE;
 }
 
-static bt_status_t bt_device_manager_le_bond_info_remove_by_index(uint8_t index)
+static bt_status_t bt_device_manager_le_bond_info_remove_by_index(uint32_t index)
 {
     if (index >= BT_DEVICE_MANAGER_LE_BONDED_MAX) {
         LOG_MSGID_I(BT_DM, "[DM][LE] Remove bonded info index over max = %d", 1, index);
@@ -640,6 +675,7 @@ static bt_status_t bt_device_manager_le_bond_info_remove_by_index(uint8_t index)
     LOG_MSGID_I(BT_DM, "[DM][LE] Remove bonded info connection handle = %02x", 1, connection_handle);
     if (!(bt_gap_le_srv_get_link_attribute_by_handle(connection_handle) & BT_GAP_LE_SRV_LINK_ATTRIBUTE_NOT_NEED_RHO)) {
         bt_device_manager_le_bonded_event_cb(BT_DEVICE_MANAGER_LE_BONDED_REMOVE, &p_bond_info->bt_addr);
+        bt_dm_le_aws_send_bond_info(&bond_info_context[index], BT_DEVICE_MANAGER_LE_BONDED_REMOVE);
     } else {
         LOG_MSGID_I(BT_DM, "[DM][LE] not need sync bond info to agent", 0);
     }
@@ -653,12 +689,11 @@ static bt_status_t bt_device_manager_le_bond_info_remove_by_index(uint8_t index)
     return BT_STATUS_SUCCESS;
 }
 
-static bt_status_t bt_device_manager_le_bond_info_duplicate_remove(uint8_t index)
+static bt_status_t bt_device_manager_le_bond_info_duplicate_remove(uint32_t index)
 {
-    uint8_t i = 0;
-    bt_device_manager_le_bonded_info_t *new_bond_info = NULL;
+    uint32_t i = 0;
+    bt_device_manager_le_bonded_info_t *new_bond_info = &bond_info_context[index].bonded_info;
     bt_device_manager_le_bonded_info_t *old_bond_info = NULL;
-    new_bond_info = &(bond_info_context[index].bonded_info);
     bt_bd_addr_t *old_remote_address = NULL;
     LOG_MSGID_I(BT_DM, "[DM][LE]bond info is duplicate index = %d", 1, index);
 
@@ -742,7 +777,7 @@ static void bt_dm_le_nvdm_info_print(bt_device_manager_le_bonded_info_t *p_bond_
                 key_ptr[12], key_ptr[13], key_ptr[14], key_ptr[15]);
 }
 
-static bt_status_t bt_device_manager_le_write_nvdm(bt_device_manager_le_bonded_info_t *p_bond_info, uint8_t index)
+static bt_status_t bt_device_manager_le_write_nvdm(bt_device_manager_le_bonded_info_t *p_bond_info, uint32_t index)
 {
     nvkey_status_t write_status = NVKEY_STATUS_ERROR;
     uint16_t bond_info_nvkey_id = NVID_BT_HOST_LE_BOND_INFO_1 + index;
@@ -757,7 +792,7 @@ static bt_status_t bt_device_manager_le_write_nvdm(bt_device_manager_le_bonded_i
     LOG_MSGID_I(BT_DM, "[DM][LE] bond_info_context[%d].link_type = 0x%04x", 2, index, bond_info_context[index].link_type);
 
     uint32_t nvdm_index = (uint32_t)index;
-    write_status = nvkey_write_data_non_blocking(bond_info_nvkey_id, (const uint8_t *)&bond_info_nvdm, 
+    write_status = nvkey_write_data_non_blocking(bond_info_nvkey_id, (const uint8_t *)&bond_info_nvdm,
                                                 sizeof(bt_device_manager_le_db_bonded_info_t), bt_device_manager_le_write_nvdm_callback, (const void *)nvdm_index);
     if (write_status != NVKEY_STATUS_OK) {
         LOG_MSGID_I(BT_DM, "Write nvdm fail, bonded_info[%d], write nvdm status = %d.", 2, index, write_status);
@@ -766,7 +801,7 @@ static bt_status_t bt_device_manager_le_write_nvdm(bt_device_manager_le_bonded_i
     return BT_STATUS_SUCCESS;
 }
 
-static bt_status_t bt_device_manager_le_read_nvdm(bt_device_manager_le_bonded_info_t *p_bond_info, uint8_t index)
+static bt_status_t bt_device_manager_le_read_nvdm(bt_device_manager_le_bonded_info_t *p_bond_info, uint32_t index)
 {
     nvkey_status_t read_status = NVKEY_STATUS_ERROR;
     if (p_bond_info == NULL) {
@@ -790,12 +825,12 @@ static bt_status_t bt_device_manager_le_read_nvdm(bt_device_manager_le_bonded_in
     LOG_MSGID_I(BT_DM, "[DM][LE] bond_info_context[%d].link_type = 0x%04x", 2, index, bond_info_context[index].link_type);
     LOG_MSGID_I(BT_DM, "[DM][LE] Read nvdm success, index = %d, flag = %02x.", 2, index, bond_info_nvdm.flag);
     BT_DM_LE_SET_FLAG_BY_INDEX(index, bond_info_nvdm.flag);
-    
+
     return BT_STATUS_SUCCESS;
 }
 #endif
 
-static void bt_device_manager_le_set_link_type_by_handle(uint8_t bond_info_index, bt_handle_t conn_handle)
+static void bt_device_manager_le_set_link_type_by_handle(uint32_t bond_info_index, bt_handle_t conn_handle)
 {
     if (conn_handle == BT_HANDLE_INVALID) {
         return;
@@ -811,10 +846,13 @@ static void bt_device_manager_le_set_link_type_by_handle(uint8_t bond_info_index
 
 bt_status_t bt_device_manager_le_set_link_type_by_addr(bt_addr_t *address, bt_gap_le_srv_link_t link_type)
 {
-    uint8_t i;
+    uint32_t i = 0;
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_set_link_type_by_addr", 0);
 
     i = bt_device_manager_le_get_index_by_address(address);
+    if (i >= BT_DEVICE_MANAGER_LE_BONDED_MAX) {
+        return BT_STATUS_FAIL;
+    }
     bond_info_context[i].link_type = link_type;
     LOG_MSGID_I(BT_DM, "[DM][LE] set link type in bonded_info[%d] success", 1, i);
 #ifdef AIR_NVDM_ENABLE
@@ -825,7 +863,7 @@ bt_status_t bt_device_manager_le_set_link_type_by_addr(bt_addr_t *address, bt_ga
 
 bt_gap_le_srv_link_t bt_device_manager_le_get_link_type_by_addr(bt_bd_addr_t *remote_addr)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_gap_le_srv_link_t link_type;
     bt_device_manager_le_bonded_info_t *p_bond_info = NULL;
     if (!bt_dm_le_initialized) {
@@ -905,7 +943,7 @@ static bt_dm_le_bond_info_context_t *bt_dm_le_find_context_by_handle(bt_handle_t
     return context;
 }
 
-static uint8_t bt_dm_le_get_index_by_context(bt_dm_le_bond_info_context_t *context)
+static uint32_t bt_dm_le_get_index_by_context(bt_dm_le_bond_info_context_t *context)
 {
     uint32_t i = 0;
     if (context == NULL) {
@@ -924,7 +962,7 @@ static uint8_t bt_dm_le_get_index_by_context(bt_dm_le_bond_info_context_t *conte
     }
 
     LOG_MSGID_I(BT_DM, "[DM][LE] find index = %02x by context = %02x", 2, i, context);
-    return (uint8_t)i;
+    return i;
 }
 
 static bt_status_t bt_device_manager_le_event_callback(bt_msg_type_t msg, bt_status_t status, void *buff)
@@ -932,10 +970,16 @@ static bt_status_t bt_device_manager_le_event_callback(bt_msg_type_t msg, bt_sta
     switch (msg) {
         case BT_POWER_ON_CNF: {
             bt_dm_le_add_all_device_to_rsl_list();
+#ifdef MTK_AWS_MCE_ENABLE
+            bt_dm_le_aws_init();
+#endif
         }
         break;
         case BT_POWER_OFF_CNF: {
             bt_dm_le_clear_waiting_list();
+#ifdef MTK_AWS_MCE_ENABLE
+            bt_dm_le_aws_deinit();
+#endif
         }
         break;
         case BT_GAP_LE_SET_RESOLVING_LIST_CNF: {
@@ -977,8 +1021,10 @@ static bt_status_t bt_device_manager_le_event_callback(bt_msg_type_t msg, bt_sta
                 uint8_t *p_remote_address = (uint8_t *)&remote_address.addr;
                 LOG_MSGID_I(BT_DM, "[DM][LE] get public address:%02x:%02x:%02x:%02x:%02x:%02x", 6, p_remote_address[0], p_remote_address[1],
                                         p_remote_address[2], p_remote_address[3], p_remote_address[4], p_remote_address[5]);
-                uint8_t i = bt_device_manager_le_get_index_by_address(&remote_address);
-                if (i == BT_DM_LE_INVAILD_INDEX) {
+
+                is_edr_ctkd_ongoing = false;
+                uint32_t i = bt_device_manager_le_get_ctkd_index_by_address(&remote_address);
+                if (i >= BT_DEVICE_MANAGER_LE_BONDED_MAX) {
                     break;
                 }
 #ifdef MTK_AWS_MCE_ENABLE
@@ -986,6 +1032,7 @@ static bt_status_t bt_device_manager_le_event_callback(bt_msg_type_t msg, bt_sta
                     BT_DM_LE_SET_FLAG_BY_INDEX(i, BT_DM_LE_FLAG_NOT_SYNC);
                     bt_device_manager_le_bond_info_duplicate_remove(i);
                     bt_dm_le_add_device_to_resolving_list(&(bond_info_context[i]));
+                    bt_dm_le_redirect_link_bond_info(&bond_info_context[i]);
                 } else {
                     BT_DM_LE_REMOVE_FLAG_BY_INDEX(i, BT_DM_LE_FLAG_NOT_SYNC);
                 }
@@ -993,41 +1040,44 @@ static bt_status_t bt_device_manager_le_event_callback(bt_msg_type_t msg, bt_sta
                 BT_DM_LE_SET_FLAG_BY_INDEX(i, BT_DM_LE_FLAG_NOT_SYNC);
                 bt_device_manager_le_bond_info_duplicate_remove(i);
                 bt_dm_le_add_device_to_resolving_list(&(bond_info_context[i]));
+                bt_dm_le_redirect_link_bond_info(&bond_info_context[i]);
 #endif
                 /* link key->LTK, save nvdm. */
                 BT_DM_LE_SET_FLAG_BY_INDEX(i, BT_DM_LE_FLAG_BONDED_COMPLETE);
 
-                BT_DM_LE_SET_FLAG_BY_INDEX(i, BT_DM_LE_FLAG_CTKD_CONVERT);
-
-                bt_dm_le_redirect_link_bond_info(&bond_info_context[i]);
-                bt_device_manager_le_update_bond_info_order(i);
-                bt_device_manager_le_write_bond_info_order_nvdm();
+                BT_DM_LE_REMOVE_FLAG_BY_INDEX(i, BT_DM_LE_FLAG_CTKD_CONVERT);
+                bt_dm_le_nvdm_info_print(&bond_info_context[i].bonded_info);
+                
+                //bt_device_manager_le_bonded_event_cb(BT_DEVICE_MANAGER_LE_BONDED_ADD, &bond_info_context[i].bonded_info.bt_addr);
+                if (bt_dm_le_aws_send_bond_info(&bond_info_context[i], BT_DEVICE_MANAGER_LE_BONDED_ADD) == BT_STATUS_SUCCESS) {
+                    bt_dm_le_reset_context(&bond_info_context[i]);
+                } else {
+                    bt_device_manager_le_update_bond_info_order(i);
+                    bt_device_manager_le_write_bond_info_order_nvdm();
 #ifdef AIR_NVDM_ENABLE
-                bt_device_manager_le_write_nvdm(&bond_info_context[i].bonded_info, i);
+                    bt_device_manager_le_write_nvdm(&bond_info_context[i].bonded_info, i);
 #endif
-                bt_dm_le_add_device_to_resolving_list(&(bond_info_context[i]));
-                bt_device_manager_le_bonded_event_cb(BT_DEVICE_MANAGER_LE_BONDED_ADD, &bond_info_context[i].bonded_info.bt_addr);
+                }
                 break;
             }
             bt_dm_le_bond_info_context_t *context = bt_dm_le_find_context_by_handle(ind->handle);
             if (NULL != context) {
-                uint8_t i = 255;
                 bt_device_manager_le_bonded_info_t *bond_info = &context->bonded_info;
+                uint32_t i = bt_dm_le_get_index_by_context(context);
+                if (i >= BT_DEVICE_MANAGER_LE_BONDED_MAX) {
+                    break;
+                }
+                LOG_MSGID_I(BT_DM, "[DM][LE] bond complete get index = %02x", 1, i);
                 if (BT_STATUS_SUCCESS != status) {
+                    bt_utils_memset(&bond_info->info, 0, sizeof(bt_gap_le_bonding_info_t));
+                    bt_device_manager_le_write_nvdm(bond_info, i);
+                    bt_device_manager_le_remove_bond_info_order(i);
+                    bt_device_manager_le_write_bond_info_order_nvdm();
                     if (0x06 == status) {// means key or pin missing
                         LOG_MSGID_I(BT_DM, "[DM][LE] Bond fail because remote device key missing, conn_handle(0x%04x)", 1, ind->handle);
                         bt_gap_le_bond(ind->handle, &g_pairing_config_req_default);
                         break;
                     }
-
-                    i = bt_dm_le_get_index_by_context(context);
-                    if (i >= BT_DEVICE_MANAGER_LE_BONDED_MAX) {
-                        break;
-                    }
-                    bt_dm_le_reset_context(context);
-                    bt_device_manager_le_write_nvdm(bond_info, i);
-                    bt_device_manager_le_remove_bond_info_order(i);
-                    bt_device_manager_le_write_bond_info_order_nvdm();
                     return BT_STATUS_SUCCESS;
                 }
                 i = bt_device_manager_le_get_index_by_address(&(bond_info->bt_addr));
@@ -1061,6 +1111,7 @@ static bt_status_t bt_device_manager_le_event_callback(bt_msg_type_t msg, bt_sta
 #ifdef MTK_BLE_GAP_SRV_ENABLE
                 if (!(bt_gap_le_srv_get_link_attribute_by_handle(ind->handle) & BT_GAP_LE_SRV_LINK_ATTRIBUTE_NOT_NEED_RHO)) {
                     bt_device_manager_le_bonded_event_cb(BT_DEVICE_MANAGER_LE_BONDED_ADD, &(bond_info->bt_addr));
+                    bt_dm_le_aws_send_bond_info(&bond_info_context[i], BT_DEVICE_MANAGER_LE_BONDED_ADD);
                 } else {
                     LOG_MSGID_I(BT_DM, "[DM][LE] not need sync bond info to agent", 0);
                 }
@@ -1094,7 +1145,7 @@ static bt_gap_le_bonding_info_t *bt_device_manager_le_get_bonding_info(const bt_
 
 bt_gap_le_bonding_info_t *bt_device_manager_le_get_bonding_info_by_addr(bt_bd_addr_t *remote_addr)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_addr_t addr = {0};
     bt_device_manager_le_bonded_info_t *p_bond_info = NULL;
     if (!bt_dm_le_initialized) {
@@ -1144,9 +1195,9 @@ bt_status_t bt_device_manager_le_gap_set_pairing_configuration(bt_gap_le_smp_pai
     return BT_STATUS_SUCCESS;
 }
 
-static void bt_device_manager_le_store_bonded_info_to_nvdm(uint8_t index)
+static void bt_device_manager_le_store_bonded_info_to_nvdm(uint32_t index)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_device_manager_le_bonded_info_t *p_bond_info = NULL;
     for (i = index; i < BT_DEVICE_MANAGER_LE_BONDED_MAX; i++) {
         p_bond_info = &(bond_info_context[i].bonded_info);
@@ -1172,10 +1223,10 @@ static void bt_device_manager_le_store_bonded_info_to_nvdm(uint8_t index)
     }
 }
 
-static void bt_device_manager_le_restore_bonded_info_from_nvdm(uint8_t index)
+static void bt_device_manager_le_restore_bonded_info_from_nvdm(uint32_t index)
 {
 #ifdef AIR_NVDM_ENABLE
-    uint8_t i;
+    uint32_t i = 0;
     bt_device_manager_le_bonded_info_t *bond_info;
     for (i = index; i < BT_DEVICE_MANAGER_LE_BONDED_MAX; i++) {
         bond_info = &(bond_info_context[i].bonded_info);
@@ -1186,7 +1237,7 @@ static void bt_device_manager_le_restore_bonded_info_from_nvdm(uint8_t index)
 
 static bt_dm_le_bond_info_context_t *bt_device_manager_le_find_old_bond_info_context(void)
 {
-#if 0    
+#if 0
     uint32_t i = 0;
     for (i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_MAX ; i++) {
         if (!(bond_info_context[i].flags & BT_DM_LE_FLAG_USING)) {
@@ -1197,8 +1248,11 @@ static bt_dm_le_bond_info_context_t *bt_device_manager_le_find_old_bond_info_con
     LOG_MSGID_I(BT_DM, "[DM][LE] not find old bond info, all bond info is connecting.", 0);
     return NULL;
 #endif
-    uint8_t oldest_index;
-    oldest_index = bt_device_manager_le_get_oldest_bonded_info_index();
+    uint32_t oldest_index = bt_device_manager_le_get_oldest_bonded_info_index();
+    if (oldest_index >= BT_DEVICE_MANAGER_LE_BONDED_MAX) {
+        return NULL;
+    }
+
     return &bond_info_context[oldest_index];
 }
 
@@ -1216,11 +1270,19 @@ static bt_dm_le_bond_info_context_t *bt_dm_le_find_free_context_by_full(const bt
     return NULL;
 }
 
+bool bt_dm_le_is_edr_ctkd_ongoing(bt_addr_t *peer_addr)
+{
+    if ((peer_addr->type == BT_ADDR_PUBLIC) && (bt_smp_edr_ctkd_is_ongoing(peer_addr))) {
+        return true;
+    }
+    return false;
+}
+
 static bt_device_manager_le_bonded_info_t *bt_device_manager_le_get_or_new_bonded_info(const bt_addr_t *peer_addr, bool new_flag)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_device_manager_le_bonded_info_t *p_bond_info = NULL;
-    LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_get_or_new_bonded_info,unbond flag is (%d)", 1, new_flag);
+    LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_get_or_new_bonded_info,unbond flag is (%d) ctkd is ongoing = %02x", 2, new_flag, is_edr_ctkd_ongoing);
     LOG_MSGID_I(BT_DM, "[DM][LE] get bonding info address: %02X:%02X:%02X:%02X:%02X:%02X,type %d", 7,
                 peer_addr->addr[5],
                 peer_addr->addr[4],
@@ -1235,12 +1297,21 @@ static bt_device_manager_le_bonded_info_t *bt_device_manager_le_get_or_new_bonde
         bt_device_manager_le_restore_bonded_info_from_nvdm(0);
         bt_device_manager_le_read_bond_info_order_nvdm();
     }
+
+    if (!is_edr_ctkd_ongoing && (bt_dm_le_is_edr_ctkd_ongoing((bt_addr_t *)peer_addr))) {
+        is_edr_ctkd_ongoing = true;
+    }
+
     /** Check whether bonded? */
     for (i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_MAX ; i++) {
         p_bond_info = &(bond_info_context[i].bonded_info);
         if ((0 == bt_utils_memcmp(&peer_addr->addr, &(p_bond_info->bt_addr.addr), sizeof(bt_bd_addr_t))) ||
             (0 == bt_utils_memcmp(&peer_addr->addr, &(p_bond_info->info.identity_addr.address.addr), sizeof(bt_bd_addr_t)))) {
             LOG_MSGID_I(BT_DM, "[DM][LE] Have Bonded, return bonded_info[%d].", 1, i);
+            if (is_edr_ctkd_ongoing && (bond_info_context[i].flags & BT_DM_LE_FLAG_BONDED_COMPLETE)) {
+                LOG_MSGID_I(BT_DM, "[DM][LE] edr ctkd is onging and this context is bond complete", 0);
+                continue;
+            }
             return p_bond_info;
         }
     }
@@ -1248,9 +1319,15 @@ static bt_device_manager_le_bonded_info_t *bt_device_manager_le_get_or_new_bonde
     if (new_flag) {
         for (i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_MAX ; i++) {
             p_bond_info = &(bond_info_context[i].bonded_info);
-            if (0 == bt_utils_memcmp(&default_bt_addr, &(p_bond_info->bt_addr), sizeof(bt_addr_t))) {
+            if (0 == bt_utils_memcmp(&default_bt_addr.addr, &(p_bond_info->bt_addr.addr), sizeof(bt_bd_addr_t))) {
                 p_bond_info->info.identity_addr.address.type = BT_ADDR_TYPE_UNKNOW;
                 bt_utils_memcpy(&p_bond_info->bt_addr, peer_addr, sizeof(bt_addr_t));
+                if (is_edr_ctkd_ongoing) {
+                    LOG_MSGID_I(BT_DM, "[DM][LE] new bond info edr ctkd is ongoging ", 0);
+                    BT_DM_LE_SET_FLAG_BY_INDEX(i, BT_DM_LE_FLAG_CTKD_CONVERT);
+                } else {
+                    LOG_MSGID_I(BT_DM, "[DM][LE] new bond info edr ctkd is not ongoging ", 0);
+                }
                 LOG_MSGID_I(BT_DM, "[DM][LE] Un-Bonded, return bonded_info[%d].", 1, i);
                 return p_bond_info;
             }
@@ -1261,6 +1338,12 @@ static bt_device_manager_le_bonded_info_t *bt_device_manager_le_get_or_new_bonde
             bt_dm_le_bond_info_context_t *context = bt_dm_le_find_free_context_by_full(peer_addr);
             if (context != NULL) {
                 bt_utils_memcpy(&context->bonded_info.bt_addr, peer_addr, sizeof(bt_addr_t));
+                if (is_edr_ctkd_ongoing) {
+                    LOG_MSGID_I(BT_DM, "[DM][LE] get new bond info edr ctkd is ongoging ", 0);
+                    BT_DM_LE_SET_FLAG(context, BT_DM_LE_FLAG_CTKD_CONVERT);
+                } else {
+                    LOG_MSGID_I(BT_DM, "[DM][LE] get new bond info edr ctkd is not ongoging ", 0);
+                }
                 return &context->bonded_info;
             }
         }
@@ -1268,22 +1351,32 @@ static bt_device_manager_le_bonded_info_t *bt_device_manager_le_get_or_new_bonde
     return NULL;
 }
 
+static bt_device_manager_le_connection_struct_t *bt_dm_le_find_conn_info_by_handle(bt_handle_t connection_handle)
+{
+    bt_device_manager_le_connection_struct_t *conn_info = NULL;
+    for (uint32_t i = 0; i < BT_DEVICE_MANAGER_LE_CONNECTION_MAX; i++) {
+        if (dm_info[i].connection_handle == connection_handle) {
+            conn_info = &dm_info[i];
+            break;
+        }
+    }
+    LOG_MSGID_I(BT_DM, "[DM][LE] find conn info = %02x by handle = %02x", 2, conn_info, connection_handle);
+    return conn_info;
+}
+
 bt_device_manager_le_bonded_info_t *bt_device_manager_le_get_bonded_info_by_handle(bt_handle_t connection_handle)
 {
-    bt_status_t status;
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_get_bonded_info_by_handle,conn_handle(0x%04x)", 1, connection_handle);
-    bt_gap_le_connection_information_t con;
-    bt_utils_memset(&(con), 0x00, sizeof(bt_gap_le_connection_information_t));
-    status = bt_gap_le_get_connection_information(connection_handle, &con);
-    if (BT_STATUS_SUCCESS == status) {
-        return bt_device_manager_le_get_or_new_bonded_info(&(con.peer_addr), false);
+    bt_device_manager_le_connection_struct_t *conn_info = bt_dm_le_find_conn_info_by_handle(connection_handle);
+    if (conn_info != NULL) {
+        return bt_device_manager_le_get_or_new_bonded_info(&(conn_info->peer_address), false);
     }
     return NULL;
 }
 
-static uint8_t bt_device_manager_le_get_index_by_address(bt_addr_t *address)
+static uint32_t bt_device_manager_le_get_index_by_address(bt_addr_t *address)
 {
-    uint8_t i;
+    uint32_t i;
     if (0 == bt_utils_memcmp(&default_bt_addr, address, sizeof(default_bt_addr))) {
         LOG_MSGID_I(BT_DM, "[DM][LE] empty address for find!", 0);
         return 255;
@@ -1303,7 +1396,7 @@ static uint8_t bt_device_manager_le_get_index_by_address(bt_addr_t *address)
 
 void bt_device_manager_le_remove_bonded_device(bt_addr_t *peer_addr)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_device_manager_le_bonded_info_t *p_bond_info = NULL;
     if (!bt_dm_le_initialized) {
         LOG_MSGID_I(BT_DM, "[DM][LE] Remove bonded device fail, please init BT DM LE first!", 0);
@@ -1315,6 +1408,7 @@ void bt_device_manager_le_remove_bonded_device(bt_addr_t *peer_addr)
             (0 == bt_utils_memcmp(peer_addr->addr, &(p_bond_info->info.identity_addr.address.addr), sizeof(bt_bd_addr_t)))) {
 
             bt_device_manager_le_bonded_event_cb(BT_DEVICE_MANAGER_LE_BONDED_REMOVE, peer_addr);
+            bt_dm_le_aws_send_bond_info(&bond_info_context[i], BT_DEVICE_MANAGER_LE_BONDED_REMOVE);
             bt_dm_le_delete_device_from_resolving_list(&bond_info_context[i]);
             bt_dm_le_reset_context(&bond_info_context[i]);
             LOG_MSGID_I(BT_DM, "[DM][LE] Remove bonded info for index  %d", 1, i);
@@ -1331,7 +1425,7 @@ void bt_device_manager_le_remove_bonded_device(bt_addr_t *peer_addr)
 
 static void bt_device_manager_le_reset_bonded_infos(void)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_device_manager_le_bonded_event_cb(BT_DEVICE_MANAGER_LE_BONDED_CLEAR, NULL);
     g_nvram_read_flag = false;
     for (i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_MAX ; i++) {
@@ -1344,13 +1438,13 @@ static void bt_device_manager_le_reset_bonded_infos(void)
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_reset_bonded_infos done!", 0);
 }
 
-void bt_device_manager_le_clear_all_bonded_info(void)
+static void bt_dm_le_clear_all_bonded_info(bool is_user_clear)
 {
-    if (!bt_dm_le_initialized) {
-        LOG_MSGID_I(BT_DM, "[DM][LE] Clear bonded info fail, please init BT DM LE first!", 0);
-        return;
+    LOG_MSGID_I(BT_DM, "[DM][LE] start clear bonded info by user = %02x", 1, is_user_clear);
+    if (is_user_clear) {
+        bt_dm_le_aws_send_bond_info(NULL, BT_DEVICE_MANAGER_LE_BONDED_CLEAR);
     }
-    LOG_MSGID_I(BT_DM, "[DM][LE] start clear bonded info", 0);
+
     bt_dm_clear_flag = true;
     bt_device_manager_le_reset_bonded_infos();
     bt_device_manager_le_store_bonded_info_to_nvdm(0);
@@ -1358,9 +1452,18 @@ void bt_device_manager_le_clear_all_bonded_info(void)
     bt_device_manager_le_write_bond_info_order_nvdm();
 }
 
+void bt_device_manager_le_clear_all_bonded_info(void)
+{
+    if (!bt_dm_le_initialized) {
+        LOG_MSGID_I(BT_DM, "[DM][LE] Clear bonded info fail, please init BT DM LE first!", 0);
+        return;
+    }
+    bt_dm_le_clear_all_bonded_info(true);
+}
+
 bool bt_device_manager_le_is_bonded(bt_addr_t *address)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_device_manager_le_bonded_info_t *p_bond_info = NULL;
     if (!bt_dm_le_initialized) {
         LOG_MSGID_I(BT_DM, "[DM][LE] Device bonded status check fail, please init BT DM LE first!", 0);
@@ -1379,28 +1482,27 @@ bool bt_device_manager_le_is_bonded(bt_addr_t *address)
 
 uint8_t bt_device_manager_le_get_bonded_number(void)
 {
-    uint8_t i;
-    uint8_t count = 0;
+    uint32_t count = 0;
     if (!bt_dm_le_initialized) {
         LOG_MSGID_I(BT_DM, "[DM][LE] Get bonded device number fail, please init BT DM LE first!", 0);
         return 0;
     }
-    for (i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_MAX; i++) {
+    for (uint32_t i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_MAX; i++) {
         if ((0 != bt_utils_memcmp(&default_bt_addr, &(bond_info_context[i].bonded_info.bt_addr), sizeof(bt_addr_t))) &&
             (bond_info_context[i].flags & BT_DM_LE_FLAG_BONDED_COMPLETE)) {
             count++;
         }
     }
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_get_bonded_number, bonded number is %d", 1, count);
-    return count;
+    return (uint8_t)count;
 }
 
 void bt_device_manager_le_get_bonded_list(bt_bd_addr_t *list, uint8_t *count)
 {
-    uint8_t i;
+    uint32_t i = 0;
     uint8_t buff_size = *count;
     bt_bd_addr_t *p = list;
-    uint8_t bonded_num = 0;
+    uint32_t bonded_num = 0;
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_get_bonded_list, want_read_count is %d", 1, *count);
     if (!bt_dm_le_initialized) {
         LOG_MSGID_I(BT_DM, "[DM][LE] Get bonded list fail, please init BT DM LE first!", 0);
@@ -1454,7 +1556,7 @@ static void bt_dm_le_set_bond_context_using(bt_addr_t *peer_address, bt_handle_t
 
 static void bt_device_manager_le_save_connection_params(void *buff)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_gap_le_connection_ind_t *conn_ind = (bt_gap_le_connection_ind_t *)buff;
     for (i = 0; i < BT_DEVICE_MANAGER_LE_CONNECTION_MAX; i++) {
         if (0 == dm_info[i].connection_handle) {
@@ -1474,17 +1576,23 @@ static void bt_device_manager_le_save_connection_params(void *buff)
 
 static void bt_device_manager_le_delete_connection_params(void *buff)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_hci_evt_disconnect_complete_t *disc_ind;
     disc_ind = (bt_hci_evt_disconnect_complete_t *) buff;
+    LOG_MSGID_I(BT_DM, "[DM][LE] le disconnect handle = %02x", 1, disc_ind->connection_handle);
     for (i = 0; i < BT_DEVICE_MANAGER_LE_CONNECTION_MAX ; i++) {
         if (disc_ind->connection_handle == dm_info[i].connection_handle) {
-            bt_dm_le_set_bond_context_using(&dm_info[i].peer_address, dm_info[i].connection_handle, false);
-            bt_utils_memset(&(dm_info[i]), 0x00, sizeof(bt_device_manager_le_connection_struct_t));
+            bt_dm_le_set_bond_context_using(&dm_info[i].peer_address, disc_ind->connection_handle, false);
             bt_device_manager_le_bonded_info_t *bond_info = bt_device_manager_le_get_bonded_info_by_handle(disc_ind->connection_handle);
-            if ((bond_info != NULL) && (!(bond_info->info.key_security_mode & BT_GAP_LE_SECURITY_ENCRYPTION_MASK))) {
+            if ((bond_info != NULL) && (!(bond_info->info.key_security_mode & BT_GAP_LE_SECURITY_BONDED_MASK))) {
+                LOG_MSGID_I(BT_DM, "[DM][LE] clear bond info for does not bond = %02x", 1, bond_info);
                 bt_utils_memset(bond_info, 0, sizeof(bt_device_manager_le_bonded_info_t));
+                bond_info->bt_addr.type = BT_ADDR_TYPE_UNKNOW;
+                bond_info->info.identity_addr.address.type = BT_ADDR_TYPE_UNKNOW;
+            } else {
+                LOG_MSGID_I(BT_DM, "[DM][LE] does not need clear bond info = %02x", 1, bond_info);
             }
+            bt_utils_memset(&(dm_info[i]), 0x00, sizeof(bt_device_manager_le_connection_struct_t));
             break;
         }
     }
@@ -1495,16 +1603,15 @@ static void bt_device_manager_le_delete_connection_params(void *buff)
 
 static void bt_device_manager_le_reset_connection_infos(void)
 {
-    uint8_t i;
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_reset_connection_infos", 0);
-    for (i = 0; i < BT_DEVICE_MANAGER_LE_CONNECTION_MAX ; i++) {
+    for (uint32_t i = 0; i < BT_DEVICE_MANAGER_LE_CONNECTION_MAX ; i++) {
         bt_utils_memset(&(dm_info[i]), 0x00, sizeof(bt_device_manager_le_connection_struct_t));
     }
 }
 
 static void bt_device_manager_le_update_current_conn_interval(void *conn_params)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_gap_le_connection_update_ind_t *ind = (bt_gap_le_connection_update_ind_t *)conn_params;
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_update_current_conn_interval, conn_handle(0x%04x)", 1, ind->conn_handle);
     for (i = 0; i < BT_DEVICE_MANAGER_LE_CONNECTION_MAX; i++) {
@@ -1522,7 +1629,7 @@ static void bt_device_manager_le_update_current_conn_interval(void *conn_params)
 
 bt_device_manager_le_connection_param_t *bt_device_manager_le_get_current_connection_param(bt_handle_t connection_handle)
 {
-    uint8_t i;
+    uint32_t i = 0;
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_get_current_connection_param, conn_handle(0x%04x)", 1, connection_handle);
     if (!bt_dm_le_initialized) {
         LOG_MSGID_I(BT_DM, "[DM][LE] Get Conn interval fail, please init BT DM LE first! ", 0);
@@ -1627,7 +1734,7 @@ static void bt_device_manager_le_gen_public_address(void)
 
 bt_device_manager_le_bonded_info_t *bt_device_manager_le_get_bonding_info_by_addr_ext(bt_bd_addr_t *remote_addr)
 {
-    uint8_t i;
+    uint32_t i = 0;
     //bt_addr_t addr = {0};
     if (!bt_dm_le_initialized) {
         LOG_MSGID_I(BT_DM, "[DM][LE] Device bonded status check fail, please init BT DM LE first!", 0);
@@ -1646,10 +1753,10 @@ bt_device_manager_le_bonded_info_t *bt_device_manager_le_get_bonding_info_by_add
 
 bt_status_t bt_device_manager_le_get_all_bonding_infos(bt_device_manager_le_bonded_info_t *infos, uint8_t *count)
 {
-    uint8_t i;
-    uint8_t buff_size = *count;
+    uint32_t i;
+    uint32_t buff_size = *count;
     bt_device_manager_le_bonded_info_t *p = infos;
-    uint8_t bonded_num = 0;
+    uint32_t bonded_num = 0;
     LOG_MSGID_I(BT_DM, "[DM][LE] bt_device_manager_le_get_bonded_list, want_read_count is %d", 1, *count);
     if (!bt_dm_le_initialized) {
         LOG_MSGID_I(BT_DM, "Get bonded list fail, please init BT DM LE first!", 0);
@@ -1673,7 +1780,7 @@ bt_status_t bt_device_manager_le_get_all_bonding_infos(bt_device_manager_le_bond
     return BT_STATUS_SUCCESS;
 }
 
-static void bt_dm_le_generate_random_key(uint8_t *key, uint8_t size)
+static void bt_dm_le_generate_random_key(uint8_t *key, uint32_t size)
 {
     uint32_t random_seed;
     hal_trng_status_t ret = hal_trng_init();
@@ -1703,7 +1810,7 @@ static void bt_dm_le_generate_random_key(uint8_t *key, uint8_t size)
 
 bt_status_t bt_device_manager_le_set_bonding_info_by_addr(bt_addr_t *remote_addr, bt_gap_le_bonding_info_t *info)
 {
-    uint8_t i;
+    uint32_t i = 0;
     bt_utils_mutex_lock();
     uint8_t default_irk[BT_KEY_SIZE] = {0};
     bt_utils_memset(default_irk, 0xff, BT_KEY_SIZE);
@@ -1767,7 +1874,11 @@ bt_status_t bt_device_manager_le_set_bonding_info_by_addr(bt_addr_t *remote_addr
             BT_DM_LE_SET_FLAG(context, BT_DM_LE_FLAG_NOT_SYNC | BT_DM_LE_FLAG_BONDED_COMPLETE);
             bt_utils_memcpy(&context->bonded_info.bt_addr, remote_addr, sizeof(bt_addr_t));
             bt_utils_memcpy(&context->bonded_info.info, info, sizeof(bt_gap_le_bonding_info_t));
-            uint8_t index = bt_device_manager_le_get_index_by_address(&context->bonded_info.bt_addr);
+            uint32_t index = bt_device_manager_le_get_index_by_address(&context->bonded_info.bt_addr);
+            if (i >= BT_DEVICE_MANAGER_LE_BONDED_MAX) {
+                bt_utils_mutex_unlock();
+                return BT_STATUS_FAIL;
+            }
             bt_device_manager_le_write_nvdm(&context->bonded_info, index);
             bt_dm_le_add_device_to_resolving_list(context);
             bt_utils_mutex_unlock();
@@ -1806,7 +1917,7 @@ bt_status_t bt_device_manager_le_deregister_callback(bt_device_manager_le_bonded
 
 bool bt_device_manager_le_is_sync_bond_info(bt_addr_t *bt_addr)
 {
-    uint8_t i = 0;
+    uint32_t i = 0;
     bt_device_manager_le_bonded_info_t *p_bond_info = NULL;
     for (i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_MAX; i++) {
         p_bond_info = &bond_info_context[i].bonded_info;
@@ -1962,6 +2073,7 @@ bt_status_t bt_dm_le_remove_bonded_device(bt_addr_t *peer_addr, bool is_clear)
         if ((0 == bt_utils_memcmp(peer_addr, &(p_bond_info->bt_addr), sizeof(bt_addr_t))) ||
             (0 == bt_utils_memcmp(peer_addr, &(p_bond_info->info.identity_addr.address), sizeof(bt_addr_t)))) {
             bt_device_manager_le_bonded_event_cb(BT_DEVICE_MANAGER_LE_BONDED_REMOVE, peer_addr);
+            bt_dm_le_aws_send_bond_info(&bond_info_context[i], BT_DEVICE_MANAGER_LE_BONDED_REMOVE);
             LOG_MSGID_I(BT_DM, "[DM][LE] Remove bonded info for index for re-paring", 1, i);
             status = BT_STATUS_SUCCESS;
             break;
@@ -2020,17 +2132,15 @@ static bt_status_t bt_dm_le_analysis_rpa(bt_dm_le_bond_info_context_t *context, 
 
     bt_gap_le_bonding_info_t *bond_info = (bt_gap_le_bonding_info_t *)&context->bonded_info.info;
 
-    if (0 == bt_utils_memcmp(&bond_info->identity_info.irk, &default_key, sizeof(default_key))) {
-        LOG_MSGID_W(BT_DM, "[DM][LE] analysis rpa remote IRK is 0", 0);
+    if (((bond_info->key_security_mode & BT_GAP_LE_SECURITY_BONDED_MASK) == 0) ||
+                (0 == bt_utils_memcmp(&bond_info->identity_info.irk, &default_key, sizeof(default_key)))) {
+        LOG_MSGID_W(BT_DM, "[DM][LE] analysis rpa remote IRK is 0 or not bonded = %02x", 1, bond_info->key_security_mode);
         return BT_STATUS_FAIL;
     }
     bt_utils_memcpy(padding_data, prand, BT_DM_LE_RPA_HASH_LENGTH);
     bt_dm_le_sm_encrypt(output_key, &bond_info->identity_info.irk, (bt_key_t *)padding_data);
     bt_utils_memcpy(hash, output_key, BT_DM_LE_RPA_HASH_LENGTH);
-    LOG_MSGID_I(BT_DM, "[DM][LE] analysis rpa output", 0);
-    for (uint32_t i = 0; i < 16; i++) {
-        LOG_MSGID_I(BT_DM, "[DM][LE] %02x", 1, output_key[i]);
-    }
+    LOG_MSGID_I(BT_DM, "[DM][LE] analysis rpa hash = %02x:%02x:%02x", 3, output_key[0], output_key[1], output_key[2]);
     return BT_STATUS_SUCCESS;
 }
 
@@ -2076,15 +2186,188 @@ bt_status_t bt_device_manager_le_generate_rpa(bt_device_manager_le_bonded_info_t
     }
 
     bt_utils_memcpy(padding_data, prand, BT_DM_LE_RPA_HASH_LENGTH);
+    padding_data[BT_DM_LE_RPA_HASH_LENGTH - 1] |= 0x40;
+    padding_data[BT_DM_LE_RPA_HASH_LENGTH - 1] &= 0x7f;
     bt_dm_le_sm_encrypt(output_key, &bond_info->info.local_key.identity_info.irk, (bt_key_t *)padding_data);
 
-    LOG_MSGID_I(BT_DM, "[DM][LE] generate rpa hash output = %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x", 16,
-                output_key[0], output_key[1], output_key[2], output_key[3],
-                output_key[4], output_key[5], output_key[6], output_key[7],
-                output_key[8], output_key[9], output_key[10], output_key[11],
-                output_key[12], output_key[13], output_key[14], output_key[15]);
+    LOG_MSGID_I(BT_DM, "[DM][LE] generate rpa = %02x-%02x-%02x-%02x-%02x-%02x", 6,
+                output_key[0], output_key[1], output_key[2], padding_data[0], padding_data[1], padding_data[2]);
 
     bt_utils_memcpy((uint8_t *)rpa, output_key, BT_DM_LE_RPA_HASH_LENGTH);
-    bt_utils_memcpy(((uint8_t *)rpa + 3), prand, BT_DM_LE_RPA_HASH_LENGTH);
+    bt_utils_memcpy(((uint8_t *)rpa + 3), padding_data, BT_DM_LE_RPA_HASH_LENGTH);
     return BT_STATUS_SUCCESS;
 }
+
+bt_status_t bt_device_manager_le_remove_old_bonded_device(void)
+{
+    bt_utils_mutex_lock();
+    LOG_MSGID_E(BT_DM, "[DM][LE] remove old bonded device", 0);
+    bt_dm_le_bond_info_context_t *context = bt_device_manager_le_find_old_bond_info_context();
+    if (context == NULL) {
+        bt_utils_mutex_unlock();
+        return BT_STATUS_FAIL;
+    }
+    
+    bt_dm_le_delete_device_from_resolving_list(context);
+    bt_dm_le_reset_context(context);
+    bt_utils_mutex_unlock();
+    return BT_STATUS_SUCCESS;
+}
+
+bt_device_manager_le_bonded_info_t *bt_device_manager_le_get_bonded_info_by_rpa(bt_bd_addr_t *rpa)
+{
+    bt_utils_mutex_lock();
+    uint8_t hash[BT_DM_LE_RPA_HASH_LENGTH] = {0};
+    if (rpa == NULL) {
+        LOG_MSGID_E(BT_DM, "[DM][LE] get bonded info by rpa is NULL", 0);
+        bt_utils_mutex_unlock();
+        return NULL;
+    }
+
+    uint8_t *p_rpa = (uint8_t *)rpa;
+
+    LOG_MSGID_E(BT_DM, "[DM][LE] get bonded info rpa = %02x:%02x:%02x:%02x:%02x:%02x", 6, p_rpa[0], p_rpa[1], p_rpa[2], p_rpa[3], p_rpa[4], p_rpa[5]);
+
+    for (uint32_t i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_MAX; i++) {
+        bt_dm_le_bond_info_context_t *context = &bond_info_context[i];
+        bt_dm_le_analysis_rpa(context, (uint8_t *)(p_rpa + 3), hash);
+        if (bt_utils_memcmp(hash, p_rpa, BT_DM_LE_RPA_HASH_LENGTH) == 0) {
+            LOG_MSGID_E(BT_DM, "[DM][LE] get bonded info context = %02x index = %02x by rpa ", 2, context, i);
+            bt_utils_mutex_unlock();
+            return &context->bonded_info;
+        }
+    }
+    bt_utils_mutex_unlock();
+    return NULL;
+}
+
+static bt_status_t bt_dm_le_aws_send_bond_info(bt_dm_le_bond_info_context_t *context, bt_device_manager_le_bonded_event_t action)
+{
+    bt_status_t status = BT_STATUS_FAIL;
+#ifdef MTK_AWS_MCE_ENABLE
+    if ((action != BT_DEVICE_MANAGER_LE_BONDED_CLEAR) && (context->flags & BT_DM_LE_FLAG_NOT_SYNC)) {
+        LOG_MSGID_W(BT_DM, "[DM][LE] aws send bond info context = %02x action = %02x flag = %02x need't sync", 3, context, action, context->flags);
+        return BT_STATUS_FAIL;
+    }
+
+    bt_aws_mce_report_info_t report_info = {0};
+    uint8_t *aws_packet = (uint8_t *)pvPortMalloc(sizeof(bt_device_manager_le_sync_packet_t) + 1); 
+    if (aws_packet == NULL) {
+        return BT_STATUS_FAIL;
+    }
+
+    report_info.module_id = BT_AWS_MCE_REPORT_MODULE_LE_REMOTE_INFO;
+    aws_packet[0] = action;
+    report_info.param = (void *)aws_packet;
+    switch (action) {
+        case BT_DEVICE_MANAGER_LE_BONDED_ADD: {
+            report_info.param_len = sizeof(bt_device_manager_le_sync_packet_t) + 1;
+
+            bt_device_manager_le_sync_packet_t *sync_packet = (bt_device_manager_le_sync_packet_t *)(aws_packet + 1);
+            sync_packet->link_type = context->link_type;
+            bt_utils_memcpy(&sync_packet->bonded_info, &context->bonded_info, sizeof(bt_device_manager_le_bonded_info_t));
+        }
+        break;
+        case BT_DEVICE_MANAGER_LE_BONDED_REMOVE: {
+            report_info.param_len = sizeof(bt_addr_t) + 1;
+            bt_utils_memcpy(&aws_packet[1], &context->bonded_info.bt_addr, sizeof(bt_addr_t));
+        }
+        break;
+        case BT_DEVICE_MANAGER_LE_BONDED_CLEAR: {
+            report_info.param_len = 1;
+        }
+        break;
+        default:
+            break;
+    }
+
+    status = bt_aws_mce_report_send_event(&report_info);
+    LOG_MSGID_I(BT_DM, "[DM][LE] aws send bond info context = %02x action = %02x status = %02x", 3, context, action, status);
+    vPortFree(aws_packet);
+#endif
+    return status;
+}
+
+#ifdef MTK_AWS_MCE_ENABLE
+
+static void bt_dm_le_sync_all_bond_info(void)
+{
+    for (uint32_t i = 0; i < BT_DEVICE_MANAGER_LE_BONDED_MAX; i++) {
+        bt_dm_le_bond_info_context_t *context = &bond_info_context[i];
+        if (((!(bond_info_context[i].flags & BT_DM_LE_FLAG_NOT_SYNC))) &&
+            (bond_info_context[i].flags & BT_DM_LE_FLAG_BONDED_COMPLETE) &&
+            (0 != bt_utils_memcmp(&default_bt_addr, &(context->bonded_info.bt_addr), sizeof(bt_addr_t)))) {
+            bt_dm_le_aws_send_bond_info(context, BT_DEVICE_MANAGER_LE_BONDED_ADD);
+            LOG_MSGID_I(BT_DM, "[DM][LE] sync all bond info context = %02x. index = %02x", 2, context, i);
+        }
+    }
+}
+
+static bt_status_t bt_dm_le_cm_callback(bt_cm_event_t event_id, void *params, uint32_t params_len)
+{
+    switch (event_id) {
+        case BT_CM_EVENT_REMOTE_INFO_UPDATE: {
+            bt_cm_remote_info_update_ind_t *info_update = (bt_cm_remote_info_update_ind_t *)params;
+            if (((info_update->connected_service & BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS)) != 0) &&
+                                ((info_update->pre_connected_service & BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS)) == 0)) {
+                LOG_MSGID_I(BT_DM, "[DM][LE] aws connected", 0);
+                bt_dm_le_sync_all_bond_info();
+            }
+        }
+        break;
+        default:
+            break;
+    }
+    return BT_STATUS_SUCCESS;
+}
+
+static void bt_dm_le_aws_receive_bond_info(bt_aws_mce_report_info_t *report_info)
+{
+    uint8_t *aws_packet = (uint8_t *)report_info->param;
+    uint8_t *print_address = NULL;
+    if (report_info->module_id != BT_AWS_MCE_REPORT_MODULE_LE_REMOTE_INFO) {
+        LOG_MSGID_E(BT_DM, "[DM][LE] aws receive bond info error id = %02x", 1, report_info->module_id);
+    }
+
+    switch (aws_packet[0]) {
+        case BT_DEVICE_MANAGER_LE_BONDED_ADD: {
+            bt_device_manager_le_sync_packet_t *sync_packet = (bt_device_manager_le_sync_packet_t *)(aws_packet + 1);
+            bt_device_manager_le_bonded_info_t *bond_info = &sync_packet->bonded_info;
+            bt_device_manager_le_set_bonding_info_by_addr(&(bond_info->bt_addr), &(bond_info->info));
+            bt_device_manager_le_set_link_type_by_addr(&(bond_info->bt_addr), sync_packet->link_type);
+            print_address = (uint8_t *)&bond_info->bt_addr;
+        }
+        break;
+        case BT_DEVICE_MANAGER_LE_BONDED_REMOVE: {
+            bt_addr_t *remote_address = (bt_addr_t *)(aws_packet + 1);
+            bt_device_manager_le_remove_bonded_device(remote_address);
+            print_address = (uint8_t *)remote_address;
+        }
+        break;
+        case BT_DEVICE_MANAGER_LE_BONDED_CLEAR: {
+            bt_dm_le_clear_all_bonded_info(false);
+        }
+        break;
+        default:
+            break;
+    }
+
+    if (print_address == NULL) {
+        LOG_MSGID_I(BT_DM, "[DM][LE] aws receive bond info action = %02x ", 1, aws_packet[0]);
+    } else {
+        LOG_MSGID_I(BT_DM, "[DM][LE] aws receive bond info action = %02x address type = %02x address = %02x:%02x:%02x:%02x:%02x:%02x", 8, aws_packet[0], print_address[0],
+                                                print_address[1], print_address[2], print_address[3], print_address[4], print_address[5], print_address[6]);
+    }
+}
+
+static void bt_dm_le_aws_init(void)
+{
+    bt_cm_register_event_callback(bt_dm_le_cm_callback);
+    bt_aws_mce_report_register_callback(BT_AWS_MCE_REPORT_MODULE_LE_REMOTE_INFO, bt_dm_le_aws_receive_bond_info);
+}
+
+static void bt_dm_le_aws_deinit(void)
+{
+    bt_aws_mce_report_deregister_callback(BT_AWS_MCE_REPORT_MODULE_LE_REMOTE_INFO);
+}
+#endif

@@ -45,7 +45,7 @@
  * USB HID Config
  *****************************************************************************/
 // #define USB_HID_SUPPORT_IDLE_RATE
-#ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE) || defined(AIR_HID_BT_HOGP_ENABLE)
 #define USB_HID_MAX_DEVICE_NUM 4
 #else
 #define USB_HID_MAX_DEVICE_NUM 1
@@ -93,6 +93,8 @@
 
 #define USB_HID_GMOUSE_ENABLE
 #define USB_HID_GKEYBOARD_ENABLE
+#define USB_HID_OFFICE_MS_ENABLE
+#define USB_HID_OFFICE_KB_ENABLE
 
 /******************************************************************************
  * USB HID Report - List and Item
@@ -103,6 +105,12 @@
 
 #define USB_HID_AIR2_OUT_REPORT_ID               0x08
 #define USB_HID_AIR2_IN_REPORT_ID                0x09
+
+#define USB_HID_EPIO_RX_REPORT_ID                0x2E
+#define USB_HID_EPIO_TX_REPORT_ID                0x2F
+#define USB_HID_EPIO_REPORT_LEN                  0x40
+#define USB_HID_EPIO_RX_REPORT_LEN               USB_HID_EPIO_REPORT_LEN
+#define USB_HID_EPIO_TX_REPORT_LEN               USB_HID_EPIO_REPORT_LEN
 
 #define USB_HID_AIR_REPORT_ID_INDEX              0x00
 #define USB_HID_AIR_REPORT_LEN_INDEX             0x01
@@ -127,6 +135,16 @@
 #define TARGET_REMOTE_MULTIDEVICE4               0x84
 #define TARGET_EXTERNAL_DEVICE                   0x90
 #define TARGET_INVALID_DEVICE                    0xFF
+
+#define USB_HID_KB_REPOTR_ID                     0x01
+#define USB_HID_MS_REPORT_ID                     0x02
+#define USB_HID_CONSUMER_REPORT_ID               0x05
+
+#define USB_HID_GAMING_KB_REPORT_ID              (USB_HID_KB_REPOTR_ID)
+#define USB_HID_GAMING_MS_REPORT_ID              (USB_HID_MS_REPORT_ID)
+
+#define USB_HID_OFFICE_KB_REPORT_ID              (USB_HID_KB_REPOTR_ID)
+#define USB_HID_OFFICE_MS_REPORT_ID              (USB_HID_MS_REPORT_ID)
 
 /* HID Report of Audio Control */
 #define USB_HID_AUDIO_REPORT_ID                  0x0C
@@ -450,16 +468,23 @@ typedef enum {
     USB_REPORT_DSCR_TYPE_GKEYBOARD,
     USB_REPORT_DSCR_TYPE_GMOUSE_NV,
     USB_REPORT_DSCR_TYPE_MUX2,
+    USB_REPORT_DSCR_TYPE_OFFICE_MS,
+    USB_REPORT_DSCR_TYPE_OFFICE_KB,
+    USB_REPORT_DSCR_TYPE_CONSUMER,
+    USB_REPORT_DSCR_TYPE_EPIO,
     USB_REPORT_DSCR_TYPE_NUM, /* The available num of hid report dscrs */
 } usb_hid_report_dscr_type_t;
 
-typedef struct {
+typedef uint16_t (*usb_hid_report_dscr_gen_func_t)(void *);
+
+typedef struct __attribute__((__packed__)) {
     usb_hid_report_dscr_type_t type;
     const char *name;
-    const uint8_t *dscr;
-    uint8_t length;
+    uint8_t *dscr;
+    uint16_t length;
     bool enable;
     uint8_t hid_port;
+    usb_hid_report_dscr_gen_func_t gen_func;
 } usb_hid_report_dscr_hdlr_t;
 
 /******************************************************************************
@@ -504,9 +529,11 @@ typedef struct {
      * Would effect descriptor
      */
     bool                        enable;
+    bool                        out_ep_enable;
     bool                        report_en_list[USB_REPORT_DSCR_TYPE_NUM];
     usb_hid_protocol_code_t     protocol_code;
     usb_hid_ep_interval_t       in_interval;
+    usb_hid_ep_interval_t       out_interval;
 
     /**
      * Static Variables
@@ -523,13 +550,16 @@ typedef struct {
      */
     uint8_t                     data_interface_id;
     uint8_t                     data_ep_in_id;
+    uint8_t                     data_ep_out_id;
     uint16_t                    report_dscr_length;
     uint8_t                     *report_dscr;
     usb_hid_dscr_interface_t    *if_dscr;
     usb_hid_dscr_hid_t          *hid_dscr;
     usb_hid_dscr_endpoint_t     *ep_in_dscr;
+    usb_hid_dscr_endpoint_t     *ep_out_dscr;
     Usb_Interface_Info          *if_info;
     Usb_Ep_Info                 *ep_in_info;
+    Usb_Ep_Info                 *ep_out_info;
     Usb_IAD_Dscr                *iad_desc;
 } UsbHid_Struct;
 
@@ -541,6 +571,7 @@ typedef struct __attribute__((__packed__)) {
     usb_hid_dscr_interface_t   if_dscr;
     usb_hid_dscr_hid_t         hid_dscr;
     usb_hid_dscr_endpoint_t    ep_in_dscr;
+    usb_hid_dscr_endpoint_t    ep_out_dscr;
     uint8_t report_dscr[USB_HID_REPOTR_DSCR_MAX_SIZE];
 #ifdef USB_HID_SUPPORT_IDLE_RATE
     uint8_t idle_val[255];
@@ -557,11 +588,13 @@ extern const usb_void_func usb_hid_if_resume_funcs[8];
 bool usb_hid_get_descriptor(Usb_Ep0_Status *pep0state, Usb_Command *pcmd);
 
 void usb_hid_set_dscr_enable(usb_hid_report_dscr_type_t* list, uint8_t len);
+uint8_t usb_hid_set_report_dscr_gen_func(usb_hid_report_dscr_type_t report_type, usb_hid_report_dscr_gen_func_t gen_func);
 
 void USB_Init_Hid_Status(void);
 void USB_Release_Hid_Status(void);
 
 void usb_hid_device_enable(uint8_t portmask);
+void usb_hid_out_ep_enable(uint8_t port, bool enable);
 void usb_hid_report_enable(uint8_t port, usb_hid_report_dscr_type_t* list, uint8_t len);
 void usb_hid_set_interval(uint8_t port, usb_hid_ep_interval_t interval);
 void usb_hid_set_protocol_code(uint8_t port, usb_hid_protocol_code_t subclass);
@@ -574,5 +607,38 @@ uint8_t usb_hid_tx_non_blocking(uint8_t port, uint8_t* data, uint16_t len);
 
 uint8_t usb_hid_chk_suspend_and_rmwk(void);
 
+#if defined(AIR_HID_BT_HOGP_ENABLE)
+/**
+ * NOTE: Temp API for HOGP merge
+ *       Must be removed before SDK release
+ */
+
+typedef struct __attribute__((__packed__))
+{
+    uint8_t  report_ID;
+    int8_t   keymap[7];
+} LogiBolt_Keyboard_t;
+
+typedef struct __attribute__((__packed__))
+{
+    uint8_t  report_ID;
+    int8_t   ledmap;
+} LogiBolt_Keyboard_Out_t;
+
+typedef struct __attribute__((__packed__))
+{
+    uint8_t  report_ID;
+    int16_t  bitmap_Btn;
+    int16_t  x:12;
+    int16_t  y:12;
+    int8_t   wheel;
+    int8_t   ac_pan;
+} LogiBolt_Mouse_t;
+
+void usb_hid_send_LB_keyboard_report(LogiBolt_Keyboard_t* pReport);
+void usb_hid_send_LB_mouse_report(LogiBolt_Mouse_t* pReport);
+#endif
+
 #endif /* AIR_USB_HID_ENABLE */
+
 #endif /* USBHID_DRV_H */

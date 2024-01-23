@@ -196,7 +196,7 @@ static atci_status_t bt_spp_air_at_cmd_hdl(atci_parse_cmd_param_t *parse_cmd)
             } else if (0 == memcmp(parse_cmd->string_ptr + parse_cmd->name_len + 1, "CONNECT", 7)) {
                 bt_bd_addr_t remote_address = {0};
                 static uint8_t air_uuid128_default[16] = {
-                    0x00,0x00,0x11,0x01,0x00,0x00,0x10,0x00,0x80,0x00,0x00,0x80,0x5F,0x9B,0x34,0xFB
+                    0x00, 0x00, 0x11, 0x01, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB
                 };
                 char *address_str = (char *)(parse_cmd->string_ptr + parse_cmd->name_len + 1 + strlen("CONNECT,"));
                 bt_spp_air_cmd_copy_str_to_addr((void *)&remote_address, address_str);

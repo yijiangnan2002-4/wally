@@ -33,6 +33,22 @@
  */
 
 #include "audio_set_driver.h"
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+#ifdef MTK_ANC_SURROUND_MONITOR_ENABLE
+#include "anc_monitor.h"
+#else
+#ifdef MTK_ANC_ENABLE
+#ifdef MTK_ANC_V2
+#include "anc_control_api.h"
+#else
+#include "anc_control.h"
+#endif
+#endif
+#endif
+#include "hal_audio_internal.h"
+#include "audio_anc_psap_control_internal.h"
+#endif
+
 
 #ifndef UNUSED
 #define UNUSED(x)  ((void)(x))
@@ -404,3 +420,211 @@ void hal_audio_set_dc_compensation(void) {
 }
 #endif
 
+
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+#define DAC_CONTROL_RULE        (2)
+extern uint8_t default_dac_mode;
+extern uint8_t ha_dac_mode_flag;
+#ifndef MTK_ANC_SURROUND_MONITOR_ENABLE
+void hal_audio_status_get_anc_type(uint8_t *enable, audio_anc_type_t *anc_type, uint32_t *misc1, uint32_t *misc2)
+{
+    uint8_t                            anc_enable;
+    audio_anc_control_filter_id_t      anc_current_filter_id;
+    audio_anc_control_type_t           anc_current_type;
+    int16_t                            anc_runtime_gain;
+    uint8_t                            support_hybrid_enable;
+    audio_anc_control_misc_t           local_misc;
+    audio_anc_type_t                   local_anc_type = 0; //0 for ANC, 1 for PT, 2 for Sidetone
+    memset(&local_misc, 0, sizeof(audio_anc_control_misc_t));
+    audio_anc_control_get_status(&anc_enable, &anc_current_filter_id, &anc_current_type, &anc_runtime_gain, &support_hybrid_enable, &local_misc);
+    if (enable != NULL) {
+        *enable = anc_enable;
+    }
+
+#ifdef AIR_ANC_V3
+    if ((local_misc.extend_use_parameters != 0) && (anc_enable == 0)) {
+        // Sidetone enable only
+        local_anc_type = AUDIO_ANC_TYPE_SIDETONE;
+    } else if ((local_misc.extend_use_parameters != 0) && (anc_enable != 0)) {
+        if (anc_current_filter_id <= 4/*AUDIO_ANC_CONTROL_FILTER_ID_ANC_END*/) {
+            // Sidetone enable & ANC enable
+            local_anc_type = AUDIO_ANC_TYPE_ANC;
+        } else {
+            // Sidetone enable & PT enable
+            local_anc_type = AUDIO_ANC_TYPE_PT;
+        }
+    } else if ((local_misc.extend_use_parameters == 0) && (anc_enable != 0)) {
+        if (anc_current_filter_id <= 4/*AUDIO_ANC_CONTROL_FILTER_ID_ANC_END*/) {
+            // ANC enable only
+            local_anc_type = AUDIO_ANC_TYPE_ANC;
+        } else {
+            // PT enable only
+            local_anc_type = AUDIO_ANC_TYPE_PT;
+        }
+    } else if ((local_misc.extend_use_parameters == 0) && (anc_enable == 0)) {
+        // all off
+    }
+#else
+    if ((anc_current_filter_id == AUDIO_ANC_CONTROL_PASS_THRU_SIDETONE_FILTER_DEFAULT) && (anc_enable != 0)) {
+        // Sidetone enable
+        //V2 don't have pure sidetone
+        if ((anc_current_type == AUDIO_ANC_CONTROL_TYPE_PASSTHRU_FF)||(anc_current_type == AUDIO_ANC_CONTROL_TYPE_PT_HYBRID)||(anc_current_type == AUDIO_ANC_CONTROL_TYPE_PT_FB)) {
+            local_anc_type = AUDIO_ANC_TYPE_PT;
+        } else {
+            local_anc_type = AUDIO_ANC_TYPE_ANC;
+        }
+    } else if (anc_enable != 0) {
+        if (anc_current_filter_id <= 4/*AUDIO_ANC_CONTROL_FILTER_ID_ANC_END*/) {
+            // ANC enable only
+            local_anc_type = AUDIO_ANC_TYPE_ANC;
+        } else {
+            // PT enable only
+            local_anc_type = AUDIO_ANC_TYPE_PT;
+        }
+    } else if (anc_enable == 0) {
+        // all off
+    }
+#endif
+    #ifdef AIR_ANC_ADAP_PT_ENABLE //special case for ADAP_PT
+    //anc_current_type = anc_get_official_type_from_internal_type(anc_current_type);
+    if ((anc_enable != 0) && ((anc_current_type & 0xFFFF0000) == AUDIO_ANC_CONTROL_TYPE_PT_ADAP)) {
+        local_anc_type = AUDIO_ANC_TYPE_PT;
+    }
+    #endif
+
+    #ifdef AIR_HW_VIVID_PT_ENABLE
+    if ((anc_enable != 0) && ((anc_current_type & 0xFFFF0000) == AUDIO_ANC_CONTROL_TYPE_PT_HW_VIVID)) {
+        //Enable HW vivid PT
+        local_anc_type = AUDIO_ANC_TYPE_HW_VIVID_PT;
+    }
+    #endif
+
+    if ((anc_enable != 0) && ((anc_current_type & 0xFFFF0000) == AUDIO_ANC_CONTROL_TYPE_PT_HA_PSAP)) {
+        //Enable PSAP/HA
+        local_anc_type = AUDIO_ANC_TYPE_HA_PSAP;
+    }
+
+    if ((anc_enable != 0) && ((anc_current_type & 0xFFFF0000) == AUDIO_ANC_CONTROL_TYPE_PT_SW_VIVID)) {
+        //Enable SW vivid PT
+        local_anc_type = AUDIO_ANC_TYPE_SW_VIVID_PT;
+    }
+
+    if (anc_type != NULL) {
+        *anc_type = local_anc_type;
+    }
+}
+#endif
+
+void hal_audio_status_send_update_dac_mode_event_to_am(hal_audio_ha_dac_flag_t ha_dac_flag,  bool enable)
+{
+    //send to AM
+    bt_sink_srv_am_feature_t feature_para;
+    memset(&feature_para, 0, sizeof(bt_sink_srv_am_feature_t));
+    feature_para.type_mask = AM_AUDIO_UPDATE_DAC_MODE;
+    feature_para.feature_param.dac_mode_update_param.event_type = ha_dac_flag;
+    feature_para.feature_param.dac_mode_update_param.param = enable;
+    audio_src_srv_report("[AMI][DAC Change Mode] send am event type:0x%x , param:0x%x", 2, feature_para.feature_param.dac_mode_update_param.event_type,feature_para.feature_param.dac_mode_update_param.param);
+    am_audio_set_feature(FEATURE_NO_NEED_ID,&feature_para);
+}
+
+void hal_audio_status_update_dac_mode(void)
+{
+    uint8_t tar_mode;
+    uint8_t ha_dl_enable;
+#if defined(MTK_ANC_SURROUND_MONITOR_ENABLE)
+    audio_anc_monitor_scenario_type_t anc_type;
+#else
+    audio_anc_type_t anc_type;
+#endif
+
+    if(default_dac_mode == HAL_AUDIO_DAC_MODE_OLCLASSD) {
+#if (DAC_CONTROL_RULE == 0)
+        tar_mode = HAL_AUDIO_DAC_MODE_CLASSD;
+
+        /* Confirm not the hearing test mode */
+        if(!(ha_dac_mode_flag & HAL_AUDIO_HA_DAC_FLAG_HEARING_TEST)) {
+            tar_mode = default_dac_mode;// open loop
+        }
+
+#elif (DAC_CONTROL_RULE == 1)
+        /* phase 2.0 */
+        tar_mode = HAL_AUDIO_DAC_MODE_CLASSD;
+
+#if defined(MTK_ANC_SURROUND_MONITOR_ENABLE)
+        audio_anc_monitor_get_anc_status(&ha_dl_enable, &anc_type, NULL, NULL);
+        audio_anc_psap_control_get_switch_status(&ha_dl_enable);
+        /* Confirm ha exist */
+        if( hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_ANC) && (anc_type == AUDIO_ANC_MONI_SCENARIO_TYPE_HA_PSAP) ){
+#else
+        hal_audio_status_get_anc_type(&ha_dl_enable, &anc_type, NULL, NULL);
+        audio_anc_psap_control_get_switch_status(&ha_dl_enable);
+        /* Confirm ha exist */
+        if( hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_ANC) && (anc_type == AUDIO_ANC_TYPE_HA_PSAP) ){
+#endif
+            /* Confirm not the hearing test mode */
+            if(!(ha_dac_mode_flag & HAL_AUDIO_HA_DAC_FLAG_HEARING_TEST)) {
+                /* Confirm not the ha dl have sound */
+                if(ha_dl_enable){
+                    tar_mode = default_dac_mode;// open loop
+                }
+            }
+        }
+
+        audio_src_srv_report("[AM][DAC Change Mode]update dac mode. anc_runing_flag:%x , anc_type:%x, ha_dac_mode_flag:%x, ha_dl_enable:%x", 4,
+                hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_ANC), anc_type, ha_dac_mode_flag, ha_dl_enable);
+#else
+        /* phase 2.1 */
+        tar_mode = HAL_AUDIO_DAC_MODE_CLASSD;
+
+        bool hearing_test_on    = (ha_dac_mode_flag & HAL_AUDIO_HA_DAC_FLAG_HEARING_TEST) ? 1 : 0;
+        bool a2dp_mix_mode_on   = (ha_dac_mode_flag & HAL_AUDIO_HA_DAC_FLAG_A2DP_MIX_MODE) ? 1 : 0;
+        bool sco_mix_mode_on    = (ha_dac_mode_flag & HAL_AUDIO_HA_DAC_FLAG_SCO_MIX_MODE) ? 1 : 0;
+
+#if defined(MTK_ANC_SURROUND_MONITOR_ENABLE)
+        audio_anc_monitor_get_anc_status(&ha_dl_enable, &anc_type, NULL, NULL);
+        if( hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_ANC) && (anc_type == AUDIO_ANC_MONI_SCENARIO_TYPE_HA_PSAP) ){
+
+#else
+        hal_audio_status_get_anc_type(&ha_dl_enable, &anc_type, NULL, NULL);
+        if( hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_ANC) && (anc_type == AUDIO_ANC_TYPE_HA_PSAP) ){
+
+#endif
+            /* Confirm not the hearing test mode */
+            if(!hearing_test_on) {
+                /* Confirm not the ha dl have sound */
+#if (defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_ULL_BLE_HEADSET_ENABLE))
+                if(((hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_A2DP) || (hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_BLE_DL) && !(g_prCurrent_player->local_context.ble_format.ble_codec.context_type & AUDIO_CONTENT_TYPE_CONVERSATIONAL))) && !a2dp_mix_mode_on) ||
+                    ((hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_HFP_DL) || (hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_BLE_DL ) && (g_prCurrent_player->local_context.ble_format.ble_codec.context_type & AUDIO_CONTENT_TYPE_CONVERSATIONAL)))  && !sco_mix_mode_on)){
+#else
+                if((hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_A2DP) && !a2dp_mix_mode_on) ||
+                    (hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_HFP_DL) && !sco_mix_mode_on)){
+#endif
+                     /*do nothing. this case we need dac mode be close loop class d */
+                } else {
+                    tar_mode = default_dac_mode;// open loop
+                }
+            }
+        }
+//        audio_src_srv_report("[AM][DAC Change Mode]update dac mode. anc_runing_flag:%x, anc_type:%x, hearing_test:%d, a2dp_mix:%d, sco_mix:%d", 5,
+//                                    hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_ANC), anc_type, hearing_test_on, a2dp_mix_mode_on, sco_mix_mode_on);
+#endif
+        if(hal_audio_status_query_running_flag_except(AUDIO_SCENARIO_TYPE_AMP)){
+            audio_src_srv_report("[AM][DAC Change Mode]update dac mode. anc_runing_flag:%x, anc_type:%x, hearing_test:%d, a2dp_mix:%d, sco_mix:%d", 5,
+                                        hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_ANC), anc_type, hearing_test_on, a2dp_mix_mode_on, sco_mix_mode_on);
+            hal_audio_status_change_dac_mode(tar_mode);
+        }
+    }
+
+}
+
+void hal_audio_status_set_ha_flag_and_update_dac_mode(hal_audio_ha_dac_flag_t ha_dac_flag,  bool enable)
+{
+    if(enable){
+         ha_dac_mode_flag |= ha_dac_flag;
+     } else {
+         ha_dac_mode_flag &= ~(ha_dac_flag);
+     }
+     hal_audio_status_update_dac_mode();
+    return;
+}
+#endif

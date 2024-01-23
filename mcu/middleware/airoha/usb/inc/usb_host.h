@@ -36,6 +36,8 @@
 #ifndef __USB_HOST_H__
 #define __USB_HOST_H__
 
+#ifdef AIR_USB_HOST_ENABLE
+
 /* C library */
 #include <stdbool.h>
 #include <stdint.h>
@@ -153,5 +155,6 @@ typedef struct {
 usb_host_status_t USB_Host_Enumeration_Proccess(usb_host_handle hostHandle);
 void Usb_Host_start(void);
 
+#endif /* AIR_USB_HOST_ENABLE */
 
-#endif
+#endif /* __USB_HOST_H__ */

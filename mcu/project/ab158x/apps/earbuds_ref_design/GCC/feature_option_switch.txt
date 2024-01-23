@@ -193,6 +193,10 @@ AIR_BT_SPEAKER_ENABLE = n
 # This option is used to enable multi link at the same time.
 AIR_MULTI_POINT_ENABLE = y
 
+# This option is used to specify the maximum number of connections that can exist simultaneously.
+# Dependency: If the AIR_MULTI_POINT_ENABLE option is enabled, this option must be set to 2 or a larger value.
+AIR_MULTI_POINT_MAX_CONNECTION = 2
+
 # This option is to set whether earbuds can join another set of earbuds to listen common music.
 AIR_MCSYNC_SHARE_ENABLE = n
 

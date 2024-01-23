@@ -50,6 +50,7 @@ typedef enum {
     APP_EXTEND_GAIN_USER_UNAWARE_CHANGE,
     APP_EXTEND_GAIN_ENVIRONMENT_DETECTION_CHANGE,
     APP_EXTEND_GAIN_USER_UNAWARE_SET,
+    APP_EXTEND_GAIN_WN_OR_ED_SET,
     APP_EXTEND_GAIN_ENVIRONMENT_DETECTION_AWS_SYNC,
     APP_EXTEND_GAIN_NOTIFY_WIND_NOISE_TO_PHONE_APP,
     APP_EXTEND_GAIN_NOTIFY_USER_UNAWARE_TO_PHONE_APP,
@@ -66,8 +67,8 @@ bool app_anc_extend_gain_activity_proc(struct _ui_shell_activity *self,
 
 void app_anc_extend_gain_init_control_status(void);
 void app_anc_extend_gain_query_status(void *param);
-bool app_anc_extend_gaing_get_streaming_status(void);
-void app_anc_extend_gaing_control_streaming(bool start_streaming);
+bool app_anc_extend_gain_get_streaming_status(void);
+void app_anc_extend_gain_control_streaming(bool start_streaming);
 
 #ifdef __cplusplus
 }

@@ -1518,63 +1518,6 @@ typedef enum {
 
 } audio_message_type_t;
 
-/** @brief Audio clock setting */
-typedef enum {
-    /* clock */
-    AUDIO_CLOCK_INT        = 0,                                /**< Audio Clock for Audio internal bus */
-    AUDIO_CLOCK_ENGINE     = 1,                                /**< Audio Clock for Memory agent engine */
-    AUDIO_CLOCK_GPSRC      = 2,                                /**< Audio Clock for HWSRC */
-    AUDIO_CLOCK_UPLINK     = 3,                                /**< Audio Clock for DL hi-res */
-    AUDIO_CLOCK_DWLINK     = 4,                                /**< Audio Clock for UL hi-res */
-    AUDIO_CLOCK_SPDIF      = 5,                                /**< Audio Clock for SPDIF */
-    AUDIO_CLOCK_INTF0_IN   = 6,                                /**< Audio Clock for I2S IN APLL2 48KHz, APLL2:49.152M */
-    AUDIO_CLOCK_INTF1_IN   = 7,                                /**< Audio Clock for I2S IN APLL1 44.1KHz, APLL1:45.1584MHZ */
-    AUDIO_CLOCK_INTF0_OUT  = 8,                                /**< Audio Clock for I2S OUT APLL2 48KHz, APLL2:49.152M */
-    AUDIO_CLOCK_INTF1_OUT  = 9,                                /**< Audio Clock for I2S OUT APLL1 44.1KHz, APLL1:45.1584MHZ */
-    AUDIO_CLOCK_TEST       = 10,                               /**< Audio Clock for TEST */
-    AUDIO_CLOCK_ANC        = 11,                               /**< Audio Clock for ANC */
-    AUDIO_CLOCK_CLD        = 12,                               /**< Audio Clock for CLD */
-    AUDIO_CLOCK_VOW        = 13,                               /**< Audio Clock for VOW */
-    /* power */
-    AUDIO_POWER_MICBIAS_0_HP  = 14,                            /**< Audio Power for Micbias 1 high performance mode*/
-    AUDIO_POWER_MICBIAS_1_HP  = 15,                            /**< Audio Power for Micbias 2 high performance mode*/
-    AUDIO_POWER_MICBIAS_2_HP  = 16,                            /**< Audio Power for Micbias 3 high performance mode*/
-    AUDIO_POWER_MICBIAS_0_NM  = 17,                            /**< Audio Power for Micbias 1 normal mode*/
-    AUDIO_POWER_MICBIAS_1_NM  = 18,                            /**< Audio Power for Micbias 2 normal mode*/
-    AUDIO_POWER_MICBIAS_2_NM  = 19,                            /**< Audio Power for Micbias 3 normal mode*/
-    AUDIO_POWER_MICBIAS_0_LP  = 20,                            /**< Audio Power for Micbias 1 low power mode*/
-    AUDIO_POWER_MICBIAS_1_LP  = 21,                            /**< Audio Power for Micbias 2 low power mode*/
-    AUDIO_POWER_MICBIAS_2_LP  = 22,                            /**< Audio Power for Micbias 3 low power mode*/
-    AUDIO_POWER_MICBIAS_END = AUDIO_POWER_MICBIAS_2_LP,        /**< Audio Power for Micbias End */
-    AUDIO_POWER_MICBIAS_SHARE = 23,                            /**< Audio Power for Micbias Share LDO0 */
-    AUDIO_POWER_DAC            ,                               /**< Audio Power for DAC Out(vitual), for amp lock */
-    AUDIO_POWER_I2S            ,                               /**< Audio Power for I2S MST Out(vitual), for amp lock */
-    /* SPM STATE */
-    AUDIO_DSP_SPM_STATE1       ,                               /**< Audio DSP Low power state1, dsp can't sleep */
-    AUDIO_DSP_SPM_STATE3       ,                               /**< Audio DSP Low power state3, audio won't use, reserved */
-    AUDIO_DSP_SPM_STATE4       ,                               /**< Audio DSP Low power state4, dsp can sleep */
-    AUDIO_POWER_END            ,                               /**< Audio Power End Number */
-    AUDIO_CLOCK_MAX = 0xFFFFFFFF,                              /**< Audio Clock Max Number */
-} audio_clock_setting_type_t;
-
-/*****************************************************************************
-* Audio setting
-*****************************************************************************/
-
-
-/** @brief Hal audio dmic selection. */
-typedef enum {
-    HAL_AUDIO_DMIC_GPIO_DMIC0   = 0x0,              /**<  for dmic selection */
-    HAL_AUDIO_DMIC_GPIO_DMIC1,                      /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC0,                       /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC1,                       /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC2,                       /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC3,                       /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC4,                       /**<  for dmic selection */
-    HAL_AUDIO_DMIC_ANA_DMIC5,                       /**<  for dmic selection */
-    HAL_AUDIO_DMIC_DUMMY        = 0xFFFFFFFF,           /**<  for DSP structrue alignment */
-} hal_audio_dmic_selection_t;
-
 /** @brief i2s clk source define */
 typedef enum {
     I2S_CLK_SOURCE_APLL                         = 0, /**< Low jitter mode. */

@@ -127,6 +127,9 @@ void                bt_cm_power_update(void *params)
             bt_cm_timer_start(BT_CM_FORCE_POWER_OFF_TIMER_ID, 500, bt_cm_power_update, (void *)1);
             return;
         }
+#ifdef MTK_AWS_MCE_ENABLE
+        bt_device_manager_aws_local_info_update();
+#endif
         g_bt_cm_edr_power_cnt.flags = 0;
         bt_cmgr_report_id("[BT_CM][POWER][I] BT POWER OFF cnf", 0);
         bt_cm_power_off_cnf(g_bt_cm_edr_power_status);

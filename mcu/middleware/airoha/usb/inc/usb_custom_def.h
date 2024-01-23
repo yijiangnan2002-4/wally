@@ -32,25 +32,10 @@
  * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
  */
 
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    usb_custom_def.h
- *
- * Project:
- * --------
- *   Maui_Software
- *
- * Description:
- * ------------
- *   This file declares usb customization definitions
- *
- * Author:
- * -------
- *  Choco Chou
- *
- *============================================================================*/
+#ifndef USB_CUSTOM_DEF_H
+#define USB_CUSTOM_DEF_H
+
+#ifdef AIR_USB_ENABLE
 
 /* USB VID */
 #define MTK_USB_VID      (0x0e8d)
@@ -103,3 +88,8 @@
 #define USBMS_MAX_BUFFERSIZE       (32*1024)
 #endif
 #endif
+
+#endif /* AIR_USB_ENABLE */
+
+#endif /* USB_CUSTOM_DEF_H */
+

@@ -166,7 +166,7 @@ typedef struct {
     U8 lowcut_switch_l    : 1;              /**< Low-cut switch for left device to apply low-cut gain. 0(off), 1(on).    */
     U8 lowcut_switch_r    : 1;              /**< Low-cut switch for right device to apply low-cut gain. 0(off), 1(on).    */
     U8 nr_switch          : 1;              /**< NR (Noise reduction) function switch. NR reduces stable background noise. 0(off), 1(on).    */
-    U8 beamforming_switch : 1;              /**< Beamforming function switch. This control item is not used when “Mode Table Control Beamforming Switch” is off.  0(off), 1(on).   */
+    U8 beamforming_switch : 1;              /**< Beamforming function switch. This control item is not used when "Mode Table Control Beamforming Switch" is off.  0(off), 1(on).   */
     U8 reserved_1         : 2;              /**< Reserved.    */
     U8 nr_level;                            /**< NR (Noise reduction) level with range [0, 31].   */
     U8 reserved_2;                          /**< Reserved.    */
@@ -184,8 +184,8 @@ typedef struct {
 
 /** @brief The beamforming configuration structure*/
 typedef struct {
-    U8 bf_switch             : 1;           /**< Beamforming switch. It is not used when “Mode Table Control Beamforming Switch” is on. 0(off), 1(on).   */
-    U8 bf_switch_mode_ctrl   : 1;           /**< Mode Table Control Beamforming Switch [0(off), 1(on)]. If 1(on), the beamforming function switch is controlled by “Beamforming switch in the mode table”.   */
+    U8 bf_switch             : 1;           /**< Beamforming switch. It is not used when "Mode Table Control Beamforming Switch" is on. 0(off), 1(on).   */
+    U8 bf_switch_mode_ctrl   : 1;           /**< Mode Table Control Beamforming Switch [0(off), 1(on)]. If 1(on), the beamforming function switch is controlled by Beamforming switch in the mode table.   */
     U8 reserved_20           : 6;           /**< Reserved.    */
 } PACKED psap_bf_config_t;
 
@@ -251,7 +251,8 @@ typedef struct {
 
 /** @brief The configuration for the PSAP behavior for all audio paths (e.g., A2DP, eSCO, and voice prompt)*/
 typedef struct {
-    U8 reserved_3            : 3;                          /**< Reserved.    */
+    U8 a2dp_mix_mode_switch  : 1;
+    U8 reserved_3            : 2;                          /**< Reserved.    */
     U8 a2dp_drc_switch_l     : 1;                          /**< The A2DP DRC switch for left device. 0(off), 1(on).    */
     U8 a2dp_drc_switch_r     : 1;                          /**< The A2DP DRC switch for right device. 0(off), 1(on).    */
     U8 a2dp_mfa_switch_l     : 1;                          /**< Reserved. This parameter is not working.    */
@@ -260,7 +261,7 @@ typedef struct {
     S8 a2dp_mix_mode_psap_gain_l;                            /**< The additional gain for mic signal which is mixed into A2DP signal for the left device. The range is [-12, 12].    */
     S8 a2dp_mix_mode_psap_gain_r;                            /**< The additional gain for mic signal which is mixed into A2DP signal for the right device. The range is [-12, 12].    */
 
-    U8 reserved_25           : 1;                          /**< Reserved.    */
+    U8 sco_mix_mode_switch   : 1;                          /**< Reserved.    */
     U8 sco_drc_switch_l      : 1;                          /**< The SCO DRC switch for left device. 0(off), 1(on).    */
     U8 sco_drc_switch_r      : 1;                          /**< The SCO DRC switch for right device. 0(off), 1(on).    */
     U8 sco_mfa_switch_l      : 1;                          /**< Reserved. This parameter is not working.    */
@@ -269,7 +270,7 @@ typedef struct {
     S8 sco_mix_mode_psap_gain_l;                             /**< The additional gain for mic signal which is mixed into SCO signal for the left device. The range is [-12, 12].    */
     S8 sco_mix_mode_psap_gain_r;                             /**< The additional gain for mic signal which is mixed into SCO signal for the right device. The range is [-12, 12].    */
 
-    U8 reserved_26          : 1;                           /**< Reserved.    */
+    U8 vp_mix_mode_switch   : 1;                           /**< Reserved.    */
     U8 vp_drc_switch_l      : 1;                           /**< The VP DRC switch for left device. 0(off), 1(on).    */
     U8 vp_drc_switch_r      : 1;                           /**< The VP DRC switch for right device. 0(off), 1(on).    */
     U8 vp_mfa_switch_l      : 1;                           /**< Reserved. This parameter is not working.    */
@@ -279,6 +280,7 @@ typedef struct {
     S8 vp_mix_mode_psap_gain_r;                              /**< The additional gain for mic signal which is mixed into VP signal for the right device. The range is [-12, 12].    */
 
 } PACKED psap_scenario_mix_mode_t;
+
 
 /** @brief The howling detection parameters structure*/
 typedef struct {
@@ -597,7 +599,7 @@ audio_psap_status_t audio_anc_psap_control_set_mix_mode(psap_scenario_mix_mode_t
 audio_psap_status_t audio_anc_psap_control_get_mix_mode(psap_scenario_mix_mode_t *mix_mode_para);
 
 /**
- * @brief     This function is for user tuning the hearing aid mic-in path frequency response. All adaptive function will be closed when the tuning mode on. Example: AFC, INR, WNR. Beamfoming, NR, MFA, HD, AEAetc.
+ * @brief     This function is for user tuning the hearing aid mic-in path frequency response. All adaptive function will be closed when the tuning mode on. Example: AFC, INR, WNR. Beamfoming, NR, MFA, HD, ...etc.
  * @param[in] mode_switch is the switch. 0(off), 1(L on), 2(R on), 3(L/R on)
  * @return    Return AUDIO_PSAP_STATUS_SUCCESS if the operation is successful. Otherwise, an error occurred.
  */
@@ -611,7 +613,7 @@ audio_psap_status_t audio_anc_psap_control_set_tuning_mode(U8 mode_switch);//b0:
 audio_psap_status_t audio_anc_psap_control_get_tuning_mode(U8 *mode_switch);//b0: Switch(L)    b1: Switch(R)    b2~b7: Reserved
 
 /**
- * @brief     This function is for MP calibration usage in the factory.  All adaptive function will be closed when the tuning mode on. Example: AFC, INR, WNR. Beamfoming, NR, MFA, HD, AEAetc. And change the level index to specific level index.
+ * @brief     This function is for MP calibration usage in the factory.  All adaptive function will be closed when the tuning mode on. Example: AFC, INR, WNR. Beamfoming, NR, MFA, HD, ...etc. And change the level index to specific level index.
  * @param[in] mode_switch is the switch. 0(off), 3(on)
  * @return    Return AUDIO_PSAP_STATUS_SUCCESS if the operation is successful. Otherwise, an error occurred.
  */

@@ -143,6 +143,10 @@ static audio_dsp_a2dp_dl_time_param_t audio_sync_time_info;
 static uint32_t dsp2mcu_data;
 static uint32_t dsp2mcu_AUDIO_DL_ACL_data;
 audio_dsp_leakage_compensation_report_param_t leakage_compensation_info;
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+audio_dsp_fadp_anc_compensation_report_param_t fadp_anc_compensation_info;
+#endif
+
 #ifdef AIR_SILENCE_DETECTION_ENABLE
 audio_dsp_silence_detection_param_t silence_detection_info;
 #endif
@@ -151,9 +155,18 @@ extern unsigned char *bt_pka_get_esco_forwarder_addr(uint16_t size);
 #ifdef AIR_ADAPTIVE_EQ_ENABLE
 audio_dsp_adaptive_eq_notify_t adaptive_eq_info;
 #endif
-#ifdef AIR_AUDIO_VOLUME_MONITOR_ENABLE
-audio_dsp_mute_speaking_detection_param_t  mute_speaking_detection_info;
-#endif
+
+typedef enum{
+    SCENARIO_A2DP=0,
+    SCENARIO_ESCO,
+    SCENARIO_RECORD,
+    SCENARIO_VP,
+    SCENARIO_ADAPT_ANC,
+    SCENARIO_DAC_OFF,
+    SCENARIO_COMMON
+}waiting_flag_scenario_t;
+
+static uint16_t save_send_ack_msg[7]={0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF};
 //==== Private API ====
 
 //== Delay function ==
@@ -366,6 +379,14 @@ static void hal_audio_service_callback(audio_message_element_t *p_msg)
                 leakage_compensation_info.api_callback((uint16_t)p_msg->data32);
             }
             return;
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+        case MSG_DSP2MCU_RECORD_FANC_COMP_SZ_REPORT:
+            fadp_anc_compensation_info.calibration_status = p_msg->data16;
+            if (fadp_anc_compensation_info.api_callback != NULL) {
+                fadp_anc_compensation_info.api_callback((uint16_t)p_msg->data32);
+            }
+            return;
+#endif
 #endif
         case MSG_DSP2MCU_AUDIO_TRANSMITTER_DATA_NOTIFY:
             event = HAL_AUDIO_EVENT_DATA_NOTIFICATION;
@@ -502,18 +523,7 @@ static void hal_audio_service_callback(audio_message_element_t *p_msg)
             }
             return;
         }
-        #if defined(AIR_AUDIO_VOLUME_MONITOR_ENABLE)
-        case MSG_DSP2MCU_AUDIO_UL_MUTE_SPEAK_DETECT:
-        {
-            if(mute_speaking_detection_info.callback != NULL) {
-                log_hal_msgid_info("[TEAMS] UL mute speaking detected",1,p_msg->data16);
-                mute_speaking_detection_info.callback((bool)(p_msg->data16));
-            } else {
-                log_hal_msgid_info("[TEAMS] UL mute speaking detected without callback",1,p_msg->data16);
-            }
-            return;
-        }
-        #endif
+
         default:
             // Need not to notify, so we use return here.
             return;
@@ -712,9 +722,9 @@ void hal_audio_dsp_controller_init(void)
     hal_audio_init_share_info_section(&audio_transmitter_share_info[AUDIO_TRANSMITTER_SHARE_INFO_INDEX_BLE_AUDIO_DONGLE_BT_RECEIVE_FROM_AIR_1], &audio_share_buffer.bt_audio_dl[0] + 5 * 1024 / 4,    5 * 1024);
     hal_audio_init_share_info_section(&audio_transmitter_share_info[AUDIO_TRANSMITTER_SHARE_INFO_INDEX_BLE_AUDIO_DONGLE_BT_SEND_TO_AIR_0],      &audio_share_buffer.bt_audio_dl[0] + 10 * 1024 / 4,   5 * 1024);
     hal_audio_init_share_info_section(&audio_transmitter_share_info[AUDIO_TRANSMITTER_SHARE_INFO_INDEX_BLE_AUDIO_DONGLE_BT_SEND_TO_AIR_1],      &audio_share_buffer.bt_audio_dl[0] + 15 * 1024 / 4,   5 * 1024);
-    hal_audio_init_share_info_section(&audio_transmitter_share_info[AUDIO_TRANSMITTER_SHARE_INFO_INDEX_BLE_AUDIO_DONGLE_DSP_RECEIVE_FROM_MCU_0], &audio_share_buffer.bt_audio_dl[0] + 20 * 1024 / 4,   5 * 1024);
-    hal_audio_init_share_info_section(&audio_transmitter_share_info[AUDIO_TRANSMITTER_SHARE_INFO_INDEX_BLE_AUDIO_DONGLE_DSP_RECEIVE_FROM_MCU_1], &audio_share_buffer.bt_audio_dl[0] + 25 * 1024 / 4,   5 * 1024);
-    hal_audio_init_share_info_section(&audio_transmitter_share_info[AUDIO_TRANSMITTER_SHARE_INFO_INDEX_BLE_AUDIO_DONGLE_DSP_SEND_TO_MCU],       &audio_share_buffer.bt_audio_dl[0] + 30 * 1024 / 4,   5 * 1024);
+    hal_audio_init_share_info_section(&audio_transmitter_share_info[AUDIO_TRANSMITTER_SHARE_INFO_INDEX_BLE_AUDIO_DONGLE_DSP_RECEIVE_FROM_MCU_0], &audio_share_buffer.bt_audio_dl[0] + 20 * 1024 / 4,   10 * 1024);
+    hal_audio_init_share_info_section(&audio_transmitter_share_info[AUDIO_TRANSMITTER_SHARE_INFO_INDEX_BLE_AUDIO_DONGLE_DSP_RECEIVE_FROM_MCU_1], &audio_share_buffer.bt_audio_dl[0] + 30 * 1024 / 4,   10 * 1024);
+    hal_audio_init_share_info_section(&audio_transmitter_share_info[AUDIO_TRANSMITTER_SHARE_INFO_INDEX_BLE_AUDIO_DONGLE_DSP_SEND_TO_MCU],       &audio_share_buffer.bt_audio_dl[0] + 40 * 1024 / 4,   5 * 1024);
 #endif /* AIR_BLE_AUDIO_DONGLE_ENABLE */
 
     #if defined (AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined (AIR_BT_AUDIO_DONGLE_ENABLE)
@@ -776,7 +786,13 @@ void hal_audio_ccni_isr(hal_ccni_event_t event, void *msg)
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BT_AUDIO_DL_CLOSE):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BT_AUDIO_DL_START):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BT_AUDIO_DL_STOP):
-            dsp_controller.waiting_A2DP = false;
+            if((save_send_ack_msg[SCENARIO_A2DP] | 0x8000) == msg16){
+                save_send_ack_msg[SCENARIO_A2DP]=0xFFFF;
+                dsp_controller.waiting_A2DP = false;
+            }else{
+                // TODO: handle error
+                log_hal_msgid_error("[HAL audio] error A2DP ack msg:0x%x",1,msg16);
+            }
             break;
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BT_VOICE_UL_OPEN):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BT_VOICE_UL_CLOSE):
@@ -790,7 +806,13 @@ void hal_audio_ccni_isr(hal_ccni_event_t event, void *msg)
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BT_VOICE_UL_RESUME):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BT_VOICE_DL_SUSPEND):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BT_VOICE_DL_RESUME):
-            dsp_controller.waiting_ESCO = false;
+            if((save_send_ack_msg[SCENARIO_ESCO] | 0x8000) == msg16){
+                save_send_ack_msg[SCENARIO_ESCO]=0xFFFF;
+                dsp_controller.waiting_ESCO = false;
+            }else{
+                // TODO: handle error
+                log_hal_msgid_error("[HAL audio] error esco ack msg:0x%x",1,msg16);
+            }
             break;
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BLE_AUDIO_UL_OPEN):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BLE_AUDIO_UL_CLOSE):
@@ -805,14 +827,27 @@ void hal_audio_ccni_isr(hal_ccni_event_t event, void *msg)
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_PLAYBACK_START):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_PLAYBACK_STOP):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BLE_AUDIO_INIT_PLAY_INFO):
-            dsp_controller.waiting = false;
+            if((save_send_ack_msg[SCENARIO_COMMON] | 0x8000) == msg16){
+                save_send_ack_msg[SCENARIO_COMMON]=0xFFFF;
+                dsp_controller.waiting = false;
+            }else{
+                // TODO: handle error
+                log_hal_msgid_error("[HAL audio] error waiting ack msg:0x%x",1,msg16);
+            }
             break;
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_RECORD_OPEN):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_RECORD_CLOSE):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_RECORD_START):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_RECORD_STOP):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_RECORD_LC_SET_PARAM):
-            dsp_controller.waiting_RECORD = false;
+        case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_RECORD_FANC_COMP_SET_PARAM):
+            if((save_send_ack_msg[SCENARIO_RECORD] | 0x8000) == msg16){
+                save_send_ack_msg[SCENARIO_RECORD]=0xFFFF;
+                dsp_controller.waiting_RECORD = false;
+            }else{
+                // TODO: handle error
+                log_hal_msgid_error("[HAL audio] error record ack msg:0x%x",1,msg16);
+            }
             break;
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_PROMPT_OPEN):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_PROMPT_CLOSE):
@@ -822,7 +857,13 @@ void hal_audio_ccni_isr(hal_ccni_event_t event, void *msg)
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_PROMPT_DUMMY_SOURCE_CLOSE):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_PROMPT_DUMMY_SOURCE_START):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_PROMPT_DUMMY_SOURCE_STOP):
-            dsp_controller.waiting_VP = false;
+            if((save_send_ack_msg[SCENARIO_VP] | 0x8000) == msg16){
+                save_send_ack_msg[SCENARIO_VP]=0xFFFF;
+                dsp_controller.waiting_VP = false;
+            }else{
+                // TODO: handle error
+                log_hal_msgid_error("[HAL audio] error vp ack msg:0x%x",1,msg16);
+            }
             break;
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_LINEIN_PLAYBACK_OPEN):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_LINEIN_PLAYBACK_CLOSE):
@@ -863,6 +904,7 @@ void hal_audio_ccni_isr(hal_ccni_event_t event, void *msg)
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BLE_AUDIO_DL_RESUME):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BLE_AUDIO_UL_SUSPEND):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BLE_AUDIO_UL_RESUME):
+        case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_BLE_AUDIO_SET_LC3_PARAM):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_RECORD_SUSPEND):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_RECORD_RESUME):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_COMMON_SET_OUTPUT_VOLUME_PARAMETERS):
@@ -886,17 +928,41 @@ void hal_audio_ccni_isr(hal_ccni_event_t event, void *msg)
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_LLF_CONFIG):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_LLF_ANC_BYPASS_MODE):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_DCHS_COSYS_SYNC):
+        case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_MIXER_STREAM_MSG_SYNC):
+        case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_MIXER_STREAM_OPEN):
+        case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_MIXER_STREAM_START):
+        case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_MIXER_STREAM_STOP):
+        case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_MIXER_STREAM_CLOSE):
         #if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_COMMON_DAC_ENTER_DEACTIVE_MODE):
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_COMMON_DAC_EXIT_DEACTIVE_MODE):
         #endif
-            dsp_controller.waiting = false;
+        case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_COMMON_SET_DL_SW_GAIN_DEFAULT_PARA):
+            if((save_send_ack_msg[SCENARIO_COMMON] | 0x8000) == msg16){
+                save_send_ack_msg[SCENARIO_COMMON]=0xFFFF;
+                dsp_controller.waiting = false;
+            }else{
+                // TODO: handle error
+                log_hal_msgid_error("[HAL audio] error waiting ack msg:0x%x",1,msg16);
+            }
             break;
         case MSG_MCU2DSP_COMMON_POWER_OFF_DAC_IMMEDIATELY:
-            dsp_controller.waiting_DAC_OFF = false;
+            if((save_send_ack_msg[SCENARIO_DAC_OFF] | 0x8000) == msg16){
+                save_send_ack_msg[SCENARIO_DAC_OFF]=0xFFFF;
+                dsp_controller.waiting_DAC_OFF = false;
+            }else{
+                // TODO: handle error
+                log_hal_msgid_error("[HAL audio] error dac off ack msg:0x%x",1,msg16);
+            }
             break;
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_ADAPT_ANC_QUERY_STATUS):
-            dsp_controller.waiting_Polling = false;
+            if((save_send_ack_msg[SCENARIO_ADAPT_ANC] | 0x8000) == msg16){
+                save_send_ack_msg[SCENARIO_ADAPT_ANC]=0xFFFF;
+                dsp_controller.waiting_Polling = false;
+            }else{
+                // TODO: handle error
+                log_hal_msgid_error("[HAL audio] error adapt anc ack msg:0x%x",1,msg16);
+            }
             break;
     }
 
@@ -935,6 +1001,7 @@ void hal_audio_ccni_isr(hal_ccni_event_t event, void *msg)
         case MSG_DSP2MCU_COMMON_ANC_RAMP_DONE:
         case AUDIO_CCNI_MESSAGE_ACK(MSG_MCU2DSP_COMMON_ANC_SET_VOLUME):
         case MSG_DSP2MCU_RECORD_LC_WZ_REPORT:
+        case MSG_DSP2MCU_RECORD_FANC_COMP_SZ_REPORT:
         case MSG_DSP2MCU_AUDIO_TRANSMITTER_DATA_NOTIFY:
         case MSG_DSP2MCU_AUDIO_TRANSMITTER_DATA_DIRECT:
         case MSG_DSP2MCU_COMMON_AUDIO_ANC_SWITCH:
@@ -951,6 +1018,7 @@ void hal_audio_ccni_isr(hal_ccni_event_t event, void *msg)
         case MSG_DSP2MCU_COMMON_AUDIO_SLT_RESULT:
 #endif
         case MSG_DSP2MCU_LLF_NOTIFY:
+        case AUDIO_CCNI_MESSAGE_ACK(MSG_DSP2MCU_AUDIO_VOLUME_MONITOR_START):
             // Put into message queue
             hal_audio_message_enqueue(&dsp_controller.dsp_msg_queue, msg16, data16, msg2);
 
@@ -1097,6 +1165,7 @@ void hal_audio_dsp_controller_send_message(uint16_t message, uint16_t data16, ui
             case MSG_MCU2DSP_BT_AUDIO_DL_CLOSE:
             case MSG_MCU2DSP_BT_AUDIO_DL_START:
             case MSG_MCU2DSP_BT_AUDIO_DL_STOP:
+                save_send_ack_msg[SCENARIO_A2DP]=message;
                 dsp_controller.waiting_A2DP = true;
                 ID_waiting = 1 << 3;
                 break;
@@ -1112,6 +1181,7 @@ void hal_audio_dsp_controller_send_message(uint16_t message, uint16_t data16, ui
             case MSG_MCU2DSP_BT_VOICE_UL_RESUME:
             case MSG_MCU2DSP_BT_VOICE_DL_SUSPEND:
             case MSG_MCU2DSP_BT_VOICE_DL_RESUME:
+                save_send_ack_msg[SCENARIO_ESCO]=message;
                 dsp_controller.waiting_ESCO = true;
                 ID_waiting = 1 << 4;
                 break;
@@ -1120,6 +1190,8 @@ void hal_audio_dsp_controller_send_message(uint16_t message, uint16_t data16, ui
             case MSG_MCU2DSP_RECORD_START:
             case MSG_MCU2DSP_RECORD_STOP:
             case MSG_MCU2DSP_RECORD_LC_SET_PARAM:
+            case MSG_MCU2DSP_RECORD_FANC_COMP_SET_PARAM:
+                save_send_ack_msg[SCENARIO_RECORD]=message;
                 dsp_controller.waiting_RECORD = true;
                 ID_waiting = 1 << 0;
                 break;
@@ -1131,18 +1203,22 @@ void hal_audio_dsp_controller_send_message(uint16_t message, uint16_t data16, ui
             case MSG_MCU2DSP_PROMPT_DUMMY_SOURCE_CLOSE:
             case MSG_MCU2DSP_PROMPT_DUMMY_SOURCE_START:
             case MSG_MCU2DSP_PROMPT_DUMMY_SOURCE_STOP:
+                save_send_ack_msg[SCENARIO_VP]=message;
                 dsp_controller.waiting_VP = true;
                 ID_waiting = 1 << 1;
                 break;
             case MSG_MCU2DSP_COMMON_POWER_OFF_DAC_IMMEDIATELY:
+                save_send_ack_msg[SCENARIO_DAC_OFF]=message;
                 dsp_controller.waiting_DAC_OFF = true;
                 ID_waiting = 1 << 6;
                 break;
             case MSG_MCU2DSP_ADAPT_ANC_QUERY_STATUS:
+                save_send_ack_msg[SCENARIO_ADAPT_ANC]=message;
                 dsp_controller.waiting_Polling = true;
                 ID_waiting = 1 << 7;
                 break;
             default:
+                save_send_ack_msg[SCENARIO_COMMON]=message;
                 dsp_controller.waiting = true;
                 ID_waiting = 1 << 2;
                 break;

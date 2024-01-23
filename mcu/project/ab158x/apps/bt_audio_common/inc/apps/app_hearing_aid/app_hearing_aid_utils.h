@@ -82,7 +82,7 @@ extern "C" {
 #define APP_HEARING_AID_EVENT_ID_AWS_RACE_CMD_RESPONSE                      (APP_HEARING_AID_EVENT_ID_AWS_BEGIN + 3)
 #define APP_HEARING_AID_EVENT_ID_AWS_NOTIFICATION                           (APP_HEARING_AID_EVENT_ID_AWS_BEGIN + 4)
 #define APP_HEARING_AID_EVENT_ID_AWS_SYNC_USER_CONFIGURATION                (APP_HEARING_AID_EVENT_ID_AWS_BEGIN + 5)
-#define APP_HEARING_AID_EVENT_ID_AWS_SYNC_APP_INFO                          (APP_HEARING_AID_EVENT_ID_AWS_BEGIN + 6)
+// #define APP_HEARING_AID_EVENT_ID_AWS_SYNC_APP_INFO                          (APP_HEARING_AID_EVENT_ID_AWS_BEGIN + 6)
 
 #define APP_HEARING_AID_RESPONSE_MAX_LEN                104
 #define APP_HEARING_AID_NOTIFY_MAX_LEN                  25
@@ -120,6 +120,10 @@ typedef enum {
     APP_HEARING_AID_CONFIG_TYPE_TRIAL_RUN               = 0x001D,
     APP_HEARING_AID_CONFIG_TYPE_MIC_CALIBRATION_MODE    = 0x001E,
     APP_HEARING_AID_CONFIG_TYPE_MIC_CALIBRATION_DATA    = 0x001F,
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+    APP_HEARING_AID_CONFIG_TYPE_HEARING_TEST_MODE       = 0x0020,
+#endif /* AIR_DAC_MODE_RUNTIME_CHANGE */
+    APP_HEARING_AID_CONFIG_TYPE_MAX,
 } app_hearing_aid_config_type_t;
 
 extern const char app_hearing_aid_command_string[][APP_HEARING_AID_CHAR_LOG_MAX_LEN];
@@ -188,6 +192,9 @@ bool app_hearing_aid_utils_get_passthrough_switch(app_hear_through_request_t *re
 bool app_hearing_aid_utils_get_mic_channel(app_hear_through_request_t *request, uint8_t *response, uint16_t *response_len);
 bool app_hearing_aid_utils_get_mic_calibration_mode(app_hear_through_request_t *request, uint8_t *response, uint16_t *response_len);
 bool app_hearing_aid_utils_get_mic_calibration_data(app_hear_through_request_t *request, uint8_t *response, uint16_t *response_len);
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+bool app_hearing_aid_utils_get_hearing_test_mode(app_hear_through_request_t *request, uint8_t *response, uint16_t *response_len);
+#endif /* AIR_DAC_MODE_RUNTIME_CHANGE */
 
 bool app_hearing_aid_utils_set_switch(uint8_t *parameter);
 bool app_hearing_aid_utils_set_level_index(uint8_t *parameter);
@@ -216,6 +223,9 @@ bool app_hearing_aid_utils_set_passthrough_switch(uint8_t *parameter);
 bool app_hearing_aid_utils_set_mic_channel(uint8_t *parameter);
 bool app_hearing_aid_utils_set_trial_run(uint8_t *parameter);
 bool app_hearing_aid_utils_set_mic_calibration_mode(uint8_t *parameter);
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+bool app_hearing_aid_utils_set_hearing_test_mode(uint8_t *parameter);
+#endif /* AIR_DAC_MODE_RUNTIME_CHANGE */
 
 uint32_t app_hearing_aid_utils_get_mic_calibration_data_combine_response_len();
 uint32_t app_hearing_aid_utils_get_speaker_reference_combine_response_len();
@@ -329,6 +339,8 @@ typedef uint8_t     app_hearing_aid_drc_type_t;
 bool app_hearing_aid_utils_is_drc_on(app_hearing_aid_drc_type_t type, bool *status);
 
 bool app_hearing_aid_utils_is_drc_enable(bool a2dp_streaming, bool sco_streaming, bool vp_streaming);
+
+bool app_hearing_aid_utils_is_sco_mix_mode_on();
 
 void app_hearing_aid_utils_sync_runtime_parameters(uint8_t *parameter, uint16_t parameter_len);
 

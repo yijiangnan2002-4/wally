@@ -200,6 +200,31 @@ typedef enum {
 } LC3_ERR_T;
 
 
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+
+int  LC3PLUSN_Enc_Prcs(void *p_lc3i_ptr, void *p_lc3i_tab, uint8_t *bytes, uint8_t *BufI, uint32_t *nBytes, Multi_FFT *FFTx);
+int  LC3PLUSN_Dec_Prcs(void *p_lc3i_ptr, void *p_lc3i_tab, uint8_t *bytes, uint8_t *BufO, int32_t nBytes, int16_t packet_lost_st, int32_t bfi_ext, Multi_FFT *FFTx);
+void LC3PLUSN_Dec_Get_Param(void *p_lc3i_ptr, uint32_t *nSamples, int32_t *delay);
+
+//void LC3PLUSN_Tab_Link(void *p_lc3i_tab);
+
+int LC3PLUSN_Tab_Common_Get_MemSize(void);
+int LC3PLUSN_Tab_Enc_Get_MemSize(LC3I_Param *para);
+#define LC3PLUSN_Tab_Dec_Get_MemSize LC3PLUSN_Tab_Enc_Get_MemSize
+
+int LC3PLUSN_Tab_Common_Init(void *p_lc3i_tab);
+int LC3PLUSN_Tab_Enc_Init(void *p_lc3i_tab, void *p_tab_mem, LC3I_Param *para);
+int LC3PLUSN_Tab_Dec_Init(void *p_lc3i_tab, void *p_tab_mem, LC3I_Param *para);
+
+uint32_t LC3PLUSN_Enc_Get_MemSize(int nChannels, int sampleRate, short frame_ms);
+uint32_t LC3PLUSN_Dec_Get_MemSize(int nChannels, int sampleRate, short frame_ms, int plcMeth);
+
+LC3_ERR_T LC3PLUSN_Enc_Init(void *p_lc3i_mem_ext, uint16_t bps, uint32_t SampleRate, uint16_t nChannels, uint32_t bitrate, uint16_t frame_ms, uint16_t delay, uint16_t lfe);
+LC3_ERR_T LC3PLUSN_Dec_Init(void *p_lc3i_mem_ext, uint16_t bps, uint32_t sampleRate, uint16_t nChannels, uint16_t frame_ms, uint16_t delay, int plcMeth, int fix_concealment);
+
+int LC3PLUSN_Enc_Set_BitRate(void *p_lc3i_ptr, int bitrate);
+
+#else
 /* V1.8 API, deprecated
 LC3_ERR_T LC3_Enc_Init(void *p_lc3_mem_ext, uint16_t bits, uint32_t SampleRate, uint32_t BitRate);
 LC3_ERR_T LC3_Dec_Init(void *p_lc3_mem_ext, uint32_t bits, uint32_t SampleRate, uint32_t nChannels, LC3_DEC_MODE_T mode, LC3_PLC_MODE_T plcMeth);
@@ -242,7 +267,7 @@ int LC3I_Tab_Common_Init(void *p_lc3i_tab);
 int LC3I_Tab_Enc_Init(void *p_lc3i_tab, void *p_tab_mem, LC3I_Param *para);
 int LC3I_Tab_Dec_Init(void *p_lc3i_tab, void *p_tab_mem, LC3I_Param *para);
 //void LC3I_Tab_Link(void *p_lc3i_tab);
-
+#endif
 void LC3I_Set_Dec_Param(U16 Channel, U16 frame_interval,U16 plc_mode,U32 sample_rate, U32 bit_rate);
 void LC3I_Set_Enc_Param(U16 Channel, U16 frame_interval,U32 sample_rate, U32 bit_rate);
 

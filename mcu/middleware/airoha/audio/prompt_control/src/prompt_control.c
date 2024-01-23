@@ -64,6 +64,11 @@
 #ifdef AIR_VP_PEQ_ENABLE
 #include "audio_nvdm_common.h"
 #endif
+
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+#include "downlink_sw_gain.h"
+#endif
+
 #ifndef UNUSED
 #define UNUSED(x)  ((void)(x))
 #endif
@@ -199,7 +204,18 @@ void prompt_control_set_volume(void)
         analog = 0x00007FFF; //don't care
     }
 
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    if (g_DL_SW_gain_default_para->enable_vp) {
+        extern void am_set_volume_to_DL_SW_gain(void);
+        am_set_volume_to_DL_SW_gain();
+        hal_audio_set_stream_out_volume(HAL_AUDIO_STREAM_OUT2, 0, analog);
+        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_SET_DL_SW_GAIN, DL_SW_GAIN_SET_MAINGAIN_2, digital, false);
+    } else {
+        hal_audio_set_stream_out_volume(HAL_AUDIO_STREAM_OUT2, digital, analog);
+    }
+#else
     hal_audio_set_stream_out_volume(HAL_AUDIO_STREAM_OUT2, digital, analog);
+#endif
 
     LOG_MSGID_I(VPC, "[VPC]Set Prompt Volume Scenario:%d Level[%d] D_Gain:0x%x A_Gain:0x%x\n", 4,
                 current_audio_type, vol_info.vol_info.def_vol_info.lev, digital, analog);

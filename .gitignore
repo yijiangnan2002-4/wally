@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /out
 /mcu/doc
 /dsp/doc
@@ -20,3 +21,17 @@
 /mcu/tools/scripts/build/lm_bin_generator/windows/gen_lm_tool.exe
 /mcu/tools/scripts/build/parse_dump_id_bin/windows/parse_dump_id.exe
 /1585hear.*
+=======
+/out
+/mcu/doc
+/dsp/doc
+/mapping_disk
+/mcu/tools/pc_tool/
+/mcu/tools/scripts/build/PostBuildTool/windows/FileManagement.xml
+/mcu/tools/scripts/build/PostBuildTool/windows/FileSystem/
+/mcu/tools/scripts/build/PostBuildTool/windows/PostBuildTool.exe
+/mcu/tools/scripts/build/PostBuildTool/windows/filesystem.bin
+/mcu/tools/headset_app_android_eng
+/mcu/tools/headset_app_ios_eng
+/mcu/tools/headset_app_windows_eng
+>>>>>>> sdk3100base

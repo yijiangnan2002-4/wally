@@ -611,6 +611,20 @@ void pmu_check_rg_timer(uint16_t start, uint16_t end, uint16_t timer)
     pmu_check_rg_timer_lp(start, end, timer);
 #endif
 }
+
+void hal_pmu_buck_thd_test(void)
+{
+#ifdef AIR_BTA_PMIC_LP
+    hal_pmu_buck_thd_test_lp();
+#endif
+}
+
+void hal_pmu_buck_thd_test_wo_pg(void)
+{
+#ifdef AIR_BTA_PMIC_LP
+    hal_pmu_buck_thd_test_wo_pg_lp();
+#endif
+}
 /***************************** 1wire API *******************************/
 uint32_t pmu_1wire_get_vbus_uart_volt(void)
 {

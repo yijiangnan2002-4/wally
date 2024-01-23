@@ -70,7 +70,9 @@ typedef struct {
     U8                      bfm_enabled;
     U8                      wnr_enabled;
     U8                      wnr_gain_enabled;
-    U8                      reserved[3];
+    U8                      nr_non_auto_init;
+    U8                      drc_analyse_mode;
+    U8                      drc_smoothing_mode;
     U8                      aea_enabled;
     U8                      aea_nr_enabled;
     U8                      hd_enabled;
@@ -97,14 +99,19 @@ typedef struct {
     S32                     nr_smooth_times;
     S16                     afc_gse_multiplier_shift;
     S16                     afc_gse_multiplier_frac;
+    U8                      mic_biquad_index;
+    U8                      mic_biquad_enabled;
+    U8                      ptg_bg_enabled;
+    U8                      isAudioDrcOn_target;
 } PACKED ha_alg_switch_t;
 
 typedef struct {
     S8  gse_frac_index;
-    U8  count;
+    U8  reserved;
     U8  gse_shift;
     U8  max_gse_frac_index;
     S32 ref_energy_sum;
+    U32 count;
 } PACKED ha_alg_afc_acs_t;
 
 #if (HA_HS_IMPROVEMENT == 1)
@@ -122,10 +129,12 @@ typedef struct {
 #else
 typedef struct {
     U8  mute_state;
-    U8  Reserved[3];
+    U8  acs_target;
+    U8  Reserved[2];
     S32 input_energy_sum;
     S32 feedback_energy_sum;
     S32 detect_times;
+    S32 smooth_times;
 } PACKED ha_alg_afc_hs_t;
 #endif
 
@@ -136,6 +145,13 @@ typedef struct {
     S32 times;
     S32 step;
 } PACKED ha_alg_mic_smooth_t;
+
+typedef struct {
+    U8 state;
+    U8 reserved[3];
+    S32 current;
+    S32 step;
+} PACKED ha_alg_two_channel_smooth_t;
 
 typedef struct {
     U8 INR_switch            : 1;
@@ -189,6 +205,7 @@ typedef struct {
     ha_alg_afc_acs_t        afc_acs_ctl[2];     /* Master, Sec */
     ha_alg_afc_hs_t         afc_hs_ctl[2];      /* Master, Sec */
     ha_alg_mic_smooth_t     mic_out_smooth_ctl;
+    ha_alg_two_channel_smooth_t dl_two_channel_smooth_ctl;
     U8                      ha_switch_target;
     U8                      pt_switch_target;
     U8                      afc_working_flag;
@@ -196,7 +213,7 @@ typedef struct {
     U8                      deinitial_flag;
     U8                      audio_dump_align;
     U8                      audio_dump_flag;
-    U8                      aea_receive_partner_flag;
+    U8                      aea_must_update_flag;
     U8                      afc_acs_debug;
     U8                      afc_hs_debug;
     U8                      afc_fbd_debug;
@@ -204,7 +221,6 @@ typedef struct {
     S16                     anc_ff_cal_gain;
     S32                     bypass_gain_frac;
     S32                     bypass_gain_shift;
-    S32                     inputmax_1khz_q16;
     U32                     delay_block_count;
     U32                     block_count;
     S32                     out_block_maxabs;
@@ -219,7 +235,6 @@ typedef struct {
     /* Mic path */
     S32                     drc_eqtable_current_q8p8[50];
     S32                     drc_eqtable_smooth_q8p8[50];
-    DSP_ALIGN4 U8           aea_indicator_partner[20];
     DSP_ALIGN4 S8           drc_eqtable_current[52];
     DSP_ALIGN4 S8           drc_eqtable_target[52];
     DSP_ALIGN4 U8           drc_inputmax[52];
@@ -248,6 +263,7 @@ typedef struct {
 #define HA_BFM_MEM_SIZE         1576
 #define HA_AEA_MEM_SIZE         128
 #define HA_INR_MEM_SIZE         208
+#define HA_BIQUAD_MEM_SIZE      152
 #else
 #define HA_AFC_MEM_SIZE         1744
 #define HA_BFM_MEM_SIZE         1456
@@ -258,9 +274,9 @@ typedef struct {
 #define HA_FFT_SCRATCH_MEM_SIZE 800  /* ver.2301170200: FFT 100, !! Use Scratch mem !! */
 #define HA_OLA_MEM_SIZE         816  /* ver.2301170200: OLA 100/25 */
 #define HA_ANR_MEM_SIZE         1056
-#define HA_DRC_MEM_SIZE         240  /* ver.2302161100: 50 bands */
-#define HA_DRC_TABLE_MEM_SIZE   1344 /* ver.2302161100: 50 bands */
-#define HA_DRC_SCRATCH_MEM_SIZE 416  /* ver.2302161100: 50 bands, !! Use Scratch mem !! */
+#define HA_DRC_MEM_SIZE         672  /* ver.2311063100: 50 bands */
+#define HA_DRC_TABLE_MEM_SIZE   1344 /* ver.2311063100: 50 bands */
+#define HA_DRC_SCRATCH_MEM_SIZE 416  /* ver.2311063100: 50 bands, !! Use Scratch mem !! */
 #define HA_WNR_MEM_SIZE         1856
 #define HA_HOW_MEM_SIZE         944
 #define HA_CALIB_MEM_SIZE       640
@@ -285,7 +301,10 @@ typedef struct {
 #define HA_AUDIO_OLA_MEM_POSITION       HA_CALIB_MEM_POSITION           + GET_ALIGN_SIZE(HA_CALIB_MEM_SIZE)
 #define HA_AUDIO_DRC_MEM_POSITION       HA_AUDIO_OLA_MEM_POSITION       + GET_ALIGN_SIZE(HA_OLA_MEM_SIZE)
 #define HA_AUDIO_DRC_TABLE_MEM_POSITION HA_AUDIO_DRC_MEM_POSITION       + GET_ALIGN_SIZE(HA_DRC_MEM_SIZE)
-#define HA_SCRATCH_MEM_POSITION         HA_AUDIO_DRC_TABLE_MEM_POSITION + GET_ALIGN_SIZE(HA_DRC_TABLE_MEM_SIZE)
+#define HA_BIQUAD_MASTER_MEM_POSITION   HA_AUDIO_DRC_TABLE_MEM_POSITION + GET_ALIGN_SIZE(HA_DRC_TABLE_MEM_SIZE)
+#define HA_BIQUAD_SEC_MEM_POSITION      HA_BIQUAD_MASTER_MEM_POSITION   + GET_ALIGN_SIZE(HA_BIQUAD_MEM_SIZE)
+#define HA_BIQUAD_CAL_MEM_POSITION      HA_BIQUAD_SEC_MEM_POSITION      + GET_ALIGN_SIZE(HA_BIQUAD_MEM_SIZE)
+#define HA_SCRATCH_MEM_POSITION         HA_BIQUAD_CAL_MEM_POSITION      + GET_ALIGN_SIZE(HA_BIQUAD_MEM_SIZE)
 #define HA_ALG_TOTAL_MEM                HA_SCRATCH_MEM_POSITION         + GET_ALIGN_SIZE(HA_SCRATCH_MEM_SIZE)
 
 #define DSP_HA_MEMSIZE    (sizeof(ha_instance) + HA_ALG_TOTAL_MEM)
@@ -325,6 +344,7 @@ void stream_function_hearing_aid_feedback_detect_start();
 void stream_function_hearing_aid_feedback_detect_notify(S32 data);
 void stream_function_hearing_aid_set_mic_cal_mode(U8 mic_cal_mode);
 int stream_function_hearing_aid_get_mic_cal_data(void *data);
+void stream_function_hearing_aid_set_dac_mode(U8 audio_dac_mode);
 
 #endif /* _HEARING_AID_INTERFACE_H_ */
 

@@ -32,28 +32,6 @@
  * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
  */
 
-
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    usbms_state.c
- *
- * Project:
- * --------
- *   Maui_Software
- *
- * Description:
- * ------------
- *    This file implements usb mass storage state machine
- *
- * Author:
- * -------
- *   Jensen Hu
- *   CJung Chen
- *
- *****************************************************************************/
-
 #ifdef AIR_USB_MSC_ENABLE
 
 /* C library */
@@ -1504,3 +1482,4 @@ static void USB_Ms_Update_Read_Protect(uint8_t LUN, uint32_t LBA, uint32_t sec_n
 #endif /* __P_PROPRIETARY_COPYRIGHT__ */
 
 #endif /* AIR_USB_MSC_ENABLE */
+

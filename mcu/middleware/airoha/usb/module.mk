@@ -50,6 +50,8 @@ AIR_USB_AUDIO_1_MIC_ENABLE ?= n
 AIR_USB_AUDIO_2_SPK_ENABLE ?= n
 AIR_USB_AUDIO_2_MIC_ENABLE ?= n
 AIR_USB_CDC_PORT_NUM       ?= 2
+AIR_USB_MFI_ENABLE         ?= n
+
 
 ###############################################################################
 # Convert old option to new option
@@ -117,7 +119,6 @@ USB_SRCS += _common/usb_main.c \
             _common/usb_custom.c \
             _common/usb.c \
             _common/usb_case.c \
-            _common/usb_host_detect.c \
             _common/usb_acti.c \
             _common/usb_dbg.c
 endif
@@ -164,6 +165,12 @@ ifeq ($(AIR_USB_XBOX_ENABLE), y)
 USB_MACROS += AIR_USB_XBOX_ENABLE
 USB_SRCS += xbox/usb_xbox.c
 endif
+
+ifeq ($(AIR_USB_MFI_ENABLE), y)
+USB_MACROS += AIR_USB_MFI_ENABLE
+USB_SRCS += mfi/usb_mfi.c
+endif
+
 
 ###############################################################################
 # USB Audio option
@@ -257,6 +264,8 @@ USB_OPTIONS += AIR_USB_AUDIO_1_MIC_ENABLE
 USB_OPTIONS += AIR_USB_AUDIO_2_SPK_ENABLE
 USB_OPTIONS += AIR_USB_AUDIO_2_MIC_ENABLE
 USB_OPTIONS += AIR_USB_CDC_PORT_NUM
+USB_OPTIONS += AIR_USB_MFI_ENABLE
+
 
 $(info ==== USB module.mk debug start =========================================)
 $(info USB Sources ------------------------------------------------------------)

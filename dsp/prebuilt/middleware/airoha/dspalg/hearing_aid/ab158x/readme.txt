@@ -13,7 +13,7 @@ Usage:          XT-XCC:  For HA, make sure to include the following:
 
 Dependency:     None
 
-Notice:         pisplit_awha_nr.o cites some open source information, please refer to oss_info.txt for more details and refer to noisePowProposed_license.txt for the license.
+Notice:         pisplit_awha_nr.o cites some open source information, please refer to oss_info.txt for more details and refer to noisePowProposed_license.txt for the license.
 
 Relative doc:   None
 

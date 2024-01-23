@@ -60,6 +60,8 @@ typedef void (*f_ha_nr_process)(void* pNRst, int* pFft);
 typedef void (*f_ha_beamforming_process)(void* bfm_st, int* mainFFT, int* refFFT, void* scratch);
 typedef int (*f_ha_drc_process)(void* drc_st, int* fft, void* scratch);
 typedef void (*f_ha_drc_pic_set_extern_functions)(void* ha_math_pic);
+typedef void (*f_ha_drc_analyse)(void* drc_st, int* fft, void* scratch);
+typedef int (*f_ha_drc_apply)(void* drc_st, int* fft, void* scratch);
 typedef int (*f_ha_wnr_calculateGain)(void* wnr_st, const int* p_main_fft, const int* p_ref_fft);
 typedef void (*f_ha_wnr_applyGain)(void* wnr_st, int* p_main_fft);
 typedef int (*f_ha_math_db_to_amplitude)(const int x, int* out_frac_y);
@@ -112,6 +114,8 @@ extern void *g_hearing_aid_biquad_export_pointer;
 #define ha_beamforming_process                  ((f_ha_beamforming_process)g_hearing_aid_bfm_export_parameters[0])
 #define ha_drc_pic_set_extern_functions         ((f_ha_drc_pic_set_extern_functions)g_hearing_aid_drc_export_parameters[0])
 #define ha_drc_process                          ((f_ha_drc_process)g_hearing_aid_drc_export_parameters[1])
+#define ha_drc_analyse                          ((f_ha_drc_analyse)g_hearing_aid_drc_export_parameters[2])
+#define ha_drc_apply                            ((f_ha_drc_apply)g_hearing_aid_drc_export_parameters[3])
 #define ha_wnr_calculateGain                    ((f_ha_wnr_calculateGain)g_hearing_aid_wnr_export_parameters[0])
 #define ha_wnr_applyGain                        ((f_ha_wnr_applyGain)g_hearing_aid_wnr_export_parameters[1])
 #define ha_math_pic_p                           ((void*)g_hearing_aid_math_export_pointer)
@@ -126,6 +130,7 @@ extern void *g_hearing_aid_biquad_export_pointer;
 #define scl_sqrt64x32                           ((f_scl_sqrt64x32)g_hearing_aid_ndm_export_parameters[2])
 #define ha_tln_process                          ((f_ha_tln_process)g_hearing_aid_tln_export_parameters[0])
 #define ha_biquad_pic_p                         ((void*)g_hearing_aid_biquad_export_pointer)
+#define ha_biquad_frame_process                 ((f_ha_biquad_frame_process)g_hearing_aid_biquad_export_parameters[0])
 
 uint32_t hearing_aid_library_load(void *code_address, void *data_address, uint32_t *dram_pic_usage);
 uint32_t hearing_aid_library_unload(void);

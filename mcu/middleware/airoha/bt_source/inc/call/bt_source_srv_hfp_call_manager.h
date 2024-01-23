@@ -61,6 +61,8 @@ bt_status_t bt_source_srv_hfp_call_state_change(bt_source_srv_hfp_call_state_cha
 
 uint32_t bt_source_srv_hfp_call_get_call_list(bt_source_srv_hfp_call_context_t *call_list, uint32_t list_count);
 
+uint32_t bt_source_srv_hfp_call_get_call_count(void);
+
 uint32_t bt_source_srv_hfp_call_get_context_by_state(bt_source_srv_call_state_t call_state, bt_source_srv_hfp_call_context_t *call_list, uint32_t list_count);
 
 bool bt_source_srv_hfp_call_is_exist(void);

@@ -40,8 +40,8 @@
 #include "bt_ull_le_utility.h"
 
 #define BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ESTABLISHED_IND        0x00
-#define BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROIED_IND          0x01
-#define BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVIATED_IND         0x02
+#define BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROYED_IND          0x01
+#define BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVATED_IND          0x02
 #define BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DEACTIVIATED_IND       0x03
 #define BT_ULL_LE_CONN_SRV_EVENT_AIR_CIG_PARAMS_SET_DONE_IND    0x04
 #define BT_ULL_LE_CONN_SRV_EVENT_AIR_CIG_PARAMS_REMOVED_IND     0x05
@@ -77,14 +77,14 @@ typedef struct {
 } bt_ull_le_conn_srv_established_evt_t;
 
 /**
- * @brief       BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROIED_IND or  BT_ULL_LE_CONN_SRV_EVENT_AIR_CIG_TABLE_SET_IND msg event.
+ * @brief       BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROYED_IND or  BT_ULL_LE_CONN_SRV_EVENT_AIR_CIG_TABLE_SET_IND msg event.
  */
 typedef struct {
     bt_handle_t handle;                            /*ACL connection handle*/
 } bt_ull_le_conn_srv_air_cig_table_set_t;
 
 /**
- * @brief       BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROIED_IND  msg event.
+ * @brief       BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROYED_IND  msg event.
  */
 typedef struct {
     bt_handle_t handle;                            /*ACL connection handle*/
@@ -93,7 +93,7 @@ typedef struct {
 
 
 /**
- * @brief       BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVIATED_IND msg event.
+ * @brief       BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVATED_IND msg event.
  */
 typedef struct {
     bt_handle_t handle;                            /*ACL connection handle*/
@@ -126,8 +126,8 @@ typedef struct {
     union {
         bt_ull_le_conn_srv_established_evt_t                 established;     /*BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ESTABLISHED_IND*/
         bt_ull_le_conn_srv_uplink_enabled_evt_t              ul_enabled;      /*BT_ULL_LE_CONN_SRV_EVENT_UPLINK_ENABLED_IND*/
-        bt_ull_le_conn_srv_air_cis_destroied_evt_t           destroied;       /*BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROIED_IND*/
-        bt_ull_le_conn_srv_air_cis_activiated_evt_t          cis_activiated;  /*BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVIATED_IND*/
+        bt_ull_le_conn_srv_air_cis_destroied_evt_t           destroied;       /*BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROYED_IND*/
+        bt_ull_le_conn_srv_air_cis_activiated_evt_t          cis_activiated;  /*BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVATED_IND*/
         bt_ull_le_conn_srv_latency_changed_t                 label_changed;   /*BT_ULL_LE_CONN_SRV_EVENT_LABEL_CHANGED_IND*/
         bt_ull_le_conn_srv_air_cig_table_set_t               cig_set;         /*BT_ULL_LE_CONN_SRV_EVENT_AIR_CIG_TABLE_SET_IND*/
         bt_ull_le_conn_srv_qos_report_t                      qos_report;      /*BT_ULL_LE_CONN_SRV_EVENT_QOS_REPORT_IND*/

@@ -59,7 +59,9 @@ bt_sink_srv_am_result_t apps_config_audio_helper_set_sidetone_value(int32_t valu
 
 void apps_config_audio_helper_sidetone_init(void);
 
+bt_sink_srv_am_result_t apps_config_audio_helper_sidetone_temporary_disable(bool disable);
 
+bool apps_config_audio_helper_get_sidetone_temporary_disabled(void);
 
 bool apps_config_audio_helper_proc(uint32_t event_group, uint32_t event_id, void *extra_data, uint32_t extra_data_len);
 

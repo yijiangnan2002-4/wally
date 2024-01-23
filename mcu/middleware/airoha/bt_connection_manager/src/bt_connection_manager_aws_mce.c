@@ -52,7 +52,9 @@
 #endif
 #include "bt_utils.h"
 #include "bt_device_manager_power.h"
-
+#ifdef MTK_RACE_CMD_ENABLE
+#include "race_bt.h"
+#endif
 #ifndef BT_AWS_MCE_FAST_SWITCH
 
 #define BT_AWS_MCE_SRV_SYNC_PARTNER_ADDR_TO_AGENT   (0x00)
@@ -68,7 +70,7 @@ typedef uint8_t bt_aws_mce_srv_sync_t;
 #define BT_AWS_MCE_SRV_FLAGS_SWITCHING_LINK         (0x40)
 typedef uint8_t bt_aws_mce_srv_flags_t;
 
-#define BT_AWS_MCE_SRV_SUPPORT_NUM                  (0x04)
+#define BT_AWS_MCE_SRV_SUPPORT_NUM                  (0x05)
 
 #define BT_AWS_MCE_SRV_FIND_BY_ADDR                 (0x00)
 #define BT_AWS_MCE_SRV_FIND_BY_AWS_HANDLE           (0x01)
@@ -519,6 +521,9 @@ static void         bt_aws_mce_srv_connected_handle(bt_aws_mce_connected_t *conn
             bt_aws_mce_srv_send_packet(BT_AWS_MCE_SRV_SYNC_PARTNER_ADDR_TO_AGENT, sizeof(bt_bd_addr_t), local_addr);
             bt_cm_profile_service_status_notify(BT_CM_PROFILE_SERVICE_AWS, rem_dev->address,
                                                 BT_CM_PROFILE_SERVICE_STATE_CONNECTED, BT_STATUS_SUCCESS);
+            if (g_bt_aws_mce_srv_cnt_t.flags & BT_AWS_MCE_SRV_FLAGS_SWITCHING_LINK) {
+                g_bt_aws_mce_srv_cnt_t.flags &= ~BT_AWS_MCE_SRV_FLAGS_SWITCHING_LINK;
+            }
         } else {
             rem_dev->req_aws_state = BT_CM_PROFILE_SERVICE_STATE_DISCONNECTED;
             rem_dev->aws_state = BT_CM_PROFILE_SERVICE_STATE_DISCONNECTED;
@@ -539,6 +544,13 @@ static void         bt_aws_mce_srv_disconnected_handle(bt_aws_mce_disconnected_t
                                             BT_CM_PROFILE_SERVICE_STATE_DISCONNECTED, status);
     }
     memset(rem_dev, 0, sizeof(bt_aws_mce_srv_dev_t));
+}
+void bt_aws_mce_switch_role_busy_callback(void *dev)
+{    
+    bt_cmgr_report_id("[BT_CM][AWS_MCE][I] switch role busy timeout", 0);
+    bt_aws_mce_srv_dev_t *conn_dev = (bt_aws_mce_srv_dev_t *)dev;
+    bt_aws_mce_srv_state_update(conn_dev);
+    return;
 }
 
 static bt_status_t  bt_aws_mce_srv_basic_event_callback(bt_msg_type_t msg, bt_status_t status, void *buffer)
@@ -578,6 +590,13 @@ static bt_status_t  bt_aws_mce_srv_basic_event_callback(bt_msg_type_t msg, bt_st
                 g_bt_aws_mce_srv_cnt_t.flags &= (~BT_AWS_MCE_SRV_FLAGS_SET_ROLE_PENDING);
                 bt_aws_mce_srv_dev_t *conn_dev = bt_aws_mce_srv_find_req_connected_dev_except(NULL);
                 bt_aws_mce_srv_state_update(conn_dev);
+            }            
+            if (BT_HCI_STATUS_CONTROLLER_BUSY == status) {
+                bt_cmgr_report_id("[BT_CM][AWS_MCE][I] Switch role controller busy, retry", 0);
+                bt_aws_mce_srv_dev_t *conn_dev = bt_aws_mce_srv_find_req_connected_dev_except(NULL);
+                if (NULL != conn_dev) {
+                    bt_cm_timer_start(BT_CM_AWS_MCE_RETRY_TIMER_ID, 30, bt_aws_mce_switch_role_busy_callback, (void *)conn_dev);
+                }
             }
             break;
         case BT_GAP_ROLE_CHANGED_IND: {
@@ -789,7 +808,6 @@ uint32_t            bt_aws_mce_srv_get_aws_handle(bt_bd_addr_t *addr)
     bt_aws_mce_srv_dev_t *aws_device = bt_aws_mce_srv_find(BT_AWS_MCE_SRV_FIND_BY_ADDR, (void *)addr);
     return ((NULL != aws_device) ? aws_device->aws_handle : 0);
 }
-
 static bt_status_t  bt_aws_mce_srv_switch_role_reset_callback(bt_cm_power_reset_progress_t type, void *user_data)
 {
     bt_cmgr_report_id("[BT_CM][AWS_MCE][I] Switch role reset progress: %d, dest role :0x%x", 2, type, user_data);
@@ -810,6 +828,9 @@ static bt_status_t  bt_aws_mce_srv_switch_role_reset_callback(bt_cm_power_reset_
             .result = BT_STATUS_SUCCESS,
             .cur_aws_role = dest_role
         };
+#ifdef MTK_RACE_CMD_ENABLE
+        race_bt_notify_aws_state(false);
+#endif
         bt_aws_mce_srv_event_callback(BT_AWS_MCE_SRV_EVENT_ROLE_CHANGED_IND, &result, sizeof(result));
         bt_cm_register_callback_notify(BT_AWS_MCE_SRV_EVENT_ROLE_CHANGED_IND, &result, sizeof(result));
     }
@@ -897,18 +918,26 @@ void                bt_aws_mce_srv_rho_complete(bt_bd_addr_t remote_addr, bool a
         } else {
             uint8_t temp_addr[6] = {0};
             bt_aws_mce_srv_dev_t *rem_dev;
+            uint32_t aws_handle =  bt_aws_mce_query_handle_by_address(BT_MODULE_AWS_MCE, (void *)remote_addr);
+            if (NULL != (rem_dev = bt_aws_mce_srv_find(BT_AWS_MCE_SRV_FIND_BY_AWS_HANDLE, (void *)aws_handle))) {
+                bt_utils_memset(rem_dev, 0, sizeof(bt_aws_mce_srv_dev_t));
+            }
             if (NULL != (rem_dev = bt_aws_mce_srv_find(BT_AWS_MCE_SRV_FIND_BY_ADDR, &temp_addr))) {
                 bt_utils_memcpy(rem_dev->address, remote_addr, sizeof(bt_bd_addr_t));
-                rem_dev->aws_handle = bt_aws_mce_query_handle_by_address(BT_MODULE_AWS_MCE, (void *)remote_addr);
+                rem_dev->aws_handle = aws_handle;
                 rem_dev->aws_state = BT_CM_PROFILE_SERVICE_STATE_DISCONNECTED;
                 rem_dev->req_aws_state = BT_CM_PROFILE_SERVICE_STATE_DISCONNECTED;
                 rem_dev->aws_ready = aws_ready;
             }
+
         }
     } else if ((BT_AWS_MCE_ROLE_CLINET | BT_AWS_MCE_ROLE_PARTNER) & aws_role) {
         for (uint32_t i = 0; i < BT_AWS_MCE_SRV_SUPPORT_NUM; ++i) {
             if (bt_utils_memcmp(peer_addr, &g_bt_aws_mce_srv_cnt_t.aws_dev[i].address, sizeof(bt_bd_addr_t)) &&
-                bt_utils_memcmp(remote_addr, &g_bt_aws_mce_srv_cnt_t.aws_dev[i].address, sizeof(bt_bd_addr_t))) {
+                bt_utils_memcmp(remote_addr, &g_bt_aws_mce_srv_cnt_t.aws_dev[i].address, sizeof(bt_bd_addr_t))) {                
+                bt_cmgr_report_id("[BT_CM][AWS_MCE][I] Aws mce srv rho complete meset aws mce srv cnt. addr:0x%02x:%02x:%02x:%02x:%02x:%02x", 6,
+                    g_bt_aws_mce_srv_cnt_t.aws_dev[i].address[5],  g_bt_aws_mce_srv_cnt_t.aws_dev[i].address[4], g_bt_aws_mce_srv_cnt_t.aws_dev[i].address[3],  
+                    g_bt_aws_mce_srv_cnt_t.aws_dev[i].address[2],  g_bt_aws_mce_srv_cnt_t.aws_dev[i].address[1], g_bt_aws_mce_srv_cnt_t.aws_dev[i].address[0]);
                 bt_utils_memset(&g_bt_aws_mce_srv_cnt_t.aws_dev[i], 0, sizeof(bt_aws_mce_srv_dev_t));
                 break;
             }

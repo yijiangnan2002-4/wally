@@ -75,7 +75,7 @@ void bt_ull_aws_mce_packet_callback(bt_aws_mce_report_info_t *param)
                 /*update partner mic frame size*/
                 bt_ull_set_mic_frame_size(eir_info->param.aws_connection.ul_frame_size);
 
-                if (ctx->dl_latency <= BT_ULL_DOWNLINK_LIMIATTION_MULTILINK) {
+                if (ctx->dl_latency <= BT_ULL_DOWNLINK_LIMITATION_MULTILINK) {
                     /* ull profile connected we should disable page scan && inquiry scan due to bandwidth limiation */
                     bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_DISABLE, BT_CM_COMMON_TYPE_DISABLE);
                 }
@@ -108,7 +108,7 @@ void bt_ull_aws_mce_packet_callback(bt_aws_mce_report_info_t *param)
                 ctx->dl_latency = eir_info->param.aws_play.dl_latency;
                 ctx->ul_latency = eir_info->param.aws_play.ul_latency;
 
-                if (ctx->dl_latency <= BT_ULL_DOWNLINK_LIMIATTION_MULTILINK) {
+                if (ctx->dl_latency <= BT_ULL_DOWNLINK_LIMITATION_MULTILINK) {
                     /* ull profile connected we should disable page scan && inquiry scan due to bandwidth limiation */
                     bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_DISABLE, BT_CM_COMMON_TYPE_DISABLE);
                 }
@@ -194,7 +194,7 @@ void bt_ull_aws_mce_handle_connection(bool is_ull_connected)
     /* 1. set share buffer address to controller */
     if (is_ull_connected) {
         bt_ull_update_audio_buffer(ctx->ull_role, BT_ULL_EARBUDS_CLIENT);
-        if (ctx->dl_latency <= BT_ULL_DOWNLINK_LIMIATTION_MULTILINK) {
+        if (ctx->dl_latency <= BT_ULL_DOWNLINK_LIMITATION_MULTILINK) {
             /* ull profile connected we shuld disable page scan && inquiry scan due to bandwidth limiation */
             bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_DISABLE, BT_CM_COMMON_TYPE_DISABLE);
         }

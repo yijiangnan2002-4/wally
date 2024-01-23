@@ -95,6 +95,7 @@
 #include "bt_sink_srv_le_volume.h"
 #include "bt_sink_srv_le_cap.h"
 #endif
+#include "bt_device_manager_link_record.h"
 
 #include "nvdm.h"
 #include "nvdm_id_list.h"
@@ -151,6 +152,13 @@ static bool app_hfp_idle_proc_aws_data(ui_shell_activity_t *self,
                     active = false;
                 }
 
+                const bt_device_manager_link_record_t *link_info = bt_device_manager_link_record_get_connected_link();
+                if (link_info == NULL || (link_info != NULL && link_info->connected_num == 0)) {
+                    voice_prompt_play_vp_failed();
+                    return ret;
+                }
+
+
                 bool set_va_result = false;
                 set_va_result = app_hfp_set_va_enable(active);
 
@@ -178,7 +186,7 @@ static bool app_hfp_idle_proc_aws_data(ui_shell_activity_t *self,
 #endif
 #ifdef MTK_AWS_MCE_ENABLE
             if (BT_AWS_MCE_ROLE_AGENT == bt_device_manager_aws_local_info_get_role()) {
-                voice_prompt_play_sync_vp_successed();
+                voice_prompt_play_sync_vp_succeed();
             }
 #endif
         } else if (event_group == EVENT_GROUP_UI_SHELL_APP_INTERACTION
@@ -201,9 +209,9 @@ static bool app_hfp_idle_proc_aws_data(ui_shell_activity_t *self,
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
         else if (event_group == EVENT_GROUP_UI_SHELL_APP_INTERACTION
                  && action == APPS_EVENTS_INTERACTION_SYNC_AUTO_ACCEPT_STATUS) {
-            uint8_t isAutoaccept = *(uint8_t *)p_extra_data;
-            APPS_LOG_MSGID_I(APP_HFP_IDLE" [AUTO ACCEPT] received auto accept config:isAutoaccept=%d", 1, isAutoaccept);
-            app_hfp_set_auto_accept_incoming_call(isAutoaccept, false);
+            uint8_t auto_accept = *(uint8_t *)p_extra_data;
+            APPS_LOG_MSGID_I(APP_HFP_IDLE" [AUTO ACCEPT] received auto accept config: auto_accept=%d", 1, auto_accept);
+            app_hfp_set_auto_accept_incoming_call(auto_accept, false);
         }
 #endif
 
@@ -231,8 +239,8 @@ static bool app_hfp_idle_proc_aws_data(ui_shell_activity_t *self,
                 APPS_LOG_MSGID_I(APP_HFP_IDLE", receive agent hfp state_change:pre_state: %x,curr_state: %x",
                                  2, hfp_state_change->previous, hfp_state_change->current);
                 if (state != APP_TOTAL_STATE_NO) {
-                    if (false == hfp_context->transient_actived) {
-                        hfp_context->transient_actived = true;
+                    if (false == hfp_context->transient_active) {
+                        hfp_context->transient_active = true;
                         ui_shell_start_activity(NULL, app_hfp_activity_proc, ACTIVITY_PRIORITY_HIGH, (void *)hfp_context, 0);
                     }
                 }
@@ -278,16 +286,16 @@ static bool app_hfp_idle_start_hfp_activity(ui_shell_activity_t *self,
     apps_config_state_t state     = app_hfp_get_config_status_by_state(hfp_context->curr_state);
 
     if (APP_TOTAL_STATE_NO == pre_state && state != APP_TOTAL_STATE_NO) {
-        if (false == hfp_context->transient_actived) {
-            hfp_context->transient_actived = true;
+        if (false == hfp_context->transient_active) {
+            hfp_context->transient_active = true;
             ui_shell_start_activity(NULL, app_hfp_activity_proc, ACTIVITY_PRIORITY_HIGH, (void *)hfp_context, 0);
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
             /* For auto accept incoming call. */
-            uint8_t isAutoaccept = app_hfp_is_auto_accept_incoming_call();
+            uint8_t auto_accept = app_hfp_is_auto_accept_incoming_call();
             app_in_ear_state_t curr_in_ear_state = app_in_ear_get_state();
             APPS_LOG_MSGID_I(APP_HFP_IDLE" [AUTO ACCEPT]: isAutoaccept=%d curr_in_ear_state=%d",
-                             2, isAutoaccept, curr_in_ear_state);
-            if ((APP_HFP_AUTO_ACCEPT_ENABLE == isAutoaccept) && (APP_IN_EAR_STA_BOTH_IN == curr_in_ear_state)) {
+                             2, auto_accept, curr_in_ear_state);
+            if ((APP_HFP_AUTO_ACCEPT_ENABLE == auto_accept) && (APP_IN_EAR_STA_BOTH_IN == curr_in_ear_state)) {
                 ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                     APPS_EVENTS_INTERACTION_AUTO_ACCEPT_INCOMING_CALL, NULL, 0, NULL, APP_HFP_AUTO_ACCEPT_TIMER);
             }
@@ -342,7 +350,7 @@ static bool _proc_ui_shell_group(ui_shell_activity_t *self, uint32_t event_id, v
             memset(self->local_context, 0, sizeof(hfp_context_t));
             hfp_context_t *local_context = (hfp_context_t *)self->local_context;
             local_context->esco_connected = 0;
-            local_context->transient_actived = 0;
+            local_context->transient_active = 0;
             local_context->aws_link_state = FALSE;
             local_context->mute_mic = FALSE;
             apps_config_audio_helper_sidetone_init();
@@ -449,7 +457,7 @@ static bool app_hfp_idle_proc_key_event_group(ui_shell_activity_t *self,
             bt_sink_srv_dial_last_number_t dial_addr = {0};
             dial_addr.type = app_hfp_get_active_device_type();
             bool active_addr_ret = app_hfp_get_active_device_addr(&(dial_addr.address));
-            voice_prompt_play_vp_successed();
+            voice_prompt_play_vp_succeed();
             if (active_addr_ret) {
                 bt_sink_srv_send_action(BT_SINK_SRV_ACTION_DIAL_LAST, &dial_addr);
             } else {
@@ -483,6 +491,7 @@ static bool app_hfp_idle_proc_key_event_group(ui_shell_activity_t *self,
                 APPS_LOG_MSGID_I(APP_HFP_IDLE" key_event_group: esco connection.", 0);
                 bt_sink_srv_action_t sink_action = (action == KEY_VOICE_UP) ? BT_SINK_SRV_ACTION_CALL_VOLUME_UP : BT_SINK_SRV_ACTION_CALL_VOLUME_DOWN;
                 bt_sink_srv_send_action(sink_action, NULL);
+                ret = true;
             }
             break;
         }
@@ -721,10 +730,6 @@ static bool app_hfp_idle_proc_bt_sink_event_group(ui_shell_activity_t *self,
                 /* Update esco connection state. */
                 hfp_context->esco_connected += (sco_state->state == BT_SINK_SRV_SCO_CONNECTION_STATE_CONNECTED) ? 1 : -1;
                 hfp_context->esco_connected = (hfp_context->esco_connected > 0) ? hfp_context->esco_connected : 0;
-                /* Resume mic mute status when esco disconnected.*/
-                if (hfp_context->esco_connected == 0) {
-                    hfp_context->mute_mic = FALSE;
-                }
                 APPS_LOG_MSGID_I(APP_HFP_IDLE", SCO_STATE: %d--%d", 2, sco_state->state, hfp_context->esco_connected);
             }
 #ifdef APPS_SLEEP_AFTER_NO_CONNECTION
@@ -838,8 +843,8 @@ static bool app_hfp_idle_proc_app_internal_events(ui_shell_activity_t *self,
                 apps_config_state_t pre_state = app_hfp_get_config_status_by_state(hfp_context->pre_state);
                 apps_config_state_t state     = app_hfp_get_config_status_by_state(hfp_context->curr_state);
                 if (APP_TOTAL_STATE_NO == pre_state && state != APP_TOTAL_STATE_NO) {
-                    if (false == hfp_context->transient_actived) {
-                        hfp_context->transient_actived = true;
+                    if (false == hfp_context->transient_active) {
+                        hfp_context->transient_active = true;
                         ui_shell_start_activity(NULL, app_hfp_activity_proc, ACTIVITY_PRIORITY_HIGH, (void *)hfp_context, 0);
                     }
                 }
@@ -933,7 +938,7 @@ static atci_status_t app_hfp_atci_test_redial(atci_parse_cmd_param_t *parse_cmd)
     bt_sink_srv_dial_last_number_t dial_addr = {0};
     dial_addr.type = app_hfp_get_active_device_type();
     bool active_addr_ret = app_hfp_get_active_device_addr(&(dial_addr.address));
-    voice_prompt_play_vp_successed();
+    voice_prompt_play_vp_succeed();
     if (active_addr_ret) {
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_DIAL_LAST, &dial_addr);
     } else {

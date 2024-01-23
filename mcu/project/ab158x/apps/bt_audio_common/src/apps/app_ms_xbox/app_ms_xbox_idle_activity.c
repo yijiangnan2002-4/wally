@@ -48,7 +48,7 @@
 #include "bt_connection_manager.h"
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
 #include "app_dongle_service.h"
-#endif /* AIR_BT_ULTRA_LOW_LATENCY_ENABLE */
+#endif /* AIR_BLE_ULTRA_LOW_LATENCY_ENABLE */
 #include "apps_config_vp_index_list.h"
 #include "voice_prompt_api.h"
 #include "app_preproc_activity.h"

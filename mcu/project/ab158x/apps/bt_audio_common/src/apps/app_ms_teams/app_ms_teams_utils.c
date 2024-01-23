@@ -215,7 +215,7 @@ static void ms_teams_telemetry_handler(ms_teams_telemetry_type_t *req_list, uint
     static uint8_t telemetry_rsp_buf[20] = {0};
     uint32_t rsp_len = 0;
     for (uint32_t idx = 0; idx < req_len; idx++) {
-        APPS_LOG_MSGID_I(TAG"teams telemetry callbackm type=0x%x.", 1, req_list[idx]);
+        APPS_LOG_MSGID_I(TAG"teams telemetry callback type=0x%x.", 1, req_list[idx]);
         if (idx > 0) {
             /* Teams core will fill the telemetry for the first request by default, the usr should fill the follow request in multiple request. */
             telemetry_rsp_buf[rsp_len] = req_list[idx];
@@ -241,7 +241,7 @@ static void ms_teams_telemetry_handler(ms_teams_telemetry_type_t *req_list, uint
                 }
                 return;
             case MS_TEAMS_TELEMETRY_DON_TO_ANS_SETTING:
-                telemetry_rsp_buf[rsp_len] = s_telemetry_info.don_to_seeting;
+                telemetry_rsp_buf[rsp_len] = s_telemetry_info.don_to_setting;
                 rsp_len += 1;
                 break;
             case MS_TEAMS_TELEMETRY_ENDPOINT_MODEL_ID:
@@ -281,10 +281,10 @@ static void ms_teams_telemetry_handler(ms_teams_telemetry_type_t *req_list, uint
                 rsp_len += 1;
                 break;
             case MS_TEAMS_TELEMETRY_DSP_EFFECTS_ENABLED: {
-                telemetry_rsp_buf[rsp_len] = s_telemetry_info.dsp_effect & 0xFF;
-                telemetry_rsp_buf[rsp_len + 1] = (s_telemetry_info.dsp_effect >> 8) & 0xFF;
-                telemetry_rsp_buf[rsp_len + 2] = (s_telemetry_info.dsp_effect >> 16) & 0xFF;
-                telemetry_rsp_buf[rsp_len + 3] = (s_telemetry_info.dsp_effect >> 24) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 3] = s_telemetry_info.dsp_effect & 0xFF;
+                telemetry_rsp_buf[rsp_len + 2] = (s_telemetry_info.dsp_effect >> 8) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 1] = (s_telemetry_info.dsp_effect >> 16) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 0] = (s_telemetry_info.dsp_effect >> 24) & 0xFF;
                 rsp_len += 4;
             }
             break;
@@ -323,10 +323,10 @@ static void ms_teams_telemetry_handler(ms_teams_telemetry_type_t *req_list, uint
                 break;
 #endif
             case MS_TEAMS_TELEMETRY_LOCAL_CONFERENCE_CNT:
-                telemetry_rsp_buf[rsp_len] = s_telemetry_info.local_conference_cnt & 0xFF;
-                telemetry_rsp_buf[rsp_len + 1] = (s_telemetry_info.local_conference_cnt >> 8) & 0xFF;
-                telemetry_rsp_buf[rsp_len + 2] = (s_telemetry_info.local_conference_cnt >> 16) & 0xFF;
-                telemetry_rsp_buf[rsp_len + 3] = (s_telemetry_info.local_conference_cnt >> 24) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 3] = s_telemetry_info.local_conference_cnt & 0xFF;
+                telemetry_rsp_buf[rsp_len + 2] = (s_telemetry_info.local_conference_cnt >> 8) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 1] = (s_telemetry_info.local_conference_cnt >> 16) & 0xFF;
+                telemetry_rsp_buf[rsp_len + 0] = (s_telemetry_info.local_conference_cnt >> 24) & 0xFF;
                 rsp_len += 4;
                 break;
 #if 1
@@ -389,10 +389,10 @@ static void ms_teams_telemetry_handler(ms_teams_telemetry_type_t *req_list, uint
             if (s_telemetry_dt_list2[idx].key != 0) {
                 telemetry_rsp_buf[0] = s_telemetry_dt_list2[idx].key;
                 s_telemetry_dt_list2[idx].key = 0;
-                telemetry_rsp_buf[1] = s_telemetry_dt_list2[idx].val & 0xff;
-                telemetry_rsp_buf[2] = (s_telemetry_dt_list2[idx].val >> 8) & 0xff;
-                telemetry_rsp_buf[3] = (s_telemetry_dt_list2[idx].val >> 16) & 0xff;
-                telemetry_rsp_buf[4] = (s_telemetry_dt_list2[idx].val >> 24) & 0xff;
+                telemetry_rsp_buf[4] = s_telemetry_dt_list2[idx].val & 0xff;
+                telemetry_rsp_buf[3] = (s_telemetry_dt_list2[idx].val >> 8) & 0xff;
+                telemetry_rsp_buf[2] = (s_telemetry_dt_list2[idx].val >> 16) & 0xff;
+                telemetry_rsp_buf[1] = (s_telemetry_dt_list2[idx].val >> 24) & 0xff;
                 *data = telemetry_rsp_buf;
                 *data_len = 5;
                 return;

@@ -79,6 +79,7 @@ extern void JumpCmd(int);/* from startup_bootloader.s */
 extern int custom_setSFIExt(void);
 
 #ifdef MTK_SECURE_BOOT_ENABLE
+uint32_t bl_custom_secure_header1_start_address(void);
 uint32_t bl_custom_header_start_address(void);
 uint32_t bl_custom_header_size(void);
 #endif

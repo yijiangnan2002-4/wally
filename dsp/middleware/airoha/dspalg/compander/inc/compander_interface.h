@@ -114,11 +114,10 @@ EXTERN bool stream_function_drc_audio_process(void *para);
 EXTERN bool stream_function_drc_audio2_process(void *para);
 EXTERN bool stream_function_drc_audio3_process(void *para);
 EXTERN bool stream_function_adaptive_eq_drc_process(void *para);
-
-#ifdef MTK_LINEIN_PEQ_ENABLE
 EXTERN bool stream_function_wired_usb_drc_initialize(void *para);
 EXTERN bool stream_function_wired_usb_drc_process(void *para);
-#endif
+EXTERN bool stream_function_line_in_post_eq_initialize(void *para);
+EXTERN bool stream_function_line_in_post_eq_process(void *para);
 
 #ifdef AIR_VP_PEQ_ENABLE
 EXTERN bool stream_function_drc_vp_initialize(void *para);

@@ -46,6 +46,7 @@
 #include "app_rho_idle_activity.h"
 #endif
 #include "app_bt_conn_componet_in_homescreen.h"
+#include "app_bt_conn_manager.h"
 #include "apps_config_led_manager.h"
 #include "apps_config_led_index_list.h"
 #include "voice_prompt_api.h"
@@ -165,12 +166,6 @@ extern void dchs_device_ready_to_off_callback(void);
 
 #define POWER_OFF_TIMER_NAME       "POWER_OFF"              /* Use a timeout before power off, to show LED and play VP. */
 #define WAIT_TIME_BEFORE_POWER_OFF  (3 * 1000)              /* The delay time to do system power off for playing VP and LED. */
-#define RECONNECT_DEVICE_NUMS       (1)                     /* The max device nums of try to reconnected after power on.  */
-#define TIME_TO_RECONNECT_DEVICE    (10 * 1000)             /* The time of reconnect the connected device. */
-#define TIME_TO_START_VISIBLE_AFTER_POWER_ON   (RECONNECT_DEVICE_NUMS * TIME_TO_RECONNECT_DEVICE)
-/* The delay time to start BT visible after BT power on. */
-#define TIME_TO_STOP_RECONNECTION   (2 * 60 * 1000)         /* The delay time to stop reconnection. */
-#define VISIBLE_TIMEOUT             (2 * 60 * 1000)         /* The timeout of BT visibility. */
 
 /* Global context for Homescreen APP. */
 static home_screen_local_context_type_t s_app_homescreen_context;
@@ -596,7 +591,7 @@ errrrrrrrrrrrrrrrrrrrrr
         target_filter_id = AUDIO_ANC_CONTROL_ANC_FILTER_DEFAULT;
         APPS_LOG_MSGID_I("app_home_screen_process_anc_and_pass_through : target_anc_type=%d,target_filter_id=%d", 2, target_anc_type,target_filter_id);
         ret = true;
-    } else if (KEY_PASSTHOUGH_ON == key_action) {
+    } else if (KEY_PASSTHROUGH_ON == key_action) {
         anc_enable = false;
         /* Set as passthrough. */
         if (support_hybrid_enable) {
@@ -725,7 +720,7 @@ static bool _proc_ui_shell_group(struct _ui_shell_activity *self,
             } else
 #endif
             {
-                app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_DUAL_CHIP_CMD, APPS_RECE_CMD_CO_SYS_DUAL_CHIP_EVENT_SLAVE_POWER_ON,
+                app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_DUAL_CHIP_CMD, APPS_RACE_CMD_CO_SYS_DUAL_CHIP_EVENT_SLAVE_POWER_ON,
                                                NULL, 0, false);
             }
 
@@ -959,9 +954,9 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     memcpy(connect_param.address, *p_bd_addr, sizeof(bt_bd_addr_t));
                     bt_cm_connect(&connect_param);
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-                    vp.vp_index = VP_INDEX_SUCCESSED;
+                    vp.vp_index = VP_INDEX_SUCCEED;
                     voice_prompt_play(&vp, NULL);
-                    //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
+                    //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                 }
             }
             ret = true;
@@ -973,9 +968,9 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             {
                 bt_device_manager_unpair_all();
                 memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-                vp.vp_index = VP_INDEX_SUCCESSED;
+                vp.vp_index = VP_INDEX_SUCCEED;
                 voice_prompt_play(&vp, NULL);
-                //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
+                //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
             }
             ret = true;
             break;
@@ -986,7 +981,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         case KEY_BETWEEN_ANC_PASSTHROUGH:
         case KEY_ANC_GAIN:
         case KEY_ANC_ON:
-        case KEY_PASSTHOUGH_ON:
+        case KEY_PASSTHROUGH_ON:
         case KEY_ANC_OFF:
             /* Handle ANC key event. */
             ret = app_home_screen_process_anc_and_pass_through(self, action);
@@ -996,16 +991,16 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         case KEY_FACTORY_RESET:
 #ifdef MTK_AWS_MCE_ENABLE
             memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-            vp.vp_index = VP_INDEX_SUCCESSED;
+            vp.vp_index = VP_INDEX_SUCCEED;
             vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC | VOICE_PROMPT_CONTROL_MASK_PREEMPT;
             voice_prompt_play(&vp, NULL);
-            //apps_config_set_vp(VP_INDEX_SUCCESSED, true, 100, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
+            //apps_config_set_vp(VP_INDEX_SUCCEED, true, 100, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
 #else
             memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-            vp.vp_index = VP_INDEX_SUCCESSED;
+            vp.vp_index = VP_INDEX_SUCCEED;
             vp.control = VOICE_PROMPT_CONTROL_MASK_PREEMPT;
             voice_prompt_play(&vp, NULL);
-            //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
+            //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
 #endif
             s_factory_reset_key_action = KEY_FACTORY_RESET;
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
@@ -1018,16 +1013,16 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         case KEY_FACTORY_RESET_AND_POWEROFF:
 #ifdef MTK_AWS_MCE_ENABLE
             memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-            vp.vp_index = VP_INDEX_SUCCESSED;
+            vp.vp_index = VP_INDEX_SUCCEED;
             vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC | VOICE_PROMPT_CONTROL_MASK_PREEMPT | VOICE_PROMPT_CONTROL_MASK_NO_PREEMPTED;
             voice_prompt_play(&vp, NULL);
-            //apps_config_set_vp(VP_INDEX_SUCCESSED, true, 100, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
+            //apps_config_set_vp(VP_INDEX_SUCCEED, true, 100, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
 #else
             memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-            vp.vp_index = VP_INDEX_SUCCESSED;
+            vp.vp_index = VP_INDEX_SUCCEED;
             vp.control = VOICE_PROMPT_CONTROL_MASK_PREEMPT | VOICE_PROMPT_CONTROL_MASK_NO_PREEMPTED;
             voice_prompt_play(&vp, NULL);
-            //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
+            //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
 #endif
             s_factory_reset_key_action = KEY_FACTORY_RESET_AND_POWEROFF;
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
@@ -1147,9 +1142,9 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     local_context->key_trigger_waiting_rho = true;
                 } else {
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-                    vp.vp_index = VP_INDEX_SUCCESSED;
+                    vp.vp_index = VP_INDEX_SUCCEED;
                     voice_prompt_play(&vp, NULL);
-                    //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
+                    //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     apps_config_set_foreground_led_pattern(LED_INDEX_TRIGGER_RHO, 30, false);
                 }
                 ret = true;
@@ -1271,7 +1266,7 @@ static bool homescreen_app_aws_data_proc(ui_shell_activity_t *self, uint32_t eve
                 } else {
                     if (aws_event_id == KEY_FACTORY_RESET || aws_event_id == KEY_FACTORY_RESET_AND_POWEROFF) {
                             s_factory_reset_key_action = aws_event_id;
-                            ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                            ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                             APPS_EVENTS_INTERACTION_FACTORY_RESET_REQUEST, NULL, 0,
                                             NULL, 0);
                     }
@@ -1548,7 +1543,7 @@ static bool homescreen_app_aws_event_proc(ui_shell_activity_t *self, uint32_t ev
 #endif
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING_SUCCESS, 30, false);
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-                    vp.vp_index = VP_INDEX_SUCCESSED;
+                    vp.vp_index = VP_INDEX_SUCCEED;
                     voice_prompt_play(&vp, NULL);
 #if defined(AIR_CIS_DUAL_UPLINK_ENABLE) && defined(AIR_LE_AUDIO_CIS_ENABLE)
                     audio_channel_t channel = ami_get_audio_channel();
@@ -1558,7 +1553,7 @@ static bool homescreen_app_aws_event_proc(ui_shell_activity_t *self, uint32_t ev
                     ble_pacs_send_sink_location_notify(0xFFFF);
                     ble_pacs_send_source_location_notify(0xFFFF);
 #endif
-                    //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
+                    //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                 } else {
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING_FAIL, 30, false);
                     voice_prompt_play_vp_failed();
@@ -1605,12 +1600,25 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
                     app_rho_result_t result = (app_rho_result_t)extra_data;
                     if (APP_RHO_RESULT_SUCCESS == result) {
                         memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-                        vp.vp_index = VP_INDEX_SUCCESSED;
+                        vp.vp_index = VP_INDEX_SUCCEED;
                         voice_prompt_play(&vp, NULL);
-                        //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
+                        //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     } else {
                        voice_prompt_play_vp_failed();
                     }
+                }
+            }
+#endif
+#ifdef AIR_3_LINK_MULTI_POINT_ENABLE
+            if (app_bt_conn_mgr_is_connecting_edr()) {
+                bt_bd_addr_t addr_array[3] = { 0 };
+                uint32_t connected_count = app_bt_state_service_get_connected_exclude_aws(addr_array, 3);
+                if (connected_count == 2) {
+                    /* Because RHO only support 2 connection, need reconnect the 3rd SRC after RHO. Refresh the reconnect timeout. */
+                    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_BT_RECONNECT_TIMEOUT);
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                                        APPS_EVENTS_INTERACTION_BT_RECONNECT_TIMEOUT, NULL, 0,
+                                        NULL, TIME_TO_STOP_RECONNECTION);
                 }
             }
 #endif
@@ -1677,14 +1685,13 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
             break;
 #endif
         case APPS_EVENTS_INTERACTION_BT_RECONNECT_TIMEOUT: {
-            APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", stop reconnect when time out.", 0);
-            bt_bd_addr_t p_bd_addr[2];
-            uint32_t connecting_number = 2;
+            APPS_LOG_MSGID_W(UI_SHELL_IDLE_BT_CONN_ACTIVITY"[APP_CONN] stop EDR reconnect when time out", 0);
+            bt_bd_addr_t p_bd_addr[3] = {0};
+            uint32_t connecting_number = 3;
             uint32_t i;
-            connecting_number = bt_cm_get_connecting_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), p_bd_addr, connecting_number);
-            bt_cm_connect_t connect_param = { {0},
-                ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS))
-            };
+            connecting_number = bt_cm_get_connecting_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS),
+                                                             p_bd_addr, connecting_number);
+            bt_cm_connect_t connect_param = {{0}, ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS))};
             for (i = 0; i < connecting_number; i++) {
                 if (0 == bt_cm_get_gap_handle(p_bd_addr[i])) {
                     memcpy(connect_param.address, p_bd_addr[i], sizeof(bt_bd_addr_t));
@@ -1718,13 +1725,21 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
             }
 
 #ifdef MTK_AWS_MCE_ENABLE
-            if (!local_ctx->aws_connected) {
+            if (!local_ctx->aws_connected
+#ifdef AIR_SPEAKER_ENABLE
+                && BT_AWS_MCE_SRV_MODE_DOUBLE == bt_aws_mce_srv_get_mode()
+#endif
+            ) {
                 voice_prompt_play_vp_failed();
                 s_factory_reset_doing = false;
                 break;
             }
 
-            if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) {
+            if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
+#ifdef AIR_SPEAKER_ENABLE
+                && BT_AWS_MCE_SRV_MODE_DOUBLE == bt_aws_mce_srv_get_mode()
+#endif
+            ) {
                 if (BT_STATUS_SUCCESS != apps_aws_sync_event_send(EVENT_GROUP_UI_SHELL_KEY, s_factory_reset_key_action)) {
                     voice_prompt_play_vp_failed();
                     s_factory_reset_doing = false;
@@ -1834,8 +1849,9 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
                 }
                 app_bt_state_service_set_bt_on_off(enable_bt, false, true, false);
             } else if (APPS_EVENTS_INTERACTION_REQUEST_CLASSIC_BT_OFF == event_id) {
+                bool classic_rho = (bool)extra_data;
                 local_ctx->bt_power_off = true;
-                app_bt_state_service_set_bt_on_off(false, true, true, false);
+                app_bt_state_service_set_bt_on_off(false, true, classic_rho, false);
                 ret = false;
             } else if (APPS_EVENTS_INTERACTION_CLASSIC_OFF_TO_BT_OFF == event_id) {
                 local_ctx->bt_power_off = true;

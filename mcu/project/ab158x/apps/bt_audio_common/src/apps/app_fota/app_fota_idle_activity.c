@@ -88,7 +88,7 @@
 #include "ble_air_internal.h"
 #endif
 
-#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 #include "bt_ull_service.h"
 #endif
 
@@ -107,7 +107,7 @@ typedef struct {
 
 static app_fota_context_t s_app_fota_context = {0};
 
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 static bool app_fota_check_ull_chat_status(void)
 {
     bt_ull_streaming_info_t info = {0};
@@ -172,7 +172,7 @@ void race_get_device_busy_status(bool *is_busy)
     is_bis_streaming = app_le_audio_bis_is_streaming();
 #endif
 #endif
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     if (app_fota_check_ull_chat_status() || app_fota_check_ull_streaming_status()) {
         is_ull_streaming = TRUE;
     }
@@ -301,9 +301,9 @@ static bool app_fota_idle_proc_fota_group(struct _ui_shell_activity *self,
 #endif
             {
 #ifdef AIR_DONGLE_ENABLE
-                //apps_config_set_vp(VP_INDEX_SUCCESSED, TRUE, 200, VOICE_PROMPT_PRIO_MEDIUM, FALSE, NULL);
+                //apps_config_set_vp(VP_INDEX_SUCCEED, TRUE, 200, VOICE_PROMPT_PRIO_MEDIUM, FALSE, NULL);
 #else
-                voice_prompt_play_sync_vp_successed();
+                voice_prompt_play_sync_vp_succeed();
 #endif
 
                 apps_config_set_foreground_led_pattern(LED_INDEX_FOTA_START, 30, FALSE);

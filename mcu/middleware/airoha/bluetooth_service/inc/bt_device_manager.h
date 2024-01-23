@@ -264,9 +264,9 @@ bt_status_t bt_device_manager_remote_set_seq_num(bt_bd_addr_t addr, uint8_t sequ
 /**
  * @brief         This function used to get the remote device's address by sequence number in paired list.
  * @param[in]     sequence     is the sequence number in the paired list.
- * @return         The remote device's address.
+ * @return         The remote device's address. Return NULL if there is no history in the paired list.
  */
-bt_bd_addr_t *bt_device_manager_remote_get_dev_by_seq_num(uint8_t sequence);
+bt_bd_addr_t *bt_device_manager_remote_get_dev_by_seq_num(uint32_t sequence);
 
 /**
  * @brief         This function used to get the aws mce fixed address.

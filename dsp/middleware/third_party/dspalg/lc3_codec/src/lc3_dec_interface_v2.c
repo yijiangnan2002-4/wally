@@ -302,12 +302,20 @@ FIND_DECODER_PORT:
             lc3_dec_port->work_instance_count = 1;
             if (p_lc3i_tab_common == NULL) {
                 /*Table Common*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                lc3i_tab_common_size = LC3PLUSN_Tab_Common_Get_MemSize();
+#else
                 lc3i_tab_common_size = LC3I_Tab_Common_Get_MemSize();
+#endif
                 DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Common_Init() lc3i_tab_common_size %d", 1, lc3i_tab_common_size);
 
                 lc3i_tab_common_size = (lc3i_tab_common_size + 7) / 8 * 8;
                 p_lc3i_tab_common = (void *)preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, lc3i_tab_common_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                lc3_ret = LC3PLUSN_Tab_Common_Init(p_lc3i_tab_common);
+#else
                 lc3_ret = LC3I_Tab_Common_Init(p_lc3i_tab_common);
+#endif
                 if (lc3_ret != LC3_OK) {
                     DSP_MW_LOG_E("[lc3][fail] LC3I_Tab_Common_Init() %d", 1, lc3_ret);
                     return true;
@@ -317,12 +325,20 @@ FIND_DECODER_PORT:
 
             DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Dec_Init() %d", 1, lc3_dec_port->channel_mode);
             /*Table Dec*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+            lc3i_tab_dec_size = LC3PLUSN_Tab_Dec_Get_MemSize(&param);
+#else
             lc3i_tab_dec_size = LC3I_Tab_Dec_Get_MemSize(&param);
+#endif
             lc3i_tab_dec_size = (lc3i_tab_dec_size + 7) / 8 * 8;
             DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Dec_Init()lc3i_tab_dec_size %d", 1, lc3i_tab_dec_size);
             if (p_lc3i_tab_dec == NULL) {
                 p_lc3i_tab_dec = (void *)preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, lc3i_tab_dec_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                lc3_ret = LC3PLUSN_Tab_Dec_Init(p_lc3i_tab_common, p_lc3i_tab_dec, &param);
+#else
                 lc3_ret = LC3I_Tab_Dec_Init(p_lc3i_tab_common, p_lc3i_tab_dec, &param);
+#endif
                 if (lc3_ret != LC3_OK) {
                     DSP_MW_LOG_E("[lc3][fail] LC3I_Tab_Dec_Init() %d", 1, lc3_ret);
                     return true;
@@ -335,7 +351,11 @@ FIND_DECODER_PORT:
             /*Decoder Working Buffer*/
             DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() ch %d sr %d frame_ms %d plcmeth %d ", 4, lc3_dec_port->in_channel_num, lc3_dec_port->sample_rate, lc3_dec_port->frame_interval/100, lc3_dec_port->plc_mode);
             if (lc3_dec_port->work_mem_ptr == NULL) {
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                lc3i_dec_size = LC3PLUSN_Dec_Get_MemSize(lc3_dec_port->in_channel_num, lc3_dec_port->sample_rate, lc3_dec_port->frame_interval/100, lc3_dec_port->plc_mode);
+#else
                 lc3i_dec_size = LC3I_Dec_Get_MemSize(lc3_dec_port->in_channel_num, lc3_dec_port->sample_rate, lc3_dec_port->frame_interval/100, lc3_dec_port->plc_mode);
+#endif
                 lc3_dec_port->work_buffer_size = (lc3i_dec_size + 7) / 8 * 8 + sizeof(uint32_t) * 2; /* first word is used for plc count */
                 DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() lc3i_dec_size %d", 1, lc3i_dec_size);
                 lc3_dec_port->work_mem_ptr = (void *)preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, lc3_dec_port->work_buffer_size);
@@ -352,12 +372,18 @@ FIND_DECODER_PORT:
             /* decoder init */
             p_lc3i_dec = (void *)((uint32_t)(lc3_dec_port->work_mem_ptr) + sizeof(uint32_t) * 2);
             DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() bps %d sr %d ch %d frame_ms %d delay %d plcmeth %d", 6, lc3_dec_port->sample_bits, lc3_dec_port->sample_rate, lc3_dec_port->in_channel_num, lc3_dec_port->frame_interval/100, lc3_dec_port->delay, lc3_dec_port->plc_mode);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+            lc3_ret = LC3PLUSN_Dec_Init(p_lc3i_dec, lc3_dec_port->sample_bits, lc3_dec_port->sample_rate, lc3_dec_port->in_channel_num, lc3_dec_port->frame_interval/100, lc3_dec_port->delay, lc3_dec_port->plc_mode, 0);
+#else
             lc3_ret = LC3I_Dec_Init(p_lc3i_dec, lc3_dec_port->sample_bits, lc3_dec_port->sample_rate, lc3_dec_port->in_channel_num, lc3_dec_port->frame_interval/100, lc3_dec_port->delay, lc3_dec_port->plc_mode);
+#endif
             if (lc3_ret != LC3_OK) {
                 DSP_MW_LOG_E("[lc3][fail] LC3I_Dec_Init() %d", 1, lc3_ret);
                 return true;
             }
+#ifndef AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE
             DSP_MW_LOG_I("[lc3] LC3I_Get_Version : %x", 1, LC3I_Get_Version());
+#endif
             DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() Done 0x%08x", 1, p_lc3i_dec);
             break;
 
@@ -366,12 +392,20 @@ FIND_DECODER_PORT:
             lc3_dec_port->work_instance_count = lc3_dec_port->in_channel_num;
             if (p_lc3i_tab_common == NULL) {
                 /*Table Common*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                lc3i_tab_common_size = LC3PLUSN_Tab_Common_Get_MemSize();
+#else
                 lc3i_tab_common_size = LC3I_Tab_Common_Get_MemSize();
+#endif
                 DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Common_Init() lc3i_tab_common_size %d", 1, lc3i_tab_common_size);
 
                 lc3i_tab_common_size = (lc3i_tab_common_size + 7) / 8 * 8;
                 p_lc3i_tab_common = (void *)preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, lc3i_tab_common_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                lc3_ret = LC3PLUSN_Tab_Common_Init(p_lc3i_tab_common);
+#else
                 lc3_ret = LC3I_Tab_Common_Init(p_lc3i_tab_common);
+#endif
                 if (lc3_ret != LC3_OK)
                 {
                     DSP_MW_LOG_E("[lc3][fail] LC3I_Tab_Common_Init() %d", 1, lc3_ret);
@@ -383,7 +417,11 @@ FIND_DECODER_PORT:
             /*Decoder Working Buffer*/
             DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() ch %d sr %d frame_ms %d plcmeth %d ", 4, 1, lc3_dec_port->sample_rate, lc3_dec_port->frame_interval/100, lc3_dec_port->plc_mode);
             if (lc3_dec_port->work_mem_ptr == NULL) {
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                lc3i_dec_size = LC3PLUSN_Dec_Get_MemSize(1, lc3_dec_port->sample_rate, lc3_dec_port->frame_interval/100, lc3_dec_port->plc_mode);
+#else
                 lc3i_dec_size = LC3I_Dec_Get_MemSize(1, lc3_dec_port->sample_rate, lc3_dec_port->frame_interval/100, lc3_dec_port->plc_mode);
+#endif
                 lc3_dec_port->work_buffer_size = (lc3i_dec_size + 7) / 8 * 8 + sizeof(uint32_t) * 2; /* first word is used for plc count */
                 DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() lc3i_dec_size %d, work_buffer_size %d", 2, lc3i_dec_size, lc3_dec_port->work_buffer_size);
                 lc3_dec_port->work_mem_ptr = (void *)preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, lc3_dec_port->work_buffer_size * lc3_dec_port->in_channel_num);
@@ -402,7 +440,11 @@ FIND_DECODER_PORT:
                 DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Dec_Init() %d", 1, lc3_dec_port->channel_mode);
                 /*Table Dec*/
                 if (p_lc3i_tab_dec == NULL) {
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                    lc3i_tab_dec_size = LC3PLUSN_Tab_Dec_Get_MemSize(&param);
+#else
                     lc3i_tab_dec_size = LC3I_Tab_Dec_Get_MemSize(&param);
+#endif
                     lc3i_tab_dec_size = (lc3i_tab_dec_size + 7) / 8 * 8;
                     DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Dec_Init()lc3i_tab_dec_size %d", 1, lc3i_tab_dec_size);
                     p_lc3i_tab_dec = (void *)preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, lc3i_tab_dec_size);
@@ -413,7 +455,11 @@ FIND_DECODER_PORT:
                         return true;
     #endif
                     }
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                    lc3_ret = LC3PLUSN_Tab_Dec_Init(p_lc3i_tab_common, p_lc3i_tab_dec, &param);
+#else
                     lc3_ret = LC3I_Tab_Dec_Init(p_lc3i_tab_common, p_lc3i_tab_dec, &param);
+#endif
                     if (lc3_ret != LC3_OK) {
                         DSP_MW_LOG_E("[lc3][fail] LC3I_Tab_Dec_Init() %d", 1, lc3_ret);
                         return true;
@@ -428,7 +474,11 @@ FIND_DECODER_PORT:
                 /* decoder init */
                 p_lc3i_dec = (void *)((uint32_t)(lc3_dec_port->work_mem_ptr) + i * lc3_dec_port->work_buffer_size + sizeof(uint32_t) * 2);
                 DSP_MW_LOG_I("[lc3][dec] LC3I_Dec_Init() bps %d sr %d ch %d frame_ms %d delay %d plcmeth %d", 6, lc3_dec_port->sample_bits, lc3_dec_port->sample_rate, 1, lc3_dec_port->frame_interval/100, lc3_dec_port->delay, lc3_dec_port->plc_mode);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                lc3_ret = LC3PLUSN_Dec_Init(p_lc3i_dec, lc3_dec_port->sample_bits, lc3_dec_port->sample_rate, 1, lc3_dec_port->frame_interval/100, lc3_dec_port->delay, lc3_dec_port->plc_mode, 0);
+#else
                 lc3_ret = LC3I_Dec_Init(p_lc3i_dec, lc3_dec_port->sample_bits, lc3_dec_port->sample_rate, 1, lc3_dec_port->frame_interval/100, lc3_dec_port->delay, lc3_dec_port->plc_mode);
+#endif
                 if (lc3_ret != LC3_OK) {
                     DSP_MW_LOG_E("[lc3][fail] LC3I_Dec_Init() %d", 1, lc3_ret);
                     return true;
@@ -442,6 +492,24 @@ FIND_DECODER_PORT:
             break;
     }
 
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+    DSP_MW_LOG_I("[LC3_DEC] Init Success! %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d", 15,
+                 lc3_dec_port->sample_bits,
+                 lc3_dec_port->sample_rate,
+                 lc3_dec_port->bit_rate,
+                 lc3_dec_port->dec_mode,
+                 lc3_dec_port->channel_mode,
+                 lc3_dec_port->delay,
+                 lc3_dec_port->plc_mode,
+                 lc3_dec_port->plc_enable,
+                 lc3_dec_port->frame_samples,
+                 lc3_dec_port->frame_interval,
+                 lc3_dec_port->frame_size,
+                 lc3_dec_port->in_channel_num,
+                 lc3_dec_port->out_channel_num,
+                 lc3_dec_port->work_instance_count,
+                 lc3_dec_port->work_buffer_size);
+#else
     DSP_MW_LOG_I("[LC3_DEC] Init Success! %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, version = 0x%x", 16,
                  lc3_dec_port->sample_bits,
                  lc3_dec_port->sample_rate,
@@ -459,6 +527,7 @@ FIND_DECODER_PORT:
                  lc3_dec_port->work_instance_count,
                  lc3_dec_port->work_buffer_size,
                  LC3I_Get_Version());
+#endif
 
     return false;
 }
@@ -534,11 +603,19 @@ FIND_DECODER_PORT:
 
                 /* frame status check */
                 if (*p_frame_status == LC3_DEC_FRAME_STATUS_NORMAL) {
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                    lc3_ret = LC3PLUSN_Dec_Prcs(p_lc3i_dec, p_lc3i_tab_common,
+                                            (uint8_t *)in_buf1,
+                                            (uint8_t *)out_buf1,
+                                            lc3_dec_port->frame_size,
+                                            0, 0, &lc3_FFTx);
+#else
                     lc3_ret = LC3I_Dec_Prcs(p_lc3i_dec, p_lc3i_tab_common,
                                             (uint8_t *)in_buf1,
                                             (uint8_t *)out_buf1,
                                             lc3_dec_port->frame_size,
                                             0, 0, &lc3_FFTx);
+#endif
                     if (LC3_OK != lc3_ret) {
                         DSP_MW_LOG_I("[LC3_DEC] Process Fail! %d", 1, lc3_ret);
                         /* do PLC for avoid this error */
@@ -552,11 +629,19 @@ FIND_DECODER_PORT:
                     if ((lc3_dec_port->plc_enable == 0) || (*p_plc_count >= LC3_PLC_MUTE_OUT_THD)) {
                         memset(out_buf1, 0, out_data_size);
                     } else {
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                        lc3_ret = LC3PLUSN_Dec_Prcs(p_lc3i_dec, p_lc3i_tab_common,
+                                                (uint8_t *)in_buf1,
+                                                (uint8_t *)out_buf1,
+                                                lc3_dec_port->frame_size,
+                                                1, 0, &lc3_FFTx);
+#else
                         lc3_ret = LC3I_Dec_Prcs(p_lc3i_dec, p_lc3i_tab_common,
                                                 (uint8_t *)in_buf1,
                                                 (uint8_t *)out_buf1,
                                                 lc3_dec_port->frame_size,
                                                 1, 0, &lc3_FFTx);
+#endif
                         if (LC3_DECODE_ERROR != lc3_ret) {
                             DSP_MW_LOG_I("[LC3_DEC] PLC Process Fail! %d", 1, lc3_ret);
                             memset(out_buf1, 0, out_data_size);
@@ -581,7 +666,9 @@ FIND_DECODER_PORT:
                 /* update total output size */
                 total_out_data_size += out_data_size;
             }
-
+#ifdef AIR_AUDIO_DUMP_ENABLE
+            LOG_AUDIO_DUMP(stream_codec_get_output_buffer(para, 1), total_out_data_size, AUDIO_LEA_DONGLE_UL_DEC_OUT_0);
+#endif
             break;
 
         case LC3_DEC_CHANNEL_MODE_STEREO:
@@ -609,11 +696,19 @@ FIND_DECODER_PORT:
 
                     /* frame status check */
                     if (*p_frame_status == LC3_DEC_FRAME_STATUS_NORMAL) {
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                        lc3_ret = LC3PLUSN_Dec_Prcs(p_lc3i_dec, p_lc3i_tab_common,
+                                                (uint8_t *)in_buf1,
+                                                (uint8_t *)out_buf1,
+                                                lc3_dec_port->frame_size,
+                                                0, 0, &lc3_FFTx);
+#else
                         lc3_ret = LC3I_Dec_Prcs(p_lc3i_dec, p_lc3i_tab_common,
                                                 (uint8_t *)in_buf1,
                                                 (uint8_t *)out_buf1,
                                                 lc3_dec_port->frame_size,
                                                 0, 0, &lc3_FFTx);
+#endif
                         if (LC3_OK != lc3_ret) {
                             DSP_MW_LOG_I("[LC3_DEC] Process Fail! %d", 1, lc3_ret);
                             /* do PLC for avoid this error */
@@ -627,11 +722,19 @@ FIND_DECODER_PORT:
                         if ((lc3_dec_port->plc_enable == 0) || (*p_plc_count >= LC3_PLC_MUTE_OUT_THD)) {
                             memset(out_buf1, 0, out_data_size);
                         } else {
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+                            lc3_ret = LC3PLUSN_Dec_Prcs(p_lc3i_dec, p_lc3i_tab_common,
+                                                    (uint8_t *)in_buf1,
+                                                    (uint8_t *)out_buf1,
+                                                    lc3_dec_port->frame_size,
+                                                    1, 0, &lc3_FFTx);
+#else
                             lc3_ret = LC3I_Dec_Prcs(p_lc3i_dec, p_lc3i_tab_common,
                                                     (uint8_t *)in_buf1,
                                                     (uint8_t *)out_buf1,
                                                     lc3_dec_port->frame_size,
                                                     1, 0, &lc3_FFTx);
+#endif
                             if (LC3_DECODE_ERROR != lc3_ret) {
                                 DSP_MW_LOG_I("[LC3_DEC] PLC Process Fail! %d", 1, lc3_ret);
                                 memset(out_buf1, 0, out_data_size);
@@ -648,6 +751,9 @@ FIND_DECODER_PORT:
                     /* update total output size */
                     total_out_data_size += out_data_size;
                 }
+#ifdef AIR_AUDIO_DUMP_ENABLE
+                LOG_AUDIO_DUMP(stream_codec_get_output_buffer(para, i + 1), total_out_data_size, AUDIO_LEA_DONGLE_UL_DEC_OUT_0 + i);
+#endif
             }
 
             break;

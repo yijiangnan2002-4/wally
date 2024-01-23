@@ -143,6 +143,9 @@ uint32_t cpd_library_load(void *code_address, void *data_address, uint32_t *dram
     {
         cpd_value.library = &pisplit_cpd;//For ULL2.0 NOT to support hearing protection
     }
+#if defined(AIR_BTA_IC_PREMIUM_G2) && defined(AIR_HEARING_PROTECTION_ENABLE) && !defined(AIR_ULL_BLE_HEADSET_ENABLE)
+        cpd_value.library = &pisplit_cpd_hp; //workaround for line-in + hfp, BTA-51025
+#endif
     cpd_value.library_callback = cpd_load_library_callback;
 
     if(cpd_lib_loaded_counter == 0) {

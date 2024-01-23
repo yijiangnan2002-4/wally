@@ -111,11 +111,20 @@ typedef struct {
 #ifdef MTK_AWS_MCE_ENABLE
     bool in_air_pairing;                                        /**<  BT is in air pairing */
 #endif
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     bool in_ull_pairing;                                        /**<  BT is in ULL air pairing */
 #endif
     uint8_t reason;                                             /**<  Record profile service disconnect or connect reason */
 } app_bt_state_service_status_t;
+#ifdef MTK_AWS_MCE_ENABLE
+/**
+ *  @brief This structure defines the formart of bt visible state notification from agent to partner.
+ */
+typedef struct {
+    bool bt_visible;                        /**<  BT visibility state. */
+    uint32_t timeout;                       /**<  The remained time. */
+} app_bt_state_service_visible_state_notification_t;
+#endif
 
 /**
 * @brief      This function is used to handle events and update BT state after pre-process.
@@ -173,7 +182,7 @@ void app_bt_state_service_cancel_discoverable_mode(void);
 void app_bt_state_service_set_air_pairing_doing(bool doing);
 #endif
 
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 /**
 * @brief      This function set the flag to indicate ULL air pairing is doing.
 * @param[in]  True means doing
@@ -188,7 +197,7 @@ void app_bt_state_service_set_ull_air_pairing_doing(bool doing);
  * @param[in]   list_num      is the addr_list number.
  * @return      the return device number.
  */
-uint32_t app_bt_state_service_get_connected_disinclude_aws(bt_bd_addr_t *addr_list, uint32_t list_num);
+uint32_t app_bt_state_service_get_connected_exclude_aws(bt_bd_addr_t *addr_list, uint32_t list_num);
 
 /**
  * @brief   This function used to connect/disconnect AWS Link.

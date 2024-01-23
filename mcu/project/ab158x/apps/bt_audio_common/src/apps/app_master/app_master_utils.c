@@ -116,7 +116,7 @@ bool app_dual_chip_master_process_key_event(apps_config_state_t slave_mmi_state,
             APPS_LOG_MSGID_I(LOG_TAG" line out streaming, use HFP activate state", 0);
         }
 #endif
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
         if (app_ull_is_uplink_open()) {
             wired_audio_out_streaming = true;
             APPS_LOG_MSGID_I(LOG_TAG" ull uplink streaming, use HFP activate state", 0);
@@ -209,7 +209,7 @@ bool app_dual_chip_master_process_key_event(apps_config_state_t slave_mmi_state,
         }
     }
 
-    if (((slave_mmi_state >= APP_HFP_INCOMING && slave_mmi_state <= APP_HFP_MULTITPART_CALL) || slave_mmi_state == APP_STATE_HELD_ACTIVE) && !need_slave_proc) {
+    if (((slave_mmi_state >= APP_HFP_INCOMING && slave_mmi_state <= APP_HFP_MULTIPARTY_CALL) || slave_mmi_state == APP_STATE_HELD_ACTIVE) && !need_slave_proc) {
         switch (action) {
             case KEY_VOICE_UP:
             case KEY_VOICE_DN:
@@ -330,7 +330,7 @@ apps_config_state_t app_master_utils_get_slave_mmi_state(void)
 
 void app_dual_chip_utls_power_saving_state_change(void)
 {
-    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_POWER_SAVING,
+    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_POWER_SAVING,
                         APP_POWER_SAVING_EVENT_NOTIFY_CHANGE, NULL, 0, NULL, 0);
 }
 #endif

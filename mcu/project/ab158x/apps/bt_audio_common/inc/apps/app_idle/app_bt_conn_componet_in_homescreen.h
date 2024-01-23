@@ -48,10 +48,12 @@
 #include "apps_config_state_list.h"
 #include "bt_sink_srv.h"
 
-#ifdef AIR_MULTI_POINT_ENABLE
-#define APP_CONN_MAX_DEVICE_NUM  3
+#if defined(AIR_3_LINK_MULTI_POINT_ENABLE)
+#define APP_CONN_MAX_DEVICE_NUM             (3 + 1)
+#elif defined(AIR_MULTI_POINT_ENABLE)
+#define APP_CONN_MAX_DEVICE_NUM             (2 + 1)
 #else
-#define APP_CONN_MAX_DEVICE_NUM  2
+#define APP_CONN_MAX_DEVICE_NUM             (1 + 1)
 #endif
 
 /**

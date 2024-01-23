@@ -107,10 +107,15 @@ void dsp_profiling_handler(hal_ccni_event_t event, void *msg)
 {
 #ifdef FREERTOS_ENABLE
     extern TimerHandle_t xTimerofTest;
+    extern uint32_t g_tmp_enable_heak_leak;
     hal_ccni_status_t status;
     if (NULL != msg) {
         mcu_to_dsp_info = (dsp_task_info_t *)hal_memview_infrasys_to_dsp0(((hal_ccni_message_t *)msg)->ccni_message[0]);
+
         if (NULL != mcu_to_dsp_info) {
+            if(mcu_to_dsp_info->task_information_period <= 1){
+                g_tmp_enable_heak_leak = mcu_to_dsp_info->task_information_period;
+            }
             if (mcu_to_dsp_info->isEnableTaskInforPeriod == TRUE) {
                 xTimerStartFromISR(xTimerofTest, 0);
             } else {

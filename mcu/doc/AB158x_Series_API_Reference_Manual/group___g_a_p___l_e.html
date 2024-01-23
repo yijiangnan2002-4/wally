@@ -288,6 +288,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ga299149dc314128de1e7a87be1a2d8c64"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structbt__gap__le__local__key__t.html">bt_gap_le_local_key_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group___g_a_p___l_e.html#ga299149dc314128de1e7a87be1a2d8c64">bt_gap_le_get_local_key_by_handle</a> (<a class="el" href="group___bluetoothbt__primary__type__define.html#ga33866b82d4a79c633499ecde571e101f">bt_handle_t</a> handle)</td></tr>
 <tr class="memdesc:ga299149dc314128de1e7a87be1a2d8c64"><td class="mdescLeft">&#160;</td><td class="mdescRight">This is a user-defined API that returns a special and new local keys.  <a href="#ga299149dc314128de1e7a87be1a2d8c64">More...</a><br /></td></tr>
 <tr class="separator:ga299149dc314128de1e7a87be1a2d8c64"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga73dceabf8ca001c6b17aacc8104223b4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group___bluetoothbt__primary__type__define.html#ga6bf23e2845d8aec21a15506e256eff4e">bt_status_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group___g_a_p___l_e.html#ga73dceabf8ca001c6b17aacc8104223b4">bt_gap_le_enable_subrate</a> (<a class="el" href="group___bluetoothbt__primary__type__define.html#ga33866b82d4a79c633499ecde571e101f">bt_handle_t</a> conn_handle, <a class="el" href="structbt__hci__le__subrate__t.html">bt_hci_le_subrate_t</a> *param)</td></tr>
+<tr class="memdesc:ga73dceabf8ca001c6b17aacc8104223b4"><td class="mdescLeft">&#160;</td><td class="mdescRight">This function is used to enable LE subrate.  <a href="#ga73dceabf8ca001c6b17aacc8104223b4">More...</a><br /></td></tr>
+<tr class="separator:ga73dceabf8ca001c6b17aacc8104223b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="groups"></a>
 Modules</h2></td></tr>
@@ -643,6 +646,42 @@ Modules</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd><a class="el" href="group___bluetoothbt__primary__type__define.html#ga9c725acc53b8d3af38f33020b2f988f6" title="Bluetooth status definitions. ">BT_STATUS_SUCCESS</a>, the operation completed successfully, otherwise it failed. <a class="el" href="group___bluetoothbt__primary__type__define.html#gac2e8fe2fed8a8e203562495257ff7cd5" title="General Unsupported. ">BT_STATUS_UNSUPPORTED</a>, the operation is not supported on this version. <a class="el" href="group___bluetoothbt__primary__type__define.html#ga4b29d487f990d3bb016f1f2a1a027f40" title="General failed. ">BT_STATUS_FAIL</a>, the operation is executing or the parameters are invalid, please retry after the event <a class="el" href="group___bluetoothhbif__gap__define.html#ga7e51ae2c231f4cd775807e3f083c85d9" title="Enable periodic advertising confirmation with bt_gap_le_enable_periodic_advertising_cnf_t. ">BT_GAP_LE_ENABLE_PERIODIC_ADVERTISING_CNF</a> had been received, or check the parameters are valid. <a class="el" href="group___bluetoothbt__primary__type__define.html#ga08b0a13b4015d06f3f061efac3d51696" title="General Out-of-memory. ">BT_STATUS_OUT_OF_MEMORY</a>, out of memory. </dd></dl>
+
+</div>
+</div>
+<a class="anchor" id="ga73dceabf8ca001c6b17aacc8104223b4"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="group___bluetoothbt__primary__type__define.html#ga6bf23e2845d8aec21a15506e256eff4e">bt_status_t</a> bt_gap_le_enable_subrate </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="group___bluetoothbt__primary__type__define.html#ga33866b82d4a79c633499ecde571e101f">bt_handle_t</a>&#160;</td>
+          <td class="paramname"><em>conn_handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structbt__hci__le__subrate__t.html">bt_hci_le_subrate_t</a> *&#160;</td>
+          <td class="paramname"><em>param</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>This function is used to enable LE subrate. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">conn_handle</td><td>is the connection handle. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">param</td><td>is the subrate parameters set. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd><a class="el" href="group___bluetoothbt__primary__type__define.html#ga9c725acc53b8d3af38f33020b2f988f6" title="Bluetooth status definitions. ">BT_STATUS_SUCCESS</a>, the operation completed successfully, otherwise it failed. </dd></dl>
 
 </div>
 </div>
@@ -1533,7 +1572,7 @@ Modules</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Thu Sep 28 2023 17:13:32 for AB158x Series MCU API Reference by
+    <li class="footer">Generated on Fri Dec 29 2023 02:13:06 for AB158x Series MCU API Reference by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.11 </li>
   </ul>

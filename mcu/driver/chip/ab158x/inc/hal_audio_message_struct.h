@@ -112,7 +112,11 @@ typedef enum {
 
 #define AVM_SHAEE_BUF_INFO
 
+#if defined (AIR_BLE_AUDIO_DONGLE_ENABLE)
+#define SHARE_BUFFER_BT_AUDIO_DL_SIZE      (50*1024)
+#else
 #define SHARE_BUFFER_BT_AUDIO_DL_SIZE      (40*1024)
+#endif
 #define SHARE_BUFFER_USB_AUDIO_DL_SIZE      SHARE_BUFFER_BT_AUDIO_DL_SIZE
 
 #ifdef MTK_BT_A2DP_VENDOR_CODEC_BC_ENABLE
@@ -283,6 +287,7 @@ typedef struct {
 #endif
     uint16_t                                on_delay_time;
     uint8_t                                 performance;       // enum : hal_audio_performance_mode_t /*uplink performance: 0:NM, 1:HP, 2:LP, 3:ULP, 4:SULP*/
+    uint8_t                                 dmic_pin_sel;
 #ifdef AIR_SIDETONE_CUSTOMIZE_ENABLE
     uint8_t                                 ul_adc_mode;       // enum : hal_audio_analog_mdoe_t /*uplink adc mode: 0x0:ACC_10k, 0x1:ACC_20k, 0x2:DCC*/
     bool                                    bias1_2_with_LDO0;
@@ -304,6 +309,7 @@ typedef struct {
     uint32_t        target_bt_clk;
     uint8_t         phase_id;
     uint8_t         drc_force_disable;
+    uint8_t         gpt_time_sync;
 } mcu2dsp_peq_param_t, *mcu2dsp_peq_param_p;
 #endif
 
@@ -379,6 +385,18 @@ typedef struct {
     uint8_t reserved;
     uint32_t anc_type;
 } audio_dsp_leakage_compensation_report_param_t;
+
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+typedef struct {
+    uint16_t calibration_status;
+    anc_leakage_compensation_callback_t api_callback;
+    anc_leakage_compensation_callback_t vp_start_callback;
+    uint8_t enable;
+    uint8_t anc_enable;
+    uint8_t anc_filter_id;
+    uint8_t anc_type;
+} audio_dsp_fadp_anc_compensation_report_param_t;
+#endif
 
 #ifdef AIR_SILENCE_DETECTION_ENABLE
 typedef struct STRU_SD_PARA_s

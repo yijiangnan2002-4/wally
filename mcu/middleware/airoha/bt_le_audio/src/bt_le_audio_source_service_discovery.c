@@ -41,6 +41,9 @@
 #include "ble_tmap_discovery.h"
 #include "ble_vcp_enhance_discovery.h"
 #include "ble_micp_enhance_discovery.h"
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+#include "ble_gmap_discovery.h"
+#endif
 #include "ble_cas_def.h"
 #ifdef AIR_LE_AUDIO_HAPC_ENABLE
 #include "ble_hapc.h"
@@ -88,6 +91,10 @@ static bt_gattc_discovery_service_t g_le_audio_service_discovery_bass;
 static bt_gattc_discovery_service_t g_le_audio_service_discovery_has;
 static bt_gattc_discovery_service_t g_le_audio_service_discovery_ias;
 #endif
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+static bt_gattc_discovery_service_t g_le_audio_service_discovery_gmas;
+#endif
+
 /**************************************************************************************************
 * Prototype
 **************************************************************************************************/
@@ -242,6 +249,17 @@ static void bt_le_audio_tmas_discovery_callback(bt_gattc_discovery_event_t *even
     }
 }
 
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+static void bt_le_audio_gmas_discovery_callback(bt_gattc_discovery_event_t *event)
+{
+    bool ret = bt_le_audio_service_discovery_validate_event(event, &g_le_audio_service_discovery_gmas, NULL);
+
+    if (ret) {
+        ble_gmap_set_service_attribute(event);
+    }
+}
+#endif
+
 #ifdef AIR_LE_AUDIO_HAPC_ENABLE
 static void bt_le_audio_service_discovery_ias_callback(bt_gattc_discovery_event_t *event)
 {
@@ -389,6 +407,30 @@ void bt_le_audio_source_service_discovery_init(void)
     if (BT_GATTC_DISCOVERY_STATUS_SUCCESS != ret) {
         LE_AUDIO_MSGLOG_I("[SERVICE DISCOVERY] register VCS discovery fail, ret:%x", 1, ret);
     }
+
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    #ifdef GMAS_UUID_128
+    ble_uuid_t gmas_srv_uuid = {
+        .type = BLE_UUID_TYPE_128BIT,
+        .uuid.uuid = {BT_GMAS_SERVICE_UUID128}
+    };
+    #endif
+    g_le_audio_service_discovery_gmas.characteristic_count = BT_LE_AUDIO_SERVICE_DISCOVERY_CHARACTER_MAX_NUMBER;
+    g_le_audio_service_discovery_gmas.charateristics = g_le_audio_service_discovery_character;
+    #ifdef GMAS_UUID_128
+    user_data.uuid = gmas_srv_uuid;
+    #else
+    user_data.uuid.type = BLE_UUID_TYPE_16BIT;
+    user_data.uuid.uuid.uuid16 = BT_SIG_UUID16_GMAS;
+    #endif
+    user_data.need_cache = TRUE;
+    user_data.srv_info = &g_le_audio_service_discovery_gmas;
+    user_data.handler = bt_le_audio_gmas_discovery_callback;
+    ret = bt_gattc_discovery_register_service(BT_GATTC_DISCOVERY_USER_LE_AUDIO, &user_data);
+    if (BT_GATTC_DISCOVERY_STATUS_SUCCESS != ret) {
+        LE_AUDIO_MSGLOG_I("[SERVICE DISCOVERY] register GMAS discovery fail, ret:%x", 1, ret);
+    }
+#endif
 
     /* Register TMAS discovery */
     g_le_audio_service_discovery_tmas.characteristic_count = BT_LE_AUDIO_SERVICE_DISCOVERY_CHARACTER_MAX_NUMBER;

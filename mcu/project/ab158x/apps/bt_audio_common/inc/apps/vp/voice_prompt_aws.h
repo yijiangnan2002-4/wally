@@ -56,10 +56,10 @@ extern "C" {
  *  @brief This enum defines the BT sniff mode status in the module.
  */
 typedef enum {
-    VOICE_PROMP_AWS_STATE_SNIFF,              /**<  BT in sniff mode, or the BT sniff mode has not been changed by the module. */
-    VOICE_PROMP_AWS_STATE_SNIFF_EXITING,      /**<  The BT sniff mode is exiting. */
-    VOICE_PROMP_AWS_STATE_ACTIVE,             /**<  The BT controller is active and not in sniff mode. */
-    VOICE_PROMP_AWS_STATE_SWITCHING,          /**<  AWS switching. */
+    VOICE_PROMPT_AWS_STATE_SNIFF,              /**<  BT in sniff mode, or the BT sniff mode has not been changed by the module. */
+    VOICE_PROMPT_AWS_STATE_SNIFF_EXITING,      /**<  The BT sniff mode is exiting. */
+    VOICE_PROMPT_AWS_STATE_ACTIVE,             /**<  The BT controller is active and not in sniff mode. */
+    VOICE_PROMPT_AWS_STATE_SWITCHING,          /**<  AWS switching. */
 } voice_prompt_aws_state_t;
 
 

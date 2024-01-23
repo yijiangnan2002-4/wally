@@ -737,7 +737,8 @@ BaseType_t xTaskCreateRestricted( const TaskParameters_t *const pxTaskDefinition
 /*-----------------------------------------------------------*/
 
 #if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
-
+TCB_t * air_record_task_array[32] = {NULL};
+uint32_t air_record_task_number = 0;
 BaseType_t xTaskCreate( TaskFunction_t pxTaskCode,
                         const char *const pcName,  /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
                         const configSTACK_DEPTH_TYPE usStackDepth,
@@ -757,6 +758,7 @@ BaseType_t xTaskCreate( TaskFunction_t pxTaskCode,
          * the implementation of the port malloc function and whether or not static
          * allocation is being used. */
         pxNewTCB = ( TCB_t *) pvPortMalloc( sizeof( TCB_t ) );
+
 
         if ( pxNewTCB != NULL ) {
             /* Allocate space for the stack used by the task being created.
@@ -781,8 +783,9 @@ BaseType_t xTaskCreate( TaskFunction_t pxTaskCode,
         if ( pxStack != NULL ) {
             /* Allocate space for the TCB. */
             pxNewTCB = ( TCB_t *) pvPortMalloc( sizeof( TCB_t ) );  /*lint !e9087 !e9079 All values returned by pvPortMalloc() have at least the alignment required by the MCU's stack, and the first member of TCB_t is always a pointer to the task's stack. */
-
             if ( pxNewTCB != NULL ) {
+                air_record_task_array[air_record_task_number++] = pxNewTCB;
+                if(air_record_task_number > 31) air_record_task_number = 0;
                 /* Store the stack location in the TCB. */
                 pxNewTCB->pxStack = pxStack;
 
@@ -3193,6 +3196,14 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
         }
 #endif /* configUSE_IDLE_HOOK */
 
+#ifdef MTK_SUPPORT_HEAP_DEBUG
+    {
+        extern void vHeapLeakSelfCheckHook(void);
+        /* call this api to check heap leak */
+        vHeapLeakSelfCheckHook();
+    }
+#endif
+
 #if ( configENABLE_PURE_WFI_MODE == 1 )
         {
             if ( portENTER_PURE_WFI_MODE() ) {
@@ -4934,7 +4945,7 @@ void vTaskUpdateCurrentTaskRunTimeCounter( void )
 	} else {
 		ulDuration = (0xffffffff - (ulTaskSwitchedInTime - ulTotalRunTime)) + 1;
 	}
-	
+
 #ifdef AIR_CPU_MCPS_PRIORING_ENABLE
 	/* update irq interrupted time
 	switch to 32k count: 1 * 0.032768 ~= (1 >> 5 == 0.031525)
@@ -4991,6 +5002,16 @@ void vTaskClearTaskRunTimeCounter( void )
 }
 
 #endif /* configGENERATE_RUN_TIME_STATS */
+
+/*-----------------------------------------------------------*/
+UBaseType_t uxTaskGetPxTopOfStack(TaskHandle_t xTaskHandle){
+    TCB_t *pxTCB;
+
+    pxTCB = ( xTaskHandle == NULL ) ? ( TCB_t *) pxCurrentTCB : ( TCB_t *) ( xTaskHandle );
+
+    return ( UBaseType_t )( pxTCB->pxTopOfStack);
+
+}
 /*-----------------------------------------------------------*/
 
 UBaseType_t uxTaskGetBottomOfStack(TaskHandle_t xTaskHandle)

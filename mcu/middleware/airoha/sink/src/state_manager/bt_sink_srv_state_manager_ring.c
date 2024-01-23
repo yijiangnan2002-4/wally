@@ -36,25 +36,25 @@
 #include "bt_sink_srv_state_manager_internal.h"
 
 static void bt_sink_srv_state_manager_notify_ring_ind_internal(
-        bt_sink_srv_state_manager_context_t *context,
-        bt_bd_addr_t *address,
-        bool is_play,
-        bool is_twc);
+    bt_sink_srv_state_manager_context_t *context,
+    bt_bd_addr_t *address,
+    bool is_play,
+    bool is_twc);
 
 void bt_sink_srv_state_manager_notify_ring_ind(
-        bt_sink_srv_state_manager_device_type_t type,
-        bt_bd_addr_t *address,
-        bool play)
+    bt_sink_srv_state_manager_device_type_t type,
+    bt_bd_addr_t *address,
+    bool play)
 {
     bool support_inband = false;
     bt_sink_srv_state_manager_context_t *context = bt_sink_srv_state_manager_get_context();
     bt_sink_srv_state_manager_device_t *device = bt_sink_srv_state_manager_get_device(context, type, address);
 
     bt_sink_srv_report_id(
-            "[Sink][StaMgr]notify ring ind, call_focus_device:0x%x device:0x%x",
-            2,
-            context->focus_call_device,
-            device);
+        "[Sink][StaMgr]notify ring ind, call_focus_device:0x%x device:0x%x",
+        2,
+        context->focus_device,
+        device);
 
     if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE == type) {
         if (NULL == device) {
@@ -92,18 +92,18 @@ void bt_sink_srv_state_manager_notify_ring_ind(
         }
     }
 
-    if (device == context->focus_call_device) {
+    if (device == context->focus_device) {
         /* 1.1. Check in-band support. */
         if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == device->type) {
             bt_sink_srv_state_manager_call_callback(
-                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT,
-                    address,
-                    (void *)&support_inband);
+                BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT,
+                address,
+                (void *)&support_inband);
         } else {
             bt_sink_srv_state_manager_le_callback(
-                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT,
-                    address,
-                    (void *)&support_inband);
+                BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT,
+                address,
+                (void *)&support_inband);
         }
 
         /* 1.2. Notify RING IND. */
@@ -113,7 +113,7 @@ void bt_sink_srv_state_manager_notify_ring_ind(
         }
     }
 #if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
-    else if (0 == bt_sink_srv_memcmp(device->address, context->focus_call_device->address, sizeof(bt_bd_addr_t))) {
+    else if (0 == bt_sink_srv_memcmp(device->address, context->focus_device->address, sizeof(bt_bd_addr_t))) {
         bt_sink_srv_report_id("[Sink][StaMgr]notify ring ind, skip same address", 0);
         return;
     }
@@ -129,10 +129,10 @@ void bt_sink_srv_state_manager_notify_ring_ind(
 }
 
 static void bt_sink_srv_state_manager_notify_ring_ind_internal(
-        bt_sink_srv_state_manager_context_t *context,
-        bt_bd_addr_t *address,
-        bool is_play,
-        bool is_twc)
+    bt_sink_srv_state_manager_context_t *context,
+    bt_bd_addr_t *address,
+    bool is_play,
+    bool is_twc)
 {
 #ifdef MTK_AWS_MCE_ENABLE
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
@@ -145,9 +145,11 @@ static void bt_sink_srv_state_manager_notify_ring_ind_internal(
 #endif
 
     if (!is_twc) {
-        bt_sink_srv_event_hf_ring_ind_t ring_ind = {{0}};
-        bt_sink_srv_memcpy(&ring_ind.address, address, sizeof(bt_bd_addr_t));
-        bt_sink_srv_event_callback(BT_SINK_SRV_EVENT_HF_RING_IND, &ring_ind, sizeof(ring_ind));
+        if (is_play) {
+            bt_sink_srv_event_hf_ring_ind_t ring_ind = {{0}};
+            bt_sink_srv_memcpy(&ring_ind.address, address, sizeof(bt_bd_addr_t));
+            bt_sink_srv_event_callback(BT_SINK_SRV_EVENT_HF_RING_IND, &ring_ind, sizeof(ring_ind));
+        }
     } else {
         bt_sink_srv_event_hf_twc_ring_ind_t twc_ring_ind = {0};
         twc_ring_ind.play_vp = is_play;
@@ -156,3 +158,148 @@ static void bt_sink_srv_state_manager_notify_ring_ind_internal(
     }
 }
 
+void bt_sink_srv_state_manager_update_ring_ind(
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device,
+    bt_sink_srv_state_t previous_state)
+{
+
+
+    /* 1. INCOMING + INCOMING. */
+    /* 1.1. The 1st incoming is answered, keep TWC RING. */
+    /* 1.2. The 1st incoming is rejected, stop TWC RING and resume 2nd RING. */
+    /* 1.3. The 2nd incoming is answered, stop TWC RING and resume 1st RING. */
+    /* 1.4. The 2nd incoming is rejected, stop TWC RING and resume 1st RING. */
+
+    /* 2. INCOMING + ONCALL. */
+    /* 2.1. The 1st incoming is answered, stop RING. */
+    /* 2.2. The 1st incoming is rejected, stop RING. */
+    /* 2.3. The 2nd oncall is ended, keep RING. */
+
+    /* 3. ONCALL + INCOMING. */
+    /* 3.1. The 1st oncall is ended, stop TWC RING and resume RING. */
+    /* 3.2. The 2nd incoming is answered, stop TWC RING. */
+    /* 3.3. The 2nd incoming is rejected, stop TWC RING. */
+
+    bt_sink_srv_state_manager_device_t *other_device = NULL;
+    bool support_inband = false;
+    bt_sink_srv_report_id("[Sink][StaMgr]update ring ind", 0);
+
+#ifdef SUPPORT_ROLE_HANDOVER_SERVICE
+    if (bt_sink_srv_state_manager_is_rho_update(context)) {
+        return;
+    }
+#endif
+
+    if (BT_SINK_SRV_STATE_INCOMING == previous_state &&
+        BT_SINK_SRV_STATE_MANAGER_IS_CALL_STATE(device->call_state)) {
+        /* 1.1. The 1st incoming is answered, keep TWC RING.         no action*/
+        /* 2.1. The 1st incoming is answered, APP auto stop RING ?.    no action? */
+
+
+        other_device = bt_sink_srv_state_manager_get_device_by_call_state(context, BT_SINK_SRV_STATE_INCOMING, device);
+        if (NULL != other_device && other_device == context->focus_device) {
+            /* 1.3. The 2nd incoming is answered, stop TWC RING and resume 1st RING. */
+            bt_sink_srv_state_manager_notify_ring_ind_internal(context, &device->address, false, true);   /*stop TWC RING*/
+            /* Check 1st incoming in-band support. */
+            if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == other_device->type) {
+                bt_sink_srv_state_manager_call_callback(
+                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT,
+                    &other_device->address,
+                    (void *)&support_inband);
+
+            } else {
+                bt_sink_srv_state_manager_le_callback(
+                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT,
+                    &other_device->address,
+                    (void *)&support_inband);
+            }
+
+            if (!support_inband) {
+                bt_sink_srv_state_manager_notify_ring_ind_internal(context, &other_device->address, true, false);   /*resume RING*/
+            }
+        } else if (!other_device) {
+            other_device = bt_sink_srv_state_manager_get_device_by_call_state(context, BT_SINK_SRV_STATE_ACTIVE, device);
+            /* 3.2. The 2nd incoming is answered, stop TWC RING. */
+            if (other_device == context->focus_device) {
+                bt_sink_srv_state_manager_notify_ring_ind_internal(context, &device->address, false, true);   /*stop TWC RING*/
+            } else if (!other_device) {
+                /* 2.1. The 1st incoming is answered, stop RING. */
+                /* 2nd active call auto hold, there is no other  active call */
+                bt_sink_srv_state_manager_notify_ring_ind_internal(context, &device->address, false, false);   /*stop TWC RING*/
+            }
+        }
+    } else if (BT_SINK_SRV_STATE_INCOMING == previous_state &&
+               BT_SINK_SRV_STATE_MANAGER_IS_NONE_STATE(device->call_state)) {
+
+        other_device = bt_sink_srv_state_manager_get_device_by_call_state(context, BT_SINK_SRV_STATE_INCOMING, device);
+
+        if (other_device != NULL &&
+            other_device != context->focus_device) {
+            /* 1.2. The 1st incoming is rejected, stop TWC RING and resume 2nd RING. */
+            /*found 2nd incoming device*/
+
+            bt_sink_srv_state_manager_notify_ring_ind_internal(context, &other_device->address, false, true);   /*stop TWC RING*/
+            /* Check 2nd incoming in-band support. */
+            if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == other_device->type) {
+                bt_sink_srv_state_manager_call_callback(
+                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT,
+                    &other_device->address,
+                    (void *)&support_inband);
+
+            } else {
+                bt_sink_srv_state_manager_le_callback(
+                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT,
+                    &other_device->address,
+                    (void *)&support_inband);
+            }
+
+            if (!support_inband) {
+                bt_sink_srv_state_manager_notify_ring_ind_internal(context, &other_device->address, true, false);   /*resume RING*/
+            }
+        } else if (NULL != other_device && other_device == context->focus_device) {
+
+            /* 1.4. The 2nd incoming is rejected, stop TWC RING and resume 1st RING. */
+            bt_sink_srv_state_manager_notify_ring_ind_internal(context, &other_device->address, false, true);   /*stop TWC RING*/
+            /* Check 1nd incoming in-band support. */
+            if (BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_EDR == other_device->type) {
+                bt_sink_srv_state_manager_call_callback(
+                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT,
+                    &other_device->address,
+                    (void *)&support_inband);
+
+            } else {
+                bt_sink_srv_state_manager_le_callback(
+                    BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT,
+                    &other_device->address,
+                    (void *)&support_inband);
+            }
+
+            if (!support_inband) {
+                bt_sink_srv_state_manager_notify_ring_ind_internal(context, &other_device->address, true, false);   /*resume RING*/
+            }
+
+        } else if (!other_device) {
+            other_device = bt_sink_srv_state_manager_get_device_by_call_state(context, BT_SINK_SRV_STATE_ACTIVE, device);
+            /* 3.3. The 2nd incoming is rejected, stop TWC RING. */
+            if (other_device == context->focus_device) {
+                bt_sink_srv_state_manager_notify_ring_ind_internal(context, &device->address, false, true);/*stop TWC RING*/
+            } else if (!other_device) {
+                /* 2.2. The 1st incoming is rejected, stop RING. */
+                bt_sink_srv_state_manager_notify_ring_ind_internal(context, &device->address, false, false);/*stop RING*/
+            }
+        }
+    } else if (BT_SINK_SRV_STATE_MANAGER_IS_CALL_STATE(previous_state) &&
+               BT_SINK_SRV_STATE_MANAGER_IS_NONE_STATE(device->call_state)) {
+        /* 2.3. The 2nd oncall is ended, keep RING. no need action*/
+        /* 3.1. The 1st oncall is ended, stop TWC RING and resume RING. */
+        other_device = bt_sink_srv_state_manager_get_device_by_call_state(context, BT_SINK_SRV_STATE_INCOMING, device);
+        if (other_device != context->focus_device) {
+            bt_sink_srv_state_manager_notify_ring_ind_internal(context, &device->address, false, true);   /*stop TWC RING*/
+            if (other_device) {
+                other_device->flag |= BT_SINK_SRV_STATE_MANAGER_DEVICE_FLAG_SEND_RING;
+            }
+
+        }
+    }
+}

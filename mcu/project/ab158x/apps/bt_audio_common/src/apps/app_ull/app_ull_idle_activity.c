@@ -84,6 +84,8 @@
 #include "bt_ull_le_service.h"
 #include "bt_ull_le_utility.h"
 #include "bt_ull_le_audio_manager.h"
+#include "app_dongle_service.h"
+#include "apps_dongle_sync_event.h"
 #endif
 
 #ifdef AIR_BLE_ULL_TAKEOVER_ENABLE
@@ -122,7 +124,7 @@
 #define ULL_IS_ADDRESS_EMPTY(addr)      (0 == memcmp(addr, s_empty_address, sizeof(bt_bd_addr_t)))
 #define ULL_IS_DONGLE_ADDRESS(addr)     (0 == memcmp(addr, s_ull_context.dongle_bt_address, sizeof(bt_bd_addr_t)))
 #define ULL_IS_LOCAL_ADDRESS(addr)      (0 == memcmp(addr, *bt_device_manager_get_local_address(), sizeof(bt_bd_addr_t)))
-#define ULL_IS_ADDRSS_THE_SAME(addr1, addr2)    (0 == memcmp(addr1, addr2, sizeof(bt_bd_addr_t)))
+#define ULL_IS_ADDRESS_THE_SAME(addr1, addr2)    (0 == memcmp(addr1, addr2, sizeof(bt_bd_addr_t)))
 
 enum {
     ULL_LINK_MODE_SINGLE,
@@ -146,24 +148,13 @@ static app_ull_context_t s_ull_context;
 
 const static bt_bd_addr_t s_empty_address = { 0, 0, 0, 0, 0, 0};
 
-typedef enum {
-    ULL_SINGLE_LINK_DISCONNECTING_NONE = 0,
-    ULL_SINGLE_LINK_DISCONNECTING_DONGLE = 1,
-    ULL_SINGLE_LINK_DISCONNECTING_SP = 2,
-} ull_single_link_disconnecting_t;
-
-static uint8_t s_single_link_disconnecting = ULL_SINGLE_LINK_DISCONNECTING_NONE;    /* Sometimes reconnect 2 devices, remember the disconnecting device and do not disconnect other SRC when this address connected. */
 static bool s_uplink_started = false;
 
 #ifdef MTK_AWS_MCE_ENABLE
 static bool s_need_resync_ull_addr;
 static bool s_ull_link_mode_synced;
-static bool s_dongle_connected;     /* For partner record the ULL dongle connected status. */
 #endif
 
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)
-static bool s_reboot_trigger_reconnect = false;
-#endif
 
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
 static bool s_ull_le_hid_connected = false;
@@ -174,7 +165,7 @@ static bool s_ull_le_hid_connected = false;
 static bool s_ull_adv_en = false;
 static bool s_ull_le_connected = false;
 static bool s_cmd_adv_disable = false;
-static bool s_waitting_disconnect_event = false;
+static bool s_waiting_disconnect_event = false;
 static bool s_hfp_only_enable = true;
 bool s_a2dp_standby_enable = false;
 static bool s_speaker_mode = false;
@@ -715,6 +706,22 @@ static atci_status_t app_le_ull_atci_hdl(atci_parse_cmd_param_t *parse_cmd)
             response->response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
         }
     }
+    else if (0 == memcmp(pChar, "AIRCIS_INACTIVE", 15)) {
+        pChar = strchr(pChar, ',');
+        pChar++;
+        bt_status_t status = BT_STATUS_FAIL;
+        if (0 == memcmp(pChar, "ON", 2)) {
+            bool aircis_inactive_mode_enable = true;
+            status = bt_ull_le_srv_action(BT_ULL_ACTION_SWITCH_AIRCIS_INACTIVE_MODE, &aircis_inactive_mode_enable, sizeof(uint8_t));
+            response->response_flag = (BT_STATUS_SUCCESS == status) ? ATCI_RESPONSE_FLAG_APPEND_OK : ATCI_RESPONSE_FLAG_APPEND_ERROR;            
+        } else if (0 == memcmp(pChar, "OFF", 3)) {
+            bool aircis_inactive_mode_enable = false;
+            status = bt_ull_le_srv_action(BT_ULL_ACTION_SWITCH_AIRCIS_INACTIVE_MODE, &aircis_inactive_mode_enable, sizeof(uint8_t));
+            response->response_flag = (BT_STATUS_SUCCESS == status) ? ATCI_RESPONSE_FLAG_APPEND_OK : ATCI_RESPONSE_FLAG_APPEND_ERROR;          
+        } else {
+            response->response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+        }
+    }
 #endif
     else {
         response->response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
@@ -858,7 +865,7 @@ void app_le_ull_disconnect_dongle()
                                APP_LE_AUDIO_DISCONNECT_MODE_DISCONNECT_ULL,
                                NULL,
                                BT_HCI_STATUS_REMOTE_TERMINATED_CONNECTION_DUE_TO_LOW_RESOURCES);
-    s_waitting_disconnect_event = true;
+    s_waiting_disconnect_event = true;
 }
 
 bool app_ull_is_le_ull_connected(void)
@@ -867,53 +874,6 @@ bool app_ull_is_le_ull_connected(void)
 }
 
 #endif
-
-#ifdef MTK_AWS_MCE_ENABLE
-static void app_ull_partner_set_a2dp_enable(void)
-{
-#if !defined(AIR_ONLY_DONGLE_MODE_ENABLE)
-    if (s_dongle_connected && ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode
-#if defined (AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-        && s_ull_context.game_mode
-#endif
-       ) {
-        if (s_a2dp_standby_enable) {
-            APPS_LOG_MSGID_I(LOG_TAG" a2dp standby enabled, a2dp disable will not process.", 0);
-            return;
-        }
-        bt_a2dp_enable_service_record(false);
-        bt_avrcp_disable_sdp(true);
-    } else {
-        bt_a2dp_enable_service_record(true);
-        bt_avrcp_disable_sdp(false);
-    }
-#endif
-}
-#endif
-
-static void app_ull_store_dongle_address(bool from_air_pairing, bt_bd_addr_t *addr)
-{
-    memcpy(s_ull_context.dongle_bt_address, *addr, sizeof(bt_bd_addr_t));
-    APPS_LOG_MSGID_I(LOG_TAG", dongle address is %02X:%02X:%02X:%02X:%02X:%02X", 6,
-                     s_ull_context.dongle_bt_address[5], s_ull_context.dongle_bt_address[4],
-                     s_ull_context.dongle_bt_address[3], s_ull_context.dongle_bt_address[2],
-                     s_ull_context.dongle_bt_address[1], s_ull_context.dongle_bt_address[0]);
-    nvkey_write_data(NVID_APP_ULL_PEER_BT_ADDRESS, s_ull_context.dongle_bt_address, sizeof(s_ull_context.dongle_bt_address));
-#ifdef MTK_AWS_MCE_ENABLE
-    bt_status_t bt_status = BT_STATUS_PENDING;
-    if (app_bt_connection_service_get_current_status()->aws_connected) {
-        bt_status = apps_aws_sync_event_send_extra(EVENT_GROUP_BT_ULTRA_LOW_LATENCY, BT_ULL_EVENT_PAIRING_COMPLETE_IND,
-                                                   s_ull_context.dongle_bt_address, sizeof(bt_bd_addr_t));
-    }
-    /* Because the sending may fail when air pairing completed, need always resync when AWS connected. */
-    if (from_air_pairing || bt_status != BT_STATUS_SUCCESS) {
-        s_need_resync_ull_addr = true;
-    } else {
-        s_need_resync_ull_addr = false;
-    }
-    APPS_LOG_MSGID_I(LOG_TAG", sync ULL address ret = %x", 1, s_need_resync_ull_addr);
-#endif
-}
 
 static bt_status_t app_ull_connect_correct_profile(bt_bd_addr_t *addr)
 {
@@ -1040,7 +1000,7 @@ static void app_ull_get_connected_connecting_devices_list(bt_bd_addr_t *conn_sp_
             if (conn_sp_list && conn_sp_count && *conn_sp_count > 0 && sp_count < *conn_sp_count) {
                 duplicated_sp = false;
                 for (j = 0; j < sp_count; j++) {
-                    if (ULL_IS_ADDRSS_THE_SAME(connecting_address[i], conn_sp_list[j])) {
+                    if (ULL_IS_ADDRESS_THE_SAME(connecting_address[i], conn_sp_list[j])) {
                         duplicated_sp = true;
                         APPS_LOG_MSGID_I(LOG_TAG", duplicate sp in connecting list", 0);
                         break;
@@ -1059,7 +1019,6 @@ static void app_ull_get_connected_connecting_devices_list(bt_bd_addr_t *conn_sp_
     }
 }
 
-#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
 #ifdef AIR_LE_AUDIO_ENABLE
 extern bool app_ull_is_lea_connected(void);
 #endif
@@ -1083,17 +1042,11 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
 #endif
             app_ull_get_connecting_devices_list(connecting_sp, &connecting_num, NULL);
             app_ull_get_connected_devices_list(connect_sp, &connect_num, NULL);
-#if !defined(AIR_ONLY_DONGLE_MODE_ENABLE)
             if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode
-#ifdef AIR_APP_ULL_GAMING_MODE_UI_ENABLE
-                && s_ull_context.game_mode
-#endif
                 && !s_a2dp_standby_enable) {
                 bt_a2dp_enable_service_record(false);
                 bt_avrcp_disable_sdp(true);
             }
-#endif
-            //app_le_ull_set_advertising_enable(false);
 
 #ifdef MTK_AWS_MCE_ENABLE
             bool connected = true;
@@ -1119,28 +1072,16 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
             app_ull_get_connected_devices_list(connect_sp, &connect_num, NULL);
             for (i = 0; i < connect_num; i++) {
                 if (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode) {
-                    if (s_single_link_disconnecting != ULL_SINGLE_LINK_DISCONNECTING_DONGLE) {
-                        /* Disconnect SP. */
-                        s_single_link_disconnecting = ULL_SINGLE_LINK_DISCONNECTING_SP;
-                        cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                    } else {
-                        /* This case should be actively connect both SRC successfully at the same time, so do not disconnect SP when disconnecting dongle.*/
-                        continue;
-                    }
+                    cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
                 } else {
                     if (i == 0) {
                         /* Multi link mode support the first SP connect HFP. */
                         connected_sp = &connect_sp[i];
                         cm_param.profile = ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP)
                                              | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS));
-#if (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-                        if (!s_ull_context.game_mode)
-#endif
-                        {
-                            if (s_a2dp_standby_enable) {
-                                cm_param.profile &= ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK)
-                                                      | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP));
-                            }
+                        if (s_a2dp_standby_enable) {
+                            cm_param.profile &= ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK)
+                                                  | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP));
                         }
                     } else {
                         cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
@@ -1149,22 +1090,6 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
                 memcpy(cm_param.address, connect_sp[i], sizeof(bt_bd_addr_t));
                 bt_cm_disconnect(&cm_param);
             }
-            /* Because not support paging when already connected devices, cancel all other connection. */
-#if 0
-            for (i = 0; i < connecting_num; i++) {
-                if (connected_sp == NULL || !ULL_IS_ADDRSS_THE_SAME(connecting_sp[i], *connected_sp)) {
-                    APPS_LOG_MSGID_I(LOG_TAG ", Disconnect SP acl link, cancel reconnect.", 0);
-                    cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                    memcpy(cm_param.address, connecting_sp[i], sizeof(bt_bd_addr_t));
-                    bt_status_t bt_status = bt_cm_disconnect(&cm_param);
-                    if (bt_status == BT_STATUS_SUCCESS) {
-                        if (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode) {
-                            s_single_link_disconnecting = ULL_SINGLE_LINK_DISCONNECTING_SP;
-                        }
-                    }
-                }
-            }
-#endif
 
             /* Set latency. */
 #ifdef MTK_AWS_MCE_ENABLE
@@ -1177,19 +1102,11 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
             if (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode) {
                 bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, APPS_ULL_STREAMING_RETRY_COUNT_FOR_SINGLE_LINK);
             } else if (NULL != connected_sp) {
-#if (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-                if (s_ull_context.game_mode) {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
-                } else {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
-                }
-#else
                 if (s_a2dp_standby_enable) {
                     bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
                 } else {
                     bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
                 }
-#endif
             }
 #ifdef AIR_LE_AUDIO_ENABLE
             else if (app_ull_is_lea_connected()) {
@@ -1208,23 +1125,12 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
 #ifdef APPS_SLEEP_AFTER_NO_CONNECTION
             app_power_save_utils_notify_mode_changed(false, NULL);
 #endif
-#if !defined(AIR_ONLY_DONGLE_MODE_ENABLE)
             if (!s_a2dp_standby_enable) {
                 bt_a2dp_enable_service_record(true);
                 bt_avrcp_disable_sdp(false);
             }
-#endif
-#ifndef AIR_ONLY_DONGLE_MODE_ENABLE
-            if (ULL_AUX_USB_AUDIO_STATE_IN != s_ull_context.aux_state &&
-                ULL_AUX_USB_AUDIO_STATE_IN != s_ull_context.usb_audio_state &&
-                !s_cmd_adv_disable && !s_waitting_disconnect_event) {
-                app_le_ull_set_advertising_enable(true, false, false);
-            } else {
-                APPS_LOG_MSGID_I(LOG_TAG ", will not enable adv due to aux=%d,usb=%d,cmd_sta=%d, waitting_dis_ev=%d.", 4,
-                                 s_ull_context.aux_state, s_ull_context.usb_audio_state, s_cmd_adv_disable, s_waitting_disconnect_event);
-                if (s_waitting_disconnect_event) {
-                    s_waitting_disconnect_event = false;
-                }
+            if (s_waiting_disconnect_event) {
+                s_waiting_disconnect_event = false;
             }
 
             /* To avoid smart phone reconnet A2DP when BT OFF -> ON. */
@@ -1250,7 +1156,6 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
                     bt_cm_connect(&cm_param);
                 }
             }
-#endif /* #ifndef AIR_ONLY_DONGLE_MODE_ENABLE */
 #ifdef MTK_AWS_MCE_ENABLE
             bool connected = false;
             apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_APP_INTERACTION,
@@ -1275,59 +1180,30 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
 
             bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_DISCOVERABLE, APPS_ULL_STREAMING_RETRY_COUNT_FOR_SINGLE_LINK);
             if (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode) {
-                //app_le_ull_set_advertising_enable(false);
                 bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, APPS_ULL_STREAMING_RETRY_COUNT_FOR_SINGLE_LINK);
             } else {
                 bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_DISCOVERABLE, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
-#if (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-                if (s_ull_context.game_mode) {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
-                } else {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
-                }
-#else
                 if (s_a2dp_standby_enable) {
                     bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
                 } else {
                     bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
                 }
-#endif
             }
-#if 0
-            for (i = 0; i < connect_num; i++) {
-                /* take over other SP */
-                if (!ULL_IS_ADDRSS_THE_SAME(connect_sp[i], *current_addr)) {
-                    cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                    memcpy(cm_param.address, connect_sp[i], sizeof(bt_bd_addr_t));
-                    bt_cm_disconnect(&cm_param);
-                }
-            }
-#endif
             //bt_app_common_apply_ultra_low_latency_retry_count();
             break;
         }
         case ULL_EVENTS_SP_DISCONNECTED: {
             if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
-#if defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE
-                if (!s_ull_context.game_mode)
-#endif
-                {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_CONNECTING);
-                    bt_app_common_apply_ultra_low_latency_retry_count();
-                }
+                bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_CONNECTING);
+                bt_app_common_apply_ultra_low_latency_retry_count();
                 if (APP_BT_STATE_POWER_STATE_NONE_ACTION == app_bt_connection_service_get_current_status()->target_power_state
-                    && APP_BT_STATE_POWER_STATE_ENABLED == app_bt_connection_service_get_current_status()->current_power_state
-                    && ULL_AUX_USB_AUDIO_STATE_IN != s_ull_context.aux_state && ULL_AUX_USB_AUDIO_STATE_IN != s_ull_context.usb_audio_state) {
+                    && APP_BT_STATE_POWER_STATE_ENABLED == app_bt_connection_service_get_current_status()->current_power_state) {
                     /* Try to reconnect dongle when SP disconnected in multi link mode. */
                     if (!s_ull_le_connected) {
                         app_lea_adv_mgr_enable_ull2_reconnect_mode(true);
                         app_le_ull_set_advertising_enable(true, false, false);
                     } else {
-                        if (!s_a2dp_standby_enable
-#if defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE
-                            && s_ull_context.game_mode
-#endif
-                           ) {
+                        if (!s_a2dp_standby_enable) {
                             cm_param.profile = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK) | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP);
                             for (i = 0; i < connect_num; i++) {
                                 memcpy(cm_param.address, connect_sp[i], sizeof(bt_bd_addr_t));
@@ -1350,8 +1226,6 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
             }
             break;
         }
-#if !defined(AIR_ONLY_DONGLE_MODE_ENABLE)
-#if !(defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
         case ULL_EVENTS_SWITCH_LINK_MODE: {
             if (BT_DEVICE_MANAGER_POWER_STATE_ACTIVE != bt_device_manager_power_get_power_state(BT_DEVICE_TYPE_CLASSIC)) {
                 break;
@@ -1383,7 +1257,6 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
 #endif
             app_ull_get_connected_devices_list(connect_sp, &connect_num, &dongle_connected);
             if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
-                s_ull_context.link_mode = ULL_LINK_MODE_MULTIPLE;
                 bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_CONNECTING);
 
                 if (!s_a2dp_standby_enable) {
@@ -1414,10 +1287,8 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
                             }
                         }
                     }
-                } else if (!s_ull_le_connected) {
-                    if (connect_num <= 1) {
-                        app_lea_adv_mgr_enable_ull2_reconnect_mode(true);
-                    }
+                } else if (!s_ull_le_connected && connect_num <= 1) {
+                    app_lea_adv_mgr_enable_ull2_reconnect_mode(true);
                     app_le_ull_set_advertising_enable(true, false, false);
                 }
             } else {
@@ -1441,551 +1312,12 @@ static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_
             app_le_ull_storage_config();
             break;
         }
-#else /* #if !(defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE) */
-        case ULL_EVENTS_SWITCH_GAME_MODE: {
-            bt_bd_addr_t connecting_sp[2];
-            uint32_t connecting_num = 2;
-            app_ull_get_connecting_devices_list(connecting_sp, &connecting_num, NULL);
-            app_ull_get_connected_devices_list(connect_sp, &connect_num, &dongle_connected);
-            if (s_ull_le_connected) {
-                s_ull_context.game_mode = !s_ull_context.game_mode;
-                if (s_ull_context.game_mode) {
-                    bt_a2dp_enable_service_record(false);
-                    bt_avrcp_disable_sdp(true);
-                    cm_param.profile = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK)
-                                       | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP);
-                    for (i = 0; i < connect_num; i++) {
-                        memcpy(cm_param.address, connect_sp[i], sizeof(bt_bd_addr_t));
-                        bt_cm_disconnect(&cm_param);
-                    }
-                    if (connect_num == 0) {
-                        for (i = 0; i < connecting_num; i++) {
-                            memcpy(cm_param.address, connecting_sp[i], sizeof(bt_bd_addr_t));
-                            bt_cm_disconnect(&cm_param);
-                        }
-                    }
-                    if (connect_num > 0) {
-                        bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
-                    } else {
-                        bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, APPS_ULL_STREAMING_RETRY_COUNT_FOR_SINGLE_LINK);
-                    }
-                } else {
-                    bt_a2dp_enable_service_record(true);
-                    bt_avrcp_disable_sdp(false);
-                    cm_param.profile = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK)
-                                       | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP);
-                    if (connect_num > 0) {
-                        memcpy(cm_param.address, connect_sp[0], sizeof(bt_bd_addr_t));
-                        bt_cm_connect(&cm_param);
-                    }
-                    if (connect_num == 0) {
-                        for (i = 0; i < connecting_num; i++) {
-                            memcpy(cm_param.address, connecting_sp[i], sizeof(bt_bd_addr_t));
-                            bt_cm_connect(&cm_param);
-                        }
-                    }
-                    if (connect_num > 0) {
-                        bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
-                    } else {
-                        bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_CONNECTING);
-                    }
-                }
-                bt_app_common_apply_ultra_low_latency_retry_count();
-                vp.vp_index = VP_INDEX_DOUBLE;
-                voice_prompt_play(&vp, NULL);
-                //apps_config_set_vp(VP_INDEX_DOUBLE, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
-#ifdef MTK_AWS_MCE_ENABLE
-                if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) {
-                    /* Notify partner mode changed. */
-                    app_ull_nvdm_config_data_t config_data = {
-                        .link_mode = s_ull_context.link_mode,
-                        .game_mode = s_ull_context.game_mode,
-                    };
-                    config_data.hfp_only_enable = s_hfp_only_enable;
-                    config_data.a2dp_standby_enable = s_a2dp_standby_enable;
-                    bt_status_t bt_status = apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_ULL_LINK_MODE_CHANGE,
-                                                                           &(config_data), sizeof(config_data));
-                    if (BT_STATUS_SUCCESS != bt_status) {
-                        s_ull_link_mode_synced = false;
-                    } else {
-                        s_ull_link_mode_synced = true;
-                    }
-                }
-#endif
-                app_le_ull_storage_config();
-            } else {
-                voice_prompt_play_vp_failed();
-            }
-            break;
-        }
-#endif /* #if !(defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE) */
-#endif /* #if !defined(AIR_ONLY_DONGLE_MODE_ENABLE) */
         default:
             break;
     }
 }
 
-#else
-
-static void app_ull_process_events(ull_ui_events_t event, bt_bd_addr_t *current_addr)
-{
-    bt_cm_connect_t cm_param;
-    bt_bd_addr_t connect_sp[2];
-    uint32_t connect_num = 2;
-    bool dongle_connected;
-    uint32_t i;
-    voice_prompt_param_t vp = {0};
-
-    switch (event) {
-        case ULL_EVENTS_DONGLE_CONNECTED: {
-            bt_bd_addr_t *connected_sp = NULL;
-            bt_bd_addr_t connecting_sp[2];
-            uint32_t connecting_num = 2;
-            app_ull_get_connecting_devices_list(connecting_sp, &connecting_num, NULL);
-            app_ull_get_connected_devices_list(connect_sp, &connect_num, NULL);
-#if ((!defined AIR_BT_ULTRA_LOW_LATENCY_A2DP_STANDBY_ENABLE) || (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)) && !defined(AIR_ONLY_DONGLE_MODE_ENABLE)
-            if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode
-#ifdef AIR_APP_ULL_GAMING_MODE_UI_ENABLE
-                && s_ull_context.game_mode
-#endif
-               ) {
-                bt_a2dp_enable_service_record(false);
-                bt_avrcp_disable_sdp(true);
-            }
-#endif
-#ifndef AIR_ONLY_DONGLE_MODE_ENABLE
-            /* Common request, when ULL connected, disable BLE and disconnect smart phone profiles. */
-            if (!s_ull_context.adv_paused) {
-                multi_ble_adv_manager_pause_ble_adv();
-                s_ull_context.adv_paused = true;
-            }
-            multi_ble_adv_manager_disconnect_ble(NULL);
-#endif
-#ifdef MTK_AWS_MCE_ENABLE
-            bool connected = true;
-            apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-                                           APPS_EVENTS_INTERACTION_ULL_DONGLE_CONNECTION_CHANGE,
-                                           &connected, sizeof(connected));
-#endif
-            /* When dongle connected,
-             * if single mode, disconnect all other device.
-             * if multi mode, keep HPF only.
-             */
-            for (i = 0; i < connect_num; i++) {
-                if (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode) {
-                    if (s_single_link_disconnecting != ULL_SINGLE_LINK_DISCONNECTING_DONGLE) {
-                        /* Disconnect SP. */
-                        s_single_link_disconnecting = ULL_SINGLE_LINK_DISCONNECTING_SP;
-                        cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                    } else {
-                        /* This case should be actively connect both SRC successfully at the same time, so do not disconnect SP when disconnecting dongle.*/
-                        APPS_LOG_MSGID_I(LOG_TAG ", don't disconnect SP because SP is connected when Dongle is disconnecting.", 0);
-                        continue;
-                    }
-                } else {
-                    if (i == 0) {
-                        /* Multi link mode support the first SP connect HFP. */
-                        connected_sp = &connect_sp[i];
-                        cm_param.profile = ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP)
-                                             | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS));
-#if (defined AIR_BT_ULTRA_LOW_LATENCY_A2DP_STANDBY_ENABLE) || (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-#if (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-                        if (!s_ull_context.game_mode)
-#endif
-                        {
-                            cm_param.profile &= ~(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK)
-                                                  | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP));
-                        }
-#endif
-                    } else {
-                        cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                    }
-                }
-                memcpy(cm_param.address, connect_sp[i], sizeof(bt_bd_addr_t));
-                bt_cm_disconnect(&cm_param);
-            }
-            /* Because not support paging when already connected devices, cancel all other connection. */
-            for (i = 0; i < connecting_num; i++) {
-                if (connected_sp == NULL || !ULL_IS_ADDRSS_THE_SAME(connecting_sp[i], *connected_sp)) {
-                    cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                    memcpy(cm_param.address, connecting_sp[i], sizeof(bt_bd_addr_t));
-                    bt_status_t bt_status = bt_cm_disconnect(&cm_param);
-                    if (bt_status == BT_STATUS_SUCCESS) {
-                        if (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode) {
-                            s_single_link_disconnecting = ULL_SINGLE_LINK_DISCONNECTING_SP;
-                        }
-                    }
-                }
-            }
-
-            /* Set latency. */
-            if (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode) {
-                bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, APPS_ULL_STREAMING_RETRY_COUNT_FOR_SINGLE_LINK);
-            } else if (NULL != connected_sp) {
-#if (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-                if (s_ull_context.game_mode) {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
-                } else {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
-                }
-#else
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_A2DP_STANDBY_ENABLE
-                bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
-#else
-                bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
-#endif
-#endif
-            } else {
-                bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_CONNECTING);
-            }
-            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_ULL_RECONNECT_TIMEOUT);
-            break;
-        }
-        case ULL_EVENTS_DONGLE_DISCONNECTED: {
-#if ((!defined AIR_BT_ULTRA_LOW_LATENCY_A2DP_STANDBY_ENABLE) || (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)) && !defined(AIR_ONLY_DONGLE_MODE_ENABLE)
-            bt_a2dp_enable_service_record(true);
-            bt_avrcp_disable_sdp(false);
-#endif
-#ifndef AIR_ONLY_DONGLE_MODE_ENABLE
-            if (s_ull_context.adv_paused) {
-                multi_ble_adv_manager_resume_ble_adv();
-                s_ull_context.adv_paused = false;
-            }
-            /* To avoid smart phone reconnet A2DP when BT OFF -> ON. */
-            cm_param.profile = 0
-#if (!defined AIR_BT_ULTRA_LOW_LATENCY_A2DP_STANDBY_ENABLE) || (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-                               | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK)
-#endif
-#ifdef MTK_IAP2_PROFILE_ENABLE
-                               | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_IAP2)
-#endif
-                               ;
-            if (cm_param.profile != BT_CM_PROFILE_SERVICE_MASK_NONE
-                && APP_BT_STATE_POWER_STATE_NONE_ACTION == app_bt_connection_service_get_current_status()->target_power_state
-                && APP_BT_STATE_POWER_STATE_ENABLED == app_bt_connection_service_get_current_status()->current_power_state) {
-                app_ull_get_connected_connecting_devices_list(connect_sp, &connect_num, NULL);
-                for (i = 0; i < connect_num; i++) {
-                    memcpy(cm_param.address, connect_sp[i], sizeof(bt_bd_addr_t));
-                    bt_cm_connect(&cm_param);
-                }
-            }
-#endif /* #ifndef AIR_ONLY_DONGLE_MODE_ENABLE */
-#ifdef MTK_AWS_MCE_ENABLE
-            bool connected = false;
-            apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-                                           APPS_EVENTS_INTERACTION_ULL_DONGLE_CONNECTION_CHANGE,
-                                           &connected, sizeof(connected));
-#endif
-            break;
-        }
-        case ULL_EVENTS_SP_CONNECTED: {
-            bool dongle_connecting = false;
-            app_ull_get_connected_connecting_devices_list(connect_sp, &connect_num, &dongle_connecting);
-            app_ull_get_connected_devices_list(NULL, NULL, &dongle_connected);
-            if (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode || !dongle_connected) {
-                if (!ULL_IS_ADDRESS_EMPTY(s_ull_context.dongle_bt_address)) {
-                    if (dongle_connected && s_single_link_disconnecting == ULL_SINGLE_LINK_DISCONNECTING_SP) {
-                    } else if (dongle_connecting || dongle_connected) {
-                        cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                        memcpy(cm_param.address, s_ull_context.dongle_bt_address, sizeof(bt_bd_addr_t));
-                        if (bt_cm_disconnect(&cm_param) == BT_STATUS_SUCCESS) {
-                            s_single_link_disconnecting = ULL_SINGLE_LINK_DISCONNECTING_DONGLE;
-                        }
-                    }
-                }
-            }
-
-            if (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode) {
-                bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, APPS_ULL_STREAMING_RETRY_COUNT_FOR_SINGLE_LINK);
-            } else {
-#if (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-                if (s_ull_context.game_mode) {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
-                } else {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
-                }
-#else
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_A2DP_STANDBY_ENABLE
-                bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
-#else
-                bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
-#endif
-#endif
-            }
-            for (i = 0; i < connect_num; i++) {
-                /* take over other SP */
-                if (!ULL_IS_ADDRSS_THE_SAME(connect_sp[i], *current_addr)) {
-                    cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                    memcpy(cm_param.address, connect_sp[i], sizeof(bt_bd_addr_t));
-                    bt_cm_disconnect(&cm_param);
-                }
-            }
-            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_ULL_RECONNECT_TIMEOUT);
-            break;
-        }
-        case ULL_EVENTS_SP_DISCONNECTED: {
-            if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
-#if defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE
-                if (!s_ull_context.game_mode)
-#endif
-                {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_CONNECTING);
-                }
-                if (APP_BT_STATE_POWER_STATE_NONE_ACTION == app_bt_connection_service_get_current_status()->target_power_state
-                    && APP_BT_STATE_POWER_STATE_ENABLED == app_bt_connection_service_get_current_status()->current_power_state) {
-                    && ULL_AUX_USB_AUDIO_STATE_IN != s_ull_context.aux_state &&ULL_AUX_USB_AUDIO_STATE_IN != s_ull_context.usb_audio_state) {
-                        /* Try to reconnect dongle when SP disconnected in multi link mode. */
-                        app_ull_get_connected_connecting_devices_list(connect_sp, &connect_num, &dongle_connected);
-                        if (!dongle_connected) {
-                            app_ull_connect_correct_profile(&s_ull_context.dongle_bt_address);
-                        } else {
-#if (!defined AIR_BT_ULTRA_LOW_LATENCY_A2DP_STANDBY_ENABLE) || (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-#if defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE
-                            if (s_ull_context.game_mode)
-#endif
-                            {
-                                cm_param.profile = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK) | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP);
-                                for (i = 0; i < connect_num; i++) {
-                                    memcpy(cm_param.address, connect_sp[i], sizeof(bt_bd_addr_t));
-                                    bt_cm_disconnect(&cm_param);
-                                }
-                            }
-#endif
-                        }
-                    }
-                }
-                break;
-            }
-#if defined(APPS_LINE_IN_SUPPORT) || defined(APPS_USB_AUDIO_SUPPORT)
-            case ULL_EVENTS_AUX_IN:
-            case ULL_EVENTS_USB_AUDIO_IN: {
-                if (BT_DEVICE_MANAGER_POWER_STATE_ACTIVE != bt_device_manager_power_get_power_state(BT_DEVICE_TYPE_CLASSIC)) {
-                    break;
-                }
-                /* Disconnect dongle for single and multi link, connect A2DP for multi link */
-                cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                memcpy(cm_param.address, s_ull_context.dongle_bt_address, sizeof(bt_bd_addr_t));
-                bt_cm_disconnect(&cm_param);
-                if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
-                    cm_param.profile = 0;
-#if ((!defined AIR_BT_ULTRA_LOW_LATENCY_A2DP_STANDBY_ENABLE) || (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)) && !defined(AIR_ONLY_DONGLE_MODE_ENABLE)
-                    cm_param.profile |= BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK);
-#endif
-#ifdef MTK_IAP2_PROFILE_ENABLE
-                    cm_param.profile |= BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_IAP2);
-#endif
-                    if (BT_CM_PROFILE_SERVICE_MASK_NONE != cm_param.profile) {
-                        app_ull_get_connected_connecting_devices_list(connect_sp, &connect_num, NULL);
-                        if (connect_num > 0) {
-                            /* Connect A2DP. */
-                            memcpy(cm_param.address, connect_sp[0], sizeof(bt_bd_addr_t));
-                            APPS_LOG_MSGID_I(LOG_TAG ", connect a2dp of connected SP", 0);
-                            bt_cm_connect(&cm_param);
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-            case ULL_EVENTS_AUX_OUT:
-            case ULL_EVENTS_USB_AUDIO_OUT: {
-                if (BT_DEVICE_MANAGER_POWER_STATE_ACTIVE != bt_device_manager_power_get_power_state(BT_DEVICE_TYPE_CLASSIC)) {
-                    APPS_LOG_MSGID_I(LOG_TAG ", Do nothing for AUX_OUT when BT OFF", 0);
-                    break;
-                }
-                if (ULL_AUX_USB_AUDIO_STATE_IN == s_ull_context.aux_state ||
-                    ULL_AUX_USB_AUDIO_STATE_IN == s_ull_context.usb_audio_state) {
-                    APPS_LOG_MSGID_I(LOG_TAG ", still have wired connected: aux:%d, usb:%d", 2,
-                                     s_ull_context.aux_state, s_ull_context.usb_audio_state);
-                    break;
-                }
-                /* Reconnect dongle if smart phone not connected. */
-                app_ull_get_connected_devices_list(connect_sp, &connect_num, &dongle_connected);
-                if (!dongle_connected) {
-                    if (0 == connect_num) {
-                        app_ull_connect_correct_profile(&s_ull_context.dongle_bt_address);
-                    }
-                }
-                break;
-            }
-#endif
-#if !defined(AIR_ONLY_DONGLE_MODE_ENABLE)
-#if !(defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-            case ULL_EVENTS_SWITCH_LINK_MODE: {
-                if (BT_DEVICE_MANAGER_POWER_STATE_ACTIVE != bt_device_manager_power_get_power_state(BT_DEVICE_TYPE_CLASSIC)) {
-                    APPS_LOG_MSGID_I(LOG_TAG ", Do nothing for SWITCH_LINK_MODE when BT OFF", 0);
-                    break;
-                }
-                APPS_LOG_MSGID_I(LOG_TAG ", link_mode switch from %d", 1, s_ull_context.link_mode);
-                if (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode) {
-                    s_ull_context.link_mode = ULL_LINK_MODE_MULTIPLE;
-                } else {
-                    s_ull_context.link_mode = ULL_LINK_MODE_SINGLE;
-                }
-#ifdef MTK_AWS_MCE_ENABLE
-                if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) {
-                    /* Notify partner mode changed. */
-                    app_ull_nvdm_config_data_t config_data = {
-                        .link_mode = s_ull_context.link_mode,
-#if (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-                        .game_mode = s_ull_context.game_mode,
-#endif
-                    };
-                    config_data.hfp_only_enable = s_hfp_only_enable;
-                    config_data.a2dp_standby_enable = s_a2dp_standby_enable;
-                    bt_status_t bt_status = apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_ULL_LINK_MODE_CHANGE,
-                                                                           &(config_data), sizeof(config_data));
-                    if (BT_STATUS_SUCCESS != bt_status) {
-                        s_ull_link_mode_synced = false;
-                    } else {
-                        s_ull_link_mode_synced = true;
-                    }
-                }
-#endif
-                app_ull_get_connected_devices_list(connect_sp, &connect_num, &dongle_connected);
-                if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
-                    s_ull_context.link_mode = ULL_LINK_MODE_MULTIPLE;
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_CONNECTING);
-#if !defined(AIR_BT_ULTRA_LOW_LATENCY_A2DP_STANDBY_ENABLE) && !defined(AIR_ONLY_DONGLE_MODE_ENABLE)
-                    if (dongle_connected) {
-                        bt_a2dp_enable_service_record(false);
-                        bt_avrcp_disable_sdp(true);
-                    }
-#endif
-                    if (0 == connect_num && !dongle_connected) {
-                        /* If not connected any SRC, try to connect SP and dongle. */
-                        bt_bd_addr_t connecting_sp[2];
-                        uint32_t connecting_num = 2;
-                        app_ull_get_connected_connecting_devices_list(connecting_sp, &connecting_num, &dongle_connected);
-                        if (!dongle_connected && !ULL_IS_ADDRESS_EMPTY(s_ull_context.dongle_bt_address)) {
-                            app_ull_connect_correct_profile(&s_ull_context.dongle_bt_address);
-                        }
-                        if (connecting_num == 0) {
-                            bt_device_manager_paired_infomation_t paired_info[2];
-                            uint32_t paired_info_count = 2;
-                            bt_device_manager_get_paired_list(paired_info, &paired_info_count);
-                            for (i = 0; i < paired_info_count; i++) {
-                                if (!ULL_IS_DONGLE_ADDRESS(paired_info[i].address)) {
-                                    app_ull_connect_correct_profile(&paired_info[i].address);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, APPS_ULL_STREAMING_RETRY_COUNT_FOR_SINGLE_LINK);
-                    s_ull_context.link_mode = ULL_LINK_MODE_SINGLE;
-                    cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                    if (!dongle_connected && connect_num > 0) {
-                        /* When sp connected and dongle is not connected, disconnect dongle */
-                        memcpy(cm_param.address, s_ull_context.dongle_bt_address, sizeof(bt_bd_addr_t));
-                        bt_cm_disconnect(&cm_param);
-                    } else if (dongle_connected) {
-                        connect_num = sizeof(connect_sp) / sizeof(connect_sp[0]);
-                        app_ull_get_connected_connecting_devices_list(connect_sp, &connect_num, NULL);
-                        for (i = 0; i < connect_num; i++) {
-                            memcpy(cm_param.address, connect_sp[i], sizeof(bt_bd_addr_t));
-                            bt_cm_disconnect(&cm_param);
-                        }
-                    }
-                }
-                app_ull_nvdm_config_data_t config_data = {
-                    .link_mode = s_ull_context.link_mode,
-                };
-                nvkey_write_data(NVKEYID_APP_ULL_CONFIG, (uint8_t *)&config_data, sizeof(config_data));
-                break;
-            }
-#else /* #if !(defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE) */
-            case ULL_EVENTS_SWITCH_GAME_MODE: {
-                bt_bd_addr_t connecting_sp[2];
-                uint32_t connecting_num = 2;
-                app_ull_get_connecting_devices_list(connecting_sp, &connecting_num, NULL);
-                app_ull_get_connected_devices_list(connect_sp, &connect_num, &dongle_connected);
-                if (dongle_connected) {
-                    s_ull_context.game_mode = !s_ull_context.game_mode;
-                    if (s_ull_context.game_mode) {
-                        bt_a2dp_enable_service_record(false);
-                        bt_avrcp_disable_sdp(true);
-                        cm_param.profile = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK)
-                                           | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP);
-                        for (i = 0; i < connect_num; i++) {
-                            memcpy(cm_param.address, connect_sp[i], sizeof(bt_bd_addr_t));
-                            APPS_LOG_MSGID_I(LOG_TAG ", disconnect A2DP when game mode on for %d", 1, i);
-                            bt_cm_disconnect(&cm_param);
-                        }
-                        if (connect_num == 0) {
-                            for (i = 0; i < connecting_num; i++) {
-                                memcpy(cm_param.address, connecting_sp[i], sizeof(bt_bd_addr_t));
-                                bt_cm_disconnect(&cm_param);
-                            }
-                        }
-                        if (connect_num > 0) {
-                            bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
-                        } else {
-                            bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, APPS_ULL_STREAMING_RETRY_COUNT_FOR_SINGLE_LINK);
-                        }
-                    } else {
-                        bt_a2dp_enable_service_record(true);
-                        bt_avrcp_disable_sdp(false);
-                        cm_param.profile = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK)
-                                           | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP);
-                        if (connect_num > 0) {
-                            memcpy(cm_param.address, connect_sp[0], sizeof(bt_bd_addr_t));
-                            bt_cm_connect(&cm_param);
-                        }
-                        if (connect_num == 0) {
-                            for (i = 0; i < connecting_num; i++) {
-                                memcpy(cm_param.address, connecting_sp[i], sizeof(bt_bd_addr_t));
-                                bt_cm_connect(&cm_param);
-                            }
-                        }
-                        if (connect_num > 0) {
-                            bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
-                        } else {
-                            bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_CONNECTING);
-                        }
-                    }
-                    vp.vp_index = VP_INDEX_DOUBLE;
-                    voice_prompt_play(&vp, NULL);
-                    //apps_config_set_vp(VP_INDEX_DOUBLE, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
-                    app_ull_nvdm_config_data_t config_data = {
-                        .link_mode = s_ull_context.link_mode,
-                        .game_mode = s_ull_context.game_mode,
-                    };
-#ifdef MTK_AWS_MCE_ENABLE
-                    if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) {
-                        /* Notify partner mode changed. */
-                        app_ull_nvdm_config_data_t config_data = {
-                            .link_mode = s_ull_context.link_mode,
-                            .game_mode = s_ull_context.game_mode,
-                        };
-                        config_data.hfp_only_enable = s_hfp_only_enable;
-                        config_data.a2dp_standby_enable = s_a2dp_standby_enable;
-                        bt_status_t bt_status = apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_ULL_LINK_MODE_CHANGE,
-                                                                               &(config_data), sizeof(config_data));
-                        if (BT_STATUS_SUCCESS != bt_status) {
-                            s_ull_link_mode_synced = false;
-                        } else {
-                            s_ull_link_mode_synced = true;
-                        }
-                    }
-#endif
-                    nvkey_write_data(NVKEYID_APP_ULL_CONFIG, (uint8_t *)&config_data, sizeof(config_data));
-                } else {
-                    voice_prompt_play_vp_failed();
-                }
-                break;
-            }
-#endif /* #if !(defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE) */
-#endif /* #if !defined(AIR_ONLY_DONGLE_MODE_ENABLE) */
-            default:
-                break;
-            }
-    }
-#endif
-
-#if !defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)
-#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE) && !defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)
 static void app_ull_reconnect_request_process(void) {
     bt_bd_addr_t addr_list[2];
     uint32_t addr_list_len = 2;
@@ -1997,7 +1329,7 @@ static void app_ull_reconnect_request_process(void) {
     bt_cm_connect_t param;
     uint32_t i;
     voice_prompt_param_t vp = {0};
-    vp.vp_index = VP_INDEX_SUCCESSED;
+    vp.vp_index = VP_INDEX_SUCCEED;
 
     if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
         return;
@@ -2064,120 +1396,9 @@ static void app_ull_reconnect_request_process(void) {
     } else if (!s_ull_le_connected && addr_list_len == 0 && s_ull_adv_en && connecting_list_len > 0) {
         /* Keep connecting status when both is connecting. */
         voice_prompt_play(&vp, NULL);
-        //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
+        //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
     }
 }
-
-#else
-static void app_ull_reconnect_request_process(void) {
-    bt_bd_addr_t addr_list[2];
-    uint32_t addr_list_len = 2;
-    bt_bd_addr_t connecting_list[2];
-    uint32_t connecting_list_len = 2;
-    bool ull_connected = false;
-    bool ull_connecting = false;
-    bt_status_t sta = BT_STATUS_FAIL;
-    bt_cm_connect_t param;
-    uint32_t i;
-    voice_prompt_param_t vp = {0};
-
-    if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
-        return;
-    }
-
-    app_ull_get_connected_devices_list(addr_list, &addr_list_len, &ull_connected);
-    app_ull_get_connecting_devices_list(connecting_list, &connecting_list_len, &ull_connecting);
-
-    APPS_LOG_MSGID_I(LOG_TAG", app_ull_reconnect_request_process connected[sp:dongle][%d:%d], connecting[sp:dongle][%d:%d]", 4,
-                     addr_list_len, ull_connected, connecting_list_len, ull_connecting);
-    if (ull_connected && addr_list_len > 0) {
-        vp.vp_index = VP_INDEX_FAILED;
-        voice_prompt_play(&vp, NULL);
-        //apps_config_set_vp(VP_INDEX_FAILED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
-        return;
-    } else if (addr_list_len > 0 || (!ull_connected && !ull_connecting)) {
-        /* When SP is connected or ull is not connecting, reconnect dongle. */
-        if (!ULL_IS_ADDRESS_EMPTY(s_ull_context.dongle_bt_address)) {
-            param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-            /* disconnect all SP. */
-            for (i = 0; i < addr_list_len; i++) {
-                memcpy(param.address, addr_list[i], sizeof(bt_bd_addr_t));
-                bt_cm_disconnect(&param);
-            }
-            for (i = 0; i < connecting_list_len; i++) {
-                memcpy(param.address, connecting_list[i], sizeof(bt_bd_addr_t));
-                bt_cm_disconnect(&param);
-            }
-        }
-        if (ull_connecting) {
-            sta = BT_STATUS_SUCCESS;
-        } else {
-            if (!ULL_IS_ADDRESS_EMPTY(s_ull_context.dongle_bt_address)) {
-                /* update time */
-                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_ULL_RECONNECT_TIMEOUT);
-                ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-                                    APPS_EVENTS_INTERACTION_ULL_RECONNECT_TIMEOUT, NULL, 0,
-                                    NULL, ULL_SWITCH_CONNECT_TIME);
-                sta = app_ull_connect_correct_profile(&s_ull_context.dongle_bt_address);
-            } else {
-                sta = BT_STATUS_FAIL;
-            }
-        }
-
-        if (sta == BT_STATUS_SUCCESS) {
-            vp.vp_index = VP_INDEX_SUCCESSED;
-            //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
-        } else {
-            vp.vp_index = VP_INDEX_FAILED;
-            //apps_config_set_vp(VP_INDEX_FAILED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
-        }
-        voice_prompt_play(&vp, NULL);
-    } else if (ull_connected || (connecting_list_len == 0 && ull_connecting)) {
-        /* Reconnect SP. */
-        /* Disconnect dongle. */
-        if (!ULL_IS_ADDRESS_EMPTY(s_ull_context.dongle_bt_address)) {
-            memcpy(param.address, s_ull_context.dongle_bt_address, sizeof(bt_bd_addr_t));
-            param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-            bt_cm_disconnect(&param);
-        }
-        if (connecting_list_len > 0) {
-            sta = BT_STATUS_SUCCESS;
-        } else {
-            bt_device_manager_paired_infomation_t pair_info[2];
-            uint32_t paired_number = 2;
-            bt_bd_addr_t *sp_addr = NULL;
-            bt_device_manager_get_paired_list(pair_info, &paired_number);
-            for (i = 0; i < paired_number; i++) {
-                if (!ULL_IS_DONGLE_ADDRESS(pair_info[i].address)) {
-                    sp_addr = &pair_info[i].address;
-                    break;
-                }
-            }
-            if (sp_addr != NULL) {
-                /* Update time. */
-                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_ULL_RECONNECT_TIMEOUT);
-                ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-                                    APPS_EVENTS_INTERACTION_ULL_RECONNECT_TIMEOUT, NULL, 0,
-                                    NULL, ULL_SWITCH_CONNECT_TIME);
-                sta = app_ull_connect_correct_profile(sp_addr);
-            }
-        }
-        if (BT_STATUS_SUCCESS == sta) {
-            vp.vp_index = VP_INDEX_SUCCESSED;
-            //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
-        } else {
-            vp.vp_index = VP_INDEX_FAILED;
-            //apps_config_set_vp(VP_INDEX_FAILED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
-        }
-        voice_prompt_play(&vp, NULL);
-    } else if (!ull_connected && addr_list_len == 0 && ull_connecting && connecting_list_len > 0) {
-        /* Keep connecting status when both is connecting. */
-        vp.vp_index = VP_INDEX_SUCCESSED;
-        voice_prompt_play(&vp, NULL);
-        //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
-    }
-}
-#endif
 #endif
 
 static bool app_ull_proc_ui_shell_group(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len) {
@@ -2225,16 +1446,7 @@ static bool app_ull_proc_ui_shell_group(ui_shell_activity_t *self, uint32_t even
                 bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, APPS_ULL_STREAMING_RETRY_COUNT_FOR_SINGLE_LINK);
             }
             bt_app_common_apply_ultra_low_latency_retry_count();
-#ifdef AIR_ONLY_DONGLE_MODE_ENABLE
-            bt_a2dp_enable_service_record(false);
-            bt_avrcp_disable_sdp(true);
-            bt_hfp_enable_service_record(false);
-            multi_ble_adv_manager_pause_ble_adv();
-            s_ull_context.adv_paused = true;
-#endif
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)
-            s_reboot_trigger_reconnect = pmu_get_power_off_reason() == 0x8;
-#endif
+
             APPS_LOG_MSGID_I(LOG_TAG": create, init link mode:%d", 1, s_ull_context.link_mode);
 #else
 		// Richard for Airoha's suggestion
@@ -2253,10 +1465,8 @@ static bool app_ull_proc_ui_shell_group(ui_shell_activity_t *self, uint32_t even
 #endif
             atci_status_t ret = atci_register_handler(bt_app_le_ull_at_cmd, sizeof(bt_app_le_ull_at_cmd) / sizeof(atci_cmd_hdlr_item_t));
             APPS_LOG_MSGID_I(LOG_TAG" register atci handler ret=%d.", 1, ret);
-#ifdef AIR_BLE_ULL_TAKEOVER_ENABLE
-#if !defined(AIR_DCHS_MODE_ENABLE) && !defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) && !defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
+#if defined(AIR_BLE_ULL_TAKEOVER_ENABLE) && !defined(AIR_DCHS_MODE_ENABLE) && !defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) && !defined(AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
             ui_shell_start_activity(self, app_ull_takeover_activity_proc, ACTIVITY_PRIORITY_MIDDLE, NULL, 0);
-#endif
 #endif
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
             if (bt_ull_le_hid_srv_get_bonded_device_num(BT_ULL_LE_HID_SRV_DEVICE_HEADSET) > 0) {
@@ -2289,14 +1499,14 @@ static bool app_ull_proc_rotary_event_group(ui_shell_activity_t *self, uint32_t 
     switch (key_action) {
         case KEY_AUDIO_MIX_RATIO_GAME_ADD:
         case KEY_AUDIO_MIX_RATIO_CHAT_ADD: {
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
             if ((app_dongle_service_get_dongle_mode() == APP_DONGLE_SERVICE_DONGLE_MODE_XBOX)
                 || (app_dongle_service_get_dongle_mode() == APP_DONGLE_SERVICE_DONGLE_MODE_PC)) {
                 apps_dongle_sync_event_send(EVENT_GROUP_UI_SHELL_KEY, key_action);
                 ret = true;
                 break;
             }
-#endif /* AIR_BT_ULTRA_LOW_LATENCY_ENABLE */
+#endif
             uint8_t target_level = 0;
             bt_ull_mix_ratio_t mix_ratio;
             mix_ratio.num_streaming = BT_ULL_MAX_STREAMING_NUM;
@@ -2432,46 +1642,6 @@ static bool app_ull_proc_interaction_event_group(ui_shell_activity_t *self, uint
 #ifdef AIR_BLE_ULL_PARING_MODE_ENABLE
             app_lea_adv_mgr_enable_ull2_pairing_mode(false);
 #endif
-#if 0
-#ifndef AIR_WIRELESS_MIC_ENABLE
-            app_le_ull_set_advertising_enable(false, false, false);
-#endif
-#endif
-            break;
-        }
-#endif
-#ifdef APPS_LINE_IN_SUPPORT
-        case APPS_EVENTS_INTERACTION_LINE_IN_PLUG_STATE: {
-            bool plug_in = (bool)extra_data;
-            ull_aux_or_usb_audio_in_state_t current_state = plug_in ? ULL_AUX_USB_AUDIO_STATE_IN : ULL_AUX_USB_AUDIO_STATE_OUT;
-            if (current_state != s_ull_context.aux_state) {
-                if (ULL_AUX_USB_AUDIO_STATE_NONE == s_ull_context.aux_state) {
-                    /* BT should have not enabled. */
-                    s_ull_context.aux_state = current_state;
-                } else {
-                    s_ull_context.aux_state = current_state;
-                    if (plug_in) {
-                        app_ull_process_events(ULL_EVENTS_AUX_IN, NULL);
-                    } else {
-                        app_ull_process_events(ULL_EVENTS_AUX_OUT, NULL);
-                    }
-                }
-            }
-            break;
-        }
-#endif
-#ifdef APPS_USB_AUDIO_SUPPORT
-        case APPS_EVENTS_INTERACTION_USB_PLUG_STATE: {
-            bool plug_in = (bool)extra_data;
-            ull_aux_or_usb_audio_in_state_t current_state = plug_in ? ULL_AUX_USB_AUDIO_STATE_IN : ULL_AUX_USB_AUDIO_STATE_OUT;
-            if (current_state != s_ull_context.usb_audio_state) {
-                s_ull_context.usb_audio_state = current_state;
-                if (plug_in) {
-                    app_ull_process_events(ULL_EVENTS_USB_AUDIO_IN, NULL);
-                } else {
-                    app_ull_process_events(ULL_EVENTS_USB_AUDIO_OUT, NULL);
-                }
-            }
             break;
         }
 #endif
@@ -2493,16 +1663,9 @@ static bool app_ull_proc_interaction_event_group(ui_shell_activity_t *self, uint
                 app_ull_get_connected_devices_list(connectied_addr, &connected_addr_len, &dongle_connected);
                 APPS_LOG_MSGID_I(LOG_TAG", ULL_RECONNECT_TIMEOUT = connected[sp:dongle], connecting[sp:dongle][%d:%d]", 4,
                                  connected_addr_len > 0, dongle_connected, reconnecting_addr_len > 0, dongle_connecting);
-                if (connected_addr_len > 0 || dongle_connected) {
+                if (connected_addr_len > 0 || s_ull_le_connected) {
                     /* Already connected, not need reconnect. */
                     break;
-                }
-                if (!dongle_connecting) {
-#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
-                    app_le_ull_set_advertising_enable(true, false, false);
-#else
-                    app_ull_connect_correct_profile(&s_ull_context.dongle_bt_address);
-#endif
                 }
                 if (reconnecting_addr_len == 0) {
                     bt_device_manager_paired_infomation_t pair_info[2];
@@ -2526,19 +1689,11 @@ static bool app_ull_proc_interaction_event_group(ui_shell_activity_t *self, uint
                 uint32_t connect_num = 1;
                 app_ull_get_connected_devices_list(connect_sp, &connect_num, NULL);
                 if (connect_num > 0) {
-#if (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
-                    if (s_ull_context.game_mode) {
-                        bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
-                    } else {
-                        bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
-                    }
-#else
                     if (s_a2dp_standby_enable) {
                         bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK_A2DP);
                     } else {
                         bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_MULTI_LINK);
                     }
-#endif /* #if (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE) */
                 } else {
                     bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_RECONNECT, BT_APP_COMMON_ULL_STREAM_RETRY_COUNT_FOR_CONNECTING);
                 }
@@ -2695,11 +1850,11 @@ static bool app_ull_proc_key_event_group(ui_shell_activity_t *self, uint32_t eve
 #ifdef AIR_BLE_ULL_PARING_MODE_ENABLE
             app_lea_adv_mgr_enable_ull2_pairing_mode(true);
 #endif /* AIR_BLE_ULL_PARING_MODE_ENABLE */
-#ifdef AIR_LEA_ULL2_KEY_TRIGGET_GENERAL_ADV
+#ifdef AIR_LEA_ULL2_KEY_TRIGGER_GENERAL_ADV
             app_le_ull_set_advertising_enable(true, true, true);
 #else
             app_le_ull_set_advertising_enable(true, false, false);
-#endif /* AIR_LEA_ULL2_KEY_TRIGGET_GENERAL_ADV */
+#endif /* AIR_LEA_ULL2_KEY_TRIGGER_GENERAL_ADV */
         }
         break;
 #endif /* AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE */
@@ -2793,50 +1948,22 @@ static bool app_ull_proc_bt_cm_group(ui_shell_activity_t *self, uint32_t event_i
 #endif
             {
                 if (BT_CM_ACL_LINK_CONNECTED > remote_update->pre_acl_state && BT_CM_ACL_LINK_CONNECTED <= remote_update->acl_state) {
-                    if (ULL_IS_DONGLE_ADDRESS(remote_update->address)) {
-                        app_ull_process_events(ULL_EVENTS_DONGLE_CONNECTED, &remote_update->address);
-                    }
 #ifdef MTK_AWS_MCE_ENABLE
-                    else if (ULL_IS_ADDRSS_THE_SAME(remote_update->address, *(bt_device_manager_get_local_address()))) {
-                        ;
-                    }
-#endif
-                    else {
+                    if (!ULL_IS_ADDRESS_THE_SAME(remote_update->address, *(bt_device_manager_get_local_address()))) {
                         app_ull_process_events(ULL_EVENTS_SP_CONNECTED, &remote_update->address);
                     }
+#else
+                    app_ull_process_events(ULL_EVENTS_SP_CONNECTED, &remote_update->address);
+#endif
                 } else if ((BT_CM_ACL_LINK_CONNECTED <= remote_update->pre_acl_state && BT_CM_ACL_LINK_CONNECTED > remote_update->acl_state)
                            || (BT_CM_ACL_LINK_DISCONNECTING == remote_update->pre_acl_state && BT_CM_ACL_LINK_DISCONNECTED == remote_update->acl_state && BT_HCI_STATUS_UNKNOWN_CONNECTION_IDENTIFIER != remote_update->reason)) {
-                    if (ULL_IS_DONGLE_ADDRESS(remote_update->address)) {
-                        if (ULL_SINGLE_LINK_DISCONNECTING_DONGLE == s_single_link_disconnecting) {
-                            s_single_link_disconnecting = ULL_SINGLE_LINK_DISCONNECTING_NONE;
-                        }
-                        app_ull_process_events(ULL_EVENTS_DONGLE_DISCONNECTED, &remote_update->address);
-                        s_uplink_started = false;
-                    }
 #ifdef MTK_AWS_MCE_ENABLE
-                    else if (ULL_IS_ADDRSS_THE_SAME(remote_update->address, *(bt_device_manager_get_local_address()))) {
-                        ;
-                    }
-#endif
-                    else {
-                        if (ULL_SINGLE_LINK_DISCONNECTING_SP == s_single_link_disconnecting) {
-                            s_single_link_disconnecting = ULL_SINGLE_LINK_DISCONNECTING_NONE;
-                        }
+                    if (!ULL_IS_ADDRESS_THE_SAME(remote_update->address, *(bt_device_manager_get_local_address()))) {
                         app_ull_process_events(ULL_EVENTS_SP_DISCONNECTED, &remote_update->address);
                     }
-                }
-                if ((~remote_update->pre_connected_service) & remote_update->connected_service
-                    & BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_ULL)) {
-                    if (!ULL_IS_ADDRSS_THE_SAME(s_ull_context.dongle_bt_address, remote_update->address)) {
-                        bt_cm_connect_t cm_param;
-                        cm_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
-                        memcpy(cm_param.address, remote_update->address, sizeof(bt_bd_addr_t));
-                        bt_cm_disconnect(&cm_param);
-                        /*
-                        app_ull_store_dongle_address(false, &(remote_update->address));
-                        app_ull_process_events(ULL_EVENTS_DONGLE_CONNECTED, &remote_update->address);
-                        */
-                    }
+#else
+                    app_ull_process_events(ULL_EVENTS_SP_DISCONNECTED, &remote_update->address);
+#endif
                 }
 #ifdef MTK_AWS_MCE_ENABLE
                 if ((~remote_update->pre_connected_service) & remote_update->connected_service
@@ -2892,13 +2019,9 @@ static bool app_ull_proc_bt_cm_group(ui_shell_activity_t *self, uint32_t event_i
                         s_ull_context.adv_paused = false;
                     }
 #endif
-                    s_dongle_connected = false;
                     s_uplink_started = false;
-                    s_single_link_disconnecting = ULL_SINGLE_LINK_DISCONNECTING_NONE;
-                    app_ull_partner_set_a2dp_enable();
                 } else if (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS)
                            & ((~remote_update->pre_connected_service) & remote_update->connected_service)) {
-                    s_single_link_disconnecting = ULL_SINGLE_LINK_DISCONNECTING_NONE;
                     if (BT_AWS_MCE_SRV_LINK_NORMAL == bt_aws_mce_srv_get_link_type()) {
                     }
                 }
@@ -2921,9 +2044,6 @@ static bool app_ull_proc_bt_cm_group(ui_shell_activity_t *self, uint32_t event_i
 
 static bool app_ull_proc_bt_dm_group(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len) {
     bool ret = false;
-    bool need_reconnect = false;
-    bt_status_t bt_status = BT_STATUS_FAIL;
-
     bt_device_manager_power_event_t evt;
     bt_device_manager_power_status_t status;
     bt_event_get_bt_dm_event_and_status(event_id, &evt, &status);
@@ -2958,16 +2078,6 @@ static bool app_ull_proc_bt_dm_group(ui_shell_activity_t *self, uint32_t event_i
                     bt_ull_le_hid_srv_action(BT_ULL_ACTION_LE_HID_CREATE_SYNC, &con_info, sizeof(con_info));
                 }
 #endif
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)
-                if (s_reboot_trigger_reconnect) {
-                    need_reconnect = true;
-                    s_reboot_trigger_reconnect = false;
-                } else {
-                    need_reconnect = false;
-                }
-#else
-                need_reconnect = true;
-#endif
             }
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
             if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
@@ -2997,75 +2107,6 @@ static bool app_ull_proc_bt_dm_group(ui_shell_activity_t *self, uint32_t event_i
         default:
             break;
     }
-
-    if (need_reconnect) {
-        bool reconnect_dongle = false;
-#ifndef AIR_ONLY_DONGLE_MODE_ENABLE
-        bt_device_manager_paired_infomation_t paired_info[2];
-        uint32_t paired_info_count = 2;
-        bool reconnect_sp = false;
-        bool dongle_is_first_in_paired_list = false;
-        bt_bd_addr_t *sp_addr = NULL;
-        uint32_t i;
-
-        bt_device_manager_get_paired_list(paired_info, &paired_info_count);
-        for (i = 0; i < paired_info_count; i++) {
-            if (ULL_IS_DONGLE_ADDRESS(paired_info[i].address)) {
-                if (NULL == sp_addr) {
-                    dongle_is_first_in_paired_list = true;
-                }
-            } else if (!reconnect_sp) {
-                sp_addr = &paired_info[i].address;
-                reconnect_sp = true;
-                break;
-            }
-        }
-
-        /* Multi-link mode must reconnect dongle first. Single link mode reconnect the last paired device. */
-        if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode
-            || (ULL_LINK_MODE_SINGLE == s_ull_context.link_mode && dongle_is_first_in_paired_list)) {
-            reconnect_dongle = true;
-        }
-
-
-        if (reconnect_dongle && !ULL_IS_ADDRESS_EMPTY(s_ull_context.dongle_bt_address)
-#if defined(APPS_LINE_IN_SUPPORT) || defined(APPS_USB_AUDIO_SUPPORT)
-            && ULL_AUX_USB_AUDIO_STATE_IN != s_ull_context.aux_state
-            && ULL_AUX_USB_AUDIO_STATE_IN != s_ull_context.usb_audio_state
-#endif
-           ) {
-            bt_status = app_ull_connect_correct_profile(&s_ull_context.dongle_bt_address);
-            APPS_LOG_MSGID_I(LOG_TAG", power on reconnect dongle:%x", 1, bt_status);
-        }
-
-#ifndef APP_CONN_MGR_RECONNECT_CONTROL
-        if (sp_addr) {
-#ifndef AIR_BLE_ULL_TAKEOVER_ENABLE
-            bt_status = app_ull_connect_correct_profile(sp_addr);
-#else
-            if (s_ull_le_connected) {
-                APPS_LOG_MSGID_I(LOG_TAG", will no reconnect SP due to le ull connected ", 1, bt_status);
-            } else {
-                bt_status = app_ull_connect_correct_profile(sp_addr);
-            }
-#endif
-        }
-#endif
-#endif  /* #ifndef AIR_ONLY_DONGLE_MODE_ENABLE */
-
-#ifndef APP_CONN_MGR_RECONNECT_CONTROL
-        /* Both mode (Single link or multi link) need reconnect dongle. */
-        if (!reconnect_dongle && !ULL_IS_ADDRESS_EMPTY(s_ull_context.dongle_bt_address)
-#if defined(APPS_LINE_IN_SUPPORT) || defined(APPS_USB_AUDIO_SUPPORT)
-            && ULL_AUX_USB_AUDIO_STATE_IN != s_ull_context.aux_state
-            && ULL_AUX_USB_AUDIO_STATE_IN != s_ull_context.usb_audio_state
-#endif
-           ) {
-            bt_status = app_ull_connect_correct_profile(&s_ull_context.dongle_bt_address);
-        }
-#endif
-    }
-
     return ret;
 }
 
@@ -3074,22 +2115,6 @@ static bool app_ull_proc_ull_event(ui_shell_activity_t *self, uint32_t event_id,
     voice_prompt_param_t vp = {0};
 
     switch (event_id) {
-        case BT_ULL_EVENT_PAIRING_COMPLETE_IND: {
-            bt_ull_pairing_complete_ind_t *air_pairing_ind = (bt_ull_pairing_complete_ind_t *)extra_data;
-            if (air_pairing_ind->result) {
-                app_ull_store_dongle_address(true, &(air_pairing_ind->remote_address));
-                apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING_SUCCESS, 30, false);
-                vp.vp_index = VP_INDEX_SUCCESSED;
-                voice_prompt_play(&vp, NULL);
-                //apps_config_set_vp(VP_INDEX_SUCCESSED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
-            } else {
-                apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING_FAIL, 30, false);
-                vp.vp_index = VP_INDEX_FAILED;
-                voice_prompt_play(&vp, NULL);
-                //apps_config_set_vp(VP_INDEX_FAILED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
-            }
-            break;
-        }
         case BT_ULL_EVENT_UPLINK_START_SUCCESS: {
             s_uplink_started = true;
             break;
@@ -3111,7 +2136,7 @@ static bool app_ull_proc_ull_event(ui_shell_activity_t *self, uint32_t event_id,
 #endif
             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_LE_ULL_CONNECT_TIMEOUT);
             app_ull_process_events(ULL_EVENTS_DONGLE_CONNECTED, NULL);
-            vp.vp_index = VP_INDEX_SUCCESSED;
+            vp.vp_index = VP_INDEX_SUCCEED;
             voice_prompt_play(&vp, NULL);
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_UPDATE_MMI_STATE, NULL, 0,
@@ -3224,8 +2249,6 @@ static bool app_ull_proc_aws_data_event_proc(ui_shell_activity_t *self, uint32_t
                         }
 #endif
 #endif
-                        s_dongle_connected = connected;
-                        app_ull_partner_set_a2dp_enable();
                     }
                     break;
                 }
@@ -3248,7 +2271,6 @@ static bool app_ull_proc_aws_data_event_proc(ui_shell_activity_t *self, uint32_t
 #if (defined AIR_APP_ULL_GAMING_MODE_UI_ENABLE)
                             s_ull_context.game_mode = config_data->game_mode;
 #endif
-                            app_ull_partner_set_a2dp_enable();
                             app_le_ull_storage_config();
                         }
                     }
@@ -3415,67 +2437,7 @@ bool app_ull_idle_activity_proc(
 
 
 bool bt_cm_check_connect_request(bt_bd_addr_ptr_t address, uint32_t cod) {
-    bool allow_connect = true;
-    bool is_dongle = ULL_IS_DONGLE_ADDRESS(address);
-    bt_bd_addr_t connected_address[3];
-    uint32_t connected_num = 3;
-    uint32_t i;
-    connected_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK_NONE,
-                                                connected_address, connected_num);
-#ifdef APPS_LINE_IN_SUPPORT
-    if (is_dongle && ULL_AUX_USB_AUDIO_STATE_IN == s_ull_context.aux_state) {
-        allow_connect = false;
-    }
-#endif
-#ifdef APPS_USB_AUDIO_SUPPORT
-    if (is_dongle && ULL_AUX_USB_AUDIO_STATE_IN == s_ull_context.usb_audio_state) {
-        allow_connect = false;
-    }
-#endif
-    if (allow_connect && ULL_LINK_MODE_SINGLE == s_ull_context.link_mode && !app_bt_connection_service_get_current_status()->bt_visible) {
-        if (!is_dongle) {
-            for (i = 0; i < connected_num; i++) {
-                if (ULL_IS_DONGLE_ADDRESS(connected_address[i])) {
-                    bool bt_visible = app_bt_connection_service_get_current_status()->bt_visible;
-                    APPS_LOG_MSGID_I(LOG_TAG", bt_cm_check_connect_request, SP connecting when Dongle is connected, visible: %d", 1, bt_visible);
-                    if (!bt_visible) {
-                        allow_connect = false;
-                    }
-                    break;
-                }
-            }
-        } else {
-            for (i = 0; i < connected_num; i++) {
-                if (!ULL_IS_DONGLE_ADDRESS(connected_address[i])
-#ifdef MTK_AWS_MCE_ENABLE
-                    && !ULL_IS_LOCAL_ADDRESS(connected_address[i])
-#endif
-                   ) {
-                    APPS_LOG_MSGID_I(LOG_TAG", bt_cm_check_connect_request, dongle connecting when SP is connected", 0);
-                    allow_connect = false;
-                    break;
-                }
-            }
-        }
-    } else if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
-#if defined (__BT_FAST_PAIR_ENABLE__)
-        if (!(is_dongle || app_fast_pair_get_is_waiting_connect())) {
-            for (i = 0; i < connected_num; i++) {
-                if (!ULL_IS_DONGLE_ADDRESS(connected_address[i])
-#ifdef MTK_AWS_MCE_ENABLE
-                    && !ULL_IS_LOCAL_ADDRESS(connected_address[i])
-#endif
-                   ) {
-                    APPS_LOG_MSGID_I(LOG_TAG", bt_cm_check_connect_request, SP already connected", 0);
-                    allow_connect = false;
-                    break;
-                }
-            }
-        }
-#endif
-    }
-    APPS_LOG_MSGID_I(LOG_TAG", bt_cm_check_connect_request, allow connect :%d for dongle?%d", 2, allow_connect, is_dongle);
-    return allow_connect;
+    return true;
 }
 
 bool app_ull_idle_activity_allow_a2dp_connect() {
@@ -3484,27 +2446,12 @@ bool app_ull_idle_activity_allow_a2dp_connect() {
 
 uint32_t bt_cm_get_reconnect_profile(bt_bd_addr_t *addr) {
     uint32_t profiles = BT_CM_PROFILE_SERVICE_MASK_NONE;
-    bool dongle_connected = false;
-    bt_bd_addr_t connectied_sp[1];
-    uint32_t connected_sp_len = 1;
-    if (addr == NULL) {
-        return BT_CM_PROFILE_SERVICE_MASK_NONE;
-    }
-
-    app_ull_get_connected_devices_list(connectied_sp, &connected_sp_len, &dongle_connected);
-    if (ULL_IS_DONGLE_ADDRESS(*addr)) {
-        if (connected_sp_len == 0) {
-            /* Event it is multi link mode, do not reconnect link lost dongle when SP is connected. */
-            profiles = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_ULL);
-        }
-    } else {
-        if (!s_ull_le_connected) {
-            profiles = bt_customer_config_app_get_cm_config()->power_on_reconnect_profile & (~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS));
-        } else if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
-            profiles = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP);
-            if (s_a2dp_standby_enable) {
-                profiles |= BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK);
-            }
+    if (!s_ull_le_connected) {
+        profiles = bt_customer_config_app_get_cm_config()->power_on_reconnect_profile & (~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS));
+    } else if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
+        profiles = BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP);
+        if (s_a2dp_standby_enable) {
+            profiles |= BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK);
         }
     }
     return profiles;

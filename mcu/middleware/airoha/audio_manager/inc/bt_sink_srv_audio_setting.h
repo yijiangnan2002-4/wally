@@ -308,6 +308,8 @@ mcu_dsp_audio_platform_share_buffer_info_t *bt_sink_srv_audio_setting_get_audio_
 void bt_sink_srv_audio_setting_set_audio_platform_output_volume(vol_type_t type, int32_t digital_gain);
 
 #endif
-
+#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
+void mute_mic_detection(int32_t *out_data, uint32_t volume_len, void *user_data);
+#endif
 #endif /* __BT_SINK_SRV_AUDIO_SETTING_H__ */
 

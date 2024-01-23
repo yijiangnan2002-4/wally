@@ -446,6 +446,8 @@ hal_usb_status_t hal_usb_configure_rx_endpoint_type(uint32_t ep_num, hal_usb_end
         /* Must set related DMA bits, otherwise, packets arrive will result in RX ep intr */
         if (ep_type == HAL_USB_EP_TRANSFER_ISO) {
             USB_DRV_WriteReg(&musb->rxcsr, USB_DMA_RX_CSR_ISO | USB_RXCSR_RXPKTRDY);
+        } else if (ep_type == HAL_USB_EP_TRANSFER_ISO) {
+            USB_DRV_WriteReg(&musb->rxcsr, USB_RXCSR_DISNYET | USB_RXCSR_RXPKTRDY);
         } else {
             USB_DRV_WriteReg(&musb->rxcsr, USB_DMA_RX_CSR | USB_RXCSR_RXPKTRDY);
         }
@@ -474,7 +476,9 @@ hal_usb_status_t hal_usb_configure_rx_endpoint_type(uint32_t ep_num, hal_usb_end
             //USB_DRV_WriteReg(USB_RXCSR, (USB_RXCSR_ISO|USB_RXCSR_RXPKTRDY));
             /*It may clear STALL status, need to prevent it.*/
             USB_DRV_WriteReg(&musb->rxcsr, USB_DRV_Reg(&musb->rxcsr) & (USB_RXCSR_ISO | USB_RXCSR_RXPKTRDY | USB_RXCSR_SENDSTALL | USB_RXCSR_SENTSTALL));
-        } else {
+        } else if (ep_type == HAL_USB_EP_TRANSFER_ISO) {
+            USB_DRV_WriteReg(&musb->rxcsr, USB_DRV_Reg(&musb->rxcsr) & (USB_RXCSR_DISNYET | USB_RXCSR_RXPKTRDY | USB_RXCSR_SENDSTALL | USB_RXCSR_SENTSTALL));
+        }  else {
             //USB_DRV_WriteReg(USB_RXCSR, USB_RXCSR_RXPKTRDY);
             /*It may clear STALL status, need to prevent it.*/
             USB_DRV_WriteReg(&musb->rxcsr, USB_DRV_Reg(&musb->rxcsr) & (USB_RXCSR_RXPKTRDY | USB_RXCSR_SENDSTALL | USB_RXCSR_SENTSTALL));
@@ -1651,6 +1655,8 @@ hal_usb_status_t hal_usb_enable_rx_endpoint(uint32_t ep_num, hal_usb_endpoint_tr
 
     if (ep_type == HAL_USB_EP_TRANSFER_ISO) {
         USB_DRV_WriteReg(&musb->rxcsr, USB_RXCSR_ISO);
+    } else if (ep_type == HAL_USB_EP_TRANSFER_INTR) {
+        USB_DRV_WriteReg(&musb->rxcsr, USB_RXCSR_DISNYET);
     } else {
         USB_DRV_WriteReg(&musb->rxcsr, 0x00);
     }
@@ -1893,9 +1899,9 @@ hal_usb_status_t hal_usb_update_endpoint_0_state(hal_usb_endpoint_0_driver_state
     hal_nvic_restore_interrupt_mask(savedMask);
 
     /* Stall log */
-    if (stall == true) {
-        log_hal_msgid_error("hal_usb_update_endpoint_0_state reg_state:%X csr0:0x%X stall", 2, reg_state, musb->csr0);
-    }
+    // if (stall == true) {
+    //     log_hal_msgid_error("hal_usb_update_endpoint_0_state reg_state:%X csr0:0x%X in stall", 2, reg_state, musb->csr0);
+    // }
 
     return HAL_USB_STATUS_OK;
 }
@@ -1917,34 +1923,6 @@ uint32_t hal_usb_ep0_pkt_len(void)
 
     return nCount;
 }
-
-#if 0
-
-// remove, it is a duplicate of hal_usb_get_rx_packet_length
-uint32_t hal_usb_ep_pkt_len(uint32_t ep_num)
-{
-    uint16_t CSR;
-    uint32_t savedMask;
-    uint32_t nCount = 0;
-
-    //prep_ctrl_func_3 = &data->rEP_Ctrl_Func_3;
-    //ep_num = (kal_uint32)prep_ctrl_func_3->u4ep_num;
-
-    //USB_EP_Check(ep_num, USB_EP_RX_DIR, __LINE__);
-
-    hal_nvic_save_and_set_interrupt_mask(&savedMask);
-    USB_DRV_WriteReg8(&musb->index, ep_num);
-    CSR = USB_DRV_Reg(&musb->rxcsr);
-
-    if (CSR & USB_RXCSR_RXPKTRDY) {
-        nCount = (uint32_t)USB_DRV_Reg(&musb->rxcount);
-    }
-    hal_nvic_restore_interrupt_mask(savedMask);
-
-    //prep_ctrl_func_3->u4result = (DCL_UINT32)nCount;
-    return nCount;
-}
-#endif
 
 hal_usb_status_t hal_usb_set_endpoint_tx_ready(uint32_t ep_num)
 {

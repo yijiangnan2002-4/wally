@@ -58,7 +58,7 @@
 #include "apps_aws_sync_event.h"
 #include "apps_config_features_dynamic_setting.h"
 #endif
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 #include "bt_ull_service.h"
 #include "bt_hci.h"
 #endif
@@ -142,6 +142,9 @@ app_bt_state_service_bt_visible_request_t s_visible_pending_request = {
 
 /* The flag for system off. */
 static bool s_for_system_off = false;
+#ifdef MTK_AWS_MCE_ENABLE
+static uint32_t s_visible_timeout_time;
+#endif
 
 /* Current status/context of BT state service. */
 app_bt_state_service_status_t s_current_status = {
@@ -159,7 +162,7 @@ app_bt_state_service_status_t s_current_status = {
 #ifdef MTK_AWS_MCE_ENABLE
     .in_air_pairing = false,
 #endif
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     .in_ull_pairing = false,
 #endif
     .reason = BT_HCI_STATUS_CONNECTION_TIMEOUT,
@@ -172,7 +175,7 @@ static bool app_bt_state_service_pending_bt_on_off(void)
         return true;
     }
 #endif
-#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     if (s_current_status.in_ull_pairing) {
         return true;
     }
@@ -212,9 +215,6 @@ static void app_bt_state_service_check_and_do_bt_enable_disable(bool try_rho)
         return;
     } else if (APP_BT_STATE_POWER_STATE_ENABLED == s_current_status.target_power_state) {
         /* Enable BT when s_current_status.target_power_state is APP_BT_STATE_POWER_STATE_ENABLED. */
-#if defined(AIR_MULTI_POINT_ENABLE) && !defined(APP_CONN_MGR_RECONNECT_CONTROL)
-        app_bt_emp_reset_max_conn_num();
-#endif
         bt_device_manager_power_active(BT_DEVICE_TYPE_LE | BT_DEVICE_TYPE_CLASSIC);
         s_current_status.current_power_state = APP_BT_STATE_POWER_STATE_ENABLING;
         s_current_status.target_power_state = APP_BT_STATE_POWER_STATE_NONE_ACTION;
@@ -280,10 +280,6 @@ static void app_bt_state_service_check_and_do_bt_enable_disable(bool try_rho)
             if (APP_BT_STATE_POWER_STATE_DISABLED == s_current_status.target_power_state) {
                 bt_state = bt_device_manager_power_standby(BT_DEVICE_TYPE_LE | BT_DEVICE_TYPE_CLASSIC);
             } else {
-#ifdef APP_CONN_MGR_RECONNECT_CONTROL
-                extern void app_bt_conn_manager_update_connecting_num(void);
-                app_bt_conn_manager_update_connecting_num();
-#endif
                 bt_state = bt_device_manager_power_standby(BT_DEVICE_TYPE_CLASSIC);
             }
             if (BT_STATUS_SUCCESS == bt_state) {
@@ -315,6 +311,11 @@ static void app_bt_state_service_refresh_visible_timeout(uint32_t timeout)
         ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                             APPS_EVENTS_INTERACTION_BT_VISIBLE_TIMEOUT, NULL, 0,
                             NULL, timeout);
+#ifdef MTK_AWS_MCE_ENABLE
+        s_visible_timeout_time = xTaskGetTickCount() * portTICK_PERIOD_MS + timeout;
+    } else {
+        s_visible_timeout_time = BT_VISIBLE_TIMEOUT_INVALID;
+#endif
     }
 }
 #endif
@@ -389,6 +390,13 @@ void app_bt_state_service_set_bt_on_off(bool on, bool classic_off, bool need_do_
 
 bool app_bt_state_service_set_bt_visible(bool enable_visible, bool wait_aws_connect, uint32_t timeout)
 {
+#if defined(APP_BT_SWIFT_PAIR_LE_AUDIO_ENABLE) && defined(AIR_TWS_ENABLE)
+    if (enable_visible && bt_aws_mce_srv_get_link_type() == BT_AWS_MCE_SRV_LINK_NONE) {
+        APPS_LOG_MSGID_E(LOG_TAG"[SWIFT_PAIR] set_bt_visible, cannot visible when AWS disconnected", 0);
+        return FALSE;
+    }
+#endif
+
 #if defined(AIR_WIRELESS_MIC_ENABLE) || defined(AIR_DCHS_MODE_MASTER_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE)
     s_current_status.bt_visible = enable_visible;
     app_bt_state_service_notify_bt_visible(enable_visible);
@@ -565,7 +573,7 @@ void app_bt_state_service_set_air_pairing_doing(bool doing)
 }
 #endif
 
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 void app_bt_state_service_set_ull_air_pairing_doing(bool doing)
 {
     APPS_LOG_MSGID_I(LOG_TAG" app_bt_state_service_set_ull_air_pairing_doing %d -> %d", 2, s_current_status.in_ull_pairing, doing);
@@ -629,7 +637,7 @@ static bool app_bt_state_service_process_interaction_events(uint32_t event_id,
 #ifdef AIR_APP_A2DP_LBB_VENDOR_CODEC_LIMIT
                 bt_sink_srv_a2dp_enable_vendor_codec(!enable);
 #endif
-                app_bt_emp_enable(enable);
+                app_bt_emp_enable(enable, TRUE);
                 if (s_current_status.current_power_state == APP_BT_STATE_POWER_STATE_ENABLED
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
                     && BT_AWS_MCE_SRV_LINK_NORMAL == bt_aws_mce_srv_get_link_type()
@@ -685,6 +693,11 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                 break;
             }
             APPS_LOG_MSGID_I(LOG_TAG" visibility_state: %d", 1, visible_update->visibility_state);
+#ifdef MTK_AWS_MCE_ENABLE
+            if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER) {
+                break;
+            }
+#endif
             /* Update BT visibility state. */
             s_current_status.bt_visible = visible_update->visibility_state;
             app_bt_state_service_notify_bt_visible(s_current_status.bt_visible);
@@ -696,14 +709,24 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                 s_visible_pending_request.bt_visible = false;
             }
 #ifdef MTK_AWS_MCE_ENABLE
-            bt_status_t send_aws_status;
-            send_aws_status = apps_aws_sync_event_send_extra(
-                                  EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-                                  APPS_EVENTS_INTERACTION_BT_VISIBLE_STATE_CHANGE,
-                                  &s_current_status.bt_visible,
-                                  sizeof(s_current_status.bt_visible));
-            if (BT_STATUS_SUCCESS != send_aws_status) {
-                APPS_LOG_MSGID_I(LOG_TAG"Fail to send bt visible change to partner : %d", 1, visible_update->visibility_state);
+            if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) {
+                bt_status_t send_aws_status;
+                app_bt_state_service_visible_state_notification_t notification_data = {
+                    .bt_visible = s_current_status.bt_visible,
+                    .timeout = (s_current_status.bt_visible && s_visible_timeout_time != BT_VISIBLE_TIMEOUT_INVALID) ?
+                    s_visible_timeout_time - xTaskGetTickCount() * portTICK_PERIOD_MS : BT_VISIBLE_TIMEOUT_INVALID,
+                };
+                if (notification_data.timeout > 0x8FFFFFFF) {
+                    notification_data.timeout = BT_VISIBLE_TIMEOUT_INVALID;
+                }
+                send_aws_status = apps_aws_sync_event_send_extra(
+                                      EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                                      APPS_EVENTS_INTERACTION_BT_VISIBLE_STATE_CHANGE,
+                                      &notification_data,
+                                      sizeof(notification_data));
+                if (BT_STATUS_SUCCESS != send_aws_status) {
+                    APPS_LOG_MSGID_I(LOG_TAG"Fail to send bt visible change to partner : %d", 1, visible_update->visibility_state);
+                }
             }
 #endif
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
@@ -723,7 +746,8 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
         case BT_CM_EVENT_REMOTE_INFO_UPDATE: {
             bt_cm_remote_info_update_ind_t *remote_update = (bt_cm_remote_info_update_ind_t *)extra_data;
 #ifdef MTK_AWS_MCE_ENABLE
-            bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
+            bt_event_suffix_data_t *suffix_data = get_bt_event_suffix_data(extra_data, sizeof(bt_cm_remote_info_update_ind_t));
+            bt_aws_mce_role_t role = suffix_data->aws_role;
 #endif
             if (NULL == remote_update) {
                 break;
@@ -784,15 +808,23 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                     s_current_status.aws_connected = true;
                     s_current_status.reason = remote_update->reason;
                     APPS_LOG_MSGID_I(LOG_TAG" aws connected reason=%d", 1, s_current_status.reason);
-                    if (s_current_status.bt_visible) {
-                        bt_status_t send_aws_status = apps_aws_sync_event_send_extra(
-                                                          EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-                                                          APPS_EVENTS_INTERACTION_BT_VISIBLE_STATE_CHANGE,
-                                                          &s_current_status.bt_visible,
-                                                          sizeof(s_current_status.bt_visible));
-                        if (BT_STATUS_SUCCESS != send_aws_status) {
-                        }
+                    app_bt_state_service_visible_state_notification_t notification_data = {
+                        .bt_visible = s_current_status.bt_visible,
+                        .timeout = (s_current_status.bt_visible && s_visible_timeout_time != BT_VISIBLE_TIMEOUT_INVALID) ?
+                                   s_visible_timeout_time - xTaskGetTickCount() * portTICK_PERIOD_MS : BT_VISIBLE_TIMEOUT_INVALID,
+                    };
+                    if (notification_data.timeout > 0x8FFFFFFF) {
+                        notification_data.timeout = BT_VISIBLE_TIMEOUT_INVALID;
                     }
+                    bt_status_t send_aws_status = apps_aws_sync_event_send_extra(
+                                                      EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                                                      APPS_EVENTS_INTERACTION_BT_VISIBLE_STATE_CHANGE,
+                                                      &notification_data,
+                                                      sizeof(notification_data));
+                    if (BT_STATUS_SUCCESS != send_aws_status) {
+                        APPS_LOG_MSGID_I(LOG_TAG"Fail to send bt visible change to partner when aws connected", 0);
+                    }
+
                     /* Check and enable BT visibility when Agent AWS connected. */
                     app_bt_state_service_check_and_do_bt_visible();
                     APPS_LOG_MSGID_I(LOG_TAG" Partner Attached.", 0);
@@ -826,6 +858,9 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                         /* Partner connected SP if AWS connected and link type is normal. */
                         s_current_status.connection_state = APP_BT_CONNECTION_SERVICE_BT_STATE_PROFILE_CONNECTED;
                     }
+#ifdef MTK_RACE_CMD_ENABLE
+                    race_bt_notify_aws_state(true);
+#endif
                 } else if ((BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->pre_connected_service)
                            && !(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)) {
                     if (APP_BT_CONNECTION_SERVICE_BT_STATE_ACL_CONNECTED <= s_current_status.connection_state) {
@@ -836,6 +871,9 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                     s_current_status.bt_visible = false;
                     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_BT_VISIBLE_TIMEOUT);
                     APPS_LOG_MSGID_I(LOG_TAG" aws disconnected reason=%d", 1, s_current_status.reason);
+#ifdef MTK_RACE_CMD_ENABLE
+                    race_bt_notify_aws_state(false);
+#endif
                 }
             }
 #endif
@@ -1008,15 +1046,23 @@ static bool app_bt_state_service_process_aws_data_events(uint32_t event_id,
             switch (aws_event_id) {
                 /* Update Partner BT visibility when Agent visibility changed or AWS connected. */
                 case APPS_EVENTS_INTERACTION_BT_VISIBLE_STATE_CHANGE: {
-                    bool bt_visible = false;
+                    app_bt_state_service_visible_state_notification_t visible_notification;
                     if (BT_AWS_MCE_ROLE_PARTNER == bt_device_manager_aws_local_info_get_role()
-                        && p_extra_data && extra_data_len == sizeof(bt_visible)) {
-                        bt_visible = *(bool *)p_extra_data;
+                        && p_extra_data && extra_data_len == sizeof(visible_notification)) {
+                        memcpy(&visible_notification, p_extra_data, extra_data_len);
                         APPS_LOG_MSGID_I(LOG_TAG"Received bt_visible from agent : %d", 1,
-                                         bt_visible);
-                        if (s_current_status.bt_visible != bt_visible) {
-                            s_current_status.bt_visible = bt_visible;
-                            app_bt_state_service_notify_bt_visible(bt_visible);
+                                         visible_notification.bt_visible);
+                        if (s_current_status.bt_visible != visible_notification.bt_visible) {
+                            bt_cm_discoverable(visible_notification.bt_visible);
+                            if (visible_notification.bt_visible) {
+                                if (visible_notification.timeout != BT_VISIBLE_TIMEOUT_INVALID) {
+                                    app_bt_state_service_refresh_visible_timeout(visible_notification.timeout);
+                                }
+                            } else {
+                                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_BT_VISIBLE_TIMEOUT);
+                            }
+                            s_current_status.bt_visible = visible_notification.bt_visible;
+                            app_bt_state_service_notify_bt_visible(s_current_status.bt_visible);
                         }
                     }
                 }
@@ -1160,7 +1206,7 @@ void app_bt_state_service_cancel_discoverable_mode(void)
 }
 #endif
 
-uint32_t app_bt_state_service_get_connected_disinclude_aws(bt_bd_addr_t *addr_list, uint32_t list_num)
+uint32_t app_bt_state_service_get_connected_exclude_aws(bt_bd_addr_t *addr_list, uint32_t list_num)
 {
     uint32_t ret = 0;
 #ifdef MTK_AWS_MCE_ENABLE

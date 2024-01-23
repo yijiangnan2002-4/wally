@@ -63,7 +63,7 @@
 #define USB_EVENT_LOG_E(msg, ...)     APPS_LOG_MSGID_E("[USB_EVENT]"msg, ##__VA_ARGS__)
 #define USB_EVENT_LOG_D(msg, ...)     APPS_LOG_MSGID_D("[USB_EVENT]"msg, ##__VA_ARGS__)
 
-#define USB_PORT_MAXIMUN_NUMBER 3
+#define USB_PORT_MAXIMUM_NUMBER 3
 
 typedef struct {
     app_usb_audio_port_t port_type;         /* spk/mic */
@@ -74,11 +74,11 @@ typedef struct {
     int32_t right_db;
 } app_usb_volume_data_t;
 
-static app_usb_volume_data_t app_usb_volume[USB_PORT_MAXIMUN_NUMBER]; /* 0:chat,1:gaming,2:mic */
-static app_usb_volume_data_t app_usb_volume_cache[USB_PORT_MAXIMUN_NUMBER]; /* 0:chat,1:gaming,2:mic */
+static app_usb_volume_data_t app_usb_volume[USB_PORT_MAXIMUM_NUMBER]; /* 0:chat,1:gaming,2:mic */
+static app_usb_volume_data_t app_usb_volume_cache[USB_PORT_MAXIMUM_NUMBER]; /* 0:chat,1:gaming,2:mic */
 /* for sample rate filter */
-static uint32_t app_usb_sample_rate[USB_PORT_MAXIMUN_NUMBER]; /* 0:chat,1:gaming,2:mic */
-static uint32_t app_usb_sample_rate_cache[USB_PORT_MAXIMUN_NUMBER]; /* 0:chat,1:gaming,2:mic */
+static uint32_t app_usb_sample_rate[USB_PORT_MAXIMUM_NUMBER]; /* 0:chat,1:gaming,2:mic */
+static uint32_t app_usb_sample_rate_cache[USB_PORT_MAXIMUM_NUMBER]; /* 0:chat,1:gaming,2:mic */
 
 /* flag to check volume delay timer is start or not */
 static volatile bool app_is_delay_timer_start = false;
@@ -202,9 +202,9 @@ void apps_event_usb_event_init()
     app_usb_volume[2].left_volume = 0xFF;   /* invalid volume */
     app_usb_volume[2].right_volume = 0xFF;  /* invalid volume */
     /* init cache volume */
-    memcpy(app_usb_volume_cache, app_usb_volume, sizeof(app_usb_volume_data_t)*USB_PORT_MAXIMUN_NUMBER);
-    memset(app_usb_sample_rate, 0x00, sizeof(uint32_t)*USB_PORT_MAXIMUN_NUMBER);
-    memset(app_usb_sample_rate_cache, 0x00, sizeof(uint32_t)*USB_PORT_MAXIMUN_NUMBER);
+    memcpy(app_usb_volume_cache, app_usb_volume, sizeof(app_usb_volume_data_t)*USB_PORT_MAXIMUM_NUMBER);
+    memset(app_usb_sample_rate, 0x00, sizeof(uint32_t)*USB_PORT_MAXIMUM_NUMBER);
+    memset(app_usb_sample_rate_cache, 0x00, sizeof(uint32_t)*USB_PORT_MAXIMUM_NUMBER);
 #ifdef AIR_USB_HID_CALL_CTRL_ENABLE
     usb_hid_srv_init(app_usb_hid_call_event_callback);
 #endif
@@ -377,7 +377,7 @@ static void apps_event_usb_volumechange_cb(uint8_t ep_number, uint8_t channel, u
         /* Send 100ms delay message to avoid to too fast volume notify lead to heap OOM */
         if (!app_is_delay_timer_start) {
             app_is_delay_timer_start = true;
-            ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+            ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_SIMULATE_TIMER,
                                 apps_event_usb_simulater_callback, 0, NULL, 100);
         }
@@ -691,7 +691,7 @@ static void apps_event_usb_simulater_callback(void)
                             (void *)p_vol, sizeof(app_events_usb_volume_t), NULL, 0);
     }
 
-    memcpy(app_usb_volume_cache, app_usb_volume, sizeof(app_usb_volume_data_t)*USB_PORT_MAXIMUN_NUMBER);
+    memcpy(app_usb_volume_cache, app_usb_volume, sizeof(app_usb_volume_data_t)*USB_PORT_MAXIMUM_NUMBER);
     app_is_delay_timer_start = false;    /* reinit volume delay timer flag */
 }
 #endif
@@ -898,7 +898,7 @@ void apps_events_usb_event_usb_pulg_in_cb(usb_evt_t event, void *usb_data, void 
         case APPS_USB_MODE_DCHS_CUSTOM: {
             USB_EVENT_LOG_I("USB Mode: APPS_USB_MODE_DCHS_CUSTOM[%d]", 1, s_usb_mode);
             usb_set_device_type(USB_AUDIO);
-            usb_custom_set_speed(true);
+            usb_custom_set_speed(false);
             usb_custom_set_product_info(0x0E8D, 0x0813, 0x0100);
             usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Headset DCHS Custom");
             break;
@@ -933,6 +933,14 @@ void apps_events_usb_event_usb_pulg_in_cb(usb_evt_t event, void *usb_data, void 
             usb_custom_set_speed(true);
             usb_custom_set_product_info(0x0E8D, 0x0827, 0x0100);
             usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Headset CDC");
+            break;
+        }
+        case APPS_USB_MODE_HID: {
+            USB_EVENT_LOG_I("USB Mode: APPS_USB_MODE_HID[%d]", 1, s_usb_mode);
+            usb_set_device_type(USB_HID);
+            usb_custom_set_speed(false);
+            usb_custom_set_product_info(0x0E8D, 0x0829, 0x0100);
+            usb_custom_set_string(USB_STRING_USAGE_PRODUCT, "Airoha Headset HID");
             break;
         }
         default:
@@ -1267,6 +1275,14 @@ void apps_events_usb_event_usb_device_init_cb(usb_evt_t event, void *usb_data, v
             break;
         }
         case APPS_USB_MODE_CDC: {
+            break;
+        }
+        case APPS_USB_MODE_HID: {
+            usb_hid_set_dscr_enable(
+                (usb_hid_report_dscr_type_t[2]){
+                    USB_REPORT_DSCR_TYPE_MUX,
+                    USB_REPORT_DSCR_TYPE_AC,},
+                2);
             break;
         }
         default:

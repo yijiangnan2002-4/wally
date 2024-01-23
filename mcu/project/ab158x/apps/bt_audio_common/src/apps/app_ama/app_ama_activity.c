@@ -68,7 +68,7 @@
 #include "app_adaptive_anc_idle_activity.h"
 #endif /* MTK_USER_TRIGGER_ADAPTIVE_FF_V2 */
 
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 #include "bt_ull_service.h"
 #endif /* AIR_BT_ULTRA_LOW_LATENCY_ENABLE */
 
@@ -1160,7 +1160,7 @@ static bool app_ama_is_ull_up_streaming()
     /**
      * @brief Fix issue that when ULL upstreaming, cannot start AMA
      */
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     bt_ull_streaming_info_t info = {0};
     bt_status_t ret = BT_STATUS_FAIL;
 

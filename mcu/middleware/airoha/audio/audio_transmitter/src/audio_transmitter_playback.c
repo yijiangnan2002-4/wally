@@ -131,14 +131,14 @@ audio_transmitter_status_t audio_transmitter_playback_open(uint16_t scenario_and
     }
 
     audio_scenario_type_t clock_setting_type = audio_transmitter_get_clock_setting_type(scenario_type, scenario_sub_id);
-    if (clock_setting_type != AUDIO_SCENARIO_TYPE_COMMON) {
+    if ((clock_setting_type != AUDIO_SCENARIO_TYPE_COMMON) && (clock_setting_type < AUDIO_SCENARIO_TYPE_END)) {
         ami_hal_audio_status_set_running_flag(clock_setting_type, open_param, true);
     } else {
         AUDIO_ASSERT(0 && "transmitter playback open scenario_and_id did not find running flag");
     }
 
     if (g_uplink_callback_regist_cnt == 0) {
-        hal_audio_service_hook_callback(AUDIO_MESSAGE_TYPE_AUDIO_TRANSMITTER, audio_transmitter_isr_handler, g_isr_scenario);//user_data???挂msg notification cb，注意type
+        hal_audio_service_hook_callback(AUDIO_MESSAGE_TYPE_AUDIO_TRANSMITTER, audio_transmitter_isr_handler, g_isr_scenario);
     }
 
     g_uplink_callback_regist_cnt++;
@@ -207,7 +207,7 @@ audio_transmitter_status_t audio_transmitter_playback_close(uint16_t scenario_an
     uint8_t scenario_type = scenario_and_id >> 8;
     uint8_t scenario_sub_id = (uint8_t)((scenario_and_id << 8) >> 8);
     audio_scenario_type_t clock_setting_type = audio_transmitter_get_clock_setting_type(scenario_type, scenario_sub_id);
-    if (clock_setting_type != AUDIO_SCENARIO_TYPE_COMMON) {
+    if ((clock_setting_type != AUDIO_SCENARIO_TYPE_COMMON) && (clock_setting_type < AUDIO_SCENARIO_TYPE_END)) {
         ami_hal_audio_status_set_running_flag(clock_setting_type, NULL, false);
     } else {
         AUDIO_ASSERT(0 && "transmitter playback close scenario_and_id did not find running flag");

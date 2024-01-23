@@ -203,6 +203,14 @@ var group___bluetoothhbif__gap__struct =
       [ "num", "structbt__gap__le__handle__update__t.html#abea371f9030e15a5d2a4c181576833d8", null ],
       [ "old_handles", "structbt__gap__le__handle__update__t.html#aad6ba2e7606ea4f409eed685f14003bd", null ]
     ] ],
+    [ "bt_gap_le_subrate_change_ind_t", "structbt__gap__le__subrate__change__ind__t.html", [
+      [ "connection_handle", "structbt__gap__le__subrate__change__ind__t.html#aa59f1018b4826996221b995a8179d6d8", null ],
+      [ "continuation_number", "structbt__gap__le__subrate__change__ind__t.html#acb8c32ed4be698f16a089ea60c85c85f", null ],
+      [ "peripheral_latency", "structbt__gap__le__subrate__change__ind__t.html#aae05e9892b08a188f31058367febb4a8", null ],
+      [ "status", "structbt__gap__le__subrate__change__ind__t.html#ade818037fd6c985038ff29656089758d", null ],
+      [ "subrate_factor", "structbt__gap__le__subrate__change__ind__t.html#a1cc26ed3da2b8bf4db809c23804602f3", null ],
+      [ "supervision_timeout", "structbt__gap__le__subrate__change__ind__t.html#ab9a2dab79f1bab2d97d672571c060bbc", null ]
+    ] ],
     [ "bt_gap_le_disconnect_ind_t", "group___bluetoothhbif__gap__struct.html#ga8bfa79f5be09bc76d9f593d155200b9c", null ],
     [ "bt_gap_le_set_advertising_cnf_t", "group___bluetoothhbif__gap__struct.html#ga9799561debb4703de60e0426d02c7851", null ],
     [ "bt_gap_le_set_ext_scan_response_data_t", "group___bluetoothhbif__gap__struct.html#ga0db2929e19ef72baee21ede6852566a1", null ]

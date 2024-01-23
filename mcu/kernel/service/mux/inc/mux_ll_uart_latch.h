@@ -40,35 +40,22 @@
 #include "mux_ll_uart_sync.h"
 
 //user can send data to user fifo,but uart fifo data can not move to uart vfifo
-#define DCHS_LOCK_UART_TX()            do {\
-    RB_SET_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCKING);\
-    LOG_MSGID_I(common, "[uart latch] lock uart tx", 0);\
-} while (0)
+#define DCHS_LOCK_UART_TX()          RB_SET_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCKING)
+#define DCHS_UNLOCK_UART_TX()        RB_CLR_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCKING)
+#define DCHS_IS_UART_TX_LOCKED()     RB_CHK_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCKING)
 
-#define DCHS_UNLOCK_UART_TX()          do {\
-    RB_CLR_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCKING);\
-    LOG_MSGID_I(common, "[uart latch] unlock uart tx", 0);\
-} while (0)
+#define DCHS_LOCK_UART_TX_SET_REQ()  RB_SET_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCK_REQ)
+#define DCHS_LOCK_UART_TX_CLR_REQ()  RB_CLR_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCK_REQ)
+#define DCHS_IS_UART_TX_BLOCK_REQ()  RB_CHK_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCK_REQ)
 
-#define DCHS_LOCK_UART_TX_SET_REQ()            do {\
-    RB_SET_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCK_REQ);\
-} while (0)
-
-#define DCHS_LOCK_UART_TX_CLR_REQ()            do {\
-    RB_CLR_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCK_REQ);\
-} while (0)
-
-#define DCHS_IS_UART_TX_LOCKED()        RB_CHK_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCKING)
 #define DCHS_IS_UART_TX_BUFFER_EMPTY()  (mux_ringbuffer_data_length(&g_port_config.txbuf) < 50)
-#define DCHS_IS_UART_TX_BLOCK_REQ()     RB_CHK_FLAG(&g_port_config.txbuf, MUX_RB_FLAG_TX_BLOCK_REQ)
 
 extern void mux_ll_uart_latch_init(void);
-extern void mux_ll_uart_start_latch_req(void);
 extern void mux_ll_latch_timer_start(bool is_one_shot, uint32_t timeout);
 extern void mux_ll_latch_timer_stop(void);
 extern uint32_t mux_ll_uart_get_clock_offset_us(void);
-extern uint32_t mux_ll_uart_is_bt_clock_synced(void);
+extern bool mux_ll_uart_is_bt_clock_synced(void);
+extern void mux_ll_uart_check_latch_request(void);
 
 #define MUX_LL_UART_PORT                MUX_LL_UART_1
-#define MUX_LL_UART_SLEEP_LOCK_HANDLE   SLEEP_LOCK_UART1
 #endif

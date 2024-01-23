@@ -113,14 +113,10 @@ bool app_bt_emp_switch_enable(bool enable);
 /**
 * @brief      This function is switch BT EMP feature.
 * @param[in]  enable, enable/disable BT EMP feature.
+* @param[in]  disconnect_one_when_off, disconnect one link when EMP disable.
 * @return     TRUE - success.
 */
-bool app_bt_emp_enable(bool enable);
-
-/**
-* @brief      This function is reset BT EMP max connection number before BT power on.
-*/
-void app_bt_emp_reset_max_conn_num();
+bool app_bt_emp_enable(bool enable, bool disconnect_one_when_off);
 
 #endif /* AIR_MULTI_POINT_ENABLE */
 

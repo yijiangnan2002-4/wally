@@ -312,7 +312,7 @@ AIR_ANC_ENABLE_TYPE   = ANC_FULL_ADAPTIVE
 #                        PASSTHRU_FF       : Default support type of Passthru will be feedforward Passthru.
 #                        PASSTHRU_HYBRID   : Default support type of Passthru will be hybrid Passthru.
 #                        PASSTHRU_ADAPTIVE : Default support type of Passthru will be adaptive Passthru.
-AIR_PASSTHRU_ENABLE_TYPE = PASSTHRU_ADAPTIVE
+AIR_PASSTHRU_ENABLE_TYPE = PASSTHRU_HYBRID
 
 # This option is to choose the uplink rate. Default setting is none.
 # It must be set to the same value for both DSP and MCU, otherwise, it will not work.

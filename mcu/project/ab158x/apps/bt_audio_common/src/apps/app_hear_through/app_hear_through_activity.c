@@ -184,7 +184,44 @@ typedef struct {
 
 static bool app_hear_through_switch_on_off(bool need_store, bool enable);
 static bool app_hear_through_is_aws_connected();
-static bool app_hear_through_activity_is_out_case();
+bool app_hear_through_activity_is_out_case();
+
+/**
+ * @brief Supported cmd list
+ */
+static const uint16_t app_ht_supported_cmd_list[] = {
+    APP_HEAR_THROUGH_CONFIG_TYPE_SWITCH,
+    APP_HEAR_THROUGH_CONFIG_TYPE_MODE,
+#ifdef AIR_HEARTHROUGH_VIVID_PT_ENABLE
+    APP_VIVID_PT_CONFIG_TYPE_AFC_SWITCH,
+    APP_VIVID_PT_CONFIG_TYPE_LDNR_SWITCH,
+    APP_VIVID_PT_CONFIG_TYPE_BY_PASS_SWITCH,
+#endif /* AIR_HEARTHROUGH_VIVID_PT_ENABLE */
+};
+
+/**
+ * @brief Supported cmd count
+ */
+#define APP_HEAR_THROUGH_SUPPORTED_CMD_COUNT (sizeof(app_ht_supported_cmd_list) / sizeof(uint16_t))
+
+/**
+ * @brief Check the race cmd type is supported or not.
+ *
+ * @param type The type to compare.
+ * @return true If the type is supported
+ * @return false If the type is not supported
+ */
+static bool app_hear_through_is_supported_cmd(uint16_t type)
+{
+    uint8_t index = 0;
+    for (index = 0; index < APP_HEAR_THROUGH_SUPPORTED_CMD_COUNT; index ++) {
+        if (app_ht_supported_cmd_list[index] == type) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 static uint8_t app_hear_through_map_middleware_type_to_app_mode(uint8_t type)
 {
@@ -226,17 +263,6 @@ static bool app_hear_through_is_aws_connected()
     return true;
 }
 #endif /* AIR_TWS_ENABLE */
-
-static void app_hear_through_activity_send_set_cmd_response(uint16_t type, bool result)
-{
-#ifdef AIR_TWS_ENABLE
-    if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) {
-#endif /* AIR_TWS_ENABLE */
-        app_hear_through_race_cmd_send_set_response(type, result);
-#ifdef AIR_TWS_ENABLE
-    }
-#endif /* AIR_TWS_ENABLE */
-}
 
 static void app_hear_through_update_ambient_control_mode()
 {
@@ -280,6 +306,25 @@ static void app_hear_through_notify_switch_state_change(bool on)
 #endif /* AIR_TWS_ENABLE */
 }
 
+static bool app_hear_through_activity_is_hear_through_mode_supported(app_hear_through_mode_t mode)
+{
+    if (mode == APP_HEAR_THROUGH_MODE_VIVID_PT) {
+#if !(defined(AIR_HEARTHROUGH_VIVID_PT_ENABLE) || defined(AIR_HW_VIVID_PT_ENABLE))
+        APPS_LOG_MSGID_E(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_is_hear_through_mode_supported] Un-supported mode (VIVID_PT) for the project that not enabled VIVID feature", 0);
+        return false;
+#endif /* !(AIR_HEARTHROUGH_VIVID_PT_ENABLE || AIR_HW_VIVID_PT_ENABLE) */
+    }
+
+    if (mode == APP_HEAR_THROUGH_MODE_HA_PSAP) {
+#if !(defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE))
+        APPS_LOG_MSGID_E(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_is_hear_through_mode_supported] Un-supported mode (HA_PSAP) for the project that not enabled HA/PSAP feature", 0);
+        return false;
+#endif /* !(AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE) */
+    }
+
+    return true;
+}
+
 static bool app_hear_through_activity_handle_switch_set_cmd(void *extra_data, uint32_t data_len)
 {
     bool ret_value = false;
@@ -299,6 +344,10 @@ static bool app_hear_through_activity_handle_switch_set_cmd(void *extra_data, ui
                         0
 #endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
                         );
+
+    if (app_hear_through_activity_is_hear_through_mode_supported(running_mode) == false) {
+        return false;
+    }
 
     if (parameter[0] == true) {
         app_hear_through_ctx.is_anc_changed = false;
@@ -322,7 +371,7 @@ static bool app_hear_through_activity_handle_switch_set_cmd(void *extra_data, ui
         app_hear_through_storage_set_hear_through_switch(parameter[0]);
         app_hear_through_ctx.is_hear_through_enabled_before_ota = parameter[0];
 
-        app_hear_through_activity_send_set_cmd_response(APP_HEAR_THROUGH_CONFIG_TYPE_SWITCH, true);
+        app_hear_through_race_cmd_send_set_response(APP_HEAR_THROUGH_CONFIG_TYPE_SWITCH, RACE_ERRCODE_SUCCESS);
 
         return true;
     }
@@ -330,9 +379,11 @@ static bool app_hear_through_activity_handle_switch_set_cmd(void *extra_data, ui
 
     ret_value = app_hear_through_switch_on_off(true, parameter[0]);
 
-    app_hear_through_update_ambient_control_mode();
+    if (ret_value == true) {
+        app_hear_through_update_ambient_control_mode();
+    }
 
-    app_hear_through_activity_send_set_cmd_response(APP_HEAR_THROUGH_CONFIG_TYPE_SWITCH, ret_value);
+    app_hear_through_race_cmd_send_set_response(APP_HEAR_THROUGH_CONFIG_TYPE_SWITCH, ((ret_value == true) ? RACE_ERRCODE_SUCCESS : RACE_ERRCODE_FAIL));
 
     return ret_value;
 }
@@ -358,7 +409,12 @@ static bool app_hear_through_activity_handle_mode_set_cmd(void *extra_data, uint
 
     if ((parameter[0] != APP_HEAR_THROUGH_MODE_VIVID_PT)
         && (parameter[0] != APP_HEAR_THROUGH_MODE_HA_PSAP)) {
-        app_hear_through_activity_send_set_cmd_response(APP_HEAR_THROUGH_CONFIG_TYPE_MODE, false);
+        app_hear_through_race_cmd_send_set_response(APP_HEAR_THROUGH_CONFIG_TYPE_MODE, RACE_ERRCODE_FAIL);
+        return false;
+    }
+
+    if (app_hear_through_activity_is_hear_through_mode_supported(parameter[0]) == false) {
+        app_hear_through_race_cmd_send_set_response(APP_HEAR_THROUGH_CONFIG_TYPE_MODE, RACE_ERRCODE_FAIL);
         return false;
     }
 
@@ -378,7 +434,7 @@ static bool app_hear_through_activity_handle_mode_set_cmd(void *extra_data, uint
 
     app_hear_through_storage_set_hear_through_mode(parameter[0]);
 
-    app_hear_through_activity_send_set_cmd_response(APP_HEAR_THROUGH_CONFIG_TYPE_MODE, true);
+    app_hear_through_race_cmd_send_set_response(APP_HEAR_THROUGH_CONFIG_TYPE_MODE, RACE_ERRCODE_SUCCESS);
 
     return ret_value;
 }
@@ -393,7 +449,7 @@ static bool app_hear_through_activity_handle_vivid_afc_set_cmd(void *extra_data,
     audio_vivid_pt_status_t afc_switch_result = audio_anc_vivid_pt_control_afc_set_switch(parameter[0]);
     ret_value = (afc_switch_result == AUDIO_VIVID_PT_STATUS_SUCCESS) ? true : false;
 
-    app_hear_through_activity_send_set_cmd_response(APP_VIVID_PT_CONFIG_TYPE_AFC_SWITCH, ret_value);
+    app_hear_through_race_cmd_send_set_response(APP_VIVID_PT_CONFIG_TYPE_AFC_SWITCH, ((ret_value == true) ? RACE_ERRCODE_SUCCESS : RACE_ERRCODE_FAIL));
 
     return ret_value;
 }
@@ -407,7 +463,7 @@ static bool app_hear_through_activity_handle_vivid_ldnr_set_cmd(void *extra_data
     audio_vivid_pt_status_t nr_switch_result = audio_anc_vivid_pt_control_nr_set_switch(parameter[0]);
     ret_value = (nr_switch_result == AUDIO_VIVID_PT_STATUS_SUCCESS) ? true : false;
 
-    app_hear_through_activity_send_set_cmd_response(APP_VIVID_PT_CONFIG_TYPE_LDNR_SWITCH, ret_value);
+    app_hear_through_race_cmd_send_set_response(APP_VIVID_PT_CONFIG_TYPE_LDNR_SWITCH, ((ret_value == true) ? RACE_ERRCODE_SUCCESS : RACE_ERRCODE_FAIL));
 
     return ret_value;
 }
@@ -421,7 +477,7 @@ static bool app_hear_through_activity_handle_vivid_by_pass_set_cmd(void *extra_d
     audio_vivid_pt_status_t by_pass_switch_result = audio_anc_vivid_pt_control_bypass_set_switch(parameter[0]);
     ret_value = (by_pass_switch_result == AUDIO_VIVID_PT_STATUS_SUCCESS) ? true : false;
 
-    app_hear_through_activity_send_set_cmd_response(APP_VIVID_PT_CONFIG_TYPE_BY_PASS_SWITCH, ret_value);
+    app_hear_through_race_cmd_send_set_response(APP_VIVID_PT_CONFIG_TYPE_BY_PASS_SWITCH, ((ret_value == true) ? RACE_ERRCODE_SUCCESS : RACE_ERRCODE_FAIL));
 
     return ret_value;
 }
@@ -497,9 +553,9 @@ static void app_hear_through_activity_handle_get_cmd(uint16_t config_type)
                         response_len);
 
     if (ret_result == true) {
-        app_hear_through_race_cmd_send_get_response(config_type, response, response_len);
+        app_hear_through_race_cmd_send_get_response(config_type, RACE_ERRCODE_SUCCESS, response, response_len);
     } else {
-        app_hear_through_race_cmd_send_get_response(config_type, NULL, 0);
+        app_hear_through_race_cmd_send_get_response(config_type, RACE_ERRCODE_FAIL, NULL, 0);
     }
 }
 
@@ -524,7 +580,7 @@ static bool app_hear_through_control_vivid_pt(bool enable)
         target_filter_id     = AUDIO_ANC_CONTROL_SW_VIVID_PASS_THRU_FILTER_DEFAULT; //1~4
 #else
         local_misc.type_mask_param.ANC_path_mask = 0;
-        target_anc_type      = AUDIO_ANC_CONTROL_TYPE_PT_HW_VIVID;
+        target_anc_type      = AUDIO_ANC_CONTROL_HW_VIVID_PASS_THRU_TYPE_DEFAULT;
         target_filter_id     = AUDIO_ANC_CONTROL_HW_VIVID_PASS_THRU_FILTER_DEFAULT;
 #endif /* AIR_HEARTHROUGH_VIVID_PT_ENABLE */
 
@@ -835,7 +891,8 @@ static bool app_hear_through_activity_handle_middleware_control_callback(void *e
             && (type_to_mode == running_mode)
             && (app_hear_through_ctx.hear_through_key_to_off == false)
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
-            && (app_hearing_aid_activity_is_fwk_opening() == false)
+            && ((app_hearing_aid_activity_is_fwk_opening() == false)
+                && (app_hearing_aid_activity_is_need_reopen_fwk() == false))
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
             ) {
         app_anc_service_reset_hear_through_anc(false);
@@ -1044,14 +1101,14 @@ static bool app_hear_through_activity_handle_vp_streaming_end(void *extra_data, 
      */
     if (app_hear_through_ctx.is_power_on_vp_playing == true) {
         app_hear_through_ctx.is_power_on_vp_playing = false;
-    }
 
-    if (app_hear_through_ctx.is_power_on_vp_played == false) {
-        app_hear_through_ctx.is_power_on_vp_played = true;
+        if (app_hear_through_ctx.is_power_on_vp_played == false) {
+            app_hear_through_ctx.is_power_on_vp_played = true;
 
-        if ((app_hear_through_ctx.is_charger_in == false)
-            && (app_hear_through_ctx.is_powering_off == false)) {
-            app_hear_through_activity_handle_ht_enable(true);
+            if ((app_hear_through_ctx.is_charger_in == false)
+                && (app_hear_through_ctx.is_powering_off == false)) {
+                app_hear_through_activity_handle_ht_enable(true);
+            }
         }
     }
 
@@ -1319,11 +1376,30 @@ static bool app_hear_through_activity_handle_race_cmd(void *extra_data, uint32_t
 
     app_hear_through_request_t *request = (app_hear_through_request_t *)extra_data;
 
+    if ((app_hear_through_is_supported_cmd(request->op_type) == false)
+#if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
+        && (app_hearing_aid_is_supported_cmd(request->op_type) == false)
+#endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
+        ) {
+        APPS_LOG_MSGID_E(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_race_cmd] code : 0x%02x, Unsupported command : 0x%04x",
+                            2,
+                            request->op_code,
+                            request->op_type);
+
+        if (request->op_code == APP_HEAR_THROUGH_CMD_OP_CODE_SET) {
+            app_hear_through_race_cmd_send_set_response(request->op_type, RACE_ERRCODE_NOT_SUPPORT);
+        } else {
+            app_hear_through_race_cmd_send_get_response(request->op_type, RACE_ERRCODE_NOT_SUPPORT, NULL, 0);
+        }
+
+        return false;
+    }
+
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
     if ((audio_anc_leakage_compensation_get_status() == true
             && (request->op_code == APP_HEAR_THROUGH_CMD_OP_CODE_SET))) {
         APPS_LOG_MSGID_E(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_race_cmd] leakage detection is ongoing, cannot execute set command", 0);
-        app_hear_through_race_cmd_send_set_response(request->op_type, false);
+        app_hear_through_race_cmd_send_set_response(request->op_type, RACE_ERRCODE_FAIL);
         return false;
     }
 #endif /* MTK_LEAKAGE_DETECTION_ENABLE */
@@ -1338,9 +1414,9 @@ static bool app_hear_through_activity_handle_race_cmd(void *extra_data, uint32_t
 #else
         APPS_LOG_MSGID_E(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_race_cmd] Not enable AIR_HEARING_AID_ENABLE feature option", 0);
         if (request->op_code == APP_HEAR_THROUGH_CMD_OP_CODE_GET) {
-            app_hear_through_race_cmd_send_get_response(request->op_type, NULL, 0);
+            app_hear_through_race_cmd_send_get_response(request->op_type, RACE_ERRCODE_FAIL, NULL, 0);
         } else {
-            app_hear_through_race_cmd_send_set_response(request->op_type, false);
+            app_hear_through_race_cmd_send_set_response(request->op_type, RACE_ERRCODE_FAIL);
         }
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
         return true;
@@ -1353,7 +1429,7 @@ static bool app_hear_through_activity_handle_race_cmd(void *extra_data, uint32_t
 
         if (request->op_type >= APP_HEAR_THROUGH_VIVID_CONFIG_BASE) {
 #ifndef AIR_HEARTHROUGH_VIVID_PT_ENABLE
-            app_hear_through_activity_send_set_cmd_response(request->op_type, false);
+            app_hear_through_race_cmd_send_set_response(request->op_type, RACE_ERRCODE_FAIL);
             return true;
 #endif /* AIR_HEARTHROUGH_VIVID_PT_ENABLE */
         }
@@ -1686,7 +1762,7 @@ static bool app_hear_through_activity_proc_dm_event(uint32_t event_id,
                                 app_hear_through_ctx.is_power_on_vp_playing);
 
             app_hear_through_ctx.is_powering_off = false;
-
+#if 0
             app_anc_service_resume();
 
             if (app_hear_through_ctx.is_power_on_vp_played == false) {
@@ -1699,21 +1775,22 @@ static bool app_hear_through_activity_proc_dm_event(uint32_t event_id,
                     app_hear_through_activity_handle_ht_enable(true);
                 }
             }
-
+#endif
         } else if(evt == BT_DEVICE_MANAGER_POWER_EVT_STANDBY_COMPLETE) {
             APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_proc_dm_event] BT Powering off, hear_through_enabled : %d",
                                 1,
                                 app_hear_through_ctx.is_hear_through_enabled);
 
             app_hear_through_storage_save_user_configuration();
+            app_anc_service_save_into_flash();
 
+#if 0
             if (app_hear_through_ctx.is_hear_through_enabled == true) {
                 app_hear_through_activity_handle_ht_enable(false);
             }
 
-            app_anc_service_save_into_flash();
             app_anc_service_suspend();
-
+#endif
             /**
              * @brief Move here to make sure to disable HA/PSAP/VIVID correctly.
              */
@@ -1722,10 +1799,11 @@ static bool app_hear_through_activity_proc_dm_event(uint32_t event_id,
             app_hear_through_ctx.is_hear_through_enabled = false;
             app_hear_through_ctx.is_power_on_vp_played = false;
             app_hear_through_ctx.is_power_on_ht_executed = false;
-
+#if 0
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
             app_hearing_aid_activity_set_open_fwk_done(false);
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
+#endif
         }
     }
 
@@ -2169,7 +2247,7 @@ bool app_hear_through_activity_proc(ui_shell_activity_t *self,
     return false;
 }
 
-static bool app_hear_through_activity_is_out_case()
+bool app_hear_through_activity_is_out_case()
 {
     return (app_hear_through_ctx.is_charger_in == true) ? false : true;
 }

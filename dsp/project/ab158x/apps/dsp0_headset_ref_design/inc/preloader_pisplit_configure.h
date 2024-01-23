@@ -34,7 +34,7 @@ extern "C" {
 extern xtlib_packaged_library pisplit_lc3_codec;
 extern xtlib_packaged_library pisplit_lc3i_fft7p5ms;
 extern xtlib_packaged_library pisplit_lc3i_fft10ms;
-#ifdef AIR_BT_BLE_FIX_ADV_PLC
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
 extern xtlib_packaged_library pisplit_lc3i_codec_APLC;
 #else
 extern xtlib_packaged_library pisplit_lc3i_codec;
@@ -46,7 +46,7 @@ extern xtlib_packaged_library pisplit_lc3i_codec;
 #endif
 #define LC3I_FFT7_5MS_LIB &pisplit_lc3i_fft7p5ms,
 #define LC3I_FFT10MS_LIB &pisplit_lc3i_fft10ms,
-#ifdef AIR_BT_BLE_FIX_ADV_PLC
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
 #define LC3I_LIB &pisplit_lc3i_codec_APLC,
 #else
 #define LC3I_LIB &pisplit_lc3i_codec,
@@ -411,6 +411,13 @@ extern xtlib_packaged_library pisplit_lhdc_enc;
 #define LHDC_ENC_LIB
 #endif
 
+#ifdef AIR_FADP_ANC_COMPENSATION_USE_PIC_ENABLE
+extern xtlib_packaged_library pisplit_szd;
+#define SZD_LIB &pisplit_szd,
+#else
+#define SZD_LIB
+#endif
+
 #if defined(AIR_HEARTHROUGH_HA_USE_PIC) || defined(AIR_HEARTHROUGH_PSAP_USE_PIC)
 extern xtlib_packaged_library pisplit_awha_afc;
 extern xtlib_packaged_library pisplit_awha_afc_fs;
@@ -424,14 +431,20 @@ extern xtlib_packaged_library pisplit_awha_ndm;
 extern xtlib_packaged_library pisplit_awha_calib;
 extern xtlib_packaged_library pisplit_awha_tln;
 extern xtlib_packaged_library pisplit_awha_ha_biquad;
+#ifdef AIR_BTA_IC_PREMIUM_G3
+extern xtlib_packaged_library pisplit_awha_wnr;
+#endif
 #ifdef AIR_HEARTHROUGH_HA_ENABLE
 extern xtlib_packaged_library pisplit_awha_inr;
-extern xtlib_packaged_library pisplit_awha_wnr;
 #define HEARTHROUGH_HA_LIB &pisplit_awha_afc, &pisplit_awha_afc_fs, &pisplit_awha_inr, &pisplit_awha_fft, &pisplit_awha_nr, &pisplit_awha_ola, &pisplit_awha_beamforming, &pisplit_awha_drc, &pisplit_awha_wnr, &pisplit_awha_math, &pisplit_awha_ndm, &pisplit_awha_calib, &pisplit_awha_tln, &pisplit_awha_ha_biquad,
 #define HEARTHROUGH_PSAP_LIB
 #else
 #define HEARTHROUGH_HA_LIB
+#ifdef AIR_BTA_IC_PREMIUM_G3
+#define HEARTHROUGH_PSAP_LIB &pisplit_awha_afc, &pisplit_awha_afc_fs, &pisplit_awha_fft, &pisplit_awha_nr, &pisplit_awha_ola, &pisplit_awha_beamforming, &pisplit_awha_drc, &pisplit_awha_wnr, &pisplit_awha_math, &pisplit_awha_ndm, &pisplit_awha_calib, &pisplit_awha_tln, &pisplit_awha_ha_biquad,
+#else
 #define HEARTHROUGH_PSAP_LIB &pisplit_awha_afc, &pisplit_awha_afc_fs, &pisplit_awha_fft, &pisplit_awha_nr, &pisplit_awha_ola, &pisplit_awha_beamforming, &pisplit_awha_drc, &pisplit_awha_math, &pisplit_awha_ndm, &pisplit_awha_calib, &pisplit_awha_tln, &pisplit_awha_ha_biquad,
+#endif
 #endif
 #else
 #define HEARTHROUGH_HA_LIB
@@ -496,6 +509,7 @@ extern xtlib_packaged_library pisplit_awha_vpt_afc;
     HEARTHROUGH_HA_LIB\
     HEARTHROUGH_PSAP_LIB\
     HEARTHROUGH_VIVID_PT_LIB\
+    SZD_LIB\
 }
 
 #ifdef __cplusplus

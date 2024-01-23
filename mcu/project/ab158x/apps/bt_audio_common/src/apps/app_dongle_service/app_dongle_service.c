@@ -249,7 +249,7 @@ static bool _proc_bt_ull_data_event(struct _ui_shell_activity *self, uint32_t ev
                 /**
                  * @brief When send all of the init information, send the handshake done event.
                  */
-                apps_dongle_sync_event_send(EVENT_GROUP_UI_SHELL_APP_SERVICE, APP_DONGLE_SERVICE_HEADSET_EVENT_HADNSHAKE_DONE);
+                apps_dongle_sync_event_send(EVENT_GROUP_UI_SHELL_APP_SERVICE, APP_DONGLE_SERVICE_HEADSET_EVENT_HANDSHAKE_DONE);
             }
             break;
 

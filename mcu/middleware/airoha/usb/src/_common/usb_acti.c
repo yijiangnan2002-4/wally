@@ -381,4 +381,6 @@ static atci_status_t usb_at_deinit_handler(atci_parse_cmd_param_t *parse_cmd)
 }
 
 #endif /* ATCI_ENABLE */
+
 #endif /* AIR_USB_ENABLE */
+

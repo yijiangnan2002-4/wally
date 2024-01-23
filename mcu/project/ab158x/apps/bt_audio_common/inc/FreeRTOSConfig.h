@@ -77,21 +77,21 @@ extern uint32_t SystemCoreClock;
  */
 #if defined(AIR_BTA_IC_PREMIUM_G3)
 #ifdef AIR_SYSLOG_BUFFER_EXPAND_ENABLE
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 152 * 1024 ) )
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 154 * 1024 ) )
 #else
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 138 * 1024 ) )
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 140 * 1024 ) )
 #endif 
 #elif defined(AIR_BTA_IC_STEREO_HIGH_G3)
 #ifdef AIR_SYSLOG_BUFFER_EXPAND_ENABLE
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 156 * 1024 ) )
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 158 * 1024 ) )
 #else
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 142 * 1024 ) )
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 144 * 1024 ) )
 #endif 
 #else
 #ifdef AIR_SYSLOG_BUFFER_EXPAND_ENABLE
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 152 * 1024 ) )
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 147 * 1024 ) )
 #else
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 138 * 1024 ) )
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 133 * 1024 ) )
 #endif
 #endif
 
@@ -104,11 +104,12 @@ extern uint32_t SystemCoreClock;
 /* ori:138k,add 2k = 140k for bta-40234 */
 #if defined (AIR_BTA_IC_PREMIUM_G3)
 /* ori:140k,add 2k = 142k for bta-42794 */
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 142 * 1024 ) )
+/* ori:142k,add 2k = 144k for nvdm */
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 144 * 1024 ) )
 #elif defined(AIR_BTA_IC_STEREO_HIGH_G3)
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 140 * 1024 ) )
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 142 * 1024 ) )
 #else
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 140 * 1024 ) )
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 135 * 1024 ) )
 #endif
 
 #else /* AIR_HEADSET_ENABLE */
@@ -119,11 +120,12 @@ extern uint32_t SystemCoreClock;
 /* ori:138k,add 2k = 140k for bta-40234 */
 #if defined (AIR_BTA_IC_PREMIUM_G3)
 /* ori:140k,add 2k = 142k for bta-42794 */
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 142 * 1024 ) )
+/* ori:142k,add 2k = 144k for nvdm */
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 144 * 1024 ) )
 #elif defined(AIR_BTA_IC_STEREO_HIGH_G3)
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 140 * 1024 ) )
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 142 * 1024 ) )
 #else
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 140 * 1024 ) )
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 135 * 1024 ) )
 #endif 
 
 #endif 

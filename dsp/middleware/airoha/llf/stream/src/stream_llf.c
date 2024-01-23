@@ -55,14 +55,17 @@
 #include "FreeRTOS.h"
 #include "hal_audio_message_struct_common.h"
 #include "dsp_memory.h"
+#include "hal_audio_volume.h"
 
 log_create_module(LLF, PRINT_LEVEL_INFO);
 
 
 /* Private define ------------------------------------------------------------*/
+#define LLF_MUTE_DL_SAMPLE_PER_STEP     (48)
 //#define LLF_FRAME_WORK_DEBUG
 #define RLEN(woff, roff, len) ((woff >= roff) ? (woff - roff) :(len - roff + woff))
 #define DSP_CALLBACK_SKIP_ALL_PROCESS   (0xFF)
+#define DL_MUTE_TIME_LLF                (500)//ms
 
 
 /* Private typedef -----------------------------------------------------------*/
@@ -92,6 +95,12 @@ static SemaphoreHandle_t g_llf_sharebuf_semaphore = NULL;
 U32 LLF_anc_bypass_mode;
 U32 llf_dl_need_compensation = 0;
 U32 llf_no_swap_dl_state = 0;
+U32 llf_set_dl_flag = 0;
+U32 llf_wait_dl_flag = 0;
+llf_dl_mute_ctrl_t llf_dl_mute_ctrl = {0};
+static TimerHandle_t g_llf_one_shot_timer = NULL;
+
+
 DSP_STREAMING_PARA LLFStreamingISR[NO_OF_LLF_STREAM];
 
 CALLBACK_STATE_ENTRY LLF_CallbackEntryTable[] = {
@@ -145,6 +154,7 @@ extern SOURCE dsp_open_stream_in(mcu2dsp_open_param_p open_param);
 extern SINK dsp_open_stream_out(mcu2dsp_open_param_p open_param);
 extern void dsp_start_stream_in(mcu2dsp_start_param_p start_param, SOURCE source);
 extern void dsp_start_stream_out(mcu2dsp_start_param_p start_param, SINK sink);
+void port_dsp_llf_runtime_config(audio_llf_runtime_config_t *param);
 
 
 void llf_sharebuf_semaphore_create(void)
@@ -173,6 +183,17 @@ void llf_sharebuf_semaphore_give(void)
         xSemaphoreGive(g_llf_sharebuf_semaphore);
     }
 }
+
+static void llf_one_shot_timer_callback(TimerHandle_t xTimer)
+{
+    U32 *sample_per_step_ori = llf_dl_mute_ctrl.sample_per_step_ori;
+    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN1, sample_per_step_ori[AFE_HW_DIGITAL_GAIN1]);
+//    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN2, sample_per_step_ori[AFE_HW_DIGITAL_GAIN2]);
+    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN3, sample_per_step_ori[AFE_HW_DIGITAL_GAIN3]);
+    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN4, sample_per_step_ori[AFE_HW_DIGITAL_GAIN4]);
+    UNUSED(xTimer);
+}
+
 
 ATTR_TEXT_IN_IRAM U32 SourceSizeAudioLLF(SOURCE source)
 {
@@ -350,6 +371,18 @@ ATTR_TEXT_IN_IRAM BOOL Source_Audio_ReadLLF(SOURCE source, U8 *dst_addr, U32 len
 
             dst_addr = in_ptr[++channel_sel];
         }
+    }
+
+    if (llf_wait_dl_flag & llf_set_dl_flag) {
+        llf_wait_dl_flag = 0;
+
+        AUDIO_PARAMETER *pAudPara = &source->param.audio;
+
+        audio_llf_runtime_config_t param = {.type = pAudPara->scenario_id,
+                                            .sub_mode = pAudPara->scenario_sub_id,
+                                            .config_event = LLF_RUNTIME_CONFIG_EVENT_DL_SWAP_DONE,
+                                            };
+        port_dsp_llf_runtime_config(&param);
     }
     return TRUE;
 }
@@ -1301,6 +1334,16 @@ void StreamLLFClose_ISR(U16 msgID)
     }
 }
 
+void dsp_llf_init(void)
+{
+    if (g_llf_one_shot_timer == NULL) {
+        g_llf_one_shot_timer = xTimerCreate("LLFOneShotTimer", (DL_MUTE_TIME_LLF / portTICK_PERIOD_MS), pdFALSE, 0, llf_one_shot_timer_callback);
+        if (g_llf_one_shot_timer == NULL) {
+            assert(0 && "create timer FAIL!!");
+        }
+    }
+}
+
 void dsp_llf_open(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 {
     llf_type_t scenario_id;
@@ -1393,6 +1436,7 @@ void dsp_llf_close(hal_ccni_message_t msg, hal_ccni_message_t *ack)
     port_dsp_llf_feature_deinit(LLF_if.source, LLF_if.sink);
 
     memset(&LLF_if, 0, sizeof(CONNECTION_IF));
+    llf_set_dl_flag = 0;
 }
 
 void dsp_llf_suspend(hal_ccni_message_t msg, hal_ccni_message_t *ack)
@@ -1522,8 +1566,42 @@ void dsp_llf_mute(bool is_mute)
     DSP_LLF_LOG_I("[LLF] mute:%d", 1, is_mute);
 }
 
+void dsp_llf_mute_dl(bool is_mute)
+{
+    U32 *sample_per_step_ori = llf_dl_mute_ctrl.sample_per_step_ori;
+    bool *mute_dl_flag = &(llf_dl_mute_ctrl.llf_mute_dl_flag);
+
+    if (*mute_dl_flag == false) {
+        sample_per_step_ori[AFE_HW_DIGITAL_GAIN1] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN1);
+        //sample_per_step_ori[AFE_HW_DIGITAL_GAIN2] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN2);
+        sample_per_step_ori[AFE_HW_DIGITAL_GAIN3] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN3);
+        sample_per_step_ori[AFE_HW_DIGITAL_GAIN4] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN4);
+        DSP_LLF_LOG_I("[LLF] sample_per_step_ori:[%d %d %d %d]", 4, sample_per_step_ori[AFE_HW_DIGITAL_GAIN1], sample_per_step_ori[AFE_HW_DIGITAL_GAIN2], sample_per_step_ori[AFE_HW_DIGITAL_GAIN3], sample_per_step_ori[AFE_HW_DIGITAL_GAIN4]);
+        if (is_mute) {
+            hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN1, LLF_MUTE_DL_SAMPLE_PER_STEP);
+            //hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN2, LLF_MUTE_DL_SAMPLE_PER_STEP);
+            hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN3, LLF_MUTE_DL_SAMPLE_PER_STEP);
+            hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN4, LLF_MUTE_DL_SAMPLE_PER_STEP);
+        }
+    }
+    *mute_dl_flag = is_mute;
+    afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN1, AFE_VOLUME_MUTE_LLF, is_mute);
+    //afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN2, AFE_VOLUME_MUTE_LLF, is_mute);
+    afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN3, AFE_VOLUME_MUTE_LLF, is_mute);
+    afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN4, AFE_VOLUME_MUTE_LLF, is_mute);
+
+    if (!is_mute) {
+        xTimerStartFromISR(g_llf_one_shot_timer, 0);
+    }
+}
+
 U32 dsp_llf_get_data_buf_idx(llf_data_type_t type)
 {
     return hal_llf_get_data_buf_idx(type);
+}
+
+void dsp_llf_wait_dl_swap_ready(void)
+{
+    llf_wait_dl_flag = 1;
 }
 

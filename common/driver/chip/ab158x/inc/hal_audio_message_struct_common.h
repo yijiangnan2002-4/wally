@@ -79,6 +79,7 @@ typedef enum {
     AUDIO_DSP_CODEC_TYPE_ANC_USER_TRIGGER_FF_PZ_FIR,
 #endif
     AUDIO_DSP_CODEC_TYPE_PCM_WWE,
+    AUDIO_DSP_CODEC_TYPE_FADP_ANC_COMP,
     AUDIO_DSP_CODEC_TYPE_MAX,
     AUDIO_DSP_CODEC_TYPE_DUMMY = 0x7FFFFFFF,  /**<  Dummy for DSP structure alignment */
 } audio_dsp_codec_type_t;
@@ -505,6 +506,7 @@ typedef struct {
     uint32_t link_num;
     bt_audio_dongle_bt_link_info_t bt_info[BT_AUDIO_DATA_CHANNEL_NUMBER];
     bool     without_bt_link_mode_enable;
+    bool     ts_not_reset_flag; // timestamp not reset
 } bt_audio_dongle_bt_out_info_t;
 
 typedef union {
@@ -632,13 +634,14 @@ typedef enum {
     HAL_AUDIO_DEVICE_DAC_R              = 0x0200,  /**<  Stream out:speaker R. */
     HAL_AUDIO_DEVICE_DAC_DUAL           = 0x0300,  /**<  Stream out:speaker L+R. */
 
-    HAL_AUDIO_DEVICE_I2S_MASTER         = 0x1000,  /**<  Stream in/out: I2S master role */
+    HAL_AUDIO_DEVICE_SPDIF_IN           = 0x1000, /**<  Stream in: SPDIF. */
     HAL_AUDIO_DEVICE_I2S_SLAVE          = 0x2000,  /**<  Stream in/out: I2S slave role */
     HAL_AUDIO_DEVICE_EXT_CODEC          = 0x3000,   /**<  Stream out: external amp.&codec, stereo/mono */
     HAL_AUDIO_DEVICE_SPDIF              = 0x4000,   /**<  Stream out: SPDIF. */
 
     HAL_AUDIO_DEVICE_I2S_MASTER_L       = 0x10000, /**<  Stream in/out: I2S master L */
     HAL_AUDIO_DEVICE_I2S_MASTER_R       = 0x20000, /**<  Stream in/out: I2S master R */
+    HAL_AUDIO_DEVICE_I2S_MASTER         = 0x30000, /**<  Stream in/out: I2S master role */
 
     HAL_AUDIO_DEVICE_MAIN_MIC           = 0x0001,       /**<  OLD: Stream in: main mic. */
     HAL_AUDIO_DEVICE_HEADSET_MIC        = 0x0002,       /**<  OLD: Stream in: earphone mic. */
@@ -650,11 +653,13 @@ typedef enum {
     HAL_AUDIO_DEVICE_LINE_IN            = 0x0080,       /**<  OLD: Stream in/out: line in. */
     HAL_AUDIO_DEVICE_DUAL_DIGITAL_MIC   = 0x0100,       /**<  OLD: Stream in: dual digital mic. */
     HAL_AUDIO_DEVICE_SINGLE_DIGITAL_MIC = 0x0200,       /**<  OLD: Stream in: single digital mic. */
-
-    HAL_AUDIO_DEVICE_LOOPBACK_HW_GAIN_L         = 0x40000,   /**<  Stream in: HW Gain L loopback. */
-    HAL_AUDIO_DEVICE_LOOPBACK_HW_GAIN_R         = 0x80000,   /**<  Stream in: HW Gain R loopback. */
-    HAL_AUDIO_DEVICE_LOOPBACK_I2S_MASTER_L      = 0x100000,  /**<  Stream in: I2S master L loopback. */
-    HAL_AUDIO_DEVICE_LOOPBACK_I2S_MASTER_R      = 0x200000,  /**<  Stream in: I2S master R loopback. */
+    HAL_AUDIO_DEVICE_LOOPBACK_L         = 0x0400,   /**<  Stream in:     HW AD loopback. */
+    HAL_AUDIO_DEVICE_LOOPBACK_R         = 0x0800,   /**<  Stream in:     HW AD loopback. */
+    HAL_AUDIO_DEVICE_LOOPBACK_DUAL      = 0x0C00,   /**<  Stream in:     HW AD loopback. */
+    HAL_AUDIO_DEVICE_LOOPBACK_HW_GAIN_L         = 0x100000,   /**<  Stream in: HW Gain L loopback. */
+    HAL_AUDIO_DEVICE_LOOPBACK_HW_GAIN_R         = 0x200000,   /**<  Stream in: HW Gain R loopback. */
+    HAL_AUDIO_DEVICE_LOOPBACK_I2S_MASTER_L      = 0x400000,  /**<  Stream in: I2S master L loopback. */
+    HAL_AUDIO_DEVICE_LOOPBACK_I2S_MASTER_R      = 0x800000,  /**<  Stream in: I2S master R loopback. */
 
     HAL_AUDIO_DEVICE_DUMMY              = 0xFFFFFFFF,   /**<  for DSP structrue alignment */
 #if 0
@@ -684,13 +689,13 @@ typedef enum {
     HAL_AUDIO_CONTROL_DEVICE_SIDETONE                   = 0x0400,   /**<  Stream out:    HW Sidetone. */
     HAL_AUDIO_CONTROL_DEVICE_LOOPBACK                   = 0x0800,   /**<  Stream in:     HW AD loopback. */
 
-    HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER                 = 0x1000,   /**<  Stream in/out: I2S master. */
     HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE                  = 0x2000,   /**<  Stream in/out: I2S slave. */
     HAL_AUDIO_CONTROL_DEVICE_SPDIF                      = 0x4000,   /**<  Stream out: SPDIF. */
 
     HAL_AUDIO_CONTROL_MEMORY_INTERFACE                  = 0x8000,   /**<  Stream internal: Memory interface. */
     HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L               = 0x10000,
     HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R               = 0x20000,
+    HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER                 = 0x30000,  /**<  Stream in/out: I2S master. */
     HAL_AUDIO_CONTROL_DUMMY                             = 0xFFFFFFFF,   /**<  for DSP structrue alignment */
 #endif
 } hal_audio_device_t;
@@ -703,7 +708,7 @@ typedef enum {
     HAL_AUDIO_BOTH_R                     = 4, /**< only output R channel. That is (L, R) -> (R, R). */
     HAL_AUDIO_MIX_L_R                    = 5, /**< L and R channels are mixed. That is (L, R) -> (L+R, L+R). */
     HAL_AUDIO_MIX_SHIFT_L_R              = 6, /**< L and R channels are mixed and shift. That is (L, R) -> (L/2+R/2, L/2+R/2). */
-  //HAL_AUDIO_CHANNEL_DUMMY              = 0xFFFFFFFF,   /**<  for DSP structrue alignment */
+    HAL_AUDIO_CHANNEL_DUMMY              = 0xFFFFFFFF,   /**<  for DSP structrue alignment */
 } hal_audio_channel_selection_t;
 
 /** @brief AUDIO port */
@@ -743,6 +748,13 @@ typedef enum {
     HAL_AUDIO_ANALOG_TYPE_SINGLE   = 1,            /**<   for amic type*/
     HAL_AUDIO_ANALOG_TYPE_DUMMY    = 0x7FFFFFFF,   /**<  Dummy for DSP structure alignment */
 } hal_audio_adc_type_t;
+
+typedef enum {
+    HAL_AUDIO_NO_USE_HWSRC    = 0,        /**< no use hwsrc*/
+    HAL_AUDIO_HWSRC_IN_STREAM = 1,        /**< use hwsrc in stream */
+    HAL_AUDIO_HWSRC_ON_STREAM = 2,        /**< use hwsrc on stream */
+    HAL_AUDIO_HWSRC_TYPE_DUMMY =  0x7FFFFFFF,   /**<  Dummy for DSP structure alignment */
+} hal_audio_afe_hwsrc_type_t;
 
 /** @brief Hal audio analog mode setting. */
 #if defined(AIR_BTA_IC_PREMIUM_G3)
@@ -801,12 +813,42 @@ typedef enum {
     AFE_COMMON_PARA_MAX,
 } hal_audio_common_param_t;
 
-
 typedef enum {
-    CLK_SKEW_V1 = 0, /* sw clk skew */
-    CLK_SKEW_V2 = 1, /* hwsrc clk skew */
+    CLK_SKEW_DISSABLE = 0,
+    CLK_SKEW_V1 = 1, /* sw clk skew */
+    CLK_SKEW_V2 = 2, /* hwsrc clk skew */
     CLK_SKEW_DUMMY = 0xFFFFFFFF,
 } clkskew_mode_t;
+
+/** @brief Hal audio anc debug path sel. */
+typedef enum {
+    HAL_AUDIO_ANC_DEBUG_SEL_CH23     = 0,
+    HAL_AUDIO_ANC_DEBUG_SEL_CH01     = 1,
+    HAL_AUDIO_ANC_DEBUG_SEL_ADP_CH01 = 2,
+    HAL_AUDIO_ANC_DEBUG_SEL_DUMMY    = 0x7FFFFFFF,
+} hal_audio_anc_debug_sel_t;
+
+/** @brief Hal audio dmic selection. */
+typedef enum {
+    HAL_AUDIO_DMIC_GPIO_DMIC0   = 0x0,              /**<  for dmic selection */
+    HAL_AUDIO_DMIC_GPIO_DMIC1,                      /**<  for dmic selection */
+    HAL_AUDIO_DMIC_ANA_DMIC0,                       /**<  for dmic selection */
+    HAL_AUDIO_DMIC_ANA_DMIC1,                       /**<  for dmic selection */
+    HAL_AUDIO_DMIC_ANA_DMIC2,                       /**<  for dmic selection */
+    HAL_AUDIO_DMIC_ANA_DMIC3,                       /**<  for dmic selection */
+    HAL_AUDIO_DMIC_ANA_DMIC4,                       /**<  for dmic selection */
+    HAL_AUDIO_DMIC_ANA_DMIC5,                       /**<  for dmic selection */
+    HAL_AUDIO_DMIC_DUMMY        = 0xFFFFFFFF,           /**<  for DSP structrue alignment */
+} hal_audio_dmic_selection_t;
+
+typedef enum {
+    AFE_DMIC_CLOCK_3_25M    = 0,
+    AFE_DMIC_CLOCK_1_625M   = 1,
+    AFE_DMIC_CLOCK_812_5K   = 2,
+    AFE_DMIC_CLOCK_406_25K  = 3,
+    AFE_DMIC_CLOCK_MAX,
+    AFE_DMIC_CLOCK_DUMMY    = 0x7fffffff,
+} afe_dmic_clock_rate_t;
 
 typedef struct {
     hal_audio_device_t               audio_device;
@@ -817,21 +859,17 @@ typedef struct {
     hal_audio_device_t               audio_device5;
     hal_audio_device_t               audio_device6;
     hal_audio_device_t               audio_device7;
-    hal_audio_channel_selection_t    stream_channel;
+    uint32_t                                audio_device_input_rate[8]; /**< for audio_device_input_rate */
+    /*I2S master sampling_rate*/
+    uint32_t                                i2s_master_sampling_rate[4];
+    uint32_t                                misc_parms;
+    uint32_t                                sampling_rate;
+    uint32_t                                stream_out_sampling_rate;
+    uint32_t                                stream_process_sampling_rate; /* stream process sample rate for both AFE source/sink scenario */
+    uint16_t                                frame_size;
+    afe_pcm_format_t                        format;
+    hal_audio_analog_mdoe_t                 adc_mode;
     hal_audio_memory_t                      memory;
-    hal_audio_interface_t                   audio_interface;
-    hal_audio_interface_t                   audio_interface1;
-    hal_audio_interface_t                   audio_interface2;
-    hal_audio_interface_t                   audio_interface3;
-    hal_audio_interface_t                   audio_interface4;
-    hal_audio_interface_t                   audio_interface5;
-    hal_audio_interface_t                   audio_interface6;
-    hal_audio_interface_t                   audio_interface7;
-    /*uplink adc mode:
-        0x0: ACC_10k,
-        0x1: ACC_20k,
-        0x2: DCC,
-    */
     uint8_t                                 ul_adc_mode[8];
     /*amic type
         0x0: MEMS,
@@ -845,19 +883,6 @@ typedef struct {
         0x2: Class_D,
     */
     uint8_t                                 dl_dac_mode;
-    /*  uplink:
-        0x0: Normal_Mode,
-        0x1: High_Performance,
-        0x2: Low_Power_mode,
-        0x3: Ultra_Low_Power_mode,
-        0x4: Super_Ultra_Low_Power_mode,
-        downlink:
-        0x0: Class_G,
-        0x1: Class_AB,
-        0x2: Class_D,
-        */
-    //uint8_t                                 performance;/**hal_audio_analog_mdoe_t*/
-
     /*bias voltage,support 5 bia voltage
         0x0: 1.8V,
         0x1: 1.85V,
@@ -868,7 +893,6 @@ typedef struct {
         0x6: 2.4V,
         0x7: 2.55V */
     uint8_t                                 bias_voltage[5];/**hal_audio_bias_voltage_t*/
-
     /*bias enable
         bit mask to enable Bias
         8'b 00000001: Bias 0,
@@ -879,10 +903,6 @@ typedef struct {
     uint8_t                                 bias_select;/**hal_audio_bias_selection_t*/
     /*external bias enable (reserve)*/
     uint8_t                                 with_external_bias;/**< for with_external_bias */
-    /*bias lowpower enable (reserve)*/
-    hal_audio_micbias_mode_t                with_bias_lowpower;/**< for with_bias_lowpower */
-    /*define if bias1_2 config with LDO0 (reserve)*/
-    bool                                    bias1_2_with_LDO0;/**< for bias1_2_with_LDO0 */
     /*DMIC select (reserve???)*/
     uint8_t                                 dmic_selection[8];/**< hal_audio_dmic_selection_t */
     /*iir filter (reserve)*/
@@ -893,42 +913,52 @@ typedef struct {
     uint8_t                                 i2S_Slave_TDM;
     /*I2S word length(reserve)*/
     uint8_t                                 i2s_word_length;/**< hal_audio_i2s_word_length_t */
-    /*I2S master sampling_rate*/
-    uint32_t                                i2s_master_sampling_rate[4];
     /*I2S master format*/
     uint8_t                                 i2s_master_format[4];/**< hal_audio_i2s_format_t */
     /*I2S master word length*/
     uint8_t                                 i2s_master_word_length[4];/**< hal_audio_i2s_word_length_t */
+    uint8_t                                 frame_number;
+    uint8_t                                 irq_period;
+    uint8_t                                 sw_channels;
+    /*DMIC clock(reserve)*/
+    uint8_t                                 dmic_clock_rate[3];/**afe_dmic_clock_rate_t*/
+#ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
+    uint8_t  max_channel_num;
+#endif
+    hal_audio_channel_selection_t           stream_channel;
+    hal_audio_interface_t                   audio_interface;
+    hal_audio_interface_t                   audio_interface1;
+    hal_audio_interface_t                   audio_interface2;
+    hal_audio_interface_t                   audio_interface3;
+    hal_audio_interface_t                   audio_interface4;
+    hal_audio_interface_t                   audio_interface5;
+    hal_audio_interface_t                   audio_interface6;
+    hal_audio_interface_t                   audio_interface7;
+    /*uplink adc mode:
+        0x0: ACC_10k,
+        0x1: ACC_20k,
+        0x2: DCC,
+    */
+    hal_audio_anc_debug_sel_t               anc_ch_select;
+    /*bias lowpower enable (reserve)*/
+    hal_audio_micbias_mode_t                with_bias_lowpower;/**< for with_bias_lowpower */
+    /*define if bias1_2 config with LDO0 (reserve)*/
+    hal_audio_performance_mode_t            performance;
+    clkskew_mode_t                          clkskew_mode;
+#ifdef AIR_HFP_DNN_PATH_ENABLE
+    bool                                    enable_ul_dnn;
+#endif
+    hal_audio_afe_hwsrc_type_t              hwsrc_type;
+    hal_audio_adc_type_t                    adc_type;
+    bool                                    bias1_2_with_LDO0;/**< for bias1_2_with_LDO0 */
     /*I2S low jitter config
         false, DCXO
         true,  APLL*/
     bool                                    is_low_jitter[4];
-
-    afe_pcm_format_t                        format;
-    uint32_t                                misc_parms;
-    uint32_t                                sampling_rate;
-    uint32_t                                stream_out_sampling_rate;
-    uint16_t                                frame_size;
-    uint8_t                                 frame_number;
-    uint8_t                                 irq_period;
-    uint8_t                                 sw_channels;
     bool                                    hw_gain;
-    hal_audio_analog_mdoe_t                 adc_mode;
-    hal_audio_adc_type_t                    adc_type;
-    hal_audio_performance_mode_t            performance;
-#if defined ENABLE_HWSRC_CLKSKEW || defined AIR_DCHS_MODE_ENABLE
-    clkskew_mode_t                          clkskew_mode;
-#endif
-#ifdef AIR_HFP_DNN_PATH_ENABLE
-    bool                                    enable_ul_dnn;
-#endif
-    /*DMIC clock(reserve)*/
-    uint8_t                                 dmic_clock_rate[3];/**afe_dmic_clock_rate_t*/
-    bool                                    with_upwdown_sampler; /*if need up or down sampler flag*/
-    uint32_t                                audio_path_input_rate; /**< for audio_path_input_rate */
-    uint32_t                                audio_path_output_rate; /**< for audio_path_output_rate */
-#ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
-    uint8_t  max_channel_num;
+#ifdef AIR_DCHS_MODE_ENABLE
+    uint8_t                                 dchs_ul_scenario_type;
+    uint32_t                                codec_type;
 #endif
 } au_afe_open_param_t,*au_afe_open_param_p;
 
@@ -1003,6 +1033,7 @@ typedef enum {
     STREAM_IN_UART,
     STREAM_IN_LLF,
     STREAM_IN_VIRTUAL,
+    STREAM_IN_MIXER = 14,
     STREAM_IN_DUMMY = 0xFFFFFFFF,
 } mcu2dsp_stream_in_selection;
 
@@ -1131,7 +1162,7 @@ typedef enum {
     AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_LINE_IN,           /**< Audio scenario type audio transmitter ull audio v2 dongle line in. */
     AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_I2S_MST_IN_0,      /**< Audio scenario type audio transmitter ull audio v2 dongle I2S master in. */
     AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_I2S_SLV_IN_0,      /**< Audio scenario type audio transmitter ull audio v2 dongle I2S slave in. */
-    AUDIO_SCENARIO_TYPE_DCHS_UART_DL,                             /**< Audio scenario type audio transmitter dchs uart dl. */
+    AUDIO_SCENARIO_TYPE_MIXER_STREAM,                             /**< Audio scenario type audio transmitter dchs uart dl. */
     AUDIO_SCENARIO_TYPE_DCHS_UART_UL,                             /**< Audio scenario type audio transmitter dchs uart ul. */
     AUDIO_SCENARIO_TYPE_WIRELESS_MIC_RX_UL_USB_OUT_0,             /**< Audio scenario type audio transmitter wireless microphone receiver usb out. */
     AUDIO_SCENARIO_TYPE_WIRELESS_MIC_RX_UL_LINE_OUT,              /**< Audio scenario type audio transmitter wireless microphone receiver line out. */
@@ -1164,15 +1195,87 @@ typedef enum {
 
     AUDIO_SCENARIO_TYPE_FADP_ANC_STREAM,              /**< Audio scenario type FADP ANC STREAM. */
     AUDIO_SCENARIO_TYPE_LLF_ANC_STREAM,               /**< Audio scenario type LLF ANC STREAM. */
-#ifdef AIR_KEEP_I2S_ENABLE
+
     AUDIO_SCENARIO_TYPE_DEVICE,                       /**< Audio scenario type DEVICE. for turn on device only */
-#endif
+    AUDIO_SCENARIO_TYPE_BLE_ULL_DL,
     /* END */
     AUDIO_SCENARIO_TYPE_END          ,                /**< Audio scenario type End. */
     AUDIO_SCEANRIO_TYPE_MAX      = 127,               /**< Audio scenario type max 128. NOT USE */
-    AUDIO_SCEANRIO_TYPE_DUMMY    = 0x7FFFFFFF,        /**<  Dummy for DSP structure alignment */
+    AUDIO_SCEANRIO_TYPE_NO_USE    = 0x7FFFFFFF,        /**<  Dummy for DSP structure alignment */
 } audio_scenario_type_t;
 
+typedef struct {
+    uint32_t mcu_clock_enable;
+    uint32_t dsp_clock_used;
+} audio_clock_share_buffer_t, *audio_clock_share_buffer_p;
+
+/** @brief Audio clock setting */
+typedef enum {
+    /* clock */
+    AUDIO_CLOCK_INT        = 0,                                /**< Audio Clock for Audio internal bus */
+    AUDIO_CLOCK_ENGINE     = 1,                                /**< Audio Clock for Memory agent engine */
+    AUDIO_CLOCK_GPSRC      = 2,                                /**< Audio Clock for HWSRC */
+    AUDIO_CLOCK_UPLINK     = 3,                                /**< Audio Clock for DL hi-res */
+    AUDIO_CLOCK_DWLINK     = 4,                                /**< Audio Clock for UL hi-res */
+    AUDIO_CLOCK_SPDIF      = 5,                                /**< Audio Clock for SPDIF */
+    AUDIO_CLOCK_INTF0_IN   = 6,                                /**< Audio Clock for I2S IN APLL2 48KHz, APLL2:49.152M */
+    AUDIO_CLOCK_INTF1_IN   = 7,                                /**< Audio Clock for I2S IN APLL1 44.1KHz, APLL1:45.1584MHZ */
+    AUDIO_CLOCK_INTF0_OUT  = 8,                                /**< Audio Clock for I2S OUT APLL2 48KHz, APLL2:49.152M */
+    AUDIO_CLOCK_INTF1_OUT  = 9,                                /**< Audio Clock for I2S OUT APLL1 44.1KHz, APLL1:45.1584MHZ */
+    AUDIO_CLOCK_TEST       = 10,                               /**< Audio Clock for TEST */
+    AUDIO_CLOCK_ANC        = 11,                               /**< Audio Clock for ANC */
+    AUDIO_CLOCK_CLD        = 12,                               /**< Audio Clock for CLD */
+    AUDIO_CLOCK_VOW        = 13,                               /**< Audio Clock for VOW */
+    /* power */
+    AUDIO_POWER_MICBIAS_0_HP  = 14,                            /**< Audio Power for Micbias 1 high performance mode*/
+    AUDIO_POWER_MICBIAS_1_HP  = 15,                            /**< Audio Power for Micbias 2 high performance mode*/
+    AUDIO_POWER_MICBIAS_2_HP  = 16,                            /**< Audio Power for Micbias 3 high performance mode*/
+    AUDIO_POWER_MICBIAS_0_NM  = 17,                            /**< Audio Power for Micbias 1 normal mode*/
+    AUDIO_POWER_MICBIAS_1_NM  = 18,                            /**< Audio Power for Micbias 2 normal mode*/
+    AUDIO_POWER_MICBIAS_2_NM  = 19,                            /**< Audio Power for Micbias 3 normal mode*/
+    AUDIO_POWER_MICBIAS_0_LP  = 20,                            /**< Audio Power for Micbias 1 low power mode*/
+    AUDIO_POWER_MICBIAS_1_LP  = 21,                            /**< Audio Power for Micbias 2 low power mode*/
+    AUDIO_POWER_MICBIAS_2_LP  = 22,                            /**< Audio Power for Micbias 3 low power mode*/
+    AUDIO_POWER_MICBIAS_END = AUDIO_POWER_MICBIAS_2_LP,        /**< Audio Power for Micbias End */
+    AUDIO_POWER_MICBIAS_SHARE = 23,                            /**< Audio Power for Micbias Share LDO0 */
+    AUDIO_POWER_DAC            ,                               /**< Audio Power for DAC Out(vitual), for amp lock */
+    AUDIO_POWER_I2S            ,                               /**< Audio Power for I2S MST Out(vitual), for amp lock */
+    /* SPM STATE */
+    AUDIO_DSP_SPM_STATE1       ,                               /**< Audio DSP Low power state1, dsp can't sleep */
+    AUDIO_DSP_SPM_STATE3       ,                               /**< Audio DSP Low power state3, audio won't use, reserved */
+    AUDIO_DSP_SPM_STATE4       ,                               /**< Audio DSP Low power state4, dsp can sleep */
+    AUDIO_POWER_END            ,                               /**< Audio Power End Number */
+    AUDIO_CLOCK_MAX = 0xFFFFFFFF,                              /**< Audio Clock Max Number */
+} audio_clock_setting_type_t;
+
+typedef enum {
+    /* sub agent */
+    HAL_AUDIO_SUB_AGENT_MIN                      = 0,
+    HAL_AUDIO_AFE_CLOCK_AFE                      = HAL_AUDIO_SUB_AGENT_MIN,
+    HAL_AUDIO_AFE_CLOCK_I2S0                     = 1,
+    HAL_AUDIO_AFE_CLOCK_I2S1                     = 2,
+    HAL_AUDIO_AFE_CLOCK_I2S2                     = 3,
+    HAL_AUDIO_AFE_CLOCK_I2S3                     = 4,
+    HAL_AUDIO_AFE_CLOCK_22M                      = 5,
+    HAL_AUDIO_AFE_CLOCK_24M                      = 6,
+    HAL_AUDIO_AFE_CLOCK_APLL                     = 7,
+    HAL_AUDIO_AFE_CLOCK_APLL2                    = 8,
+    HAL_AUDIO_AFE_CLOCK_ADC_COMMON               = 9,
+    HAL_AUDIO_AFE_CLOCK_ADC23                    = 10,
+    HAL_AUDIO_AFE_CLOCK_ADC45                    = 11,
+    HAL_AUDIO_AFE_CLOCK_ANC                      = 12,
+    HAL_AUDIO_AFE_CLOCK_ADC_HIRES                = 13,
+    HAL_AUDIO_AFE_CLOCK_DAC                      = 14,
+    HAL_AUDIO_AFE_CLOCK_DAC_HIRES                = 15,
+    HAL_AUDIO_AFE_CLOCK_I2S_SLV_HCLK             = 16,
+    HAL_AUDIO_AFE_CONTROL_ADDA                   = 17,
+    HAL_AUDIO_AFE_CLOCK_SRC_COMMON               = 18,
+    HAL_AUDIO_AFE_CLOCK_SRC1                     = 19,
+    HAL_AUDIO_AFE_CLOCK_SRC2                     = 20,
+
+    HAL_AUDIO_SUB_AGENT_NUMBERS                  = 21,
+    HAL_AUDIO_SUB_AGENT_ERROR                    = 0xFFFFFFFF,
+} hal_audio_sub_agent_t;
 
 /* Open message parameter structure */
 typedef struct {
@@ -1210,6 +1313,7 @@ typedef enum {
     AUDIO_STRAM_DEINIT_VOICE_AEC,
     AUDIO_STRAM_DEINIT_VOICE_CPD,
     AUDIO_STRAM_DEINIT_ANC_MONITOR,
+    AUDIO_STRAM_DEINIT_ULL_DL,
 } audio_stream_deinit_id_t;
 
 /**
@@ -1253,6 +1357,7 @@ typedef enum {
     MCU2DSP_SYNC_REQUEST_VP   = 3,
     MCU2DSP_SYNC_REQUEST_ADAPT_ANC = 4,
     MCU2DSP_SYNC_REQUEST_BLE  = 5,
+    MCU2DSP_SYNC_REQUEST_LLF        = 6,
     MCU2DSP_SYNC_REQUEST_SCENARIO_MAX = 0xFFFFFFFF
 } cm4_dsp_audio_sync_scenario_type_t;
 
@@ -1312,6 +1417,55 @@ typedef struct audio_volume_monitor_node_t {
     uint32_t              volume_len;   /* the size of volume_data, 20ms * len */
     int32_t               *volume_data; /* non-cacheable system ram */
 } audio_volume_monitor_node_t;
+#endif
+
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+typedef struct
+{
+    hal_audio_hw_stream_out_index_t index;
+    uint16_t new_step;
+    uint16_t new_samples_per_step;
+}dl_sw_gain_fade_para_t;
+
+typedef struct
+{
+    uint8_t LR_balance_status;
+    uint8_t LR_balance_ID;
+}LR_balance_para_t;
+
+typedef struct
+{
+    uint8_t enable_vp : 1;
+    uint8_t enable_a2dp : 1;
+    uint8_t enable_hfp : 1;
+    uint8_t enable_ble_music : 1;
+    uint8_t enable_ble_call : 1;
+    uint8_t enable_ull_music : 1;
+    uint8_t enable_ull_call : 1;
+    uint8_t enable_line_in : 1;
+    uint8_t enable_usb_in : 1;
+    uint8_t enable_revert[2];
+    LR_balance_para_t LR_balance_para_default;
+    uint8_t max_gain_limiter;
+    uint8_t revert[9];
+    uint8_t ch_num;
+    uint8_t level_num;
+    int16_t offset_value[1];
+}dl_sw_gain_default_para_t;
+
+typedef enum {
+    DL_SW_GAIN_SET_LR_BALANCE_OFFSET = 0,              /**< LR balance offset setting  */
+    DL_SW_GAIN_SET_MAINGAIN_1,
+    DL_SW_GAIN_SET_MAINGAIN_2,
+    DL_SW_GAIN_SET_MAINGAIN_3,
+    DL_SW_GAIN_SET_MAINGAIN_1_FADE_IN_PARAM,
+    DL_SW_GAIN_SET_MAINGAIN_1_FADE_OUT_PARAM,
+    DL_SW_GAIN_SET_MAINGAIN_2_FADE_IN_PARAM,
+    DL_SW_GAIN_SET_MAINGAIN_2_FADE_OUT_PARAM,
+    DL_SW_GAIN_SET_MAINGAIN_3_FADE_IN_PARAM,
+    DL_SW_GAIN_SET_MAINGAIN_3_FADE_OUT_PARAM,
+    DL_SW_GAIN_SET_ID_MAX            = 0xFFFFFFFF,     /**< For dsp structure alignment */
+} dl_sw_gain_setting_command_id_t;
 #endif
 
 #ifdef __cplusplus

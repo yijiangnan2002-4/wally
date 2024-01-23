@@ -954,6 +954,16 @@ void *RACE_CmdHandler_FOTA_start(PTR_RACE_COMMON_HDR_STRU pCmdMsg, uint16_t leng
 #ifdef RACE_LPCOMM_SENDER_ROLE_ENABLE
                 fota_cntx->fota_role = RACE_LPCOMM_ROLE_AGENT;
 #endif
+                bt_bd_addr_t *addr = race_get_bt_connection_addr(channel_id);
+                if (NULL != addr) {
+                    memcpy(&fota_cntx->remote_address, addr, sizeof(bt_bd_addr_t));
+                    
+                    RACE_LOG_MSGID_I("FOTA remote addr:%x,%x,%x,%x,%x,%x", 6, ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3],((uint8_t *)addr)[4], ((uint8_t *)addr)[5]);
+                    RACE_LOG_MSGID_I("FOTA start address:%x,%x,%x,%x,%x,%x", 6, fota_cntx->remote_address[0], fota_cntx->remote_address[1], fota_cntx->remote_address[2], fota_cntx->remote_address[3],fota_cntx->remote_address[4], fota_cntx->remote_address[5]);
+                } else {
+                    RACE_LOG_MSGID_E("error fota start get address wrong!", 0);
+                }
+                
             }
 
             if (RACE_RECIPIENT_TYPE_AGENT_ONLY == recipient_type) {
@@ -1041,6 +1051,7 @@ void *RACE_CmdHandler_FOTA_start(PTR_RACE_COMMON_HDR_STRU pCmdMsg, uint16_t leng
                 /* 3. Send the req to the peer */
 #if defined(RACE_AWS_ENABLE) || defined(RACE_COSYS_ENABLE)
                 req.fota_mode = pCmd->fota_mode;
+                memcpy(&req.address, &fota_cntx->remote_address, sizeof(bt_bd_addr_t));
                 ret = race_lpcomm_send_race_cmd_req_to_peer((uint8_t *)&req,
                                                             sizeof(race_lpcomm_fota_start_req_struct),
                                                             RACE_LPCOMM_ROLE_AGENT,

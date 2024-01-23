@@ -50,7 +50,7 @@
 
 void    app_va_xiaoai_ota_init(void);
 
-bool    app_va_xiaoai_ota_slience_enable(bool enable, bool sync_to_peer);
+bool    app_va_xiaoai_ota_silence_enable(bool enable, bool sync_to_peer);
 
 void    app_va_xiaoai_ota_check_both_close(bool both_lid_close);
 

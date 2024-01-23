@@ -46,10 +46,20 @@
 
 /* USB Middleware includes */
 #include "usb.h"
-#include "usb_host_detect.h"
+#include "usb_dbg.h"
 #include "usb_nvkey_struct.h"
 #include "usb_resource.h"
 #include "usbaudio_drv.h"
+
+/* USB debug mechanism */
+#if defined(USB_DBG)
+#ifdef MTK_SWLA_ENABLE
+#include "swla.h"
+#endif
+#if defined(AIR_AUDIO_DUMP_ENABLE)
+#include "audio_dump.h"
+#endif
+#endif
 
 /* Other Middleware includes */
 #ifdef AIR_NVDM_ENABLE
@@ -66,21 +76,8 @@
 /* Other includes */
 #include "memory_attribute.h"
 
-#if defined(USB_AUDIO_TX_TIME_MEASURE) || defined(USB_AUDIO_RX_TIME_MEASURE)
-#include "swla.h"
-#endif
-
-#if defined(AIR_AUDIO_DUMP_ENABLE)
-#if defined(USB_AUDIO_DUMP_RX1) || defined(USB_AUDIO_DUMP_RX2) || defined(USB_AUDIO_DUMP_TX1)
-#include "audio_dump.h"
-#endif
-#endif
-
 /* Syslog create module for usbaudio_drv.c */
-#include "usb_dbg.h"
 log_create_module_variant(USBAUDIO_DRV, DEBUG_LOG_ON, PRINT_LEVEL_INFO);
-
-#if defined(AIR_USB_AUDIO_ENABLE)
 
 #define AUDFREQ_TO_U32(FREQ) ((FREQ.data[0] << 0) + (FREQ.data[1] << 8) + (FREQ.data[2] << 16))
 #define U32_TO_AUDFREQ(U32)  ({((U32 & 0x0000FF) >> 0), ((U32 & 0x00FF00) >> 8), ((U32 & 0xFF0000) >> 16)})
@@ -113,12 +110,12 @@ UsbAudioStruct USB_Audio[2];
 UsbAudio_Struct g_UsbAudio[2] = {
     /* Audio 1 device settings */
     {
-        .spk_feature_en    = AIR_USB_AUDIO_1_SPK_FEATURE_ENABLE,
-        .spk_alt2_en       = false,
-        .spk_alt3_en       = false,
-        .mic_feature_en    = AIR_USB_AUDIO_1_MIC_FEATURE_ENABLE,
-        .mic_alt2_en       = false,
-        .mic_alt3_en       = false,
+        .spk_feature_en    = AIR_USB_AUDIO_1_SPK_FEATURE_ENABLE,    /* decided by usb_audio_set_audio_card */
+        .spk_alt2_en       = false,    /* decided by USB_Aduio_Set_RX1_Alt2 */
+        .spk_alt3_en       = false,    /* decided by USB_Aduio_Set_RX1_Alt3 */
+        .mic_feature_en    = AIR_USB_AUDIO_1_MIC_FEATURE_ENABLE,    /* decided by usb_audio_set_audio_card */
+        .mic_alt2_en       = false,    /* decided by USB_Aduio_Set_TX1_Alt2 */
+        .mic_alt3_en       = false,    /* Unused */
         .spk_terminal_type = 0x0402,
         .spk_cur           = 0xF59A,
         .spk_min           = 0xB600,
@@ -138,9 +135,9 @@ UsbAudio_Struct g_UsbAudio[2] = {
     },
     /* Audio 2 device settings */
     {
-        .spk_feature_en    = false,
-        .spk_alt2_en       = true,  /* default is true and decided by USB_AUDIO_RX1_ALT2_ENABLE or USB_Aduio_Set_RX2_Alt2 */
-        .mic_feature_en    = false,
+        .spk_feature_en    = false,    /* decided by usb_audio_set_audio_card */
+        .spk_alt2_en       = false,    /* decided by USB_Aduio_Set_RX2_Alt2 */
+        .mic_feature_en    = false,    /* Unused */
         .spk_terminal_type = 0x0402,
         .spk_cur           = 0xF59A,
         .spk_min           = 0xB600,
@@ -487,7 +484,6 @@ static usb_audio_dscr_interface_t audio1_spk_stream_alt_if_dscr = {
     .iInterface         = 0x00, /* Overwrite by USB_Audio1_StreamIf_Create */
 };
 
-#ifdef USB_AUDIO_RX1_ALT2_ENABLE
 static usb_audio_dscr_interface_t audio1_spk_stream_alt2_if_dscr = {
     .bLength            = USB_IFDSC_LENGTH,
     .bDescriptorType    = USB_INTERFACE,
@@ -499,9 +495,7 @@ static usb_audio_dscr_interface_t audio1_spk_stream_alt2_if_dscr = {
     .bInterfaceProtocol = USB_AUDIO_INTERFACE_PROTOCOL,
     .iInterface         = 0x00, /* Overwrite by USB_Audio1_StreamIf_Create */
 };
-#endif
 
-#ifdef USB_AUDIO_RX1_ALT3_ENABLE
 static usb_audio_dscr_interface_t audio1_spk_stream_alt3_if_dscr = {
     .bLength            = USB_IFDSC_LENGTH,
     .bDescriptorType    = USB_INTERFACE,
@@ -513,7 +507,6 @@ static usb_audio_dscr_interface_t audio1_spk_stream_alt3_if_dscr = {
     .bInterfaceProtocol = USB_AUDIO_INTERFACE_PROTOCOL,
     .iInterface         = 0x00, /* Overwrite by USB_Audio1_StreamIf_Create */
 };
-#endif
 
 static usb_audio_dscr_as_general_t audio1_spk_stream_general_dscr = {
     .bLength            = 0x07,
@@ -540,7 +533,6 @@ static usb_audio_dscr_as_format_type_t audio1_spk_stream_format_dscr = {
         },
 };
 
-#ifdef USB_AUDIO_RX1_ALT2_ENABLE
 static usb_audio_dscr_as_format_type_t audio1_spk_stream_alt2_format_dscr = {
     .bLength            = 0x08 + 3 * 2, /* 8 + freq_size(3) * num_of_freq */
     .bDescriptorType    = 0x24,
@@ -556,9 +548,7 @@ static usb_audio_dscr_as_format_type_t audio1_spk_stream_alt2_format_dscr = {
             {.data = {0x00, 0x77, 0x01}}, /* tSamFreq[2]; 96000 Hz */
         },
 };
-#endif
 
-#ifdef USB_AUDIO_RX1_ALT3_ENABLE
 static usb_audio_dscr_as_format_type_t audio1_spk_stream_alt3_format_dscr = {
     .bLength            = 0x08 + 3 * 2, /* 8 + freq_size(3) * num_of_freq */
     .bDescriptorType    = 0x24,
@@ -573,7 +563,6 @@ static usb_audio_dscr_as_format_type_t audio1_spk_stream_alt3_format_dscr = {
             {.data = {0x00, 0xEE, 0x02}}, /* tSamFreq[1]; 192000 Hz */
         },
 };
-#endif
 
 static usb_audio_dscr_hdlr_t audio1_spk_as_if_dscrs[] = {
     {&audio1_spk_stream_if_dscr, usb_audio_dscr_interface_serialize},
@@ -585,21 +574,17 @@ static usb_audio_dscr_hdlr_t audio1_spk_as_if_alt_dscrs[] = {
     {&audio1_spk_stream_format_dscr, usb_audio_dscr_as_format_type_serialize},
 };
 
-#ifdef USB_AUDIO_RX1_ALT2_ENABLE
 static usb_audio_dscr_hdlr_t audio1_spk_as_if_alt2_dscrs[] = {
     {&audio1_spk_stream_alt2_if_dscr, usb_audio_dscr_interface_serialize},
     {&audio1_spk_stream_general_dscr, usb_audio_dscr_as_general_serialize},
     {&audio1_spk_stream_alt2_format_dscr, usb_audio_dscr_as_format_type_serialize},
 };
-#endif
 
-#ifdef USB_AUDIO_RX1_ALT3_ENABLE
 static usb_audio_dscr_hdlr_t audio1_spk_as_if_alt3_dscrs[] = {
     {&audio1_spk_stream_alt3_if_dscr, usb_audio_dscr_interface_serialize},
     {&audio1_spk_stream_general_dscr, usb_audio_dscr_as_general_serialize},
     {&audio1_spk_stream_alt3_format_dscr, usb_audio_dscr_as_format_type_serialize},
 };
-#endif
 
 #ifdef AIR_USB_AUDIO_1_MIC_ENABLE
 static usb_audio_dscr_interface_t audio1_mic_stream_if_dscr = {
@@ -626,7 +611,6 @@ static usb_audio_dscr_interface_t audio1_mic_stream_alt_if_dscr = {
     .iInterface         = 0x00, /* Overwrite by USB_Audio_StreamIf_Microphone_Create */
 };
 
-#ifdef USB_AUDIO_TX1_ALT2_ENABLE
 static usb_audio_dscr_interface_t audio1_mic_stream_alt2_if_dscr = {
     .bLength            = USB_IFDSC_LENGTH,
     .bDescriptorType    = USB_INTERFACE,
@@ -638,7 +622,6 @@ static usb_audio_dscr_interface_t audio1_mic_stream_alt2_if_dscr = {
     .bInterfaceProtocol = USB_AUDIO_INTERFACE_PROTOCOL,
     .iInterface         = 0x00, /* Overwrite by USB_Audio_StreamIf_Microphone_Create */
 };
-#endif
 
 static usb_audio_dscr_as_general_t audio1_mic_stream_general_dscr = {
     .bLength            = 0x07,
@@ -665,7 +648,6 @@ static usb_audio_dscr_as_format_type_t audio1_mic_stream_format_dscr = {
         },
 };
 
-#ifdef USB_AUDIO_TX1_ALT2_ENABLE
 static usb_audio_dscr_as_format_type_t audio1_mic_stream_alt2_format_dscr = {
     .bLength            = 0x08 + 3 * 2, /* 8 + freq_size(3) * num_of_freq */
     .bDescriptorType    = 0x24,
@@ -681,7 +663,6 @@ static usb_audio_dscr_as_format_type_t audio1_mic_stream_alt2_format_dscr = {
             {.data = {0x80, 0xBB, 0x00}}, /* tSamFreq[2]; 48000 Hz */
         },
 };
-#endif
 
 static usb_audio_dscr_hdlr_t audio1_mic_as_if_dscrs[] = {
     {&audio1_mic_stream_if_dscr, usb_audio_dscr_interface_serialize},
@@ -693,13 +674,11 @@ static usb_audio_dscr_hdlr_t audio1_mic_as_if_alt_dscrs[] = {
     {&audio1_mic_stream_format_dscr, usb_audio_dscr_as_format_type_serialize},
 };
 
-#ifdef USB_AUDIO_TX1_ALT2_ENABLE
 static usb_audio_dscr_hdlr_t audio1_mic_as_if_alt2_dscrs[] = {
     {&audio1_mic_stream_alt2_if_dscr, usb_audio_dscr_interface_serialize},
     {&audio1_mic_stream_general_dscr, usb_audio_dscr_as_general_serialize},
     {&audio1_mic_stream_alt2_format_dscr, usb_audio_dscr_as_format_type_serialize},
 };
-#endif
 
 #endif /* AIR_USB_AUDIO_1_MIC_ENABLE */
 
@@ -727,7 +706,6 @@ static usb_audio_dscr_interface_t audio2_spk_stream_alt_if_dscr = {
     .iInterface         = 0x00, /* Overwrite by USB_Audio2_StreamIf_Create */
 };
 
-#ifdef USB_AUDIO_RX2_ALT2_ENABLE
 static usb_audio_dscr_interface_t audio2_spk_stream_alt2_if_dscr = {
     .bLength            = USB_IFDSC_LENGTH,
     .bDescriptorType    = USB_INTERFACE,
@@ -739,7 +717,6 @@ static usb_audio_dscr_interface_t audio2_spk_stream_alt2_if_dscr = {
     .bInterfaceProtocol = USB_AUDIO_INTERFACE_PROTOCOL,
     .iInterface         = 0x00, /* Overwrite by USB_Audio2_StreamIf_Create */
 };
-#endif
 
 static usb_audio_dscr_as_general_t audio2_spk_stream_general_dscr = {
     .bLength            = 0x07,
@@ -766,7 +743,6 @@ static usb_audio_dscr_as_format_type_t audio2_spk_stream_format_dscr = {
         },
 };
 
-#ifdef USB_AUDIO_RX2_ALT2_ENABLE
 static usb_audio_dscr_as_format_type_t audio2_spk_stream_alt2_format_dscr = {
     .bLength            = 0x08 + 3 * 2, /* 8 + freq_size(3) * num_of_freq */
     .bDescriptorType    = 0x24,
@@ -782,7 +758,6 @@ static usb_audio_dscr_as_format_type_t audio2_spk_stream_alt2_format_dscr = {
             {.data = {0x00, 0x77, 0x01}}, /* tSamFreq[2]; 96000 Hz */
         },
 };
-#endif
 
 static usb_audio_dscr_hdlr_t audio2_spk_as_if_dscrs[] = {
     {&audio2_spk_stream_if_dscr, usb_audio_dscr_interface_serialize},
@@ -794,13 +769,11 @@ static usb_audio_dscr_hdlr_t audio2_spk_as_if_alt_dscrs[] = {
     {&audio2_spk_stream_format_dscr, usb_audio_dscr_as_format_type_serialize},
 };
 
-#ifdef USB_AUDIO_RX2_ALT2_ENABLE
 static usb_audio_dscr_hdlr_t audio2_spk_as_if_alt2_dscrs[] = {
     {&audio2_spk_stream_alt2_if_dscr, usb_audio_dscr_interface_serialize},
     {&audio2_spk_stream_general_dscr, usb_audio_dscr_as_general_serialize},
     {&audio2_spk_stream_alt2_format_dscr, usb_audio_dscr_as_format_type_serialize},
 };
-#endif
 
 /****************************************** Speaker Endpoint Start *********************************************/
 
@@ -891,34 +864,19 @@ bool USB_Audio_RX_SetAlt2Enable(uint32_t port, uint8_t alt_num)
 {
     bool enable = false;
 
-    if((port == 0) && (alt_num == 0)){
+    if(((port == USB_AUDIO_1_PORT) || (port == USB_AUDIO_2_PORT)) &&
+       (alt_num == USB_AUDIO_ALT0)){
         enable = false;
     }
-    else if((port == 0) && (alt_num == 1)){
+    else if(((port == USB_AUDIO_1_PORT) || (port == USB_AUDIO_2_PORT)) &&
+            ((alt_num == USB_AUDIO_ALT1) || (alt_num == USB_AUDIO_ALT2))){
         enable = true;
     }
-    #ifdef USB_AUDIO_RX1_ALT2_ENABLE
-    else if((port == 0) && (alt_num == 2)){
+    else if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT3)){
         enable = true;
     }
-    #endif
-    #ifdef USB_AUDIO_RX1_ALT3_ENABLE
-    else if((port == 0) && (alt_num == 3)){
-        enable = true;
-    }
-    #endif
-    else if((port == 1) && (alt_num == 0)){
-        enable = false;
-    }
-    else if((port == 1) && (alt_num == 1)){
-        enable = true;
-    }
-    #ifdef USB_AUDIO_RX2_ALT2_ENABLE
-     else if((port == 1) && (alt_num == 2)){
-        enable = true;
-    }
-    #endif
     else {
+        LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_RX_SetAlt2Enable either port:%d or alt_num:%d is invalid", 2, port, alt_num);
         enable = false;
     }
 
@@ -930,18 +888,15 @@ bool USB_Audio_TX_SetAlt2Enable(uint32_t port, uint8_t alt_num)
 {
     bool enable = false;
 
-    if((port == 0) && (alt_num == 0)){
+    if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT0)){
         enable = false;
     }
-    else if((port == 0) && (alt_num == 1)){
+    else if((port == USB_AUDIO_1_PORT) &&
+            ((alt_num == USB_AUDIO_ALT1 ) || (alt_num == USB_AUDIO_ALT2))){
         enable = true;
     }
-    #ifdef USB_AUDIO_TX1_ALT2_ENABLE
-    else if((port == 0) && (alt_num == 2)){
-        enable = true;
-    }
-    #endif
     else {
+        LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_TX_SetAlt2Enable either port:%d or alt_num:%d is invalid", 2, port, alt_num);
         enable = false;
     }
 
@@ -1060,7 +1015,6 @@ void USB_Aduio_Set_RX1_Alt1(uint8_t smaple_rate_num, uint8_t smaple_size, uint8_
 
 void USB_Aduio_Set_RX1_Alt2(bool alt2_en, uint8_t smaple_rate_num, uint8_t smaple_size, uint8_t channel, uint32_t *sample_rate)
 {
-#ifdef USB_AUDIO_RX1_ALT2_ENABLE
     g_UsbAudio[0].spk_alt2_en = alt2_en;
 
     if(alt2_en == false){
@@ -1090,15 +1044,10 @@ void USB_Aduio_Set_RX1_Alt2(bool alt2_en, uint8_t smaple_rate_num, uint8_t smapl
                 audio1_spk_stream_alt2_format_dscr.tSamFreq[2],
                 audio1_spk_stream_alt2_format_dscr.tSamFreq[3],
                 audio1_spk_stream_alt2_format_dscr.tSamFreq[4]);
-
-#else
-    LOG_MSGID_W(USBAUDIO_DRV, "USB_Aduio_Set_RX1_Alt2 USB_AUDIO_RX1_ALT2_ENABLE is not enable", 0);
-#endif
 }
 
 void USB_Aduio_Set_RX1_Alt3(bool alt3_en, uint8_t smaple_rate_num, uint8_t smaple_size, uint8_t channel, uint32_t *sample_rate)
 {
-#ifdef USB_AUDIO_RX1_ALT3_ENABLE
     g_UsbAudio[0].spk_alt3_en = alt3_en;
 
     if(alt3_en == false) {
@@ -1128,9 +1077,6 @@ void USB_Aduio_Set_RX1_Alt3(bool alt3_en, uint8_t smaple_rate_num, uint8_t smapl
                 audio1_spk_stream_alt3_format_dscr.tSamFreq[2],
                 audio1_spk_stream_alt3_format_dscr.tSamFreq[3],
                 audio1_spk_stream_alt3_format_dscr.tSamFreq[4]);
-#else
-    LOG_MSGID_W(USBAUDIO_DRV, "USB_Aduio_Set_RX1_Alt3 USB_AUDIO_RX1_ALT3_ENABLE is not enable", 0);
-#endif
 }
 
 
@@ -1162,7 +1108,6 @@ void USB_Aduio_Set_RX2_Alt1(uint8_t smaple_rate_num, uint8_t smaple_size, uint8_
 
 void USB_Aduio_Set_RX2_Alt2(bool alt2_en, uint8_t smaple_rate_num, uint8_t smaple_size, uint8_t channel, uint32_t *sample_rate)
 {
-#ifdef USB_AUDIO_RX2_ALT2_ENABLE
     g_UsbAudio[1].spk_alt2_en = alt2_en;
 
     if(alt2_en == false){
@@ -1193,9 +1138,6 @@ void USB_Aduio_Set_RX2_Alt2(bool alt2_en, uint8_t smaple_rate_num, uint8_t smapl
                 audio2_spk_stream_alt2_format_dscr.tSamFreq[3],
                 audio2_spk_stream_alt2_format_dscr.tSamFreq[4]);
     return;
-#else
-    LOG_MSGID_W(USBAUDIO_DRV, "USB_Aduio_Set_RX2_Alt2 USB_AUDIO_RX2_ALT2_ENABLE is not enable", 0);
-#endif
 }
 
 
@@ -1232,7 +1174,6 @@ void USB_Aduio_Set_TX1_Alt1(uint8_t smaple_rate_num, uint8_t smaple_size, uint8_
 void USB_Aduio_Set_TX1_Alt2(bool alt2_en, uint8_t smaple_rate_num, uint8_t smaple_size, uint8_t channel, uint32_t *sample_rate)
 {
 #ifdef AIR_USB_AUDIO_1_MIC_ENABLE
-#ifdef USB_AUDIO_TX1_ALT2_ENABLE
     g_UsbAudio[0].mic_alt2_en = alt2_en;
 
     if(alt2_en == false){
@@ -1262,9 +1203,6 @@ void USB_Aduio_Set_TX1_Alt2(bool alt2_en, uint8_t smaple_rate_num, uint8_t smapl
                 audio1_mic_stream_alt2_format_dscr.tSamFreq[2],
                 audio1_mic_stream_alt2_format_dscr.tSamFreq[3],
                 audio1_mic_stream_alt2_format_dscr.tSamFreq[4]);
-#else
-    LOG_MSGID_W(USBAUDIO_DRV, "USB_Aduio_Set_TX1_Alt2 AIR_USB_AUDIO_1_MIC_ENABLE is not enable", 0);
-#endif
 #endif
 }
 
@@ -1423,7 +1361,16 @@ static void usb_audio_update_channel_config(uint8_t port, uint8_t sub_device)
         fd->control_nr          = audio_str->spk_chs + 1; /* add 1 master Control */
         fd->bLength             = 0x07 + fd->control_nr * fd->bControlSize;
 
-        if(USB_AUDIO_VC_INDIVIUAL == vc) {
+        if(USB_AUDIO_VC_DISABLE == vc) {
+            /* Master(0) Channel */
+            fd->bmaControls[0] = USB_AUDIO_BMACONTROL_MUTE;
+
+            /* Each(1~n) Channel */
+            for (uint8_t i = 0; i < g_UsbAudio[0].spk_chs; i++) {
+                fd->bmaControls[i + 1] = USB_AUDIO_BMACONTROL_NULL;
+            }
+        }
+        else if(USB_AUDIO_VC_INDIVIUAL == vc) {
             /* Master(0) Channel */
             fd->bmaControls[0] = USB_AUDIO_BMACONTROL_MUTE;
             /* Each(1~n) Channel */
@@ -1458,7 +1405,15 @@ static void usb_audio_update_channel_config(uint8_t port, uint8_t sub_device)
         fd->control_nr          = audio_str->mic_chs + 1; /* add 1 master Control */
         fd->bLength             = 0x07 + fd->control_nr * fd->bControlSize;
 
-        if(USB_AUDIO_VC_INDIVIUAL == vc) {
+        if(USB_AUDIO_VC_DISABLE == vc) {
+            /* Master(0) Channel */
+            fd->bmaControls[0] = USB_AUDIO_BMACONTROL_MUTE;
+            /* Each(1~n) Channel */
+            for (uint8_t i = 0; i < g_UsbAudio[0].mic_chs; i++) {
+                fd->bmaControls[i + 1] = USB_AUDIO_BMACONTROL_NULL;
+            }
+        }
+        else if(USB_AUDIO_VC_INDIVIUAL == vc) {
             /* Master(0) Channel */
             fd->bmaControls[0] = USB_AUDIO_BMACONTROL_MUTE;
             /* Each(1~n) Channel */
@@ -1755,7 +1710,6 @@ void USB_Audio1_StreamIf_Create(void *ifname)
     g_UsbAudio[port].stream_if_info->alternate_if_info[0].ep_info[0] = g_UsbAudio[port].stream_ep_out_info;
     g_UsbAudio[port].stream_if_info->alternate_if_info[0].ep_info[0]->epdscr_size = sizeof(audio_stream_ep_out_dscr);
 
-#ifdef USB_AUDIO_RX1_ALT2_ENABLE
     if(g_UsbAudio[port].spk_alt2_en) {
         audio1_spk_stream_alt2_if_dscr.bInterfaceNumber = if_id;
 
@@ -1768,9 +1722,7 @@ void USB_Audio1_StreamIf_Create(void *ifname)
         g_UsbAudio[port].stream_if_info->alternate_if_info[1].ep_info[0] = g_UsbAudio[port].stream_ep_out_info;
         g_UsbAudio[port].stream_if_info->alternate_if_info[1].ep_info[0]->epdscr_size = sizeof(audio_stream_ep_out_dscr);
     }
-#endif
 
-#ifdef USB_AUDIO_RX1_ALT3_ENABLE
     if(g_UsbAudio[port].spk_alt3_en) {
         audio1_spk_stream_alt3_if_dscr.bInterfaceNumber = if_id;
 
@@ -1783,7 +1735,6 @@ void USB_Audio1_StreamIf_Create(void *ifname)
         g_UsbAudio[port].stream_if_info->alternate_if_info[2].ep_info[0] = g_UsbAudio[port].stream_ep_out_info;
         g_UsbAudio[port].stream_if_info->alternate_if_info[2].ep_info[0]->epdscr_size = sizeof(audio_stream_ep_out_dscr);
     }
-#endif
 
     memcpy((uint32_t *) & (g_UsbAudio[port].stream_ep_out_info->epdesc.classep), audio_stream_ep_out_dscr, sizeof(audio_stream_ep_out_dscr));
 
@@ -1874,7 +1825,6 @@ void USB_Audio2_StreamIf_Create(void *ifname)
     g_UsbAudio[port].stream_if_info->alternate_if_info[0].ep_info[0] = g_UsbAudio[port].stream_ep_out_info;
     g_UsbAudio[port].stream_if_info->alternate_if_info[0].ep_info[0]->epdscr_size = sizeof(audio_stream_ep_out_dscr);
 
-#ifdef USB_AUDIO_RX2_ALT2_ENABLE
     if(g_UsbAudio[port].spk_alt2_en) {
         audio2_spk_stream_alt2_if_dscr.bInterfaceNumber = if_id;
 
@@ -1887,7 +1837,6 @@ void USB_Audio2_StreamIf_Create(void *ifname)
         g_UsbAudio[port].stream_if_info->alternate_if_info[1].ep_info[0] = g_UsbAudio[port].stream_ep_out_info;
         g_UsbAudio[port].stream_if_info->alternate_if_info[1].ep_info[0]->epdscr_size = sizeof(audio_stream_ep_out_dscr);
     }
-#endif
 
     memcpy((uint32_t *) & (g_UsbAudio[port].stream_ep_out_info->epdesc.classep), audio_stream_ep_out_dscr, sizeof(audio_stream_ep_out_dscr));
 
@@ -2065,7 +2014,6 @@ void USB_Audio_StreamIf_Microphone_Create(void *ifname)
     g_UsbAudio[port].stream_microphone_if_info->alternate_if_info[0].ep_info[0] = g_UsbAudio[port].stream_ep_in_info;
     g_UsbAudio[port].stream_microphone_if_info->alternate_if_info[0].ep_info[0]->epdscr_size = sizeof(audio_stream_ep_in_dscr);
 
-#ifdef USB_AUDIO_TX1_ALT2_ENABLE
     if(g_UsbAudio[port].mic_alt2_en) {
         audio1_mic_stream_alt2_if_dscr.bInterfaceNumber = if_id;
 
@@ -2078,7 +2026,6 @@ void USB_Audio_StreamIf_Microphone_Create(void *ifname)
         g_UsbAudio[port].stream_microphone_if_info->alternate_if_info[1].ep_info[0] = g_UsbAudio[port].stream_ep_in_info;
         g_UsbAudio[port].stream_microphone_if_info->alternate_if_info[1].ep_info[0]->epdscr_size = sizeof(audio_stream_ep_in_dscr);
     }
-#endif
 
     memcpy((uint32_t *) & (g_UsbAudio[port].stream_ep_in_info->epdesc.classep), audio_stream_ep_in_dscr, sizeof(audio_stream_ep_in_dscr));
 
@@ -2581,16 +2528,17 @@ uint16_t USB_Audio_Volume_0to100_Convertor(uint16_t raw_data, uint16_t volume_mi
 static void USB_Audio1_Ep0_DataReceived(void *data)
 {
     bool stall = false;
+    uint8_t  port    = USB_AUDIO_1_PORT;
     uint16_t wValue  = g_usb_audio_wValue;
     uint16_t wIndex  = g_usb_audio_wIndex;
     uint16_t wLength = g_usb_audio_wLength;
 
-    uint8_t  spk_ep_addr = (USB_EP_DIR_OUT | g_UsbAudio[0].stream_ep_out_id);
-    uint16_t spk_wIndex  = (0x02 << 8 | g_UsbAudio[0].control_interface_id);
+    uint8_t  spk_ep_addr = (USB_EP_DIR_OUT | g_UsbAudio[port].stream_ep_out_id);
+    uint16_t spk_wIndex  = (0x02 << 8 | g_UsbAudio[port].control_interface_id);
 
 #ifdef AIR_USB_AUDIO_1_MIC_ENABLE
-    uint8_t  mic_ep_addr = (USB_EP_DIR_IN | g_UsbAudio[0].stream_ep_in_id);
-    uint16_t mic_wIndex  = (0x06 << 8 | g_UsbAudio[0].control_interface_id);
+    uint8_t  mic_ep_addr = (USB_EP_DIR_IN | g_UsbAudio[port].stream_ep_in_id);
+    uint16_t mic_wIndex  = (0x06 << 8 | g_UsbAudio[port].control_interface_id);
 #endif
 
     /* Check EP0 data is enough */
@@ -2609,16 +2557,16 @@ static void USB_Audio1_Ep0_DataReceived(void *data)
     else if ((wValue & 0x0200) && wIndex == spk_wIndex) {
         uint8_t ch_index = wValue & 0xFF;
         ch_index = _USB_Audio_Channel_Check(ch_index);
-        hal_usb_read_endpoint_fifo(0, wLength, &g_UsbAudio[0].spk_cur_channel_vol[ch_index]);
-        USB_Send_Message(USB_AUDIO_SET_VOLUME, (void *)(g_UsbAudio[0].spk_cur_channel_vol[ch_index] + (ch_index << 16) + (spk_ep_addr << 24)));
+        hal_usb_read_endpoint_fifo(0, wLength, &g_UsbAudio[port].spk_cur_channel_vol[ch_index]);
+        USB_Send_Message(USB_AUDIO_SET_VOLUME, (void *)(g_UsbAudio[port].spk_cur_channel_vol[ch_index] + (ch_index << 16) + (spk_ep_addr << 24)));
     }
 #ifdef AIR_USB_AUDIO_1_MIC_ENABLE
     else if ((wValue & 0x0200) && wIndex == mic_wIndex) {
         uint8_t ch_index = wValue & 0xFF;
         ch_index = _USB_Audio_Channel_Check(ch_index);
-        hal_usb_read_endpoint_fifo(0, wLength, &g_UsbAudio[0].mic_cur_channel_vol[ch_index]);
+        hal_usb_read_endpoint_fifo(0, wLength, &g_UsbAudio[port].mic_cur_channel_vol[ch_index]);
         #ifndef USB_TEST_MIC
-        USB_Send_Message(USB_MIC_SET_VOLUME, (void *)(g_UsbAudio[0].mic_cur_channel_vol[ch_index] + (ch_index << 16) + (mic_ep_addr << 24)));
+        USB_Send_Message(USB_MIC_SET_VOLUME, (void *)(g_UsbAudio[port].mic_cur_channel_vol[ch_index] + (ch_index << 16) + (mic_ep_addr << 24)));
         #endif
     }
     else if (wValue == 0x0100 && wIndex == mic_wIndex) {
@@ -2649,6 +2597,7 @@ static void USB_Audio1_Ep0_DataReceived(void *data)
 static void USB_Audio2_Ep0_DataReceived(void *data)
 {
     bool stall = false;
+    uint8_t  port    = USB_AUDIO_2_PORT;
     uint16_t wValue  = g_usb_audio2_wValue;
     uint16_t wIndex  = g_usb_audio2_wIndex;
     uint16_t wLength = g_usb_audio2_wLength;
@@ -2675,13 +2624,13 @@ static void USB_Audio2_Ep0_DataReceived(void *data)
     else if ((wValue & 0x0200) && wIndex == spk_wIndex) {
         uint8_t ch_index = wValue & 0x00FF;
         ch_index = _USB_Audio_Channel_Check(ch_index);
-        hal_usb_read_endpoint_fifo(0, wLength, &g_UsbAudio[1].spk_cur_channel_vol[ch_index]);
-        USB_Send_Message(USB_AUDIO_SET_VOLUME, (void *)(g_UsbAudio[1].spk_cur_channel_vol[ch_index] + (ch_index << 16) + (spk_ep_addr << 24)));
+        hal_usb_read_endpoint_fifo(0, wLength, &g_UsbAudio[port].spk_cur_channel_vol[ch_index]);
+        USB_Send_Message(USB_AUDIO_SET_VOLUME, (void *)(g_UsbAudio[port].spk_cur_channel_vol[ch_index] + (ch_index << 16) + (spk_ep_addr << 24)));
     }
     else {
+        stall = true;
         LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio2_Ep0_DataReceived is out of case wValue:0x%X wIndex:0x%X", 2,
                     wValue, wIndex);
-        stall = true;
     }
 
     gUsbDevice.ep0_state = USB_EP0_RX_STATUS;
@@ -2901,29 +2850,27 @@ uint32_t USB_Audio_Set_RX_Alt(uint32_t port, uint8_t alt_num)
 {
     usb_audio_dscr_as_format_type_t *p = NULL;
 
-    if((port == 0) && (alt_num == 0 || alt_num == 1)) { /* Speaker 1 */
+    /* Speaker 1 */
+    if((port == USB_AUDIO_1_PORT) &&
+       ((alt_num == USB_AUDIO_ALT0) || (alt_num == USB_AUDIO_ALT1))) {
         p = &audio1_spk_stream_format_dscr;
     }
-#ifdef USB_AUDIO_RX1_ALT2_ENABLE
-    else if((port == 0) && (alt_num == 2)) {
+    else if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT2)) {
         p = &audio1_spk_stream_alt2_format_dscr;
     }
-#endif
-#ifdef USB_AUDIO_RX1_ALT3_ENABLE
-    else if((port == 0) && (alt_num == 3)) {
+    else if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT3)) {
         p = &audio1_spk_stream_alt3_format_dscr;
     }
-#endif
-    else if((port == 1) && (alt_num == 0 || alt_num == 1)) { /* Speaker 2 */
+    /* Speaker 2 */
+    else if((port == USB_AUDIO_2_PORT) && 
+            (alt_num == USB_AUDIO_ALT0 || alt_num == USB_AUDIO_ALT1)) {
         p = &audio2_spk_stream_format_dscr;
     }
-#ifdef USB_AUDIO_RX2_ALT2_ENABLE
-    else if((port == 1) && (alt_num == 2)) {
+    else if((port == USB_AUDIO_2_PORT) && (alt_num == USB_AUDIO_ALT2)) {
         p = &audio2_spk_stream_alt2_format_dscr;
     }
-#endif
 
-    if (port == 0) {
+    if (port == USB_AUDIO_1_PORT) {
         if (p) {
             g_usb_audio_sample_size = p->bSubFrameSize;
             g_usb_audio_channel = p->bNrChannels;
@@ -2934,7 +2881,7 @@ uint32_t USB_Audio_Set_RX_Alt(uint32_t port, uint8_t alt_num)
             g_usb_audio_channel     = 0;
         }
     }
-    else if (port == 1) {
+    else if (port == USB_AUDIO_2_PORT) {
         if (p) {
             g_usb_audio2_sample_size = p->bSubFrameSize;
             g_usb_audio2_channel = p->bNrChannels;
@@ -2946,12 +2893,16 @@ uint32_t USB_Audio_Set_RX_Alt(uint32_t port, uint8_t alt_num)
         }
     }
 
-    if(port == 0) {
+    if(port == USB_AUDIO_1_PORT) {
          LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_RX_Alt port:%d alt_num:%d sample_size:%d channel:%d", 4,
                      port, alt_num, g_usb_audio_sample_size, g_usb_audio_channel);
-    } else if (port == 1) {
+    }
+    else if (port == USB_AUDIO_2_PORT) {
          LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_RX_Alt port:%d alt_num:%d sample_size:%d channel:%d", 4,
                      port, alt_num, g_usb_audio2_sample_size, g_usb_audio2_channel);
+    }
+    else {
+        LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Set_RX_Alt port:%d is invalid", 1, port);
     }
 
     return 0;
@@ -3023,27 +2974,23 @@ uint32_t USB_Audio_Get_RX_Sample_Rate_Max(uint32_t port, uint8_t alt_num)
     uint32_t sample_rate_max = 0;
     usb_audio_dscr_as_format_type_t *p = NULL;
 
-    if((port == 0) && (alt_num == 1)) { /* Speaker 1 */
+    /* Speaker 1 */
+    if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT1)) {
         p = &audio1_spk_stream_format_dscr;
     }
-#ifdef USB_AUDIO_RX1_ALT2_ENABLE
-    else if((port == 0) && (alt_num == 2)) {
+    else if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT2)) {
         p = &audio1_spk_stream_alt2_format_dscr;
     }
-#endif
-#ifdef USB_AUDIO_RX1_ALT3_ENABLE
-    else if((port == 0) && (alt_num == 3)) {
+    else if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT3)) {
         p = &audio1_spk_stream_alt3_format_dscr;
     }
-#endif
-    else if((port == 1) && (alt_num == 1)) { /* Speaker 2 */
+    /* Speaker 2 */
+    else if((port == USB_AUDIO_2_PORT) && (alt_num == USB_AUDIO_ALT1)) {
         p = &audio2_spk_stream_format_dscr;
     }
-#ifdef USB_AUDIO_RX2_ALT2_ENABLE
-    else if((port == 1) && (alt_num == 2)) {
+    else if((port == USB_AUDIO_2_PORT) && (alt_num == USB_AUDIO_ALT2)) {
         p = &audio2_spk_stream_alt2_format_dscr;
     }
-#endif
 
     if (p) {
         sample_rate_max = Get_Maximum(AUDFREQ_TO_U32(p->tSamFreq[0]),
@@ -3075,27 +3022,23 @@ uint32_t USB_Audio_Get_RX_Alt_Byte(uint32_t port, uint8_t alt_num)
     sample_rate_max = USB_Audio_Get_RX_Sample_Rate_Max(port, alt_num);
     sample_rate_max /= 1000;
 
-    if((port == 0) && (alt_num == 1)) { /* Speaker 1 */
+    /* Speaker 1 */
+    if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT1)) {
         p = &audio1_spk_stream_format_dscr;
     }
-#ifdef USB_AUDIO_RX1_ALT2_ENABLE
-    else if((port == 0) && (alt_num == 2)) {
+    else if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT2)) {
         p = &audio1_spk_stream_alt2_format_dscr;
     }
-#endif
-#ifdef USB_AUDIO_RX1_ALT3_ENABLE
-    else if((port == 0) && (alt_num == 3)) {
+    else if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT3)) {
         p = &audio1_spk_stream_alt3_format_dscr;
     }
-#endif
-    else if((port == 1) && (alt_num == 1)) { /* Speaker 2 */
+    /* Speaker 2 */
+    else if((port == USB_AUDIO_2_PORT) && (alt_num == USB_AUDIO_ALT1)) {
         p = &audio2_spk_stream_format_dscr;
     }
-#ifdef USB_AUDIO_RX2_ALT2_ENABLE
-    else if((port == 1) && (alt_num == 2)) {
+    else if((port == USB_AUDIO_2_PORT) && (alt_num == USB_AUDIO_ALT2)) {
         p = &audio2_spk_stream_alt2_format_dscr;
     }
-#endif
 
     if (p) {
         byte = sample_rate_max * p->bSubFrameSize * p->bNrChannels;
@@ -3139,13 +3082,22 @@ static uint32_t USB_Audio_Get_RX_Bytes(uint32_t port)
     /* byte = sample rate x sample size x channel */
     uint32_t byte;
 
-    if(port == 0){
+    if(port == USB_AUDIO_1_PORT){
         byte =(g_usb_audio_sample_rate/1000) * g_usb_audio_sample_size * g_usb_audio_channel;
-    } else if (port == 1){
+    } else if (port == USB_AUDIO_2_PORT){
         byte = (g_usb_audio2_sample_rate/1000) * g_usb_audio2_sample_size * g_usb_audio2_channel;
     } else {
         byte = 0;
         LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Get_RX_Bytes port:%d is not valid", 1, port);
+    }
+
+    if(byte == 0 && port == USB_AUDIO_1_PORT){
+        LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Get_RX_Bytes port:%d rx byte is 0, sample_rate:%d sample_size:%d channel:%d", 4,
+                    port, g_usb_audio_sample_rate, g_usb_audio_sample_size, g_usb_audio_channel);
+    }
+    if(byte == 0 && port == USB_AUDIO_2_PORT){
+        LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Get_RX_Bytes port:%d rx byte is 0, sample_rate:%d sample_size:%d channel:%d", 4,
+                    port, g_usb_audio2_sample_rate, g_usb_audio2_sample_size, g_usb_audio2_channel);
     }
 
     return byte;
@@ -3211,7 +3163,7 @@ uint32_t USB_Audio_Read_Data(uint32_t port, void *dst, uint32_t len)
 /************************************************************
     Iso EP OUT handler
 *************************************************************/
-#if defined(USB_DBG) && defined(USB_AUDIO_RX_TIME_MEASURE)
+#ifdef USB_DBG
 uint32_t usb_rx1_time1_start = 0;
 uint32_t usb_rx1_time1_end   = 0;
 uint32_t usb_rx1_time2_start = 0;
@@ -3230,12 +3182,14 @@ uint32_t usb_tx1_cnt = 0;
 /* EP Iso Out interrupt handler, called by EP interrupt */
 void USB_Audio1_IsoOut_Hdr(void)
 {
-#if defined(USB_DBG) && defined(USB_AUDIO_RX_TIME_MEASURE)
+#ifdef USB_DBG
     uint32_t time_gap = 0;
     uint32_t time_gap1 = 0, time_gap2 = 0;
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_RX_TIME_MEASURE)) {
+        #ifdef MTK_SWLA_ENABLE
         SLA_CustomLogging("RX1", SA_START);
         SLA_CustomLogging("RX1", SA_LABEL);
+        #endif
 
         /* Timer1 - Check the ISO out is expected 1ms/transaction */
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &usb_rx1_time1_start);
@@ -3345,12 +3299,13 @@ void USB_Audio1_IsoOut_Hdr(void)
         }
     }
 
-#if defined(AIR_AUDIO_DUMP_ENABLE) && defined(USB_DBG) && defined(USB_AUDIO_DUMP_RX1)
+#if defined(USB_DBG) && defined(AIR_AUDIO_DUMP_ENABLE)
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_DUMP_RX1)) {
         LOG_AUDIO_DUMP(p_buf, fifo_len, USB_AUDIO_RX1);
     }
 #endif
 
+    // Debug log 192K 24bit 8ch when the input audio source is 2ch
 #if 0
     uint8_t *a;
 
@@ -3369,7 +3324,7 @@ void USB_Audio1_IsoOut_Hdr(void)
     /* Use write pointer to record received data length */
     g_UsbAudio[port].rx_buffer_write = fifo_len;
 
-#if defined(USB_DBG) && defined(USB_AUDIO_RX_TIME_MEASURE)
+#ifdef USB_DBG
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_RX_TIME_MEASURE)) {
         /* Timer2 - Get data */
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &usb_rx1_time2_end);
@@ -3390,7 +3345,7 @@ void USB_Audio1_IsoOut_Hdr(void)
         USB_Audio_Rx_Buffer_Drop_Bytes(port, fifo_len);
     }
 
-#if defined(USB_DBG) && defined(USB_AUDIO_RX_TIME_MEASURE)
+#ifdef USB_DBG
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_RX_TIME_MEASURE)) {
         /* Timer2 - Audio callback */
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &usb_rx1_time2_end);
@@ -3402,7 +3357,9 @@ void USB_Audio1_IsoOut_Hdr(void)
             USB_DBG_I( USB_DBG_AUDIO_ISO_OUT, "USB_Audio1_IsoOut_Hdr (1)Get data: %dus (2)audio callback: %dus", 2, time_gap1, time_gap2);
         }
 
+        #ifdef MTK_SWLA_ENABLE
         SLA_CustomLogging("RX1", SA_STOP);
+        #endif
     }
 #endif
 
@@ -3412,12 +3369,14 @@ void USB_Audio1_IsoOut_Hdr(void)
 /* EP Iso Out interrupt handler, called by EP interrupt */
 void USB_Audio2_IsoOut_Hdr(void)
 {
-#if defined(USB_DBG) && defined(USB_AUDIO_RX_TIME_MEASURE)
+#ifdef USB_DBG
     uint32_t time_gap = 0;
     uint32_t time_gap1 = 0, time_gap2 = 0;
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_RX_TIME_MEASURE)) {
+        #ifdef MTK_SWLA_ENABLE
         SLA_CustomLogging("RX2", SA_START);
         SLA_CustomLogging("RX2", SA_LABEL);
+        #endif
 
         /* Timer1 - Check the ISO out is expected 1ms/transaction */
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &usb_rx2_time1_start);
@@ -3523,7 +3482,7 @@ void USB_Audio2_IsoOut_Hdr(void)
     hal_usb_read_endpoint_fifo(rx_ep, fifo_len, p_buf);
 #endif
 
-#if defined(AIR_AUDIO_DUMP_ENABLE) && defined(USB_DBG) && defined(USB_AUDIO_DUMP_RX2)
+#if defined(USB_DBG) && defined(AIR_AUDIO_DUMP_ENABLE)
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_DUMP_RX2)) {
         LOG_AUDIO_DUMP(p_buf, fifo_len, USB_AUDIO_RX2);
     }
@@ -3532,7 +3491,7 @@ void USB_Audio2_IsoOut_Hdr(void)
     /* Use write pointer to record received data length */
     g_UsbAudio[port].rx_buffer_write = fifo_len;
 
-#if defined(USB_DBG) && defined(USB_AUDIO_RX_TIME_MEASURE)
+#ifdef USB_DBG
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_RX_TIME_MEASURE)) {
         /* Timer2 - Get data */
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &usb_rx2_time2_end);
@@ -3553,7 +3512,7 @@ void USB_Audio2_IsoOut_Hdr(void)
         USB_Audio_Rx_Buffer_Drop_Bytes(port, fifo_len);
     }
 
-#if defined(USB_DBG) && defined(USB_AUDIO_RX_TIME_MEASURE)
+#ifdef USB_DBG
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_RX_TIME_MEASURE)) {
         /* Timer2 - Audio callback */
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &usb_rx2_time2_end);
@@ -3565,7 +3524,9 @@ void USB_Audio2_IsoOut_Hdr(void)
             USB_DBG_I( USB_DBG_AUDIO_ISO_OUT, "USB_Audio2_IsoOut_Hdr (1)Get data: %dus (2)audio callback: %dus", 2, time_gap1, time_gap2);
         }
 
+        #ifdef MTK_SWLA_ENABLE
         SLA_CustomLogging("RX2", SA_STOP);
+        #endif
     }
 #endif
 
@@ -3575,11 +3536,11 @@ void USB_Audio2_IsoOut_Hdr(void)
 /* EP Iso Out reset handler */
 void USB_Audio1_IsoOut_Reset(void)
 {
-    g_UsbAudio[0].rxpipe = &g_UsbAudio[0].stream_ep_out_info->ep_status.epout_status;
+    g_UsbAudio[USB_AUDIO_1_PORT].rxpipe = &g_UsbAudio[USB_AUDIO_1_PORT].stream_ep_out_info->ep_status.epout_status;
 }
 void USB_Audio2_IsoOut_Reset(void)
 {
-    g_UsbAudio[1].rxpipe = &g_UsbAudio[1].stream_ep_out_info->ep_status.epout_status;
+    g_UsbAudio[USB_AUDIO_2_PORT].rxpipe = &g_UsbAudio[USB_AUDIO_2_PORT].stream_ep_out_info->ep_status.epout_status;
 }
 
 /************************************************************
@@ -3592,16 +3553,15 @@ uint32_t USB_Audio_Set_TX_Alt(uint32_t port, uint8_t alt_num)
     usb_audio_dscr_as_format_type_t *p = NULL;
 
     /* g_usb_audio_sample_rate set by host */
-    if((port == 0) && (alt_num == 0 || alt_num == 1)){
+    if((port == USB_AUDIO_1_PORT) &&
+        ((alt_num == USB_AUDIO_ALT0) || (alt_num == USB_AUDIO_ALT1))){
         p = &audio1_mic_stream_format_dscr;
     }
-    #ifdef USB_AUDIO_TX1_ALT2_ENABLE
-    else if((port == 0) && (alt_num == 2)){
+    else if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT2)){
         p = &audio1_mic_stream_alt2_format_dscr;
     }
-    #endif
 
-    if (port == 0) {
+    if (port == USB_AUDIO_1_PORT) {
         if (p) {
             g_usb_audio_mic_sample_size = p->bSubFrameSize;
             g_usb_audio_mic_channel = p->bNrChannels;
@@ -3613,11 +3573,11 @@ uint32_t USB_Audio_Set_TX_Alt(uint32_t port, uint8_t alt_num)
         }
     }
 
-    if(port == 0){
+    if(port == USB_AUDIO_1_PORT){
          LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_TX_Alt port:%d alt_num:%d sample_size:%d channel:%d", 4,
                      port, alt_num, g_usb_audio_mic_sample_size, g_usb_audio_mic_channel);
     } else {
-        LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_TX_Alt port:%d is invalid", 4, port);
+        LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_TX_Alt port:%d is invalid", 0, port);
     }
 
     return 0;
@@ -3639,7 +3599,7 @@ uint8_t USB_Audio_Get_TX_Sample_Size(uint32_t port)
 {
     uint8_t sample_size = 0;
 
-    if(port == 0){
+    if(port == USB_AUDIO_1_PORT){
         sample_size = g_usb_audio_mic_sample_size;
     }
 
@@ -3652,7 +3612,7 @@ uint32_t USB_Audio_Get_TX_Sample_Rate(uint32_t port)
     uint32_t sample_rate = 0;
 
     if (USB_Get_Device_State() == DEVSTATE_CONFIG) {
-        if (port == 0) {
+        if (port == USB_AUDIO_1_PORT) {
             sample_rate = g_usb_audio_mic_sample_rate;
         }
         LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Get_TX_Sample_Size port:%d sample_size:%d", 2, port, sample_rate);
@@ -3669,17 +3629,12 @@ uint32_t USB_Audio_Get_TX_Sample_Rate_Max(uint32_t port, uint8_t alt_num)
     uint32_t sample_rate_max = 0;
     usb_audio_dscr_as_format_type_t *p = NULL;
 
-
-
-    if((port == 0) && (alt_num == 1)){
+    if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT1)){
         p = &audio1_mic_stream_format_dscr;
     }
-    #ifdef USB_AUDIO_TX1_ALT2_ENABLE
-    else if ((port == 0) && (alt_num == 2)){
+    else if ((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT2)){
         p = &audio1_mic_stream_alt2_format_dscr;
     }
-    #endif
-
 
     if(p){
         sample_rate_max = Get_Maximum(AUDFREQ_TO_U32(p->tSamFreq[0]),
@@ -3708,14 +3663,12 @@ uint32_t USB_Audio_Get_TX_Alt_Byte(uint32_t port, uint8_t alt_num)
     sample_rate_max /= 1000;
 
     /* Microphone 1 */
-    if((port == 0) && (alt_num == 1)) {
+    if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT1)) {
         p = &audio1_mic_stream_format_dscr;
     }
-    #ifdef USB_AUDIO_TX1_ALT2_ENABLE
-    else if((port == 0) && (alt_num == 2)){
+    else if((port == USB_AUDIO_1_PORT) && (alt_num == USB_AUDIO_ALT2)){
          p = &audio1_mic_stream_alt2_format_dscr;
     }
-    #endif
 
     if(p) {
         byte = sample_rate_max * p->bSubFrameSize * p->bNrChannels;
@@ -3751,10 +3704,15 @@ uint32_t USB_Audio_Get_TX_Bytes(uint32_t port)
     /* byte = sample rate x sample size x channel */
     uint32_t byte = 0;
 
-    if(port == 0){
+    if(port == USB_AUDIO_1_PORT){
         byte =(g_usb_audio_mic_sample_rate/1000) * g_usb_audio_mic_sample_size * g_usb_audio_mic_channel;
     } else {
-        LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Get_RX_Bytes port:%d is not valid", 1, port);
+        LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Get_TX_Bytes port:%d is not valid", 1, port);
+    }
+
+    if(byte == 0 && port == USB_AUDIO_1_PORT){
+        LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Get_TX_Bytes port:%d tx byte is 0, sample_rate:%d sample_size:%d channel:%d", 4,
+                    port, g_usb_audio_mic_sample_rate, g_usb_audio_mic_sample_size, g_usb_audio_mic_channel);
     }
 
     return byte;
@@ -3786,7 +3744,7 @@ uint32_t USB_Audio_TX_SendData(uint32_t port, uint32_t len , uint8_t *data)
         LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_TX_SendData Data length %d byte dismatch with %d byte", 2, len, nCount);
     }
 
-#if defined(AIR_AUDIO_DUMP_ENABLE) && defined(USB_DBG) && defined(USB_AUDIO_DUMP_TX1)
+#if defined(USB_DBG) && defined(AIR_AUDIO_DUMP_ENABLE)
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_DUMP_TX1)) {
         LOG_AUDIO_DUMP(data, len, USB_AUDIO_TX1);
     }
@@ -3808,7 +3766,7 @@ uint32_t USB_Audio_TX_SendData(uint32_t port, uint32_t len , uint8_t *data)
 /************************************************************
     Iso EP IN handler
 *************************************************************/
-#if defined(USB_DBG) && defined(USB_AUDIO_TX_TIME_MEASURE)
+#ifdef USB_DBG
 uint32_t usb_tx1_time1_start = 0;
 uint32_t usb_tx1_time1_end  = 0;
 uint32_t usb_tx1_time2_start = 0;
@@ -4122,12 +4080,14 @@ static uint32_t _USB_Audio_IsoIn_Hdr_TestTone(uint32_t port,uint32_t nCount)
 /* EP Iso In interrupt handler, called by EP interrupt */
 void USB_Audio_IsoIn_Hdr(void)
 {
-#if defined(USB_DBG) && defined(USB_AUDIO_TX_TIME_MEASURE)
+#ifdef USB_DBG
     uint32_t time_gap = 0;
     uint32_t time_gap1;
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_TX_TIME_MEASURE)) {
+        #ifdef MTK_SWLA_ENABLE
         SLA_CustomLogging("TX1", SA_START);
         SLA_CustomLogging("TX1", SA_LABEL);
+        #endif
 
         /* Timer1 - Check the ISO in is expected 1ms/transaction */
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &usb_tx1_time1_start);
@@ -4150,7 +4110,7 @@ void USB_Audio_IsoIn_Hdr(void)
     }
 #endif
 
-    uint32_t port = 0;
+    uint32_t port = USB_AUDIO_1_PORT;
     uint32_t nCount;
 
     nCount = USB_Audio_Get_TX_Bytes(port);
@@ -4181,7 +4141,7 @@ void USB_Audio_IsoIn_Hdr(void)
     _USB_Audio_IsoIn_Hdr_TestTone(port, nCount);
 #endif
 
-#if defined(USB_DBG) && defined(USB_AUDIO_TX_TIME_MEASURE)
+#ifdef USB_DBG
     if (usb_dbg_is_opt_enable(USB_DBG_OPT_AUDIO_TX_TIME_MEASURE)) {
         /* Timer2 - Send data */
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &usb_tx1_time2_end);
@@ -4192,7 +4152,10 @@ void USB_Audio_IsoIn_Hdr(void)
         } else {
             USB_DBG_I( USB_DBG_AUDIO_ISO_IN, "USB_Audio_IsoIn_Hdr send data: %dus", 1, time_gap1);
         }
+
+        #ifdef MTK_SWLA_ENABLE
         SLA_CustomLogging("TX1", SA_STOP);
+        #endif
     }
 #endif
 }
@@ -4200,7 +4163,7 @@ void USB_Audio_IsoIn_Hdr(void)
 /* EP Iso Out reset handler */
 void USB_Audio_IsoIn_Reset(void)
 {
-    g_UsbAudio[0].txpipe = &g_UsbAudio[0].stream_ep_in_info->ep_status.epout_status;
+    g_UsbAudio[USB_AUDIO_1_PORT].txpipe = &g_UsbAudio[USB_AUDIO_1_PORT].stream_ep_in_info->ep_status.epout_status;
 }
 #endif
 
@@ -4306,7 +4269,7 @@ void USB_Audio_Register_Mute_Callback(uint32_t port, AUDIO_MUTE_FUNC mute_cb)
 #ifdef AIR_USB_AUDIO_1_MIC_ENABLE
 void USB_Audio_Register_Mic_SetInterface_Callback(uint32_t port, AUDIO_SETINTERFACE_FUNC setinterface_cb)
 {
-    port = 0;
+    port = USB_AUDIO_1_PORT;
 
     if(setinterface_cb != NULL){
         LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Register_Mic_SetInterface_Callback port:%d callback:0x%X", 2, port, setinterface_cb);
@@ -4319,7 +4282,7 @@ void USB_Audio_Register_Mic_SetInterface_Callback(uint32_t port, AUDIO_SETINTERF
 
 void USB_Audio_Register_Mic_SetSamplingRate_Callback(uint32_t port, AUDIO_SETSAMPLINGRATE_FUNC setsamplingrate_cb)
 {
-    port = 0;
+    port = USB_AUDIO_1_PORT;
 
     if(setsamplingrate_cb != NULL){
         LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Register_Mic_SetSamplingRate_Callback port:%d callback:0x%X", 2, port, setsamplingrate_cb);
@@ -4332,7 +4295,7 @@ void USB_Audio_Register_Mic_SetSamplingRate_Callback(uint32_t port, AUDIO_SETSAM
 
 void USB_Audio_Register_Mic_SetSampleSize_Callback(uint32_t port, AUDIO_SETSAMPLESIZE_FUNC setsamplesize_cb)
 {
-    port = 0;
+    port = USB_AUDIO_1_PORT;
 
     if(setsamplesize_cb != NULL){
         LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Register_Mic_SetSampleSize_Callback port:%d callback:0x%X", 2, port, setsamplesize_cb);
@@ -4345,7 +4308,7 @@ void USB_Audio_Register_Mic_SetSampleSize_Callback(uint32_t port, AUDIO_SETSAMPL
 
 void USB_Audio_Register_Mic_SetChannel_Callback(uint32_t port, AUDIO_SETCHANNEL_FUNC setchannel_cb)
 {
-    port = 0;
+    port = USB_AUDIO_1_PORT;
 
     if(setchannel_cb != NULL){
         LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Register_Mic_SetChannel_Callback port:%d callback:0x%X", 2, port, setchannel_cb);
@@ -4358,7 +4321,7 @@ void USB_Audio_Register_Mic_SetChannel_Callback(uint32_t port, AUDIO_SETCHANNEL_
 
 void USB_Audio_Register_Mic_Unplug_Callback(uint32_t port, AUDIO_UNPLUG_FUNC unplug_cb)
 {
-    port = 0;
+    port = USB_AUDIO_1_PORT;
 
     if(unplug_cb != NULL){
         LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Register_Mic_Unplug_Callback port:%d callback:0x%X", 2, port, unplug_cb);
@@ -4371,7 +4334,7 @@ void USB_Audio_Register_Mic_Unplug_Callback(uint32_t port, AUDIO_UNPLUG_FUNC unp
 
 void USB_Audio_Register_Mic_VolumeChange_Callback(uint32_t port, AUDIO_VOLUMECHANGE_FUNC volumechange_cb)
 {
-    port = 0;
+    port = USB_AUDIO_1_PORT;
 
     if(volumechange_cb != NULL){
         LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Register_Mic_VolumeChange_Callback port:%d callback:0x%X", 2, port, volumechange_cb);
@@ -4384,7 +4347,7 @@ void USB_Audio_Register_Mic_VolumeChange_Callback(uint32_t port, AUDIO_VOLUMECHA
 
 void USB_Audio_Register_Mic_Mute_Callback(uint32_t port, AUDIO_MUTE_FUNC mute_cb)
 {
-    port = 0;
+    port = USB_AUDIO_1_PORT;
 
     if(mute_cb != NULL){
         LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Register_Mic_Mute_Callback port:%d callback:0x%X", 2, port, mute_cb);
@@ -4485,7 +4448,7 @@ void USB_Audio_Set_Interface(uint32_t msgs)
             hal_usb_clear_tx_endpoint_fifo(g_UsbAudio[port].stream_ep_in_id, HAL_USB_EP_TRANSFER_ISO, false);
             hal_usb_set_endpoint_tx_ready(g_UsbAudio[port].stream_ep_in_id);
         } else {
-        LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface audio%d microphone disable", 1, audio_num);
+            LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface audio%d microphone disable", 1, audio_num);
             hal_usb_disable_tx_endpoint(g_UsbAudio[port].stream_ep_in_id);
         }
     }
@@ -4504,13 +4467,13 @@ void USB_Audio_Set_Interface_CB(uint32_t msgs)
     alt_num = (uint8_t)(((uint32_t)(msgs)) & 0x0000FFFF);
 
     /* Set TX/RX and port number */
-    if(if_num == g_UsbAudio[0].stream_interface_id){
+    if(if_num == g_UsbAudio[USB_AUDIO_1_PORT].stream_interface_id){
         port = USB_AUDIO_1_PORT;
         usb_tx_rx = USB_AUDIO_RX;
-    } else if(if_num == g_UsbAudio[1].stream_interface_id){
+    } else if(if_num == g_UsbAudio[USB_AUDIO_2_PORT].stream_interface_id){
         port = USB_AUDIO_2_PORT;
         usb_tx_rx = USB_AUDIO_RX;
-    } else if (if_num == g_UsbAudio[0].stream_microphone_interface_id) {
+    } else if (if_num == g_UsbAudio[USB_AUDIO_1_PORT].stream_microphone_interface_id) {
         port = USB_AUDIO_1_PORT;
         usb_tx_rx = USB_AUDIO_TX;
     } else {
@@ -4541,13 +4504,13 @@ void USB_Audio_Set_Interface_CB(uint32_t msgs)
         if (USB_Audio[port].setsamplesize_cb) {
                 USB_Audio[port].setsamplesize_cb(g_UsbAudio[port].stream_ep_out_id, sample_size);
         } else {
-            LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d setsamplesize_cb is NULL", 1, audio_num);
+            LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d setsamplesize_cb is NULL", 1, audio_num);
         }
 
         if (USB_Audio[port].setchannel_cb) {
                 USB_Audio[port].setchannel_cb(g_UsbAudio[port].stream_ep_out_id, channel);
         } else {
-            LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d setchannel_cb is NULL", 1, audio_num);
+            LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d setchannel_cb is NULL", 1, audio_num);
         }
 
             LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d speaker enable sample_size:%d channel:%d ", 3,
@@ -4582,7 +4545,7 @@ void USB_Audio_Set_Interface_CB(uint32_t msgs)
                 USB_Audio[port].setsamplesize_cb_mic(USB_EP_DIR_IN | g_UsbAudio[port].stream_ep_in_id, sample_size);
             #endif
         } else {
-            LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d setsamplesize_cb_mic is NULL", 1, audio_num);
+            LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d setsamplesize_cb_mic is NULL", 1, audio_num);
         }
 
         if (USB_Audio[port].setchannel_cb_mic) {
@@ -4590,13 +4553,13 @@ void USB_Audio_Set_Interface_CB(uint32_t msgs)
                  USB_Audio[port].setchannel_cb_mic(USB_EP_DIR_IN | g_UsbAudio[port].stream_ep_in_id, channel);
             #endif
         } else {
-            LOG_MSGID_E(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d setchannel_cb_mic is NULL", 1, audio_num);
+            LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d setchannel_cb_mic is NULL", 1, audio_num);
         }
 
-            LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d microphone enable sample_size:%d channel:%d ", 3,
+            LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d microphone enable sample_size:%d channel:%d", 3,
                         audio_num, sample_size, channel);
         } else {
-            LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d microphone disable sample_size:%d channel:%d ", 1, audio_num);
+            LOG_MSGID_I(USBAUDIO_DRV, "USB_Audio_Set_Interface_CB audio%d microphone disable", 1, audio_num);
         }
 
         /* Call callback function of interface */
@@ -4797,6 +4760,6 @@ int16_t dscr_list_serialize(usb_audio_dscr_hdlr_t *dscr_list, uint8_t len, uint8
     return idx;
 }
 
-#endif
 
 #endif /* AIR_USB_AUDIO_ENABLE */
+

@@ -32,7 +32,9 @@
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
 #include "peq_setting.h"
-
+#ifdef AIR_AUDIO_TRANSMITTER_ENABLE
+#include "audio_transmitter_internal.h"
+#endif
 #if defined(MTK_PEQ_ENABLE) || defined(MTK_LINEIN_PEQ_ENABLE)
 uint8_t g_peq_init_flag = 0;
 peq_nvdm_misc_param_t g_peq_handle;
@@ -141,7 +143,19 @@ int32_t aud_peq_realtime_update(mcu2dsp_peq_param_t *peq_param, bt_sink_srv_am_p
         AUDIO_ASSERT(0);
         return -1;
     }
-
+#ifdef MTK_AWS_MCE_ENABLE
+    bt_clock_t target_bt_clk = {0};
+    U32 target_gpt_time = 0;
+    bt_sink_srv_am_type_t cur_type = NONE;
+    target_bt_clk.nclk = ami_peq_param->target_bt_clk;
+    cur_type = bt_sink_srv_ami_get_current_scenario();
+    if(cur_type == BLE){
+        bt_sink_srv_convert_bt_clock_2_gpt_count(&target_bt_clk,&target_gpt_time);
+        ami_peq_param->target_bt_clk = target_gpt_time;
+        peq_param->gpt_time_sync = true;
+        audio_src_srv_report("ble realtime peq target_gpt_time:%d",1,target_gpt_time);
+    }
+#endif
     nvkey_buf = (uint8_t *)pvPortMallocNC(nvkey_buf_len);
     if (nvkey_buf != NULL) {
         memset(nvkey_buf, 0, nvkey_buf_len);
@@ -470,7 +484,19 @@ int32_t aud_set_peq_param(peq_audio_path_id_t audio_path, bt_sink_srv_am_peq_par
             audio_src_srv_err("[Sink][AM]Set PEQ param error, write to sysram error:%d, keyid:0x%x\n", 2, status, keyid);
             goto __EXIT;
         }
-
+#ifdef MTK_AWS_MCE_ENABLE
+        bt_clock_t target_bt_clk = {0};
+        U32 target_gpt_time = 0;
+        bt_sink_srv_am_type_t cur_type = NONE;
+        target_bt_clk.nclk = ami_peq_param->target_bt_clk;
+        cur_type = bt_sink_srv_ami_get_current_scenario();
+        if(cur_type == BLE){
+            bt_sink_srv_convert_bt_clock_2_gpt_count(&target_bt_clk,&target_gpt_time);
+            ami_peq_param->target_bt_clk = target_gpt_time;
+            peq_param.gpt_time_sync = true;
+            audio_src_srv_report("ble change peq target_gpt_time:%d",1,target_gpt_time);
+        }
+#endif
         peq_param.peq_nvkey_id = keyid;
         peq_param.drc_enable = 1;
         peq_param.setting_mode = ami_peq_param->setting_mode;
@@ -1029,7 +1055,7 @@ uint32_t aud_peq_reinit_nvdm(void)
     uint32_t ret = -1;
     uint8_t T_NVDM_F232[] =
     {
-        0x01,0x01,0x01,0x01,0x01,0x01,0x00,0x01,0x01,0x01,0x00,0x01,0x01,0x03,0x01,0x01,0x01,0x01,0x01,0x01,0x00,0x00,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x00,0x01,0x01,0x03,0x01,0x01,0x01,0x01,0x01,0x01,0x00,0x00,
     };
     peq_full_set_t *full_set = NULL, *full_set2 = NULL;
     peq_single_set_t *single_set, *single_set2;
@@ -1229,6 +1255,17 @@ void audio_set_anc_compensate(bt_sink_srv_am_type_t type, uint32_t event, bt_sin
     } else if (type == NONE) {
         type = (g_prCurrent_player != NULL) ? g_prCurrent_player->type : NONE;
     }
+#ifdef AIR_WIRED_AUDIO_ENABLE
+    uint8_t LINE_INENABLE = 0;
+    audio_transmitter_scenario_list_t audio_transmitter_scenario_list[]  =  {
+        {AUDIO_TRANSMITTER_WIRED_AUDIO, AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN},
+    };
+
+    LINE_INENABLE = audio_transmitter_get_is_running_by_scenario_list(audio_transmitter_scenario_list, sizeof(audio_transmitter_scenario_list) / sizeof(audio_transmitter_scenario_list_t));
+    if(LINE_INENABLE == true){
+        type = LINE_IN;
+    }
+#endif
 
     if (event == 0) {
         uint8_t anc_enable = 0;
@@ -1308,6 +1345,50 @@ void audio_set_anc_compensate(bt_sink_srv_am_type_t type, uint32_t event, bt_sin
                 peq_param.sound_mode = g_peq_handle.a2dp_post_peq_sound_mode;
             }
             aud_set_peq_param(aud_get_peq_audio_path(A2DP), &peq_param);
+#endif
+#endif
+            break;
+        }
+        case LINE_IN:
+        case USB_AUDIO_IN:{
+#ifdef MTK_PEQ_ENABLE
+            bt_sink_srv_am_peq_param_t peq_param;
+            memset(&peq_param, 0, sizeof(bt_sink_srv_am_peq_param_t));
+            /* post PEQ */
+            peq_param.phase_id = 1;
+#ifdef MTK_ANC_ENABLE
+#ifndef MTK_ANC_V2
+            if (event == on_event) {
+                peq_param.enable = 1;
+                peq_param.sound_mode = POST_PEQ_FBANC_SOUND_MODE;
+            } else {
+                peq_param.enable = POST_PEQ_DEFAULT_ENABLE;
+                peq_param.sound_mode = POST_PEQ_DEFAULT_SOUND_MODE;
+            }
+            aud_set_peq_param(PEQ_AUDIO_PATH_LINEIN, &peq_param);
+            g_peq_handle.linein_post_peq_enable = peq_param.enable;
+            if (peq_param.enable) {
+                g_peq_handle.linein_post_peq_sound_mode = peq_param.sound_mode;
+            }
+#else
+            if (event == on_event) {
+                peq_param.enable = g_peq_handle.linein_post_peq_enable;
+                peq_param.sound_mode = POST_PEQ_FBANC_SOUND_MODE;
+            } else {
+                peq_param.enable = g_peq_handle.linein_post_peq_enable;
+                peq_param.sound_mode = g_peq_handle.linein_post_peq_sound_mode;
+            }
+            aud_set_peq_param(PEQ_AUDIO_PATH_LINEIN, &peq_param);
+#endif
+#else
+            if (event == on_event) {
+                peq_param.enable = g_peq_handle.linein_post_peq_enable;
+                peq_param.sound_mode = POST_PEQ_FBANC_SOUND_MODE;
+            } else {
+                peq_param.enable = g_peq_handle.linein_post_peq_enable;
+                peq_param.sound_mode = g_peq_handle.linein_post_peq_sound_mode;
+            }
+            aud_set_peq_param(PEQ_AUDIO_PATH_LINEIN, &peq_param);
 #endif
 #endif
             break;

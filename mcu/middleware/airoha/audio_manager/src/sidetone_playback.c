@@ -34,7 +34,7 @@
 
 #include "sidetone_control.h"
 #include "sidetone_playback.h"
-
+#include "fixrate_control.h"
 
 extern volatile uint32_t g_am_task_mask;
 extern HAL_DSP_PARA_AU_AFE_CTRL_t audio_nvdm_HW_config;
@@ -283,12 +283,23 @@ void audio_side_tone_enable_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
             hal_audio_get_stream_out_setting_config(AU_DSP_SIDETONE, out_device); /*Expect stream out channel is default*/
             hal_audio_get_stream_in_setting_config(AU_DSP_VOICE, in_device);   /*Sidetone.channel should be mic channel setting.*/
 
+            /* Sidetone Mic selection */
             if(g_sidetone_control.sidetone_source_sel_en) {
                 sidetone->in_device     = aud_sidetone_mic_convert_input_device((afe_sidetone_mic_sel_t)g_sidetone_control.sideTone_source_sel_0);
                 sidetone->in_interface  = aud_sidetone_mic_convert_input_interface((afe_sidetone_mic_sel_t)g_sidetone_control.sideTone_source_sel_0);
             } else {
                 sidetone->in_device     = in_device->afe.audio_device;
                 sidetone->in_interface  = in_device->afe.audio_interface;
+            }
+
+            if(sidetone->in_interface == HAL_AUDIO_INTERFACE_1){
+                sidetone->dmic_pin_sel = in_device->afe.dmic_selection[0];
+            } else if (sidetone->in_interface == HAL_AUDIO_INTERFACE_2) {
+                sidetone->dmic_pin_sel = in_device->afe.dmic_selection[2];
+            } else if (sidetone->in_interface == HAL_AUDIO_INTERFACE_3){
+                sidetone->dmic_pin_sel = in_device->afe.dmic_selection[4];
+            } else {
+                audio_src_srv_err("[audio_side_tone_enable_hdlr] dmic interface fail IF:%d.",1,sidetone->in_interface);
             }
 
             sidetone->in_channel        = in_device->afe.stream_channel;
@@ -329,28 +340,25 @@ void audio_side_tone_enable_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
 
             sidetone->performance                     = in_device->afe.performance;
 
-
-#if defined (FIXED_SAMPLING_RATE_TO_48KHZ)
-            sidetone->sample_rate                     = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
-#elif defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
-            sidetone->sample_rate                     = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
-#else
+            if (aud_fixrate_get_downlink_rate(AUDIO_SCENARIO_TYPE_COMMON) == FIXRATE_NONE) {
 #ifdef AIR_BT_BLE_SWB_ENABLE
-            if(g_prCurrent_player != NULL && g_prCurrent_player->type == BLE){
-                sidetone->sample_rate                   = 32000;
-            }else
+                if(g_prCurrent_player != NULL && g_prCurrent_player->type == BLE){
+                    sidetone->sample_rate                   = 32000;
+                }else
 #endif
-            {
-                sidetone->sample_rate                     = 16000;
-            }
+                {
+                    sidetone->sample_rate                     = 16000;
+                }
 #if AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 #ifndef AIR_ULL_AUDIO_V2_DONGLE_ENABLE
-            if((g_prUllBleUl_media_handle != NULL) || (scenario == SIDETONE_SCENARIO_ULL_V2)){
-                sidetone->sample_rate                     = 96000;
+                if((g_prUllBleUl_media_handle != NULL) || (scenario == SIDETONE_SCENARIO_ULL_V2)){
+                    sidetone->sample_rate                     = 96000;
+                }
+#endif
+#endif
+            } else {
+                sidetone->sample_rate = aud_fixrate_get_downlink_rate(AUDIO_SCENARIO_TYPE_COMMON);
             }
-#endif
-#endif
-#endif
 
 #ifdef AIR_SIDETONE_VERIFY_ENABLE
             sidetone->sample_rate_in                  = audio_nvdm_HW_config.sidetone_config.fs_in * 1000;
@@ -620,13 +628,11 @@ void audio_side_tone_disable_hdlr(bt_sink_srv_am_amm_struct *amm_ptr)
         sidetone->in_interface                    = in_device->afe.audio_interface;
         sidetone->in_channel                      = in_device->afe.stream_channel;
         sidetone->in_misc_parms                   = in_device->afe.misc_parms;
-#if defined (FIXED_SAMPLING_RATE_TO_48KHZ)
-        sidetone->sample_rate                     = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
-#elif defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
-        sidetone->sample_rate                     = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
-#else
-        sidetone->sample_rate                     = 16000;
-#endif
+        if (aud_fixrate_get_downlink_rate(AUDIO_SCENARIO_TYPE_COMMON) == FIXRATE_NONE) {
+            sidetone->sample_rate                     = 16000;
+        } else {
+            sidetone->sample_rate = aud_fixrate_get_downlink_rate(AUDIO_SCENARIO_TYPE_COMMON);
+        }
 #endif
         sidetone->gain           = 0;
         p_param_share = hal_audio_dsp_controller_put_paramter(sidetone, sizeof(mcu2dsp_sidetone_param_t), AUDIO_MESSAGE_TYPE_SIDETONE);

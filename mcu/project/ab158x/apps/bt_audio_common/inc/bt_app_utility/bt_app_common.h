@@ -77,7 +77,7 @@ void bt_app_common_generate_device_name(void);
 typedef enum {
     BT_APP_COMMON_BLE_ADV_STOPPED   = 0,
     BT_APP_COMMON_BLE_ADV_STARTED,
-    BT_APP_COMMON_BLE_ADV_STOPING,
+    BT_APP_COMMON_BLE_ADV_STOPPING,
     BT_APP_COMMON_BLE_ADV_STARTING,
     BT_APP_COMMON_BLE_ADV_UPDATING,
 } bt_app_common_ble_adv_status_t;
@@ -174,6 +174,7 @@ void bt_app_common_pre_set_ultra_low_latency_retry_count(bt_app_common_ull_laten
 
 void bt_app_common_apply_ultra_low_latency_retry_count(void);
 
+bt_status_t bt_app_common_set_pairing_distribute_ctkd(bt_gap_le_srv_link_t link_type, bool is_ctkd_support);
 #endif
 
 bt_status_t bt_app_common_set_pairing_config_io_capability(bt_gap_le_srv_link_t link_type, bt_gap_le_smp_io_capability_t io_capability);
@@ -185,6 +186,8 @@ typedef enum {
     BT_APP_COMMON_LINK_QUALITY_RSSI,
 } bt_app_common_link_quality_type_t;
 void bt_app_common_read_link_quality(bt_app_common_link_quality_type_t type, void* param);
+
+uint8_t *bt_app_common_get_local_irk_by_link_type(bt_gap_le_srv_link_t link_type);
 
 #ifdef __cplusplus
 }

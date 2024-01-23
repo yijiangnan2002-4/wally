@@ -60,12 +60,12 @@
 #include "exception_handler.h"
 #include "hal_gpt_internal.h"
 #endif
-#ifndef __UBL__
-#include "assert.h"
+#ifdef AIR_ICE_DEBUG_ENABLE
+#include "hal_ice_debug.h"
 #endif
 
-#ifdef HAL_ESC_MODULE_ENABLED
-#include "esc_device_config.h"
+#ifndef __UBL__
+#include "assert.h"
 #endif
 
 #ifdef __cplusplus
@@ -328,7 +328,7 @@ ATTR_TEXT_IN_TCM uint32_t get_current_irq()
 extern void Flash_ReturnReady(void);
 #endif
 
-#if defined(HAL_ESC_MODULE_ENABLED) && defined(HAL_ESC_WITH_FLASH)
+#if defined(HAL_ESC_MODULE_ENABLED) && defined(ESC_FLASH_ENABLE)
 extern void esc_flash_return_ready(void);
 #endif
 ATTR_TEXT_IN_TCM hal_nvic_status_t isrC_main()
@@ -340,7 +340,7 @@ ATTR_TEXT_IN_TCM hal_nvic_status_t isrC_main()
     Flash_ReturnReady();
 #endif
 
-#if defined(HAL_ESC_MODULE_ENABLED) && defined(HAL_ESC_WITH_FLASH)
+#if defined(HAL_ESC_MODULE_ENABLED) && defined(ESC_FLASH_ENABLE)
     esc_flash_return_ready();
 #endif
 
@@ -501,7 +501,13 @@ ATTR_TEXT_IN_TCM hal_nvic_status_t hal_nvic_restore_interrupt_mask(uint32_t mask
         temp_duration_us = temp_time_end - time_check_disbale_irq_start;
         if ((temp_duration_us > TIME_CHECK_DISABLE_IRQ_TIME) && (is_time_check_assert_enabled == true)) {
             disable_irq_save_duration_us = temp_duration_us;
-            ram_assert(0); /*flash mask irq too long need use ram assert*/
+            #ifdef AIR_ICE_DEBUG_ENABLE
+            if (hal_ice_debug_is_enabled() == false) {
+                ram_assert(0); /*flash mask irq too long need use ram assert*/
+            }
+            #else
+                ram_assert(0); /*flash mask irq too long need use ram assert*/
+            #endif
         }
         mask_irq_func = 0x0;
     } else if ((mask != 0) && (__get_BASEPRI() == 0)) {
@@ -561,7 +567,13 @@ ATTR_TEXT_IN_TCM hal_nvic_status_t hal_nvic_restore_interrupt_mask_special(uint3
         #endif 
         if ((temp_duration_us > TIME_CHECK_DISABLE_IRQ_TIME_SPECIAL) && (is_time_check_assert_enabled == true)) {
             disable_irq_save_duration_us = temp_duration_us;
-            ram_assert(0); /*flash mask irq too long need use ram assert*/
+            #ifdef AIR_ICE_DEBUG_ENABLE
+            if (hal_ice_debug_is_enabled() == false) {
+                ram_assert(0); /*flash mask irq too long need use ram assert*/
+            }
+            #else
+                ram_assert(0); /*flash mask irq too long need use ram assert*/
+            #endif
         }
         mask_irq_func = 0x0;
     } else if ((mask != 0) && (__get_BASEPRI() == 0)) {

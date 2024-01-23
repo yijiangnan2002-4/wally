@@ -84,8 +84,9 @@ typedef uint8_t bt_ull_le_conn_srv_action_t;
 #define BT_ULL_LE_CONN_SRV_AIR_CIS_CONNECTED           (0x03)
 #define BT_ULL_LE_CONN_SRV_AIR_CIS_SET_DATA_PATH       (0x04)
 #define BT_ULL_LE_CONN_SRV_AIR_CIS_ACTIVIATED          (0x05)
-#define BT_ULL_LE_CONN_SRV_AIR_CIS_DISCONNECTING       (0x06)
-#define BT_ULL_LE_CONN_SRV_AIR_CIS_STATE_MAX           (0x07)
+#define BT_ULL_LE_CONN_SRV_AIR_CIS_RM_DATA_PATH        (0x06)/*BT_ULL_LE_KEEP_CIS_ALWAYS_ALIVE: Add inactive ISO state*/
+#define BT_ULL_LE_CONN_SRV_AIR_CIS_DISCONNECTING       (0x07)
+#define BT_ULL_LE_CONN_SRV_AIR_CIS_STATE_MAX           (0x08)
 typedef uint8_t bt_ull_le_conn_srv_air_cis_state_t;
 
 #define BT_ULL_LE_CONN_SRV_ESTABLISHMENT_EVT_MASK   (0x01)
@@ -105,7 +106,7 @@ typedef enum {
     BT_ULL_LE_CONN_SRV_CMD_UNMUTE,
     BT_ULL_LE_CONN_SRV_CMD_CHANGE_UL_PATH,
     BT_ULL_LE_CONN_SRV_CMD_CHANGE_LABEL,
-    BT_ULL_LE_CONN_SRV_CMD_SET_TABEL,
+    BT_ULL_LE_CONN_SRV_CMD_SET_TABLE,
     BT_ULL_LE_CONN_SRV_CMD_MAX
 } bt_ull_le_conn_srv_cmd_enum;
 
@@ -414,7 +415,7 @@ static bt_ull_le_conn_srv_cmd_lock_t g_bt_ull_cmd_lock_table[BT_ULL_LE_CONN_SRV_
     {BT_ULL_LE_CONN_SRV_CMD_UNMUTE, 0},
     {BT_ULL_LE_CONN_SRV_CMD_CHANGE_UL_PATH, 0},
     {BT_ULL_LE_CONN_SRV_CMD_CHANGE_LABEL, 0},
-    {BT_ULL_LE_CONN_SRV_CMD_SET_TABEL, 0},
+    {BT_ULL_LE_CONN_SRV_CMD_SET_TABLE, 0},
     {BT_ULL_LE_CONN_SRV_CMD_MAX, 0} /*max*/
 };
 
@@ -920,6 +921,7 @@ static void bt_ull_le_conn_srv_air_cis_established_handler(bt_status_t status, b
     bt_ull_le_conn_srv_air_cis_evt_ind_t evt;
     uint8_t cis_state;
     uint8_t i;
+    bool enable_streaming_now = false;
     bt_ull_client_t ct = bt_ull_le_conn_srv_get_client_type();
     uint8_t idx = bt_ull_le_conn_srv_get_idx_by_cis_handle(ind->cis_connection_handle);
 
@@ -1017,6 +1019,7 @@ static void bt_ull_le_conn_srv_air_cis_established_handler(bt_status_t status, b
         bt_ull_le_conn_srv_set_ul_active_state(idx, ind->ul_enable);
         bt_ull_le_conn_srv_set_dl_active_state(idx, ind->dl_enable);
         if (ct != BT_ULL_HEADSET_CLIENT) {
+            enable_streaming_now = true;
             bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ESTABLISHED_IND, &evt);
         } else {
             if (bt_ull_le_conn_srv_get_connected_cis_num() == 2 && !bt_ull_le_conn_srv_get_evt_mask(BT_ULL_LE_CONN_SRV_ESTABLISHMENT_EVT_MASK)) {
@@ -1026,13 +1029,15 @@ static void bt_ull_le_conn_srv_air_cis_established_handler(bt_status_t status, b
                         break;
                     }
                 }
+                enable_streaming_now = true;
                 //ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_air_cis_established_handler -2, acl handle: %x, %x, dl enable: %d", 3, acl_handle, evt.established.handle, evt.established.dl_enable);
                 bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ESTABLISHED_IND, &evt);
             }
         }
 
     }
-
+    ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_air_cis_established_handler,%x,%x, %x", 3, \
+        remove_cig, activiate_uplink, enable_streaming_now);
     if (remove_cig) {
         ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_air_cis_established_handler,Need Remove Air Cig!!", 1, 0);
         if (activiate_uplink) {
@@ -1071,15 +1076,27 @@ static void bt_ull_le_conn_srv_air_cis_established_handler(bt_status_t status, b
             }
     }
 
-
-    if (status == BT_STATUS_SUCCESS) {
-        if ((BT_ULL_ROLE_CLIENT == bt_ull_le_conn_srv_get_role() && bt_ull_le_am_is_allow_play()) \
-            || BT_ULL_ROLE_SERVER == bt_ull_le_conn_srv_get_role()) {
-            bt_handle_t cis_handle = ind->cis_connection_handle;
-            bt_ull_le_conn_srv_next_action_flow_handler(BT_ULL_LE_CONN_SRV_ACTION_SETUP_ISO_DATA_PATH, &cis_handle);
+    if (bt_ull_le_srv_check_inactive_aircis_feature_on()) {
+        /*BT_ULL_LE_KEEP_CIS_ALWAYS_ALIVE: when aircis established, not set iso data path now*/
+        ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_air_cis_established_handler, not set iso data path now!", 0);
+    } else {
+        if (status == BT_STATUS_SUCCESS) {
+            if (((BT_ULL_ROLE_CLIENT == bt_ull_le_conn_srv_get_role() && bt_ull_le_am_is_allow_play()) \
+                || BT_ULL_ROLE_SERVER == bt_ull_le_conn_srv_get_role()) && enable_streaming_now) {
+                bt_handle_t cis_handle = BT_HANDLE_INVALID;
+                if (BT_ULL_HEADSET_CLIENT == ct) {
+                    uint8_t i = 0;
+                    for (i = 0; i < BT_ULL_LE_AIR_CIS_MAX_NUM; i ++) {
+                        cis_handle = bt_ull_le_conn_srv_get_cis_handle(i);
+                        bt_ull_le_conn_srv_next_action_flow_handler(BT_ULL_LE_CONN_SRV_ACTION_SETUP_ISO_DATA_PATH, &cis_handle);
+                    }
+                } else {
+                    cis_handle = ind->cis_connection_handle;
+                    bt_ull_le_conn_srv_next_action_flow_handler(BT_ULL_LE_CONN_SRV_ACTION_SETUP_ISO_DATA_PATH, &cis_handle);
+                }
+            }
         }
     }
-
 }
 
 static void bt_ull_le_conn_srv_air_cis_destroied_handler(bt_status_t status, bt_ull_le_air_cis_disconnect_complete_ind_t *ind)
@@ -1114,14 +1131,14 @@ static void bt_ull_le_conn_srv_air_cis_destroied_handler(bt_status_t status, bt_
             if (!bt_ull_le_conn_srv_get_evt_mask(BT_ULL_LE_CONN_SRV_DISCONNECT_EVT_MASK)) {
                 evt.status = BT_STATUS_FAIL;
                 evt.destroied.handle = bt_ull_le_conn_srv_get_acl_handle(idx);
-                bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROIED_IND, &evt);
+                bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROYED_IND, &evt);
                 return;
             }
         } else {
             evt.status = BT_STATUS_FAIL;
             evt.destroied.handle = bt_ull_le_conn_srv_get_acl_handle(idx);
             evt.destroied.reason = ind->reason;
-            bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROIED_IND, &evt);
+            bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROYED_IND, &evt);
         }
     } else {
         evt.status = BT_STATUS_SUCCESS;
@@ -1151,10 +1168,10 @@ static void bt_ull_le_conn_srv_air_cis_destroied_handler(bt_status_t status, bt_
                     }
                 }
                 if (!bt_ull_le_conn_srv_get_evt_mask(BT_ULL_LE_CONN_SRV_DISCONNECT_EVT_MASK) && bt_ull_le_conn_srv_get_connected_cis_num() == 0) {
-                    bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROIED_IND, &evt);
+                    bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROYED_IND, &evt);
                 }
             } else { /* ct is earbud*/
-                bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROIED_IND, &evt);
+                bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROYED_IND, &evt);
             }
         } else { /*server: headset or earbud*/
             bt_ull_le_conn_srv_reset_cis_info(idx);
@@ -1164,12 +1181,12 @@ static void bt_ull_le_conn_srv_air_cis_destroied_handler(bt_status_t status, bt_
             if (bt_ull_le_conn_srv_get_connected_cis_num() == 0) {
                 bt_ull_le_conn_srv_set_cig_id(BT_ULL_LE_CONN_SRV_AIR_CIG_ID_NONE);
                 bt_ull_le_conn_srv_set_cig_state(BT_ULL_LE_CONN_SRV_CIG_STATE_NONE);
-                bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROIED_IND, &evt);
+                bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROYED_IND, &evt);
             } else {
                 if (bt_ull_le_conn_srv_get_client_type() == BT_ULL_HEADSET_CLIENT) {
                     return;
                 } else {
-                    bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROIED_IND, &evt);
+                    bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_DESTROYED_IND, &evt);
                 }
             }
         }
@@ -1331,7 +1348,13 @@ static void bt_ull_le_conn_srv_create_air_cis_cnf_handler(bt_status_t status, vo
                 }
             }
         }
-        bt_handle_t handle = bt_ull_le_conn_srv_get_acl_handle(idx);
+        bt_handle_t handle = BT_HANDLE_INVALID;
+        if (BT_ULL_HEADSET_CLIENT == ct) {
+            handle = bt_ull_le_conn_srv_get_acl_handle(1);
+        } else {
+            handle = bt_ull_le_conn_srv_get_acl_handle(idx);
+        }
+
         if (BT_HCI_STATUS_COMMAND_DISALLOWED == status && retry_count < 0x3) {
             retry_count += 1;
             ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_create_air_cis_cnf_handler, retry connect: %d, handle: %d", 2, retry_count, handle);
@@ -1427,7 +1450,7 @@ static void bt_ull_le_conn_srv_set_air_iso_data_path_cnf_handler(bt_status_t sta
         bt_ull_le_conn_srv_set_cis_state(idx, BT_ULL_LE_CONN_SRV_AIR_CIS_CONNECTED);
         bt_handle_t cis_handle = cnf->handle;
         bt_ull_le_conn_srv_next_action_flow_handler(BT_ULL_LE_CONN_SRV_ACTION_DESTROY_AIR_CIS, &cis_handle);
-        bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVIATED_IND, &evt);
+        bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVATED_IND, &evt);
         return;
     } else {
         bt_ull_le_conn_srv_set_cis_state(idx, BT_ULL_LE_CONN_SRV_AIR_CIS_ACTIVIATED);
@@ -1435,7 +1458,7 @@ static void bt_ull_le_conn_srv_set_air_iso_data_path_cnf_handler(bt_status_t sta
             ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_set_air_iso_data_path_cnf_handler, wait for the second streaming.", 0);
             return;
         }
-        bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVIATED_IND, &evt);
+        bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVATED_IND, &evt);
     }
 
 }
@@ -1465,7 +1488,7 @@ static void bt_ull_le_conn_srv_remove_air_iso_data_path_cnf_handler(bt_status_t 
 
     if (status != BT_STATUS_SUCCESS) {
         ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_remove_air_iso_data_path_cnf_handler, status error: %x!", 1, status);
-        bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVIATED_IND, &evt);
+        bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVATED_IND, &evt);
         return;
     } else {
         bt_ull_le_conn_srv_set_cis_state(idx, BT_ULL_LE_CONN_SRV_AIR_CIS_CONNECTED);
@@ -1473,7 +1496,7 @@ static void bt_ull_le_conn_srv_remove_air_iso_data_path_cnf_handler(bt_status_t 
             ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_remove_air_iso_data_path_cnf_handler, wait for the second remove streaming.", 0);
             return;
         }
-        bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVIATED_IND, &evt);
+        bt_ull_le_conn_srv_notify(BT_ULL_LE_CONN_SRV_EVENT_AIR_CIS_ACTIVATED_IND, &evt);
     }
     
 
@@ -1563,10 +1586,10 @@ static void bt_ull_le_conn_srv_activiate_uplink_cnf_handler(bt_status_t status, 
 
 static void bt_ull_le_conn_srv_set_air_params_table_cnf_handler(bt_status_t status, void *cnf)
 {
-    bt_ull_le_conn_srv_unlock_cmd(BT_ULL_LE_CONN_SRV_CMD_SET_TABEL);
+    bt_ull_le_conn_srv_unlock_cmd(BT_ULL_LE_CONN_SRV_CMD_SET_TABLE);
     bt_ull_le_conn_srv_air_cis_evt_ind_t air_cig_param_table_set = {0};
     bt_ull_le_air_set_air_cig_table_cnf_t *air_set_ind = (bt_ull_le_air_set_air_cig_table_cnf_t *)cnf;
-    bt_ull_le_conn_srv_cache_cmd_node_t *set_tabel = bt_ull_le_conn_srv_search_cache_cmd_node_by_type(BT_ULL_LE_CONN_SRV_CMD_SET_TABEL);
+    bt_ull_le_conn_srv_cache_cmd_node_t *set_tabel = bt_ull_le_conn_srv_search_cache_cmd_node_by_type(BT_ULL_LE_CONN_SRV_CMD_SET_TABLE);
     if (status != BT_STATUS_SUCCESS) {
         ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_set_air_params_table_cnf_handler, status error: %x!", 1, status);
     }
@@ -1602,7 +1625,19 @@ static bt_status_t bt_ull_le_conn_srv_remove_air_iso_data_path_internal(bt_handl
         ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_remove_air_iso_data_path_internal, invalid handle!", 0);
         return BT_STATUS_FAIL;
     }
-
+    uint8_t state = bt_ull_le_conn_srv_get_cis_state(idx);
+    if (bt_ull_le_srv_check_inactive_aircis_feature_on()) {
+        /*BT_ULL_LE_KEEP_CIS_ALWAYS_ALIVE: Add the inactive ISO state */
+        ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_setup_air_iso_data_path_internal, idx: 0x%x, state: %d", 2, idx, state);
+        if (BT_ULL_LE_CONN_SRV_AIR_CIS_RM_DATA_PATH == state) {
+            return BT_STATUS_SUCCESS;
+        }
+    
+        if (BT_ULL_LE_CONN_SRV_AIR_CIS_ACTIVIATED != state) {
+            ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_setup_air_iso_data_path_internal, state error: %d!", 1, bt_ull_le_conn_srv_get_cis_state(idx));
+            return BT_STATUS_FAIL;
+        }        
+    }
     if (bt_ull_le_conn_srv_cmd_is_lock(BT_ULL_LE_CONN_SRV_CMD_REMOVE_ISO_DATA_PATH)) {
         bt_ull_le_conn_srv_cmd_cache_item_t *cache_cmd = bt_ull_le_conn_srv_new_cache_cmd_node(BT_ULL_LE_CONN_SRV_CMD_REMOVE_ISO_DATA_PATH);
         cache_cmd->handle = cis_handle;
@@ -1610,12 +1645,18 @@ static bt_status_t bt_ull_le_conn_srv_remove_air_iso_data_path_internal(bt_handl
         return BT_STATUS_SUCCESS;
     }
     bt_ull_le_conn_srv_lock_cmd(BT_ULL_LE_CONN_SRV_CMD_REMOVE_ISO_DATA_PATH, cis_handle);
+    if (bt_ull_le_srv_check_inactive_aircis_feature_on()) {
+        bt_ull_le_conn_srv_set_cis_state(idx, BT_ULL_LE_CONN_SRV_AIR_CIS_RM_DATA_PATH);
+    }
     bt_ull_le_remove_air_iso_data_path_t param;
     param.handle = cis_handle;
     param.data_path_direction = 0x03; /*bit 0: input, bit 1: uotput*/
     status = bt_ull_le_remove_air_iso_data_path(&param);
     if (BT_STATUS_SUCCESS != status) {
         bt_ull_le_conn_srv_unlock_cmd(BT_ULL_LE_CONN_SRV_CMD_REMOVE_ISO_DATA_PATH);
+        if (bt_ull_le_srv_check_inactive_aircis_feature_on()) {
+            bt_ull_le_conn_srv_set_cis_state(idx, state);
+        }
     }
 #ifdef BT_ULL_LE_CONN_SRV_CMD_DEBUG
     ull_report("[ULL][LE][CONN][VENDOR CMD] vendor remove air iso data path cmd, status: 0x%x, connection handle: 0x%x, direction: 0x%x", 3, \
@@ -2055,6 +2096,9 @@ static bt_status_t bt_ull_le_conn_srv_create_air_cis_internal(bt_handle_t acl_ha
                 if (BT_ULL_LE_CONN_SRV_AIR_CIS_ACTIVE_CONNECTING < bt_ull_le_conn_srv_get_cis_state(i)) {
                     ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_create_air_cis_internal, invalid conn state!", 0);
                     bt_ull_le_srv_memory_free(cis_list);
+                    if (i == 1) {
+                        bt_ull_le_conn_srv_set_cis_state(i-1, BT_ULL_LE_CONN_SRV_AIR_CIS_DISCONNECTED);
+                    }
                     return BT_STATUS_FAIL;
                 } else if (BT_ULL_LE_CONN_SRV_AIR_CIS_ACTIVE_CONNECTING == bt_ull_le_conn_srv_get_cis_state(i)) {
                     ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_create_air_cis_internal, is connecting!", 0);
@@ -2131,7 +2175,7 @@ static bt_status_t bt_ull_le_conn_srv_create_air_cis_internal(bt_handle_t acl_ha
                 } else if (BT_ULL_LE_CONN_SRV_AIR_CIS_ACTIVE_CONNECTING == bt_ull_le_conn_srv_get_cis_state(idx)) {
                     ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_create_air_cis_internal, is connecting!", 0);
                     bt_ull_le_srv_memory_free(cis_list);
-                    return BT_STATUS_SUCCESS;
+                    return BT_STATUS_FAIL;
                 }
             }
             if (BT_ULL_LE_CONN_SRV_INVALID_IDX == idx) { 
@@ -2737,7 +2781,7 @@ bt_status_t bt_ull_le_conn_srv_establish_air_cis(bt_handle_t handle)
     uint8_t cig_state = bt_ull_le_conn_srv_get_cig_state();
     bt_ull_role_t role = bt_ull_le_conn_srv_get_role();
     bt_ull_client_t ct = bt_ull_le_conn_srv_get_client_type();
-    ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_establish_air_cis, role: %d, cig_state: %d, ct: 0x%x", 3, role, cig_state, ct);
+    ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_establish_air_cis, role: %d, cig_state: %d, ct: 0x%x, handle: 0x%x", 4, role, cig_state, ct, handle);
     if (role != BT_ULL_ROLE_SERVER) {
         ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_establish_air_cis, role error!", 0);
         return BT_STATUS_FAIL;
@@ -2969,7 +3013,11 @@ bt_status_t bt_ull_le_conn_srv_activate_uplink(bt_handle_t handle)
         }
         uint8_t state = bt_ull_le_conn_srv_get_cis_state(idx);
         uint8_t ul_active = bt_ull_le_conn_srv_get_ul_active_state(idx);
-        ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_activate_uplink, ul_enable: %d, state: %d!", 2, ul_active, state);
+        ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_activate_uplink, ul_enable: %d, state: %d!", 2, ul_active, state);
+        if (BT_ULL_LE_CONN_SRV_AIR_CIS_DISCONNECTING == state) {
+            return BT_STATUS_FAIL;
+        }
+
         if (!ul_active) {
             cis_handle = bt_ull_le_conn_srv_get_cis_handle(idx);
         } else if (BT_ULL_LE_CONN_SRV_INVALID_IDX == ul_active) {
@@ -3090,13 +3138,13 @@ bt_status_t bt_ull_le_conn_srv_set_air_cig_params_table(bt_handle_t acl_handle, 
     ull_report("[ULL][LE][CONN] bt_ull_le_conn_srv_set_air_cig_params_table, handle: 0x%x, ct: 0x%x, cis: %d, capability: %x, table: %x, codec: %d, ul samp: %d, dl samp: %d, aud_quality: %d", 9, \
         acl_handle, ct, cis_count, *capability, ctx->aud_ctrl.select_cig_params, codec, ul_samplerate, dl_samplerate, aud_quality);
 #endif
-    if (bt_ull_le_conn_srv_cmd_is_lock(BT_ULL_LE_CONN_SRV_CMD_SET_TABEL)) {
-        bt_ull_le_conn_srv_cmd_cache_item_t *cache_cmd = bt_ull_le_conn_srv_new_cache_cmd_node(BT_ULL_LE_CONN_SRV_CMD_SET_TABEL);
+    if (bt_ull_le_conn_srv_cmd_is_lock(BT_ULL_LE_CONN_SRV_CMD_SET_TABLE)) {
+        bt_ull_le_conn_srv_cmd_cache_item_t *cache_cmd = bt_ull_le_conn_srv_new_cache_cmd_node(BT_ULL_LE_CONN_SRV_CMD_SET_TABLE);
         cache_cmd->handle = acl_handle;
         ull_report_error("[ULL][LE][CONN] bt_ull_le_conn_srv_set_air_cig_params_table, set tabel busy!", 0);
         return BT_STATUS_PENDING;
     }
-    bt_ull_le_conn_srv_lock_cmd(BT_ULL_LE_CONN_SRV_CMD_SET_TABEL, acl_handle);
+    bt_ull_le_conn_srv_lock_cmd(BT_ULL_LE_CONN_SRV_CMD_SET_TABLE, acl_handle);
 
     if (BT_ULL_LE_CODEC_LC3PLUS == codec) {
         if (BT_ULL_MIC_CLIENT == ct) {
@@ -3104,15 +3152,15 @@ bt_status_t bt_ull_le_conn_srv_set_air_cig_params_table(bt_handle_t acl_handle, 
             ctx->aud_ctrl.label_count = 0x01;
         } else {
             if (capability->dchs_support) {
-                if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == dl_samplerate) {
-                    if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == ul_samplerate) { /*support*/
+                if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == dl_samplerate) {
+                    if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == ul_samplerate) { /*support*/
                         ctx->aud_ctrl.select_cig_params = g_cig_param_table_lc3plus_highres;
                         ctx->aud_ctrl.label_count = 0x04;
                     } else {
                         ctx->aud_ctrl.select_cig_params = g_cig_param_table_lc3plus_defualt;
                         ctx->aud_ctrl.label_count = 0x04;
                     }
-                } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate) {
+                } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate) {
                     ctx->aud_ctrl.select_cig_params = g_cig_param_table_lc3plus_dchs;
                     ctx->aud_ctrl.label_count = 0x01;
                 }
@@ -3122,7 +3170,7 @@ bt_status_t bt_ull_le_conn_srv_set_air_cig_params_table(bt_handle_t acl_handle, 
                     ctx->aud_ctrl.select_cig_params = g_cig_param_table_lc3plus_low_power;
                     ctx->aud_ctrl.label_count = 0x02;
                 } else {
-                    if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == ul_samplerate) { /*support*/
+                    if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == ul_samplerate) { /*support*/
 	                    ctx->aud_ctrl.select_cig_params = g_cig_param_table_lc3plus_highres;
 	                    ctx->aud_ctrl.label_count = 0x04;
 		            } else {
@@ -3146,9 +3194,17 @@ bt_status_t bt_ull_le_conn_srv_set_air_cig_params_table(bt_handle_t acl_handle, 
     } else if (BT_ULL_LE_CODEC_DL_ULD_UL_LC3PLUS == codec) {
             ctx->aud_ctrl.select_cig_params = g_bt_ull_cig_param_table_uld_ull3;
             ctx->aud_ctrl.label_count = 0x01;
-    } else {
+    }
+#ifdef AIR_AUDIO_VEND_CODEC_ENABLE
+    else if (BT_ULL_LE_CODEC_DL_ULD_UL_OPUS == codec) {
+            g_bt_ull_cig_param_table_uld_ull3[0].codec = BT_ULL_LE_CODEC_DL_ULD_UL_OPUS;
+            ctx->aud_ctrl.select_cig_params = g_bt_ull_cig_param_table_uld_ull3;
+            ctx->aud_ctrl.label_count = 0x01;
+    }
+#endif
+    else {
         ull_report_error("[ULL][LE][CONN] ERROR CODEC!", 0);
-        bt_ull_le_conn_srv_unlock_cmd(BT_ULL_LE_CONN_SRV_CMD_SET_TABEL);
+        bt_ull_le_conn_srv_unlock_cmd(BT_ULL_LE_CONN_SRV_CMD_SET_TABLE);
         return BT_STATUS_FAIL;
     }
     ull_report("[ULL][LE][CONN][TABLE] --Aud Quality--Codec--DL Samp--UL Samp--DL BR --UL BR", 0);
@@ -3171,7 +3227,7 @@ bt_status_t bt_ull_le_conn_srv_set_air_cig_params_table(bt_handle_t acl_handle, 
 
     if (!table || !cis_list) {
         ull_assert(0 && "[ULL][LE][CONN] out of memory!");
-        bt_ull_le_conn_srv_unlock_cmd(BT_ULL_LE_CONN_SRV_CMD_SET_TABEL);
+        bt_ull_le_conn_srv_unlock_cmd(BT_ULL_LE_CONN_SRV_CMD_SET_TABLE);
         return BT_STATUS_OUT_OF_MEMORY;        
     } else {
         bt_ull_le_srv_memset(table, 0, label_param_len * ctx->aud_ctrl.label_count);
@@ -3298,7 +3354,7 @@ bt_status_t bt_ull_le_conn_srv_set_air_cig_params_table(bt_handle_t acl_handle, 
     bt_ull_le_srv_memory_free(table);
     bt_ull_le_srv_memory_free(cis_list);
     if (status != BT_STATUS_SUCCESS) {
-        bt_ull_le_conn_srv_unlock_cmd(BT_ULL_LE_CONN_SRV_CMD_SET_TABEL);
+        bt_ull_le_conn_srv_unlock_cmd(BT_ULL_LE_CONN_SRV_CMD_SET_TABLE);
     }
     return status;
 }

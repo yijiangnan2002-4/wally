@@ -70,30 +70,32 @@ static uint32_t app_va_xiaoai_get_ble_adv_cb(multi_ble_adv_info_t *xiaoai_ble_ad
     double ble_adv_interval = (double)g_xiaoai_ble_adv_interval / 0.625;
     adv_param.advertising_interval_min = (uint16_t)ble_adv_interval;
     adv_param.advertising_interval_max = (uint16_t)ble_adv_interval;
-    xiaoai_connection_state xiaoai_state = xiaoai_get_connection_state();
-    if (xiaoai_state == XIAOAI_STATE_CONNECTED) {
+    xiaoai_conn_info_t conn_info = xiaoai_get_connection_info();
+    xiaoai_connection_state xiaoai_state = conn_info.conn_state;
+    bool is_ble = conn_info.is_ble;
+    if (xiaoai_state == XIAOAI_STATE_CONNECTED && is_ble && !conn_info.is_le_audio_mma) {
         adv_param.advertising_type = BT_HCI_ADV_TYPE_NON_CONNECTABLE_UNDIRECTED;
     } else {
         adv_param.advertising_type = BT_HCI_ADV_TYPE_CONNECTABLE_UNDIRECTED;
     }
-    adv_param.own_address_type = BT_ADDR_RANDOM;       // for BLE ADV flag 0x06
+    adv_param.own_address_type = BT_ADDR_RANDOM;        // Static random
     adv_param.advertising_channel_map = 7;
     adv_param.advertising_filter_policy = BT_HCI_ADV_FILTER_ACCEPT_SCAN_CONNECT_FROM_ALL;
 
-    uint8_t miui_fc_adv_data[31] = {0};
-    uint8_t miui_fc_scan_rsp[31] = {0};
+    uint8_t miui_fc_adv_data[BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM] = {0};
+    uint8_t miui_fc_scan_rsp[BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM] = {0};
     miui_fast_connect_config_ble_adv(miui_fc_adv_data, miui_fc_scan_rsp);
 
     /* for new MIUI_FAST_CONNECT BLE ADV data. */
     if (xiaoai_ble_adv_info->adv_data != NULL) {
-        xiaoai_ble_adv_info->adv_data->data_length = 31;
-        memcpy(xiaoai_ble_adv_info->adv_data->data, miui_fc_adv_data, 31);
+        xiaoai_ble_adv_info->adv_data->data_length = BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM;
+        memcpy(xiaoai_ble_adv_info->adv_data->data, miui_fc_adv_data, BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM);
         xiaoai_ble_adv_info->adv_data->fragment_preference = 0;
     }
     /* for new MIUI_FAST_CONNECT - Old XiaoAI BLE ADV scan rsp. */
     if (xiaoai_ble_adv_info->scan_rsp != NULL) {
-        xiaoai_ble_adv_info->scan_rsp->data_length = 31;
-        memcpy(xiaoai_ble_adv_info->scan_rsp->data, miui_fc_scan_rsp, 31);
+        xiaoai_ble_adv_info->scan_rsp->data_length = BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM;
+        memcpy(xiaoai_ble_adv_info->scan_rsp->data, miui_fc_scan_rsp, BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM);
         xiaoai_ble_adv_info->scan_rsp->fragment_preference = 0;
     }
 

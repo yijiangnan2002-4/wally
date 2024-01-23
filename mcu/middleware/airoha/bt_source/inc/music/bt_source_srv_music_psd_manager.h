@@ -96,7 +96,7 @@ typedef struct {
     bt_source_srv_music_psd_user_musicback        user_musicback;
     bt_source_srv_music_psd_flag_t               flags;
     bt_source_srv_port_t port;
-    uint8_t audio_play_num;
+    uint32_t audio_play_num;
 } bt_source_srv_music_pseduo_dev_t;
 
 bt_status_t bt_source_srv_music_psd_alloc_audio_src(bt_source_srv_music_pseduo_dev_t *device);

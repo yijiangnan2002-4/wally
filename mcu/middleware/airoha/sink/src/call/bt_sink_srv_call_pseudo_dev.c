@@ -100,7 +100,7 @@ void bt_sink_srv_call_psd_am_callback(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am
 
         if (sub_msg == AUD_HFP_PLAY_OK) {
             bt_utils_assert(dev->audio_src);
-            bt_sink_srv_call_audio_side_tone_enable();
+            bt_sink_srv_call_psd_enable_sidetone(dev);
             bt_bd_addr_t address = {0};
             bt_sink_srv_call_psd_convert_devid_to_btaddr(dev->audio_src->dev_id, &address);
             uint32_t gap_handle = (uint32_t) bt_sink_srv_cm_get_gap_handle(&address);
@@ -109,6 +109,7 @@ void bt_sink_srv_call_psd_am_callback(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am
             if (sco_state == BT_SINK_SRV_SCO_CONNECTION_STATE_CONNECTED && dev->next_state == BT_SINK_SRV_CALL_PSD_NEXT_STATE_INIT) {
                 bt_sink_srv_call_audio_init_play(gap_handle);
             }
+            dev->flag |= BT_SINK_SRV_CALL_PSD_FLAG_CODEC_STARTED;
             bt_sink_srv_call_psd_state_event_notify(dev, BT_SINK_SRV_CALL_EVENT_PLAY_CODEC_IND, NULL);
 
             } else if (dev->audio_src->substate == BT_SINK_SRV_CALL_PSD_SUB_STATE_CODEC_STOPPING) {   
@@ -116,6 +117,7 @@ void bt_sink_srv_call_psd_am_callback(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am
                                  (BT_SINK_SRV_CALL_PSD_FLAG_TAKED_MIC_RESOURCE | BT_SINK_SRV_CALL_PSD_FLAG_SUSPEND)) {
                     bt_sink_srv_call_psd_release_mic_resource(dev);
                 }
+                dev->flag &= ~BT_SINK_SRV_CALL_PSD_FLAG_CODEC_STARTED;
                 bt_sink_srv_call_psd_state_event_notify(dev, BT_SINK_SRV_CALL_EVENT_STOP_CODEC_IND, NULL);
             }
         }

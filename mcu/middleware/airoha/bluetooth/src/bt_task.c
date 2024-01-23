@@ -135,7 +135,7 @@ static void bt_task_generate_random_address(bt_bd_addr_t addr)
 
 uint32_t bt_task_semaphore = 0;
 
-#if defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
+#if defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
 extern QueueHandle_t bt_ull_queue;
 extern void bt_ull_le_am_queue_handler(void);
 #endif
@@ -191,7 +191,7 @@ void bt_task(void *arg)
         wait += end - i;
 #endif
 
-#if defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
+#if defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
         if (bt_ull_queue) {
            bt_ull_le_am_queue_handler();
         }

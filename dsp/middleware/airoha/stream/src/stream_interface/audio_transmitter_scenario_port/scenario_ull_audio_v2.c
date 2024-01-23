@@ -94,10 +94,13 @@
 #define ULL_AUDIO_V2_DONGLE_DL_PATH_DEBUG_LOG                       0
 #define ULL_AUDIO_V2_DONGLE_UL_PATH_DEBUG_LOG                       0
 
+#define DL_MAX_USB_CARD_NUMBER                                      2
 #define DL_CLOCK_SKEW_CHECK_COUNT                                   (4)
 #define DL_PROCESS_TIME_MAX                                         (1250-10)
-
 #define DL_ULD_PROCESS_TIME_MAX                                     (1000)
+#define DL_PRELOADER_RESERVED_USB_FRAMES                            (5) /* Keep enough time to avoid of conflict between preloader process and final process  */
+#define DL_STOP_PADDING_PKG_NUMBER                                  5
+#define DL_PLAY_TIME_CHECK_THRESHOLD                                1000000 /* Unit of us */
 
 #define UL_CLOCK_SKEW_CHECK_COUNT                                   (4)
 #define UL_BT_TIMESTAMP_DIFF                                        (2)  /* 0.625ms/0.3125ms */
@@ -137,7 +140,7 @@ typedef struct  {
     U8 _reserved_byte_0Bh;
     U8 PduHdrLo;
     // U8 _reserved_byte_0Dh;
-    U8 valid_packet; /* valid packet: 0x01, invalid packet 0x00 */
+    U8 valid_packet; /* padding packet: 0x03, valid packet: 0x01, invalid packet 0x00 */
     U16 PduLen ; /* payload size */
     U16 DataLen;
     U16 _reserved_word_12h;
@@ -215,6 +218,7 @@ typedef struct {
     ull_audio_v2_dongle_silence_detection_status_t status;
     uint32_t total_channel;
     uint32_t data_size_channel;
+    uint32_t sample_rate;
 } ull_audio_v2_dongle_silence_detection_handle_t;
 #endif /* AIR_SILENCE_DETECTION_ENABLE */
 
@@ -262,10 +266,10 @@ static ull_audio_v2_init_play_info_t ull_audio_v2_bt_init_play_info =
     .dl_retransmission_window_clk = UL_BT_RETRY_WINDOW_FRAME_5000US,
     .dl_retransmission_window_phase = 0,
 };
-#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
+#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
 static uint32_t ull_audio_v2_ul_sw_timer = 0;
 static uint32_t ull_audio_v2_ul_sw_timer_count = 0;
-#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) */
+#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 static uint32_t ull_audio_v2_ul_packet_anchor_in_mixer = 0;
 static uint32_t ull_audio_v2_ul_packet_size_in_mixer = 0;
 
@@ -290,6 +294,9 @@ static bool g_ull_audio_v2_dl_play_info_need_trigger;
 static uint32_t g_ull_audio_v2_dl_uld_enc_cnt = 0;
 static uld_enc_port_t *g_ull_audio_v2_dl_uld_enc_port = NULL;
 #endif /* AIR_AUDIO_ULD_ENCODE_ENABLE */
+static uint8_t g_ull_audio_v2_dongle_dl_dummy[512];
+static bool g_ull_audio_v2_dongle_dl_dummy_process_flag[DL_MAX_USB_CARD_NUMBER];
+static uint32_t g_ull_audio_v2_dongle_dl_dummy_process_cnt[DL_MAX_USB_CARD_NUMBER];
 
 /* Public variables ----------------------------------------------------------*/
 ull_audio_v2_dongle_dl_handle_t *ull_audio_v2_dongle_first_dl_handle = NULL;
@@ -437,7 +444,7 @@ static uint32_t usb_audio_get_frame_size(audio_dsp_codec_type_t *usb_type, audio
     return frame_size;
 }
 
-ATTR_TEXT_IN_IRAM static uint32_t CRC32_Generate(uint8_t *ptr, uint32_t length, uint32_t crc_init)
+ATTR_TEXT_IN_IRAM static uint32_t ull_audio_v2_dongle_crc32_generate(uint8_t *ptr, uint32_t length, uint32_t crc_init)
 {
     const uint8_t *p;
 
@@ -450,6 +457,18 @@ ATTR_TEXT_IN_IRAM static uint32_t CRC32_Generate(uint8_t *ptr, uint32_t length, 
 
     return crc_init ^ ~0U;
 }
+
+ATTR_TEXT_IN_IRAM static uint32_t ull_audio_v2_dongle_crc32_generate_dummy(uint32_t length, uint32_t crc_init)
+{
+    crc_init = crc_init ^ ~0U;
+
+    while (length--) {
+        crc_init = crc32_tab[(crc_init ^ 0) & 0xFF] ^ (crc_init >> 8);
+    }
+
+    return crc_init ^ ~0U;
+}
+
 
 void ull_audio_v2_dongle_resolution_config(DSP_STREAMING_PARA_PTR stream)
 {
@@ -834,7 +853,8 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_prepare_packet_check(ull_au
     uint32_t unprocess_frames;
     uint32_t remain_samples_in_sw_buffer;
     uint32_t unprocess_samples;
-    uint32_t sample_size;
+    uint32_t sample_size, check_threshold;
+    uint32_t total_buffer_size;
 
     /* get actual data size include header size in the share buffer */
     audio_transmitter_share_information_fetch(source, NULL);
@@ -880,6 +900,14 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_prepare_packet_check(ull_au
         }
         else
         {
+            /* pre-release some buffer space when the avail size of source avm buffer is almost full, to prevent of MCU write fail during the 1st stream process */
+            if (unprocess_frames > source->streamBuffer.ShareBufferInfo.sub_info.block_info.block_num - dongle_handle->sink_info.bt_out.frame_interval / 1000) {
+                total_buffer_size = source->streamBuffer.ShareBufferInfo.sub_info.block_info.block_size * source->streamBuffer.ShareBufferInfo.sub_info.block_info.block_num;
+                source->streamBuffer.ShareBufferInfo.read_offset += (dongle_handle->sink_info.bt_out.frame_interval / 1000) * source->streamBuffer.ShareBufferInfo.sub_info.block_info.block_size;
+                source->streamBuffer.ShareBufferInfo.read_offset %= total_buffer_size;
+                audio_transmitter_share_information_update_read_offset(source, source->streamBuffer.ShareBufferInfo.read_offset);
+                ULL_V2_LOG_W("[ULL Audio V2][DL][WARNNING][handle 0x%x] pre-release some AVM buffer space, %u, %u, %u\r\n", 5, dongle_handle, unprocess_frames, source->streamBuffer.ShareBufferInfo.read_offset, source->streamBuffer.ShareBufferInfo.write_offset);
+            }
             /* update data state machine */
             dongle_handle->data_status = ULL_AUDIO_V2_DONGLE_DL_DATA_IN_STREAM;
             /* there is a fetch requirement */
@@ -908,7 +936,12 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_prepare_packet_check(ull_au
         }
 
         /* check if usb data is enough for one DL packet */
-        if (unprocess_samples >= dongle_handle->sink_info.bt_out.frame_samples)
+        if (g_ull_audio_v2_dongle_dl_dummy_process_cnt[dongle_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0] > 0) {
+            check_threshold = dongle_handle->sink_info.bt_out.frame_samples + 1;
+        } else {
+            check_threshold = dongle_handle->sink_info.bt_out.frame_samples;
+        }
+        if (unprocess_samples >= check_threshold)
         {
             /* update data state machine */
             dongle_handle->data_status = ULL_AUDIO_V2_DONGLE_DL_DATA_IN_STREAM;
@@ -964,13 +997,15 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_ccni_handler(hal_ccni_event
 {
     SINK sink;
     uint32_t saved_mask;
-    uint32_t i;
+    uint32_t i, no_usb_data_1, no_usb_data_2, exist_other_stream;
     uint32_t gpt_count;
     uint32_t bt_count;
     uint32_t blk_index, pdu_size, new_bit_rate;
     hal_ccni_message_t *ccni_msg = msg;
     ull_audio_v2_dongle_dl_handle_t *c_handle;
     static uint32_t error_count = 0;
+    DSP_STREAMING_PARA_PTR usb_saved_stream;
+
     UNUSED(event);
 
 #if ULL_AUDIO_V2_DONGLE_DL_PATH_DEBUG_LOG
@@ -1013,6 +1048,10 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_ccni_handler(hal_ccni_event
 #endif /* AIR_SILENCE_DETECTION_ENABLE */
 
     /* trigger all started DL stream one by one */
+    exist_other_stream = false;
+    no_usb_data_1 = true;
+    no_usb_data_2 = true;
+    usb_saved_stream = NULL;
     c_handle = ull_audio_v2_dongle_first_dl_handle;
     for (i = 0; i < (uint32_t)ull_audio_v2_dongle_first_dl_handle->total_number; i++)
     {
@@ -1053,12 +1092,24 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_ccni_handler(hal_ccni_event
                     c_handle->ccni_in_gpt_count = gpt_count;
                     /* set blk index */
                     c_handle->ccni_blk_index    = blk_index;
-                    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
+                    //hal_nvic_save_and_set_interrupt_mask(&saved_mask);
                     /* check if the stream needs to prepare a new DL packet */
                     ull_audio_v2_dongle_dl_prepare_packet_check(c_handle);
-                    hal_nvic_restore_interrupt_mask(saved_mask);
+                    //hal_nvic_restore_interrupt_mask(saved_mask);
                     /* Handler the stream */
                     AudioCheckTransformHandle(sink->transform);
+
+                    DSP_STREAMING_PARA_PTR stream = DSP_Streaming_Get(sink->transform->source, sink);
+                    if (usb_saved_stream == NULL) {
+                        usb_saved_stream = stream;
+                    }
+                    if (stream->callback.Status == CALLBACK_HANDLER) {
+                        if (c_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0) {
+                            no_usb_data_1 = false;
+                        } else if (c_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_1) {
+                            no_usb_data_2 = false;
+                        }
+                    }
                     break;
 
                 case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_LINE_IN:
@@ -1071,6 +1122,9 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_ccni_handler(hal_ccni_event
                     uint32_t data_size;
                     uint32_t buffer_per_channel_shift;
                     SOURCE source = c_handle->source;
+
+                    exist_other_stream = true;
+
                     /* stream is started */
                     /* set timestamp for debug */
                     c_handle->ccni_in_bt_count  = bt_count;
@@ -1158,6 +1212,9 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_ccni_handler(hal_ccni_event
                                 ULL_V2_LOG_E("[ULL Audio V2][DL][AFE IN] hwsrc start full owo[%d] oro[%d]", 2, buffer_info->WriteOffset, buffer_info->ReadOffset);
                             }
                         }
+                        c_handle->afe_buffer_latency_size = (buffer_info->WriteOffset >= buffer_info->ReadOffset)
+                                    ? (buffer_info->WriteOffset - buffer_info->ReadOffset)>>buffer_per_channel_shift
+                                    : (source->streamBuffer.BufferInfo.length - buffer_info->ReadOffset + buffer_info->WriteOffset)>>buffer_per_channel_shift;
                     } else {
                         if (data_size >= source->param.audio.frame_size) {
                             /* samples are enough, so update data status */
@@ -1234,6 +1291,19 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_ccni_handler(hal_ccni_event
         AUDIO_ASSERT(0);
     }
 
+    if ((exist_other_stream == false) && (no_usb_data_1 == true) && (no_usb_data_2 == true) && (usb_saved_stream != NULL)) {
+        c_handle = (ull_audio_v2_dongle_dl_handle_t *)usb_saved_stream->source->transform->sink->param.bt_common.scenario_param.dongle_handle;
+        if (c_handle->first_packet_status == ULL_AUDIO_V2_DONGLE_DL_FIRST_PACKET_READY) {
+            g_ull_audio_v2_dongle_dl_dummy_process_flag[c_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0] = true;
+            /* Force to wake up the stream process task for dummy prcoess */
+            usb_saved_stream->callback.Status = CALLBACK_HANDLER;
+            xTaskResumeFromISR(usb_saved_stream->source->taskId);
+            portYIELD_FROM_ISR(pdTRUE);
+            g_ull_audio_v2_dongle_dl_dummy_process_cnt[c_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0]++;
+            ULL_V2_LOG_W("[ULL Audio V2][DL][WARNNING]dl silence padding to sink buffer, accu %d", 1, g_ull_audio_v2_dongle_dl_dummy_process_cnt[c_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0]);
+        }
+    }
+
 _ccni_return:
     return;
 }
@@ -1242,7 +1312,7 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_handler_usb_preload(uint32_
 {
     SINK sink;
     //uint32_t saved_mask;
-    uint32_t i;
+    uint32_t i, preloader_usb_frames;
     ull_audio_v2_dongle_dl_handle_t *c_handle;
     static uint32_t error_count = 0;
 
@@ -1291,10 +1361,16 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_handler_usb_preload(uint32_
                         break;
                     }
                     //hal_nvic_save_and_set_interrupt_mask(&saved_mask);
+                    if (c_handle->source_info.usb_in.frame_max_num >= DL_PRELOADER_RESERVED_USB_FRAMES) {
+                        preloader_usb_frames = c_handle->source_info.usb_in.frame_max_num - DL_PRELOADER_RESERVED_USB_FRAMES;
+                    } else {
+                        preloader_usb_frames = 0;
+                    }
                     if ((c_handle->fetch_count == 0)
                         && (c_handle->stream_mode == ULL_AUDIO_V2_DONGLE_STREAM_MODE_DL_STANDBY)
                         && (c_handle->first_packet_status == ULL_AUDIO_V2_DONGLE_DL_FIRST_PACKET_READY)
-                        && (c_handle->process_frames_total < (c_handle->source_info.usb_in.frame_max_num - 2)))
+                        && (c_handle->process_frames_total < preloader_usb_frames)
+                        && (g_ull_audio_v2_dongle_dl_dummy_process_cnt[c_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0] == 0))
                     {
                         /* set preload flag */
                         c_handle->source_preload_count = 1;
@@ -1758,26 +1834,26 @@ static void ull_audio_v2_dongle_dl_common_init(ull_audio_v2_dongle_dl_handle_t *
         if (g_ull_audio_v2_dl_uld_enc_cnt++ == 0) {
             g_ull_audio_v2_dl_uld_enc_port = stream_codec_encoder_uld_get_port(dongle_handle->sink);
             AUDIO_ASSERT(g_ull_audio_v2_dl_uld_enc_port != NULL);
-            uld_enc_config.bit_rate = dongle_handle->sink_info.bt_out.bit_rate;
-            uld_enc_config.interval = dongle_handle->sink_info.bt_out.frame_interval;
-            uld_enc_config.in_channel_num = dongle_handle->sink_info.bt_out.channel_num;
-            if (dongle_handle->sink_info.bt_out.sample_format == HAL_AUDIO_PCM_FORMAT_S16_LE) {
-                uld_enc_config.resolution = RESOLUTION_16BIT;
-            } else {
-                uld_enc_config.resolution = RESOLUTION_32BIT;
-            }
-            uld_enc_config.sample_rate = dongle_handle->sink_info.bt_out.sample_rate;
-            stream_codec_encoder_uld_init(g_ull_audio_v2_dl_uld_enc_port, &uld_enc_config);
-            ULL_V2_LOG_I("[ULL Audio V2][DL][scenario type %d-%d][handle 0x%x]uld info, %d, %d, %d, %d, %d\r\n", 8,
-                        dongle_handle->source->scenario_type,
-                        dongle_handle->sink->scenario_type,
-                        dongle_handle,
-                        uld_enc_config.bit_rate,
-                        uld_enc_config.interval,
-                        uld_enc_config.in_channel_num,
-                        uld_enc_config.resolution,
-                        uld_enc_config.sample_rate);
+        uld_enc_config.bit_rate = dongle_handle->sink_info.bt_out.bit_rate;
+        uld_enc_config.interval = dongle_handle->sink_info.bt_out.frame_interval;
+        uld_enc_config.in_channel_num = dongle_handle->sink_info.bt_out.channel_num;
+        if (dongle_handle->sink_info.bt_out.sample_format == HAL_AUDIO_PCM_FORMAT_S16_LE) {
+            uld_enc_config.resolution = RESOLUTION_16BIT;
+        } else {
+            uld_enc_config.resolution = RESOLUTION_32BIT;
         }
+        uld_enc_config.sample_rate = dongle_handle->sink_info.bt_out.sample_rate;
+            stream_codec_encoder_uld_init(g_ull_audio_v2_dl_uld_enc_port, &uld_enc_config);
+        ULL_V2_LOG_I("[ULL Audio V2][DL][scenario type %d-%d][handle 0x%x]uld info, %d, %d, %d, %d, %d\r\n", 8,
+                    dongle_handle->source->scenario_type,
+                    dongle_handle->sink->scenario_type,
+                    dongle_handle,
+                    uld_enc_config.bit_rate,
+                    uld_enc_config.interval,
+                    uld_enc_config.in_channel_num,
+                    uld_enc_config.resolution,
+                    uld_enc_config.sample_rate);
+    }
         dongle_handle->uld_port = g_ull_audio_v2_dl_uld_enc_port;
     }
 #endif /* AIR_AUDIO_ULD_ENCODE_ENABLE */
@@ -1901,7 +1977,7 @@ static void ull_audio_v2_dongle_dl_usb_in_init(ull_audio_v2_dongle_dl_handle_t *
     fs_param.pcm_format = dongle_handle->sink_info.bt_out.sample_format;
     fs_param.source     = dongle_handle->source;
     fs_param.codec_type = dongle_handle->sink_info.bt_out.codec_type;
-    fs_param.process_max_size = (dongle_handle->source_info.usb_in.frame_max_num + 1) * fs_param.in_rate * sample_size;
+    fs_param.process_max_size = (dongle_handle->source_info.usb_in.frame_max_num + 1) * fs_param.in_rate * sample_size / 1000;
     audio_dl_unified_fs_convertor_init(&fs_param);
     // set param to dongle
     dongle_handle->process_sample_rate_max = fs_param.process_sample_rate_max;
@@ -2050,6 +2126,9 @@ static void ull_audio_v2_dongle_dl_usb_in_init(ull_audio_v2_dongle_dl_handle_t *
         ull_audio_v2_dongle_vol_balance_handle.game_path_gain_port = dongle_handle->gain_port;
     }
 #endif /* AIR_GAME_CHAT_VOLUME_SMART_BALANCE_ENABLE */
+
+    g_ull_audio_v2_dongle_dl_dummy_process_flag[dongle_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0] = false;
+    g_ull_audio_v2_dongle_dl_dummy_process_cnt[dongle_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0] = 0;
 }
 
 static void ull_audio_v2_dongle_dl_usb_in_deinit(ull_audio_v2_dongle_dl_handle_t *dongle_handle)
@@ -2390,11 +2469,216 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_usb_data_copy(ull_audio_v2_
     }
 }
 
+static ATTR_TEXT_IN_IRAM void ull_audio_v2_dongle_dl_sink_internal_copy_payload(SINK sink, uint8_t *src_buf, bool is_dummy_copy)
+{
+    ull_audio_v2_dongle_dl_handle_t *dongle_handle = (ull_audio_v2_dongle_dl_handle_t *)sink->param.bt_common.scenario_param.dongle_handle;
+    DSP_STREAMING_PARA_PTR stream = DSP_Streaming_Get(sink->transform->source, sink);
+    uint32_t bt_clk;
+    uint16_t bt_phase;
+    uint32_t i, j;
+    uint32_t *src_addr;
+    uint32_t *des_addr;
+    uint32_t blk_size;
+    uint32_t blk_num;
+    uint32_t blk_index;
+    n9_dsp_share_info_ptr p_share_info;
+    ULL_AUDIO_V2_HEADER *p_ull_audio_header;
+    bool crc32_flag = false;
+    uint32_t crc32_init[ULL_AUDIO_V2_DATA_CHANNEL_NUMBER];
+
+    /* get current bt clock */
+    MCE_GetBtClk((BTCLK*)&bt_clk, (BTPHASE*)&bt_phase, BT_CLK_Offset);
+
+    /* write DL packet to different share buffer one by one */
+    for (i = 0; i < ULL_AUDIO_V2_DATA_CHANNEL_NUMBER; i++)
+    {
+        if (dongle_handle->sink_info.bt_out.bt_info[i] == NULL)
+        {
+            continue;
+        }
+        else
+        {
+            p_share_info = (n9_dsp_share_info_ptr)((dongle_handle->sink_info.bt_out.bt_info[i])->bt_link_info.share_info);
+            blk_size     = p_share_info->sub_info.block_info.block_size;
+            blk_num      = p_share_info->sub_info.block_info.block_num;
+            blk_index    = dongle_handle->ccni_blk_index;
+            crc32_init[i]= p_share_info->asi_cur;
+            if (blk_index < blk_num)
+            {
+                /* get header address and data address */
+                des_addr = (uint32_t *)(hal_memview_infrasys_to_dsp0(p_share_info->start_addr) + blk_size * blk_index);
+                p_ull_audio_header = (ULL_AUDIO_V2_HEADER *)des_addr;
+                des_addr = (uint32_t *)((uint32_t)des_addr + sizeof(ULL_AUDIO_V2_HEADER));
+
+                /* check if blk size is enough */
+                if ((dongle_handle->sink_info.bt_out.frame_size+sizeof(ULL_AUDIO_V2_HEADER)) > blk_size)
+                {
+                    ULL_V2_LOG_E("[ULL Audio V2][DL][ERROR][handle 0x%x]blk size is not right, %d, %d\r\n", 3, dongle_handle, blk_size, dongle_handle->sink_info.bt_out.frame_size+sizeof(ULL_AUDIO_V2_HEADER));
+                    AUDIO_ASSERT(0);
+                }
+
+                /* write DL packet data into share buffer block */
+                if (is_dummy_copy == true) {
+                    memset(des_addr, 0, dongle_handle->sink_info.bt_out.frame_size);
+                } else {
+                    src_addr     = stream_function_get_inout_buffer((void *)(&(stream->callback.EntryPara)), (i+1));
+                    src_buf      = (uint8_t *)src_addr;
+                    for (j = 0; j < (((uint32_t)(dongle_handle->sink_info.bt_out.frame_size+3))/4); j++) {
+                        /* share buffer block must be 4B aligned, so we can use word access to get better performance */
+                        *des_addr++ = *src_addr++;
+                    }
+                }
+
+                /* write DL packet header into share buffer block */
+                p_ull_audio_header->DataOffset = sizeof(ULL_AUDIO_V2_HEADER);
+                p_ull_audio_header->PduLen     = dongle_handle->sink_info.bt_out.frame_size;
+                p_ull_audio_header->DataLen    = p_ull_audio_header->PduLen;
+                p_ull_audio_header->TimeStamp  = bt_clk;
+                p_ull_audio_header->SampleSeq  = (dongle_handle->sink_info.bt_out.bt_info[i])->seq_num;
+                /* check if crc32_value is changed before do CRC generate */
+                if ((dongle_handle->sink_info.bt_out.bt_info[i])->crc32_init != crc32_init[i])
+                {
+                    crc32_flag = true;
+                }
+                if (is_dummy_copy == true) {
+                    p_ull_audio_header->crc32_value = ull_audio_v2_dongle_crc32_generate_dummy(dongle_handle->sink_info.bt_out.frame_size, crc32_init[i]);
+                } else {
+                    p_ull_audio_header->crc32_value = ull_audio_v2_dongle_crc32_generate((uint8_t *)src_buf, dongle_handle->sink_info.bt_out.frame_size, crc32_init[i]);
+                }
+
+                /* update state machine */
+                (dongle_handle->sink_info.bt_out.bt_info[i])->seq_num += 1;
+                (dongle_handle->sink_info.bt_out.bt_info[i])->blk_index_previous = (dongle_handle->sink_info.bt_out.bt_info[i])->blk_index;
+                (dongle_handle->sink_info.bt_out.bt_info[i])->blk_index = blk_index;
+            }
+            else
+            {
+                ULL_V2_LOG_E("[ULL Audio V2][DL][ERROR][handle 0x%x]channel%d blk index is not right, %d, %d\r\n", 4, dongle_handle, i+1, blk_index, blk_num);
+            }
+        }
+    }
+
+    /* get current bt clock */
+    MCE_GetBtClk((BTCLK*)&bt_clk, (BTPHASE*)&bt_phase, BT_CLK_Offset);
+
+    /* Output crc32_init value changed log for debug */
+    if (crc32_flag)
+    {
+        for (i = 0; i < ULL_AUDIO_V2_DATA_CHANNEL_NUMBER; i++)
+        {
+            if (dongle_handle->sink_info.bt_out.bt_info[i] != NULL)
+            {
+                ULL_V2_LOG_W("[ULL Audio V2][DL][handle 0x%x]bt out channel %u crc32_init value is changed from 0x%x to 0x%x\r\n", 11,
+                            dongle_handle,
+                            i+1,
+                            (dongle_handle->sink_info.bt_out.bt_info[i])->crc32_init,
+                            crc32_init[i]);
+                (dongle_handle->sink_info.bt_out.bt_info[i])->crc32_init = crc32_init[i];
+            }
+        }
+    }
+
+    /* update time stamp */
+    dongle_handle->data_out_bt_count = bt_clk;
+}
+
+ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_sink_internal_update_write_offset(SINK sink, U32 amount, uint32_t *new_write_offset)
+{
+    ull_audio_v2_dongle_dl_handle_t *dongle_handle = (ull_audio_v2_dongle_dl_handle_t *)sink->param.bt_common.scenario_param.dongle_handle;
+    uint32_t i, write_offset, saved_mask;
+    n9_dsp_share_info_ptr p_share_info;
+    uint32_t blk_size;
+    uint32_t blk_num;
+    uint32_t blk_index;
+    UNUSED(amount);
+    UNUSED(new_write_offset);
+
+    /* update write index */
+    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
+    StreamDSP_HWSemaphoreTake();
+    for (i = 0; i < ULL_AUDIO_V2_DATA_CHANNEL_NUMBER; i++)
+    {
+        if (dongle_handle->sink_info.bt_out.bt_info[i] == NULL)
+        {
+            continue;
+        }
+        else
+        {
+            p_share_info = (n9_dsp_share_info_ptr)((dongle_handle->sink_info.bt_out.bt_info[i])->bt_link_info.share_info);
+            blk_size     = p_share_info->sub_info.block_info.block_size;
+            blk_num      = p_share_info->sub_info.block_info.block_num;
+            blk_index    = dongle_handle->ccni_blk_index;
+            if (blk_index < blk_num)
+            {
+                write_offset = (uint32_t)(((blk_index+1) % blk_num) * blk_size);
+                p_share_info->write_offset = write_offset;
+            }
+        }
+    }
+    StreamDSP_HWSemaphoreGive();
+    hal_nvic_restore_interrupt_mask(saved_mask);
+}
+
+
+ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_dummy_status_reset(ull_audio_v2_dongle_dl_handle_t *dongle_handle)
+{
+    uint32_t i;
+
+    /* Reset clkskew status */
+    dongle_handle->clk_skew_count = 0;
+
+    /* Reset SW buffer */
+    for (i = 0; i < dongle_handle->source_info.usb_in.channel_num; i++) {
+        stream_function_sw_buffer_reset_channel_buffer(dongle_handle->buffer_port_0, 1 + i, false);
+    }
+
+    /* Reset SW mixer */
+
+    /* Reset stream status */
+    audio_transmitter_share_information_fetch(dongle_handle->source, NULL);
+    dongle_handle->source->streamBuffer.ShareBufferInfo.read_offset = dongle_handle->source->streamBuffer.ShareBufferInfo.write_offset;
+    audio_transmitter_share_information_update_read_offset(dongle_handle->source, dongle_handle->source->streamBuffer.ShareBufferInfo.read_offset);
+
+    ULL_V2_LOG_W("[ULL Audio V2][DL][handle 0x%x] reset dummy process status, %d", 2, dongle_handle, dongle_handle->source->streamBuffer.ShareBufferInfo.read_offset);
+}
+
+ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_dummy_process(SINK sink)
+{
+    uint32_t i, dump_size, consume_size, left_size, sample_byte;
+    ull_audio_v2_dongle_dl_handle_t *dongle_handle = (ull_audio_v2_dongle_dl_handle_t *)sink->param.bt_common.scenario_param.dongle_handle;
+
+    /* Copy payload to sink buffer */
+    ull_audio_v2_dongle_dl_sink_internal_copy_payload(sink, g_ull_audio_v2_dongle_dl_dummy, true);
+
+    /* Update the WPTR of sink buffer */
+    ull_audio_v2_dongle_dl_sink_internal_update_write_offset(sink, 0, NULL);
+
+    /* Do audio dump */
+    if (dongle_handle->sink_info.bt_out.sample_format == HAL_AUDIO_PCM_FORMAT_S16_LE) {
+        sample_byte = 2;
+    } else {
+        sample_byte = 4;
+    }
+    dump_size = (dongle_handle->sink_info.bt_out.sample_rate / 1000) * (dongle_handle->sink_info.bt_out.frame_interval / 1000) * sample_byte;
+    left_size = dump_size;
+    for (i = 0; i < dump_size; i += consume_size) {
+        if (left_size >= sizeof(g_ull_audio_v2_dongle_dl_dummy)) {
+            consume_size = sizeof(g_ull_audio_v2_dongle_dl_dummy);
+        } else {
+            consume_size = left_size;
+        }
+        left_size -= consume_size;
+        LOG_AUDIO_DUMP(g_ull_audio_v2_dongle_dl_dummy, consume_size, AUDIO_SOURCE_IN_L);
+        LOG_AUDIO_DUMP(g_ull_audio_v2_dongle_dl_dummy, consume_size, AUDIO_SOURCE_IN_R);
+    }
+
+    ULL_V2_LOG_W("[ULL Audio V2][DL][WARNNING]dl silence padding to sink buffer done", 0);
+}
+
 #ifdef AIR_SILENCE_DETECTION_ENABLE
 static void ull_audio_v2_dongle_dl_software_timer_handler(void *user_data)
 {
     SINK sink;
-    uint32_t saved_mask;
     uint32_t i;
     uint32_t gpt_count;
     uint32_t bt_count;
@@ -2450,10 +2734,8 @@ static void ull_audio_v2_dongle_dl_software_timer_handler(void *user_data)
                     c_handle->ccni_in_gpt_count = gpt_count;
                     /* set blk index */
                     c_handle->ccni_blk_index    = blk_index;
-                    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
                     /* check if the stream needs to prepare a new DL packet */
                     ull_audio_v2_dongle_dl_prepare_packet_check(c_handle);
-                    hal_nvic_restore_interrupt_mask(saved_mask);
                     /* Handler the stream */
                     AudioCheckTransformHandle(sink->transform);
                     break;
@@ -2566,11 +2848,13 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_stream_software_timer_handl
 
     /* repeat this timer */
     gpt_time_us = handle->sink_info.bt_out.frame_interval;
-    if (g_ull_audio_v2_dl_stream_irq_is_trigger == true) {
-        if (interval_delta >= 0) {
-            gpt_time_us += interval_delta_value;
+    if (interval_delta >= 0) {
+        gpt_time_us += interval_delta_value;
+    } else {
+        if (g_ull_audio_v2_dl_stream_irq_is_trigger == true) {
+            gpt_time_us = handle->sink_info.bt_out.frame_interval - interval_delta_value % handle->sink_info.bt_out.frame_interval;
         } else {
-            gpt_time_us -= interval_delta_value;
+            gpt_time_us = 2 * handle->sink_info.bt_out.frame_interval - interval_delta_value % handle->sink_info.bt_out.frame_interval;
         }
     }
     hal_gpt_sw_start_timer_us(ull_audio_v2_dl_stream_sw_timer, gpt_time_us, ull_audio_v2_dongle_dl_stream_software_timer_handler, NULL);
@@ -2593,9 +2877,11 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_dl_stream_software_timer_handl
                     curr_bt_time.period, curr_bt_time.phase, interval_delta, interval_delta_value, gpt_time_us, current_gpt, next_blk_index);
 #endif
 
-    ccni_msg.ccni_message[0] = curr_bt_time.period;
-    ccni_msg.ccni_message[1] = next_blk_index;
-    ull_audio_v2_dongle_dl_ccni_handler(0, &ccni_msg);
+    if (g_ull_audio_v2_dl_stream_irq_is_trigger == true) {
+        ccni_msg.ccni_message[0] = curr_bt_time.period;
+        ccni_msg.ccni_message[1] = next_blk_index;
+        ull_audio_v2_dongle_dl_ccni_handler(0, &ccni_msg);
+    }
 
     MCE_Add_us_FromA(handle->sink_info.bt_out.frame_interval, &(handle->stream_trigger_bt_time), &trigger_bt_time);
 
@@ -2640,6 +2926,13 @@ static void ull_audio_v2_dongle_dl_stream_software_timer_start(void)
     handle->stream_trigger_bt_time.phase = ull_audio_v2_bt_init_play_info.dl_timestamp_phase;
     MCE_Subtract_us_Fromb(DL_ULD_PROCESS_TIME_MAX, &handle->stream_trigger_bt_time, &handle->stream_trigger_bt_time);
     gpt_time_us = MCE_Get_Offset_FromAB(&curr_bt_time, &handle->stream_trigger_bt_time);
+    if (gpt_time_us > DL_PLAY_TIME_CHECK_THRESHOLD) {
+        gpt_time_us = MCE_Get_Offset_FromAB(&handle->stream_trigger_bt_time, &curr_bt_time);
+        gpt_time_us = (gpt_time_us / handle->sink_info.bt_out.frame_interval + 2) * handle->sink_info.bt_out.frame_interval;
+        MCE_Add_us_FromA(gpt_time_us, &handle->stream_trigger_bt_time, &handle->stream_trigger_bt_time);
+        gpt_time_us = MCE_Get_Offset_FromAB(&curr_bt_time, &handle->stream_trigger_bt_time);
+        ULL_V2_LOG_W("[ULL Audio V2][DL] dl_stream_software_timer_start re-adjust the play time", 0);
+    }
     hal_gpt_sw_get_timer(&ull_audio_v2_dl_stream_sw_timer);
     hal_gpt_sw_start_timer_us(ull_audio_v2_dl_stream_sw_timer, gpt_time_us, ull_audio_v2_dongle_dl_stream_software_timer_handler, NULL);
     g_ull_audio_v2_dl_stream_irq_is_trigger = false;
@@ -2656,7 +2949,7 @@ static void ull_audio_v2_dongle_dl_stream_software_timer_start(void)
 
 static void ull_audio_v2_dongle_dl_stream_software_timer_stop(void)
 {
-    hal_gpt_sw_stop_timer_ms(ull_audio_v2_dl_stream_sw_timer);
+    hal_gpt_sw_stop_timer_us(ull_audio_v2_dl_stream_sw_timer);
     hal_gpt_sw_free_timer(ull_audio_v2_dl_stream_sw_timer);
     ull_audio_v2_dl_stream_sw_timer = 0;
     g_ull_audio_v2_dl_play_info_need_trigger = false;
@@ -2962,11 +3255,12 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_ul_ccni_handler(hal_ccni_event
                     AudioCheckTransformHandle(source->transform);
                     break;
 
-#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
+#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
                 case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT:
+                case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
                 case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
                     break;
-#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) */
+#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 
                 default:
                     AUDIO_ASSERT(0);
@@ -3019,6 +3313,12 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void ull_audio_v2_dongle_ul_mixer_precallback(sw_m
                     channel_number = dongle_handle->sink_info.line_out.channel_num;
                     break;
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
+
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+                case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+                    channel_number = dongle_handle->sink_info.i2s_mst_out.channel_num;
+                    break;
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
                 case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
@@ -3385,7 +3685,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void ull_audio_v2_dongle_ul_bt_in_deinit(ul
     }
 }
 
-#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
+#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
 ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_ul_software_timer_handler(void *user_data)
 {
     uint32_t saved_mask;
@@ -3417,6 +3717,7 @@ ATTR_TEXT_IN_IRAM static void ull_audio_v2_dongle_ul_software_timer_handler(void
             switch (c_handle->sub_id)
             {
                 case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT:
+                case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
                 case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
                     /* get source */
                     source = (SOURCE)c_handle->owner;
@@ -3498,7 +3799,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void ull_audio_v2_dongle_ul_software_timer_
 
     //ULL_V2_LOG_I("[ULL Audio V2][UL]software timer stop, %d\r\n", 1, ull_audio_v2_ul_sw_timer_count);
 }
-#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) */
+#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 
 /******************************************************************************/
 /*          ULL audio 2.0 dongle UL USB-out path Private Functions            */
@@ -3597,7 +3898,7 @@ static void ull_audio_v2_dongle_ul_usb_out_init(ull_audio_v2_dongle_ul_handle_t 
 #if defined(AIR_BT_LE_LC3PLUS_ENABLE)
         extern stream_feature_list_t stream_feature_list_ull_audio_v2_dongle_usb_out_broadcast[];
         stream_feature_configure_type(stream_feature_list_ull_audio_v2_dongle_usb_out_broadcast, CODEC_DECODER_LC3PLUS, CONFIG_DECODER);
-
+        extern uint32_t g_plc_mode;
         lc3plus_dec_port_config_t lc3plus_dec_config;
         if (dongle_handle->source_info.bt_in.sample_format == HAL_AUDIO_PCM_FORMAT_S16_LE)
         {
@@ -3625,7 +3926,7 @@ static void ull_audio_v2_dongle_ul_usb_out_init(ull_audio_v2_dongle_ul_handle_t 
         lc3plus_dec_config.frame_size       = dongle_handle->source_info.bt_in.frame_size;
         lc3plus_dec_config.frame_samples    = dongle_handle->source_info.bt_in.frame_samples;
         lc3plus_dec_config.plc_enable       = 1;
-        lc3plus_dec_config.plc_method       = LC3PLUS_PLCMETH_ADV_TDC_NS;
+        lc3plus_dec_config.plc_method       = (g_plc_mode == 0)? LC3PLUS_PLCMETH_STD : LC3PLUS_PLCMETH_ADV_TDC_NS;
         stream_codec_decoder_lc3plus_init(LC3PLUS_DEC_PORT_0, dongle_handle->source, &lc3plus_dec_config);
         ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]lc3plus info, %d, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 12,
                     bt_common_open_param->scenario_type,
@@ -4186,7 +4487,7 @@ static void ull_audio_v2_dongle_ul_line_out_init(ull_audio_v2_dongle_ul_handle_t
         lc3plus_dec_config.frame_size       = dongle_handle->source_info.bt_in.frame_size;
         lc3plus_dec_config.frame_samples    = dongle_handle->source_info.bt_in.frame_samples;
         lc3plus_dec_config.plc_enable       = 1;
-        lc3plus_dec_config.plc_method       = LC3PLUS_PLCMETH_ADV_TDC_NS;
+        lc3plus_dec_config.plc_method       = (g_plc_mode == 0)? LC3PLUS_PLCMETH_STD : LC3PLUS_PLCMETH_ADV_TDC_NS;
         stream_codec_decoder_lc3plus_init(LC3PLUS_DEC_PORT_0, dongle_handle->source, &lc3plus_dec_config);
         ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]lc3plus info, %d, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 12,
                     bt_common_open_param->scenario_type,
@@ -4440,6 +4741,423 @@ static int32_t ull_audio_v2_dongle_ul_line_out_clock_skew_check(ull_audio_v2_don
     return compensatory_samples;
 }
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
+
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+static void ull_audio_v2_dongle_ul_i2s_mst_out_init(ull_audio_v2_dongle_ul_handle_t *dongle_handle, au_afe_open_param_p afe_open_param, bt_common_open_param_p bt_common_open_param)
+{
+    uint32_t i;
+    uint32_t sample_size = 0;
+    n9_dsp_share_info_ptr p_share_info;
+    stream_resolution_t stream_resolution = RESOLUTION_16BIT;
+
+    /* bt in info init */
+    ull_audio_v2_dongle_ul_bt_in_init(dongle_handle, (audio_transmitter_open_param_p)afe_open_param, bt_common_open_param);
+    if (dongle_handle->source_info.bt_in.frame_interval == 5000)
+    {
+        dongle_handle->source_info.bt_in.play_en_delay                    = UL_PLAYEN_DELAY_FRAME_5000US_LINE_OUT;
+        dongle_handle->source_info.bt_in.play_en_first_packet_safe_delay  = UL_FIRST_PACKET_SAFE_DELAY_FRAME_5000US_LINE_OUT;
+        dongle_handle->source_info.bt_in.bt_retry_window                  = ull_audio_v2_bt_init_play_info.dl_retransmission_window_clk;
+        dongle_handle->source_info.bt_in.bt_interval                      = UL_BT_INTERVAL_FRAME_5000US;
+        dongle_handle->source_info.bt_in.bt_channel_anchor_diff           = UL_BT_INTERVAL_FRAME_5000US/2;
+    }
+    else
+    {
+        ULL_V2_LOG_E("[ULL Audio V2][UL][ERROR]frame_interval is not supported, %u\r\n", 1, dongle_handle->source_info.bt_in.frame_interval);
+        AUDIO_ASSERT(0);
+    }
+    ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]bt in info, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u\r\n", 15,
+                bt_common_open_param->scenario_type,
+                bt_common_open_param->scenario_sub_id,
+                dongle_handle,
+                dongle_handle->source_info.bt_in.channel_num,
+                dongle_handle->source_info.bt_in.sample_rate,
+                dongle_handle->source_info.bt_in.sample_format,
+                dongle_handle->source_info.bt_in.frame_size,
+                dongle_handle->source_info.bt_in.frame_samples,
+                dongle_handle->source_info.bt_in.frame_interval,
+                dongle_handle->source_info.bt_in.bit_rate,
+                dongle_handle->source_info.bt_in.play_en_delay,
+                dongle_handle->source_info.bt_in.play_en_first_packet_safe_delay,
+                dongle_handle->source_info.bt_in.bt_retry_window,
+                dongle_handle->source_info.bt_in.bt_interval,
+                dongle_handle->source_info.bt_in.bt_channel_anchor_diff);
+    for (i = 0; i < ULL_AUDIO_V2_DATA_CHANNEL_NUMBER; i++)
+    {
+        if (dongle_handle->source_info.bt_in.bt_info[i] != NULL)
+        {
+            p_share_info = (n9_dsp_share_info_ptr)((dongle_handle->source_info.bt_in.bt_info[i])->bt_link_info.share_info);
+            ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]bt in channel %u info, %u, %u, %u, %u, %u, 0x%x, 0x%x\r\n", 11,
+                        bt_common_open_param->scenario_type,
+                        bt_common_open_param->scenario_sub_id,
+                        dongle_handle,
+                        i+1,
+                        (dongle_handle->source_info.bt_in.bt_info[i])->seq_num,
+                        (dongle_handle->source_info.bt_in.bt_info[i])->user_count,
+                        (dongle_handle->source_info.bt_in.bt_info[i])->blk_index,
+                        (dongle_handle->source_info.bt_in.bt_info[i])->blk_index_previous,
+                        (dongle_handle->source_info.bt_in.bt_info[i])->crc32_init,
+                        p_share_info,
+                        hal_memview_infrasys_to_dsp0(p_share_info->start_addr));
+        }
+    }
+
+    /* i2s mst out info init */
+    dongle_handle->sink_info.i2s_mst_out.channel_num       = 2;
+    dongle_handle->sink_info.i2s_mst_out.sample_rate       = afe_open_param->stream_out_sampling_rate;
+    dongle_handle->sink_info.i2s_mst_out.sample_format     = afe_open_param->format;
+    dongle_handle->sink_info.i2s_mst_out.frame_samples     = afe_open_param->frame_size;
+    if (dongle_handle->sink_info.i2s_mst_out.sample_format == HAL_AUDIO_PCM_FORMAT_S16_LE)
+    {
+        sample_size = sizeof(uint16_t);
+    }
+    else
+    {
+        sample_size = sizeof(uint32_t);
+    }
+    dongle_handle->sink_info.i2s_mst_out.frame_size        = dongle_handle->sink_info.i2s_mst_out.frame_samples*sample_size;
+    dongle_handle->sink_info.i2s_mst_out.frame_interval    = dongle_handle->source_info.bt_in.frame_interval;
+    dongle_handle->sink_info.i2s_mst_out.frame_max_num     = (dongle_handle->source_info.bt_in.frame_interval) / 1000;
+    ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]i2s mst out info, %u, %u, %u, %u, %u, %u, %u\r\n", 10,
+                bt_common_open_param->scenario_type,
+                bt_common_open_param->scenario_sub_id,
+                dongle_handle,
+                dongle_handle->sink_info.i2s_mst_out.channel_num,
+                dongle_handle->sink_info.i2s_mst_out.sample_rate,
+                dongle_handle->sink_info.i2s_mst_out.sample_format,
+                dongle_handle->sink_info.i2s_mst_out.frame_size,
+                dongle_handle->sink_info.i2s_mst_out.frame_samples,
+                dongle_handle->sink_info.i2s_mst_out.frame_interval,
+                dongle_handle->sink_info.i2s_mst_out.frame_max_num);
+
+    /* dummy state machine for source_readbuf() */
+    dongle_handle->buffer_default_output_size = dongle_handle->source_info.bt_in.sample_rate/1000*dongle_handle->source_info.bt_in.frame_interval/1000*sample_size;
+
+    /* codec init */
+    if (dongle_handle->source_info.bt_in.codec_type == AUDIO_DSP_CODEC_TYPE_LC3PLUS)
+    {
+#if defined(AIR_BT_LE_LC3PLUS_ENABLE)
+        extern stream_feature_list_t stream_feature_list_ull_audio_v2_dongle_line_out[];
+        stream_feature_configure_type(stream_feature_list_ull_audio_v2_dongle_line_out, CODEC_DECODER_LC3PLUS, CONFIG_DECODER);
+
+        lc3plus_dec_port_config_t lc3plus_dec_config;
+        if (dongle_handle->source_info.bt_in.sample_format == HAL_AUDIO_PCM_FORMAT_S16_LE)
+        {
+            lc3plus_dec_config.sample_bits  = 16;
+            sample_size = sizeof(uint16_t);
+            stream_resolution = RESOLUTION_16BIT;
+        }
+        else if (dongle_handle->source_info.bt_in.sample_format == HAL_AUDIO_PCM_FORMAT_S24_LE)
+        {
+            lc3plus_dec_config.sample_bits  = 24;
+            sample_size = sizeof(uint32_t);
+            stream_resolution = RESOLUTION_32BIT;
+        }
+        else
+        {
+            ULL_V2_LOG_E("[ULL Audio V2][UL][ERROR]sample_format is not supported, %u\r\n", 1, dongle_handle->source_info.bt_in.sample_format);
+            AUDIO_ASSERT(0);
+        }
+        lc3plus_dec_config.sample_rate      = dongle_handle->source_info.bt_in.sample_rate;
+        lc3plus_dec_config.bit_rate         = dongle_handle->source_info.bt_in.bit_rate;
+        lc3plus_dec_config.channel_mode     = LC3PLUS_DEC_CHANNEL_MODE_MULTI_MONO;
+        lc3plus_dec_config.in_channel_num   = dongle_handle->source_info.bt_in.channel_num;
+        lc3plus_dec_config.out_channel_num  = dongle_handle->source_info.bt_in.channel_num;
+        lc3plus_dec_config.frame_interval   = dongle_handle->source_info.bt_in.frame_interval;
+        lc3plus_dec_config.frame_size       = dongle_handle->source_info.bt_in.frame_size;
+        lc3plus_dec_config.frame_samples    = dongle_handle->source_info.bt_in.frame_samples;
+        lc3plus_dec_config.plc_enable       = 1;
+        lc3plus_dec_config.plc_method       = (g_plc_mode == 0)? LC3PLUS_PLCMETH_STD : LC3PLUS_PLCMETH_ADV_TDC_NS;
+        stream_codec_decoder_lc3plus_init(LC3PLUS_DEC_PORT_0, dongle_handle->source, &lc3plus_dec_config);
+        ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]lc3plus info, %d, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 12,
+                    bt_common_open_param->scenario_type,
+                    bt_common_open_param->scenario_sub_id,
+                    dongle_handle,
+                    lc3plus_dec_config.sample_bits,
+                    lc3plus_dec_config.sample_rate,
+                    lc3plus_dec_config.bit_rate,
+                    lc3plus_dec_config.channel_mode,
+                    lc3plus_dec_config.in_channel_num,
+                    lc3plus_dec_config.out_channel_num,
+                    lc3plus_dec_config.frame_interval,
+                    lc3plus_dec_config.frame_samples,
+                    lc3plus_dec_config.frame_size);
+#endif /* AIR_BT_LE_LC3PLUS_ENABLE */
+    }
+    else if (dongle_handle->source_info.bt_in.codec_type == AUDIO_DSP_CODEC_TYPE_OPUS)
+    {
+#if defined(AIR_CELT_DEC_V2_ENABLE)
+        extern stream_feature_list_t stream_feature_list_ull_audio_v2_dongle_line_out[];
+        stream_feature_configure_type(stream_feature_list_ull_audio_v2_dongle_line_out, CODEC_DECODER_OPUS_V2, CONFIG_DECODER);
+
+        celt_dec_port_config_t celt_dec_config;
+        if (dongle_handle->source_info.bt_in.sample_format == HAL_AUDIO_PCM_FORMAT_S16_LE)
+        {
+            celt_dec_config.sample_bits  = 16;
+            sample_size = sizeof(uint16_t);
+            stream_resolution = RESOLUTION_16BIT;
+        }
+        else
+        {
+            ULL_V2_LOG_E("[ULL Audio V2][UL][ERROR]sample_format is not supported, %u\r\n", 1, dongle_handle->source_info.bt_in.sample_format);
+            AUDIO_ASSERT(0);
+        }
+        celt_dec_config.sample_rate      = dongle_handle->source_info.bt_in.sample_rate;
+        celt_dec_config.bit_rate         = dongle_handle->source_info.bt_in.bit_rate;
+        celt_dec_config.channel_mode     = CELT_DEC_CHANNEL_MODE_MULTI_MONO;
+        celt_dec_config.in_channel_num   = dongle_handle->source_info.bt_in.channel_num;
+        celt_dec_config.out_channel_num  = dongle_handle->source_info.bt_in.channel_num;
+        celt_dec_config.frame_interval   = dongle_handle->source_info.bt_in.frame_interval;
+        celt_dec_config.frame_size       = dongle_handle->source_info.bt_in.frame_size;
+        celt_dec_config.frame_samples    = dongle_handle->source_info.bt_in.frame_samples;
+        celt_dec_config.plc_enable       = 1;
+        stream_codec_decoder_celt_v2_init(CELT_DEC_PORT_0, dongle_handle->source, &celt_dec_config);
+        ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]opus info, %d, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 12,
+                    bt_common_open_param->scenario_type,
+                    bt_common_open_param->scenario_sub_id,
+                    dongle_handle,
+                    celt_dec_config.sample_bits,
+                    celt_dec_config.sample_rate,
+                    celt_dec_config.bit_rate,
+                    celt_dec_config.channel_mode,
+                    celt_dec_config.in_channel_num,
+                    celt_dec_config.out_channel_num,
+                    celt_dec_config.frame_interval,
+                    celt_dec_config.frame_samples,
+                    celt_dec_config.frame_size);
+#endif /* AIR_CELT_DEC_V2_ENABLE */
+    }
+
+    /* sw mxier init */
+    sw_mixer_callback_config_t       callback_config;
+    sw_mixer_input_channel_config_t  in_ch_config;
+    sw_mixer_output_channel_config_t out_ch_config;
+    stream_function_sw_mixer_init(SW_MIXER_PORT_0);
+    callback_config.preprocess_callback = ull_audio_v2_dongle_ul_mixer_precallback;
+    callback_config.postprocess_callback = NULL;
+    in_ch_config.total_channel_number = 2;
+    in_ch_config.resolution = stream_resolution;
+    in_ch_config.input_mode = SW_MIXER_CHANNEL_MODE_OVERWRITE;
+    in_ch_config.buffer_size = dongle_handle->source_info.bt_in.sample_rate/1000*dongle_handle->source_info.bt_in.frame_interval/1000*sample_size;
+    out_ch_config.total_channel_number = 2;
+    out_ch_config.resolution = stream_resolution;
+    dongle_handle->mixer_member= stream_function_sw_mixer_member_create((void *)dongle_handle->source, SW_MIXER_MEMBER_MODE_NO_BYPASS, &callback_config, &in_ch_config, &out_ch_config);
+    stream_function_sw_mixer_member_register(SW_MIXER_PORT_0, dongle_handle->mixer_member, false);
+    ull_audio_v2_dongle_ul_mixer_all_stream_connections_update(dongle_handle, true, 0x0101);
+    dongle_handle->mixer_connection_status = 0x0101;
+    ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]sw mixer 0x%x info, %d, %d, %d, %d, %d, %d, 0x%x\r\n", 11,
+                bt_common_open_param->scenario_type,
+                bt_common_open_param->scenario_sub_id,
+                dongle_handle,
+                dongle_handle->mixer_member,
+                in_ch_config.total_channel_number,
+                in_ch_config.resolution,
+                in_ch_config.input_mode,
+                in_ch_config.buffer_size,
+                out_ch_config.total_channel_number,
+                out_ch_config.resolution,
+                dongle_handle->mixer_connection_status);
+
+    /* sw gain init */
+    int32_t default_gain;
+    sw_gain_config_t default_config;
+    default_config.resolution = stream_resolution;
+    default_config.target_gain = bt_common_open_param->scenario_param.ull_audio_v2_dongle_param.gain_default_L;
+    default_config.up_step = 25;
+    default_config.up_samples_per_step = dongle_handle->sink_info.i2s_mst_out.sample_rate/1000;
+    default_config.down_step = -25;
+    default_config.down_samples_per_step = dongle_handle->sink_info.i2s_mst_out.sample_rate/1000;
+    dongle_handle->gain_port = stream_function_sw_gain_get_port(dongle_handle->source);
+    stream_function_sw_gain_init(dongle_handle->gain_port, 2, &default_config);
+    default_gain = bt_common_open_param->scenario_param.ull_audio_v2_dongle_param.gain_default_L;
+    stream_function_sw_gain_configure_gain_target(dongle_handle->gain_port, 1, default_gain);
+    default_gain = bt_common_open_param->scenario_param.ull_audio_v2_dongle_param.gain_default_R;
+    stream_function_sw_gain_configure_gain_target(dongle_handle->gain_port, 2, default_gain);
+    ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]sw gain 0x%x info, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 12,
+                bt_common_open_param->scenario_type,
+                bt_common_open_param->scenario_sub_id,
+                dongle_handle,
+                dongle_handle->gain_port,
+                default_config.resolution,
+                default_config.target_gain,
+                default_config.up_step,
+                default_config.up_samples_per_step,
+                default_config.down_step,
+                default_config.down_samples_per_step,
+                bt_common_open_param->scenario_param.ull_audio_v2_dongle_param.gain_default_L,
+                bt_common_open_param->scenario_param.ull_audio_v2_dongle_param.gain_default_R);
+
+    /* sw src init */
+    sw_src_config_t sw_src_config;
+    dongle_handle->src_in_frame_samples     = dongle_handle->source_info.bt_in.sample_rate/1000;
+    dongle_handle->src_in_frame_size        = dongle_handle->src_in_frame_samples * sample_size;
+    dongle_handle->src_out_frame_samples    = dongle_handle->sink_info.usb_out.sample_rate/1000;
+    dongle_handle->src_out_frame_size       = dongle_handle->src_out_frame_samples * sample_size;
+    sw_src_config.mode = SW_SRC_MODE_NORMAL;
+    sw_src_config.channel_num = 2;
+    sw_src_config.in_res = stream_resolution;
+    sw_src_config.in_sampling_rate  = dongle_handle->source_info.bt_in.sample_rate;
+    sw_src_config.in_frame_size_max = dongle_handle->source_info.bt_in.sample_rate/1000*2*dongle_handle->source_info.bt_in.frame_interval/1000*sample_size;
+    sw_src_config.out_res           = stream_resolution;
+    sw_src_config.out_sampling_rate = dongle_handle->sink_info.usb_out.sample_rate;
+    sw_src_config.out_frame_size_max= dongle_handle->sink_info.usb_out.sample_rate/1000*2*dongle_handle->source_info.bt_in.frame_interval/1000*sample_size;
+    dongle_handle->src_port = stream_function_sw_src_get_port(dongle_handle->source);
+    stream_function_sw_src_init(dongle_handle->src_port, &sw_src_config);
+    ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]sw src 0x%x info, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 16,
+                bt_common_open_param->scenario_type,
+                bt_common_open_param->scenario_sub_id,
+                dongle_handle,
+                dongle_handle->src_port,
+                sw_src_config.mode,
+                sw_src_config.channel_num,
+                sw_src_config.in_res,
+                sw_src_config.in_sampling_rate,
+                sw_src_config.in_frame_size_max,
+                sw_src_config.out_res,
+                sw_src_config.out_sampling_rate,
+                sw_src_config.out_frame_size_max,
+                dongle_handle->src_in_frame_samples,
+                dongle_handle->src_in_frame_size,
+                dongle_handle->src_out_frame_samples,
+                dongle_handle->src_out_frame_size);
+}
+
+static void ull_audio_v2_dongle_ul_i2s_mst_out_deinit(ull_audio_v2_dongle_ul_handle_t *dongle_handle)
+{
+    /* bt in info deinit */
+    ull_audio_v2_dongle_ul_bt_in_deinit(dongle_handle);
+
+    /* codec deinit */
+    if (dongle_handle->source_info.bt_in.codec_type == AUDIO_DSP_CODEC_TYPE_LC3PLUS)
+    {
+#if defined(AIR_BT_LE_LC3PLUS_ENABLE)
+        stream_codec_decoder_lc3plus_deinit(LC3PLUS_DEC_PORT_0, dongle_handle->source);
+#endif /* AIR_BT_LE_LC3PLUS_ENABLE */
+    }
+    else if (dongle_handle->source_info.bt_in.codec_type == AUDIO_DSP_CODEC_TYPE_OPUS)
+    {
+#if defined(AIR_CELT_DEC_V2_ENABLE)
+        stream_codec_decoder_celt_v2_deinit(CELT_DEC_PORT_0, dongle_handle->source);
+#endif /* AIR_CELT_DEC_V2_ENABLE */
+    }
+
+    /* sw mixer deinit */
+    stream_function_sw_mixer_member_unregister(SW_MIXER_PORT_0, dongle_handle->mixer_member);
+    stream_function_sw_mixer_member_delete(dongle_handle->mixer_member);
+    stream_function_sw_mixer_deinit(SW_MIXER_PORT_0);
+
+    /* sw gain deinit */
+    stream_function_sw_gain_deinit(dongle_handle->gain_port);
+
+    /* sw src deinit */
+    stream_function_sw_src_deinit(dongle_handle->src_port);
+}
+
+static void ull_audio_v2_dongle_ul_i2s_mst_out_start(ull_audio_v2_dongle_ul_handle_t *dongle_handle)
+{
+    uint32_t gpt_count;
+    uint32_t sample_size;
+    hal_audio_memory_parameter_t *mem_handle = &dongle_handle->sink->param.audio.mem_handle;
+    hal_audio_agent_t agent;
+
+    /* get agent */
+    agent = hal_memory_convert_agent(mem_handle->memory_select);
+    /* disable AFE irq here */
+    hal_memory_set_irq_enable(agent, HAL_AUDIO_CONTROL_OFF);
+
+    /* set agent regsiters' address */
+    switch (agent) {
+        case HAL_AUDIO_AGENT_MEMORY_DL1:
+            dongle_handle->sink_info.i2s_mst_out.afe_cur_addr  = AFE_DL1_CUR;
+            dongle_handle->sink_info.i2s_mst_out.afe_base_addr = AFE_DL1_BASE;
+            break;
+
+        case HAL_AUDIO_AGENT_MEMORY_DL2:
+            dongle_handle->sink_info.i2s_mst_out.afe_cur_addr  = AFE_DL2_CUR;
+            dongle_handle->sink_info.i2s_mst_out.afe_base_addr = AFE_DL2_BASE;
+            break;
+
+        case HAL_AUDIO_AGENT_MEMORY_DL3:
+            dongle_handle->sink_info.i2s_mst_out.afe_cur_addr  = AFE_DL3_CUR;
+            dongle_handle->sink_info.i2s_mst_out.afe_base_addr = AFE_DL3_BASE;
+            break;
+
+        case HAL_AUDIO_AGENT_MEMORY_DL12:
+            dongle_handle->sink_info.i2s_mst_out.afe_cur_addr  = AFE_DL12_CUR;
+            dongle_handle->sink_info.i2s_mst_out.afe_base_addr = AFE_DL12_BASE;
+            break;
+
+        default:
+            ULL_V2_LOG_E("[ULL Audio V2][UL][ERROR][handle 0x%x][scenario %d-%d]i2s_mst-out stream start, unknow agent = 0x%x", 4,
+                dongle_handle,
+                dongle_handle->source->param.bt_common.scenario_type,
+                dongle_handle->source->param.bt_common.scenario_sub_id,
+                agent);
+            AUDIO_ASSERT(0);
+    }
+
+    /* set 3ms prefill size for process time 3ms */
+    if (dongle_handle->sink_info.i2s_mst_out.sample_format == HAL_AUDIO_PCM_FORMAT_S16_LE)
+    {
+        sample_size = sizeof(uint16_t);
+    }
+    else
+    {
+        sample_size = sizeof(uint32_t);
+    }
+    dongle_handle->sink->streamBuffer.BufferInfo.WriteOffset = sample_size*dongle_handle->sink_info.i2s_mst_out.channel_num*(UL_PROCESS_TIME_FRAME*dongle_handle->sink_info.i2s_mst_out.sample_rate/1000);
+    dongle_handle->sink->streamBuffer.BufferInfo.ReadOffset  = 0;
+
+    /* start 1ms timer for trigger stream */
+    ull_audio_v2_dongle_ul_software_timer_start(dongle_handle);
+
+    hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &gpt_count);
+
+    ULL_V2_LOG_I("[ULL Audio V2][UL][handle 0x%x][scenario %d-%d]i2s_mst-out stream start, gpt count = 0x%x, start_addr = 0x%x, write_offset = 0x%x, read_offset = 0x%x, length = 0x%x, cur_addr = 0x%x, base_addr = 0x%x, cur_ro = 0x%x, cur_base = 0x%x", 12,
+                dongle_handle,
+                dongle_handle->source->param.bt_common.scenario_type,
+                dongle_handle->source->param.bt_common.scenario_sub_id,
+                gpt_count,
+                dongle_handle->sink->streamBuffer.BufferInfo.startaddr[0],
+                dongle_handle->sink->streamBuffer.BufferInfo.WriteOffset,
+                dongle_handle->sink->streamBuffer.BufferInfo.ReadOffset,
+                dongle_handle->sink->streamBuffer.BufferInfo.length,
+                dongle_handle->sink_info.i2s_mst_out.afe_cur_addr,
+                dongle_handle->sink_info.i2s_mst_out.afe_base_addr,
+                AFE_GET_REG(dongle_handle->sink_info.i2s_mst_out.afe_cur_addr),
+                AFE_GET_REG(dongle_handle->sink_info.i2s_mst_out.afe_base_addr));
+}
+
+ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void ull_audio_v2_dongle_ul_i2s_mst_out_stop(ull_audio_v2_dongle_ul_handle_t *dongle_handle)
+{
+    uint32_t gpt_count;
+    uint32_t saved_mask;
+
+    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
+    if (dongle_handle->stream_status == ULL_AUDIO_V2_DONGLE_STREAM_START)
+    {
+        /* stop timer if the stream is not running */
+        ull_audio_v2_dongle_ul_software_timer_stop(dongle_handle);
+    }
+    hal_nvic_restore_interrupt_mask(saved_mask);
+
+    hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &gpt_count);
+
+    ULL_V2_LOG_I("[ULL Audio V2][UL][handle 0x%x][scenario %d-%d]i2s_mst-out stream start, gpt count = 0x%x", 4,
+                dongle_handle,
+                dongle_handle->source->param.bt_common.scenario_type,
+                dongle_handle->source->param.bt_common.scenario_sub_id,
+                gpt_count);
+}
+
+static int32_t ull_audio_v2_dongle_ul_i2s_mst_out_clock_skew_check(ull_audio_v2_dongle_ul_handle_t *dongle_handle)
+{
+    int32_t compensatory_samples = 0;
+    UNUSED(dongle_handle);
+
+    return compensatory_samples;
+}
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
+
 /******************************************************************************/
 /*         ULL audio 2.0 dongle UL i2s-slv-out path Private Functions         */
 /******************************************************************************/
@@ -4601,7 +5319,7 @@ static void ull_audio_v2_dongle_ul_i2s_slv_out_init(ull_audio_v2_dongle_ul_handl
         lc3plus_dec_config.frame_size       = dongle_handle->source_info.bt_in.frame_size;
         lc3plus_dec_config.frame_samples    = dongle_handle->source_info.bt_in.frame_samples;
         lc3plus_dec_config.plc_enable       = 1;
-        lc3plus_dec_config.plc_method       = LC3PLUS_PLCMETH_ADV_TDC_NS;
+        lc3plus_dec_config.plc_method       = (g_plc_mode == 0)? LC3PLUS_PLCMETH_STD : LC3PLUS_PLCMETH_ADV_TDC_NS;
         stream_codec_decoder_lc3plus_init(LC3PLUS_DEC_PORT_0, dongle_handle->source, &lc3plus_dec_config);
         ULL_V2_LOG_I("[ULL Audio V2][UL][scenario %d-%d][handle 0x%x]lc3plus info, %d, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 12,
                     bt_common_open_param->scenario_type,
@@ -5028,7 +5746,7 @@ static ull_audio_v2_dongle_first_packet_status_t ull_audio_v2_dongle_ul_first_pa
             blk_num = p_share_info->sub_info.block_info.block_num;
 
             /* check packet's timestamp */
-            if (p_ull_audio_header->valid_packet == 0)
+            if (p_ull_audio_header->valid_packet != 1)
             {
                 continue;
             }
@@ -5295,7 +6013,9 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void ull_audio_v2_dongle_init_play_info(hal_ccni_m
     }
     hal_nvic_restore_interrupt_mask(saved_mask);
 
-    ull_audio_v2_dongle_dl_stream_software_timer_start();
+    if ((ull_audio_v2_dongle_first_ul_handle != NULL) || (ull_audio_v2_dongle_first_dl_handle != NULL)) {
+        ull_audio_v2_dongle_dl_stream_software_timer_start();
+    }
 
     ULL_V2_LOG_I("[ULL Audio V2][UL][config] play_info->dl_timestamp_clk %d",   1, ull_audio_v2_bt_init_play_info.dl_retransmission_window_clk);
     ULL_V2_LOG_I("[ULL Audio V2][UL][config] play_info->dl_timestamp_phase %d", 1, ull_audio_v2_bt_init_play_info.dl_retransmission_window_phase);
@@ -5601,9 +6321,6 @@ void ull_audio_v2_dongle_dl_deinit(SOURCE source, SINK sink)
     UNUSED(sink);
     ULL_V2_LOG_I("[ULL Audio V2][DL] deinit scenario type %d-%d", 2, source->scenario_type, sink->scenario_type);
 
-    /* stream status update */
-    dongle_handle->stream_status = ULL_AUDIO_V2_DONGLE_STREAM_DEINIT;
-
     /* unregister ccni handler */
     ull_audio_v2_dongle_dl_unregister_isr_handler(dongle_handle);
 
@@ -5740,9 +6457,14 @@ void ull_audio_v2_dongle_dl_start(SOURCE source, SINK sink)
 ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void ull_audio_v2_dongle_dl_stop(SOURCE source, SINK sink)
 {
     ull_audio_v2_dongle_dl_handle_t *dongle_handle = (ull_audio_v2_dongle_dl_handle_t *)sink->param.bt_common.scenario_param.dongle_handle;
-    uint32_t saved_mask;
+    uint32_t i, saved_mask;
+    n9_dsp_share_info_ptr p_share_info;
+
     UNUSED(source);
     UNUSED(sink);
+
+    /* stream status update */
+    dongle_handle->stream_status = ULL_AUDIO_V2_DONGLE_STREAM_DEINIT;
 
     switch (source->scenario_type)
     {
@@ -5751,6 +6473,20 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void ull_audio_v2_dongle_dl_stop(SOURCE source, SI
             hal_nvic_save_and_set_interrupt_mask(&saved_mask);
             dongle_handle->first_packet_status = ULL_AUDIO_V2_DONGLE_DL_FIRST_PACKET_NOT_READY;
             hal_nvic_restore_interrupt_mask(saved_mask);
+            for (i = 0; i < ULL_AUDIO_V2_DATA_CHANNEL_NUMBER; i++) {
+                ull_audio_v2_dongle_bt_info_t *bt_info;
+                bt_info = dongle_handle->sink_info.bt_out.bt_info[i];
+                if (bt_info != NULL) {
+                    p_share_info = (n9_dsp_share_info_ptr)(bt_info->bt_link_info.share_info);
+                    dongle_handle->ccni_blk_index = (bt_info->blk_index + 1) % p_share_info->sub_info.block_info.block_num;
+                    ULL_V2_LOG_W("[ULL Audio V2][DL][WARNNING]dl silence padding to sink buffer done, index %d\r\n", 1, dongle_handle->ccni_blk_index);
+                    break;
+                }
+            }
+            for (i = 0; i < DL_STOP_PADDING_PKG_NUMBER; i++) {
+                ull_audio_v2_dongle_dl_dummy_process(sink);
+                dongle_handle->ccni_blk_index = (dongle_handle->ccni_blk_index + 1) % p_share_info->sub_info.block_info.block_num;
+            }
             break;
         case AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_LINE_IN:
             #ifndef AIR_GAMING_MODE_DONGLE_V2_LINE_IN_ENABLE
@@ -5927,6 +6663,19 @@ ATTR_TEXT_IN_IRAM bool ull_audio_v2_dongle_dl_source_get_avail_size(SOURCE sourc
     ull_audio_v2_dongle_dl_handle_t *dongle_handle = (ull_audio_v2_dongle_dl_handle_t *)source->transform->sink->param.bt_common.scenario_param.dongle_handle;
     uint32_t saved_mask;
 
+    if ((g_ull_audio_v2_dongle_dl_dummy_process_flag[dongle_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0] == true) &&
+        (hal_nvic_query_exception_number() == -1)) {
+        /* Do dummy process when no data for USB in */
+        ull_audio_v2_dongle_dl_dummy_process(source->transform->sink);
+        g_ull_audio_v2_dongle_dl_dummy_process_flag[dongle_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0] = false;
+        if (g_ull_audio_v2_dongle_dl_dummy_process_cnt[dongle_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0] == 1) {
+            ull_audio_v2_dongle_dl_dummy_status_reset(dongle_handle);
+        }
+        /* Bypass real stream process */
+        *avail_size = 0;
+        return true;
+    }
+
     hal_nvic_save_and_set_interrupt_mask(&saved_mask);
     if (dongle_handle->fetch_count != 0)
     {
@@ -5970,7 +6719,7 @@ ATTR_TEXT_IN_IRAM uint32_t ull_audio_v2_dongle_dl_source_copy_payload(SOURCE sou
 {
     ull_audio_v2_dongle_dl_handle_t *dongle_handle = (ull_audio_v2_dongle_dl_handle_t *)source->transform->sink->param.bt_common.scenario_param.dongle_handle;
     DSP_STREAMING_PARA_PTR stream = DSP_Streaming_Get(source, source->transform->sink);
-    uint32_t unprocess_frames;
+    uint32_t unprocess_frames, check_threshold;
     uint32_t total_samples;
     uint32_t avail_size;
     uint32_t read_offset;
@@ -6071,7 +6820,108 @@ ATTR_TEXT_IN_IRAM uint32_t ull_audio_v2_dongle_dl_source_copy_payload(SOURCE sou
     {
         /* get the unprocessed frame num and check if the uprocess frame is too much */
         unprocess_frames = length / (source->streamBuffer.ShareBufferInfo.sub_info.block_info.block_size-sizeof(audio_transmitter_frame_header_t));
-        if (unprocess_frames > (dongle_handle->source_info.usb_in.frame_max_num+1))
+        if ((g_ull_audio_v2_dongle_dl_dummy_process_cnt[dongle_handle->sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0] > 0) && (dongle_handle->source_preload_count == 0)) {
+            /* Check with other threshold when NOT in preloader mode */
+            check_threshold = dongle_handle->source_info.usb_in.frame_max_num - 1;
+            ULL_V2_LOG_W("[ULL Audio V2][DL][WARNNING][handle 0x%x] 1st restore from dummy process, unprocess_frames %u", 2,
+                            dongle_handle, unprocess_frames);
+            AUDIO_ASSERT(unprocess_frames >= dongle_handle->source_info.usb_in.frame_max_num);
+            AUDIO_ASSERT(stream_function_sw_buffer_get_channel_used_size(dongle_handle->buffer_port_0, 1) == 0);
+#if 0
+            /* Do codec reset */
+            if (dongle_handle->sink_info.bt_out.codec_type == AUDIO_DSP_CODEC_TYPE_LC3PLUS) {
+#if defined(AIR_BT_LE_LC3PLUS_ENABLE)
+                stream_codec_encoder_lc3plus_deinit(LC3PLUS_ENC_PORT_0, dongle_handle->sink);
+                lc3plus_enc_config_t lc3plus_enc_config;
+                lc3plus_enc_config.sample_bits       = 24;
+                lc3plus_enc_config.channel_num       = dongle_handle->sink_info.bt_out.channel_num;
+                lc3plus_enc_config.sample_rate       = dongle_handle->sink_info.bt_out.sample_rate;
+                lc3plus_enc_config.bit_rate          = dongle_handle->sink_info.bt_out.bit_rate;
+                lc3plus_enc_config.frame_interval    = dongle_handle->sink_info.bt_out.frame_interval;
+                lc3plus_enc_config.frame_samples     = dongle_handle->sink_info.bt_out.frame_samples;
+                lc3plus_enc_config.in_frame_size     = dongle_handle->sink_info.bt_out.frame_samples*sizeof(int32_t);
+                lc3plus_enc_config.out_frame_size    = dongle_handle->sink_info.bt_out.frame_size;
+                lc3plus_enc_config.process_frame_num = 1;
+                lc3plus_enc_config.codec_mode        = LC3PLUS_ARCH_FX;
+                lc3plus_enc_config.channel_mode      = LC3PLUS_ENC_CHANNEL_MODE_MULTI;
+                stream_codec_encoder_lc3plus_init(LC3PLUS_ENC_PORT_0, dongle_handle->sink, &lc3plus_enc_config);
+                ULL_V2_LOG_I("[ULL Audio V2][DL][scenario type %d-%d][handle 0x%x]reset lc3plus info, %d, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 12,
+                            dongle_handle->source->scenario_type,
+                            dongle_handle->sink->scenario_type,
+                            dongle_handle,
+                            lc3plus_enc_config.sample_bits,
+                            lc3plus_enc_config.channel_num,
+                            lc3plus_enc_config.sample_rate,
+                            lc3plus_enc_config.bit_rate,
+                            lc3plus_enc_config.frame_interval,
+                            lc3plus_enc_config.frame_samples,
+                            lc3plus_enc_config.in_frame_size,
+                            lc3plus_enc_config.out_frame_size,
+                            lc3plus_enc_config.codec_mode);
+                stream_codec_encoder_lc3plus_initialize(&(stream->callback.EntryPara));
+#endif
+            } else if (dongle_handle->sink_info.bt_out.codec_type == AUDIO_DSP_CODEC_TYPE_OPUS) {
+#if defined(AIR_CELT_ENC_V2_ENABLE)
+                stream_codec_encoder_celt_v2_deinit(CELT_ENC_PORT_0, dongle_handle->sink);
+                celt_enc_port_config_t celt_enc_config;
+                celt_enc_config.sample_bits       = 16;
+                celt_enc_config.channel_num       = dongle_handle->sink_info.bt_out.channel_num;
+                celt_enc_config.sample_rate       = dongle_handle->sink_info.bt_out.sample_rate;
+                celt_enc_config.bit_rate          = dongle_handle->sink_info.bt_out.bit_rate;
+                celt_enc_config.process_frame_num = 2;
+                celt_enc_config.frame_interval    = dongle_handle->sink_info.bt_out.frame_interval/celt_enc_config.process_frame_num;
+                celt_enc_config.frame_samples     = dongle_handle->sink_info.bt_out.frame_samples/celt_enc_config.process_frame_num;
+                celt_enc_config.in_frame_size     = dongle_handle->sink_info.bt_out.frame_samples/celt_enc_config.process_frame_num*sizeof(int16_t);
+                celt_enc_config.out_frame_size    = dongle_handle->sink_info.bt_out.frame_size/celt_enc_config.process_frame_num;
+                celt_enc_config.complexity        = 0;
+                celt_enc_config.channel_mode      = CELT_ENC_CHANNEL_MODE_MULTI_MONO;
+                stream_codec_encoder_celt_v2_init(CELT_ENC_PORT_0, dongle_handle->sink, &celt_enc_config);
+                ULL_V2_LOG_I("[ULL Audio V2][DL][scenario %d-%d][handle 0x%x]reset opus info, %d, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 12,
+                            dongle_handle->source->scenario_type,
+                            dongle_handle->sink->scenario_type,
+                            dongle_handle,
+                            celt_enc_config.sample_bits,
+                            celt_enc_config.channel_num,
+                            celt_enc_config.sample_rate,
+                            celt_enc_config.bit_rate,
+                            celt_enc_config.frame_interval,
+                            celt_enc_config.frame_samples,
+                            celt_enc_config.in_frame_size,
+                            celt_enc_config.out_frame_size,
+                            celt_enc_config.complexity);
+                stream_codec_encoder_celt_v2_initialize(&(stream->callback.EntryPara));
+#endif /* AIR_CELT_ENC_V2_ENABLE */
+            }
+#endif
+            sw_clk_skew_config_t sw_clk_skew_config;
+            sw_clk_skew_config.channel                  = dongle_handle->source_info.usb_in.channel_num;
+            if (dongle_handle->sink_info.bt_out.sample_format == HAL_AUDIO_PCM_FORMAT_S24_LE) {
+                sample_size = sizeof(int32_t);
+                sw_clk_skew_config.bits = 32;
+            } else {
+                sample_size = sizeof(int16_t);
+                sw_clk_skew_config.bits = 16;
+            }
+            sw_clk_skew_config.order                    = C_Flp_Ord_1;
+            sw_clk_skew_config.skew_io_mode             = C_Skew_Inp;
+            sw_clk_skew_config.skew_compensation_mode   = SW_CLK_SKEW_COMPENSATION_1_SAMPLE_IN_8_FRAME;
+            sw_clk_skew_config.skew_work_mode           = SW_CLK_SKEW_CONTINUOUS;
+            sw_clk_skew_config.max_output_size          = (dongle_handle->src_out_frame_samples*dongle_handle->sink_info.bt_out.frame_interval/dongle_handle->source_info.usb_in.frame_interval+1)*sample_size;
+            sw_clk_skew_config.continuous_frame_size    = dongle_handle->src_out_frame_samples*dongle_handle->sink_info.bt_out.frame_interval/dongle_handle->source_info.usb_in.frame_interval*sample_size;
+            stream_function_sw_clk_skew_deinit(dongle_handle->clk_skew_port);
+            dongle_handle->clk_skew_port                = stream_function_sw_clk_skew_get_port(dongle_handle->source);
+            stream_function_sw_clk_skew_init(dongle_handle->clk_skew_port, &sw_clk_skew_config);
+            stream_function_sw_clk_skew_initialize(&(stream->callback.EntryPara));
+        } else {
+            check_threshold = dongle_handle->source_info.usb_in.frame_max_num + 1;
+            /* Add current process count control to prevent of last CCNI process with 0 frame error */
+            if (dongle_handle->source_preload_count != 0) {
+                if (unprocess_frames > 1) {
+                    unprocess_frames -= 1;
+                }
+            }
+        }
+        if (unprocess_frames > check_threshold)
         {
             /* drop oldest data in the share buffer */
             source->streamBuffer.ShareBufferInfo.read_offset = (source->streamBuffer.ShareBufferInfo.write_offset+total_buffer_size-source->streamBuffer.ShareBufferInfo.sub_info.block_info.block_size*dongle_handle->source_info.usb_in.frame_max_num) % total_buffer_size;
@@ -6182,6 +7032,27 @@ ATTR_TEXT_IN_IRAM uint32_t ull_audio_v2_dongle_dl_source_copy_payload(SOURCE sou
     }
     //hal_nvic_restore_interrupt_mask(saved_mask);
 
+#ifdef AIR_SILENCE_DETECTION_ENABLE
+    if (ull_audio_v2_dl_without_bt_link_mode_enable == true) {
+        if ((dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0) ||
+            (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_1)) {
+            uint32_t i, avail_query_size;
+            stream_function_sw_mixer_channel_input_get_data_info(dongle_handle->mixer_member, 1, NULL, NULL, &avail_query_size);
+            if (avail_query_size != 0) {
+                stream_function_sw_mixer_member_input_buffers_clean(dongle_handle->mixer_member, false);
+                ULL_V2_LOG_E("[ULL Audio V2][DL][copy_payload][handle 0x%x] detect stream mix fail %d", 2, dongle_handle, avail_query_size);
+            }
+            avail_query_size = stream_function_sw_buffer_get_channel_free_size(dongle_handle->buffer_port_0, 1);
+            if (avail_query_size < stream->callback.EntryPara.in_size) {
+                for (i = 0; i < dongle_handle->source_info.usb_in.channel_num; i++) {
+                    stream_function_sw_buffer_reset_channel_buffer(dongle_handle->buffer_port_0, 1 + i, false);
+                }
+                ULL_V2_LOG_E("[ULL Audio V2][DL][copy_payload][handle 0x%x] detect sw buffer almost full %d", 2, dongle_handle, avail_query_size);
+            }
+        }
+    }
+#endif
+
     /* avoid payload length check error in here */
     length = (length > source->param.data_dl.max_payload_size) ? source->param.data_dl.max_payload_size : length;
 
@@ -6281,19 +7152,6 @@ ATTR_TEXT_IN_IRAM bool ull_audio_v2_dongle_dl_sink_get_avail_size(SINK sink, uin
 ATTR_TEXT_IN_IRAM uint32_t ull_audio_v2_dongle_dl_sink_copy_payload(SINK sink, uint8_t *src_buf, uint32_t length)
 {
     ull_audio_v2_dongle_dl_handle_t *dongle_handle = (ull_audio_v2_dongle_dl_handle_t *)sink->param.bt_common.scenario_param.dongle_handle;
-    DSP_STREAMING_PARA_PTR stream = DSP_Streaming_Get(sink->transform->source, sink);
-    uint32_t bt_clk;
-    uint16_t bt_phase;
-    uint32_t i, j;
-    uint32_t *src_addr;
-    uint32_t *des_addr;
-    uint32_t blk_size;
-    uint32_t blk_num;
-    uint32_t blk_index;
-    n9_dsp_share_info_ptr p_share_info;
-    ULL_AUDIO_V2_HEADER *p_ull_audio_header;
-    bool crc32_flag = false;
-    uint32_t crc32_init[ULL_AUDIO_V2_DATA_CHANNEL_NUMBER];
 
     /* check parameter */
     if (length != dongle_handle->sink_info.bt_out.frame_size)
@@ -6302,132 +7160,14 @@ ATTR_TEXT_IN_IRAM uint32_t ull_audio_v2_dongle_dl_sink_copy_payload(SINK sink, u
         AUDIO_ASSERT(0);
     }
 
-    /* get current bt clock */
-    MCE_GetBtClk((BTCLK*)&bt_clk, (BTPHASE*)&bt_phase, BT_CLK_Offset);
-
-    /* write DL packet to different share buffer one by one */
-    for (i = 0; i < ULL_AUDIO_V2_DATA_CHANNEL_NUMBER; i++)
-    {
-        if (dongle_handle->sink_info.bt_out.bt_info[i] == NULL)
-        {
-            continue;
-        }
-        else
-        {
-            src_addr     = stream_function_get_inout_buffer((void *)(&(stream->callback.EntryPara)), (i+1));
-            src_buf      = (uint8_t *)src_addr;
-            p_share_info = (n9_dsp_share_info_ptr)((dongle_handle->sink_info.bt_out.bt_info[i])->bt_link_info.share_info);
-            blk_size     = p_share_info->sub_info.block_info.block_size;
-            blk_num      = p_share_info->sub_info.block_info.block_num;
-            blk_index    = dongle_handle->ccni_blk_index;
-            crc32_init[i]= p_share_info->asi_cur;
-            if (blk_index < blk_num)
-            {
-                /* get header address and data address */
-                des_addr = (uint32_t *)(hal_memview_infrasys_to_dsp0(p_share_info->start_addr) + blk_size * blk_index);
-                p_ull_audio_header = (ULL_AUDIO_V2_HEADER *)des_addr;
-                des_addr = (uint32_t *)((uint32_t)des_addr + sizeof(ULL_AUDIO_V2_HEADER));
-
-                /* check if blk size is enough */
-                if ((dongle_handle->sink_info.bt_out.frame_size+sizeof(ULL_AUDIO_V2_HEADER)) > blk_size)
-                {
-                    ULL_V2_LOG_E("[ULL Audio V2][DL][ERROR][handle 0x%x]blk size is not right, %d, %d\r\n", 3, dongle_handle, blk_size, dongle_handle->sink_info.bt_out.frame_size+sizeof(ULL_AUDIO_V2_HEADER));
-                    AUDIO_ASSERT(0);
-                }
-
-                /* write DL packet data into share buffer block */
-                for (j = 0; j < (((uint32_t)(dongle_handle->sink_info.bt_out.frame_size+3))/4); j++)
-                {
-                    /* share buffer block must be 4B aligned, so we can use word access to get better performance */
-                    *des_addr++ = *src_addr++;
-                }
-
-                /* write DL packet header into share buffer block */
-                p_ull_audio_header->DataOffset = sizeof(ULL_AUDIO_V2_HEADER);
-                p_ull_audio_header->PduLen     = dongle_handle->sink_info.bt_out.frame_size;
-                p_ull_audio_header->DataLen    = p_ull_audio_header->PduLen;
-                p_ull_audio_header->TimeStamp  = bt_clk;
-                p_ull_audio_header->SampleSeq  = (dongle_handle->sink_info.bt_out.bt_info[i])->seq_num;
-                /* check if crc32_value is changed before do CRC generate */
-                if ((dongle_handle->sink_info.bt_out.bt_info[i])->crc32_init != crc32_init[i])
-                {
-                    crc32_flag = true;
-                }
-                p_ull_audio_header->crc32_value= CRC32_Generate((uint8_t *)src_buf, dongle_handle->sink_info.bt_out.frame_size, crc32_init[i]);
-
-                /* update state machine */
-                (dongle_handle->sink_info.bt_out.bt_info[i])->seq_num += 1;
-                (dongle_handle->sink_info.bt_out.bt_info[i])->blk_index_previous = (dongle_handle->sink_info.bt_out.bt_info[i])->blk_index;
-                (dongle_handle->sink_info.bt_out.bt_info[i])->blk_index = blk_index;
-            }
-            else
-            {
-                ULL_V2_LOG_E("[ULL Audio V2][DL][ERROR][handle 0x%x]channel%d blk index is not right, %d, %d\r\n", 4, dongle_handle, i+1, blk_index, blk_num);
-            }
-        }
-    }
-
-    /* get current bt clock */
-    MCE_GetBtClk((BTCLK*)&bt_clk, (BTPHASE*)&bt_phase, BT_CLK_Offset);
-
-    /* Output crc32_init value changed log for debug */
-    if (crc32_flag)
-    {
-        for (i = 0; i < ULL_AUDIO_V2_DATA_CHANNEL_NUMBER; i++)
-        {
-            if (dongle_handle->sink_info.bt_out.bt_info[i] != NULL)
-            {
-                ULL_V2_LOG_W("[ULL Audio V2][DL][handle 0x%x]bt out channel %u crc32_init value is changed from 0x%x to 0x%x\r\n", 11,
-                            dongle_handle,
-                            i+1,
-                            (dongle_handle->sink_info.bt_out.bt_info[i])->crc32_init,
-                            crc32_init[i]);
-                (dongle_handle->sink_info.bt_out.bt_info[i])->crc32_init = crc32_init[i];
-            }
-        }
-    }
-
-    /* update time stamp */
-    dongle_handle->data_out_bt_count = bt_clk;
+    ull_audio_v2_dongle_dl_sink_internal_copy_payload(sink, src_buf, false);
 
     return length;
 }
 
 ATTR_TEXT_IN_IRAM bool ull_audio_v2_dongle_dl_sink_get_new_write_offset(SINK sink, U32 amount, uint32_t *new_write_offset)
 {
-    ull_audio_v2_dongle_dl_handle_t *dongle_handle = (ull_audio_v2_dongle_dl_handle_t *)sink->param.bt_common.scenario_param.dongle_handle;
-    uint32_t i, write_offset, saved_mask;
-    n9_dsp_share_info_ptr p_share_info;
-    uint32_t blk_size;
-    uint32_t blk_num;
-    uint32_t blk_index;
-    UNUSED(amount);
-    UNUSED(new_write_offset);
-
-    /* update write index */
-    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
-    StreamDSP_HWSemaphoreTake();
-    for (i = 0; i < ULL_AUDIO_V2_DATA_CHANNEL_NUMBER; i++)
-    {
-        if (dongle_handle->sink_info.bt_out.bt_info[i] == NULL)
-        {
-            continue;
-        }
-        else
-        {
-            p_share_info = (n9_dsp_share_info_ptr)((dongle_handle->sink_info.bt_out.bt_info[i])->bt_link_info.share_info);
-            blk_size     = p_share_info->sub_info.block_info.block_size;
-            blk_num      = p_share_info->sub_info.block_info.block_num;
-            blk_index    = dongle_handle->ccni_blk_index;
-            if (blk_index < blk_num)
-            {
-                write_offset = (uint32_t)(((blk_index+1) % blk_num) * blk_size);
-                p_share_info->write_offset = write_offset;
-            }
-        }
-    }
-    StreamDSP_HWSemaphoreGive();
-    hal_nvic_restore_interrupt_mask(saved_mask);
+    ull_audio_v2_dongle_dl_sink_internal_update_write_offset(sink, amount, new_write_offset);
 
     /* we will update the write offsets of the different share buffers in here directly, so return false to aviod the upper layer update write offset */
     return false;
@@ -6464,6 +7204,11 @@ ATTR_TEXT_IN_IRAM void ull_audio_v2_dongle_dl_sink_flush_postprocess(SINK sink, 
     uint32_t sample_size;
     UNUSED(sink);
     UNUSED(amount);
+
+    /* Reset dummy status after an actual frame process is done */
+    for (i = 0; i < DL_MAX_USB_CARD_NUMBER; i++) {
+        g_ull_audio_v2_dongle_dl_dummy_process_cnt[i] = 0;
+    }
 
     /* update time stamp */
     hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, (uint32_t *)&dongle_handle->data_out_gpt_count);
@@ -6829,7 +7574,7 @@ ATTR_TEXT_IN_IRAM bool ull_audio_v2_dongle_ul_fetch_time_is_arrived(ull_audio_v2
 
     if ((dongle_handle->first_packet_status == ULL_AUDIO_V2_DONGLE_UL_FIRST_PACKET_PLAYED) || (dongle_handle->first_packet_status == ULL_AUDIO_V2_DONGLE_UL_FIRST_PACKET_READY))
     {
-        fetch_anchor_previous_10 = (dongle_handle->source_info.bt_in.fetch_anchor_previous+0x10000000-dongle_handle->source_info.bt_in.bt_interval*9) & 0x0fffffff;
+        fetch_anchor_previous_10 = (dongle_handle->source_info.bt_in.fetch_anchor + 0x10000000 - (dongle_handle->source_info.bt_in.bt_retry_window / dongle_handle->source_info.bt_in.bt_interval + 1) * dongle_handle->source_info.bt_in.bt_interval) & 0x0fffffff;
         if (fetch_anchor_previous_10 < dongle_handle->source_info.bt_in.fetch_anchor)
         {
             if (bt_clk >= dongle_handle->source_info.bt_in.fetch_anchor)
@@ -6870,6 +7615,9 @@ uint32_t ull_audio_v2_dongle_ul_get_stream_in_max_size_each_channel(SOURCE sourc
 #if defined(AIR_DONGLE_LINE_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT:
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
 #endif /* defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) */
@@ -6908,6 +7656,9 @@ uint32_t ull_audio_v2_dongle_ul_get_stream_in_channel_number(SOURCE source, SINK
 #if defined(AIR_DONGLE_LINE_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT:
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
 #endif /* defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) */
@@ -6935,6 +7686,9 @@ stream_samplerate_t ull_audio_v2_dongle_ul_get_stream_in_sampling_rate_each_chan
 #if defined(AIR_DONGLE_LINE_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT:
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
 #endif /* defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) */
@@ -6988,6 +7742,21 @@ uint32_t ull_audio_v2_dongle_ul_get_stream_out_max_size_each_channel(SOURCE sour
             break;
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
 
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+            frame_samples = max(dongle_handle->sink_info.i2s_mst_out.frame_samples, dongle_handle->source_info.bt_in.frame_samples*1000/dongle_handle->source_info.bt_in.frame_interval);
+            if ((dongle_handle->sink_info.i2s_mst_out.sample_format >= HAL_AUDIO_PCM_FORMAT_S24_LE) || (dongle_handle->source_info.bt_in.sample_format >= HAL_AUDIO_PCM_FORMAT_S24_LE))
+            {
+                frame_sample_size = sizeof(int32_t);
+            }
+            else
+            {
+                frame_sample_size = sizeof(int16_t);
+            }
+            stream_out_size = 2*(dongle_handle->sink_info.i2s_mst_out.frame_max_num*frame_samples*frame_sample_size);
+            break;
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
+
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
             frame_samples = max(dongle_handle->sink_info.i2s_slv_out.frame_samples, dongle_handle->source_info.bt_in.frame_samples*1000/dongle_handle->source_info.bt_in.frame_interval);
@@ -7030,6 +7799,12 @@ uint32_t ull_audio_v2_dongle_ul_get_stream_out_channel_number(SOURCE source, SIN
             break;
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
 
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+            channel_number = max(dongle_handle->sink_info.i2s_mst_out.channel_num, dongle_handle->source_info.bt_in.channel_num);
+            break;
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
+
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
             channel_number = max(dongle_handle->sink_info.i2s_slv_out.channel_num, dongle_handle->source_info.bt_in.channel_num);
@@ -7062,6 +7837,12 @@ stream_samplerate_t ull_audio_v2_dongle_ul_get_stream_out_sampling_rate_each_cha
             samplerate = dongle_handle->sink_info.line_out.sample_rate/1000;
             break;
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
+
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+            samplerate = dongle_handle->sink_info.i2s_mst_out.sample_rate/1000;
+            break;
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
@@ -7112,6 +7893,12 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void ull_audio_v2_dongle_ul_init(SOURCE source, SI
             ull_audio_v2_dongle_ul_line_out_init(dongle_handle, (au_afe_open_param_p)audio_transmitter_open_param, bt_common_open_param);
             break;
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
+
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+            ull_audio_v2_dongle_ul_i2s_mst_out_init(dongle_handle, (au_afe_open_param_p)audio_transmitter_open_param, bt_common_open_param);
+            break;
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
@@ -7166,6 +7953,12 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void ull_audio_v2_dongle_ul_deinit(SOURCE source, 
             break;
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
 
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+            ull_audio_v2_dongle_ul_i2s_mst_out_deinit(dongle_handle);
+            break;
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
+
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
             ull_audio_v2_dongle_ul_i2s_slv_out_deinit(dongle_handle);
@@ -7210,6 +8003,14 @@ void ull_audio_v2_dongle_ul_start(SOURCE source, SINK sink)
             break;
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
 
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+            dongle_handle->fetch_count = 0;
+            dongle_handle->first_packet_status = ULL_AUDIO_V2_DONGLE_UL_FIRST_PACKET_NOT_READY;
+            ull_audio_v2_dongle_ul_i2s_mst_out_start(dongle_handle);
+            break;
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
+
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
             dongle_handle->fetch_count = 0;
@@ -7246,6 +8047,14 @@ void ull_audio_v2_dongle_ul_stop(SOURCE source, SINK sink)
             dongle_handle->first_packet_status = ULL_AUDIO_V2_DONGLE_UL_FIRST_PACKET_NOT_READY;
             break;
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
+
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+            ull_audio_v2_dongle_ul_i2s_mst_out_stop(dongle_handle);
+            dongle_handle->fetch_count = 0;
+            dongle_handle->first_packet_status = ULL_AUDIO_V2_DONGLE_UL_FIRST_PACKET_NOT_READY;
+            break;
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
@@ -7416,12 +8225,14 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
     ULL_AUDIO_V2_HEADER *p_ull_audio_header;
     uint8_t *src_buf;
     int32_t sample_size = 0;
-#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
+#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
     uint32_t play_en_nclk;
     uint16_t play_en_intra_clk;
     uint32_t play_en_clk;
     uint16_t play_en_phase;
-#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) */
+#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
+
+    UNUSED(length);
 
     /* dongle status check */
     switch (dongle_handle->stream_status)
@@ -7454,10 +8265,17 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
                     /* update stream status */
                     dongle_handle->first_packet_status = ULL_AUDIO_V2_DONGLE_UL_FIRST_PACKET_READY;
                     dongle_handle->stream_status = ULL_AUDIO_V2_DONGLE_STREAM_RUNNING;
-#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
-                    if ((dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT) || (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0))
+#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+                    if ((dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT) || (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0) || (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0))
                     {
                         if (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT) {
+                            hal_audio_memory_parameter_t *mem_handle = &dongle_handle->sink->param.audio.mem_handle;
+                            /* get agent */
+                            hal_audio_agent_t agent;
+                            agent = hal_memory_convert_agent(mem_handle->memory_select);
+                            /* enable AFE irq here */
+                            hal_memory_set_irq_enable(agent, HAL_AUDIO_CONTROL_ON);
+                        } else if (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0) {
                             hal_audio_memory_parameter_t *mem_handle = &dongle_handle->sink->param.audio.mem_handle;
                             /* get agent */
                             hal_audio_agent_t agent;
@@ -7489,7 +8307,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
                         dongle_handle->fetch_count = 0;
                         ULL_V2_LOG_I("[ULL Audio V2][UL] Play_En config with bt_clk:0x%08x, bt_phase:0x%08x, play_en_nclk:0x%08x, play_en_intra_clk:0x%08x", 4, play_en_clk, play_en_phase, play_en_nclk, play_en_intra_clk);
                     }
-#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) */
+#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
                     //hal_nvic_restore_interrupt_mask(saved_mask);
                     break;
 
@@ -7545,10 +8363,10 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
                     dongle_handle->buffer_output_size = frame_samples*sample_size;
                 }
             }
-#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
+#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
             else
             {
-                /* line out and i2s slve out case */
+                /* line out and i2s mst/i2s slve out case */
                 dongle_handle->first_packet_status = ULL_AUDIO_V2_DONGLE_UL_FIRST_PACKET_PLAYED;
                 dongle_handle->buffer_output_size = 0;
                 /* check if the fetch time of the first packet is arrived */
@@ -7563,7 +8381,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
                     dongle_handle->data_status = ULL_AUDIO_V2_DONGLE_UL_DATA_BYPASS_DECODER;
                 }
             }
-#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) */
+#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
         }
         else if (dongle_handle->first_packet_status == ULL_AUDIO_V2_DONGLE_UL_FIRST_PACKET_PLAYED)
         {
@@ -7588,10 +8406,10 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
                     dongle_handle->buffer_output_size = remain_samples/frame_samples*frame_samples*sample_size;
                 }
             }
-#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
+#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
             else
             {
-                /* do not check remain samples on the line-out and the i2s-slv out case */
+                /* do not check remain samples on the line-out and the i2s-mst/i2s-slv out case */
                 remain_samples = 0;
                 /* process timeout packets */
                 ull_audio_v2_dongle_ul_process_timeout_packets(dongle_handle, bt_clk, bt_phase);
@@ -7609,7 +8427,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
                     dongle_handle->buffer_output_size = 0;
                 }
             }
-#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) */
+#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
         }
         else
         {
@@ -7715,7 +8533,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
                     read_offset = (dongle_handle->source_info.bt_in.bt_info[i])->blk_index*p_share_info->sub_info.block_info.block_size;
                     p_ull_audio_header = (ULL_AUDIO_V2_HEADER *)(hal_memview_infrasys_to_dsp0(p_share_info->start_addr) + read_offset);
                     src_buf = (uint8_t *)(hal_memview_infrasys_to_dsp0(p_share_info->start_addr) + read_offset + sizeof(ULL_AUDIO_V2_HEADER));
-                    if (p_ull_audio_header->valid_packet == 0)
+                    if (p_ull_audio_header->valid_packet != 1)
                     {
                         /* set decoder do PLC flag */
                         if (dongle_handle->source_info.bt_in.codec_type == AUDIO_DSP_CODEC_TYPE_LC3PLUS)
@@ -7890,6 +8708,15 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
         stream->callback.EntryPara.resolution.sink_out_res  = RESOLUTION_32BIT;
         stream->callback.EntryPara.resolution.process_res   = RESOLUTION_32BIT;
     }
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+    if (source->scenario_type == AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0) {
+        if (stream->sink->param.audio.format == HAL_AUDIO_PCM_FORMAT_S16_LE) {
+            stream->callback.EntryPara.resolution.sink_out_res  = RESOLUTION_16BIT;
+        } else {
+            stream->callback.EntryPara.resolution.sink_out_res  = RESOLUTION_32BIT;
+        }
+    }
+#endif /* AIR_DONGLE_I2S_MST_OUT_ENABLE */
 
     /* do clock skew */
     if (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_USB_OUT_0)
@@ -7924,7 +8751,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
     }
 #endif /* AIR_DONGLE_I2S_SLV_OUT_ENABLE */
 #if defined(AIR_DONGLE_LINE_OUT_ENABLE)
-    else
+    else if (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT)
     {
         /* configure clock skew settings */
         if (dongle_handle->data_status != ULL_AUDIO_V2_DONGLE_UL_DATA_BYPASS_DECODER)
@@ -7933,6 +8760,16 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t ull_audio_v2_dongle_ul_source_copy_payloa
         }
     }
 #endif /* AIR_DONGLE_LINE_OUT_ENABLE */
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+    else if (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0)
+    {
+        /* configure clock skew settings */
+        if (dongle_handle->data_status != ULL_AUDIO_V2_DONGLE_UL_DATA_BYPASS_DECODER)
+        {
+            dongle_handle->compen_samples = ull_audio_v2_dongle_ul_i2s_mst_out_clock_skew_check(dongle_handle);
+        }
+    }
+#endif /* AIR_DONGLE_I2S_MST_OUT_ENABLE */
 
 #if ULL_AUDIO_V2_DONGLE_UL_PATH_DEBUG_LOG
     uint32_t current_timestamp = 0;
@@ -8075,6 +8912,13 @@ void ull_audio_v2_dongle_ul_source_drop_postprocess(SOURCE source, uint32_t amou
         LOG_AUDIO_DUMP((uint8_t *)(stream->callback.EntryPara.out_ptr[1]), dongle_handle->sink_info.line_out.frame_samples*dongle_handle->sink_info.line_out.frame_interval/1000*sample_size, VOICE_TX_NR_OUT);
     }
 #endif /* AIR_DONGLE_LINE_OUT_ENABLE */
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+    else if (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0)
+    {
+        LOG_AUDIO_DUMP((uint8_t *)(stream->callback.EntryPara.out_ptr[0]), dongle_handle->sink_info.i2s_mst_out.frame_samples*dongle_handle->sink_info.i2s_mst_out.frame_interval/1000*sample_size, PROMPT_VP_PATTERN);
+        LOG_AUDIO_DUMP((uint8_t *)(stream->callback.EntryPara.out_ptr[1]), dongle_handle->sink_info.i2s_mst_out.frame_samples*dongle_handle->sink_info.i2s_mst_out.frame_interval/1000*sample_size, PROMPT_VP_OUT);
+    }
+#endif /* AIR_DONGLE_I2S_MST_OUT_ENABLE */
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
     else if (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0)
     {
@@ -8162,7 +9006,7 @@ void ull_audio_v2_dongle_ul_source_drop_postprocess(SOURCE source, uint32_t amou
     }
 #endif /* AIR_DONGLE_I2S_SLV_OUT_ENABLE */
 #if defined(AIR_DONGLE_LINE_OUT_ENABLE)
-    else
+    else if (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT)
     {
         dongle_handle->sink_info.line_out.pre_write_offset = dongle_handle->sink_info.line_out.cur_write_offset;
         dongle_handle->sink_info.line_out.pre_read_offset  = dongle_handle->sink_info.line_out.cur_read_offset;
@@ -8188,6 +9032,33 @@ void ull_audio_v2_dongle_ul_source_drop_postprocess(SOURCE source, uint32_t amou
                         dongle_handle->data_out_gpt_count);
     }
 #endif /* AIR_DONGLE_LINE_OUT_ENABLE */
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+    else if (dongle_handle->sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0)
+    {
+        dongle_handle->sink_info.i2s_mst_out.pre_write_offset = dongle_handle->sink_info.i2s_mst_out.cur_write_offset;
+        dongle_handle->sink_info.i2s_mst_out.pre_read_offset  = dongle_handle->sink_info.i2s_mst_out.cur_read_offset;
+        dongle_handle->sink_info.i2s_mst_out.cur_write_offset = source->transform->sink->streamBuffer.BufferInfo.WriteOffset;
+        dongle_handle->sink_info.i2s_mst_out.cur_read_offset  = source->transform->sink->streamBuffer.BufferInfo.ReadOffset;
+        dongle_handle->sink_info.i2s_mst_out.afe_cur          = AFE_GET_REG(dongle_handle->sink_info.i2s_mst_out.afe_cur_addr);
+        dongle_handle->sink_info.i2s_mst_out.afe_base         = AFE_GET_REG(dongle_handle->sink_info.i2s_mst_out.afe_base_addr);
+        ULL_V2_LOG_I("[ULL Audio V2][UL][handle 0x%x][source_drop_postprocess] i2s_mst-out %d, %d, %d, %d, %d, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x", 15,
+                        dongle_handle,
+                        dongle_handle->stream_status,
+                        dongle_handle->first_packet_status,
+                        dongle_handle->data_status,
+                        dongle_handle->drop_frames,
+                        blk_index,
+                        dongle_handle->source_info.bt_in.fetch_anchor_previous,
+                        bt_clk,
+                        dongle_handle->source_info.bt_in.channel_data_status,
+                        dongle_handle->sink_info.i2s_mst_out.cur_write_offset,
+                        dongle_handle->sink_info.i2s_mst_out.cur_read_offset,
+                        dongle_handle->sink_info.i2s_mst_out.afe_cur,
+                        dongle_handle->ccni_in_bt_count,
+                        dongle_handle->ccni_in_gpt_count,
+                        dongle_handle->data_out_gpt_count);
+    }
+#endif /* AIR_DONGLE_I2S_MST_OUT_ENABLE */
 
     /* drop packets */
     if (dongle_handle->drop_frames != 0)
@@ -8706,10 +9577,12 @@ void ull_audio_v2_dongle_dl_start_afe_in(ull_audio_v2_dongle_dl_handle_t *dongle
 
 static uint32_t ull_audio_v2_dongle_dl_calculate_afe_in_jitter_bt_audio(ull_audio_v2_dongle_dl_handle_t *dongle_handle, uint32_t gpt_count)
 {
-    SOURCE source = dongle_handle->source;
-    /* gpt_count should be μs */
-    uint32_t ratio_ms = gpt_count/100 + 1; // add 0.1ms to avoid some abnormal case
-    return ((uint64_t)source->param.audio.frame_size * ratio_ms)/50; // one channel
+    uint32_t jitter_size, ratio_ms;
+
+    ratio_ms = gpt_count / 100 + 1; /* Unit of 0.1ms */
+    jitter_size = (dongle_handle->source->param.audio.frame_size * ratio_ms * 100) / dongle_handle->sink_info.bt_out.frame_interval;
+
+    return jitter_size;
 }
 
 #ifdef AIR_GAMING_MODE_DONGLE_V2_I2S_SLV_IN_ENABLE
@@ -8737,7 +9610,7 @@ void ull_audio_v2_dongle_silence_detection_init(audio_scenario_type_t scenario)
 {
     volume_estimator_port_t *port = NULL;
     volume_estimator_config_t config;
-    uint32_t data_size;
+    uint32_t data_size, sub_id;
     void *data_buf;
     void *nvkey_buf;
     ull_audio_v2_dongle_silence_detection_handle_t *silence_detection_handle = NULL;
@@ -8765,7 +9638,8 @@ void ull_audio_v2_dongle_silence_detection_init(audio_scenario_type_t scenario)
     silence_detection_handle = &ull_audio_v2_dongle_silence_detection_handle[scenario-AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0];
 
     /* get volume estimator port */
-    application_ptr = port_audio_transmitter_get_connection_if(AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE, (audio_transmitter_scenario_sub_id_t)(AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0 + (scenario - AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0)));
+    sub_id = scenario - AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0;
+    application_ptr = port_audio_transmitter_get_connection_if(AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE, (audio_transmitter_scenario_sub_id_t)(AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0 + sub_id));
     dongle_handle = application_ptr->sink->param.bt_common.scenario_param.dongle_handle;
     port = volume_estimator_get_port(dongle_handle->owner);
     if (port == NULL)
@@ -8775,7 +9649,7 @@ void ull_audio_v2_dongle_silence_detection_init(audio_scenario_type_t scenario)
 
     /* init volume estimator port */
     config.resolution = RESOLUTION_32BIT;
-    config.frame_size = dongle_handle->sink_info.bt_out.sample_rate/1000*sizeof(int32_t)*5/2; /* 2.5ms*48K*mono*32bit */
+    config.frame_size = VOLUME_ESTIMATOR_CALCULATE_FRAME_SAMPLE_SIZE * sizeof(int32_t); /* 40samples*mono*32bit */
     config.channel_num = 1;
     config.mode = VOLUME_ESTIMATOR_CHAT_INSTANT_MODE;
     config.sample_rate = dongle_handle->sink_info.bt_out.sample_rate;
@@ -8796,6 +9670,7 @@ void ull_audio_v2_dongle_silence_detection_init(audio_scenario_type_t scenario)
     {
         AUDIO_ASSERT(0);
     }
+    silence_detection_handle->sample_rate = config.sample_rate;
     silence_detection_handle->port = port;
     silence_detection_handle->enable = 0;
     silence_detection_handle->nvkey_buf = nvkey_buf;
@@ -8908,7 +9783,7 @@ void ull_audio_v2_dongle_silence_detection_process(audio_scenario_type_t scenari
     hal_ccni_message_t msg;
     ull_audio_v2_dongle_silence_detection_status_t silence_detection_status_backup;
     bool is_silence_status, is_not_silence_status;
-
+    uint32_t volume_estimator_calculate_frame_time_us = 0;
     /* get handle */
     if ((scenario < AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0) || (scenario > AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_I2S_SLV_IN_0))
     {
@@ -8918,6 +9793,7 @@ void ull_audio_v2_dongle_silence_detection_process(audio_scenario_type_t scenari
 
     if (silence_detection_handle->enable)
     {
+        volume_estimator_calculate_frame_time_us = VOLUME_ESTIMATOR_CALCULATE_FRAME_SAMPLE_SIZE * 1000000 / silence_detection_handle->sample_rate;
         port = silence_detection_handle->port;
         LOG_AUDIO_DUMP(silence_detection_handle->data_buf, silence_detection_handle->data_size, AUDIO_WOOFER_CPD_OUT);
         is_silence_status = false;
@@ -8935,7 +9811,7 @@ void ull_audio_v2_dongle_silence_detection_process(audio_scenario_type_t scenari
                 if (silence_detection_handle->current_db <= silence_detection_handle->effective_threshold_db)
                 {
                     silence_detection_handle->failure_delay_us_count[i] = 0;
-                    silence_detection_handle->effective_delay_us_count[i] += 2500;
+                    silence_detection_handle->effective_delay_us_count[i] += volume_estimator_calculate_frame_time_us;
                     if (silence_detection_handle->effective_delay_us_count[i] >= silence_detection_handle->effective_delay_ms*1000)
                     {
                         if (silence_detection_handle->status != ULL_AUDIO_V2_DONGLE_SILENCE_DETECTION_STATUS_SILENCE)
@@ -8957,7 +9833,7 @@ void ull_audio_v2_dongle_silence_detection_process(audio_scenario_type_t scenari
                 {
                     is_silence_status = false;
                     silence_detection_handle->effective_delay_us_count[i] = 0;
-                    silence_detection_handle->failure_delay_us_count[i] += 2500;
+                    silence_detection_handle->failure_delay_us_count[i] += volume_estimator_calculate_frame_time_us;
                     if (silence_detection_handle->failure_delay_us_count[i] >= silence_detection_handle->failure_delay_ms*1000)
                     {
                         if (silence_detection_handle->status != ULL_AUDIO_V2_DONGLE_SILENCE_DETECTION_STATUS_NOT_SILENCE)

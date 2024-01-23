@@ -59,8 +59,8 @@
 
 #define APP_HFP_UTILS "[HFP_APP]utils"
 
-#define APP_HFP_INCMOING_CALL_VP_LONG_DELAY_TIME  (2*1000)  /**< 2 seconds. */
-#define APP_HFP_INCMOING_CALL_VP_SHORT_DELAY_TIME (6*100)
+#define APP_HFP_INCOMING_CALL_VP_LONG_DELAY_TIME  (2*1000)  /**< 2 seconds. */
+#define APP_HFP_INCOMING_CALL_VP_SHORT_DELAY_TIME (6*100)
 
 typedef enum {
     APP_HFP_INCOMING_CALL_VP_STOP = 0,        /**< Incoming call vp stop play. */
@@ -99,7 +99,7 @@ typedef struct {
     bool                hfp_connected;         /**<  Record the hfp connection state. */
     //uint8_t             is_vp;                 /**<  Indicates whether the vp of incoming call is triggered. */
     bool                aws_link_state;        /**<  Record aws link state for playing incoming call vp when incoming call. */
-    bool                transient_actived;     /**<  Record whether the hfp transient activity is actived. */
+    bool                transient_active;     /**<  Record whether the hfp transient activity is active. */
     bool                mute_mic;              /**<  Record whether the mic is muted. */
 #ifdef AIR_LE_AUDIO_ENABLE
     uint32_t    le_audio_srv;                  /**<  Record LE Audio Connected Service. */
@@ -158,11 +158,11 @@ uint8_t app_hfp_is_auto_accept_incoming_call();
 
 /**
 * @brief      This function is used to set the configuration of the auto accept incoming call when earbuds both in ear.
-* @param[in]  isAutoaccept, 0x1 means enable auto accept incoming call when earbuds both in ear.
-* @param[in]  is_sync, true sync the configuration to the peer side.
+* @param[in]  auto_accept, 0x1 means enable auto accept incoming call when earbuds both in ear.
+* @param[in]  sync, true sync the configuration to the peer side.
 * @return     true is set successfully.
 */
-bool app_hfp_set_auto_accept_incoming_call(uint8_t isAutoaccept, bool is_sync);
+bool app_hfp_set_auto_accept_incoming_call(uint8_t auto_accept, bool sync);
 /**
 * @brief      This function is used to notify state to peer.
 */
@@ -181,25 +181,26 @@ bool app_hfp_proc_conflict_vp_event(ui_shell_activity_t *self,
 * @brief      This function is used to play incoming call vp.
 * @param[in]  self, the context pointer of the activity.
 * @param[in]  isLongVp, true is long delay time vp, false is short delay time. For conflict vp case.
-* @param[in] isTwcIncoming, true is twc incoming call, false is incoming call.
+* @param[in]  isTwcIncoming, true is twc incoming call, false is incoming call.
 */
 void app_hfp_incoming_call_vp_process(ui_shell_activity_t *self, bool isLongVp, bool isTwcIncoming);
 
 /**
 * @brief          This function is used to sync hfp sink state to peer.
-* @param[in]   self, the context pointer of the hfp activity.
+* @param[in]      self, the context pointer of the hfp activity.
 */
 void app_hfp_sync_sink_state_to_peer(ui_shell_activity_t *self);
 
 /**
-  * @brief                            This function is used to mute or unmute microphone.
-  * @param[in]  type            True is mute mic, flase is unmute mic.
-  * * @return     If return true, set mic mute status success.
+  * @brief                This function is used to mute or un-mute microphone.
+  * @param[in]  type      True is mute mic, false is un-mute mic.
+  * @return               If return true, set mic mute status success.
   */
 bool app_hfp_mute_mic(bool mute);
 
 bool app_hfp_get_active_device_addr(bt_bd_addr_t *active_addr);
 uint8_t app_hfp_get_active_device_type();
+bool app_hfp_get_va_active_device(bt_bd_addr_t *active_addr);
 
 #ifdef MTK_AWS_MCE_ENABLE
 bool app_hfp_get_aws_link_is_switching(void);

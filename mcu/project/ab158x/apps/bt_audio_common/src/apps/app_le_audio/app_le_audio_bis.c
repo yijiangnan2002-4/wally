@@ -44,6 +44,7 @@
 #include "bt_aws_mce_srv.h"
 #include "bt_device_manager.h"
 #endif
+#include "bt_device_manager_le.h"
 
 #include "app_bt_conn_manager.h"
 #include "app_bt_state_service.h"
@@ -66,10 +67,6 @@
 
 #include "app_le_audio_bis_activity.h"
 
-#if defined (AIR_LE_AUDIO_BIS_ENABLE) && defined (MTK_RACE_CMD_ENABLE) && !defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
-#include "race_cmd_le_audio.h"
-#endif
-
 #ifdef AIR_LE_AUDIO_ENABLE
 #include "ble_bass.h"
 #include "ble_bap.h"
@@ -90,7 +87,12 @@
 #define BIS_DEFAULT_SCAN_TIME                           (30 * 1000)              /** 30 sec, scan without addr. */
 #define BIS_MAX_SCAN_TIME                               (10 * 60 * 1000)         /** 10 min, scan with addr but peer streaming. */
 #define BIS_CODE_SIZE                                   (16)                     /** broadcast code size. */
-#define BIS_RETRY_MAX_NUM                               (6)
+
+#ifdef AIR_SPEAKER_ENABLE
+#define BIS_START_RETRY_MAX_NUM                         (6)
+#define BIS_STOP_RETRY_MAX_NUM                          (12)
+#define BIS_RETRY_PERIOD_TIME                           (250)
+#endif
 
 typedef enum {
     APP_LEA_BIS_STATE_IDLE                              = 0,
@@ -132,7 +134,8 @@ typedef struct {
     uint8_t                                             peer_src_addr_type;
     uint8_t                                             peer_src_addr[BT_BD_ADDR_LEN];
 #ifdef AIR_SPEAKER_ENABLE
-    uint8_t                                             retry_count;
+    uint8_t                                             start_retry_count;
+    uint8_t                                             stop_retry_count;
 #endif
 #endif
 } app_le_audio_bis_context_t;
@@ -143,7 +146,7 @@ static bt_sink_srv_cap_stream_bmr_scan_param_ex_t       app_bis_default_scan_par
 
 #ifdef MTK_AWS_MCE_ENABLE
 // For BSA control single headset, BSA need to disable the SYNC feature (sync state/volume, but not sync to BIS start/stop action)
-bool                                                    app_bis_sync_feature = TRUE;
+bool                                                    app_bis_sync_feature = FALSE;
 
 bool                                                    app_bis_temp_cancel_sync = FALSE;
 #endif
@@ -179,6 +182,7 @@ static void app_le_audio_bis_sync_to_peer(app_le_audio_bis_sync_t sync_type)
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
     bt_aws_mce_srv_link_type_t aws_link_type = bt_aws_mce_srv_get_link_type();
     bt_status_t bt_status = BT_STATUS_SUCCESS;
+    bt_sink_srv_cap_stream_bmr_scan_info_ex_t *scan_info = bt_sink_srv_cap_stream_get_bmr_scan_info_ex();
 
     if (app_bis_temp_cancel_sync) {
         app_bis_temp_cancel_sync = FALSE;
@@ -194,6 +198,8 @@ static void app_le_audio_bis_sync_to_peer(app_le_audio_bis_sync_t sync_type)
     } else if (aws_mode == BT_AWS_MCE_SRV_MODE_BROADCAST && role == BT_AWS_MCE_ROLE_CLINET) {
         APPS_LOG_MSGID_E(LOG_TAG" sync_to_peer, fail Client role", 0);
         return;
+    } else if (aws_mode == BT_AWS_MCE_SRV_MODE_BROADCAST && role == BT_AWS_MCE_ROLE_AGENT) {
+        app_bis_sync_feature = TRUE;
     }
 #else
     if (aws_link_type == BT_AWS_MCE_SRV_LINK_NONE) {
@@ -202,9 +208,13 @@ static void app_le_audio_bis_sync_to_peer(app_le_audio_bis_sync_t sync_type)
     }
 #endif
 
+    if (BT_SINK_SRV_CAP_STREAM_SYNC_POLICY_SELECT_BIS == scan_info->sync_policy) app_bis_sync_feature = TRUE;
+
     app_le_audio_bis_aws_data_t aws_data = {0};
     aws_data.sync_type = sync_type;
     aws_data.sync_feature = app_bis_sync_feature;
+
+    app_bis_sync_feature = FALSE;
 
     uint8_t volume = bt_sink_srv_cap_stream_get_broadcast_volume();
     if (sync_type == APP_LEA_BIS_SYNC_ONLY_STATE) {
@@ -247,8 +257,8 @@ static void app_le_audio_bis_sync_to_peer(app_le_audio_bis_sync_t sync_type)
 #endif
 
     uint8_t *addr = aws_data.src_addr;
-    APPS_LOG_MSGID_I(LOG_TAG" sync_to_peer, [%2X] sync_type=%d bt_status=%08X state=%X volume=%d src_addr=%02X:%02X:%02X:XX:XX:XX",
-                     8, role, aws_data.sync_type, bt_status, aws_data.state, aws_data.volume,
+    APPS_LOG_MSGID_I(LOG_TAG" sync_to_peer, [%2X] sync_feature:%d sync_type=%d bt_status=%08X state=%X volume=%d src_addr=%02X:%02X:%02X:XX:XX:XX",
+                     9, role, aws_data.sync_feature, aws_data.sync_type, bt_status, aws_data.state, aws_data.volume,
                      addr[5], addr[4], addr[3]);
 }
 #endif
@@ -304,7 +314,6 @@ static bool app_le_audio_bis_scan()
     }
 
 #ifdef MTK_AWS_MCE_ENABLE
-    app_bis_sync_feature = TRUE;
     audio_channel_t channel = ami_get_audio_channel();
     if (channel == AUDIO_CHANNEL_L) {
         scan_param.audio_channel_allocation = AUDIO_LOCATION_FRONT_LEFT;
@@ -374,11 +383,6 @@ static void app_le_audio_bis_callback(bt_le_audio_sink_event_t event, void *msg)
         }
     } else if ((event == BT_SINK_SRV_CAP_EVENT_BASE_BIG_TERMINATE_CFM) ||
                (event == BT_SINK_SRV_CAP_EVENT_BASE_BIG_TERMINATE_IND)) {
-#ifdef MTK_AWS_MCE_ENABLE
-        if (event == BT_SINK_SRV_CAP_EVENT_BASE_BIG_TERMINATE_CFM) {
-            app_bis_sync_feature = TRUE;
-        }
-#endif
         ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_BIS_SCAN_TIMEOUT);
         ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                             EVENT_GROUP_UI_SHELL_LE_AUDIO,
@@ -525,13 +529,13 @@ static void app_le_audio_bis_proc_bt_cm_group(uint32_t event_id, void *extra_dat
                 app_le_audio_bis_state_t bis_state = app_bis_ctx.state;
                 APPS_LOG_MSGID_I(LOG_TAG" BT CM Event, [%02X] AWS Connected, is_bis_streaming=%d bis_state=%d bis_sync_feature=%d",
                                  4, role, is_bis_streaming, bis_state, app_bis_sync_feature);
-                if (is_bis_streaming) {
-                    if (bis_state == APP_LEA_BIS_STATE_STREAMING) {
-                        app_le_audio_bis_sync_to_peer(APP_LEA_BIS_SYNC_ALL);
-                    } else {
-                        // Need to wait EVENT_ID_LE_AUDIO_BIS_START_STREAMING, then set state and sync all
-                        APPS_LOG_MSGID_E(LOG_TAG" BT CM Event, [%02X] AWS Connected, BIS streaming/state not match", 0);
-                    }
+
+                if (is_bis_streaming && bis_state == APP_LEA_BIS_STATE_STREAMING) {
+                    app_bis_sync_feature = TRUE;
+                    app_le_audio_bis_sync_to_peer(APP_LEA_BIS_SYNC_ALL);
+                } else {
+                    // Need to wait EVENT_ID_LE_AUDIO_BIS_START_STREAMING, then set state and sync all
+                    APPS_LOG_MSGID_E(LOG_TAG" BT CM Event, [%02X] AWS Connected, BIS streaming/state not match", 0);
                 }
             }
 
@@ -645,49 +649,33 @@ static void app_le_audio_bis_proc_key_group(uint32_t event_id, void *extra_data,
 #ifdef MTK_AWS_MCE_ENABLE
 static void app_le_audio_bis_action_by_peer(void)
 {
-    APPS_LOG_MSGID_I(LOG_TAG" bis_action_by_peer, sync_feature=%d, state=%X, peer_state=%X", 3, app_bis_sync_feature, app_bis_ctx.state, app_bis_ctx.peer_state);
+    APPS_LOG_MSGID_I(LOG_TAG" bis_action_by_peer, state=%X, peer_state=%X", 2, app_bis_ctx.state, app_bis_ctx.peer_state);
 
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
     uint8_t *peer_addr = app_bis_ctx.peer_src_addr;
 
-    if (app_bis_sync_feature) {
-        // Scan action by peer streaming state or scanning state
-        if ((app_bis_ctx.peer_state == APP_LEA_BIS_STATE_STREAMING) ||
-            (app_bis_ctx.peer_state == APP_LEA_BIS_STATE_SCANNING)) {
-            // Scan action by idle state and valid address
-            if ((app_bis_ctx.state == APP_LEA_BIS_STATE_IDLE) &&
-                (memcmp(peer_addr, empty_addr, BT_BD_ADDR_LEN) != 0)) {
-                app_bis_ctx.src_addr_type = app_bis_ctx.peer_src_addr_type;
-                memcpy(app_bis_ctx.src_addr, peer_addr, BT_BD_ADDR_LEN);
-                APPS_LOG_MSGID_I(LOG_TAG" AWS Data Event, sync and start %02X:%02X:%02X:%02X:%02X:%02X",
-                                 6, peer_addr[5], peer_addr[4], peer_addr[3],
-                                 peer_addr[2], peer_addr[1], peer_addr[0]);
-                memset(&app_bis_default_scan_params, 0, sizeof(bt_sink_srv_cap_stream_bmr_scan_param_ex_t));
-                app_le_audio_bis_start(TRUE);
-            } else {
-                APPS_LOG_MSGID_I(LOG_TAG" AWS Data Event, not sync and start", 0);
-            }
+    // Scan action by peer streaming state or scanning state
+    if ((app_bis_ctx.peer_state == APP_LEA_BIS_STATE_STREAMING) ||
+        (app_bis_ctx.peer_state == APP_LEA_BIS_STATE_SCANNING)) {
+        // Scan action by idle state and valid address
+        if ((app_bis_ctx.state == APP_LEA_BIS_STATE_IDLE) &&
+            (memcmp(peer_addr, empty_addr, BT_BD_ADDR_LEN) != 0)) {
+            app_bis_ctx.src_addr_type = app_bis_ctx.peer_src_addr_type;
+            memcpy(app_bis_ctx.src_addr, peer_addr, BT_BD_ADDR_LEN);
+            APPS_LOG_MSGID_I(LOG_TAG" AWS Data Event, sync and start %02X:%02X:%02X:%02X:%02X:%02X",
+                             6, peer_addr[5], peer_addr[4], peer_addr[3],
+                             peer_addr[2], peer_addr[1], peer_addr[0]);
+            memset(&app_bis_default_scan_params, 0, sizeof(bt_sink_srv_cap_stream_bmr_scan_param_ex_t));
+            app_le_audio_bis_start(TRUE);
+        } else {
+            APPS_LOG_MSGID_I(LOG_TAG" AWS Data Event, not sync and start", 0);
         }
+    }
 
-        // Stop action by peer idle state
-        if (app_bis_ctx.peer_state == APP_LEA_BIS_STATE_IDLE) {
-            if (app_bis_ctx.state != APP_LEA_BIS_STATE_IDLE) {
-                app_le_audio_bis_start(FALSE);
-            } else {
-                if (app_bis_ctx.stopping_streaming_then_retry) {
-                    /*Trigger By Scan next, Wait both state to be idle state, then retry scan*/
-                    APPS_LOG_MSGID_I(LOG_TAG" SCAN NEXT, wait both in idle state, and retry scan", 0);
-                    app_bis_ctx.stopping_streaming_then_retry = FALSE;
-                    app_le_audio_bis_start(TRUE);
-                } else if (ble_bap_is_syncing_to_pa()) {
-                    bt_sink_srv_cap_stream_bmr_scan_info_ex_t *scan_info = bt_sink_srv_cap_stream_get_bmr_scan_info_ex();
-#if defined (AIR_LE_AUDIO_BIS_ENABLE) && defined (MTK_RACE_CMD_ENABLE) && !defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
-                    if (scan_info->sync_policy == BT_SINK_SRV_CAP_STREAM_SYNC_POLICY_SELECT_BIS) {
-                        race_le_audio_play_bis_retry();
-                    }
-#endif
-                }
-            }
+    // Stop action by peer idle state
+    if (app_bis_ctx.peer_state == APP_LEA_BIS_STATE_IDLE) {
+        if (app_bis_ctx.state != APP_LEA_BIS_STATE_IDLE) {
+            app_le_audio_bis_start(FALSE);
         }
     }
 }
@@ -721,7 +709,7 @@ static void app_le_audio_bis_proc_aws_data_group(uint32_t event_id, void *extra_
                          7, role, sync_type, peer_sync_feature, state, volume,
                          *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
         app_le_audio_bis_print_context();
-        app_bis_sync_feature = peer_sync_feature;
+
         // Handle AWS Data -> src_addr
         if (sync_type == APP_LEA_BIS_SYNC_ONLY_SRC_ADDR || sync_type == APP_LEA_BIS_SYNC_ALL) {
             bt_sink_srv_cap_stream_set_bis_subgroup_idx(aws_data->subgroup_idx);
@@ -734,7 +722,9 @@ static void app_le_audio_bis_proc_aws_data_group(uint32_t event_id, void *extra_
         }
         // Handle AWS Data -> broadcast_code
         if (sync_type == APP_LEA_BIS_SYNC_ALL) {
-            ble_bap_set_broadcast_code(broadcast_code);
+            if (peer_sync_feature) {
+                ble_bap_set_broadcast_code(broadcast_code);
+            }
         }
         // Handle AWS Data -> state
         if (sync_type == APP_LEA_BIS_SYNC_ONLY_STATE || sync_type == APP_LEA_BIS_SYNC_ALL) {
@@ -769,6 +759,44 @@ static void app_le_audio_bis_proc_aws_data_group(uint32_t event_id, void *extra_
         app_le_audio_bis_print_context();
     }
 }
+#ifdef AIR_SPEAKER_ENABLE
+static void app_le_audio_bis_handle_speaker_retry(uint32_t event_id)
+{
+    bt_aws_mce_srv_mode_t aws_mode = bt_aws_mce_srv_get_mode();
+    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    /* Controller limitation: No ACK, resend BIS status to insure client receive packet */
+    if (aws_mode == BT_AWS_MCE_SRV_MODE_BROADCAST && role == BT_AWS_MCE_ROLE_AGENT) {
+        if (event_id == EVENT_ID_LE_AUDIO_BIS_START_STREAMING) {
+            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_BIS_STOP_STREAMING);
+            app_bis_ctx.stop_retry_count = 0;
+
+            if (app_bis_ctx.start_retry_count < BIS_START_RETRY_MAX_NUM) {
+                app_bis_ctx.start_retry_count++;
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                                    EVENT_GROUP_UI_SHELL_LE_AUDIO,
+                                    EVENT_ID_LE_AUDIO_BIS_START_STREAMING,
+                                    NULL, 0, NULL, BIS_RETRY_PERIOD_TIME);
+            } else {
+                app_bis_ctx.start_retry_count = 0;
+            }
+        } else if (event_id == EVENT_ID_LE_AUDIO_BIS_STOP_STREAMING) {
+            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_BIS_START_STREAMING);
+            app_bis_ctx.start_retry_count = 0;
+
+            if (app_bis_ctx.stop_retry_count < BIS_STOP_RETRY_MAX_NUM) {
+                app_bis_ctx.stop_retry_count++;
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                                    EVENT_GROUP_UI_SHELL_LE_AUDIO,
+                                    EVENT_ID_LE_AUDIO_BIS_STOP_STREAMING,
+                                    NULL, 0, NULL, BIS_RETRY_PERIOD_TIME);
+            } else {
+                app_bis_ctx.stop_retry_count = 0;
+            }
+        }
+
+    }
+}
+#endif
 #endif
 
 static void app_le_audio_bis_proc_le_audio_group(struct _ui_shell_activity *self, uint32_t event_id,
@@ -777,12 +805,7 @@ static void app_le_audio_bis_proc_le_audio_group(struct _ui_shell_activity *self
     switch (event_id) {
         case EVENT_ID_LE_AUDIO_BIS_START_STREAMING: {
 #if defined(MTK_AWS_MCE_ENABLE) && defined(AIR_SPEAKER_ENABLE)
-            /* Controller limitation: Resend BIS stop streaming, if BIS is start streaming, need remove timer */
-            bt_aws_mce_srv_mode_t aws_mode = bt_aws_mce_srv_get_mode();
-            bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
-            if (aws_mode == BT_AWS_MCE_SRV_MODE_BROADCAST && role == BT_AWS_MCE_ROLE_AGENT) {
-                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_LE_AUDIO, EVENT_ID_LE_AUDIO_BIS_STOP_STREAMING);
-            }
+            app_le_audio_bis_handle_speaker_retry(event_id);
 #endif
             APPS_LOG_MSGID_I(LOG_TAG" START_STREAMING event", 0);
             app_le_audio_bis_set_state(APP_LEA_BIS_STATE_STREAMING, TRUE);
@@ -808,21 +831,16 @@ static void app_le_audio_bis_proc_le_audio_group(struct _ui_shell_activity *self
                              1, app_bis_ctx.stopping_streaming_flag);
 #if defined(AIR_SPEAKER_ENABLE) && defined(MTK_AWS_MCE_ENABLE)
             app_bt_state_client_connect_aws(TRUE);
+            app_le_audio_bis_handle_speaker_retry(event_id);
 #endif
+            app_le_audio_bis_set_state(APP_LEA_BIS_STATE_IDLE, TRUE);
+
             if (app_bis_ctx.stopping_streaming_then_retry) {
                 // Trigger By Scan next
-#ifdef MTK_AWS_MCE_ENABLE
-                bt_aws_mce_srv_link_type_t aws_link_type = bt_aws_mce_srv_get_link_type();
-                // If the other earbud is power off, no need to wait both state become idle
-                if (aws_link_type == BT_AWS_MCE_SRV_LINK_NONE)
-#endif
-                {
-                    app_bis_ctx.stopping_streaming_then_retry = FALSE;
-                    app_le_audio_bis_start(TRUE);
-                    return;
-                }
+                app_bis_ctx.stopping_streaming_then_retry = FALSE;
+                app_le_audio_bis_start(TRUE);
+                return;
             }
-            app_le_audio_bis_set_state(APP_LEA_BIS_STATE_IDLE, TRUE);
 
             if (app_bis_ctx.stopping_streaming_flag) {
                 app_bis_ctx.stopping_streaming_flag = FALSE;
@@ -830,31 +848,19 @@ static void app_le_audio_bis_proc_le_audio_group(struct _ui_shell_activity *self
                                     APPS_EVENTS_INTERACTION_BT_RETRY_POWER_ON_OFF, NULL, 0,
                                     NULL, 0);
             }
-
-#if defined(MTK_AWS_MCE_ENABLE) && defined(AIR_SPEAKER_ENABLE)
-            /* Controller limitation: Resend BIS stop streaming, after 500ms */
-            bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
-            bt_aws_mce_srv_mode_t aws_mode = bt_aws_mce_srv_get_mode();
-            if (aws_mode == BT_AWS_MCE_SRV_MODE_BROADCAST && role == BT_AWS_MCE_ROLE_AGENT) {
-                if (app_bis_ctx.retry_count < BIS_RETRY_MAX_NUM) {
-                    app_bis_ctx.retry_count++;
-                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
-                                        EVENT_GROUP_UI_SHELL_LE_AUDIO,
-                                        EVENT_ID_LE_AUDIO_BIS_STOP_STREAMING,
-                                        NULL, 0, NULL, 500);
-                } else {
-                    app_bis_ctx.retry_count = 0;
-                }
-            }
-#endif
             break;
         }
 
         case EVENT_ID_LE_AUDIO_BIS_STOP_PA: {
             uint8_t broadcast_code[BLE_BASS_BROADCAST_CODE_SIZE] = {0};
+            bt_addr_t tmp_addr = {0};
             APPS_LOG_MSGID_I(LOG_TAG" STOP_PA event", 0);
             ble_bap_set_broadcast_code(broadcast_code);
-            ble_bap_set_white_list_ex(BT_GAP_LE_REMOVE_FROM_WHITE_LIST, app_bis_ctx.src_addr_type, app_bis_ctx.src_addr);
+            tmp_addr.type = app_bis_ctx.src_addr_type;
+            memcpy(tmp_addr.addr, app_bis_ctx.src_addr, sizeof(bt_bd_addr_t));
+            if (false == bt_device_manager_le_is_bonded(&tmp_addr)) {
+                ble_bap_set_white_list_ex(BT_GAP_LE_REMOVE_FROM_WHITE_LIST, app_bis_ctx.src_addr_type, app_bis_ctx.src_addr);
+            }
             app_bis_ctx.src_addr_type = 0;
             memset(app_bis_ctx.src_addr, 0, BT_BD_ADDR_LEN);
             break;
@@ -940,11 +946,6 @@ static void app_le_audio_bis_proc_le_audio_group(struct _ui_shell_activity *self
         }
 
         case EVENT_ID_LE_AUDIO_BIS_SYNC_FEATURE: {
-#ifdef MTK_AWS_MCE_ENABLE
-            uint32_t pa_sync = (uint32_t)extra_data;
-            app_bis_sync_feature = (pa_sync == 0);
-            APPS_LOG_MSGID_I(LOG_TAG" SYNC_FEATURE event, enable_sync_feature=%d", 1, app_bis_sync_feature);
-#endif
             break;
         }
 
@@ -952,10 +953,6 @@ static void app_le_audio_bis_proc_le_audio_group(struct _ui_shell_activity *self
             APPS_LOG_MSGID_I(LOG_TAG" BIS_ERROR event", 0);
             app_bis_ctx.src_addr_type = 0;
             memset(app_bis_ctx.src_addr, 0, BT_BD_ADDR_LEN);
-#ifdef MTK_AWS_MCE_ENABLE
-            app_bis_sync_feature = TRUE;
-            app_le_audio_bis_action_by_peer();
-#endif
             break;
         }
 
@@ -1018,6 +1015,20 @@ void app_le_audio_config_bis_scan_params(void *data)
     bt_sink_srv_cap_stream_bmr_scan_param_ex_t *scan_params = (bt_sink_srv_cap_stream_bmr_scan_param_ex_t *)data;
     if (scan_params != NULL) {
         memcpy(&app_bis_default_scan_params, scan_params, sizeof(bt_sink_srv_cap_stream_bmr_scan_param_ex_t));
+    }
+#ifdef MTK_AWS_MCE_ENABLE
+    app_bis_sync_feature = TRUE;
+#endif
+}
+
+bt_addr_t *app_le_audio_bis_get_scanning_address(void)
+{
+    bt_sink_srv_cap_stream_bmr_scan_info_ex_t *scan_info = bt_sink_srv_cap_stream_get_bmr_scan_info_ex();
+
+    if (bt_sink_srv_cap_stream_is_scanning_broadcast_source() && scan_info && scan_info->specified_bms) {
+        return &scan_info->bms_address;
+    } else {
+        return NULL;
     }
 }
 

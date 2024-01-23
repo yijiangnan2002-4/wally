@@ -66,6 +66,7 @@
 #define BT_ULL_LE_FLAG_WAIT_AM_OPEN_CODEC          ((BT_ULL_LE_FLAG_WAIT_AM_START) << 0)
 #define BT_ULL_LE_FLAG_WAIT_AM_STOP_CODEC          ((BT_ULL_LE_FLAG_WAIT_AM_START) << 1)
 #define BT_ULL_LE_FLAG_WAIT_AM_RESTART_CODEC      ((BT_ULL_LE_FLAG_WAIT_AM_START) << 2)
+#define BT_ULL_LE_FLAG_GET_AUDIO_RESOURCE_WAIT_OPEN_CODEC     ((BT_ULL_LE_FLAG_WAIT_AM_START) << 3)
 typedef uint8_t bt_ull_le_am_flag_t;
 
 /**
@@ -256,6 +257,7 @@ static void bt_ull_le_am_ul_callback(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am_
 static void bt_ull_le_am_ul_handle_start_success_cnf(bt_ull_le_am_ul_info_t* ull_am_info);
 static void bt_ull_le_am_ul_handle_stop_success_or_start_fail_cnf(bt_ull_le_am_ul_info_t* ull_am_info);
 static void bt_ull_le_am_mute_timeout_callbak(uint32_t timer_id, uint32_t data);
+static void bt_ull_le_am_open_dl_codec(void);
 
 //internal play and stop
 //static bt_status_t bt_ull_le_am_play_internal(bt_ull_le_am_mode_t mode, bt_ull_le_codec_t codec);
@@ -619,17 +621,55 @@ static void bt_ull_le_am_dl_callback_ind_handle_message(bt_sink_srv_am_id_t aud_
 static void bt_ull_le_am_dl_play_ind_handle_message(audio_src_srv_handle_t *handle)
 {
     bt_ull_le_am_mode_t mode = bt_ull_le_am_get_mode_by_audio_handle(handle);
+    bt_ull_le_srv_am_info_t* am_ctx = bt_ull_le_get_audio_manager_contex();
+    BT_ULL_MUTEX_LOCK();
+    if(BT_ULL_LE_AM_DL_MODE == mode){
+        if (bt_ull_le_srv_check_inactive_aircis_feature_on() \
+            && (!bt_ull_le_srv_is_streaming(BT_ULL_LE_STREAM_MODE_DOWNLINK)) \
+            && (!bt_ull_le_srv_is_streaming(BT_ULL_LE_STREAM_MODE_UPLINK))) {
+                ///*BT_ULL_LE_KEEP_CIS_ALWAYS_ALIVE: USB port not streaming, not open codec*/
+                //should set flag (have get audio resource?)
+            bt_ull_le_am_dl_info_t *ull_am_info = &(am_ctx->dl_mode_ctx);
+            bt_ull_le_am_state_t state = bt_ull_le_am_dl_get_state(ull_am_info);
+            bt_ull_le_am_sub_state_t substate = bt_ull_le_am_dl_get_sub_state(ull_am_info);
+            ull_report("[ULL][LE][AM] dl play ind, state:%d, substate:%d, is_streaming:%d, is supd: %d, suspend: %d, waiting_play: %d, is_start_request: %d", 7, \
+                    state, substate, ull_am_info->is_playing, am_ctx->dl_mode_ctx.am_sub_state, am_ctx->dl_mode_ctx.is_suspend, am_ctx->dl_mode_ctx.is_waiting_play, am_ctx->dl_mode_ctx.is_start_request);  
+    		ull_report_error("[ULL][LE][AM] BT_ULL_LE_KEEP_CIS_ALWAYS_ALIVE: USB port not streaming, not open codec", 0);
+            bt_ull_le_set_am_dl_flag(BT_ULL_LE_FLAG_GET_AUDIO_RESOURCE_WAIT_OPEN_CODEC);//set flag, wait am open codec
+            if (am_ctx->dl_mode_ctx.is_suspend) {
+                am_ctx->dl_mode_ctx.is_suspend = false;
+                //bt_ull_le_srv_active_streaming(); /*set iso data path*/
+                bt_ull_le_srv_notify_server_play_is_allow(BT_ULL_PLAY_ALLOW, BT_ULL_ALLOW_PLAY_REASON_AUDIO);
+            }
+            if (am_ctx->dl_mode_ctx.is_reject) {
+                am_ctx->dl_mode_ctx.is_reject= false;
+            }
+            if (am_ctx->dl_mode_ctx.is_waiting_play) {
+                am_ctx->dl_mode_ctx.is_waiting_play = false;
+                //bt_ull_le_srv_active_streaming(); /*remove iso data path*/
+                bt_ull_le_srv_notify_server_play_is_allow(BT_ULL_PLAY_ALLOW, BT_ULL_ALLOW_PLAY_REASON_AUDIO);
+            }
+
+        } else {
+            bt_ull_le_am_open_dl_codec();
+        }
+    }
+    BT_ULL_MUTEX_UNLOCK();
+}
+
+
+static void bt_ull_le_am_open_dl_codec(void)
+{
     bt_sink_srv_am_result_t am_ret;
     bt_sink_srv_am_audio_capability_t aud_cap = {0};
     bt_ull_le_srv_am_info_t* am_ctx = bt_ull_le_get_audio_manager_contex();
     bt_ull_client_t client_type = bt_ull_le_srv_get_client_type();
  //   ull_report("[ULL][LE][AM] dl play ind, get client_type: %d.", 1, client_type);
-    BT_ULL_MUTEX_LOCK();
-    if(BT_ULL_LE_AM_DL_MODE == mode){
+    //BT_ULL_MUTEX_LOCK();
         bt_ull_le_am_dl_info_t *ull_am_info = &(am_ctx->dl_mode_ctx);
         bt_ull_le_am_state_t state = bt_ull_le_am_dl_get_state(ull_am_info);
         bt_ull_le_am_sub_state_t substate = bt_ull_le_am_dl_get_sub_state(ull_am_info);
-    ull_report("[ULL][LE][AM] dl play ind, state:%d, substate:%d, is_streaming:%d, is supd: %d, suspend: %d, waiting_play: %d, is_start_request: %d", 7, \
+    ull_report("[ULL][LE][AM] bt_ull_le_am_open_dl_codec, state:%d, substate:%d, is_streaming:%d, is supd: %d, suspend: %d, waiting_play: %d, is_start_request: %d", 7, \
             state, substate, ull_am_info->is_playing, am_ctx->dl_mode_ctx.am_sub_state, am_ctx->dl_mode_ctx.is_suspend, am_ctx->dl_mode_ctx.is_waiting_play, am_ctx->dl_mode_ctx.is_start_request);
         ull_am_info->is_add_waiting_list = false;
         if (am_ctx->dl_mode_ctx.is_suspend) {
@@ -645,7 +685,10 @@ static void bt_ull_le_am_dl_play_ind_handle_message(audio_src_srv_handle_t *hand
             //bt_ull_le_srv_active_streaming(); /*remove iso data path*/
             bt_ull_le_srv_notify_server_play_is_allow(BT_ULL_PLAY_ALLOW, BT_ULL_ALLOW_PLAY_REASON_AUDIO);
         }
-        if (ull_am_info->am_handle && (ull_am_info->am_handle == handle)) {
+        if (ull_am_info->am_flag & BT_ULL_LE_FLAG_GET_AUDIO_RESOURCE_WAIT_OPEN_CODEC) {
+            bt_ull_le_remove_am_dl_flag(BT_ULL_LE_FLAG_GET_AUDIO_RESOURCE_WAIT_OPEN_CODEC);
+        }
+        if (ull_am_info->am_handle) {
             if ((BT_ULL_LE_SUB_STATE_NONE == substate) || (BT_ULL_LE_SUB_STATE_PREPARE_AUDIO_SRC == substate)) {
                 bt_ull_le_am_dl_set_sub_state(ull_am_info, BT_ULL_LE_SUB_STATE_PREPARE_CODEC);//update status
 
@@ -660,6 +703,12 @@ static void bt_ull_le_am_dl_play_ind_handle_message(audio_src_srv_handle_t *hand
                 } else if (BT_ULL_LE_CODEC_DL_ULD_UL_LC3PLUS == bt_ull_le_srv_get_codec_type()) {
                     aud_cap.codec.ull_ble_dl_format.ble_codec.codec = BT_CODEC_TYPE_LE_AUDIO_ULD;
                 }
+#ifdef AIR_AUDIO_VEND_CODEC_ENABLE
+                else if (BT_ULL_LE_CODEC_DL_ULD_UL_OPUS == bt_ull_le_srv_get_codec_type()) {
+                    aud_cap.codec.ull_ble_dl_format.ble_codec.codec = BT_CODEC_TYPE_LE_AUDIO_ULD;
+                }
+#endif
+				
                 ull_report("[ULL][LE][AM] dl play ind, select codec_type: %d", 1, aud_cap.codec.ull_ble_dl_format.ble_codec.codec);
                 aud_cap.codec.ull_ble_dl_format.ble_codec.sample_rate = bt_ull_le_srv_get_codec_sample_rate(0, false, BT_ULL_ROLE_CLIENT);
                 if(BT_ULL_HEADSET_CLIENT == client_type || BT_ULL_SPEAKER_CLIENT == client_type) {
@@ -712,8 +761,7 @@ static void bt_ull_le_am_dl_play_ind_handle_message(audio_src_srv_handle_t *hand
                 audio_src_srv_update_state(ull_am_info->am_handle, AUDIO_SRC_SRV_EVT_PREPARE_STOP);
             }
         }
-    } 
-    BT_ULL_MUTEX_UNLOCK();
+    //BT_ULL_MUTEX_UNLOCK();
 }
 
 static void bt_ull_le_am_dl_stop_ind_handle_message(audio_src_srv_handle_t *handle)
@@ -728,10 +776,10 @@ static void bt_ull_le_am_dl_stop_ind_handle_message(audio_src_srv_handle_t *hand
         ull_report("[ULL][LE][AM] dl stop ind, state:%d, substate:%d, is_start_request:%d, am_flag: 0x%x", 4, state, substate, ull_am_info->is_start_request, ull_am_info->am_flag);
         if (ull_am_info->am_handle && (ull_am_info->am_handle == handle)) {
             /*1.notify server am stop*/
-            bt_ull_le_am_result_t result_notify;
+            /*bt_ull_le_am_result_t result_notify;
             result_notify.mode = mode;
             result_notify.result = BT_STATUS_SUCCESS;
-            bt_ull_le_am_event_callback(BT_ULL_LE_AM_STOP_IND, &result_notify, sizeof(result_notify));
+            bt_ull_le_am_event_callback(BT_ULL_LE_AM_STOP_IND, &result_notify, sizeof(result_notify));*/
 
             if (BT_ULL_LE_SUB_STATE_PREPARE_CODEC == substate) {
                 /*codec is openning, should release after codec open*/
@@ -745,6 +793,7 @@ static void bt_ull_le_am_dl_stop_ind_handle_message(audio_src_srv_handle_t *hand
                         audio_src_srv_update_state(ull_am_info->am_handle, AUDIO_SRC_SRV_EVT_READY);
                     }
                 } else {
+                    audio_src_srv_update_state(ull_am_info->am_handle, AUDIO_SRC_SRV_EVT_READY);
                     bt_ull_le_am_dl_set_sub_state(ull_am_info, BT_ULL_LE_SUB_STATE_NONE);//BTA-34248
                 }
             }
@@ -766,8 +815,18 @@ static void bt_ull_le_am_dl_reject_ind_handle_message(audio_src_srv_handle_t *ha
         //bt_ull_le_srv_deactive_streaming(); /*remove iso data path*/
         bt_ull_le_srv_notify_server_play_is_allow(BT_ULL_PLAY_DISALLOW, BT_ULL_ALLOW_PLAY_REASON_AUDIO);
         bt_ull_le_am_sub_state_t substate = bt_ull_le_am_dl_get_sub_state(ull_am_info);
-        ull_report("[ULL][LE][AM] dl reject ind, state:%d, substate:%d, is_start_request:%d", 3, state, substate, ull_am_info->is_start_request);
-        if (ull_am_info->am_handle && (ull_am_info->am_handle == handle)) {
+        ull_report("[ULL][LE][AM] dl reject ind, state:%d, substate:%d, is_start_request:%d, flag:0x%x", 4, state, substate, ull_am_info->is_start_request, ull_am_info->am_flag);
+
+		if (ull_am_info->am_handle && (ull_am_info->am_handle == handle)) {
+        #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+            //fix timing issue.
+            if (bt_ull_le_srv_check_inactive_aircis_feature_on()) {
+                if (ull_am_info->am_flag & BT_ULL_LE_FLAG_WAIT_AM_RESTART_CODEC) {
+                    ull_report("[ULL][LE][AM][BOB_DEBUG] dl reject ind, remove restart flag", 0);
+                    bt_ull_le_remove_am_dl_flag(BT_ULL_LE_FLAG_WAIT_AM_RESTART_CODEC);
+                }
+            }
+        #endif
             /*notify server play is reject*/
             bt_ull_le_am_result_t result_notify;
             result_notify.mode = mode;
@@ -795,7 +854,8 @@ static void bt_ull_le_am_dl_suspend_ind_handle_message(audio_src_srv_handle_t *h
         bt_ull_le_am_state_t state = bt_ull_le_am_dl_get_state(ull_am_info);
         bt_ull_le_am_sub_state_t substate = bt_ull_le_am_dl_get_sub_state(ull_am_info);
         //ull_report("[ULL][LE][AM]suspend ind, get audio source success, mode:%d, state:%d, substate:%d", 3, mode, state, substate);   
-        ull_report("[ULL][LE][AM] dl suspend ind, state:%d, substate:%d, is_streaming:%d, int_hd_type: %d", 4, state, substate, ull_am_info->is_start_request, int_hd->type);
+        ull_report("[ULL][LE][AM] dl suspend ind, state:%d, substate:%d, is_start_request:%d, int_hd_type: %d, is_playing: %d, flag:0x%x.", 6, 
+            state, substate, ull_am_info->is_start_request, int_hd->type, ull_am_info->is_playing, ull_am_info->am_flag);
         if (ull_am_info->am_handle && (ull_am_info->am_handle == handle)) {
             am_ctx->dl_mode_ctx.is_suspend = true;
             //bt_ull_le_srv_deactive_streaming(); /*remove iso data path*/
@@ -811,10 +871,24 @@ static void bt_ull_le_am_dl_suspend_ind_handle_message(audio_src_srv_handle_t *h
             } else if ((BT_ULL_LE_SUB_STATE_PREPARE_AUDIO_SRC == substate) || (BT_ULL_LE_SUB_STATE_NONE == substate)) {
                 bt_ull_le_am_dl_set_state(ull_am_info, BT_ULL_LE_AM_READY);//BTA-45379, before stop DL, reset state
                 bt_ull_le_am_dl_set_sub_state(ull_am_info, BT_ULL_LE_SUB_STATE_NONE);
-                bt_sink_srv_ami_audio_stop(ull_am_info->audio_id);
-                ull_am_info->is_playing = false;
-                //audio_src_srv_update_state(ull_am_info->am_handle, AUDIO_SRC_SRV_EVT_READY);
-                bt_sink_srv_state_reset(BT_SINK_SRV_STATE_STREAMING);
+                if (bt_ull_le_srv_check_inactive_aircis_feature_on()) {
+                    if (BT_ULL_LE_SUB_STATE_PREPARE_AUDIO_SRC == substate && (ull_am_info->am_flag & BT_ULL_LE_FLAG_GET_AUDIO_RESOURCE_WAIT_OPEN_CODEC)) {
+                        audio_src_srv_update_state(ull_am_info->am_handle, AUDIO_SRC_SRV_EVT_READY);
+                        //ull_am_info->is_suspend = false;
+                        bt_ull_le_am_add_waiting_list(BT_ULL_LE_AM_DL_MODE);
+                        bt_ull_le_remove_am_dl_flag(BT_ULL_LE_FLAG_GET_AUDIO_RESOURCE_WAIT_OPEN_CODEC);
+                        bt_ull_le_am_dl_set_sub_state(ull_am_info, BT_ULL_LE_SUB_STATE_NONE);
+                    } else if ((BT_ULL_LE_SUB_STATE_NONE == substate) && (BT_ULL_LE_AM_PLAYING == state)) {
+                        bt_sink_srv_ami_audio_stop(ull_am_info->audio_id);
+                        ull_am_info->is_playing = false;
+                        bt_sink_srv_state_reset(BT_SINK_SRV_STATE_STREAMING);                        
+                    }
+                } else {
+                    bt_sink_srv_ami_audio_stop(ull_am_info->audio_id);
+                    ull_am_info->is_playing = false;
+                    //audio_src_srv_update_state(ull_am_info->am_handle, AUDIO_SRC_SRV_EVT_READY);
+                    bt_sink_srv_state_reset(BT_SINK_SRV_STATE_STREAMING);
+                }
             }
             bt_ull_le_srv_deactive_streaming(); /*remove iso data path*/
 
@@ -876,7 +950,13 @@ static bt_status_t bt_ull_le_am_ul_play(bt_sink_srv_am_id_t aud_id, bt_ull_le_co
     //aud_cap.codec.ull_ble_dl_format.ble_codec.codec = (BT_ULL_LE_CODEC_LC3PLUS == codec_type) ? BT_CODEC_TYPE_LE_AUDIO_LC3PULS : BT_CODEC_TYPE_LE_AUDIO_VENDOR;
     if (BT_ULL_LE_CODEC_LC3PLUS == codec_type || BT_ULL_LE_CODEC_DL_ULD_UL_LC3PLUS == codec_type) {
         aud_cap.codec.ull_ble_dl_format.ble_codec.codec = BT_CODEC_TYPE_LE_AUDIO_LC3PULS;
-    } else if (BT_ULL_LE_CODEC_ULD == codec_type) {
+    } 
+#ifdef AIR_AUDIO_VEND_CODEC_ENABLE
+    else if (BT_ULL_LE_CODEC_DL_ULD_UL_OPUS == codec_type) {
+        aud_cap.codec.ull_ble_dl_format.ble_codec.codec = BT_CODEC_TYPE_LE_AUDIO_VENDOR;
+    }
+#endif
+    else if (BT_ULL_LE_CODEC_ULD == codec_type) {
         aud_cap.codec.ull_ble_dl_format.ble_codec.codec = BT_CODEC_TYPE_LE_AUDIO_ULD;
     } else {
         aud_cap.codec.ull_ble_dl_format.ble_codec.codec = BT_CODEC_TYPE_LE_AUDIO_VENDOR;
@@ -1026,80 +1106,81 @@ static void bt_ull_le_am_ul_callback(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am_
 {
     bt_ull_le_srv_am_info_t* am_ctx = bt_ull_le_get_audio_manager_contex();
     bt_ull_le_am_ul_info_t *ull_ul_am_info = &(am_ctx->ul_mode_ctx);
-    ull_report("[ULL][LE][AM] bt_ull_le_am_ul_callback, flag:0x%x, aud_id:%d, msg_id:%d, sub_msg:%d, is_mute:%d", 5, ull_ul_am_info->streaming_flag, aud_id, msg_id, sub_msg, ull_ul_am_info->is_mute);
-
-    if (ull_ul_am_info->audio_id == aud_id) {
-        bt_ull_le_am_result_t result_notify;
-        result_notify.mode = BT_ULL_LE_AM_UL_MODE;
-        switch (msg_id) {
-            case AUD_SINK_OPEN_CODEC: {
-                if (AUD_HFP_OPEN_CODEC_DONE == sub_msg) {
-                   ull_report("[ULL][LE][AM] ul open codec success!!", 0);
-                    result_notify.result = BT_STATUS_SUCCESS;
-                    bt_ull_le_am_event_callback(BT_ULL_LE_AM_PLAY_IND, &result_notify, sizeof(result_notify));
-                    //am_audio_side_tone_enable();//enable side tone
-                    ull_report("[ULL][LE][AM] check sidetone enable: %d", 1, ull_ul_am_info->sidetone_enable);
-                    if (ull_ul_am_info->sidetone_enable) {
-                        am_audio_side_tone_enable_by_scenario(SIDETONE_SCENARIO_ULL_V2);
+    if (ull_ul_am_info) {
+        ull_report("[ULL][LE][AM] bt_ull_le_am_ul_callback, flag:0x%x, aud_id:%d, msg_id:%d, sub_msg:%d, is_mute:%d", 5, ull_ul_am_info->streaming_flag, aud_id, msg_id, sub_msg, ull_ul_am_info->is_mute);
+        if (ull_ul_am_info->audio_id == aud_id) {
+            bt_ull_le_am_result_t result_notify;
+            result_notify.mode = BT_ULL_LE_AM_UL_MODE;
+            switch (msg_id) {
+                case AUD_SINK_OPEN_CODEC: {
+                    if (AUD_HFP_OPEN_CODEC_DONE == sub_msg) {
+                       ull_report("[ULL][LE][AM] ul open codec success!!", 0);
+                        result_notify.result = BT_STATUS_SUCCESS;
+                        bt_ull_le_am_event_callback(BT_ULL_LE_AM_PLAY_IND, &result_notify, sizeof(result_notify));
+                        //am_audio_side_tone_enable();//enable side tone
+                        ull_report("[ULL][LE][AM] check sidetone enable: %d", 1, ull_ul_am_info->sidetone_enable);
+                        if (ull_ul_am_info->sidetone_enable) {
+                            am_audio_side_tone_enable_by_scenario(SIDETONE_SCENARIO_ULL_V2);
+                        } else {
+                            am_audio_side_tone_disable_by_scenario(SIDETONE_SCENARIO_ULL_V2);
+                        }                   
+                        //BTA-32453
+                        if (BT_ULL_MIC_CLIENT == bt_ull_le_srv_get_client_type()) {
+                            if (bt_timer_ext_find(BT_ULL_LE_AM_UL_MUTE_TIMER_ID)) {
+                                bt_timer_ext_stop(BT_ULL_LE_AM_UL_MUTE_TIMER_ID);
+                            }
+                            bt_sink_srv_ami_audio_set_mute(ull_ul_am_info->audio_id, false, STREAM_IN);
+                        }
+                        if (!ull_ul_am_info->is_mute) {
+                            bt_sink_srv_ami_audio_set_mute(ull_ul_am_info->audio_id, false, STREAM_IN);
+                        }
+                        bt_ull_le_am_ul_handle_start_success_cnf(ull_ul_am_info);
                     } else {
+                       //ull_report_error("[ULL][LE][AM] ul open codec fail!!", 0);
+                        bt_ull_le_am_ul_handle_stop_success_or_start_fail_cnf(ull_ul_am_info);
+                    }
+                    break;
+                }
+                case AUD_SELF_CMD_REQ: {
+                    if (AUD_CMD_COMPLETE == sub_msg) {
+                        ull_report("[ULL][LE][AM] ul close codec success!!", 0);
+                        /*uplink is closed, give mic resource firstly*/
+                        if (ull_ul_am_info->resource_handle != NULL) {
+                            if ((AUDIO_SRC_SRV_EVENT_TAKE_SUCCESS == ull_ul_am_info->resource_handle->state)
+                                || (AUDIO_SRC_SRV_EVENT_SUSPEND == ull_ul_am_info->resource_handle->state)) {
+                                audio_src_srv_resource_manager_give(ull_ul_am_info->resource_handle);
+                            }
+                        }
+                        result_notify.result = BT_STATUS_SUCCESS;
+                        bt_ull_le_am_event_callback(BT_ULL_LE_AM_STOP_IND, &result_notify, sizeof(result_notify));
+                        if (BT_ULL_MIC_CLIENT == bt_ull_le_srv_get_client_type()) {
+                            if (bt_timer_ext_find(BT_ULL_LE_AM_UL_MUTE_TIMER_ID)) {
+                                bt_timer_ext_stop(BT_ULL_LE_AM_UL_MUTE_TIMER_ID);
+                            }
+                            //bt_sink_srv_ami_audio_set_mute(ull_ul_am_info->audio_id, false, STREAM_IN);
+                        }
+                        //am_audio_side_tone_disable();//disable side tone
                         am_audio_side_tone_disable_by_scenario(SIDETONE_SCENARIO_ULL_V2);
-                    }                   
-                    //BTA-32453
-                    if (BT_ULL_MIC_CLIENT == bt_ull_le_srv_get_client_type()) {
-                        if (bt_timer_ext_find(BT_ULL_LE_AM_UL_MUTE_TIMER_ID)) {
-                            bt_timer_ext_stop(BT_ULL_LE_AM_UL_MUTE_TIMER_ID);
-                        }
-                        bt_sink_srv_ami_audio_set_mute(ull_ul_am_info->audio_id, false, STREAM_IN);
+                        bt_ull_le_am_ul_handle_stop_success_or_start_fail_cnf(ull_ul_am_info);
+    
+                    } else if (AUD_CMD_FAILURE == sub_msg) {
+                        /*uplink is closed, give mic resource firstly*/
+                        if (ull_ul_am_info->resource_handle != NULL) {
+                            if ((AUDIO_SRC_SRV_EVENT_TAKE_SUCCESS == ull_ul_am_info->resource_handle->state)
+                                || (AUDIO_SRC_SRV_EVENT_SUSPEND == ull_ul_am_info->resource_handle->state)) {
+                                audio_src_srv_resource_manager_give(ull_ul_am_info->resource_handle);
+                            }
+                        }            
+                        result_notify.result = BT_STATUS_FAIL;
+                        bt_ull_le_am_event_callback(BT_ULL_LE_AM_PLAY_IND, &result_notify, sizeof(result_notify));
+                        am_audio_side_tone_disable();//disable side tone
+                        bt_ull_le_am_ul_handle_stop_success_or_start_fail_cnf(ull_ul_am_info);
                     }
-                    if (!ull_ul_am_info->is_mute) {
-                        bt_sink_srv_ami_audio_set_mute(ull_ul_am_info->audio_id, false, STREAM_IN);
-                    }
-                    bt_ull_le_am_ul_handle_start_success_cnf(ull_ul_am_info);
-                } else {
-                   //ull_report_error("[ULL][LE][AM] ul open codec fail!!", 0);
-                    bt_ull_le_am_ul_handle_stop_success_or_start_fail_cnf(ull_ul_am_info);
+                    break;
                 }
-                break;
+                default:
+                    break;
             }
-            case AUD_SELF_CMD_REQ: {
-                if (AUD_CMD_COMPLETE == sub_msg) {
-                    ull_report("[ULL][LE][AM] ul close codec success!!", 0);
-                    /*uplink is closed, give mic resource firstly*/
-                    if (ull_ul_am_info->resource_handle != NULL) {
-                        if ((AUDIO_SRC_SRV_EVENT_TAKE_SUCCESS == ull_ul_am_info->resource_handle->state)
-                            || (AUDIO_SRC_SRV_EVENT_SUSPEND == ull_ul_am_info->resource_handle->state)) {
-                            audio_src_srv_resource_manager_give(ull_ul_am_info->resource_handle);
-                        }
-                    }
-                    result_notify.result = BT_STATUS_SUCCESS;
-                    bt_ull_le_am_event_callback(BT_ULL_LE_AM_STOP_IND, &result_notify, sizeof(result_notify));
-                    if (BT_ULL_MIC_CLIENT == bt_ull_le_srv_get_client_type()) {
-                        if (bt_timer_ext_find(BT_ULL_LE_AM_UL_MUTE_TIMER_ID)) {
-                            bt_timer_ext_stop(BT_ULL_LE_AM_UL_MUTE_TIMER_ID);
-                        }
-                        //bt_sink_srv_ami_audio_set_mute(ull_ul_am_info->audio_id, false, STREAM_IN);
-                    }
-                    //am_audio_side_tone_disable();//disable side tone
-                    am_audio_side_tone_disable_by_scenario(SIDETONE_SCENARIO_ULL_V2);
-                    bt_ull_le_am_ul_handle_stop_success_or_start_fail_cnf(ull_ul_am_info);
-
-                } else if (AUD_CMD_FAILURE == sub_msg) {
-                    /*uplink is closed, give mic resource firstly*/
-                    if (ull_ul_am_info->resource_handle != NULL) {
-                        if ((AUDIO_SRC_SRV_EVENT_TAKE_SUCCESS == ull_ul_am_info->resource_handle->state)
-                            || (AUDIO_SRC_SRV_EVENT_SUSPEND == ull_ul_am_info->resource_handle->state)) {
-                            audio_src_srv_resource_manager_give(ull_ul_am_info->resource_handle);
-                        }
-                    }            
-                    result_notify.result = BT_STATUS_FAIL;
-                    bt_ull_le_am_event_callback(BT_ULL_LE_AM_PLAY_IND, &result_notify, sizeof(result_notify));
-                    am_audio_side_tone_disable();//disable side tone
-                    bt_ull_le_am_ul_handle_stop_success_or_start_fail_cnf(ull_ul_am_info);
-                }
-                break;
-            }
-            default:
-                break;
         }
     }
 }
@@ -1125,104 +1206,38 @@ static void bt_ull_le_am_ul_handle_start_success_cnf(bt_ull_le_am_ul_info_t* ull
 
 static void bt_ull_le_am_ul_handle_stop_success_or_start_fail_cnf(bt_ull_le_am_ul_info_t* ull_am_info)
 {
-    ull_report("[ULL][LE][AM] handle ul stop success or start fail cnf, is_request_transmitter_start = 0x%x, flag:0x%x, mic_rsc_state: 0x%x, is_suspend: %d", 4, 
-        ull_am_info->is_request_transmitter_start, ull_am_info->streaming_flag, ull_am_info->resource_handle->state, ull_am_info->is_suspend);
-
-    bt_ull_le_remove_am_ul_flag(BT_ULL_LE_AM_UL_STARTING);
-    bt_ull_le_remove_am_ul_flag(BT_ULL_LE_AM_UL_STOPPING);
-    ull_am_info->is_transmitter_start = false;
-    if (ull_am_info->streaming_flag & BT_ULL_LE_AM_UL_RECONFIG) {
-        bt_ull_le_remove_am_ul_flag(BT_ULL_LE_AM_UL_RECONFIG);
-        bt_sink_srv_am_result_t ami_ret = bt_sink_srv_ami_audio_close(ull_am_info->audio_id);
-        //ull_report("[ULL][LE][AM] ul deinit :%d", 1, ami_ret);
-        if (AUD_EXECUTION_SUCCESS == ami_ret) {
-            ull_am_info->audio_id = AUD_ID_INVALID;
-            bt_ull_le_am_ul_init();
-            //ull_am_info->is_request_transmitter_start = true;
-        }
-    }
-
-    if (ull_am_info->is_request_transmitter_start && !ull_am_info->is_mute && !ull_am_info->is_suspend) {
-        bt_ull_le_am_play(BT_ULL_LE_AM_UL_MODE, bt_ull_le_srv_get_codec_type(), false);
-    } else {
-        if (ull_am_info->resource_handle != NULL) {
-            if (ull_am_info->is_suspend) {
-                //ull_am_info->is_suspend = false;
-                audio_src_srv_resource_manager_add_waiting_list(ull_am_info->resource_handle);
-            }
-        }
-    }
-}
-#if 0
-static bt_status_t bt_ull_le_am_play_internal(bt_ull_le_am_mode_t mode, bt_ull_le_codec_t codec)
-{
-    bt_status_t ret = BT_STATUS_SUCCESS;
-    bt_ull_le_srv_am_info_t* am_ctx = bt_ull_le_get_audio_manager_contex();
-    if (BT_ULL_LE_AM_DL_MODE == mode) {
-        bt_ull_le_am_dl_info_t *ull_dl_am_info = &(am_ctx->dl_mode_ctx);
-        //ull_dl_am_info->codec_type = codec;
-        bt_ull_le_am_state_t state = bt_ull_le_am_dl_get_state(ull_dl_am_info);
-
-        bt_ull_le_am_sub_state_t substate = bt_ull_le_am_dl_get_sub_state(ull_dl_am_info);
-        ull_report("[ULL][LE][AM] bt_ull_le_am_play_internal, mode: %d, state: %d, substate: %d", 3, mode, state, substate);
-        bt_ull_le_am_remove_waiting_list(mode);
-        if (BT_ULL_LE_AM_READY == state) {
-            if (BT_ULL_LE_SUB_STATE_NONE == substate) {
-                //bt_ull_le_am_set_sub_state(mode, BT_ULL_LE_SUB_STATE_PREPARE_AUDIO_SRC);
-                bt_ull_le_am_dl_set_sub_state(ull_dl_am_info, BT_ULL_LE_SUB_STATE_PREPARE_AUDIO_SRC);
-                audio_src_srv_update_state(ull_dl_am_info->am_handle, AUDIO_SRC_SRV_EVT_PREPARE_PLAY);
-            } else if (BT_ULL_LE_SUB_STATE_CLEAR_CODEC == substate) {
-                /*codec is closing, just wait*/
-         //       ull_report("[ULL][LE][AM] bt_ull_le_am_play_internal, codec is closing, just wait", 0);
-                bt_ull_le_am_dl_set_sub_state(ull_dl_am_info, BT_ULL_LE_SUB_STATE_PREPARE_CODEC);
-            }
-        }       
+    if (ull_am_info && ull_am_info->resource_handle) {
+        ull_report("[ULL][LE][AM] handle ul stop success or start fail cnf, is_request_transmitter_start = 0x%x, flag:0x%x, mic_rsc_state: 0x%x, is_suspend: %d", 4, 
+            ull_am_info->is_request_transmitter_start, ull_am_info->streaming_flag, ull_am_info->resource_handle->state, ull_am_info->is_suspend);
     
-    } else if (BT_ULL_LE_AM_UL_MODE == mode) { 
-        bt_ull_le_am_ul_info_t *ull_ul_am_info = &(am_ctx->ul_mode_ctx);
-        //ull_ul_am_info->codec_type = codec;
-        if (NULL != ull_ul_am_info->resource_handle) {
-            ull_report("[ULL][LE][AM] bt_ull_le_am_play_internal, ul mic, take audio resource firstly.", 0);
-            audio_src_srv_resource_manager_take(ull_ul_am_info->resource_handle);
+        bt_ull_le_remove_am_ul_flag(BT_ULL_LE_AM_UL_STARTING);
+        bt_ull_le_remove_am_ul_flag(BT_ULL_LE_AM_UL_STOPPING);
+        ull_am_info->is_transmitter_start = false;
+        if (ull_am_info->streaming_flag & BT_ULL_LE_AM_UL_RECONFIG) {
+            bt_ull_le_remove_am_ul_flag(BT_ULL_LE_AM_UL_RECONFIG);
+            bt_sink_srv_am_result_t ami_ret = bt_sink_srv_ami_audio_close(ull_am_info->audio_id);
+            //ull_report("[ULL][LE][AM] ul deinit :%d", 1, ami_ret);
+            if (AUD_EXECUTION_SUCCESS == ami_ret) {
+                ull_am_info->audio_id = AUD_ID_INVALID;
+                bt_ull_le_am_ul_init();
+                //ull_am_info->is_request_transmitter_start = true;
+            }
+        }
+    
+        if (ull_am_info->is_request_transmitter_start && !ull_am_info->is_mute && !ull_am_info->is_suspend) {
+            bt_ull_le_am_play(BT_ULL_LE_AM_UL_MODE, bt_ull_le_srv_get_codec_type(), false);
         } else {
-        //  ull_report("[ULL][LE][AM] bt_ull_le_am_play_internal, ul mic, resource handle is NULL!.", 0);
-            ret = BT_STATUS_FAIL;
+            if (ull_am_info->resource_handle != NULL) {
+                if (ull_am_info->is_suspend) {
+                    //ull_am_info->is_suspend = false;
+                    audio_src_srv_resource_manager_add_waiting_list(ull_am_info->resource_handle);
+                }
+            }
         }
-    } 
-    return ret;
+    } else {
+        ull_report_error("[ULL][LE][AM] bt_ull_le_am_ul_handle_stop_success_or_start_fail_cnf,  null pointer!!", 0);
+    }
 }
-#endif
-#if 0 
-static bt_status_t bt_ull_le_am_stop_internal(bt_ull_le_am_mode_t mode)
-{
-    bt_status_t ret = BT_STATUS_SUCCESS;
-    bt_ull_le_srv_am_info_t* am_ctx = bt_ull_le_get_audio_manager_contex();
-    if (BT_ULL_LE_AM_DL_MODE == mode) {
-        bt_ull_le_am_dl_info_t *ull_dl_am_info = &(am_ctx->dl_mode_ctx);
-        bt_ull_le_am_remove_waiting_list(mode);//need remove waiting list when stop
-        bt_ull_le_am_state_t state = bt_ull_le_am_dl_get_state(ull_dl_am_info);
-        bt_ull_le_am_sub_state_t substate = bt_ull_le_am_dl_get_sub_state(ull_dl_am_info);
-
-        ull_report("[ULL][LE][AM] bt_ull_le_am_stop_internal, mode: %d, state: %d, substate: %d", 3, mode, state, substate);
-        if ((BT_ULL_LE_SUB_STATE_PREPARE_CODEC == substate) || (BT_ULL_LE_SUB_STATE_PREPARE_AUDIO_SRC == substate)) {
-            /*codec is opening, we just need wait*/
-          //  ull_report("[ULL][LE][AM] bt_ull_le_am_stop_internal, codec is openning or stoping, just wait", 0);
-            bt_ull_le_am_dl_set_sub_state(ull_dl_am_info, BT_ULL_LE_SUB_STATE_CLEAR_CODEC);
-        } else if ((BT_ULL_LE_SUB_STATE_NONE == substate) || (BT_ULL_LE_AM_PLAYING == state)) {
-            bt_ull_le_am_dl_set_sub_state(ull_dl_am_info, BT_ULL_LE_SUB_STATE_CLEAR_CODEC);
-            audio_src_srv_update_state(ull_dl_am_info->am_handle, AUDIO_SRC_SRV_EVT_PREPARE_STOP);//release audio source
-        }
-    } else if (BT_ULL_LE_AM_UL_MODE == mode) {
-        bt_ull_le_am_ul_info_t *ull_ul_am_info = &(am_ctx->ul_mode_ctx);
-        ull_report("[ULL][LE][AM] bt_ull_le_am_ul_stop_audio, audio_id: 0x%x, streaming_flag: 0x%x, is_transmitter_start: 0x%x", 3, 
-        ull_ul_am_info->audio_id, ull_ul_am_info->streaming_flag, ull_ul_am_info->is_transmitter_start);
-        if (BT_STATUS_FAIL == bt_ull_le_am_ul_stop_audio(ull_ul_am_info)) {
-            ret = BT_STATUS_FAIL;
-        }
-    } 
-    return ret;
-}
-#endif
 /**************************************************************************************************
 * Functions - External
 **************************************************************************************************/
@@ -1291,7 +1306,7 @@ bt_status_t bt_ull_le_am_play(bt_ull_le_am_mode_t mode, bt_ull_le_codec_t codec,
         bt_ull_le_am_state_t state = bt_ull_le_am_dl_get_state(ull_dl_am_info);
 
         bt_ull_le_am_sub_state_t substate = bt_ull_le_am_dl_get_sub_state(ull_dl_am_info);
-        ull_report("[ULL][LE][AM] bt_ull_le_am_play, is_app_request: %d, mode: %d, state: %d, substate: %d, is_suspend: %d", 5, is_app_request, mode, state, substate, ull_dl_am_info->is_suspend);
+        ull_report("[ULL][LE][AM] bt_ull_le_am_play, is_app_request: %d, mode: %d, state: %d, substate: %d, is_suspend: %d, streaming_flag: 0x%x.", 7, is_app_request, mode, state, substate, ull_dl_am_info->is_suspend, ull_dl_am_info->am_flag);
         if (BT_ULL_LE_SUB_STATE_NONE == substate) {
             bt_ull_le_am_remove_waiting_list(mode);
         }
@@ -1312,6 +1327,12 @@ bt_status_t bt_ull_le_am_play(bt_ull_le_am_mode_t mode, bt_ull_le_codec_t codec,
                 /*codec is closing, just wait*/
                 //ull_report("[ULL][LE][AM] bt_ull_le_am_play, codec is closing, just wait", 0);
                 bt_ull_le_am_dl_set_sub_state(ull_dl_am_info, BT_ULL_LE_SUB_STATE_PREPARE_CODEC);
+            } else if (bt_ull_le_srv_check_inactive_aircis_feature_on() && (BT_ULL_LE_SUB_STATE_PREPARE_AUDIO_SRC == substate) 
+                && (ull_dl_am_info->am_flag & BT_ULL_LE_FLAG_GET_AUDIO_RESOURCE_WAIT_OPEN_CODEC)
+                && ((bt_ull_le_srv_is_streaming(BT_ULL_LE_STREAM_MODE_DOWNLINK)) || (bt_ull_le_srv_is_streaming(BT_ULL_LE_STREAM_MODE_UPLINK)))) {
+                /*BT_ULL_LE_KEEP_CIS_ALWAYS_ALIVE: [Client] audio resource has get, open ull2 dl codec directly */
+                ull_report("[ULL][LE][AM] bt_ull_le_am_play, audio resource has get, open ull2 dl codec directly.", 0);
+                bt_ull_le_am_open_dl_codec();
             }
         }       
     
@@ -1344,14 +1365,25 @@ bt_status_t bt_ull_le_am_stop(bt_ull_le_am_mode_t mode, bool is_app_request)
         bt_ull_le_am_state_t state = bt_ull_le_am_dl_get_state(ull_dl_am_info);
         bt_ull_le_am_sub_state_t substate = bt_ull_le_am_dl_get_sub_state(ull_dl_am_info);
 
-        ull_report("[ULL][LE][AM] bt_ull_le_am_stop dl state: %d, substate: %d, is_add_waiting_list: %d", 3, state, substate, ull_dl_am_info->is_add_waiting_list);
+        ull_report("[ULL][LE][AM] bt_ull_le_am_stop dl state: %d, substate: %d, is_add_waiting_list: %d, flag: 0x%x", 4, state, substate, ull_dl_am_info->is_add_waiting_list, ull_dl_am_info->am_flag);
         if (ull_dl_am_info->is_add_waiting_list) {
             bt_ull_le_am_remove_waiting_list(mode);//need remove waiting list when stop
         }
         if ((BT_ULL_LE_SUB_STATE_PREPARE_CODEC == substate) || (BT_ULL_LE_SUB_STATE_PREPARE_AUDIO_SRC == substate)) {
             /*codec is opening, we just need wait*/
             //ull_report("[ULL][LE][AM] bt_ull_le_am_stop, codec is openning or stoping, just wait", 0);
-            bt_ull_le_am_dl_set_sub_state(ull_dl_am_info, BT_ULL_LE_SUB_STATE_CLEAR_CODEC);
+            if (bt_ull_le_srv_check_inactive_aircis_feature_on()) {
+                if (BT_ULL_LE_SUB_STATE_PREPARE_AUDIO_SRC == substate && (ull_dl_am_info->am_flag & BT_ULL_LE_FLAG_GET_AUDIO_RESOURCE_WAIT_OPEN_CODEC)) {
+                    //audio_src_srv_update_state(ull_dl_am_info->am_handle, AUDIO_SRC_SRV_EVT_READY);
+                    bt_ull_le_remove_am_dl_flag(BT_ULL_LE_FLAG_GET_AUDIO_RESOURCE_WAIT_OPEN_CODEC);
+                    bt_ull_le_am_dl_set_sub_state(ull_dl_am_info, BT_ULL_LE_SUB_STATE_NONE);                    
+                    audio_src_srv_update_state(ull_dl_am_info->am_handle, AUDIO_SRC_SRV_EVT_PREPARE_STOP);
+                } else {
+                    bt_ull_le_am_dl_set_sub_state(ull_dl_am_info, BT_ULL_LE_SUB_STATE_CLEAR_CODEC);
+                }
+            } else {
+                bt_ull_le_am_dl_set_sub_state(ull_dl_am_info, BT_ULL_LE_SUB_STATE_CLEAR_CODEC);
+            }
         } else if (BT_ULL_LE_AM_PLAYING == state) {
             bt_ull_le_am_dl_set_sub_state(ull_dl_am_info, BT_ULL_LE_SUB_STATE_CLEAR_CODEC);
             audio_src_srv_update_state(ull_dl_am_info->am_handle, AUDIO_SRC_SRV_EVT_PREPARE_STOP);//release audio source
@@ -1749,6 +1781,19 @@ void bt_ull_le_am_handle_receive_message(bt_ull_le_am_message_data_t *message)
             break;
         }
     }
+}
+
+bool bt_ull_le_am_check_request_start_flag(bt_ull_le_am_mode_t mode)
+{
+    bt_ull_le_srv_am_info_t* am_ctx = bt_ull_le_get_audio_manager_contex(); 
+    bool ret = false;
+    if (BT_ULL_LE_AM_UL_MODE == mode) {
+        ret = am_ctx->ul_mode_ctx.is_request_transmitter_start;
+    } else if (BT_ULL_LE_AM_DL_MODE == mode) {
+        ret = am_ctx->dl_mode_ctx.is_start_request;
+    }
+	ull_report("[ULL][LE][AM] bt_ull_le_am_check_request_start_flag, ret : %d.", 1, ret);	
+    return ret;
 }
 
 

@@ -76,7 +76,7 @@
 #define RESULT_FLASH_DONE (1)
 #define RESULT_FLASH_BUSY (0)
 #define RESULT_FLASH_FAIL (-1)
-
+#define RESULT_PROGRAM_CHECK_ERR   (-2)
 
 typedef struct {
     uint32_t TotalBlocks;

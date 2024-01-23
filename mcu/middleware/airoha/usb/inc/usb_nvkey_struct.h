@@ -35,6 +35,8 @@
 #ifndef USB_NVKEY_STRUCT_H
 #define USB_NVKEY_STRUCT_H
 
+#ifdef AIR_USB_ENABLE
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -128,4 +130,7 @@ typedef struct __attribute__((__packed__)) {
 }
 #endif
 
+#endif /* AIR_USB_ENABLE */
+
 #endif /* USB_NVKEY_STRUCT_H */
+

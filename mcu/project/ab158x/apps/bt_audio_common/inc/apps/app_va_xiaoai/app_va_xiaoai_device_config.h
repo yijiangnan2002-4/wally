@@ -65,7 +65,7 @@ typedef enum {
     XIAOAI_MMA_TYPE_EQ_MODE                                    = 0x0007,
     XIAOAI_MMA_TYPE_DEVICE_NAME                                = 0x0008,
     XIAOAI_MMA_TYPE_FIND_ME                                    = 0x0009,
-    XIAOAI_MMA_TYPE_SWICH_ANC_MODE                             = 0x000A,
+    XIAOAI_MMA_TYPE_SWITCH_ANC_MODE                            = 0x000A,
     XIAOAI_MMA_TYPE_SELECT_ANC_LEVEL                           = 0x000B,
     XIAOAI_MMA_TYPE_ANTI_LOST                                  = 0x000C,
     XIAOAI_MMA_TYPE_CHAT_FREE_MODE                             = 0x000D,
@@ -88,6 +88,8 @@ typedef enum {
     XIAOAI_MMA_TYPE_HEADSET_MODIFY_GYRO_RESULT                 = 0x001E,
     XIAOAI_MMA_TYPE_PHONE_MODIFY_HEADSET_NOISE_DIS             = 0x001F,
     XIAOAI_MMA_TYPE_HEADSET_NOISE_DIS_RESULT                   = 0x0020,
+
+    XIAOAI_MMA_TYPE_UNKNOWN                                    = 0xFFFF,
 } xiaoai_mma_type;
 
 #ifndef PACKED
@@ -115,7 +117,7 @@ uint8_t app_va_xiaoai_get_game_mode_for_miui();
 /* Get anti_lost state. */
 uint8_t app_va_xiaoai_get_anti_lost_state();
 
-#ifdef AIR_LEAKAGE_DETECTION_ENABLE
+#ifdef MTK_LEAKAGE_DETECTION_ENABLE
 void    app_va_xiaoai_notify_leakage_detectable(bool detectable);
 void    app_va_xiaoai_agent_handle_partner_leakage_result(uint8_t leakage_result);
 bool    app_va_xiaoai_is_ld_ongoing();
@@ -155,7 +157,7 @@ typedef struct {
     uint8_t type;
     uint8_t len;
     uint8_t data[1];
-} PACKED xiaoai_device_config_notfiy_t;
+} PACKED xiaoai_device_config_notify_t;
 
 typedef struct {
     uint16_t mma_type;

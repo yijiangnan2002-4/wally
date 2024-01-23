@@ -71,14 +71,14 @@ typedef struct stru_dsp_at_ld_para_s {
     S32 ld_noise_alpha_slow;        /**< @Value 0x7c28f600 @Desc 1 */
     S32 ld_noise_alpha_ultra_slow;  /**< @Value 0x7f7cee00 @Desc 1 */
     S32 ld_over_est;                /**< @Value 0x19999a00 @Desc 1 */
-    S16 ld_fir_smoother;            /**< @Value 32440 @Desc 1 */
-    S16 ld_init_gain;               /**< @Value 16384 @Desc 1 */
+    S16 SOS_Section;                /**< @Value     0x0003 @Desc 1 */
+    S16 ld_init_gain;               /**< @Value      16384 @Desc 1 */
     S32 pitch_thr;                  /**< @Value 0x003C0000 @Desc 1 */
     S32 pitch_thr2;                 /**< @Value 0x00230000 @Desc 1 */
-    S16 pitch_idx_st;               /**< @Value         0x000A @Desc 1 */
-    S16 pitch_idx_end;              /**< @Value        0x00C8 @Desc 1 */
-    S16 max_dis;                    /**< @Value         0x000A @Desc 1 */
-    S16 pitch_bin_end;              /**< @Value        0x0100 @Desc 1 */
+    S16 pitch_idx_st;               /**< @Value     0x000A @Desc 1 */
+    S16 pitch_idx_end;              /**< @Value     0x00C8 @Desc 1 */
+    S16 max_dis;                    /**< @Value     0x000A @Desc 1 */
+    S16 pitch_bin_end;              /**< @Value     0x0100 @Desc 1 */
     S16 pitch_en;                   /**< @Value     0x0002 @Desc 1 */
     S16 Pitch_Structure_Reserve;    /**< @Value     0x0000 @Desc 1 */
     S32 noise_floor_1;              /**< @Value 0x00000417 @Desc 1 */
@@ -111,6 +111,26 @@ typedef struct stru_dsp_at_ld_para_s {
     S32 noise_floor_28;             /**< @Value 0x000001EA @Desc 1 */
     S32 noise_floor_29;             /**< @Value 0x000001EA @Desc 1 */
     S32 noise_floor_30;             /**< @Value 0x000001FA @Desc 1 */
+    S16 numEngagingFrm;             /**< @Value        488 @Desc 1 */
+    S16 numDisengagingFrm;          /**< @Value        488 @Desc 1 */
+
+    S32 SOS_1b0;                    /**< @Value 0x0F234D40 @Desc 1 */
+    S32 SOS_1b1;                    /**< @Value 0xE217C980 @Desc 1 */
+    S32 SOS_1b2;                    /**< @Value 0x0EC560B0 @Desc 1 */
+    S32 SOS_1a1;                    /**< @Value 0xE21EEEA0 @Desc 1 */
+    S32 SOS_1a2;                    /**< @Value 0x0DEFD310 @Desc 1 */
+    S32 SOS_2b0;                    /**< @Value 0x10DA2040 @Desc 1 */
+    S32 SOS_2b1;                    /**< @Value 0xE2656EE0 @Desc 1 */
+    S32 SOS_2b2;                    /**< @Value 0x0CF556A0 @Desc 1 */
+    S32 SOS_2a1;                    /**< @Value 0xE2656EE0 @Desc 1 */
+    S32 SOS_2a2;                    /**< @Value 0x0DCF7700 @Desc 1 */
+    S32 SOS_3b0;                    /**< @Value 0x11900360 @Desc 1 */
+    S32 SOS_3b1;                    /**< @Value 0xE6254620 @Desc 1 */
+    S32 SOS_3b2;                    /**< @Value 0x0A6C0B60 @Desc 1 */
+    S32 SOS_3a1;                    /**< @Value 0xE6254620 @Desc 1 */
+    S32 SOS_3a2;                    /**< @Value 0x0BFC0ED0 @Desc 1 */
+    S32 SOS_gain;                   /**< @Value 0x0B53BEF5 @Desc 1 */
+
     //Reserve
     U32 RESERVE_1;                  /**< @Value 0x00000000 @Desc 1 */
     U32 RESERVE_2;                  /**< @Value 0x00000000 @Desc 1 */
@@ -146,23 +166,6 @@ typedef struct stru_dsp_at_ld_para_s {
     U32 RESERVE_32;                 /**< @Value 0x00000000 @Desc 1 */
     U32 RESERVE_33;                 /**< @Value 0x00000000 @Desc 1 */
     U32 RESERVE_34;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_35;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_36;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_37;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_38;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_39;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_40;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_41;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_42;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_43;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_44;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_45;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_46;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_47;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_48;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_49;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_50;                 /**< @Value 0x00000000 @Desc 1 */
-    U32 RESERVE_51;                 /**< @Value 0x00000000 @Desc 1 */
 } PACKED DSP_PARA_AT_LD_STRU;
 
 #ifdef WIN32

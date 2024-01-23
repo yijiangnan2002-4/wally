@@ -37,6 +37,7 @@
 #include "bt_type.h"
 
 #include "bt_sink_srv_le_volume.h"
+#include "bt_sink_srv_le_volume_internal.h"
 
 #include "ble_vcs.h"
 #include "ble_mics.h"
@@ -45,26 +46,35 @@
 #include "bt_sink_srv_le_cap_audio_manager.h"
 #include "bt_sink_srv_le_cap_stream.h"
 #include "bt_sink_srv_le_cap.h"
-
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
+#include "bt_sink_srv_a2dp.h"
+#endif
 #include "bt_le_audio_msglog.h"
 extern bool g_cap_am_local_mute;
 
-#define BT_VCS_VOLUME_CONSISTENT_ENABLE 0   /** < Defines the option about consistent volume. */
+#define BT_VCS_VOLUME_CONSISTENT_ENABLE     0                   /**< Defines the option about consistent volume. */
+#define BT_SINK_LE_VOLUME_VALUE_DEFAULT     0x77                /**< Default volume value. */
+#define BT_SINK_LE_MIC_LEVEL_DEFAULT        15                  /**< Default volume MIC level. */
+#define BT_SINK_LE_VOL_IN_LEVEL_VALUE_MAX (255)
 
 /**************************************************************************************************
 * Structure
 **************************************************************************************************/
-#define BT_SINK_LE_VOLUME_VALUE_DEFAULT 0x77    /**< Default volume value. */
-
 typedef struct {
     ble_vcs_volume_flags_t flags;
 } bt_sink_srv_le_volume_flags_t;
+
+typedef struct {
+	uint8_t volume_level;	    /**< The mic volume level. */
+    bool mute;          	    /**< The mic mute state. */
+} bt_sink_srv_le_mic_volume_state_t;
 
 /**************************************************************************************************
 * Variables
 **************************************************************************************************/
 static ble_vcs_volume_state_t g_sink_le_volume_state[CAP_UNICAST_DEVICE_NUM];
 static bt_sink_srv_le_volume_flags_t g_sink_le_volume_flags[CAP_UNICAST_DEVICE_NUM];
+static bt_sink_srv_le_mic_volume_state_t g_sink_le_mic_volume_state[CAP_UNICAST_DEVICE_NUM];
 
 /**************************************************************************************************
 * Prototype
@@ -105,12 +115,43 @@ static bt_sink_srv_le_volume_flags_t *bt_sink_srv_le_get_volume_flags(bt_handle_
     return &g_sink_le_volume_flags[link_idx];
 }
 
-uint8_t bt_sink_srv_le_mapping_am_volume(uint8_t vcs_volume)
+static bt_sink_srv_le_mic_volume_state_t *bt_sink_srv_le_get_mic_volume_state(bt_handle_t handle)
 {
-    return ((vcs_volume / BT_SINK_LE_VOLUME_VALUE_STEP) + ((0 == (vcs_volume % BT_SINK_LE_VOLUME_VALUE_STEP)) ? 0 : 1));
+    uint8_t link_idx;
+
+    if (BT_HANDLE_INVALID == handle) {
+        return NULL;
+    }
+
+    if (CAP_UNICAST_DEVICE_NUM <= (link_idx = bt_sink_srv_cap_get_link_index(handle))) {
+        return NULL;
+    }
+
+    return &g_sink_le_mic_volume_state[link_idx];
 }
 
-bt_status_t bt_sink_srv_le_set_am_volume(bt_sink_srv_le_stream_type_t type, uint8_t volume)
+uint8_t bt_sink_srv_le_mapping_am_volume(uint8_t vcs_volume, bt_sink_srv_cap_am_mode mode)
+{
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
+    if (mode >= CAP_AM_UNICAST_CALL_MODE_START && mode <= CAP_AM_UNICAST_CALL_MODE_END) {
+        return ((vcs_volume / BT_SINK_LE_VOLUME_VALUE_STEP) + ((0 == (vcs_volume % BT_SINK_LE_VOLUME_VALUE_STEP)) ? 0 : 1));
+    } else {
+        return (vcs_volume * (BT_SINK_SRV_A2DP_MAX_VOL_LEV-0.3f)) / BT_SINK_LE_VOL_IN_LEVEL_VALUE_MAX + 0.63f;
+    }
+#else
+    return ((vcs_volume / BT_SINK_LE_VOLUME_VALUE_STEP) + ((0 == (vcs_volume % BT_SINK_LE_VOLUME_VALUE_STEP)) ? 0 : 1));
+#endif
+}
+
+uint8_t bt_sink_srv_le_mapping_vcs_volume(uint8_t volume_level)
+{
+    if ((volume_level * BT_SINK_LE_VOLUME_VALUE_STEP) > BLE_VCS_VOLUME_MAX) {
+        return BLE_VCS_VOLUME_MAX;
+    }
+    return (volume_level * BT_SINK_LE_VOLUME_VALUE_STEP);
+}
+
+bt_status_t bt_sink_srv_le_set_am_volume(bt_sink_srv_le_stream_type_t type, uint8_t volume_level)
 {
     bt_sink_srv_am_stream_type_t in_out = ((type == BT_SINK_SRV_LE_STREAM_TYPE_IN) ? STREAM_IN : STREAM_OUT);
     bt_sink_srv_am_id_t aid = bt_sink_srv_cap_am_get_aid();
@@ -119,7 +160,7 @@ bt_status_t bt_sink_srv_le_set_am_volume(bt_sink_srv_le_stream_type_t type, uint
         return BT_STATUS_FAIL;
     }
 
-    if (AUD_EXECUTION_SUCCESS != bt_sink_srv_ami_audio_set_volume(aid, volume, in_out)) {
+    if (AUD_EXECUTION_SUCCESS != bt_sink_srv_ami_audio_set_volume(aid, volume_level, in_out)) {
         return BT_STATUS_FAIL;
     }
 
@@ -149,7 +190,9 @@ static void bt_sink_srv_le_adjust_am_volume_state(bool set_mute, uint8_t mute, b
 
     }
     if (set_volume && !am_mute) {
-        uint8_t am_volume = bt_sink_srv_le_mapping_am_volume(volume);
+        bt_sink_srv_cap_am_mode mode = bt_sink_srv_cap_am_get_current_mode();
+
+        uint8_t am_volume = bt_sink_srv_le_mapping_am_volume(volume, mode);
         if (am_volume) {
             bt_sink_srv_le_volume_set_mute(BT_SINK_SRV_LE_STREAM_TYPE_OUT, false);
             bt_sink_srv_le_set_am_volume(BT_SINK_SRV_LE_STREAM_TYPE_OUT, am_volume);
@@ -164,6 +207,7 @@ static bt_status_t bt_sink_srv_le_set_vcs_volume_flags(bt_handle_t handle, ble_v
     bt_sink_srv_le_volume_flags_t *p_flags = NULL;
 
     if (NULL == (p_flags = bt_sink_srv_le_get_volume_flags(handle))) {
+        le_audio_log("[sink_vol] set_vcs_volume_flags, invalid handle:%x", 1, handle);
         return BT_STATUS_FAIL;
     }
 
@@ -186,7 +230,7 @@ static bt_status_t bt_sink_srv_le_set_vcs_absolute_volume(bt_handle_t handle, ui
 
     if ((NULL == (p_vol = bt_sink_srv_le_get_volume_state(handle))) ||
         (volume > BLE_VCS_VOLUME_MAX)) {
-        le_audio_log("[sink_vol] set_vcs_absolute_volume, invalid param, vol:%x", 1, volume);
+        le_audio_log("[sink_vol] set_vcs_absolute_volume, invalid param, handle:%x vol:%x", 2, handle, volume);
         return BT_STATUS_FAIL;
     }
 
@@ -202,8 +246,8 @@ static bt_status_t bt_sink_srv_le_set_vcs_absolute_volume(bt_handle_t handle, ui
         if (p_vol->mute) {
             return BT_STATUS_SUCCESS;
         }
-
-        uint8_t am_volume = bt_sink_srv_le_mapping_am_volume(volume);
+        bt_sink_srv_cap_am_mode mode = bt_sink_srv_cap_am_get_current_mode();
+        uint8_t am_volume = bt_sink_srv_le_mapping_am_volume(volume, mode);
         if (am_volume) {
             bt_sink_srv_le_volume_set_mute(BT_SINK_SRV_LE_STREAM_TYPE_OUT, false);
             bt_sink_srv_le_set_am_volume(BT_SINK_SRV_LE_STREAM_TYPE_OUT, am_volume);
@@ -226,6 +270,7 @@ static bt_status_t bt_sink_srv_le_set_vcs_volume_state(bt_handle_t handle, bool 
     ble_vcs_volume_state_t *p_vol = NULL;
 
     if (NULL == (p_vol = bt_sink_srv_le_get_volume_state(handle))) {
+        le_audio_log("[sink_vol] set_vcs_mute_and_vol_updown, invalid handle:%x", 1, handle);
         return BT_STATUS_FAIL;
     }
 
@@ -282,21 +327,7 @@ static bt_status_t bt_sink_srv_le_set_vcs_volume_state(bt_handle_t handle, bool 
     }
 
     if (handle == bt_sink_srv_cap_stream_get_service_ble_link()) {
-        bool am_mute = false;
-
-        if (set_mute) {
-            am_mute = ((p_vol->mute) ? true : false);
-            bt_sink_srv_le_volume_set_mute(BT_SINK_SRV_LE_STREAM_TYPE_OUT, am_mute);
-        }
-        if (set_volume && !am_mute) {
-            uint8_t am_volume = bt_sink_srv_le_mapping_am_volume(p_vol->volume);
-            if (am_volume) {
-                bt_sink_srv_le_volume_set_mute(BT_SINK_SRV_LE_STREAM_TYPE_OUT, false);
-                bt_sink_srv_le_set_am_volume(BT_SINK_SRV_LE_STREAM_TYPE_OUT, am_volume);
-            } else {
-                bt_sink_srv_le_volume_set_mute(BT_SINK_SRV_LE_STREAM_TYPE_OUT, true);
-            }
-        }
+        bt_sink_srv_le_adjust_am_volume_state(set_mute, p_vol->mute, set_volume, p_vol->volume);
     }
 
 #if BT_VCS_VOLUME_CONSISTENT_ENABLE
@@ -305,6 +336,142 @@ static bt_status_t bt_sink_srv_le_set_vcs_volume_state(bt_handle_t handle, bool 
     ble_vcs_send_volume_state_notification(handle, p_vol->volume, p_vol->mute);
 #endif
     bt_sink_srv_le_set_vcs_volume_flags(handle, BLE_VCS_VOLUME_FLAGS_SETTING_PERSISTED);
+
+    return BT_STATUS_SUCCESS;
+}
+
+static bt_status_t bt_sink_srv_le_set_vcs_volume_level(bt_handle_t handle, bool set_mute, bool mute, bool set_volume, uint8_t volume_level)
+{
+    ble_vcs_volume_state_t *p_vol = NULL;
+    uint8_t volume = 0;
+
+    if (NULL == (p_vol = bt_sink_srv_le_get_volume_state(handle))) {
+        le_audio_log("[sink_vol] set_vcs_volume_level, invalid handle:%x", 1, handle);
+        return BT_STATUS_FAIL;
+    }
+
+    volume = bt_sink_srv_le_mapping_vcs_volume(volume_level);
+
+    le_audio_log("[sink_vol] set_vcs_volume_level, handle:%x vol_level:%x mute:%x->%x vol:%x->%x", 6,
+                 handle, volume_level,
+                 p_vol->mute, mute,
+                 p_vol->volume, volume);
+
+    if (set_mute) {
+        if (p_vol->mute != mute) {
+            p_vol->mute = mute;
+        } else {
+            set_mute = false;
+        }
+    }
+
+    if (set_volume) {
+        if (p_vol->volume != volume) {
+            p_vol->volume = volume;
+        } else {
+            set_volume = false;
+        }
+    }
+    le_audio_log("[sink_vol] set_vcs_volume_level, set_mute:%x set_vol:%x", 2, set_mute, set_volume);
+
+    if ((!set_volume) && (!set_mute)) {
+        return BT_STATUS_SUCCESS;
+    }
+
+    if (p_vol->mute) {
+        set_volume = false;
+
+    } else if (set_mute) {
+        /* mute -> unmute */
+        if (BLE_VCS_VOLUME_MIN == p_vol->volume) {
+            /* keep am mute */
+            set_mute = false;
+        }
+        set_volume = true;
+    }
+
+    if (handle == bt_sink_srv_cap_stream_get_service_ble_link()) {
+        bt_sink_srv_le_adjust_am_volume_state(set_mute, p_vol->mute, set_volume, p_vol->volume);
+    }
+
+#if BT_VCS_VOLUME_CONSISTENT_ENABLE
+    ble_vcs_send_all_volume_state_notification(p_vol->volume, p_vol->mute);
+#else
+    ble_vcs_send_volume_state_notification(handle, p_vol->volume, p_vol->mute);
+#endif
+    bt_sink_srv_le_set_vcs_volume_flags(handle, BLE_VCS_VOLUME_FLAGS_SETTING_PERSISTED);
+
+    return BT_STATUS_SUCCESS;
+}
+
+static bt_status_t bt_sink_srv_le_set_mic_volume_level(bt_handle_t handle, bool set_mute, bool mute, bool set_volume, uint8_t volume_level)
+{
+    bt_sink_srv_le_mic_volume_state_t *p_mic = NULL;
+
+    if (NULL == (p_mic = bt_sink_srv_le_get_mic_volume_state(handle))) {
+        le_audio_log("[sink_vol] set_mic_volume_level, invalid param, handle:%x", 1, handle);
+        return BT_STATUS_FAIL;
+    }
+
+    le_audio_log("[sink_vol] set_mic_volume_level, handle%x mute:%x->%x mic_level:%x->%x", 5,
+                 handle,
+                 p_mic->mute, mute,
+                 p_mic->volume_level, volume_level);
+
+    if (set_mute) {
+        if (p_mic->mute != mute) {
+            p_mic->mute = mute;
+        } else {
+            set_mute = false;
+        }
+    }
+
+    if (set_volume) {
+        if (p_mic->volume_level != volume_level) {
+            p_mic->volume_level = volume_level;
+        } else {
+            set_volume = false;
+        }
+    }
+
+    le_audio_log("[sink_vol] set_mic_volume_level, set_mute:%x set_volume:%x", 2, set_mute, set_volume);
+
+    if ((!set_volume) && (!set_mute)) {
+        return BT_STATUS_SUCCESS;
+    }
+
+    if (p_mic->mute) {
+        set_volume = false;
+
+    } else if (set_mute) {
+        /* mute -> unmute */
+        if (0 == p_mic->volume_level) {
+            /* keep am mute */
+            set_mute = false;
+        }
+        set_volume = true;
+    }
+
+    if (handle == bt_sink_srv_cap_stream_get_service_ble_link()) {
+        if (set_mute) {
+            bt_sink_srv_le_volume_set_mute(BT_SINK_SRV_LE_STREAM_TYPE_IN, p_mic->mute);
+        }
+
+        le_audio_log("[sink_vol] set_mic_mute_and_vol_level, set_mute:%x p_mic->mute:%x set_volume:%x", 3, set_mute, p_mic->mute, set_volume);
+
+        if (set_volume && !p_mic->mute) {
+            if (p_mic->volume_level) {
+                bt_sink_srv_le_volume_set_mute(BT_SINK_SRV_LE_STREAM_TYPE_IN, false);
+#if BT_SINK_LE_MIC_VOLUME_ADJUST_ENABLE
+                if (AUD_EXECUTION_SUCCESS != bt_sink_srv_ami_audio_set_volume_by_gain_value(bt_sink_srv_cap_am_get_aid(), p_mic->volume_level, STREAM_IN)) {
+                    return BT_STATUS_FAIL;
+                }
+#endif
+            } else {
+                bt_sink_srv_le_volume_set_mute(BT_SINK_SRV_LE_STREAM_TYPE_IN, true);
+            }
+        }
+    }
 
     return BT_STATUS_SUCCESS;
 }
@@ -321,6 +488,8 @@ bt_status_t bt_sink_srv_le_volume_init(void)
         g_sink_le_volume_state[i].volume = BT_SINK_LE_VOLUME_VALUE_DEFAULT;
         g_sink_le_volume_state[i].mute = BLE_VCS_UNMUTE;
         g_sink_le_volume_flags[i].flags = BLE_VCS_VOLUME_FLAGS_SETTING_NOT_PERSISTED;
+        g_sink_le_mic_volume_state[i].volume_level= BT_SINK_LE_MIC_LEVEL_DEFAULT;
+        g_sink_le_mic_volume_state[i].mute = false;
     }
     return BT_STATUS_SUCCESS;
 }
@@ -365,6 +534,7 @@ bt_status_t bt_sink_srv_le_volume_vcp_callback(bt_msg_type_t msg, bt_status_t st
             ble_vcs_volume_state_t *p_vol = NULL;
 
             if (NULL == (p_vol = bt_sink_srv_le_get_volume_state(ind->handle))) {
+                le_audio_log("[sink_vol] vcp_callback VOLUME_DOWN, invalid handle:%x", 1, ind->handle);
                 return BT_STATUS_FAIL;
             }
 
@@ -412,6 +582,7 @@ bt_status_t bt_sink_srv_le_volume_vcp_callback(bt_msg_type_t msg, bt_status_t st
             ble_vcs_volume_state_t *p_vol = NULL;
 
             if (NULL == (p_vol = bt_sink_srv_le_get_volume_state(ind->handle))) {
+                le_audio_log("[sink_vol] vcp_callback VOLUME_UP, invalid handle:%x", 1, ind->handle);
                 return BT_STATUS_FAIL;
             }
 
@@ -457,6 +628,7 @@ bt_status_t bt_sink_srv_le_volume_vcp_callback(bt_msg_type_t msg, bt_status_t st
             ble_vcs_volume_state_t *p_vol = NULL;
 
             if (NULL == (p_vol = bt_sink_srv_le_get_volume_state(ind->handle))) {
+                le_audio_log("[sink_vol] vcp_callback SET_ABSOLUTE_VOLUME, invalid handle:%x", 1, ind->handle);
                 return BT_STATUS_FAIL;
             }
 
@@ -489,6 +661,7 @@ bt_status_t bt_sink_srv_le_volume_vcp_callback(bt_msg_type_t msg, bt_status_t st
             ble_vcs_volume_state_t *p_vol = NULL;
 
             if (NULL == (p_vol = bt_sink_srv_le_get_volume_state(ind->handle))) {
+                le_audio_log("[sink_vol] vcp_callback UNMUTE, invalid handle:%x", 1, ind->handle);
                 return BT_STATUS_FAIL;
             }
 
@@ -521,6 +694,7 @@ bt_status_t bt_sink_srv_le_volume_vcp_callback(bt_msg_type_t msg, bt_status_t st
             ble_vcs_volume_state_t *p_vol = NULL;
 
             if (NULL == (p_vol = bt_sink_srv_le_get_volume_state(ind->handle))) {
+                le_audio_log("[sink_vol] vcp_callback MUTE, invalid handle:%x", 1, ind->handle);
                 return BT_STATUS_FAIL;
             }
 
@@ -600,6 +774,28 @@ bt_status_t bt_sink_srv_le_volume_vcp_send_action(bt_handle_t handle, bt_sink_sr
             return bt_sink_srv_le_set_vcs_absolute_volume(handle, ((bt_sink_srv_le_set_absolute_volume_t *)params)->volume);
         }
 
+        case BT_SINK_SRV_LE_VCS_ACTION_SET_MUTE_STATE_AND_VOLUME_LEVEL: {
+            if (NULL == params) {
+                return BT_STATUS_FAIL;
+            }
+            return bt_sink_srv_le_set_vcs_volume_level(handle,
+                                                        ((bt_sink_srv_le_set_mute_state_and_volume_level_t *)params)->set_mute,
+                                                        ((bt_sink_srv_le_set_mute_state_and_volume_level_t *)params)->mute,
+                                                        ((bt_sink_srv_le_set_mute_state_and_volume_level_t *)params)->set_volume_level,
+                                                        ((bt_sink_srv_le_set_mute_state_and_volume_level_t *)params)->volume_level);
+        }
+
+        case BT_SINK_SRV_LE_VCS_ACTION_SET_MIC_MUTE_STATE_AND_VOLUME_LEVEL: {
+            if (NULL == params) {
+                return BT_STATUS_FAIL;
+            }
+            return bt_sink_srv_le_set_mic_volume_level(handle,
+                                                        ((bt_sink_srv_le_set_mute_state_and_volume_level_t *)params)->set_mute,
+                                                        ((bt_sink_srv_le_set_mute_state_and_volume_level_t *)params)->mute,
+                                                        ((bt_sink_srv_le_set_mute_state_and_volume_level_t *)params)->set_volume_level,
+                                                        ((bt_sink_srv_le_set_mute_state_and_volume_level_t *)params)->volume_level);
+        }
+
         case BT_SINK_SRV_LE_VCS_ACTION_UNMUTE: {
             return bt_sink_srv_le_set_vcs_volume_state(handle, true, 0, false, false);
         }
@@ -648,19 +844,73 @@ bt_status_t bt_sink_srv_le_volume_set_mute(bt_sink_srv_le_stream_type_t type, bo
     return bt_sink_srv_le_volume_set_mute_ex(type, mute, false);
 }
 
-bt_sink_srv_le_volume_state_t bt_sink_srv_le_volume_get_state(bt_handle_t handle)
+bt_status_t bt_sink_srv_le_volume_set_mute_and_volume_level(int8_t aid, bt_sink_srv_le_stream_type_t type, bool mute, uint8_t vol_level)
 {
-    ble_vcs_volume_state_t *p_vol = NULL;
-    bt_sink_srv_le_volume_state_t state;
-    state.volume = BT_SINK_LE_VOLUME_VALUE_DEFAULT;
-    state.mute = false;
+    bt_sink_srv_am_stream_type_t in_out = ((type == BT_SINK_SRV_LE_STREAM_TYPE_IN) ? STREAM_IN : STREAM_OUT);
 
-    if (NULL != (p_vol = bt_sink_srv_le_get_volume_state(handle))) {
-        state.volume = bt_sink_srv_le_mapping_am_volume(p_vol->volume);
-        state.mute = ((p_vol->mute) ? true : false);
+    if (aid == AUD_ID_INVALID) {
+        return BT_STATUS_FAIL;
     }
 
-    return state;
+#if BT_SINK_LE_MIC_VOLUME_ADJUST_ENABLE
+    if (AUD_EXECUTION_SUCCESS != bt_sink_srv_ami_audio_set_volume_by_gain_value(aid, vol_level, in_out)) {
+        return BT_STATUS_FAIL;
+    }
+#else
+    if (type != BT_SINK_SRV_LE_STREAM_TYPE_IN) {
+        if (AUD_EXECUTION_SUCCESS != bt_sink_srv_ami_audio_set_volume_by_gain_value(aid, vol_level, in_out)) {
+            return BT_STATUS_FAIL;
+        }
+    }
+#endif
+
+    if (AUD_EXECUTION_SUCCESS != bt_sink_srv_ami_audio_set_mute(aid, mute, in_out)) {
+        return BT_STATUS_FAIL;
+    }
+
+    return BT_STATUS_SUCCESS;
+}
+
+bt_sink_srv_le_volume_state_t bt_sink_srv_le_volume_get_state(bt_handle_t handle, bt_sink_srv_cap_am_mode mode)
+{
+    ble_vcs_volume_state_t *p_vol = NULL;
+    bt_sink_srv_le_volume_state_t vol_state = {
+        .volume = BT_SINK_LE_VOLUME_VALUE_DEFAULT,
+        .mute = false,
+    };
+
+    if (NULL != (p_vol = bt_sink_srv_le_get_volume_state(handle))) {
+        vol_state.volume = bt_sink_srv_le_mapping_am_volume(p_vol->volume, mode);
+        vol_state.mute = ((p_vol->mute) ? true : false);
+    }
+    return vol_state;
+}
+
+bt_sink_srv_le_volume_state_t bt_sink_srv_le_volume_get_mic_volume_state(bt_handle_t handle)
+{
+    bt_sink_srv_le_mic_volume_state_t *p_mic = NULL;
+    bt_sink_srv_le_volume_state_t vol_state = {
+        .volume = BT_SINK_LE_MIC_LEVEL_DEFAULT,
+        .mute = false,
+    };
+
+    if (NULL != (p_mic = bt_sink_srv_le_get_mic_volume_state(handle))) {
+        vol_state.volume = p_mic->volume_level;
+        vol_state.mute = p_mic->mute;
+        le_audio_log("[sink_vol] get_mic_volume_state, handle:%x mute:%x mic_vol_level:%x", 3,
+                     handle, p_mic->mute, p_mic->volume_level);
+    }
+
+    return vol_state;
+}
+
+void bt_sink_srv_le_volume_reset_mic_volume_state(uint8_t link_idx)
+{
+    if (CAP_UNICAST_DEVICE_NUM <= link_idx) {
+        return;
+    }
+    g_sink_le_mic_volume_state[link_idx].volume_level = BT_SINK_LE_MIC_LEVEL_DEFAULT;
+    g_sink_le_mic_volume_state[link_idx].mute = false;
 }
 
 bt_status_t bt_sink_srv_le_volume_pts_set_paras(uint8_t volume, uint8_t mute, uint8_t flags)

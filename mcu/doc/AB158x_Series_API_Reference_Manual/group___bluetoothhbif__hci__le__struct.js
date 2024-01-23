@@ -269,6 +269,13 @@ var group___bluetoothhbif__hci__le__struct =
       [ "cig_id", "structbt__hci__le__remove__cig__t.html#af4b7938921a3f465f1440783c956592c", null ],
       [ "status", "structbt__hci__le__remove__cig__t.html#a67e61da5ff77543e30ff82f2bf25df7b", null ]
     ] ],
+    [ "bt_hci_le_subrate_t", "structbt__hci__le__subrate__t.html", [
+      [ "continuation_number", "structbt__hci__le__subrate__t.html#acb8c32ed4be698f16a089ea60c85c85f", null ],
+      [ "max_latency", "structbt__hci__le__subrate__t.html#aa1c72375adb301530685491acb4b2fdd", null ],
+      [ "subrate_max", "structbt__hci__le__subrate__t.html#a0db6c2c4eee5249b45ebe0970305cbc9", null ],
+      [ "subrate_min", "structbt__hci__le__subrate__t.html#abc9b1e7148e813d8a459f01b929e15e8", null ],
+      [ "supervision_timeout", "structbt__hci__le__subrate__t.html#ab9a2dab79f1bab2d97d672571c060bbc", null ]
+    ] ],
     [ "bt_hci_cmd_le_remote_connection_parameter_request_reply_t", "group___bluetoothhbif__hci__le__struct.html#gaf9afa84c95112b1adb119a2d8c8dc5ec", null ],
     [ "bt_hci_cmd_le_remove_device_from_periodic_advertiser_list_t", "group___bluetoothhbif__hci__le__struct.html#ga8a1c5a403abb1ef8174ca49ae13f0f6c", null ],
     [ "bt_hci_cmd_le_remove_device_from_white_list_t", "group___bluetoothhbif__hci__le__struct.html#ga0e3964aacd4d522fa041d5950aa2c781", null ],

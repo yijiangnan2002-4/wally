@@ -51,20 +51,32 @@
 #include "apps_debug.h"
 #include "apps_events_event_group.h"
 #include "apps_events_interaction_event.h"
+#ifdef AIR_XIAOAI_AUDIO_SWITCH_ENABLE
+#include "app_va_xiaoai_hfp_at_cmd.h"
+#endif
 
 #ifdef MTK_AWS_MCE_ENABLE
 #include "apps_aws_sync_event.h"
 #include "bt_aws_mce_srv.h"
 #endif
+#ifdef AIR_LE_AUDIO_ENABLE
+#include "app_lea_service_adv_mgr.h"
+#include "app_le_audio.h"
+#endif
+#ifdef MTK_IN_EAR_FEATURE_ENABLE
+#include "app_in_ear_utils.h"
+#endif
 #include "bt_callback_manager.h"
 #include "bt_connection_manager.h"
 #include "bt_device_manager.h"
 #include "bt_device_manager_le.h"
+#include "bt_device_manager_link_record.h"
 #include "bt_gatts.h"
 #include "bt_gap_le_service.h"
 #include "multi_ble_adv_manager.h"
 #include "bt_sink_srv.h"
 #include "bt_sink_srv_ami.h"
+#include "bt_sink_srv_hf.h"
 #include "mbedtls/aes.h"
 #include "mbedtls/bignum.h"
 #include "mbedtls/ecp.h"
@@ -76,7 +88,7 @@
 #include "task.h"
 #include "ui_shell_manager.h"
 
-#define LOG_TAG           "[MIUI_FC]"
+#define LOG_TAG           "[XIAOAI_V2]"
 
 #ifndef PACKED
 #define PACKED  __attribute__((packed))
@@ -92,11 +104,13 @@ extern void bt_os_layer_generate_random_block(uint8_t *random_block, uint8_t blo
 #define MIUI_FC_REVERSE_UINT32(X)   (((X) << 24) | (((X) << 8) & 0xFF0000) | \
                                     (((X) >> 8) & 0xFF00) | ((X) >> 24))
 
+#define MIUI_FC_REVERSE_UINT24(X)   (((X) << 16 & 0xFF0000) | ((X) & 0xFF00) | ((X) >> 16 & 0xFF))
+
 /*------------------------------------------------------------*/
 /*                    BLE GATT Services                       */
 /*------------------------------------------------------------*/
 
-#define MIUI_FC_BLE_SRV_UUID                      (0xFE2C)
+#define MIUI_FC_BLE_SRV_UUID                      (0xFD2D)
 
 #define MIUI_FC_BLE_DEFAULT_MTU                   (512)
 
@@ -229,6 +243,13 @@ typedef enum {
     MIUI_FC_PAIRING_RE_WRITE_ACCOUNT_KEY
 } miui_fc_pairing_initiate_t;
 
+typedef enum {
+    MIUI_FC_PAIRING_RECV_TYPE_NONE = 0,
+    MIUI_FC_PAIRING_RECV_TYPE_PAIRING,
+    MIUI_FC_PAIRING_RECV_TYPE_PASSKEY,
+    MIUI_FC_PAIRING_RECV_TYPE_ACCOUNT,
+} miui_fc_pairing_recv_type_t;
+
 typedef struct {
     uint8_t         message_type;
     uint8_t         initiate_role;
@@ -259,6 +280,12 @@ typedef struct {
     uint8_t         account_key[MIUI_FC_ACCOUNT_KEY_LEN - 1];
 } PACKED miui_fc_account_key_request_t;
 
+typedef union {
+    miui_fc_pairing_request_t     pairing_req;
+    miui_fc_passkey_request_t     passkey_req;
+    miui_fc_account_key_request_t account_req;
+} miui_fc_request_t;
+
 typedef struct {
     uint8_t         local_private_key[MIUI_FC_ECDH_PRIVATE_KEY_LEN];    // fixed value
     uint8_t         product_id[MIUI_FC_PRODUCT_ID_LEN];                 // fixed value
@@ -272,7 +299,10 @@ typedef struct {
     uint16_t        mtu;
 } PACKED miui_fc_context_t;
 
-miui_fc_context_t       miui_fc_context;
+static miui_fc_context_t       miui_fc_context = {0};
+static miui_fc_request_t       miui_fc_request = {0};
+static uint16_t                miui_fc_recv_data_len = 0;
+static uint8_t                 miui_fc_recv_type = 0;
 
 
 
@@ -514,6 +544,68 @@ static uint32_t miui_fc_product_id_read_char_callback(const uint8_t rw, uint16_t
     return 0;
 }
 
+static bt_status_t miui_fc_pairing_get_execute_write_result(bt_gatts_execute_write_req_t *req)
+{
+    if (req->flag != 1) {
+        APPS_LOG_MSGID_E(LOG_TAG" execute_write, not WRITE flag", 0);
+        return BT_STATUS_SUCCESS;
+    } else if (req->handle != miui_fc_context.conn_handle) {
+        APPS_LOG_MSGID_E(LOG_TAG" execute_write, handle not match", 0);
+        return BT_STATUS_SUCCESS;
+    }
+
+    if (miui_fc_recv_type == MIUI_FC_PAIRING_RECV_TYPE_PAIRING && (miui_fc_recv_data_len == sizeof(miui_fc_pairing_request_t) || miui_fc_recv_data_len == 16)) {
+        miui_fc_pairing_request_t *req = (miui_fc_pairing_request_t *)pvPortMalloc(sizeof(miui_fc_pairing_request_t));
+        if (req != NULL) {
+            // Update io_capability in advance because switch to UI_Shell task
+            bt_device_manager_set_io_capability(BT_GAP_IO_CAPABILITY_DISPLAY_YES_NO);
+            memset(req, 0, sizeof(miui_fc_pairing_request_t));
+            memcpy(req, (uint8_t *)&miui_fc_request, sizeof(miui_fc_pairing_request_t));
+            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_MIUI_FC_PAIRING_REQUEST);
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                                EVENT_GROUP_UI_SHELL_XIAOAI,
+                                XIAOAI_EVENT_MIUI_FC_PAIRING_REQUEST,
+                                req, sizeof(miui_fc_pairing_request_t), NULL, 0);
+        } else {
+            APPS_LOG_MSGID_E(LOG_TAG" execute_write pairing_callback, malloc fail", 0);
+        }
+    } else if (miui_fc_recv_type == MIUI_FC_PAIRING_RECV_TYPE_PASSKEY && miui_fc_recv_data_len == sizeof(miui_fc_passkey_request_t)) {
+        miui_fc_passkey_request_t *req = (miui_fc_passkey_request_t *)pvPortMalloc(sizeof(miui_fc_passkey_request_t));
+        if (req != NULL) {
+            memset(req, 0, sizeof(miui_fc_passkey_request_t));
+            memcpy(req, (uint8_t *)&miui_fc_request, sizeof(miui_fc_passkey_request_t));
+            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_MIUI_FC_PASSKEY_REQUEST_TIMER);
+            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_MIUI_FC_PASSKEY_REQUEST);
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                                EVENT_GROUP_UI_SHELL_XIAOAI,
+                                XIAOAI_EVENT_MIUI_FC_PASSKEY_REQUEST,
+                                req, sizeof(miui_fc_passkey_request_t), NULL, 0);
+        } else {
+            APPS_LOG_MSGID_E(LOG_TAG" execute_write passkey_callback, malloc fail", 0);
+        }
+    } else if (miui_fc_recv_type == MIUI_FC_PAIRING_RECV_TYPE_ACCOUNT && miui_fc_recv_data_len == sizeof(miui_fc_account_key_request_t)) {
+        miui_fc_account_key_request_t *req = (miui_fc_account_key_request_t *)pvPortMalloc(sizeof(miui_fc_account_key_request_t));
+        if (req != NULL) {
+            memset(req, 0, sizeof(miui_fc_account_key_request_t));
+            memcpy(req, (uint8_t *)&miui_fc_request, sizeof(miui_fc_account_key_request_t));
+            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_MIUI_FC_ACCOUNT_KEY_REQUEST);
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
+                                EVENT_GROUP_UI_SHELL_XIAOAI,
+                                XIAOAI_EVENT_MIUI_FC_ACCOUNT_KEY_REQUEST,
+                                req, sizeof(miui_fc_account_key_request_t), NULL, 0);
+        } else {
+            APPS_LOG_MSGID_E(LOG_TAG" execute_write account_callback, malloc fail", 0);
+        }
+    } else {
+        APPS_LOG_MSGID_E(LOG_TAG" execute_write, error recv_type=%d data_len=%d", 2, miui_fc_recv_type, miui_fc_recv_data_len);
+    }
+
+    miui_fc_recv_data_len = 0;
+    miui_fc_recv_type = MIUI_FC_PAIRING_RECV_TYPE_NONE;
+    bt_callback_manager_deregister_callback(bt_callback_type_gatts_get_execute_write_result, NULL);
+    return BT_STATUS_SUCCESS;
+}
+
 static uint32_t miui_fc_pairing_write_char_callback(const uint8_t rw, uint16_t handle,
                                                     void *data, uint16_t size,
                                                     uint16_t offset)
@@ -525,28 +617,29 @@ static uint32_t miui_fc_pairing_write_char_callback(const uint8_t rw, uint16_t h
     } else if (!miui_fc_context.discoverable_mode) {
         APPS_LOG_MSGID_E(LOG_TAG" pairing_write_char_callback, not discoverable mode", 0);
         return 0;
-    } else if (size != sizeof(miui_fc_pairing_request_t)) {
-        APPS_LOG_MSGID_E(LOG_TAG" pairing_write_char_callback, not match size %d", 1, size);
-        return 0;
     }
 
-    APPS_LOG_MSGID_I(LOG_TAG" pairing_write_char_callback, rw=%d data=0x%08X size=%d",
-                     3, rw, data, size);
+    APPS_LOG_MSGID_I(LOG_TAG" pairing_write_char_callback, rw=%d data=0x%08X size=%d offset=%d",
+                     4, rw, data, size, offset);
+    uint8_t *recv_data = (uint8_t *)&miui_fc_request;
+
     if (rw == BT_GATTS_CALLBACK_WRITE) {
-        miui_fc_pairing_request_t *req = (miui_fc_pairing_request_t *)pvPortMalloc(sizeof(miui_fc_pairing_request_t));
-        if (req != NULL) {
-            // Update io_capability in advance because switch to UI_Shell task
-            bt_device_manager_set_io_capability(BT_GAP_IO_CAPABILITY_DISPLAY_YES_NO);
-            memset(req, 0, sizeof(miui_fc_pairing_request_t));
-            memcpy(req, data, sizeof(miui_fc_pairing_request_t));
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
-                                EVENT_GROUP_UI_SHELL_XIAOAI,
-                                XIAOAI_EVENT_MIUI_FC_PAIRING_REQUEST,
-                                req, sizeof(miui_fc_pairing_request_t), NULL, 0);
-        } else {
-            APPS_LOG_MSGID_E(LOG_TAG" pairing_write_char_callback, malloc fail", 0);
+        if (size != sizeof(miui_fc_pairing_request_t)) {
+            APPS_LOG_MSGID_E(LOG_TAG" pairing_write_char_callback, WIRTE size not match %d", 1, size);
+            return 0;
         }
+        memcpy(recv_data, data, size);
+        miui_fc_recv_data_len += size;
+    } else if (rw == BT_GATTS_CALLBACK_PREPARE_WRITE) {
+        if (miui_fc_recv_data_len == 0) {
+            miui_fc_recv_type = MIUI_FC_PAIRING_RECV_TYPE_PAIRING;
+            bt_callback_manager_register_callback(bt_callback_type_gatts_get_execute_write_result, 0,
+                                                  &miui_fc_pairing_get_execute_write_result);
+        }
+        memcpy(recv_data + offset, data, size);
+        miui_fc_recv_data_len += size;
     }
+
     return size;
 }
 
@@ -558,27 +651,30 @@ static uint32_t miui_fc_passkey_write_char_callback(const uint8_t rw, uint16_t h
         || handle != miui_fc_context.conn_handle) {
         APPS_LOG_MSGID_E(LOG_TAG" passkey_write_char_callback, error handle", 0);
         return 0;
-    } else if (size != sizeof(miui_fc_passkey_request_t)) {
-        APPS_LOG_MSGID_E(LOG_TAG" passkey_write_char_callback, not match size %d", 1, size);
-        return 0;
     }
 
-    APPS_LOG_MSGID_I(LOG_TAG" passkey_write_char_callback, rw=%d data=0x%08X size=%d",
-                     3, rw, data, size);
+    APPS_LOG_MSGID_I(LOG_TAG" passkey_write_char_callback, rw=%d data=0x%08X size=%d offset=%d",
+                     4, rw, data, size, offset);
+    uint8_t *recv_data = (uint8_t *)&miui_fc_request;
+
     if (rw == BT_GATTS_CALLBACK_WRITE) {
-        miui_fc_passkey_request_t *req = (miui_fc_passkey_request_t *)pvPortMalloc(sizeof(miui_fc_passkey_request_t));
-        if (req != NULL) {
-            memset(req, 0, sizeof(miui_fc_passkey_request_t));
-            memcpy(req, data, sizeof(miui_fc_passkey_request_t));
-            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_MIUI_FC_PASSKEY_REQUEST_TIMER);
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
-                                EVENT_GROUP_UI_SHELL_XIAOAI,
-                                XIAOAI_EVENT_MIUI_FC_PASSKEY_REQUEST,
-                                req, sizeof(miui_fc_passkey_request_t), NULL, 0);
-        } else {
-            APPS_LOG_MSGID_E(LOG_TAG" passkey_write_char_callback, malloc fail", 0);
+        if (size != sizeof(miui_fc_passkey_request_t)) {
+            APPS_LOG_MSGID_E(LOG_TAG" passkey_write_char_callback, WIRTE not match size %d", 1, size);
+            return 0;
         }
+        memcpy(recv_data, data, size);
+        miui_fc_recv_data_len += size;
+    } else if (rw == BT_GATTS_CALLBACK_PREPARE_WRITE) {
+        if (miui_fc_recv_data_len == 0) {
+            miui_fc_recv_type = MIUI_FC_PAIRING_RECV_TYPE_PASSKEY;
+            bt_callback_manager_register_callback(bt_callback_type_gatts_get_execute_write_result, 0,
+                                                  &miui_fc_pairing_get_execute_write_result);
+        }
+        memcpy(recv_data + offset, data, size);
+        miui_fc_recv_data_len += size;
     }
+
+
     return size;
 }
 
@@ -595,22 +691,27 @@ static uint32_t miui_fc_account_key_write_char_callback(const uint8_t rw, uint16
         return 0;
     }
 
-    APPS_LOG_MSGID_I(LOG_TAG" account_key_write_char_callback, rw=%d data=0x%08X size=%d",
-                     3, rw, data, size);
+    APPS_LOG_MSGID_I(LOG_TAG" account_key_write_char_callback, rw=%d data=0x%08X size=%d offset=%d",
+                     4, rw, data, size, offset);
+    uint8_t *recv_data = (uint8_t *)&miui_fc_request;
+
     if (rw == BT_GATTS_CALLBACK_WRITE) {
-        miui_fc_account_key_request_t *req = (miui_fc_account_key_request_t *)pvPortMalloc(sizeof(miui_fc_account_key_request_t));
-        if (req != NULL) {
-            memset(req, 0, sizeof(miui_fc_account_key_request_t));
-            memcpy(req, data, sizeof(miui_fc_account_key_request_t));
-            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_MIUI_FC_ACCOUNT_KEY_REQUEST);
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
-                                EVENT_GROUP_UI_SHELL_XIAOAI,
-                                XIAOAI_EVENT_MIUI_FC_ACCOUNT_KEY_REQUEST,
-                                req, sizeof(miui_fc_account_key_request_t), NULL, 0);
-        } else {
-            APPS_LOG_MSGID_E(LOG_TAG" account_key_write_char_callback, malloc fail", 0);
+        if (size != sizeof(miui_fc_account_key_request_t)) {
+            APPS_LOG_MSGID_E(LOG_TAG" account_key_write_char_callback, WIRTE not match size %d", 1, size);
+            return 0;
         }
+        memcpy(recv_data, data, size);
+        miui_fc_recv_data_len += size;
+    } else if (rw == BT_GATTS_CALLBACK_PREPARE_WRITE) {
+        if (miui_fc_recv_data_len == 0) {
+            miui_fc_recv_type = MIUI_FC_PAIRING_RECV_TYPE_ACCOUNT;
+            bt_callback_manager_register_callback(bt_callback_type_gatts_get_execute_write_result, 0,
+                                                  &miui_fc_pairing_get_execute_write_result);
+        }
+        memcpy(recv_data + offset, data, size);
+        miui_fc_recv_data_len += size;
     }
+
     return size;
 }
 
@@ -681,6 +782,7 @@ bt_status_t miui_fc_ble_common_event_callback_handler(bt_msg_type_t msg, bt_stat
 
             miui_fc_context.conn_handle = conn_ind->connection_handle;
             miui_fc_context.mtu = 23;
+            miui_fc_recv_data_len = 0;
             APPS_LOG_MSGID_I(LOG_TAG" ble_common_callback, BT_GAP_LE_CONNECT_IND conn_handle=0x%04X",
                              1, miui_fc_context.conn_handle);
             break;
@@ -697,6 +799,7 @@ bt_status_t miui_fc_ble_common_event_callback_handler(bt_msg_type_t msg, bt_stat
                 bt_device_manager_set_io_capability(0xFF);
                 miui_fc_context.conn_handle = 0;
                 miui_fc_context.mtu = 0;
+                miui_fc_recv_data_len = 0;
             }
             break;
         }
@@ -738,13 +841,6 @@ bt_status_t miui_fc_ble_common_event_callback_handler(bt_msg_type_t msg, bt_stat
 /*------------------------------------------------------------*/
 /*                         Fast Connect                       */
 /*------------------------------------------------------------*/
-static bool miui_fc_is_account_key_pairing()
-{
-    bool ret = (miui_fc_context.account_key[0] == MIUI_FC_ACCOUNT_KEY_HEADER_BYTE);
-    APPS_LOG_MSGID_I(LOG_TAG" is_account_key_pairing, ret=%d", 1, ret);
-    return ret;
-}
-
 static bool miui_fc_is_edr_connected()
 {
     int device_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK), NULL, 0);
@@ -798,14 +894,87 @@ static uint8_t miui_fc_ble_adv_get_flag_byte()
     return flag;
 }
 
-static void miui_fc_update_ble_adv_data(uint8_t *adv_data)
+#ifdef AIR_XIAOAI_AUDIO_SWITCH_ENABLE
+static bool miui_fc_ble_adv_get_two_conn_and_audio_foucs_mma(void)
 {
+    bt_device_manager_link_record_t *link_record = (bt_device_manager_link_record_t *)bt_device_manager_link_record_get_connected_link();
+    uint8_t connected_num = link_record->connected_num;
+    bool two_conn = (connected_num >= 2);
+
+    xiaoai_conn_info_t conn_info = xiaoai_get_connection_info();
+    bool audio_foucs_mma = FALSE;
+    if (conn_info.conn_state == XIAOAI_STATE_CONNECTED && !conn_info.is_le_audio_mma) {
+        uint8_t *addr = conn_info.phone_addr;
+        bt_sink_srv_device_state_t state = {{0}, 0, 0, 0};
+        bt_sink_srv_get_device_state((const bt_bd_addr_t *)addr, &state, 1);
+        audio_foucs_mma = (state.music_state == BT_SINK_SRV_STATE_STREAMING || state.call_state > BT_SINK_SRV_STATE_STREAMING);
+    }
+
+    return (two_conn && !audio_foucs_mma);
+}
+#endif
+
+static uint8_t miui_fc_ble_adv_get_audio_switch_flag(void)
+{
+    uint8_t audio_switch_flag = 0;
+
+#ifdef AIR_LE_AUDIO_ENABLE
+    audio_switch_flag |= (0x1 << 6);                        // support EDR+LEA, no LEA only case
+#endif
+
+    bool cis_streaming = FALSE;
+#ifdef AIR_XIAOAI_AUDIO_SWITCH_ENABLE
+#ifdef AIR_LE_AUDIO_ENABLE
+    cis_streaming = app_le_audio_is_cis_streaming();        // LEA CIS playing
+    if (cis_streaming) {
+        audio_switch_flag |= (0x3 << 1);
+    }
+#endif
+
+    bool audio_switch_connected_flag = app_va_xiaoai_is_exist_audio_switch_connected();
+    if (audio_switch_connected_flag) {
+        audio_switch_flag |= (0x1 << 5);
+    }
+    bool auto_audio_switch = app_va_xiaoai_is_support_auto_audio_switch();
+    if (auto_audio_switch) {
+        audio_switch_flag |= (0x1 << 4);
+    }
+    bool two_conn_and_audio_foucs_mma = miui_fc_ble_adv_get_two_conn_and_audio_foucs_mma();  // Maybe unused now
+    if (two_conn_and_audio_foucs_mma) {
+        audio_switch_flag |= (0x1 << 3);
+    }
+
+    if (!cis_streaming) {
+        bt_sink_srv_state_t sink_state = bt_sink_srv_get_state();
+        if (sink_state == BT_SINK_SRV_STATE_STREAMING) {
+            audio_switch_flag |= (0x1 << 1);                // Music playing
+        } else if (sink_state > BT_SINK_SRV_STATE_STREAMING) {
+            bt_sink_srv_hf_context_t *hf_ctx = bt_sink_srv_hf_get_context_by_flag(BT_SINK_SRV_HF_FLAG_SCO_CREATED);
+            if (sink_state != BT_SINK_SRV_STATE_ACTIVE || hf_ctx != NULL) {
+                audio_switch_flag |= (0x2 << 1);            // Call ongoing
+            } else {
+                APPS_LOG_MSGID_E(LOG_TAG" audio_switch flag, BT Sink call state but no esco", 0);
+            }
+        }
+    }
+
+#ifdef MTK_IN_EAR_FEATURE_ENABLE
+    app_in_ear_state_t in_ear = app_in_ear_get_state();
+    audio_switch_flag |= (in_ear == APP_IN_EAR_STA_BOTH_IN ? 1 : 0);
+#endif
+#endif
+    return audio_switch_flag;
+}
+
+void miui_fc_update_v2_adv_data(bool is_with_flag, uint8_t *adv_data, uint8_t *adv_len)
+{
+    // V2 ADV Data
     // AD Type - Flags
     uint8_t byte0_ad_flags_length = 0x02;             // Byte 0, fixed
     uint8_t byte1_ad_flags_type = 0x01;               // Byte 1, fixed
     uint8_t byte2_ad_flags_value = 0x06;              // Byte 2, LE General Discoverable Mode + BR/EDR Not Supported
     // AD Type
-    uint8_t byte3_ad_data_length = 0x12;              // Byte 3, fixed 0x12 - 18bytes
+    uint8_t byte3_ad_data_length = 0x1B;              // Byte 3, fixed 0x1B - 27bytes
     uint8_t byte4_ad_type = 0x16;                     // Byte 4, fixed 0x16 - service data
     uint8_t byte5_ad_srv_uuid1 = (MIUI_FC_BLE_SRV_UUID & 0xFF);         // Byte 5, LSB
     uint8_t byte6_ad_srv_uuid2 = ((MIUI_FC_BLE_SRV_UUID >> 8) & 0xFF);  // Byte 6, MSB
@@ -822,6 +991,9 @@ static void miui_fc_update_ble_adv_data(uint8_t *adv_data)
     if (xiaoai_state == XIAOAI_STATE_CONNECTED) {
         byte12_flag2 += 0x02;
     }
+#ifdef AIR_XIAOAI_AUDIO_SWITCH_ENABLE
+    byte12_flag2 += 1;                                              // Byte 12, bit0 - support audio switch feature
+#endif
 
     // RSSI & battery & broadcast_count
 #if 0
@@ -833,55 +1005,88 @@ static void miui_fc_update_ble_adv_data(uint8_t *adv_data)
     uint8_t byte20_left_battery = 0;
     uint8_t byte21_case_battery = 0;
     xiaoai_get_all_battery_charging_info(&byte20_left_battery, &byte19_right_battery, &byte21_case_battery);
-    uint8_t byte22_broadcast_count = xiaoai_get_broadcast_count();  // Byte22, broadcast count
+    uint8_t byte22_broadcast_count = xiaoai_get_broadcast_count();              // Byte22, broadcast count
+    uint8_t byte27_audio_switch = miui_fc_ble_adv_get_audio_switch_flag();      // Byte27, audio switch flag
+    uint8_t byte28_lea_adv_state = 0;                                           // Byte2, LEA ADV state
+#ifdef AIR_LE_AUDIO_ENABLE
+    uint8_t adv_mode = app_lea_adv_mgr_get_adv_mode();
+    if (adv_mode == APP_LEA_ADV_MODE_NONE) {
+        byte28_lea_adv_state |= (0x3 << 6);
+    } else if (adv_mode == APP_LEA_ADV_MODE_GENERAL) {
+        byte28_lea_adv_state |= (0x1 << 6);
+    } else if (adv_mode > APP_LEA_ADV_MODE_GENERAL) {
+        byte28_lea_adv_state |= (0x2 << 6);
+    }
+#endif
 
     // Update adv_data
-    memset(adv_data, 0, 31);
-    adv_data[0] = byte0_ad_flags_length;
-    adv_data[1] = byte1_ad_flags_type;
-    adv_data[2] = byte2_ad_flags_value;
-    adv_data[3] = byte3_ad_data_length;
-    adv_data[4] = byte4_ad_type;
-    adv_data[5] = byte5_ad_srv_uuid1;
-    adv_data[6] = byte6_ad_srv_uuid2;
-    adv_data[7] = byte7_ad_pairing_type;
-    adv_data[8] = byte8_ad_major_id;
-    adv_data[9] = byte9_ad_minor_id1;
-    adv_data[10] = byte10_ad_minor_id2;
-    adv_data[11] = byte11_flag1;
-    adv_data[12] = byte12_flag2;
+    memset(adv_data, 0, BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM);
+    uint8_t len = 0;
+    if (is_with_flag) {
+        adv_data[len++] = byte0_ad_flags_length;
+        adv_data[len++] = byte1_ad_flags_type;
+        adv_data[len++] = byte2_ad_flags_value;
+    }
+    adv_data[len++] = byte3_ad_data_length;
+    adv_data[len++] = byte4_ad_type;
+    adv_data[len++] = byte5_ad_srv_uuid1;
+    adv_data[len++] = byte6_ad_srv_uuid2;
+    adv_data[len++] = byte7_ad_pairing_type;
+    adv_data[len++] = byte8_ad_major_id;
+    adv_data[len++] = byte9_ad_minor_id1;
+    adv_data[len++] = byte10_ad_minor_id2;
+    adv_data[len++] = byte11_flag1;
+    adv_data[len++] = byte12_flag2;
     // Account Key
     if (miui_fc_is_account_key_pairing()) {
-        memcpy(&adv_data[13], miui_fc_context.account_key, MIUI_FC_ACCOUNT_KEY_NEED_ADV_LEN);
+        memcpy(&adv_data[len], miui_fc_context.account_key, MIUI_FC_ACCOUNT_KEY_NEED_ADV_LEN);
     } else {
-        memcpy(&adv_data[13], miui_fc_context.random_account_key, MIUI_FC_ACCOUNT_KEY_NEED_ADV_LEN);
+        memcpy(&adv_data[len], miui_fc_context.random_account_key, MIUI_FC_ACCOUNT_KEY_NEED_ADV_LEN);
     }
-    adv_data[18] = byte18_rssi;
-    adv_data[19] = byte19_right_battery;
-    adv_data[20] = byte20_left_battery;
-    adv_data[21] = byte21_case_battery;
-    adv_data[22] = byte22_broadcast_count;
+    len += MIUI_FC_ACCOUNT_KEY_NEED_ADV_LEN;
+    adv_data[len++] = byte18_rssi;
+    adv_data[len++] = byte19_right_battery;
+    adv_data[len++] = byte20_left_battery;
+    adv_data[len++] = byte21_case_battery;
+    adv_data[len++] = byte22_broadcast_count;
     if ((byte12_flag2 & 0x04) > 0) {
-        adv_data[23] = (APP_VA_XIAOAI_PID & 0xFF);
-        adv_data[24] = ((APP_VA_XIAOAI_PID >> 8) & 0xFF);
-        adv_data[25] = (APP_VA_XIAOAI_VID & 0xFF);
-        adv_data[26] = ((APP_VA_XIAOAI_VID >> 8) & 0xFF);
+        adv_data[len++] = (APP_VA_XIAOAI_PID & 0xFF);
+        adv_data[len++] = ((APP_VA_XIAOAI_PID >> 8) & 0xFF);
+        adv_data[len++] = (APP_VA_XIAOAI_VID & 0xFF);
+        adv_data[len++] = ((APP_VA_XIAOAI_VID >> 8) & 0xFF);
     }
+    adv_data[len++] = byte27_audio_switch;
+    adv_data[len++] = byte28_lea_adv_state;
 
-    // BLE ADV Log
-    uint8_t *adv = adv_data;
-    APPS_LOG_MSGID_I(LOG_TAG" ble_adv_data, flag=%02X:%02X:%02X type=%02X:%02X:%02X:%02X:%02X",
-                     8, adv[0], adv[1], adv[2], adv[3], adv[4], adv[5], adv[6], adv[7]);
-    APPS_LOG_MSGID_I(LOG_TAG" ble_adv_data, major_id=%02X:%02X:%02X", 3, adv[8], adv[9], adv[10]);
-    APPS_LOG_MSGID_I(LOG_TAG" ble_adv_data, flag1=%02X flag2=%02X account_key=%02X:%02X:%02X:%02X:%02X",
-                     7, adv[11], adv[12], adv[13], adv[14], adv[15], adv[16], adv[17]);
-    APPS_LOG_MSGID_I(LOG_TAG" ble_adv_data, RSSI=%02X right=%02X left=%02X case=%02X count=%02X",
-                     5, adv[18], adv[19], adv[20], adv[21], adv[22]);
+    if (is_with_flag) {
+        // BLE ADV Log
+        uint8_t *adv = adv_data;
+        APPS_LOG_MSGID_I(LOG_TAG" V2 ADV, flag=%02X:%02X:%02X type=%02X:%02X:%02X:%02X:%02X",
+                         8, adv[0], adv[1], adv[2], adv[3], adv[4], adv[5], adv[6], adv[7]);
+        APPS_LOG_MSGID_I(LOG_TAG" V2 ADV, len=%d major_id=%02X:%02X:%02X", 4, len, adv[8], adv[9], adv[10]);
+        APPS_LOG_MSGID_I(LOG_TAG" V2 ADV, flag1=%02X flag2=%02X account_key=%02X:%02X:%02X:%02X:%02X",
+                         7, adv[11], adv[12], adv[13], adv[14], adv[15], adv[16], adv[17]);
+        APPS_LOG_MSGID_I(LOG_TAG" V2 ADV, RSSI=%02X right=%02X left=%02X case=%02X count=%02X audio_switch=%02X lea_adv=%02X",
+                         7, adv[18], adv[19], adv[20], adv[21], adv[22], adv[27], adv[28]);
+        if (adv_len != NULL) {
+            *adv_len = BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM;
+        }
+    } else {
+        adv_data[0] = BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM - 3 - 1;
+        if (adv_len != NULL) {
+            *adv_len = BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM - 3;
+        }
+    }
+}
+
+static void miui_fc_update_ble_adv_data(uint8_t *adv_data)
+{
+    miui_fc_update_v2_adv_data(TRUE, adv_data, NULL);
 }
 
 static void miui_fc_update_ble_scan_rsp(uint8_t *scan_rsp)
 {
-#if 0
+#if 0   // V1 Scan response
     // AD Type - Manufacturer Data(md)
     uint8_t byte0_ad_md_length = 0x0D;                // Byte 0, fixed, 0D=13 + 1 + 12
     uint8_t byte1_ad_md_type = 0xFF;                  // Byte 1, fixed
@@ -921,7 +1126,7 @@ static void miui_fc_update_ble_scan_rsp(uint8_t *scan_rsp)
     scan_rsp[13] = (scan_rsp[13] | ((color_type & 0x0F) << 3));
 
     // Byte 14~30, 0, reserved
-    for (int i = 14; i < 31; i++) {
+    for (int i = 14; i < BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM; i++) {
         scan_rsp[i] = 0;
     }
 
@@ -937,9 +1142,12 @@ static void miui_fc_update_ble_scan_rsp(uint8_t *scan_rsp)
     scan_rsp[8] = byte8_pid1;
 
     // BLE ADV SCAN RSP Log
-    APPS_LOG_MSGID_I(LOG_TAG" ble_scan_rsp, VID=%02X%02X PID=%02X%02X vaddr=%02X:%02X:%02X:XX device_type=%02X",
+    APPS_LOG_MSGID_I(LOG_TAG" V1 scan rsp, VID=%02X%02X PID=%02X%02X vaddr=%02X:%02X:%02X:XX device_type=%02X",
                      8, scan_rsp[2], scan_rsp[3], scan_rsp[7], scan_rsp[8],
                      scan_rsp[9], scan_rsp[10], scan_rsp[11], scan_rsp[13]);
+#else
+    uint8_t *v1_adv_data = xiaoai_get_v1_adv_data();
+    memcpy(scan_rsp, v1_adv_data, BT_HCI_LE_ADVERTISING_DATA_LENGTH_MAXIMUM);
 #endif
 }
 
@@ -1036,13 +1244,16 @@ static void miui_fc_bt_aws_event_data_proc(uint32_t event_id, void *extra_data, 
     if (aws_data_ind->module_id == BT_AWS_MCE_REPORT_MODULE_APP_ACTION) {
         uint32_t event_group = 0;
         uint32_t event_id = 0;
-        apps_aws_sync_event_decode(aws_data_ind, &event_group, &event_id);
+        void *p_extra_data = NULL;
+        uint32_t extra_data_len = 0;
+
+        apps_aws_sync_event_decode_extra(aws_data_ind, &event_group, &event_id, &p_extra_data, &extra_data_len);
 
         if (role == BT_AWS_MCE_ROLE_PARTNER && event_group == EVENT_GROUP_UI_SHELL_XIAOAI) {
-            APPS_LOG_MSGID_I(LOG_TAG" AWS_DATA event, partner recv XiaoAI event %d",
+            APPS_LOG_MSGID_I(LOG_TAG" AWS_DATA event, partner recv XiaoAI event 0x%04X",
                              1, event_id);
             if (event_id == XIAOAI_EVENT_MIUI_FC_SYNC_ACCOUNT_KEY) {
-                uint8_t *key = (uint8_t *)extra_data;
+                uint8_t *key = (uint8_t *)p_extra_data;
                 miui_fc_handle_account_key(key, FALSE);
             }
         }
@@ -1092,7 +1303,11 @@ static void miui_fc_xiaoai_event_proc(uint32_t event_id, void *extra_data, size_
                     miui_fc_pairing_response_t pairing_rsp = {0};
                     pairing_rsp.message_type = MIUI_FC_MESSAGE_TYPE_PAIRING_RSP;
                     uint8_t *local_addr = (uint8_t *)bt_connection_manager_device_local_info_get_local_address();
-                    memcpy(pairing_rsp.local_edr_addr, local_addr, 6);
+                    uint8_t temp_addr[BT_BD_ADDR_LEN] = {0};
+                    for (int i = 0; i < BT_BD_ADDR_LEN; i++) {
+                        temp_addr[i] = local_addr[BT_BD_ADDR_LEN - 1 - i];
+                    }
+                    memcpy(pairing_rsp.local_edr_addr, temp_addr, BT_BD_ADDR_LEN);
                     bt_os_layer_generate_random_block(pairing_rsp.random_data, 9);
                     miui_fc_aes_encrypt((uint8_t *)&pairing_rsp, output);
 
@@ -1103,7 +1318,7 @@ static void miui_fc_xiaoai_event_proc(uint32_t event_id, void *extra_data, size_
                         bt_device_manager_set_io_capability(BT_GAP_IO_CAPABILITY_DISPLAY_YES_NO);
                         ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI,
                                               XIAOAI_EVENT_MIUI_FC_PASSKEY_REQUEST_TIMER);
-                        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                             EVENT_GROUP_UI_SHELL_XIAOAI,
                                             XIAOAI_EVENT_MIUI_FC_PASSKEY_REQUEST_TIMER,
                                             NULL, 0,
@@ -1142,22 +1357,24 @@ static void miui_fc_xiaoai_event_proc(uint32_t event_id, void *extra_data, size_
                     bt_status_t bt_status = bt_gap_reply_user_confirm_request(accept);
                     APPS_LOG_MSGID_I(LOG_TAG" PASSKEY_REQUEST event, accept=%d bt_status=0x%08X",
                                      2, accept, bt_status);
-                    if (accept) {
-                        req->message_type = MIUI_FC_MESSAGE_TYPE_LOCAL_PASSKEY;
-                        req->passkey = MIUI_FC_REVERSE_UINT32((miui_fc_context.passkey << 8));
-                        miui_fc_aes_encrypt((uint8_t *)&req, output);
+                    if (accept && bt_status == BT_STATUS_SUCCESS) {
+                        miui_fc_passkey_request_t rsp = {0};
+                        rsp.message_type = MIUI_FC_MESSAGE_TYPE_LOCAL_PASSKEY;
+                        rsp.passkey = MIUI_FC_REVERSE_UINT24(miui_fc_context.passkey);
+                        bt_os_layer_generate_random_block(rsp.reserved, MIUI_FC_PASSKEY_RESERVED_LEN);
+                        miui_fc_aes_encrypt((uint8_t *)&rsp, output);
 
                         bool ret = miui_fc_ble_send_data(MIUI_FC_BLE_CHAR_TYPE_PASSKEY,
                                                          output, sizeof(miui_fc_passkey_request_t));
                         if (ret) {
-                            APPS_LOG_MSGID_E(LOG_TAG" PASSKEY_REQUEST event, send_passkey_req pass", 0);
+                            APPS_LOG_MSGID_I(LOG_TAG" PASSKEY_REQUEST event, send_passkey_req pass", 0);
                         } else {
                             APPS_LOG_MSGID_E(LOG_TAG" PASSKEY_REQUEST event, send_passkey_req fail", 0);
                             miui_fc_interupt_pairing();
                         }
                     } else {
-                        APPS_LOG_MSGID_E(LOG_TAG" PASSKEY_REQUEST event, error passkey 0x%08X-0x%08X",
-                                         2, peer_passkey, miui_fc_context.passkey);
+                        APPS_LOG_MSGID_E(LOG_TAG" PASSKEY_REQUEST event, error passkey 0x%08X-0x%08X bt_status=0x%08X",
+                                         3, peer_passkey, miui_fc_context.passkey, bt_status);
                         miui_fc_interupt_pairing();
                     }
                 } else {
@@ -1184,7 +1401,7 @@ static void miui_fc_xiaoai_event_proc(uint32_t event_id, void *extra_data, size_
                     // disconnect BLE & reset IO capability after delay_time for reply account_key
                     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI,
                                           XIAOAI_EVENT_MIUI_FC_RESET_REQUEST);
-                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                         EVENT_GROUP_UI_SHELL_XIAOAI,
                                         XIAOAI_EVENT_MIUI_FC_RESET_REQUEST,
                                         NULL, 0, NULL, 2000);
@@ -1212,6 +1429,17 @@ static void miui_fc_xiaoai_event_proc(uint32_t event_id, void *extra_data, size_
 /*------------------------------------------------------------*/
 /*                         Public API                         */
 /*------------------------------------------------------------*/
+bool miui_fc_is_account_key_pairing()
+{
+    bool ret = (miui_fc_context.account_key[0] == MIUI_FC_ACCOUNT_KEY_HEADER_BYTE);
+    //APPS_LOG_MSGID_I(LOG_TAG" is_account_key_pairing, ret=%d", 1, ret);
+    return ret;
+}
+
+uint16_t miui_fc_get_conn_handle(void)
+{
+    return miui_fc_context.conn_handle;
+}
 
 void miui_fast_connect_init()
 {
@@ -1232,7 +1460,7 @@ void miui_fast_connect_init()
     memcpy(miui_fc_context.product_id, miui_fc_default_product_id, MIUI_FC_PRODUCT_ID_LEN);
     memcpy(miui_fc_context.account_key, account_key, MIUI_FC_ACCOUNT_KEY_LEN);
 
-    bt_bd_addr_t *edr_addr = bt_device_manager_get_local_address();
+    uint8_t *edr_addr = (uint8_t *)bt_device_manager_get_local_address();
     // Cur Agent EDR MAC Addr LAP
     miui_fc_context.random_account_key[0] = 0;
     miui_fc_context.random_account_key[1] = 0;
@@ -1258,9 +1486,7 @@ void miui_fast_connect_ble_enable(bool enable)
 
 void miui_fast_connect_config_ble_adv(uint8_t *adv_data, uint8_t *scan_rsp)
 {
-    if ((adv_data == NULL && scan_rsp == NULL)
-        || (adv_data != NULL && sizeof(adv_data) != 31)
-        || (scan_rsp != NULL && sizeof(scan_rsp) != 31)) {
+    if (adv_data == NULL && scan_rsp == NULL) {
         APPS_LOG_MSGID_E(LOG_TAG" config_ble_adv, error parameter", 0);
         return;
     }
@@ -1275,7 +1501,7 @@ void miui_fast_connect_config_ble_adv(uint8_t *adv_data, uint8_t *scan_rsp)
 void miui_fast_connect_set_account_key(uint8_t *key)
 {
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
-    if (key == NULL || sizeof(key) != MIUI_FC_ACCOUNT_KEY_LEN) {
+    if (key == NULL) {
         APPS_LOG_MSGID_E(LOG_TAG" set_account_key, error key", 0);
         goto exit;
     } else if (key[0] != MIUI_FC_ACCOUNT_KEY_HEADER_BYTE) {

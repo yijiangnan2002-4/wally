@@ -142,12 +142,14 @@ static uint32_t usb_hid_srv_call_get_timer_type(TimerHandle_t timer_id)
 
 static void usb_hid_srv_call_handle_timeout(TimerHandle_t timer_id)
 {
+    uint8_t cmd;
     uint32_t timer_type = usb_hid_srv_call_get_timer_type(timer_id);
     USB_HID_SRV_CALL_MSGLOG_I("[USB][HID][CALL] timeout! type %d", 1, timer_type);
 
     switch (timer_type) {
         case USB_HID_SRV_CALL_TIMER_UNHOLD_TERMINATE: {
             //app_le_audio_usb_hid_terminate_call(1);
+            #if 0
             if (g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH) {
                 /* Terminate Call case I, II, III(1st time): normal case, use 05 00 00 to terminate call */
                 usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_NONE, USB_HID_SRV_CALL_CMD_LEN);
@@ -156,29 +158,54 @@ static void usb_hid_srv_call_handle_timeout(TimerHandle_t timer_id)
                 usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH, USB_HID_SRV_CALL_CMD_LEN);
                 usb_hid_srv_call_start_timer(USB_HID_SRV_CALL_TIMER_TERMINATE_DELAY, 500);
             }
+            #else
+            if (!(g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_HOLD)) {
+                usb_hid_srv_call_terminate_call(NULL);
+            }
+            #endif
             break;
         }
         case USB_HID_SRV_CALL_TIMER_ACCEPT_DELAY: {
             if(g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_FLASH){
-                usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_NONE, USB_HID_SRV_CALL_CMD_LEN);
+                cmd = g_usb_hid_srv_call_tx_cmd & (~USB_HID_SRV_CALL_TX_FLAG_FLASH);
+                usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
             }
             else{
-                usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH, USB_HID_SRV_CALL_CMD_LEN);
+                cmd = g_usb_hid_srv_call_tx_cmd | USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH;//OOC-3
+                //cmd = g_usb_hid_srv_call_tx_cmd & (~USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH);//OOC-2
+                usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
             }
             break;
         }
-        case USB_HID_SRV_CALL_TIMER_TERMINATE_DELAY:
+        case USB_HID_SRV_CALL_TIMER_TERMINATE_DELAY:{
+            cmd = g_usb_hid_srv_call_tx_cmd & (~USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH);//OOC-3
+            //cmd = g_usb_hid_srv_call_tx_cmd & (~USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH);//OOC-2
+            usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
+            break;
+        }
         case USB_HID_SRV_CALL_TIMER_REJECT_DELAY: {
-            usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_NONE, USB_HID_SRV_CALL_CMD_LEN);
+            cmd = g_usb_hid_srv_call_tx_cmd & (~USB_HID_SRV_CALL_TX_FLAG_HEADSET_ARRAY);
+            usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
             break;
         }
         case USB_HID_SRV_CALL_TIMER_HOLD_DELAY:
         case USB_HID_SRV_CALL_TIMER_UNHOLD_DELAY: {
-            usb_hid_srv_call_send_cmd((g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH), USB_HID_SRV_CALL_CMD_LEN);
+            cmd = g_usb_hid_srv_call_tx_cmd & (~USB_HID_SRV_CALL_TX_FLAG_FLASH);
+
+            usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
             break;
         }
         case USB_HID_SRV_CALL_TIMER_MUTE: {
-            usb_hid_srv_call_send_cmd((g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK), USB_HID_SRV_CALL_CMD_LEN);
+            //if (g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE) {
+            //    cmd = (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK);
+            //}
+            //else {
+            //    cmd = (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK) | USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE;;
+            //}
+            cmd = g_usb_hid_srv_call_tx_cmd ^ USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE;//OOC-3
+            //cmd = g_usb_hid_srv_call_tx_cmd & (~USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE);//OOC-2
+
+            usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
             break;
         }
         case USB_HID_SRV_CALL_TIMER_CHECK_UNHOLD_OR_TERMINATE: {
@@ -256,22 +283,35 @@ static void usb_hid_srv_call_send_event(usb_hid_srv_event_t event)
 
 static bt_status_t usb_hid_srv_call_accept_call(void *params)
 {
+    uint8_t cmd = USB_HID_SRV_CALL_TX_FLAG_NONE;
+
     if (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_RING) {
         if ((g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK)||
             (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_HOLD)) {
             // 2nd Incoming Call
-            usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_FLASH, USB_HID_SRV_CALL_CMD_LEN);
+            //cmd = (g_usb_hid_srv_call_tx_cmd & (USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH | USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE)) | USB_HID_SRV_CALL_TX_FLAG_FLASH;
+            cmd = g_usb_hid_srv_call_tx_cmd  | USB_HID_SRV_CALL_TX_FLAG_FLASH;
+            usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
             usb_hid_srv_call_start_timer(USB_HID_SRV_CALL_TIMER_ACCEPT_DELAY, 10);
         }
         else {
             // 1st Incoming Call
+#if 0
             if (!(g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH)){
+                //usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_NONE, USB_HID_SRV_CALL_CMD_LEN);
                 usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH, USB_HID_SRV_CALL_CMD_LEN);
             }
             else{
                 usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_NONE, USB_HID_SRV_CALL_CMD_LEN);
                 usb_hid_srv_call_start_timer(USB_HID_SRV_CALL_TIMER_ACCEPT_DELAY, USB_HID_SRV_CALL_ACCEPT_DELAY);
             }
+#else
+            cmd = g_usb_hid_srv_call_tx_cmd & (~USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH);//OOC-3
+            //cmd = g_usb_hid_srv_call_tx_cmd | USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH;//OOC-2
+            usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);//OOC-3
+
+            usb_hid_srv_call_start_timer(USB_HID_SRV_CALL_TIMER_ACCEPT_DELAY, 8);
+#endif
         }
         return BT_STATUS_SUCCESS;
     }
@@ -280,9 +320,12 @@ static bt_status_t usb_hid_srv_call_accept_call(void *params)
 
 static bt_status_t usb_hid_srv_call_reject_call(void *params)
 {
+    uint8_t cmd = USB_HID_SRV_CALL_TX_FLAG_NONE;
+
     if (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_RING) {
         //Reject incoming call
-        usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_HEADSET_ARRAY, USB_HID_SRV_CALL_CMD_LEN);
+        cmd = g_usb_hid_srv_call_tx_cmd | USB_HID_SRV_CALL_TX_FLAG_HEADSET_ARRAY;
+        usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
         usb_hid_srv_call_start_timer(USB_HID_SRV_CALL_TIMER_REJECT_DELAY, USB_HID_SRV_CALL_REJECT_DELAY);
         return BT_STATUS_SUCCESS;
     }
@@ -293,8 +336,10 @@ static bt_status_t usb_hid_srv_call_hold_call(void *params)
 {
     if (!(g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_HOLD)) {
         /* 05 09, 05 01, (wait 05 09 -> 05 08), 05 00 */
-        uint8_t hook_switch_state = g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH;
-        usb_hid_srv_call_send_cmd(hook_switch_state | USB_HID_SRV_CALL_TX_FLAG_FLASH, USB_HID_SRV_CALL_CMD_LEN);
+        //uint8_t cmd = (g_usb_hid_srv_call_tx_cmd & (USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH | USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE)) | USB_HID_SRV_CALL_TX_FLAG_FLASH;
+        uint8_t cmd = g_usb_hid_srv_call_tx_cmd | USB_HID_SRV_CALL_TX_FLAG_FLASH;
+
+        usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
         usb_hid_srv_call_start_timer(USB_HID_SRV_CALL_TIMER_HOLD_DELAY, USB_HID_SRV_CALL_HOLD_DELAY);
         return BT_STATUS_SUCCESS;
     }
@@ -305,8 +350,10 @@ static bt_status_t usb_hid_srv_call_unhold_call(void *params)
 {
     if (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_HOLD) {
         /* 05 08, 05 00, (wait 05 00 -> 05 01), 05 01 */
-        uint8_t hook_switch_state = g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH;
-        usb_hid_srv_call_send_cmd(hook_switch_state | USB_HID_SRV_CALL_TX_FLAG_FLASH, USB_HID_SRV_CALL_CMD_LEN);
+        //uint8_t cmd = (g_usb_hid_srv_call_tx_cmd & (USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH | USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE)) | USB_HID_SRV_CALL_TX_FLAG_FLASH;
+        uint8_t cmd = g_usb_hid_srv_call_tx_cmd | USB_HID_SRV_CALL_TX_FLAG_FLASH;
+
+        usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
         usb_hid_srv_call_start_timer(USB_HID_SRV_CALL_TIMER_UNHOLD_DELAY, USB_HID_SRV_CALL_UNHOLD_DELAY);
         return BT_STATUS_SUCCESS;
     }
@@ -315,6 +362,8 @@ static bt_status_t usb_hid_srv_call_unhold_call(void *params)
 
 static bt_status_t usb_hid_srv_call_terminate_call(void *params)
 {
+    uint8_t cmd = USB_HID_SRV_CALL_TX_FLAG_NONE;
+
     if (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_HOLD) {
         USB_HID_SRV_CALL_MSGLOG_I("[USB][HID][CALL] call held, unhold firstly", 0);
         /* unhold firstly and then terminate */
@@ -326,6 +375,7 @@ static bt_status_t usb_hid_srv_call_terminate_call(void *params)
            0: send 05 01 00 -> 500ms -> 05 00 00
            1: send 05 00 00
          */
+         #if 0
         if (g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH) {
             /* Terminate Call case I, II, III(1st time): normal case, use 05 00 00 to terminate call */
             usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_NONE, USB_HID_SRV_CALL_CMD_LEN);
@@ -334,6 +384,12 @@ static bt_status_t usb_hid_srv_call_terminate_call(void *params)
             usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH, USB_HID_SRV_CALL_CMD_LEN);
             usb_hid_srv_call_start_timer(USB_HID_SRV_CALL_TIMER_TERMINATE_DELAY, 500);
         }
+        #else
+        cmd = g_usb_hid_srv_call_tx_cmd | USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH;//OOC-3
+        //cmd = g_usb_hid_srv_call_tx_cmd | USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH;//OOC-2
+        usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
+        usb_hid_srv_call_start_timer(USB_HID_SRV_CALL_TIMER_TERMINATE_DELAY, 8);
+        #endif
 
     }
     return BT_STATUS_SUCCESS;
@@ -341,11 +397,41 @@ static bt_status_t usb_hid_srv_call_terminate_call(void *params)
 
 static bt_status_t usb_hid_srv_call_toggle_mic_mute(void *params)
 {
+    uint8_t cmd;
+    uint8_t mute;
+
     if (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_HOLD) {
         //USB_HID_SRV_CALL_MSGLOG_I("[USB][HID][CALL] call held, do not change mic mute state", 0);
         return BT_STATUS_FAIL;
     }
-    usb_hid_srv_call_send_cmd((g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK) | USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE, USB_HID_SRV_CALL_CMD_LEN);
+
+    //if (g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE) {
+    //    cmd = (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK) | USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE;
+    //}
+    //else {
+    //    cmd = (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK);
+    //}
+    if (params) {
+        mute = ((uint8_t *)params)[0];
+        if (mute) {
+            cmd = g_usb_hid_srv_call_tx_cmd & (~USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE);//OOC-3
+        }
+        else {
+            cmd = g_usb_hid_srv_call_tx_cmd | USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE;//OOC-3
+        }
+
+        USB_HID_SRV_CALL_MSGLOG_I("[USB][HID][CALL] mute with param, mute=%d", 1, mute);
+    }
+    else {
+        cmd = g_usb_hid_srv_call_tx_cmd;//OOC-3
+    }
+
+    if (!(g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_RING)) {
+        cmd |= USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH;//Add hookswitch bit for ZOOM call
+    }
+
+    //cmd = g_usb_hid_srv_call_tx_cmd | USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE;//OOC-2
+    usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
     usb_hid_srv_call_start_timer(USB_HID_SRV_CALL_TIMER_MUTE, USB_HID_SRV_CALL_MUTE_DELAY);
     return BT_STATUS_SUCCESS;
 }
@@ -357,6 +443,7 @@ void usb_hid_srv_call_rx_callback(uint8_t *p_data, uint32_t size)
 {
     uint8_t call_event;
     uint8_t rx_event;
+    //uint8_t cmd;
     usb_hid_srv_event_t event_id = USB_HID_SRV_EVENT_CALL_MAX;
 
     if (NULL == p_data) {
@@ -374,23 +461,30 @@ void usb_hid_srv_call_rx_callback(uint8_t *p_data, uint32_t size)
     rx_event = p_data[USB_HID_SRV_CALL_STATE_IDX];
     call_event = rx_event;
 
+    // Step 1.Process mic mute
+    if ((call_event & USB_HID_SRV_CALL_RX_FLAG_MUTE) && ((!(g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_MUTE)) || (!(g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE)))) {
+        //Mute 0->1
+        /* MIC MUTE  */
+        event_id = USB_HID_SRV_EVENT_CALL_MIC_MUTE;
+        //cmd = (g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH) | USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE;
+        //usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
+        g_usb_hid_srv_call_tx_cmd |= USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE;
+    }
+    else if ((!(call_event & USB_HID_SRV_CALL_RX_FLAG_MUTE)) && ((g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_MUTE) || (g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE))) {
+        //Mute 1->0
+        /* MIC UNMUTE  */
+        event_id = USB_HID_SRV_EVENT_CALL_MIC_UNMUTE;
+        //cmd = g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH;
+        //usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
+        g_usb_hid_srv_call_tx_cmd &= (~USB_HID_SRV_CALL_TX_FLAG_PHONE_MUTE);
+    }
+
+    usb_hid_srv_call_send_event(event_id);
+
     if (g_usb_hid_srv_call_rx_event == rx_event) {
         return;
     }
 
-    // Step 1.Process mic mute
-    if ((call_event & USB_HID_SRV_CALL_RX_FLAG_MUTE) && (!(g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_MUTE))) {
-        //Mute 0->1
-        /* MIC MUTE  */
-        event_id = USB_HID_SRV_EVENT_CALL_MIC_MUTE;
-    }
-    else if ((!(call_event & USB_HID_SRV_CALL_RX_FLAG_MUTE)) && (g_usb_hid_srv_call_rx_event & USB_HID_SRV_CALL_RX_FLAG_MUTE)) {
-        //Mute 1->0
-        /* MIC UNMUTE  */
-        event_id = USB_HID_SRV_EVENT_CALL_MIC_UNMUTE;
-    }
-
-    usb_hid_srv_call_send_event(event_id);
     call_event = call_event & (~USB_HID_SRV_CALL_RX_FLAG_MUTE);
     event_id = USB_HID_SRV_EVENT_CALL_MAX;
 
@@ -398,12 +492,17 @@ void usb_hid_srv_call_rx_callback(uint8_t *p_data, uint32_t size)
     if (!(USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK & call_event) && (USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK & g_usb_hid_srv_call_rx_event)) {
         //USB_HID_SRV_CALL_MSGLOG_I("[USB][HID][CALL] rx_callback off-hook 1->0", 0);
         /* Off-hook from 1 to 0, send 05 00 00 */
-        usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_NONE, USB_HID_SRV_CALL_CMD_LEN);
-
+        //cmd = g_usb_hid_srv_call_tx_cmd & (~USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH);//OOC-3
+        g_usb_hid_srv_call_tx_cmd &= (~USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH);//OOC-3 I think no need send HOOK_SWITCH state, only clear flag
+        //usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
+        //OOC-2 do nothing
     } else if ((USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK & call_event) && !(USB_HID_SRV_CALL_RX_FLAG_OFF_HOOK & g_usb_hid_srv_call_rx_event)) {
         //USB_HID_SRV_CALL_MSGLOG_I("[USB][HID][CALL] rx_callback off-hook 0->1", 0);
         /* Off-hook from 0 to 1, send 05 01 00 */
-        usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH, USB_HID_SRV_CALL_CMD_LEN);
+        //cmd = g_usb_hid_srv_call_tx_cmd | USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH;//OOC-3
+        g_usb_hid_srv_call_tx_cmd |= USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH;//OOC-3 I think no need send HOOK_SWITCH state, only set flag
+        //usb_hid_srv_call_send_cmd(cmd, USB_HID_SRV_CALL_CMD_LEN);
+        //OOC-2 do nothing
    }
 
     if ((call_event & USB_HID_SRV_CALL_RX_FLAG_RING) &&
@@ -465,14 +564,14 @@ void usb_hid_srv_call_rx_callback(uint8_t *p_data, uint32_t size)
         event_id = USB_HID_SRV_EVENT_CALL_END;
     }
 
-    if((event_id == USB_HID_SRV_EVENT_CALL_END) && (g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH)) {
+    //if((event_id == USB_HID_SRV_EVENT_CALL_END) && (g_usb_hid_srv_call_tx_cmd & USB_HID_SRV_CALL_TX_FLAG_HOOK_SWITCH)) {
         //Rx:05 04
         //Tx:05 01(Accept)
         //Rx:No Response
         //Rx:05 00(End by PC)
         //Tx:05 00(if don't send,will cause next incoming call will not be accepted)
-        usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_NONE, USB_HID_SRV_CALL_CMD_LEN);
-    }
+        //usb_hid_srv_call_send_cmd(USB_HID_SRV_CALL_TX_FLAG_NONE, USB_HID_SRV_CALL_CMD_LEN);
+    //}
 
     g_usb_hid_srv_call_rx_event = rx_event;
     usb_hid_srv_call_send_event(event_id);

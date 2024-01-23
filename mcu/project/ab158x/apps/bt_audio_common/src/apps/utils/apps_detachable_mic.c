@@ -59,6 +59,10 @@
 
 #include "stdlib.h"
 
+#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DCHS_MODE_ENABLE)
+#include "apps_race_cmd_co_sys_event.h"
+#endif
+
 #define LOG_TAG  "[DETACHABLE_MIC]"
 
 #define APPS_EVENTS_DETACHABLE_EVENT_DEBUG
@@ -88,6 +92,10 @@ static void detachable_mic_detect_callback(void *user_data)
     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_SWITCH_MIC);
     ui_shell_send_event(true, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                         APPS_EVENTS_INTERACTION_SWITCH_MIC, NULL, 0, NULL, DETACHABLE_MIC_PLUG_ANTI_SHAKE_TIME);
+#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DCHS_MODE_SLAVE_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DCHS_MODE_MASTER_ENABLE)
+        app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_DUAL_CHIP_CMD, APPS_RACE_CMD_CO_SYS_DUAL_CHIP_EVENT_SYNC_DETACHABLE_MIC_STATUS,
+                                        &s_current_mic, sizeof(voice_mic_type_t), false);
+#endif
 #endif
     hal_eint_unmask(BSP_DETACHABLE_MIC_EINT);
 }
@@ -204,6 +212,9 @@ void detachable_mic_set_mic_type(voice_mic_type_t mic)
 {
     APPS_LOG_MSGID_I(LOG_TAG" mic_switch by atci: ori=%d, cur=%d", 2, s_current_mic, mic);
     s_current_mic = mic;
+    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_SWITCH_MIC);
+    ui_shell_send_event(true, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                        APPS_EVENTS_INTERACTION_SWITCH_MIC, NULL, 0, NULL, DETACHABLE_MIC_PLUG_ANTI_SHAKE_TIME);
 }
 
 #endif

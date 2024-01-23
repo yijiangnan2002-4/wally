@@ -51,6 +51,7 @@
 #include "bt_init.h"
 #include "bt_sink_srv_ami.h"
 #include "bt_spp.h"
+#include "apps_config_audio_helper.h"
 #if defined(AIR_BT_FAST_PAIR_SASS_ENABLE) && defined(AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE)
 #include "app_fast_pair.h"
 #endif
@@ -64,6 +65,10 @@ extern bool app_le_audio_dhss_get_le_addr_list(uint8_t *dst);
 extern bool app_le_audio_dhss_is_data_ready(void);
 #endif
 #endif
+
+#if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
+#include "app_hearing_aid_activity.h"
+#endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
 
 extern bool bt_sink_srv_music_is_must_play_dev_by_addr(bt_bd_addr_t *sp_addr);
 
@@ -206,10 +211,14 @@ static bt_cm_config_t s_cm_config = {
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
     .max_connection_num = 2 + 1,
 #elif defined(AIR_MULTI_POINT_ENABLE)
+#if defined(AIR_3_LINK_MULTI_POINT_ENABLE)
+    .max_connection_num = 3 + 1 + 1,
+#else /* def AIR_3_LINK_MULTI_POINT_ENABLE */
     .max_connection_num = 2 + 1 + 1,
+#endif /* ndef AIR_3_LINK_MULTI_POINT_ENABLE */
 #else
     .max_connection_num = 1 + 1 + 1,
-#endif
+#endif  /* ndef AIR_MULTI_POINT_ENABLE */
 
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
     .connection_takeover = false,
@@ -640,7 +649,11 @@ bool bt_a2dp_get_media_mtu_size(const bt_a2dp_codec_capability_t *codec, uint32_
     if (!enable_3M_config) {
         *mtu_size = BT_A2DP_DISABLE_3M_MTU_SIZE;
         mtu_config_ret = true;
+        if(codec->type == 0xff){
+            *mtu_size = 679;
+        }
     }
+
 
     LOG_MSGID_I(BT_APP, "[BT_CUSTOMER] mtu_config_ret:%d, *mtu_size:%d", 2, ret, *mtu_size);
     return mtu_config_ret;
@@ -752,6 +765,11 @@ bt_sink_srv_allow_result_t bt_customer_config_allow_play(bt_sink_srv_device_stat
         return BT_SINK_SRV_ALLOW_RESULT_BYPASS;
     }
 
+    if (current_device->type == coming_device->type &&
+        0 == memcmp(current_device->address, coming_device->address, sizeof(bt_bd_addr_t))) {
+        return BT_SINK_SRV_ALLOW_RESULT_BYPASS;
+    }
+
 #if defined(AIR_BT_FAST_PAIR_SASS_ENABLE) && defined(AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE)
     result = app_fast_pair_multi_link_get_allow_play(current_device, coming_device);
 #endif
@@ -775,15 +793,6 @@ bt_sink_srv_allow_result_t bt_customer_config_allow_play(bt_sink_srv_device_stat
                 result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
             }
         }
-
-#if defined(AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE)
-        /* For Teams join case. */
-        if (BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED == current_device->sco_state &&
-            BT_SINK_SRV_STATE_ACTIVE == coming_device->call_state &&
-            BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED != coming_device->sco_state) {
-            result = BT_SINK_SRV_ALLOW_RESULT_ALLOW;
-        }
-#endif
     }
 
     return result;
@@ -851,10 +860,11 @@ bt_status_t bt_sink_srv_get_config(bt_sink_srv_get_config_t type, bt_sink_srv_ge
             /* If 2nd call  tries to interrupt 1st music, 1st music should pause and will resume. */
             if (BT_SINK_SRV_STATE_STREAMING == param->suspend_config_param.suspend_device_state.music_state) {
                 config->suspend_config.suspend_operation |= BT_SINK_SRV_INTERRUPT_OPERATION_PAUSE_MUSIC;
-                if (BT_SINK_SRV_STATE_STREAMING == param->suspend_config_param.coming_device_state.music_state) {
-                    config->suspend_config.will_suspend_resume = false;
-                } else {
+                if (BT_SINK_SRV_STATE_NONE != param->suspend_config_param.coming_device_state.call_state ||
+                    BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED != param->suspend_config_param.coming_device_state.sco_state) {
                     config->suspend_config.will_suspend_resume = true;
+                } else {
+                    config->suspend_config.will_suspend_resume = false;
                 }
             }
 
@@ -878,6 +888,12 @@ bt_status_t bt_sink_srv_get_config(bt_sink_srv_get_config_t type, bt_sink_srv_ge
                 config->suspend_config.will_suspend_resume = true;
                 config->suspend_config.suspend_operation |= BT_SINK_SRV_INTERRUPT_OPERATION_PAUSE_MUSIC;
             }
+
+            /* If other try to interrupt 1st call, call should resume. */
+            if (BT_SINK_SRV_STATE_NONE != param->suspend_config_param.suspend_device_state.call_state ||
+                BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED != param->suspend_config_param.suspend_device_state.sco_state) {
+                config->suspend_config.will_suspend_resume = true;
+            }
 #endif
 
             break;
@@ -886,7 +902,7 @@ bt_status_t bt_sink_srv_get_config(bt_sink_srv_get_config_t type, bt_sink_srv_ge
         case BT_SINK_SRV_GET_RESUME_CONFIG: {
             config->resume_config.resume_operation = BT_SINK_SRV_INTERRUPT_OPERATION_NONE;
 
-#ifdef AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE
+#if (defined AIR_BT_SINK_SRV_CUSTOMIZED_ENABLE) || (defined AIR_MS_TEAMS_UE_ENABLE)
             /* If music has been rejected or suspended, it should play while resume. */
             /* If call  has been rejected or suspended, it should unhold while resume. */
             if (BT_SINK_SRV_STATE_STREAMING == param->resume_config_param.resume_device_state.music_state) {
@@ -913,10 +929,21 @@ bt_status_t bt_sink_srv_get_config(bt_sink_srv_get_config_t type, bt_sink_srv_ge
 
     return BT_STATUS_SUCCESS;
 }
-#ifdef AIR_FEATURE_SINK_MHDT_SUPPORT
-bool bt_customer_config_is_support_mhdt()
+
+bool bt_sink_srv_call_get_sidetone_enable_config(void)
 {
-    return true;
+    bool enable = true;
+    const app_config_audio_helper_sidetone_data_t *data = apps_config_audio_helper_get_sidetone_data();
+
+    if (data != NULL) {
+        enable = data->enable && !apps_config_audio_helper_get_sidetone_temporary_disabled();
+    }
+
+#if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
+    enable = app_hearing_aid_is_ready_to_enable_side_tone();
+#endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
+
+    LOG_MSGID_I(BT_APP, "[BT_CUSTOMER] get sidetone enable config, %x", 1, enable);
+    return enable;
 }
-#endif
 

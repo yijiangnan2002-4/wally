@@ -44,8 +44,11 @@
 #include "apps_config_vp_index_list.h"
 
 #include "bt_connection_manager.h"
+#include "bt_connection_manager_internal.h"
 #include "bt_device_manager.h"
 #include "bt_sink_srv_le_cap_stream.h"
+#include "bt_sink_srv_le_volume.h"
+#include "bt_sink_srv_a2dp.h"
 
 #include "bt_gattc.h"
 #include "bt_gattc_discovery.h"
@@ -66,11 +69,13 @@
 #define APP_LE_AUDIO_ENABLE_NOTIFICATION        1
 #define APP_LE_AUDIO_CCCD_VALUE_LEN             2
 #define APP_LE_AUDIO_ATT_HDR_SIZE               3   /* |opcode (1 bytes) | att_handle (2 bytes) | */
-#define APP_LE_AUDIO_ATT_VAULE_IDX              3   /* byte_0: opcode, byte_1~2: att_handle, byte_3:att_value */
+#define APP_LE_AUDIO_ATT_VALUE_IDX              3   /* byte_0: opcode, byte_1~2: att_handle, byte_3:att_value */
 
 #define APP_LE_AIRD_MAX_CHARC_NUMBER            2
 
 #define APP_LE_AUDIO_AIRD_ACTION_QUEUE_MAX_NUM  5
+
+#define APP_LE_AUDIO_MAX_VOL_LEV            bt_sink_srv_ami_get_a2dp_max_volume_level() // LEA use A2DP volume table
 
 typedef struct {
     bt_gattc_discovery_characteristic_t         charc[APP_LE_AIRD_MAX_CHARC_NUMBER];
@@ -138,7 +143,7 @@ static void app_le_audio_aird_client_proc_interaction_group(uint32_t event_id, v
         bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
         app_rho_result_t rho_ret = (app_rho_result_t)extra_data;
         if (APP_RHO_RESULT_SUCCESS == rho_ret) {
-            uint32_t edr_num = bt_cm_get_connected_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 0);
+            uint32_t edr_num = bt_cm_get_acl_connected_device(NULL, 0);
             uint8_t lea_num = app_lea_conn_mgr_get_conn_num();
             bool is_sp_connected = (edr_num > 0 || lea_num > 1);
             APPS_LOG_MSGID_I(LOG_TAG"[Silence_Detection] [%02X] RHO end, edr_num=%d lea_num=%d",
@@ -190,7 +195,7 @@ static void app_le_audio_aird_cilent_do_resend_action(bt_handle_t handle, app_le
     while (node != NULL) {
         bt_status_t bt_status = bt_gattc_write_without_rsp(handle, FALSE, &(node->write_cmd));
         APPS_LOG_MSGID_I(LOG_TAG" do_resend_action, handle=0x%04X action=%d bt_status=0x%08X",
-                         3, handle, node->buf[APP_LE_AUDIO_ATT_VAULE_IDX], bt_status);
+                         3, handle, node->buf[APP_LE_AUDIO_ATT_VALUE_IDX], bt_status);
 
         info->action_queue = (uint8_t *)node->next;
         vPortFree(node);
@@ -220,7 +225,7 @@ static void app_le_audio_aird_client_handle_ready(bt_handle_t handle)
     }
 
 #ifdef AIR_INFORM_CONNECTION_STATUS_ENABLE
-    uint32_t edr_num = bt_cm_get_connected_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 0);
+    uint32_t edr_num = bt_cm_get_acl_connected_device(NULL, 0);
     uint8_t lea_num = app_lea_conn_mgr_get_conn_num();
     bool is_sp_connected = (edr_num > 0 || lea_num > 1);
     if (is_sp_connected) {
@@ -229,6 +234,9 @@ static void app_le_audio_aird_client_handle_ready(bt_handle_t handle)
         app_le_audio_aird_client_infom_connection_status(is_sp_connected);
     }
 #endif
+
+    extern void app_lea_conn_mgr_notify_aird_ready(bt_handle_t handle);
+    app_lea_conn_mgr_notify_aird_ready(handle);
 }
 
 static bt_status_t app_le_audio_aird_client_set_cccd(bt_handle_t handle, uint16_t att_handle, uint16_t cccd)
@@ -341,21 +349,39 @@ static void app_le_audio_aird_client_handle_notification(bt_gatt_handle_value_no
         }
         case APP_LE_AUDIO_AIRD_EVENT_MIC_MUTE: {
             if (data_len == sizeof(app_le_audio_aird_event_mic_mute_ind_t)) {
+
                 app_le_audio_aird_event_mic_mute_ind_t *ind = (app_le_audio_aird_event_mic_mute_ind_t *)&att_rsp->attribute_value[0];
+                bt_status_t ret;
+                bt_sink_srv_le_set_mute_state_and_volume_level_t param = {
+                    .set_mute = true,
+                    .mute = ind->mic_mute,
+                    .set_volume_level = false,
+                };
+
                 info->mic_mute = ind->mic_mute;
-                APPS_LOG_MSGID_I(LOG_TAG" handle_notification, mic_mute=%d", 1, info->mic_mute);
-                int8_t aud_id = bt_sink_srv_cap_am_get_aid();
-                if (aud_id != AUD_ID_INVALID) {
-                    APPS_LOG_MSGID_I(LOG_TAG" handle_notification RET=%d", 1,
-                                     bt_sink_srv_ami_audio_set_mute(aud_id, info->mic_mute, STREAM_IN));
-                }
+                APPS_LOG_MSGID_I(LOG_TAG" handle_noti_mic_mute, mute:%x %x", 2, info->mic_mute, param.mute);
+
+                ret = bt_sink_srv_le_volume_vcp_send_action(notification->connection_handle,
+                                                            BT_SINK_SRV_LE_VCS_ACTION_SET_MIC_MUTE_STATE_AND_VOLUME_LEVEL,
+                                                            &param);
+
+                APPS_LOG_MSGID_I(LOG_TAG" handle_noti_mic_mute, ret:%x", 1, ret);
             }
             break;
         }
         case APP_LE_AUDIO_AIRD_EVENT_VOLUME_CHANGE: {
             if (data_len == sizeof(app_le_audio_aird_event_volume_change_ind_t)) {
+
                 app_le_audio_aird_event_volume_change_ind_t *ind = (app_le_audio_aird_event_volume_change_ind_t *)&att_rsp->attribute_value[0];
+                bt_sink_srv_le_vcp_action_t action;
+                float vol = ind->volume;
+                float vol_level = 0;
+                bt_status_t ret = BT_STATUS_SUCCESS;
+
                 if (APP_LE_AUDIO_AIRD_STREAMING_INTERFACE_SPEAKER == ind->streaming_interface) {
+                    action = BT_SINK_SRV_LE_VCS_ACTION_SET_MUTE_STATE_AND_VOLUME_LEVEL;
+                    vol_level = (vol * APP_LE_AUDIO_MAX_VOL_LEV) / 100 + 0.5f;
+
                     if (APP_LE_AUDIO_AIRD_VOLUME_MAX == ind->volume
                         || APP_LE_AUDIO_AIRD_VOLUME_MIN == ind->volume) {
                         /* SPK vol: Max/Min */
@@ -364,11 +390,70 @@ static void app_le_audio_aird_client_handle_notification(bt_gatt_handle_value_no
                             && BT_AWS_MCE_ROLE_AGENT == bt_device_manager_aws_local_info_get_role())
 #endif
                         {
-                            voice_prompt_play_sync_vp_successed();
+                            voice_prompt_play_sync_vp_succeed();
                         }
                     }
+                } else if (APP_LE_AUDIO_AIRD_STREAMING_INTERFACE_MICROPHONE == ind->streaming_interface) {
+                    action = BT_SINK_SRV_LE_VCS_ACTION_SET_MIC_MUTE_STATE_AND_VOLUME_LEVEL;
+                    vol_level = (vol * 15) / 100 + 0.5f;
+
+                } else {
+                    break;
                 }
+
+                bt_sink_srv_le_set_mute_state_and_volume_level_t param = {
+                    .set_mute = false,
+                    .set_volume_level = true,
+                    .volume_level = (uint8_t)vol_level,
+                };
+
+                APPS_LOG_MSGID_I(LOG_TAG" handle_noti_vol_change, action:%x ind(vol:%x) param(vol_level:%d set_vol_level:%x mute:%x set_mute:%x)", 6,
+                                 action, ind->volume,
+                                 param.volume_level, param.set_volume_level, param.mute, param.set_mute);
+
+                ret = bt_sink_srv_le_volume_vcp_send_action(notification->connection_handle, action, &param);
+
+                APPS_LOG_MSGID_I(LOG_TAG" handle_noti_vol_change, ret:%x", 1, ret);
             }
+            break;
+        }
+        case APP_LE_AUDIO_AIRD_EVENT_EXTENDED_VOLUME_CHANGE: {
+            if (data_len != sizeof(app_le_audio_aird_event_extended_volume_change_ind_t)) {
+                break;
+            }
+
+            app_le_audio_aird_event_extended_volume_change_ind_t *ind = (app_le_audio_aird_event_extended_volume_change_ind_t *)&att_rsp->attribute_value[0];
+            bt_sink_srv_le_vcp_action_t action;
+            float vol = ind->volume;
+            float vol_level = 0;
+            bt_status_t ret;
+
+            if (APP_LE_AUDIO_AIRD_STREAMING_INTERFACE_SPEAKER == ind->streaming_interface) {
+                action = BT_SINK_SRV_LE_VCS_ACTION_SET_MUTE_STATE_AND_VOLUME_LEVEL;
+                vol_level = (vol * APP_LE_AUDIO_MAX_VOL_LEV) / 100 + 0.5f;
+
+            } else if (APP_LE_AUDIO_AIRD_STREAMING_INTERFACE_MICROPHONE == ind->streaming_interface){
+                action = BT_SINK_SRV_LE_VCS_ACTION_SET_MIC_MUTE_STATE_AND_VOLUME_LEVEL;
+                vol_level = (vol * 15) / 100 + 0.5f;
+
+            } else {
+                break;
+            }
+
+            bt_sink_srv_le_set_mute_state_and_volume_level_t param = {
+                .set_mute = true,
+                .mute = ind->mute,
+                .set_volume_level = true,
+                .volume_level = (uint8_t)vol_level,
+            };
+
+            APPS_LOG_MSGID_I(LOG_TAG" handle_noti_ext_vol_change, action:%x ind(vol:%x mute:%x) param(vol_level:%d set_vol_level:%x mute:%x set_mute:%x)", 7,
+                             action, ind->volume, ind->mute,
+                             param.volume_level, param.set_volume_level, param.mute, param.set_mute);
+
+            ret = bt_sink_srv_le_volume_vcp_send_action(notification->connection_handle, action, &param);
+
+            APPS_LOG_MSGID_I(LOG_TAG" handle_noti_ext_vol_change, ret:%x", 1, ret);
             break;
         }
     }
@@ -586,7 +671,7 @@ void app_le_audio_aird_client_reset_info(uint8_t index)
     app_lea_aird_client_info[index].att_handle_tx_cccd = BT_HANDLE_INVALID;
 
     app_lea_aird_client_info[index].state = APP_LE_AUDIO_AIRD_CLIENT_STATE_IDLE;
-    app_lea_aird_client_info[index].mode = APP_LE_AUDIO_AIRD_MODE_NORMOL;
+    app_lea_aird_client_info[index].mode = APP_LE_AUDIO_AIRD_MODE_NORMAL;
 
     app_le_audio_aird_action_node_t *node = (app_le_audio_aird_action_node_t *)app_lea_aird_client_info[index].action_queue;
     uint8_t free_count = 0;
@@ -659,11 +744,11 @@ void app_le_audio_aird_client_notify_block_stream(app_le_audio_aird_block_stream
 void app_le_audio_aird_client_infom_connection_status(bool connected)
 {
     bool success = FALSE;
-    app_le_audio_aird_sp_connected_t param = APP_LE_AUDIO_AIRD_CONNECTION_STATUS_DISCONNECTED;
+    app_le_audio_aird_multi_point_status_t param = APP_LE_AUDIO_AIRD_MULTI_POINT_STATUS_DISCONNECTED;
     if (connected) {
-        param = APP_LE_AUDIO_AIRD_CONNECTION_STATUS_CONNECTED;
+        param = APP_LE_AUDIO_AIRD_MULTI_POINT_STATUS_CONNECTED;
     } else {
-        uint32_t edr_num = bt_cm_get_connected_devices(~BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 0);
+        uint32_t edr_num = bt_cm_get_acl_connected_device(NULL, 0);
         uint8_t lea_num = app_lea_conn_mgr_get_conn_num();
         if (edr_num > 0 || lea_num > 1) {
             APPS_LOG_MSGID_W(LOG_TAG"[Silence_Detection] infom_connection_status, no need inform disconnect edr_num=%d lea_num=%d",
@@ -676,8 +761,8 @@ void app_le_audio_aird_client_infom_connection_status(bool connected)
         bt_handle_t handle = app_lea_conn_mgr_get_handle(i);
         if (handle != BT_HANDLE_INVALID &&
             APP_LE_AUDIO_AIRD_CLIENT_STATE_READY == app_lea_aird_client_info[i].state) {
-            success = app_le_audio_aird_client_send_action(handle, APP_LE_AUDIO_AIRD_ACTION_UPDATE_CONNECTION_STATUS,
-                                                           &param, sizeof(app_le_audio_aird_sp_connected_t));
+            success = app_le_audio_aird_client_send_action(handle, APP_LE_AUDIO_AIRD_ACTION_UPDATE_MULTI_POINT_STATUS,
+                                                           &param, sizeof(app_le_audio_aird_multi_point_status_t));
         }
     }
 
@@ -751,9 +836,9 @@ bool app_le_audio_aird_client_send_action(bt_handle_t handle, app_le_audio_aird_
     node->write_cmd.att_req = (bt_att_write_command_t *)(node->buf);
     node->write_cmd.att_req->opcode = BT_ATT_OPCODE_WRITE_COMMAND;
     node->write_cmd.att_req->attribute_handle = info->att_handle_rx;
-    node->buf[APP_LE_AUDIO_ATT_VAULE_IDX] = action;
+    node->buf[APP_LE_AUDIO_ATT_VALUE_IDX] = action;
     if (NULL != param && 0 != param_len) {
-        memcpy(&node->buf[APP_LE_AUDIO_ATT_VAULE_IDX + 1], param, param_len);
+        memcpy(&node->buf[APP_LE_AUDIO_ATT_VALUE_IDX + 1], param, param_len);
     }
 
     app_le_audio_aird_cilent_do_resend_action(handle, info);

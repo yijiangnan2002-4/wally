@@ -147,6 +147,7 @@ EXTERN void CB_N9_BLE_UL_CLOSE(hal_ccni_message_t, hal_ccni_message_t *);
 EXTERN void CB_N9_BLE_UL_PLAY(hal_ccni_message_t, hal_ccni_message_t *);
 EXTERN void CB_N9_BLE_UL_SUSPEND(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 EXTERN void CB_N9_BLE_UL_RESUME(hal_ccni_message_t msg, hal_ccni_message_t *ack);
+EXTERN void CB_N9_BLE_UL_SET_VOLUME(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 
 EXTERN void CB_N9_BLE_DL_OPEN(hal_ccni_message_t, hal_ccni_message_t *);
 EXTERN void CB_N9_BLE_DL_START(hal_ccni_message_t, hal_ccni_message_t *);
@@ -220,6 +221,7 @@ EXTERN void Ch_Select_Set_Param(hal_ccni_message_t msg, hal_ccni_message_t *ack)
 EXTERN void voice_nr_enable(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 EXTERN void voice_nr_set_param(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 
+EXTERN void dsp_a2dp_clock_dependency_check(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 EXTERN void dsp_dc_compensation_start(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 EXTERN void dsp_dc_compensation_stop(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 #ifdef MTK_BT_A2DP_ENABLE
@@ -308,6 +310,10 @@ EXTERN void Au_DL_receive_reinit_request(hal_ccni_message_t msg, hal_ccni_messag
 #endif
 #ifdef AIR_AUDIO_HW_LOOPBACK_ENABLE
 void audio_hw_loopback_echo_enable(bool enable);
+#endif
+#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_LE_AUDIO_DONGLE_ENABLE) || defined(AIR_BT_LE_LC3PLUS_ENABLE)
+extern uint32_t g_plc_mode;
+void lc3_set_param(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 #endif
 
 #endif /* _DSP_SCENARIO_H_ */

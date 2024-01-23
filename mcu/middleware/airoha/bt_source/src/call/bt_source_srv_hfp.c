@@ -40,6 +40,8 @@
 #include "bt_source_srv_internal.h"
 #include "bt_source_srv_common.h"
 #include "bt_source_srv_call.h"
+#include "bt_type.h"
+#include "bt_utils.h"
 #ifdef MTK_BT_CM_SUPPORT
 #include "bt_connection_manager.h"
 #endif
@@ -58,6 +60,7 @@ typedef struct {
     bt_bd_addr_t                   remote_address;
     bt_hfp_ag_indicators_t         ag_indicators;
     bt_hfp_ag_hold_feature_t       hold_feature;
+    bt_source_srv_hfp_esco_state_t esco_state;
 } bt_source_srv_hfp_context_t;
 
 typedef struct {
@@ -123,7 +126,9 @@ static void bt_source_srv_hfp_clear_oom_wl(bt_source_srv_hfp_context_t *context)
 static bt_status_t bt_source_srv_hfp_audio_transfer_with_call(bt_source_srv_hfp_context_t *context,
         bt_source_srv_call_state_t new_state, bt_status_t call_transfer_result);
 static void bt_source_srv_hfp_sync_volume_with_audio_source(bt_source_srv_hfp_context_t *context, bool is_resume_volume);
-
+extern uint8_t bt_hfp_get_support_codec(uint32_t handle);
+extern uint8_t bt_hfp_get_current_codec(uint32_t handle);
+extern void bt_hfp_set_current_codec(uint32_t handle, bt_hfp_audio_codec_type_t codec_type);
 /* call action handler function */
 typedef bt_status_t (*bt_source_srv_hfp_handle_action_t)(void *parameter, uint32_t length);
 static bt_status_t bt_source_srv_hfp_handle_new_call(void *parameter, uint32_t length);
@@ -136,6 +141,7 @@ static bt_status_t bt_source_srv_hfp_handle_voice_recognition_state_change(void 
 static bt_status_t bt_source_srv_hfp_handle_switch_audio_path(void *parameter, uint32_t length);
 static bt_status_t bt_source_srv_hfp_handle_send_custom_result_code(void *parameter, uint32_t length);
 static bt_status_t bt_source_srv_hfp_handle_volume_change_by_internal(bt_source_srv_hfp_context_t *context, bt_source_srv_call_audio_volume_t new_volume, bt_source_srv_call_gain_t call_gain_type);
+static bt_status_t bt_source_srv_hfp_audio_transfer(bt_source_srv_hfp_context_t *context, bt_hfp_audio_direction_t audio_direction);
 
 static const bt_source_srv_hfp_handle_action_t g_handle_action_table[] = {
     NULL,
@@ -156,13 +162,15 @@ static bt_status_t bt_source_srv_hfp_handle_unmute(void *parameter, uint32_t len
 static bt_status_t bt_source_srv_hfp_handle_volume_up(void *parameter, uint32_t length);
 static bt_status_t bt_source_srv_hfp_handle_volume_down(void *parameter, uint32_t length);
 static bt_status_t bt_source_srv_hfp_handle_volume_change(void *parameter, uint32_t length);
+static bt_status_t bt_source_srv_hfp_handle_switch_codec(void *parameter, uint32_t length);
 
 static const bt_source_srv_hfp_handle_action_t g_handle_common_action_table[] = {
     bt_source_srv_hfp_handle_mute,
     bt_source_srv_hfp_handle_unmute,
     bt_source_srv_hfp_handle_volume_up,
     bt_source_srv_hfp_handle_volume_down,
-    bt_source_srv_hfp_handle_volume_change
+    bt_source_srv_hfp_handle_volume_change,
+    bt_source_srv_hfp_handle_switch_codec
 };
 
 /* call state transfer function */
@@ -315,15 +323,69 @@ static void bt_source_srv_hfp_reset_context(bt_source_srv_hfp_context_t *context
 static bt_source_srv_hfp_context_t *bt_source_srv_hfp_find_context_by_address(bt_bd_addr_t *address)
 {
     bt_source_srv_hfp_context_t *context = NULL;
+    uint8_t *print_address = (uint8_t *)address;
     for (uint32_t i = 0; i < BT_SOURCE_SRV_HFP_LINK_NUM; i++) {
         if (bt_source_srv_memcmp(&g_source_srv_hfp_context[i].remote_address, address, sizeof(bt_bd_addr_t)) == 0) {
             context = &g_source_srv_hfp_context[i];
             break;
         }
     }
-    LOG_MSGID_I(source_srv, "[HFP][AG] find context = %02x by address:%02x-%02x-%02x-%02x-%02x-%02x", 7, context, (uint8_t *)address[0],
-                (uint8_t *)address[2], (uint8_t *)address[3], (uint8_t *)address[4], (uint8_t *)address[5], (uint8_t *)address[6]);
+    LOG_MSGID_I(source_srv, "[HFP][AG] find context = %02x by address", 7, context,
+                print_address[0], print_address[1], print_address[2], print_address[3], print_address[4], print_address[5]);
     return context;
+}
+
+static void bt_source_srv_hfp_set_esco_state(bt_source_srv_hfp_context_t *context, bt_source_srv_hfp_esco_state_t esco_state)
+{
+    LOG_MSGID_I(source_srv, "[HFP][AG] set context = %02x previous esco state = %02x new esco state = %02x", 3, context, context->esco_state, esco_state);
+    context->esco_state = esco_state;
+}
+
+static bt_source_srv_hfp_esco_state_t bt_source_srv_hfp_get_esco_state(bt_source_srv_hfp_context_t *context)
+{
+    LOG_MSGID_I(source_srv, "[HFP][AG] get context = %02x esco state = %02x", 2, context, context->esco_state);
+    return context->esco_state;
+}
+
+static void bt_source_srv_hfp_handle_esco_with_port_update(bt_source_srv_hfp_context_t *context, bt_source_srv_port_t audio_port, bt_source_srv_call_port_action_t action)
+{
+    if (bt_source_srv_hfp_call_is_exist() || (audio_port != BT_SOURCE_SRV_PORT_MIC)) {
+        return;
+    }
+
+    bt_source_srv_hfp_esco_state_t esco_state = bt_source_srv_hfp_get_esco_state(context);
+    switch (esco_state) {
+        case BT_SOURCE_SRV_HFP_ESCO_STATE_DISCONNECTED: {
+            if (action == BT_SOURCE_SRV_COMMON_PORT_ACTION_OPEN) {
+                bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_HF);
+            }
+        }
+        break;
+        case BT_SOURCE_SRV_HFP_ESCO_STATE_CONNECTING: {
+            if (action == BT_SOURCE_SRV_COMMON_PORT_ACTION_CLOSE) {
+                BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_DISCONNECT);
+            } else if (action == BT_SOURCE_SRV_COMMON_PORT_ACTION_OPEN) {
+                BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_DISCONNECT);
+            }
+        }
+        break;
+        case BT_SOURCE_SRV_HFP_ESCO_STATE_CONNECTED: {
+            if (action == BT_SOURCE_SRV_COMMON_PORT_ACTION_CLOSE) {
+                bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_AG);
+            }
+        }
+        break;
+        case BT_SOURCE_SRV_HFP_ESCO_STATE_DISCONNECTING: {
+            if (action == BT_SOURCE_SRV_COMMON_PORT_ACTION_OPEN) {
+                BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT);
+            } else if (action == BT_SOURCE_SRV_COMMON_PORT_ACTION_CLOSE) {
+                BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT);
+            }
+        }
+        break;
+        default:
+            break;
+    }
 }
 
 static bt_status_t bt_source_srv_hfp_transfer_phone_status(bt_hfp_ag_indicators_t indicator_type, uint32_t value)
@@ -370,8 +432,15 @@ static bt_status_t bt_source_srv_hfp_audio_transfer(bt_source_srv_hfp_context_t 
     bt_status_t status = BT_STATUS_FAIL;
     status = bt_hfp_audio_transfer(context->handle, audio_direction);
     LOG_MSGID_I(source_srv, "[HFP][AG] audio transfer context = %02x, direction = %02x, status = %02x", 3, context, audio_direction, status);
-    if ((status == BT_STATUS_SUCCESS) && (audio_direction == BT_HFP_AUDIO_TO_HF)) {
-        BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTING);
+    if (status == BT_STATUS_SUCCESS) {
+        if (audio_direction == BT_HFP_AUDIO_TO_HF) {
+            BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTING);
+            bt_source_srv_hfp_set_esco_state(context, BT_SOURCE_SRV_HFP_ESCO_STATE_CONNECTING);
+        } else if (audio_direction == BT_HFP_AUDIO_TO_AG) {
+            bt_source_srv_hfp_set_esco_state(context, BT_SOURCE_SRV_HFP_ESCO_STATE_DISCONNECTING);
+            bt_source_srv_call_psd_set_codec_type(context->device, BT_HFP_CODEC_TYPE_NONE);
+            bt_source_srv_call_psd_event_notify(context->device, BT_SOURCE_SRV_CALL_PSD_EVENT_SCO_DISCONNECT_REQ, NULL);
+        }
     }
     return status;
 }
@@ -649,8 +718,11 @@ static bt_status_t bt_source_srv_hfp_handle_mute(void *parameter, uint32_t lengt
 {
     bt_source_srv_audio_mute_t *mute = (bt_source_srv_audio_mute_t *)parameter;
     bt_source_srv_hfp_context_t *context = bt_source_srv_hfp_get_highlight_device();
+    LOG_MSGID_I(source_srv, "[HFP][AG] audio mute port = %02x context = %02x", 2, mute->port, context);
     if (context == NULL) {
-        LOG_MSGID_W(source_srv, "[HFP][AG] audio mute highlight is NULL", 0);
+        if ((mute->port == BT_SOURCE_SRV_PORT_CHAT_SPEAKER) || (mute->port == BT_SOURCE_SRV_PORT_GAMING_SPEAKER)) {
+            g_hfp_common_context.common_flags |= BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED;
+        }
         return BT_STATUS_SUCCESS;
     }
 
@@ -660,20 +732,25 @@ static bt_status_t bt_source_srv_hfp_handle_mute(void *parameter, uint32_t lengt
         snprintf((char *)cmd_buffer, BT_SOURCE_SRV_HFP_CMD_LENGTH, "+VGM:0");
         BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_MIC_MUTED);
         return BT_SOURCE_SRV_HFP_CMD_RESULT_CODE(context, cmd_buffer);
+    } else if ((mute->port == BT_SOURCE_SRV_PORT_CHAT_SPEAKER) || (mute->port == BT_SOURCE_SRV_PORT_GAMING_SPEAKER)) {
+        g_hfp_common_context.common_flags |= BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED;
+        if (bt_source_srv_call_psd_is_playing(context->device)) {
+            bt_source_srv_call_psd_audio_mute(context->device, BT_SOURCE_SRV_CALL_AUDIO_PLAY_TYPE_DL);
+        }
+        return BT_STATUS_SUCCESS;
     }
-    uint8_t cmd_buffer[BT_SOURCE_SRV_HFP_CMD_LENGTH] = {0};
-    snprintf((char *)cmd_buffer, BT_SOURCE_SRV_HFP_CMD_LENGTH, "+VGS:0");
-    bt_source_srv_call_psd_audio_mute(context->device, BT_SOURCE_SRV_CALL_AUDIO_PLAY_TYPE_DL);
-    BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED);
-    return BT_SOURCE_SRV_HFP_CMD_RESULT_CODE(context, cmd_buffer);
+    return BT_STATUS_FAIL;
 }
 
 static bt_status_t bt_source_srv_hfp_handle_unmute(void *parameter, uint32_t length)
 {
     bt_source_srv_audio_mute_t *unmute = (bt_source_srv_audio_mute_t *)parameter;
     bt_source_srv_hfp_context_t *context = bt_source_srv_hfp_get_highlight_device();
+    LOG_MSGID_I(source_srv, "[HFP][AG] audio unmute port = %02x context = %02x", 2, unmute->port, context);
     if (context == NULL) {
-        LOG_MSGID_W(source_srv, "[HFP][AG] audio unmute highlight is NULL", 0);
+        if ((unmute->port == BT_SOURCE_SRV_PORT_CHAT_SPEAKER) || (unmute->port == BT_SOURCE_SRV_PORT_GAMING_SPEAKER)) {
+            g_hfp_common_context.common_flags &= ~BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED;
+        }
         return BT_STATUS_SUCCESS;
     }
 
@@ -684,14 +761,14 @@ static bt_status_t bt_source_srv_hfp_handle_unmute(void *parameter, uint32_t len
         snprintf((char *)cmd_buffer, BT_SOURCE_SRV_HFP_CMD_LENGTH, "+VGM:%d", volume);
         BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_MIC_MUTED);
         return BT_SOURCE_SRV_HFP_CMD_RESULT_CODE(context, cmd_buffer);
+    } else if ((unmute->port == BT_SOURCE_SRV_PORT_CHAT_SPEAKER) || (unmute->port == BT_SOURCE_SRV_PORT_GAMING_SPEAKER)) {
+        g_hfp_common_context.common_flags &= ~BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED;
+        if (bt_source_srv_call_psd_is_playing(context->device)) {
+            bt_source_srv_call_psd_audio_unmute(context->device, BT_SOURCE_SRV_CALL_AUDIO_PLAY_TYPE_DL);
+        }
+        return BT_STATUS_SUCCESS;
     }
-    bt_source_srv_call_audio_volume_t volume = bt_source_srv_call_get_audio_gain_level(BT_SOURCE_SRV_CALL_GAIN_SPEAKER, &context->remote_address);
-    /* sync mic gain to headset */
-    uint8_t cmd_buffer[BT_SOURCE_SRV_HFP_CMD_LENGTH] = {0};
-    snprintf((char *)cmd_buffer, BT_SOURCE_SRV_HFP_CMD_LENGTH, "+VGS:%d", volume);
-    BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED);
-    bt_source_srv_call_psd_audio_unmute(context->device, BT_SOURCE_SRV_CALL_AUDIO_PLAY_TYPE_DL);
-    return BT_SOURCE_SRV_HFP_CMD_RESULT_CODE(context, cmd_buffer);
+    return BT_STATUS_FAIL;
 }
 
 static bt_status_t bt_source_srv_hfp_handle_volume_up(void *parameter, uint32_t length)
@@ -736,6 +813,33 @@ static bt_status_t bt_source_srv_hfp_handle_volume_change(void *parameter, uint3
     return bt_source_srv_hfp_handle_volume_change_by_internal(context, new_volume, (volume_change->port == BT_SOURCE_SRV_PORT_MIC) ? BT_SOURCE_SRV_CALL_GAIN_MIC : BT_SOURCE_SRV_CALL_GAIN_SPEAKER);
 }
 
+static bt_status_t bt_source_srv_hfp_handle_switch_codec(void *parameter, uint32_t length)
+{
+    bt_status_t status = BT_STATUS_FAIL;
+    bt_source_srv_switch_codec_t *switch_codec = (bt_source_srv_switch_codec_t *)parameter;
+
+    bt_source_srv_hfp_context_t *context = bt_source_srv_hfp_get_highlight_device();
+    if (context == NULL)  {
+        LOG_MSGID_E(source_srv, "[HFP][AG] switch codec highlight is NULL", 0);
+        return status;
+    }
+    bt_source_srv_call_audio_codec_type_t codec_type = bt_source_srv_call_psd_get_codec_type(context->device);
+
+    LOG_MSGID_I(source_srv, "[HFP][AG] context = %02x current codec type = %02x, switch codec type = %02x ", 3, context, codec_type, switch_codec->codec);
+
+    if (switch_codec->codec == codec_type) {
+        return status;
+    }
+
+    bt_source_srv_hfp_esco_state_t esco_state = bt_source_srv_hfp_get_esco_state(context);
+    if (BT_SOURCE_SRV_HFP_ESCO_STATE_CONNECTED == esco_state) {
+        bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_AG);
+        BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT);
+    } else if (BT_SOURCE_SRV_HFP_ESCO_STATE_CONNECTING == esco_state) {
+        BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_RECONNECT);
+    }
+    return BT_STATUS_SUCCESS;
+}
 
 static bt_status_t bt_source_srv_hfp_handle_volume_change_by_internal(bt_source_srv_hfp_context_t *context, bt_source_srv_call_audio_volume_t new_volume, bt_source_srv_call_gain_t call_gain_type)
 {
@@ -950,10 +1054,6 @@ static bt_status_t bt_source_srv_hfp_psd_callback(void *device, bt_source_srv_ca
             bt_source_srv_hfp_set_audio_status(context->handle, BT_HFP_AUDIO_STATUS_INACTIVE);
         }
         break;
-        case BT_SOURCE_SRV_CALL_PSD_USER_EVENT_SUSPEND: {
-            bt_source_srv_call_psd_event_notify(device, BT_SOURCE_SRV_CALL_PSD_EVENT_SUSPEND_REQ, NULL);
-        }
-        break;
         case BT_SOURCE_SRV_CALL_PSD_USER_EVENT_GET_MIC_LOCATION: {
             bt_source_srv_call_psd_mic_location_t *mic_location = (bt_source_srv_call_psd_mic_location_t *)parameter;
             bt_source_srv_hfp_feature_config_t hfp_feature_config = {0};
@@ -993,6 +1093,9 @@ static bt_status_t bt_source_srv_hfp_psd_callback(void *device, bt_source_srv_ca
         case BT_SOURCE_SRV_CALL_PSD_USER_EVENT_AUDIO_PLAY_COMPLETE: {
             /* sync esco volume to pc */
             bt_source_srv_hfp_sync_volume_with_audio_source(context, false);
+            if ((g_hfp_common_context.common_flags & BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED) > 0) {
+                bt_source_srv_call_psd_audio_mute(context->device, BT_SOURCE_SRV_CALL_AUDIO_PLAY_TYPE_DL);
+            }
         }
         break;
         case BT_SOURCE_SRV_CALL_PSD_USER_EVENT_AUDIO_STOP_COMPLETE: {
@@ -1042,8 +1145,12 @@ static bt_status_t bt_source_srv_hfp_cm_callback(bt_cm_profile_service_handle_t 
         }
         break;
         case BT_CM_PROFILE_SERVICE_HANDLE_CONNECT: {
+            bt_source_srv_hfp_context_t *context = NULL;
             bt_bd_addr_t *p_bd_address = (bt_bd_addr_t *)data;
-            bt_source_srv_hfp_context_t *context = bt_source_srv_get_free_context();
+            context = bt_source_srv_hfp_find_context_by_address(p_bd_address);
+            if (context == NULL) {
+                context = bt_source_srv_get_free_context();
+            }
             if (context != NULL) {
                 status = bt_hfp_connect_with_role(&context->handle, p_bd_address, BT_HFP_ROLE_HF);
                 if (status == BT_STATUS_SUCCESS) {
@@ -1164,14 +1271,14 @@ static void bt_source_srv_hfp_trigger_action_with_call_state_change(bt_source_sr
         bt_source_srv_call_state_t previous_state, bt_source_srv_call_state_t new_state)
 {
     /* this hold to stop audio is fix hold UL no sound */
-    if ((previous_state == BT_SOURCE_SRV_CALL_STATE_ACTIVE) && (new_state == BT_SOURCE_SRV_CALL_STATE_LOCAL_HELD)) {
+    if ((previous_state == BT_SOURCE_SRV_CALL_STATE_ACTIVE) && (new_state == BT_SOURCE_SRV_CALL_STATE_LOCAL_HELD) && (bt_source_srv_hfp_call_get_call_count() == 1)) {
         bt_source_srv_call_psd_audio_stop_req_t audio_stop_req = {
             .type = BT_SOURCE_SRV_CALL_AUDIO_PLAY_TYPE_UL,
         };
         bt_source_srv_call_psd_event_notify(context->device, BT_SOURCE_SRV_CALL_PSD_EVENT_AUDIO_STOP_REQ, &audio_stop_req);
     }
 
-    if ((previous_state == BT_SOURCE_SRV_CALL_STATE_LOCAL_HELD) && (new_state == BT_SOURCE_SRV_CALL_STATE_ACTIVE)) {
+    if ((previous_state == BT_SOURCE_SRV_CALL_STATE_LOCAL_HELD) && (new_state == BT_SOURCE_SRV_CALL_STATE_ACTIVE) && (bt_source_srv_hfp_call_get_call_count() == 1)) {
         bt_source_srv_call_psd_audio_replay_req_t audio_replay_req = {
             .type = BT_SOURCE_SRV_CALL_AUDIO_PLAY_TYPE_UL,
         };
@@ -1190,6 +1297,11 @@ static void bt_source_srv_hfp_trigger_action_with_call_state_change(bt_source_sr
             .is_allow_audio_stop = bt_source_srv_common_audio_port_is_valid(BT_SOURCE_SRV_PORT_MIC) ? false : true
         };
         bt_source_srv_call_psd_event_notify(context->device, BT_SOURCE_SRV_CALL_PSD_EVENT_CALL_END, &call_end);
+
+        if ((!call_end.is_allow_audio_stop) &&
+                (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTED | BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTING) == 0)) {
+            bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_HF);
+        }
     }
 
     /* incomming ring alerting */
@@ -1342,6 +1454,14 @@ static bt_status_t bt_source_srv_hfp_handle_slc_connected(bt_msg_type_t msg, bt_
     /* notify cm AG connect success */
     bt_cm_profile_service_status_notify(BT_CM_PROFILE_SERVICE_HFP_AG, context->remote_address, BT_CM_PROFILE_SERVICE_STATE_CONNECTED, status);
 #endif
+    bt_source_srv_profile_connected_t profile_connected = {
+        .type = BT_SOURCE_SRV_TYPE_HFP,
+        .peer_address.type = BT_ADDR_PUBLIC,
+    };
+    bt_source_srv_memcpy(profile_connected.peer_address.addr, context->remote_address, sizeof(bt_bd_addr_t));
+    profile_connected.support_codec = bt_hfp_get_support_codec(context->handle);
+    bt_source_srv_hfp_event_notify(BT_SOURCE_SRV_EVENT_PROFILE_CONNECTED, &profile_connected, sizeof(bt_source_srv_profile_connected_t));
+
     bt_source_srv_call_psd_event_notify(context->device, BT_SOURCE_SRV_CALL_PSD_EVENT_LINK_CONNECTED, NULL);
     if (bt_source_srv_hfp_get_highlight_device() == NULL) {
         bt_source_srv_hfp_set_highlight_device(context);
@@ -1373,11 +1493,21 @@ static bt_status_t bt_source_srv_hfp_handle_disconnected(bt_msg_type_t msg, bt_s
     /* notify cm AG connect success */
     bt_cm_profile_service_status_notify(BT_CM_PROFILE_SERVICE_HFP_AG, context->remote_address, BT_CM_PROFILE_SERVICE_STATE_DISCONNECTED, status);
 #endif
+    bt_source_srv_profile_disconnected_t profile_disconnected = {
+        .type = BT_SOURCE_SRV_TYPE_HFP,
+        .peer_address.type = BT_ADDR_PUBLIC,
+    };
+    bt_source_srv_memcpy(profile_disconnected.peer_address.addr, context->remote_address, sizeof(bt_bd_addr_t));
+    bt_source_srv_hfp_event_notify(BT_SOURCE_SRV_EVENT_PROFILE_DISCONNECTED, &profile_disconnected, sizeof(bt_source_srv_profile_disconnected_t));
+
     bt_source_srv_call_psd_event_notify(context->device, BT_SOURCE_SRV_CALL_PSD_EVENT_LINK_DISCONNECTED, NULL);
     bt_source_srv_hfp_ring_alerting_stop();
     if (bt_source_srv_hfp_get_highlight_device() == context) {
         /* because there is no EMP, so the highlight is set to NULL */
         bt_source_srv_hfp_set_highlight_device(NULL);
+        if (bt_source_srv_common_audio_port_is_valid(BT_SOURCE_SRV_PORT_MIC)) {
+            g_hfp_common_context.common_flags |= BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT_WITH_SLC;
+        }
     }
     return BT_STATUS_SUCCESS;
 }
@@ -1417,6 +1547,7 @@ static bt_status_t bt_source_srv_hfp_handle_audio_connected(bt_msg_type_t msg, b
     if (BT_STATUS_SUCCESS == status) {
         bt_source_srv_call_psd_set_codec_type(context->device, message->codec);
         bt_source_srv_call_psd_event_notify(context->device, BT_SOURCE_SRV_CALL_PSD_EVENT_SCO_CONNECTED, NULL);
+        bt_source_srv_hfp_set_esco_state(context, BT_SOURCE_SRV_HFP_ESCO_STATE_CONNECTED);
 
         bt_source_srv_esco_state_update_t esco_state = {
             .state = BT_SOURCE_SRV_ESCO_CONNECTION_STATE_CONNECTED,
@@ -1428,9 +1559,17 @@ static bt_status_t bt_source_srv_hfp_handle_audio_connected(bt_msg_type_t msg, b
         if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_DISCONNECT)) {
             bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_AG);
             BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_DISCONNECT);
+        } else if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_RECONNECT)) {
+            bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_HF);
+            BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_RECONNECT);
+            BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT);
         }
 #ifdef AIR_FEATURE_SOURCE_MHDT_SUPPORT
-        bt_source_srv_common_switch_mhdt(&context->remote_address, false);
+        else {
+            if (bt_source_srv_common_switch_mhdt(&context->remote_address, false) == BT_STATUS_SUCCESS) {
+                BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_MHDT_EXITED);
+            }
+        }
 #endif
     }
 
@@ -1468,20 +1607,11 @@ static bt_status_t bt_source_srv_hfp_handle_audio_disconnected(bt_msg_type_t msg
         return BT_STATUS_FAIL;
     }
 
-    if ((BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_CANCEL_SCO_TO_RECONNECT)) && (status == BT_STATUS_FAIL)) {
-        BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_CANCEL_SCO_TO_RECONNECT);
-        LOG_MSGID_I(source_srv, "[HFP][AG] context = %02x reconnect sco after cancel", 1, context);
-        return bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_HF);
-    }
-
     bt_source_srv_call_psd_set_codec_type(context->device, BT_HFP_CODEC_TYPE_NONE);
-
-#ifdef AIR_FEATURE_SOURCE_MHDT_SUPPORT
-    bt_source_srv_common_switch_mhdt(&context->remote_address, true);
-#endif
 
     BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTED);
     BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTING);
+    bt_source_srv_hfp_set_esco_state(context, BT_SOURCE_SRV_HFP_ESCO_STATE_DISCONNECTED);
     bt_source_srv_call_psd_event_notify(context->device, BT_SOURCE_SRV_CALL_PSD_EVENT_SCO_DISCONNECTED, NULL);
 
     bt_source_srv_esco_state_update_t esco_state = {
@@ -1497,14 +1627,26 @@ static bt_status_t bt_source_srv_hfp_handle_audio_disconnected(bt_msg_type_t msg
         if (result == BT_STATUS_SUCCESS) {
             bt_source_srv_call_psd_event_notify(context->device, BT_SOURCE_SRV_CALL_PSD_EVENT_LINK_DISCONNECT_REQ, NULL);
         }
+    } else if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT)) {
+        LOG_MSGID_I(source_srv, "[HFP][AG] context = %02x reconnect sco", 1, context);
+        BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT);
+        return bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_HF);
     }
 
     /* IOT issue handle, transfer esco when call active */
     if ((bt_iot_device_white_list_check_iot_case(&context->remote_address, BT_IOT_CALL_ESCO_DISCONNECT_WITH_CALL_ACTIVE_RECONNECT)) &&
             (bt_source_srv_hfp_call_is_exist_by_state(BT_SOURCE_SRV_CALL_STATE_ACTIVE))) {
         LOG_MSGID_W(source_srv, "[HFP][AG] handle IOT issue to transfer esco", 0);
-        bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_HF);
+        return bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_HF);
     }
+
+#ifdef AIR_FEATURE_SOURCE_MHDT_SUPPORT
+    if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_MHDT_EXITED) > 0) {
+        BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_MHDT_EXITED);
+        bt_source_srv_common_switch_mhdt(&context->remote_address, true);
+    }
+#endif
+
     return result;
 }
 
@@ -1592,15 +1734,18 @@ static bt_status_t bt_source_srv_hfp_handle_codec_connection(bt_msg_type_t msg, 
     }
 
     BT_SOURCE_SRV_HFP_CMD_RESULT_OK(context);
-    if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTING)) {
-        LOG_MSGID_W(source_srv, "[HFP][AG] context = %02x codec connection esco is connecting", 1, context);
-        BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_CANCEL_SCO_TO_RECONNECT);
-        return bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_AG);
+
+    bt_source_srv_hfp_esco_state_t esco_state = bt_source_srv_hfp_get_esco_state(context);
+
+    if (esco_state == BT_SOURCE_SRV_HFP_ESCO_STATE_DISCONNECTING) {
+        BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT);
+        LOG_MSGID_W(source_srv, "[HFP][AG] context = %02x codec connection esco had disconnecting", 1, context);
+        return BT_STATUS_SUCCESS;
     }
 
-    if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTED)) {
+    if (esco_state == BT_SOURCE_SRV_HFP_ESCO_STATE_CONNECTED) {
+        BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT);
         LOG_MSGID_W(source_srv, "[HFP][AG] context = %02x codec connection esco had connected", 1, context);
-        BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_CANCEL_SCO_TO_RECONNECT);
         return bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_AG);
     }
 
@@ -1917,9 +2062,9 @@ static bt_status_t bt_source_srv_hfp_handle_sync_volume_speaker_gain(bt_msg_type
         if (0 == message->data) {
             volume_change.mute_state = BT_SOURCE_SRV_MUTE_STATE_ENABLE;
             bt_source_src_call_audio_mute(BT_SOURCE_SRV_CALL_AUDIO_PLAY_TYPE_DL);
-            BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED);
-        } else if ((0 != message->data) && (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED))) {
-            BT_SOURCE_SRV_HFP_REMOVE_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED);
+            g_hfp_common_context.common_flags |= BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED;
+        } else if ((0 != message->data) && ((g_hfp_common_context.common_flags & BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED) > 0)) {
+            g_hfp_common_context.common_flags &= ~BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED;
             bt_source_src_call_audio_unmute(BT_SOURCE_SRV_CALL_AUDIO_PLAY_TYPE_DL);
             volume_change.mute_state = BT_SOURCE_SRV_MUTE_STATE_DISABLE;
         }
@@ -2060,12 +2205,12 @@ static bt_status_t bt_source_srv_hfp_audio_transfer_with_call(bt_source_srv_hfp_
     bt_hfp_audio_direction_t audio_direction = BT_HFP_AUDIO_TO_HF;
 
     /* esco logic processing */
-    if ((new_state == BT_SOURCE_SRV_CALL_STATE_NONE) && (!bt_source_srv_hfp_call_is_exist())) {
+    if ((new_state == BT_SOURCE_SRV_CALL_STATE_NONE) && (!bt_source_srv_hfp_call_is_exist()) && ((!bt_source_srv_common_audio_port_is_valid(BT_SOURCE_SRV_PORT_MIC)))) {
         if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTED)) {
             /* disconnect esco */
             is_audio_transfer = true;
             audio_direction = BT_HFP_AUDIO_TO_AG;
-        } else if ((BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTING)) && (!bt_source_srv_common_audio_port_is_valid(BT_SOURCE_SRV_PORT_MIC))) {
+        } else if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTING)) {
             /* because esco is connecting, so disconnect esco after esco connect complete. */
             BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_DISCONNECT);
         }
@@ -2122,7 +2267,7 @@ static void bt_source_srv_hfp_sync_volume_with_audio_source(bt_source_srv_hfp_co
 
     volume_change.step_type = (new_volume > old_volume) ? BT_SOURCE_SRV_VOLUME_STEP_TYPE_UP : BT_SOURCE_SRV_VOLUME_STEP_TYPE_DOWN;
     volume_change.volume_step = bt_source_srv_call_convert_volume_step(old_volume < new_volume ? old_volume : new_volume, old_volume > new_volume ? old_volume : new_volume);
-    volume_change.mute_state = BT_SOURCE_SRV_MUTE_STATE_DISABLE;
+    volume_change.mute_state = ((g_hfp_common_context.common_flags & BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED) > 0) ? BT_SOURCE_SRV_MUTE_STATE_ENABLE : BT_SOURCE_SRV_MUTE_STATE_DISABLE;
     bt_source_srv_memcpy(&volume_change.peer_address.addr, &context->remote_address, sizeof(bt_bd_addr_t));
 
     LOG_MSGID_I(source_srv, "[HFP][AG] sync speaker volume port = %02x old volume = %02x new volume = %02x step type = %02x volume step = %02x mute state = %02x", 6,
@@ -2166,12 +2311,10 @@ bt_status_t bt_source_srv_hfp_audio_port_update(bt_source_srv_port_t audio_port,
 
     switch (action) {
         case BT_SOURCE_SRV_CALL_PORT_ACTION_OPEN: {
-            if ((BT_SOURCE_SRV_PORT_MIC == audio_port) && (!bt_source_srv_hfp_call_is_exist()) &&
-                    (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTED | BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTING) == 0)) {
-                bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_HF);
-            }
 
-            if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTED)) {
+            bt_source_srv_hfp_handle_esco_with_port_update(context, audio_port, action);
+
+            if (bt_source_srv_hfp_get_esco_state(context) == BT_SOURCE_SRV_HFP_ESCO_STATE_CONNECTED) {
                 bt_source_srv_call_psd_audio_replay_req_t audio_replay_req = {
                     .type = g_source_srv_play_type_table[audio_port],
                     .port_action = ((BT_SOURCE_SRV_PORT_CHAT_SPEAKER == audio_port) && bt_source_srv_common_audio_port_is_valid(BT_SOURCE_SRV_PORT_MIC)) ? \
@@ -2190,13 +2333,7 @@ bt_status_t bt_source_srv_hfp_audio_port_update(bt_source_srv_port_t audio_port,
         break;
         case BT_SOURCE_SRV_CALL_PORT_ACTION_CLOSE: {
 
-            if ((BT_SOURCE_SRV_PORT_MIC == audio_port) && (!bt_source_srv_hfp_call_is_exist())) {
-                if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTED) > 0)  {
-                    bt_source_srv_hfp_audio_transfer(context, BT_HFP_AUDIO_TO_AG);
-                } if (BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTING) > 0) {
-                    BT_SOURCE_SRV_HFP_SET_FLAG(context, BT_SOURCE_SRV_HFP_FLAG_SCO_DISCONNECT);
-                }
-            }
+            bt_source_srv_hfp_handle_esco_with_port_update(context, audio_port, action);
 
             /**
             * type:source issue
@@ -2362,7 +2499,27 @@ bt_status_t bt_hfp_ag_get_init_params(bt_hfp_ag_init_param_t *init_params)
         LOG_MSGID_I(source_srv, "[HFP][AG] get call information init params", 0);
     }
 
-    init_params->support_codec = hfp_feature_config.codec_type;
+    bt_source_srv_hfp_context_t *context = bt_source_srv_hfp_get_highlight_device();
+    if (context != NULL) {
+        bt_addr_t peer_address = {
+            .type = BT_ADDR_PUBLIC,
+        };
+        bt_source_srv_memcpy(peer_address.addr, context->remote_address, sizeof(bt_bd_addr_t));
+        bt_source_srv_codec_t recommend_codec = bt_source_srv_get_audio_codec_type(BT_SOURCE_SRV_TYPE_HFP, &peer_address);
+        LOG_MSGID_I(source_srv, "[HFP][AG] recommend codec type = %02x", 1, recommend_codec);
+        if (recommend_codec != bt_hfp_get_current_codec(context->handle)) {
+            bt_hfp_set_current_codec(context->handle, BT_HFP_CODEC_TYPE_NONE);
+        }
+
+        if (recommend_codec == BT_SOURCE_SRV_CODEC_TYPE_NONE) {
+            init_params->support_codec = hfp_feature_config.codec_type;
+        } else {
+            init_params->support_codec = recommend_codec;
+        }
+    } else {
+        init_params->support_codec = hfp_feature_config.codec_type;
+    }
+
 
     bt_source_srv_hfp_call_transfer_info_t transfer_info = {0};
 

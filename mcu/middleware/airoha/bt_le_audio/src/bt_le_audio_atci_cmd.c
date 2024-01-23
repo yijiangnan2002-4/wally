@@ -76,6 +76,8 @@ extern void ble_csis_write_nvkey_sirk(bt_key_t *sirk);
 const static uint8_t bt_app_pts_uri[BT_PTS_CCP_URI_LEN] = {'t', 'e', 'l', ':', '+', '1', '5', '0'};
 const static uint8_t bt_app_pts_join_call_id[BT_PTS_CCP_JOIN_CALL_NUM] = {1, 2};
 
+// for upper layer to check pts enable status
+bool bt_le_audio_pts_test_enable = false;
 
 static uint8_t bt_app_pts_state = BT_PTS_STATE_IDLE;
 

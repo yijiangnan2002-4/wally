@@ -70,9 +70,7 @@ enum {
     SAMPLING_RATE_32K,          /**< 32 kHz. */
     SAMPLING_RATE_44_1K,        /**< 44100 Hz. */
     SAMPLING_RATE_48K,          /**< 48 kHz. */
-#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
     SAMPLING_RATE_96K,          /**< 96 kHz. */
-#endif
     SAMPLING_RATE_NUM           /**< Maximum number of sampling rate. */
 };
 
@@ -222,11 +220,27 @@ bt_sink_srv_cap_am_mode bt_sink_srv_cap_am_get_switch_suspending_mode(void);
 bool bt_sink_srv_cap_am_reset_suspending(bt_sink_srv_cap_am_mode mode);
 
 /**
+ * @brief                       This function control sidetone for LE Audio.
+ * @param[in] enable            is enable or not.
+ * @return                      #true, the operation completed successfully.
+ *                              #false, the operation has failed.
+ */
+bool bt_sink_srv_cap_am_lea_control_sidetone(bool enable);
+
+/**
  * @brief                       This function checks specified pseudo device is streaming or not.
  * @return                      #true, the pseudo device is streaming.
  *                              #false, the pseudo device is streaming.
  */
 bool bt_sink_srv_cap_am_is_psedev_streaming(bt_sink_srv_cap_am_mode mode);
+
+/**
+ * @brief                       This function checks DSP streaming with conversational context or not.
+ * @return                      #true, the DSP is streaming with conversational context.
+ *                              #false, the DSP is not streaming with conversational context.
+ */
+bool bt_sink_srv_cap_am_is_dsp_streaming_with_conversational_context(void);
+
 
 #ifdef AIR_BT_FAST_PAIR_SASS_ENABLE
 bt_status_t bt_sink_srv_cap_am_lea_int_user_conf_set(uint8_t val, const bt_bd_addr_t *address);

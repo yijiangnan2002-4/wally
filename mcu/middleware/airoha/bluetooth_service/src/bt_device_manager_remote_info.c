@@ -94,7 +94,7 @@ static void bt_device_manager_remote_aws_sync_db(bt_device_manager_db_type_t typ
 void bt_device_manager_test_dump_device_info()
 {
     bt_device_manager_db_remote_info_t *temp_remote = &g_bt_dm_remote_list_cnt[0];
-    for (uint8_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++, temp_remote++) {
+    for (uint32_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++, temp_remote++) {
         if (g_bt_dm_remote_sequence[index]) {
             bt_dmgr_report_id("[BT_DM][REMOTE][I] Dump device index:%d, sequence:%d %02x:%02x:%02x:%02x:%02x:%02x", 8,
                     index, g_bt_dm_remote_sequence[index],
@@ -104,7 +104,7 @@ void bt_device_manager_test_dump_device_info()
                     temp_remote->info_valid_flag, temp_remote->iot_id, temp_remote->supported_profiles);
         }
     }
-    for (uint8_t find_index = 0; find_index < BT_DM_REMOTE_NON_FLUSH_RECORD_MAXIMUM; find_index++) {
+    for (uint32_t find_index = 0; find_index < BT_DM_REMOTE_NON_FLUSH_RECORD_MAXIMUM; find_index++) {
         if (g_dm_remote_non_flush_list_cnt.item[find_index].info_valid_set) {
             bt_dmgr_report_id("[BT_DM][REMOTE][I] Dump non-flush device index:%d, set index:%d, invalid:%x, %02x:%02x:%02x:%02x:%02x:%02x", 9,
                     find_index, g_dm_remote_non_flush_list_cnt.set_index,g_dm_remote_non_flush_list_cnt.item[find_index].info_valid_set,
@@ -131,7 +131,7 @@ void bt_device_manager_remote_info_init(void)
     memset(&g_dm_remote_non_flush_list_cnt, 0, sizeof(g_dm_remote_non_flush_list_cnt));
     memset(g_bt_dm_remote_list_cnt, 0, sizeof(g_bt_dm_remote_list_cnt));
     memset(g_bt_dm_remote_sequence, 0, sizeof(g_bt_dm_remote_sequence));
-    for (uint8_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++) {
+    for (uint32_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++) {
         remote_storage.nvkey_id = NVID_BT_HOST_REMOTE_INFO_01 + index;
         bt_device_manager_db_init(BT_DEVICE_MANAGER_DB_TYPE_REMOTE_DEVICE0_INFO + index,
                                   &remote_storage, &g_bt_dm_remote_list_cnt[index], sizeof(g_bt_dm_remote_list_cnt[index]));
@@ -150,7 +150,7 @@ bt_status_t bt_device_manager_remote_delete_info(bt_bd_addr_t *addr, bt_device_m
     uint8_t clear_flag[BT_DEVICE_MANAGER_MAX_PAIR_NUM + 1] = {0};
     bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info addr:0x%x, info mask %d", 2, (NULL == addr ? (uint32_t)addr : *(uint32_t *)addr), info_mask);
     bt_device_manager_db_mutex_take();
-    for (uint8_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; temp_remote++, index++) {
+    for (uint32_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; temp_remote++, index++) {
         if (!g_bt_dm_remote_sequence[index]) {
             continue;
         }
@@ -188,7 +188,7 @@ bt_status_t bt_device_manager_remote_delete_info(bt_bd_addr_t *addr, bt_device_m
                                              sizeof(g_bt_dm_remote_sequence), (void *)g_bt_dm_remote_sequence);
 #endif
     }
-    for (uint8_t index = 1; index < sizeof(clear_flag); index++) {
+    for (uint32_t index = 1; index < sizeof(clear_flag); index++) {
         if (1 == clear_flag[index]) {
             bt_device_manager_db_update(BT_DEVICE_MANAGER_DB_TYPE_REMOTE_DEVICE0_INFO + index - 1);
             bt_device_manager_db_flush(BT_DEVICE_MANAGER_DB_TYPE_REMOTE_DEVICE0_INFO + index - 1, BT_DEVICE_MANAGER_DB_FLUSH_NON_BLOCK);
@@ -203,8 +203,8 @@ bt_status_t bt_device_manager_remote_delete_info(bt_bd_addr_t *addr, bt_device_m
 
 bt_status_t bt_device_manager_remote_set_seq_num(bt_bd_addr_t addr, uint8_t sequence)
 {
-    uint8_t index = 0;
-    uint8_t find_index = 0xFF;
+    uint32_t index = 0;
+    uint32_t find_index = 0xFF;
     bt_device_manager_db_remote_info_t *temp_remote = &g_bt_dm_remote_list_cnt[0];
     bt_dmgr_report_id("[BT_DM][REMOTE][I] Set seq device addr 0x%x, seq:%d", 2, *(uint32_t *)addr, sequence);
     bt_device_manager_db_mutex_take();
@@ -256,11 +256,11 @@ bt_status_t     bt_device_manager_remote_top(bt_bd_addr_t addr)
     return bt_device_manager_remote_set_seq_num(addr, 1);
 }
 
-bt_bd_addr_t    *bt_device_manager_remote_get_dev_by_seq_num(uint8_t sequence)
+bt_bd_addr_t    *bt_device_manager_remote_get_dev_by_seq_num(uint32_t sequence)
 {
     bt_device_manager_db_remote_info_t *temp_remote = &g_bt_dm_remote_list_cnt[0];
     bt_dmgr_report_id("[BT_DM][REMOTE][I] Get dev by seq num %d", 1, sequence);
-    for (uint8_t index = 0; sequence && index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++, temp_remote++) {
+    for (uint32_t index = 0; sequence && index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++, temp_remote++) {
         if (sequence == g_bt_dm_remote_sequence[index]) {
             return &(temp_remote->address);
         }
@@ -272,7 +272,7 @@ uint32_t        bt_device_manager_remote_get_paired_num(void)
 {
     uint32_t ret = 0;
     bt_device_manager_db_remote_info_t *temp_remote = &g_bt_dm_remote_list_cnt[0];
-    for (uint8_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++, temp_remote++) {
+    for (uint32_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++, temp_remote++) {
         if (g_bt_dm_remote_sequence[index] && (temp_remote->info_valid_flag & BT_DEVICE_MANAGER_REMOTE_INFO_MASK_PAIRED)) {
             ret++;
         }
@@ -290,9 +290,9 @@ void            bt_device_manager_remote_get_paired_list(bt_device_manager_paire
         return;
     }
     bt_device_manager_db_mutex_take();
-    for (uint8_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++) {
+    for (uint32_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++) {
         if (count < *read_count) {
-            if (BT_STATUS_SUCCESS == bt_device_manager_remote_find_paired_info_by_seq_num(index + 1, temp)) {
+            if (BT_STATUS_SUCCESS == bt_device_manager_remote_find_paired_info_by_seq_num((uint8_t)(index + 1), temp)) {
                 memcpy(info[count].address, temp->paired_key.address, sizeof(bt_bd_addr_t));
 #ifdef AIR_BT_DEVICE_NAME_IN_PAIRING_DB
                 memcpy(info[count].name, temp->name, sizeof(info[count].name));
@@ -317,7 +317,7 @@ bt_status_t     bt_device_manager_remote_find_paired_info_by_seq_num(uint8_t seq
     if (NULL == info) {
         return BT_STATUS_FAIL;
     }
-    for (uint8_t index = 0; sequence && index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++, temp_remote++) {
+    for (uint32_t index = 0; sequence && index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++, temp_remote++) {
         if (g_bt_dm_remote_sequence[index] == sequence) {
             if (temp_remote->info_valid_flag & BT_DEVICE_MANAGER_REMOTE_INFO_MASK_PAIRED) {
                 memcpy(info->paired_key.address, temp_remote->address, sizeof(bt_bd_addr_t));
@@ -348,7 +348,7 @@ static bt_status_t bt_device_manager_remote_info_update(bt_bd_addr_t addr, bt_de
     if (NULL == addr || 0 == BT_DEVICE_MANAGER_MAX_PAIR_NUM || !memcmp(&temp_addr, (uint8_t *)addr, sizeof(bt_bd_addr_t))) {
         return BT_STATUS_FAIL;
     }
-    uint8_t index = 0, item_index = 0xFF;
+    uint32_t index = 0, item_index = 0xFF;
     bool flush_at_once = false, seq_update = false, item_update = false;
     bt_device_manager_db_remote_info_t *temp_remote = &g_bt_dm_remote_list_cnt[0];
     bt_device_manager_db_remote_info_t *find_remote = temp_remote;
@@ -362,6 +362,10 @@ static bt_status_t bt_device_manager_remote_info_update(bt_bd_addr_t addr, bt_de
             find_remote = temp_remote;
             item_index = index;
         }
+    }
+    if (item_index >= BT_DEVICE_MANAGER_MAX_PAIR_NUM) {
+        bt_device_manager_db_mutex_give();
+        return BT_STATUS_FAIL;
     }
     if (BT_DEVICE_MANAGER_MAX_PAIR_NUM == index) {
         bt_dmgr_report_id("[BT_DM][REMOTE][I] New addr 0x%x, index %d, index sequence %d", 3, *(uint32_t *)addr, item_index, g_bt_dm_remote_sequence[item_index]);
@@ -454,7 +458,7 @@ static bt_status_t bt_device_manager_remote_info_find(bt_bd_addr_t addr, bt_devi
     }
     bt_device_manager_db_remote_info_t *temp_remote = &g_bt_dm_remote_list_cnt[0];
     bt_device_manager_db_remote_info_t *find_remote = NULL;
-    for (uint8_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++, temp_remote++) {
+    for (uint32_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; index++, temp_remote++) {
         if (g_bt_dm_remote_sequence[index] && !memcmp(temp_remote->address, addr, sizeof(bt_bd_addr_t)) &&
             (temp_remote->info_valid_flag & type)) {
             find_remote = temp_remote;
@@ -509,7 +513,7 @@ static bt_status_t bt_device_manager_remote_info_find(bt_bd_addr_t addr, bt_devi
 
 static bt_status_t bt_device_manager_remote_non_flush_info_update(bt_bd_addr_t addr, bt_dm_remote_non_flush_info_mask_t type, void *data)
 {
-    uint8_t find_index = 0;
+    uint32_t find_index = 0;
     bt_dmgr_report_id("[BT_DM][REMOTE][I] Non flush info update type 0x%x, data:0x%x", 2, type, data);
     if (NULL == data) {
         return BT_STATUS_FAIL;
@@ -570,7 +574,7 @@ static bt_status_t bt_device_manager_remote_non_flush_info_update(bt_bd_addr_t a
 
 static bt_status_t bt_device_manager_remote_non_flush_info_find(bt_bd_addr_t addr, bt_dm_remote_non_flush_info_mask_t type, void *data, uint16_t data_length)
 {
-    uint8_t index = 0;
+    uint32_t index = 0;
     bt_dmgr_report_id("[BT_DM][REMOTE][I] Find non flush info buffer type %d, data:0x%x, data_length:%d", 3, type, data, data_length);
     if (NULL == data || 0 == data_length) {
         return BT_STATUS_FAIL;

@@ -1142,9 +1142,9 @@ void pmu_init_lp(void)
     pmu_set_register_value_lp(0x18E, VRF_VOUTSEL_NORM_MASK, 0, 2);
     pmu_set_register_value_lp(0x18E, VRF_VOUTSEL_LP_MASK, 4, 2);
 
-    pmu_fast_buffer_disable();
     pmu_set_register_value_lp(0x00C, RG_BGHP_ENB_MASK, 0, 0);
     pmu_set_register_value_lp(0x00E, RG_BGR_TRIM_ENB_MASK, 8, 0);
+    pmu_fast_buffer_disable();
     log_hal_msgid_info("[PMU_BASIC]pmu_init, rg_012[0x%X], rg_082[0x%X], rg_092[0x%X], rg_09A[0x%X], rg_324[0x%X], rg_606[0x%X], rg_608[0x%X]", 7,
         pmu_get_register_value_lp(0x012, 0xFFFF, 0), pmu_get_register_value_lp(0x082, 0xFFFF, 0), pmu_get_register_value_lp(0x092, 0xFFFF, 0),
         pmu_get_register_value_lp(0x09A, 0xFFFF, 0), pmu_get_register_value_lp(0x324, 0xFFFF, 0),
@@ -1186,8 +1186,11 @@ void pmu_power_off_sequence_lp(pmu_power_stage_t stage)
         case PMU_RTC:
             pmu_set_register_value_lp(0x012, RG_UARTPSW_ENB_MASK, 0, 0x1);
             pmu_set_register_value_lp(0x328, RG_SW_OCP_ENB_MASK, 7, 0x1);
+<<<<<<< HEAD
 //            pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x1);		// richard for patch from Airoha
 //            pmu_set_register_value_lp(0x32C, RG_BAT_SYS_COMP_LPM_VCHGON_MASK, 1, 0x1);
+=======
+>>>>>>> sdk3100base
             pmu_set_register_value_lp(0x00C, RG_BGHP_ENB_MASK, 0, 0x1);
             pmu_set_register_value_lp(0x00E, RG_FAST_BUFFER_ENB_MASK, 2, 0x1);
             pmu_set_register_value_lp(0x00E, RG_BGR_TRIM_ENB_MASK, 8, 0x1);
@@ -1196,14 +1199,22 @@ void pmu_power_off_sequence_lp(pmu_power_stage_t stage)
             pmu_enable_charger_lp(PMU_OFF);
             if (pmu_auxadc_get_channel_value_lp(PMU_AUX_VBAT) > 3200) {
                 pmu_eoc_ctrl(PMU_ON);
+<<<<<<< HEAD
                 pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x1);	// richard for patch from Airoha
+=======
+                pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x1);
+>>>>>>> sdk3100base
                 pmu_set_register_value_lp(0x32C, RG_BAT_SYS_COMP_LPM_VCHGON_MASK, 1, 0x1);
                 pmu_uart_psw(PMU_OFF);
                 pmu_uart_psw_cl(PMU_OFF);
             }
             else {
                 pmu_eoc_ctrl(PMU_OFF);
+<<<<<<< HEAD
                 pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x0);	// richard for patch from Airoha
+=======
+                pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x0);
+>>>>>>> sdk3100base
                 pmu_set_register_value_lp(0x32C, RG_BAT_SYS_COMP_LPM_VCHGON_MASK, 1, 0x0);
                 pmu_uart_psw(PMU_ON);
                 pmu_uart_psw_cl(PMU_ON);
@@ -1733,6 +1744,44 @@ void pmu_set_dummy_load_lp(pmu_power_domain_t domain, uint32_t loading_value)
     }
 }
 #endif /*AIR_NVDM_ENABLE*/
+void hal_pmu_buck_thd_test_lp(void)
+{
+    pmu_set_register_value(0x014, 0x1, 12, 1);
+    pmu_set_register_value(0x014, 0x1, 8, 1);
+    pmu_set_register_value(0x082, 0x1, 6, 0);
+    pmu_set_register_value(0x102, 0x3F, 5, 0);
+    pmu_set_register_value(0x112, 0x3F, 5, 2);
+    pmu_set_register_value(0x182, 0x3F, 5, 2);
+    pmu_set_register_value(0x324, 0x1, 0, 1);
+    pmu_set_register_value(0x092, 0xff, 0, 0xff);
+    log_hal_msgid_info("[PMU_DBG] 0x014[0x%x], 0x082[0x%x], 0x102[0x%x], 0x112[0x%x], 0x182[0x%x], 0x092[0x%x], 0x324[0x%x]", 7,
+                pmu_get_register_value(0x014, 0xffff, 0), pmu_get_register_value(0x082, 0xffff, 0), pmu_get_register_value(0x102,0xffff, 0),
+                pmu_get_register_value(0x112, 0xffff, 0), pmu_get_register_value(0x182, 0xffff, 0), pmu_get_register_value(0x092, 0xffff, 0),
+                pmu_get_register_value(0x324, 0xffff, 0));
+    hal_rtc_set_alarm_by_second(2);
+    hal_rtc_enable_alarm();
+    pmu_set_register_value(0x086, 0x1, 1, 1);
+    //hal_rtc_enter_rtc_mode();
+}
+void hal_pmu_buck_thd_test_wo_pg_lp(void)
+{
+    pmu_set_register_value(0x014, 0x1, 12, 0);
+    pmu_set_register_value(0x014, 0x1, 8, 0);
+    pmu_set_register_value(0x082, 0x1, 6, 0);
+    pmu_set_register_value(0x102, 0x3F, 5, 0);
+    pmu_set_register_value(0x112, 0x3F, 5, 2);
+    pmu_set_register_value(0x182, 0x3F, 5, 2);
+    pmu_set_register_value(0x324, 0x1, 0, 1);
+    pmu_set_register_value(0x092, 0xff, 0, 0xff);
+    log_hal_msgid_info("[PMU_DBG] 0x014[0x%x], 0x082[0x%x], 0x102[0x%x], 0x112[0x%x], 0x182[0x%x], 0x092[0x%x], 0x324[0x%x]", 7,
+                pmu_get_register_value(0x014, 0xffff, 0), pmu_get_register_value(0x082, 0xffff, 0), pmu_get_register_value(0x102,0xffff, 0),
+                pmu_get_register_value(0x112, 0xffff, 0), pmu_get_register_value(0x182, 0xffff, 0), pmu_get_register_value(0x092, 0xffff, 0),
+                pmu_get_register_value(0x324, 0xffff, 0));
+    hal_rtc_set_alarm_by_second(2);
+    hal_rtc_enable_alarm();
+    pmu_set_register_value(0x086, 0x1, 1, 1);
+    //hal_rtc_enter_rtc_mode();
+}
 #ifdef PMU_SLT_ENV
 void pmu_set_vaud18_pinout(pmu_audio_pinout_t mode)
 {

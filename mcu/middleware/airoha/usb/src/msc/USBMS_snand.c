@@ -114,4 +114,6 @@ usbms_msdc_driver_t usbms_spinand_driver = {
 };
 
 #endif /* MTK_FATFS_ON_SERIAL_NAND */
+
 #endif /* AIR_USB_MSC_ENABLE */
+

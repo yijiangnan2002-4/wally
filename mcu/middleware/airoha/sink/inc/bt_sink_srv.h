@@ -304,7 +304,6 @@ typedef uint32_t bt_sink_srv_event_t;
 #define BT_SINK_SRV_EVENT_LE_BIDIRECTION_LEA_UPDATE            (BT_SINK_MODULE_LE_EVENT | 0x003U)   /**< This event indicates the state changed of the bidirection LE audio. */
 #define BT_SINK_SRV_EVENT_LE_STREAMING_CONTEXT_UPDATE          (BT_SINK_MODULE_LE_EVENT | 0x004U)    /**< This action indicates the application to update streaming audio context. */
 
-
 /**
  *  @brief Define the feature configuration of the Sink.
  */

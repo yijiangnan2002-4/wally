@@ -134,6 +134,10 @@ ifeq ($(AIR_HW_VIVID_PT_ENABLE), y)
     C_SRC += $(STREAM_PATH)/src/stream_interface/stream_hw_vivid_passthru.c
 endif
 
+ifeq ($(AIR_MIXER_STREAM_ENABLE), y)
+    C_SRC += $(STREAM_PATH)/src/stream_interface/stream_mixer.c
+endif
+
 ###################################################
 # include path
 

@@ -244,6 +244,9 @@
 #define STREAM_CODEC_ENCODER_VERNDOR_MEM_SIZE    (0)
 #endif /* AIR_BT_AUDIO_DONGLE_LHDC_ENABLE */
 
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+#include "dsp_audio_process.h"
+#endif
 ////////////////////////////////////////////////////////////////////////////////
 // TYPE DEFINITIONS ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -440,30 +443,12 @@ stream_feature_table_t stream_feature_table[DSP_FEATURE_MAX_NUM] = {
     {FUNC_TX_NR,                                                           0,                          0,                                            NULL,                                             NULL},/*0x26 FUNC_TX_NR,                */
 #endif
 #ifdef AIR_BT_CLK_SKEW_ENABLE
-#if defined(AIR_UL_FIX_SAMPLING_RATE_48K)
-#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
-    {FUNC_CLK_SKEW_HFP_UL,                     DSP_CLK_SKEW_MEMSIZE(5, 1440, 0),                          0,    stream_function_clock_skew_hfp_ul_initialize,               stream_function_clock_skew_process}, /*0x27 FUNC_CLK_SKEW_HFP_UL,        */
-#else
-    {FUNC_CLK_SKEW_HFP_UL,                     DSP_CLK_SKEW_MEMSIZE(4, 1440, 0),                          0,    stream_function_clock_skew_hfp_ul_initialize,               stream_function_clock_skew_process}, /*0x27 FUNC_CLK_SKEW_HFP_UL,        */
-#endif
-#elif defined(AIR_UL_FIX_SAMPLING_RATE_32K)
-#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
-    {FUNC_CLK_SKEW_HFP_UL,                     DSP_CLK_SKEW_MEMSIZE(5, 960, 0),                          0,    stream_function_clock_skew_hfp_ul_initialize,               stream_function_clock_skew_process}, /*0x27 FUNC_CLK_SKEW_HFP_UL,        */
-#else
-    {FUNC_CLK_SKEW_HFP_UL,                     DSP_CLK_SKEW_MEMSIZE(4, 960, 0),                          0,    stream_function_clock_skew_hfp_ul_initialize,               stream_function_clock_skew_process}, /*0x27 FUNC_CLK_SKEW_HFP_UL,        */
-#endif
-#else
-#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
-    {FUNC_CLK_SKEW_HFP_UL,                     DSP_CLK_SKEW_MEMSIZE(5, 480, 0),                          0,    stream_function_clock_skew_hfp_ul_initialize,               stream_function_clock_skew_process}, /*0x27 FUNC_CLK_SKEW_HFP_UL,        */
-#else
-    {FUNC_CLK_SKEW_HFP_UL,                     DSP_CLK_SKEW_MEMSIZE(4, 480, 0),                          0,    stream_function_clock_skew_hfp_ul_initialize,               stream_function_clock_skew_process}, /*0x27 FUNC_CLK_SKEW_HFP_UL,        */
-#endif
-#endif
+    {FUNC_CLK_SKEW_HFP_UL,                              DSP_CLK_SKEW_MEMSIZE,                          0,    stream_function_clock_skew_hfp_ul_initialize,               stream_function_clock_skew_process}, /*0x27 FUNC_CLK_SKEW_HFP_UL,        */
 #else
     {FUNC_CLK_SKEW_HFP_UL,                                                     0,                          0,                                            NULL,                                                NULL}, /*0x27 FUNC_CLK_SKEW_UL,        */
 #endif//AIR_BT_CLK_SKEW_ENABLE
 #ifdef AIR_BT_CLK_SKEW_ENABLE
-    {FUNC_CLK_SKEW_A2DP_DL,                   DSP_CLK_SKEW_MEMSIZE(2, 8192, 1),                          0,      stream_function_clock_skew_a2dp_initialize,               stream_function_clock_skew_process}, /*0x28 FUNC_CLK_SKEW_A2DP_DL,        */
+    {FUNC_CLK_SKEW_A2DP_DL,                             DSP_CLK_SKEW_MEMSIZE,                          0,      stream_function_clock_skew_a2dp_initialize,               stream_function_clock_skew_process}, /*0x28 FUNC_CLK_SKEW_A2DP_DL,        */
 #else
     {FUNC_CLK_SKEW_A2DP_DL,                                                0,                          0,                                            NULL,                                                NULL}, /*0x28 FUNC_CLK_SKEW_A2DP_DL,        */
 #endif//AIR_BT_CLK_SKEW_ENABLE
@@ -474,7 +459,7 @@ stream_feature_table_t stream_feature_table[DSP_FEATURE_MAX_NUM] = {
     {FUNC_PLC,                                                             0,                          0,                                            NULL,                                            NULL},/*0x2A FUNC_PLC,   */
 #endif
 #ifdef AIR_BT_CLK_SKEW_ENABLE
-    {FUNC_CLK_SKEW_HFP_DL,                     DSP_CLK_SKEW_MEMSIZE(2, 480, 0),                          0,    stream_function_clock_skew_hfp_dl_initialize,              stream_function_clock_skew_process}, /*0x2B FUNC_CLK_SKEW_HFP_DL,   */
+    {FUNC_CLK_SKEW_HFP_DL,                             DSP_CLK_SKEW_MEMSIZE,                           0,    stream_function_clock_skew_hfp_dl_initialize,              stream_function_clock_skew_process}, /*0x2B FUNC_CLK_SKEW_HFP_DL,   */
 #else
     {FUNC_CLK_SKEW_HFP_DL,                                                 0,                          0,                                            NULL,                                                NULL}, /*0x2B FUNC_CLK_SKEW_DL,        */
 #endif//AIR_BT_CLK_SKEW_ENABLE
@@ -596,7 +581,7 @@ stream_feature_table_t stream_feature_table[DSP_FEATURE_MAX_NUM] = {
 #else
     {FUNC_AUDIO_LOOPBACK_TEST,                                             0,                          0,                                            NULL,                                            NULL},/*0x50 FUNC_AUDIO_LOOPBACK_TEST,       */
 #endif
-#ifdef MTK_LINEIN_PEQ_ENABLE
+#ifdef AIR_DRC_ENABLE
     {FUNC_DRC3,                                         DRC_AU_MEMSIZE,                          0,           stream_function_drc_audio3_initialize,               stream_function_drc_audio3_process},/*0x51 FUNC_DRC3,       */
 #else
     {FUNC_DRC3,                                                          0,                          0,                                            NULL,                                             NULL},/*0x51 FUNC_DRC3,       */
@@ -626,16 +611,8 @@ stream_feature_table_t stream_feature_table[DSP_FEATURE_MAX_NUM] = {
 #else
     {FUNC_SW_BUFFER,                                                       0,                         0,                                             NULL,                                            NULL},/*0x56 FUNC_SW_BUFFER,       */
 #endif
-#ifdef AIR_BT_CLK_SKEW_ENABLE
-#ifdef AIR_BT_CODEC_BLE_ENABLED
-#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-    {FUNC_CLK_SKEW_BLE_MUSIC_DL,               DSP_CLK_SKEW_MEMSIZE(4, 1920, 0),                         0,   stream_function_clock_skew_le_music_initialize,              stream_function_clock_skew_process}, /*0x57 FUNC_CLK_SKEW_BLE_MUSIC_DL,   */
-#else
-    {FUNC_CLK_SKEW_BLE_MUSIC_DL,               DSP_CLK_SKEW_MEMSIZE(2, 1920, 0),                         0,   stream_function_clock_skew_le_music_initialize,              stream_function_clock_skew_process}, /*0x57 FUNC_CLK_SKEW_BLE_MUSIC_DL,   */
-#endif
-#else
-    {FUNC_CLK_SKEW_BLE_MUSIC_DL,                                           0,                         0,                                             NULL,                                            NULL},/*0x57 FUNC_CLK_SKEW_BLE_MUSIC_DL,   */
-#endif
+#if defined(AIR_BT_CLK_SKEW_ENABLE) && defined(AIR_BT_CODEC_BLE_ENABLED)
+    {FUNC_CLK_SKEW_BLE_MUSIC_DL,                        DSP_CLK_SKEW_MEMSIZE,                         0,   stream_function_clock_skew_le_music_initialize,              stream_function_clock_skew_process}, /*0x57 FUNC_CLK_SKEW_BLE_MUSIC_DL,   */
 #else
     {FUNC_CLK_SKEW_BLE_MUSIC_DL,                                           0,                         0,                                             NULL,                                            NULL},/*0x57 FUNC_CLK_SKEW_BLE_MUSIC_DL,   */
 #endif
@@ -688,7 +665,7 @@ stream_feature_table_t stream_feature_table[DSP_FEATURE_MAX_NUM] = {
     {FUNC_EC120,                                                          0,                          0,                                            NULL,                                             NULL},/*0x60 FUNC_EC120,     */
 #endif
 #ifdef AIR_FIXED_RATIO_SRC
-    {FUNC_SRC_FIXED_RATIO,                                                0,                          0,      stream_function_src_fixed_ratio_initialize,          stream_function_src_fixed_ratio_process},/*0x61 FUNC_SRC_FIXED_RATIO,     */
+    {FUNC_SRC_FIXED_RATIO,                         SRC_FIXED_RATIO_MEM_SIZE,                          0,      stream_function_src_fixed_ratio_initialize,          stream_function_src_fixed_ratio_process},/*0x61 FUNC_SRC_FIXED_RATIO,     */
 #else
     {FUNC_SRC_FIXED_RATIO,                                                0,                          0,                                            NULL,                                             NULL},/*0x61 FUNC_SRC_FIXED_RATIO,     */
 #endif
@@ -753,21 +730,13 @@ stream_feature_table_t stream_feature_table[DSP_FEATURE_MAX_NUM] = {
 #else
     {FUNC_ECNR_POST_PROCESS,                                                 0,                       0,                                            NULL,                                               NULL},/*0x65 FUNC_ECNR_POST_PROCESS,   */
 #endif
-#ifdef AIR_BT_CLK_SKEW_ENABLE
-#ifdef AIR_BT_CODEC_BLE_ENABLED
-    {FUNC_CLK_SKEW_BLE_CALL_DL,               DSP_CLK_SKEW_MEMSIZE(2, 960, 0),                          0,   stream_function_clock_skew_le_call_dl_initialize,              stream_function_clock_skew_process}, /*0x6E FUNC_CLK_SKEW_BLE_CALL_DL,   */
+#if defined(AIR_BT_CLK_SKEW_ENABLE) && defined(AIR_BT_CODEC_BLE_ENABLED)
+    {FUNC_CLK_SKEW_BLE_CALL_DL,                        DSP_CLK_SKEW_MEMSIZE,                          0,   stream_function_clock_skew_le_call_dl_initialize,              stream_function_clock_skew_process}, /*0x6E FUNC_CLK_SKEW_BLE_CALL_DL,   */
 #else
     {FUNC_CLK_SKEW_BLE_CALL_DL,                                           0,                          0,                                             NULL,                                            NULL},/*0x6E FUNC_CLK_SKEW_BLE_CALL_DL,   */
 #endif
-#else
-    {FUNC_CLK_SKEW_BLE_CALL_DL,                                           0,                          0,                                             NULL,                                            NULL},/*0x6E FUNC_CLK_SKEW_BLE_CALL_DL,   */
-#endif
-#ifdef AIR_BT_CLK_SKEW_ENABLE
-#ifdef AIR_BT_CODEC_BLE_ENABLED
-    {FUNC_CLK_SKEW_BLE_CALL_UL,               DSP_CLK_SKEW_MEMSIZE(4, 960, 0),                          0,   stream_function_clock_skew_le_call_ul_initialize,              stream_function_clock_skew_process}, /*0x6F FUNC_CLK_SKEW_BLE_CALL_UL,   */
-#else
-    {FUNC_CLK_SKEW_BLE_CALL_UL,                                           0,                          0,                                             NULL,                                            NULL},/*0x6F FUNC_CLK_SKEW_BLE_CALL_UL,   */
-#endif
+#if defined(AIR_BT_CLK_SKEW_ENABLE) && defined(AIR_BT_CODEC_BLE_ENABLED)
+    {FUNC_CLK_SKEW_BLE_CALL_UL,                        DSP_CLK_SKEW_MEMSIZE,                          0,   stream_function_clock_skew_le_call_ul_initialize,              stream_function_clock_skew_process}, /*0x6F FUNC_CLK_SKEW_BLE_CALL_UL,   */
 #else
     {FUNC_CLK_SKEW_BLE_CALL_UL,                                           0,                          0,                                             NULL,                                            NULL},/*0x6F FUNC_CLK_SKEW_BLE_CALL_UL,   */
 #endif
@@ -830,10 +799,13 @@ stream_feature_table_t stream_feature_table[DSP_FEATURE_MAX_NUM] = {
     {FUNC_DCHS_SW_BUFFER_MASTER,                                            0,                          0,                                                NULL,                                            NULL},/*0x7E FUNC_DCHS_SW_BUFFER_R,     */
 #endif
 #ifdef MTK_LINEIN_PEQ_ENABLE
-    {FUNC_WIRED_USB_PEQ,                                              DSP_PEQ_MEMSIZE,                          0,                 stream_function_wired_usb_peq_initialize,                    stream_function_wired_usb_peq_process},/*0x7F FUNC_WIRED_USB_PEQ,     */
-    {FUNC_WIRED_USB_DRC,                                                DRC_AU_MEMSIZE,                          0,           stream_function_wired_usb_drc_initialize,               stream_function_wired_usb_drc_process},/*0x80 FUNC_WIRED_USB_DRC,       */
+    {FUNC_WIRED_USB_PEQ,                                       DSP_PEQ_MEMSIZE,                          0,                 stream_function_wired_usb_peq_initialize,                    stream_function_wired_usb_peq_process},/*0x7F FUNC_WIRED_USB_PEQ,     */
 #else
     {FUNC_WIRED_USB_PEQ,                                                            0,                          0,                                            NULL,                                            NULL},/*0x7F FUNC_WIRED_USB_PEQ,     */
+#endif
+#ifdef AIR_DRC_ENABLE
+    {FUNC_WIRED_USB_DRC,                                       DRC_AU_MEMSIZE,                          0,           stream_function_wired_usb_drc_initialize,               stream_function_wired_usb_drc_process},/*0x80 FUNC_WIRED_USB_DRC,       */
+#else
     {FUNC_WIRED_USB_DRC,                                                          0,                          0,                                            NULL,                                             NULL},/*0x80 FUNC_WIRED_USB_DRC,       */
 #endif
 #if defined (MTK_LINEIN_INS_ENABLE)
@@ -874,6 +846,24 @@ stream_feature_table_t stream_feature_table[DSP_FEATURE_MAX_NUM] = {
 #else
     {FUNC_HW_VIVID_PT,                                                 0,                          0,                                              NULL,                                               NULL},/*0x89 FUNC_HW_VIVID_PT,     */
 #endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    {FUNC_CH_SEL_MULTISTREAM_MEMCPY,                                    0,             0,  stream_function_channel_selector_multistream_memcpy_initialize,      stream_function_channel_selector_multistream_memcpy_process},     /*0x8A FUNC_CH_SEL_MULTISTREAM_MEMCPY,   */
+    {FUNC_CH_SEL_MULTISTREAM_ADD_LATENCY,                               0,             0,  stream_function_channel_selector_multistream_add_latency_initialize, stream_function_channel_selector_multistream_add_latency_process},/*0x8B FUNC_CH_SEL_MULTISTREAM_ADD_LATENCY,   */
+
+#else
+    {FUNC_CH_SEL_MULTISTREAM_MEMCPY,                                    0,             0,                                             NULL,                                            NULL},                                     /*0x8A FUNC_CH_SEL_MULTISTREAM_MEMCPY,       */
+    {FUNC_CH_SEL_MULTISTREAM_ADD_LATENCY,                               0,             0,                                             NULL,                                            NULL},                                     /*0x8B FUNC_CH_SEL_MULTISTREAM_ADD_LATENCY,       */
+#endif
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    {FUNC_DL_SW_GAIN,                                             8,                          0,                 stream_function_DL_SW_initialize,                    stream_function_DL_SW_process},/*0x83 FUNC_DL_SW_GAIN,        */
+#else
+    {FUNC_DL_SW_GAIN,                                             0,                         0,                                                       NULL,                                                       NULL},/*0x83 FUNC_DL_SW_GAIN,   */
+#endif
+#ifdef MTK_LINEIN_PEQ_ENABLE
+    {FUNC_LINE_IN_POST_PEQ,                                 DSP_PEQ_MEMSIZE,                          0,      stream_function_line_in_post_eq_initialize,                    stream_function_line_in_post_eq_process},/*0x8B FUNC_LINE_IN_POST_PEQ,     */
+#else
+    {FUNC_LINE_IN_POST_PEQ,                                               0,                          0,                                            NULL,                                            NULL},/*0x8B FUNC_LINE_IN_POST_PEQ,     */
+#endif
 };
 /*==========================================================================================================================================================================================================*/
 
@@ -891,8 +881,13 @@ stream_feature_ctrl_entry_t stream_feature_sample_entry = {stream_feature_sample
 stream_feature_list_t stream_feature_list_hfp_uplink[] = {
     CODEC_PCM_COPY,
     FUNC_CH_SEL_HFP,
+#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
+    FUNC_AUDIO_VOLUME_MONITOR,
+#endif
     FUNC_MIC_SW_GAIN,
+#ifndef AIR_DCHS_MODE_ENABLE
     FUNC_CLK_SKEW_HFP_UL,
+#endif
 #if (defined(AIR_UL_FIX_SAMPLING_RATE_48K) || defined(AIR_UL_FIX_SAMPLING_RATE_32K) && defined(AIR_FIXED_RATIO_SRC))
     FUNC_SRC_FIXED_RATIO,
 #endif
@@ -963,6 +958,15 @@ stream_feature_list_t stream_feature_list_hfp_downlink_msbc[] = {
     FUNC_RX_WB_DRC,
 #endif
 #endif
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ) || defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+    FUNC_SRC_FIXED_RATIO,
+#endif
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    FUNC_DL_SW_GAIN,
+#endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    FUNC_CH_SEL_MULTISTREAM_MEMCPY,
+#endif
     FUNC_CLK_SKEW_HFP_DL,
     FUNC_END,
 };
@@ -982,6 +986,15 @@ stream_feature_list_t stream_feature_list_hfp_downlink_cvsd[] = {
     FUNC_RX_WB_DRC,
 #endif
 #endif
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ) || defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+    FUNC_SRC_FIXED_RATIO,
+#endif
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    FUNC_DL_SW_GAIN,
+#endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    FUNC_CH_SEL_MULTISTREAM_MEMCPY,
+#endif
     FUNC_CLK_SKEW_HFP_DL,
     FUNC_END,
 };
@@ -993,14 +1006,12 @@ stream_feature_list_t stream_feature_list_a2dp[] = {
         FUNC_MUTE_SMOOTHER,
         //FUNC_PROC_SIZE_CONV,
     */
-#if MTK_HWSRC_IN_STREAM
-    DSP_SRC,
-#endif
 #ifdef MTK_AUDIO_PLC_ENABLE
     FUNC_AUDIO_PLC,
 #endif
-#ifdef AIR_A2DP_PERIODIC_PROCEDURE_V2_EN
-    FUNC_QUEUE_BUFFER,
+#ifdef MTK_HWSRC_IN_STREAM
+    FUNC_CLK_SKEW_A2DP_DL,
+    DSP_SRC,
 #endif
     FUNC_CH_SEL,
 #ifdef MTK_PEQ_ENABLE
@@ -1012,9 +1023,16 @@ stream_feature_list_t stream_feature_list_a2dp[] = {
     FUNC_ADAPTIVE_EQ_DRC,
 #endif
 #endif
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    FUNC_DL_SW_GAIN,
+#endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    FUNC_CH_SEL_MULTISTREAM_MEMCPY,
+#endif
+#ifndef MTK_HWSRC_IN_STREAM
     FUNC_CLK_SKEW_A2DP_DL,
+#endif
     FUNC_END,
-
 };
 
 stream_feature_list_t stream_feature_list_playback[] = {
@@ -1036,6 +1054,9 @@ stream_feature_list_t stream_feature_list_vend_a2dp[] = {
 #endif
 stream_feature_list_t stream_feature_list_mic_record[] = {
     CODEC_PCM_COPY,
+#if defined(AIR_FIXED_RATIO_SRC) && (defined(AIR_UL_FIX_SAMPLING_RATE_32K) || defined(AIR_UL_FIX_SAMPLING_RATE_48K))
+    FUNC_SRC_FIXED_RATIO,
+#endif
     FUNC_MIC_SW_GAIN,
     FUNC_END,
 };
@@ -1048,6 +1069,9 @@ stream_feature_list_t stream_feature_list_mic_record_airdump[] = {
 #ifdef MTK_WWE_ENABLE
 stream_feature_list_t stream_feature_list_wwe_mic_record[] = {
     CODEC_PCM_COPY,
+#if defined(AIR_FIXED_RATIO_SRC) && (defined(AIR_UL_FIX_SAMPLING_RATE_32K) || defined(AIR_UL_FIX_SAMPLING_RATE_48K))
+    FUNC_SRC_FIXED_RATIO,
+#endif
     FUNC_MIC_SW_GAIN,
     FUNC_WWE_PREPROC,
     FUNC_WWE_PROC,
@@ -1066,6 +1090,9 @@ stream_feature_list_t stream_feature_list_prompt[] = {
     FUNC_VP_AEQ,
     FUNC_VP_AEQ_DRC,
 #endif
+#endif
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    FUNC_DL_SW_GAIN,
 #endif
     FUNC_END,
 };
@@ -1086,6 +1113,7 @@ stream_feature_list_t stream_feature_list_linein[] = {
 #endif
 #ifdef MTK_LINEIN_PEQ_ENABLE
     FUNC_PEQ3,
+    FUNC_LINE_IN_POST_PEQ,
     FUNC_DRC3,
 #endif
     FUNC_END,
@@ -1184,7 +1212,7 @@ const stream_feature_list_t stream_featuremulti_mic_function_f[] = {
 #ifdef AIR_BT_CODEC_BLE_ENABLED
 stream_feature_list_t AudioFeatureList_BLE_Call_UL[] = {
     CODEC_PCM_COPY,
-#ifdef AIR_AUDIO_VOLUME_MONITOR_ENABLE
+#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
     FUNC_AUDIO_VOLUME_MONITOR,
 #endif
     FUNC_MIC_SW_GAIN,
@@ -1215,6 +1243,9 @@ stream_feature_list_t AudioFeatureList_BLE_Call_UL[] = {
 #ifdef MTK_VOICE_AGC_ENABLE
     //FUNC_TX_AGC,
 #endif
+#if defined(AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE) && defined(AIR_SOFTWARE_GAIN_ENABLE)
+    FUNC_SW_GAIN,
+#endif
 #if defined(AIR_BLE_FIXED_RATIO_SRC_ENABLE) && defined(AIR_FIXED_RATIO_SRC)
     FUNC_SRC_FIXED_RATIO,
 #endif
@@ -1237,10 +1268,13 @@ stream_feature_list_t AudioFeatureList_BLE_Music_DL[] = {
     FUNC_ADAPTIVE_EQ_DRC,
 #endif
 #endif
-    FUNC_CLK_SKEW_BLE_MUSIC_DL,
-#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-    FUNC_CH_SEL_2CH_TO_4CH,
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    FUNC_DL_SW_GAIN,
 #endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    FUNC_CH_SEL_MULTISTREAM_MEMCPY,
+#endif
+    FUNC_CLK_SKEW_BLE_MUSIC_DL,
     FUNC_END,
 };
 
@@ -1263,10 +1297,16 @@ stream_feature_list_t AudioFeatureList_BLE_Call_DL[] = {
     FUNC_RX_WB_DRC,
 #endif
 #endif
-// Workaround
-#ifndef AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE
-    FUNC_CLK_SKEW_BLE_CALL_DL,
+#if defined(AIR_BLE_FIXED_RATIO_SRC_ENABLE) && defined(AIR_FIXED_RATIO_SRC) && (defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_48k) || defined (AIR_LE_CALL_DL_STREAM_RATE_FIX_TO_96k))
+    FUNC_SRC_FIXED_RATIO,
 #endif
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    FUNC_DL_SW_GAIN,
+#endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    FUNC_CH_SEL_MULTISTREAM_MEMCPY,
+#endif
+    FUNC_CLK_SKEW_BLE_CALL_DL,
     FUNC_END,
 };
 #endif
@@ -1285,6 +1325,12 @@ stream_feature_list_t AudioFeatureList_ULL_BLE_DL[] = {
     FUNC_PEQ,
     FUNC_PEQ2,
     FUNC_DRC,
+#endif
+
+#if defined(AIR_BLE_FIXED_RATIO_SRC_ENABLE) && defined(AIR_FIXED_RATIO_SRC)
+#if defined(AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ) && defined(AIR_AUDIO_ULD_DECODE_ENABLE)
+    FUNC_SRC_FIXED_RATIO,
+#endif
 #endif
     FUNC_END,
 };
@@ -1594,29 +1640,6 @@ stream_feature_list_t stream_feature_list_game_headset_ul[] = {
 #endif /* MTK_GAMING_MODE_HEADSET || AIR_GAMING_MODE_DONGLE_ENABLE */
 
 #if defined(AIR_WIRED_AUDIO_ENABLE)
-stream_feature_list_t stream_feature_list_wired_audio_usb_in_0_surround_audio[] = {
-    CODEC_PCM_COPY,
-#ifdef AIR_SOFTWARE_GAIN_ENABLE
-    FUNC_SW_GAIN,
-#endif
-#ifdef AIR_SOFTWARE_BUFFER_ENABLE
-    FUNC_SW_BUFFER,
-#endif
-#ifdef AIR_SOFTWARE_CLK_SKEW_ENABLE
-    FUNC_SW_CLK_SKEW,
-#endif
-#if defined(AIR_SURROUND_AUDIO_ENABLE)
-    FUNC_SURROUND_AUDIO,
-#endif
-#if defined(AIR_FIXED_RATIO_SRC)
-    FUNC_SRC_FIXED_RATIO,
-#endif
-#ifdef AIR_SOFTWARE_MIXER_ENABLE
-    //FUNC_SW_MIXER,
-#endif
-    FUNC_END,
-};
-
 stream_feature_list_t stream_feature_list_wired_audio_usb_in_0_seperate_peq[] = {
     CODEC_PCM_COPY,
     FUNC_CH_SEL,
@@ -1629,14 +1652,15 @@ stream_feature_list_t stream_feature_list_wired_audio_usb_in_0_seperate_peq[] = 
 #ifdef AIR_SOFTWARE_CLK_SKEW_ENABLE
     FUNC_SW_CLK_SKEW,
 #endif
-#if defined(AIR_FIXED_RATIO_SRC)
-    FUNC_SRC_FIXED_RATIO,
+#ifdef AIR_SOFTWARE_SRC_ENABLE
+    FUNC_SW_SRC,
 #endif
 #ifdef MTK_LINEIN_INS_ENABLE
     FUNC_INS,
 #endif
 #ifdef MTK_LINEIN_PEQ_ENABLE
     FUNC_PEQ3,
+    FUNC_LINE_IN_POST_PEQ,
     FUNC_DRC3,
 #endif
 #ifdef AIR_SOFTWARE_MIXER_ENABLE
@@ -1671,8 +1695,8 @@ stream_feature_list_t stream_feature_list_wired_audio_usb_in_1_seperate_peq[] = 
 #ifdef AIR_SOFTWARE_CLK_SKEW_ENABLE
     FUNC_SW_CLK_SKEW,
 #endif
-#if defined(AIR_FIXED_RATIO_SRC)
-    FUNC_SRC_FIXED_RATIO,
+#ifdef AIR_SOFTWARE_SRC_ENABLE
+    FUNC_SW_SRC,
 #endif
 #ifdef MTK_LINEIN_INS_ENABLE
     FUNC_USB_INS,
@@ -1687,26 +1711,6 @@ stream_feature_list_t stream_feature_list_wired_audio_usb_in_1_seperate_peq[] = 
     FUNC_END,
 };
 
-stream_feature_list_t stream_feature_list_wired_audio_usb_in_1_no_peq[] = {
-    CODEC_PCM_COPY,
-#ifdef AIR_SOFTWARE_GAIN_ENABLE
-    FUNC_SW_GAIN,
-#endif
-#ifdef AIR_SOFTWARE_BUFFER_ENABLE
-    FUNC_SW_BUFFER,
-#endif
-#ifdef AIR_SOFTWARE_CLK_SKEW_ENABLE
-    FUNC_SW_CLK_SKEW,
-#endif
-#if defined(AIR_FIXED_RATIO_SRC)
-    FUNC_SRC_FIXED_RATIO,
-#endif
-#ifdef AIR_SOFTWARE_MIXER_ENABLE
-    //FUNC_SW_MIXER,
-#endif
-    FUNC_END,
-};
-
 const stream_feature_list_t stream_feature_list_wired_audio_line_in[] = {
     CODEC_PCM_COPY,
     FUNC_CH_SEL,
@@ -1715,12 +1719,20 @@ const stream_feature_list_t stream_feature_list_wired_audio_line_in[] = {
 #endif
 #ifdef MTK_LINEIN_PEQ_ENABLE
     FUNC_PEQ3,
+    FUNC_LINE_IN_POST_PEQ,
     FUNC_DRC3,
 #endif
 
 #if defined(AIR_FIXED_RATIO_SRC)
     FUNC_SRC_FIXED_RATIO,
 #endif
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    FUNC_DL_SW_GAIN,
+#endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    FUNC_CH_SEL_MULTISTREAM_MEMCPY,
+#endif
+
     FUNC_END,
 };
 
@@ -1750,8 +1762,8 @@ stream_feature_list_t const stream_feature_list_wired_audio_usb_out_iem[] = {
 stream_feature_list_t stream_feature_list_wired_audio_usb_out[] = {
     CODEC_PCM_COPY,
     FUNC_CH_SEL_USB_MIC,
-#if defined(AIR_FIXED_RATIO_SRC)
-    FUNC_SRC_FIXED_RATIO,
+#ifdef AIR_SOFTWARE_SRC_ENABLE
+    FUNC_SW_SRC,
 #endif
     FUNC_MIC_SW_GAIN,
     FUNC_CH_SEL_HFP,
@@ -1767,7 +1779,7 @@ stream_feature_list_t stream_feature_list_wired_audio_usb_out[] = {
 #endif
 #endif
     FUNC_TX_WB_DRC,
-#ifdef AIR_AUDIO_VOLUME_MONITOR_ENABLE
+#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
     FUNC_AUDIO_VOLUME_MONITOR,
 #endif
 #ifdef AIR_SOFTWARE_GAIN_ENABLE
@@ -1788,8 +1800,8 @@ stream_feature_list_t stream_feature_list_wired_audio_usb_out[] = {
 stream_feature_list_t stream_feature_list_wired_audio_usb_out_swb[] = {
     CODEC_PCM_COPY,
     FUNC_CH_SEL_USB_MIC,
-#if defined(AIR_FIXED_RATIO_SRC)
-    FUNC_SRC_FIXED_RATIO,
+#ifdef AIR_SOFTWARE_SRC_ENABLE
+    FUNC_SW_SRC,
 #endif
     FUNC_MIC_SW_GAIN,
     FUNC_CH_SEL_HFP,
@@ -1803,9 +1815,9 @@ stream_feature_list_t stream_feature_list_wired_audio_usb_out_swb[] = {
 #if defined(AIR_BTA_IC_PREMIUM_G2) && defined(AIR_AI_NR_PREMIUM_ENABLE) && !defined(AIR_AI_NR_PREMIUM_200K_SHORT_BOOM_OO_ENABLE)
     FUNC_TX_EQ,
 #endif
-#endif
     FUNC_TX_SWB_DRC,
-#ifdef AIR_AUDIO_VOLUME_MONITOR_ENABLE
+#endif
+#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
     FUNC_AUDIO_VOLUME_MONITOR,
 #endif
 #ifdef AIR_SOFTWARE_GAIN_ENABLE
@@ -1825,41 +1837,37 @@ stream_feature_list_t stream_feature_list_wired_audio_usb_out_swb[] = {
 
 const stream_feature_list_t stream_feature_list_wired_audio_line_out[] = {
     CODEC_PCM_COPY,
-#if defined(AIR_FIXED_RATIO_SRC)
-#if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) && defined(AIR_DUAL_CHIP_NR_ON_MASTER_ENABLE))
-    FUNC_SRC_FIXED_RATIO,
-#endif
-#endif
 #if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE))
+#ifdef AIR_SOFTWARE_SRC_ENABLE
+    FUNC_SW_SRC,
+#endif
     FUNC_MIC_SW_GAIN,
 #if defined (AIR_DCHS_MODE_ENABLE)
     FUNC_ECNR_PREV_PROCESS,
     FUNC_DCHS_SW_BUFFER_MASTER,
-#else
+#else // #if defined (AIR_DCHS_MODE_ENABLE)
 #if defined(AIR_VOICE_NR_ENABLE)
     FUNC_TX_NR,
 #endif
 #if defined(AIR_BTA_IC_PREMIUM_G2) && defined(AIR_AI_NR_PREMIUM_ENABLE) && !defined(AIR_AI_NR_PREMIUM_200K_SHORT_BOOM_OO_ENABLE)
     FUNC_TX_EQ,
 #endif
-#endif
     FUNC_TX_WB_DRC,
+#endif//AIR_DCHS_MODE_ENABLE
 #ifdef AIR_SOFTWARE_GAIN_ENABLE
     FUNC_SW_GAIN,
 #endif
-#endif /*AIR_WIRED_AUDIO_ENABLE*/
-#if defined(AIR_FIXED_RATIO_SRC) && defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) && defined(AIR_DUAL_CHIP_NR_ON_MASTER_ENABLE) /* && defined(AIR_BTA_IC_PREMIUM_G2) */
-    FUNC_SRC_FIXED_RATIO,
+#ifdef AIR_SOFTWARE_SRC_ENABLE
+    FUNC_SW_SRC,
 #endif
+#endif // #if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE))
     FUNC_END,
 };
 
 const stream_feature_list_t stream_feature_list_wired_audio_line_out_swb[] = {
     CODEC_PCM_COPY,
-#if defined(AIR_FIXED_RATIO_SRC)
-#if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) && defined(AIR_DUAL_CHIP_NR_ON_MASTER_ENABLE))
-    FUNC_SRC_FIXED_RATIO,
-#endif
+#ifdef AIR_SOFTWARE_SRC_ENABLE
+    FUNC_SW_SRC,
 #endif
     FUNC_MIC_SW_GAIN,
 #if defined (AIR_DCHS_MODE_ENABLE)
@@ -1877,16 +1885,16 @@ const stream_feature_list_t stream_feature_list_wired_audio_line_out_swb[] = {
 #ifdef AIR_SOFTWARE_GAIN_ENABLE
     FUNC_SW_GAIN,
 #endif
-#if defined(AIR_FIXED_RATIO_SRC) && defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) && defined(AIR_DUAL_CHIP_NR_ON_MASTER_ENABLE) /* && defined(AIR_BTA_IC_PREMIUM_G2) */
-    FUNC_SRC_FIXED_RATIO,
+#ifdef AIR_SOFTWARE_SRC_ENABLE
+    FUNC_SW_SRC,
 #endif
     FUNC_END,
 };
 
 stream_feature_list_t const stream_feature_list_wired_audio_usb_in_out_iem[] = {
     CODEC_PCM_COPY,
-#if defined(AIR_FIXED_RATIO_SRC)
-    FUNC_SRC_FIXED_RATIO,
+#ifdef AIR_SOFTWARE_SRC_ENABLE
+    FUNC_SW_SRC,
 #endif
 #ifdef AIR_SOFTWARE_GAIN_ENABLE
     FUNC_SW_GAIN,
@@ -1901,6 +1909,12 @@ stream_feature_list_t const stream_feature_list_wired_audio_main_stream[] = {
     CODEC_PCM_COPY,
 #ifdef AIR_SOFTWARE_MIXER_ENABLE
     FUNC_SW_MIXER,
+#endif
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+    FUNC_DL_SW_GAIN,
+#endif
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+        FUNC_CH_SEL_MULTISTREAM_MEMCPY,
 #endif
     FUNC_END,
 };
@@ -1975,6 +1989,27 @@ stream_feature_list_t stream_feature_list_ble_audio_dongle_usb_in_broadcast_1[] 
     CODEC_ENCODER_LC3_BRANCH,
     FUNC_END,
 };
+
+#if defined(AIR_BT_LE_LC3PLUS_ENABLE)
+stream_feature_list_t stream_feature_list_ble_audio_dongle_usb_in_broadcast_0_LC3_P[] = {
+    CODEC_PCM_COPY,
+    FUNC_SRC_FIXED_RATIO,
+#ifdef AIR_SOFTWARE_BUFFER_ENABLE
+    FUNC_SW_BUFFER,
+#endif
+#ifdef AIR_SOFTWARE_CLK_SKEW_ENABLE
+    FUNC_SW_CLK_SKEW,
+#endif
+#ifdef AIR_SOFTWARE_GAIN_ENABLE
+    FUNC_SW_GAIN,
+#endif
+#ifdef AIR_SOFTWARE_MIXER_ENABLE
+    FUNC_SW_MIXER,
+#endif
+    CODEC_ENCODER_LC3PLUS,
+    FUNC_END,
+};
+#endif
 
 stream_feature_list_t stream_feature_list_ble_audio_dongle_usb_out_broadcast[] = {
     CODEC_DECODER_LC3,
@@ -2138,6 +2173,16 @@ stream_feature_list_t stream_feature_list_ull_audio_v2_dongle_line_out[] = {
 };
 #endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) */
 
+#if defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+stream_feature_list_t stream_feature_list_ull_audio_v2_dongle_i2s_mst_out[] = {
+    CODEC_DECODER_LC3PLUS,
+    FUNC_SW_MIXER,
+    FUNC_SW_GAIN,
+    FUNC_SW_SRC,
+    FUNC_END,
+};
+#endif /* defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
+
 #if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
 stream_feature_list_t stream_feature_list_ull_audio_v2_dongle_i2s_slv_out[] = {
     CODEC_DECODER_LC3PLUS,
@@ -2151,20 +2196,6 @@ stream_feature_list_t stream_feature_list_ull_audio_v2_dongle_i2s_slv_out[] = {
 #endif /* AIR_ULL_AUDIO_V2_DONGLE_ENABLE */
 
 #if defined (AIR_DCHS_MODE_ENABLE)
-stream_feature_list_t stream_feature_list_dchs_dl_right[] = {
-    CODEC_PCM_COPY,
-#ifdef AIR_SOFTWARE_GAIN_ENABLE
-    FUNC_SW_GAIN,
-#endif
-#ifdef AIR_SOFTWARE_MIXER_ENABLE
-    FUNC_SW_MIXER,
-#endif
-    FUNC_END,
-};
-stream_feature_list_t stream_feature_list_dchs_dl_left[] = {
-    CODEC_PCM_COPY,
-    FUNC_END,
-};
 stream_feature_list_t stream_feature_list_dchs_uart_ul_right[] = {
     CODEC_PCM_COPY,
     FUNC_MIC_SW_GAIN,
@@ -2173,13 +2204,49 @@ stream_feature_list_t stream_feature_list_dchs_uart_ul_right[] = {
     FUNC_DCHS_UPLINK_TX,
     FUNC_END,
 };
-stream_feature_list_t stream_feature_list_dchs_uart_ul_left[] = {
+stream_feature_list_t stream_feature_list_dchs_uart_ul_left_wb[] = {
     CODEC_PCM_COPY,
     FUNC_MIC_SW_GAIN,
     FUNC_CH_SEL_HFP,
     FUNC_ECNR_PREV_PROCESS,
     FUNC_DCHS_SW_BUFFER_SLAVE,
     FUNC_ECNR_POST_PROCESS,
+    FUNC_DCHS_UPLINK_TX,
+    FUNC_END,
+};
+
+stream_feature_list_t stream_feature_list_dchs_uart_ul_left_wb_sw_gain[] = {
+    CODEC_PCM_COPY,
+    FUNC_SW_GAIN,
+    FUNC_CH_SEL_HFP,
+    FUNC_ECNR_PREV_PROCESS,
+    FUNC_DCHS_SW_BUFFER_SLAVE,
+    FUNC_ECNR_POST_PROCESS,
+    FUNC_TX_WB_DRC,
+    FUNC_DCHS_UPLINK_TX,
+    FUNC_END,
+};
+
+stream_feature_list_t stream_feature_list_dchs_uart_ul_left_swb[] = {
+    CODEC_PCM_COPY,
+    FUNC_MIC_SW_GAIN,
+    FUNC_CH_SEL_HFP,
+    FUNC_ECNR_PREV_PROCESS,
+    FUNC_DCHS_SW_BUFFER_SLAVE,
+    FUNC_ECNR_POST_PROCESS,
+    FUNC_TX_SWB_DRC,
+    FUNC_DCHS_UPLINK_TX,
+    FUNC_END,
+};
+
+stream_feature_list_t stream_feature_list_dchs_uart_ul_left_swb_sw_gain[] = {
+    CODEC_PCM_COPY,
+    FUNC_SW_GAIN,
+    FUNC_CH_SEL_HFP,
+    FUNC_ECNR_PREV_PROCESS,
+    FUNC_DCHS_SW_BUFFER_SLAVE,
+    FUNC_ECNR_POST_PROCESS,
+    FUNC_TX_SWB_DRC,
     FUNC_DCHS_UPLINK_TX,
     FUNC_END,
 };
@@ -2301,6 +2368,7 @@ stream_feature_list_t stream_feature_list_bt_audio_dongle_afe_in_a2dp_0[] = {
 // #ifdef MTK_LINEIN_INS_ENABLE
 //     FUNC_INS,
 // #endif
+    FUNC_SW_GAIN,
     FUNC_SRC_FIXED_RATIO,
     FUNC_SW_MIXER,
     CODEC_ENCODER_SBC,
@@ -2312,6 +2380,7 @@ stream_feature_list_t stream_feature_list_bt_audio_dongle_afe_in_a2dp_1[] = {
 // #ifdef MTK_LINEIN_INS_ENABLE
 //     FUNC_INS,
 // #endif
+    FUNC_SW_GAIN,
     FUNC_SRC_FIXED_RATIO,
     FUNC_SW_MIXER,
     CODEC_ENCODER_SBC,
@@ -2323,6 +2392,7 @@ stream_feature_list_t stream_feature_list_bt_audio_dongle_afe_in_a2dp_2[] = {
 // #ifdef MTK_LINEIN_INS_ENABLE
 //     FUNC_INS,
 // #endif
+    FUNC_SW_GAIN,
     FUNC_SRC_FIXED_RATIO,
     FUNC_SW_MIXER,
     CODEC_ENCODER_SBC,
@@ -2334,6 +2404,7 @@ stream_feature_list_t stream_feature_list_bt_audio_dongle_afe_in_hfp_msbc_0[] = 
 // #ifdef MTK_LINEIN_INS_ENABLE
 //     FUNC_INS,
 // #endif
+    FUNC_SW_GAIN,
     FUNC_SRC_FIXED_RATIO,
     FUNC_SW_MIXER,
     CODEC_ENCODER_MSBC,
@@ -2345,6 +2416,7 @@ stream_feature_list_t stream_feature_list_bt_audio_dongle_afe_in_hfp_msbc_1[] = 
 // #ifdef MTK_LINEIN_INS_ENABLE
 //     FUNC_INS,
 // #endif
+    FUNC_SW_GAIN,
     FUNC_SRC_FIXED_RATIO,
     FUNC_SW_MIXER,
     CODEC_ENCODER_MSBC,
@@ -2356,6 +2428,7 @@ stream_feature_list_t stream_feature_list_bt_audio_dongle_afe_in_hfp_msbc_2[] = 
 // #ifdef MTK_LINEIN_INS_ENABLE
 //     FUNC_INS,
 // #endif
+    FUNC_SW_GAIN,
     FUNC_PEQ,
     FUNC_DRC,
     FUNC_SRC_FIXED_RATIO,
@@ -2369,6 +2442,7 @@ stream_feature_list_t stream_feature_list_bt_audio_dongle_afe_in_hfp_cvsd_0[] = 
 // #ifdef MTK_LINEIN_INS_ENABLE
 //     FUNC_INS,
 // #endif
+    FUNC_SW_GAIN,
     FUNC_SRC_FIXED_RATIO,
     FUNC_SW_MIXER,
     FUNC_SW_SRC,
@@ -2380,6 +2454,7 @@ stream_feature_list_t stream_feature_list_bt_audio_dongle_afe_in_hfp_cvsd_1[] = 
 // #ifdef MTK_LINEIN_INS_ENABLE
 //     FUNC_INS,
 // #endif
+    FUNC_SW_GAIN,
     FUNC_SRC_FIXED_RATIO,
     FUNC_SW_MIXER,
     FUNC_SW_SRC,
@@ -2392,6 +2467,7 @@ stream_feature_list_t stream_feature_list_bt_audio_dongle_afe_in_hfp_cvsd_2[] = 
 // #ifdef MTK_LINEIN_INS_ENABLE
 //     FUNC_INS,
 // #endif
+    FUNC_SW_GAIN,
     FUNC_SRC_FIXED_RATIO,
     FUNC_SW_MIXER,
     FUNC_SW_SRC,
@@ -2419,6 +2495,19 @@ stream_feature_list_t stream_feature_list_advanced_record_n_mic[] = {
 #ifdef AIR_SOFTWARE_DRC_ENABLE
     FUNC_SW_DRC,//FUNC_DRC3,
 #endif
+#endif
+    FUNC_END,
+};
+#endif
+
+#if defined (AIR_MIXER_STREAM_ENABLE)
+stream_feature_list_t stream_feature_list_mixer_stream[] = {
+    CODEC_PCM_COPY,
+#ifdef AIR_SOFTWARE_GAIN_ENABLE
+    FUNC_SW_GAIN,
+#endif
+#ifdef AIR_SOFTWARE_MIXER_ENABLE
+    FUNC_SW_MIXER,
 #endif
     FUNC_END,
 };

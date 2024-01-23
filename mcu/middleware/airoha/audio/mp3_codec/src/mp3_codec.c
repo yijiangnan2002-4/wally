@@ -2305,13 +2305,13 @@ static void mp3_codec_play_avm(mp3_codec_media_handle_t *handle)
     }
     open_param.stream_out_param.afe.format          = AFE_PCM_FORMAT_S16_LE;
     open_param.stream_out_param.afe.stream_out_sampling_rate   = hal_audio_sampling_rate_enum_to_value(internal_handle->sampling_rate);
-#if defined (FIXED_SAMPLING_RATE_TO_48KHZ)
-    open_param.stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
-#elif defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
-    open_param.stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
-#else
-    open_param.stream_out_param.afe.sampling_rate   = hal_audio_sampling_rate_enum_to_value(internal_handle->sampling_rate);
-#endif
+
+    if (aud_fixrate_get_downlink_rate(open_param->audio_scenario_type) == FIXRATE_NONE) {
+        open_param.stream_out_param.afe.sampling_rate   = hal_audio_sampling_rate_enum_to_value(internal_handle->sampling_rate);
+    } else {
+        open_param.stream_out_param.afe.sampling_rate = aud_fixrate_get_downlink_rate(open_param->audio_scenario_type);
+    }
+
 #if defined (MTK_FIXED_VP_A2DP_SAMPLING_RATE_TO_48KHZ)
     open_param.stream_out_param.afe.sampling_rate    = 48000;
 #endif

@@ -82,6 +82,7 @@
 #include "bt_ull_le_hid_service.h"
 #include "ble_air_interface.h"
 #endif
+#include "bt_utils.h"
 typedef struct {
     race_recipient_type_enum recipient_type;
     race_fota_stop_originator_enum originator;
@@ -142,6 +143,7 @@ RACE_ERRCODE race_fota_reset(void)
 #endif
         g_race_fota_cntx_ptr->fota_mode = RACE_FOTA_MODE_MAX;
         g_race_fota_cntx_ptr->dl_method = RACE_FOTA_DUAL_DEVICE_DL_METHOD_MAX;
+        memset(&g_race_fota_cntx_ptr->remote_address, 0, sizeof(bt_bd_addr_t));
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
         g_race_fota_cntx_ptr->switch_link_timer_id = RACE_TIMER_INVALID_TIMER_ID;
 #endif
@@ -741,6 +743,8 @@ RACE_ERRCODE race_fota_set_sp_trans_method_by_channel_id(uint8_t channel_id)
         race_fota_sp_trans_method_set(RACE_FOTA_SP_TRANS_METHOD_BLE_2);
     } else if (RACE_SERIAL_PORT_TYPE_1WIRE == port_type) {
         race_fota_sp_trans_method_set(RACE_FOTA_SP_TRANS_METHOD_1WIRE);
+    } else if (RACE_SERIAL_PORT_TYPE_UART == port_type) {
+        race_fota_sp_trans_method_set(RACE_FOTA_SP_TRANS_METHOD_UART);
     }
 #ifdef AIR_MUX_BT_HID_ENABLE
      else if (RACE_SERIAL_PORT_TYPE_HID == port_type) {
@@ -805,6 +809,9 @@ RACE_ERRCODE race_fota_channel_id_get(uint8_t *channel_id)
     } else if (RACE_FOTA_SP_TRANS_METHOD_1WIRE == sp_trans_method) {
         *channel_id = race_get_channel_id_by_port_type(RACE_SERIAL_PORT_TYPE_1WIRE);
         return RACE_ERRCODE_SUCCESS;
+    } else if (RACE_FOTA_SP_TRANS_METHOD_UART == sp_trans_method) {
+        *channel_id = race_get_channel_id_by_port_type(RACE_SERIAL_PORT_TYPE_UART);
+        return RACE_ERRCODE_SUCCESS;
     }
 #ifdef AIR_MUX_BT_HID_ENABLE
      else if (RACE_FOTA_SP_TRANS_METHOD_HID == sp_trans_method) {
@@ -855,21 +862,22 @@ bool race_fota_is_busy(void)
     return FALSE;
 }
 
-bool race_fota_is_cmd_allowed(race_fota_stop_reason_enum *reason, uint16_t cmd_id, uint8_t channel_id)
+bool race_fota_is_cmd_allowed(race_fota_stop_reason_enum *reason, uint16_t cmd_id, uint8_t channel_id, bt_bd_addr_t *peer_address)
 {
     race_serial_port_type_enum port_type = race_get_port_type_by_channel_id(channel_id);
     race_fota_sp_trans_method_enum sp_trans_method = race_fota_sp_trans_method_get();
     race_fota_download_state_enum fota_dl_state = race_fota_dl_state_get();
     bool same_trans_method = FALSE;
+    race_fota_cntx_struct *fota_cntx = race_fota_cntx_get();
 
     if (reason) {
         *reason = RACE_FOTA_STOP_REASON_MAX;
     }
 
-    if ((RACE_FOTA_SP_TRANS_METHOD_SPP == sp_trans_method &&
-         RACE_SERIAL_PORT_TYPE_SPP == port_type) ||
-        (RACE_FOTA_SP_TRANS_METHOD_BLE == sp_trans_method &&
-         RACE_SERIAL_PORT_TYPE_BLE == port_type)
+    if ((RACE_FOTA_SP_TRANS_METHOD_USB1 == sp_trans_method &&
+            MUX_USB_COM_1 == port_type)
+        || (RACE_FOTA_SP_TRANS_METHOD_USB2 == sp_trans_method &&
+            MUX_USB_COM_2 == port_type)
 #ifdef MTK_AIRUPDATE_ENABLE
         || (RACE_FOTA_SP_TRANS_METHOD_AIRUPDATE == sp_trans_method &&
             RACE_SERIAL_PORT_TYPE_AIRUPDATE == port_type)
@@ -878,26 +886,42 @@ bool race_fota_is_cmd_allowed(race_fota_stop_reason_enum *reason, uint16_t cmd_i
         || (RACE_FOTA_SP_TRANS_METHOD_IAP2 == sp_trans_method &&
             RACE_SERIAL_PORT_TYPE_IAP2 == port_type)
 #endif
-#ifdef MTK_GATT_OVER_BREDR_ENABLE
-        || (RACE_FOTA_SP_TRANS_METHOD_GATT_OVER_BREDR == sp_trans_method &&
-            RACE_SERIAL_PORT_TYPE_GATT_OVER_BREDR == port_type)
-#endif
-        || (RACE_FOTA_SP_TRANS_METHOD_USB1 == sp_trans_method &&
-            MUX_USB_COM_1 == port_type)
-        || (RACE_FOTA_SP_TRANS_METHOD_USB2 == sp_trans_method &&
-            MUX_USB_COM_2 == port_type)
-        || (RACE_FOTA_SP_TRANS_METHOD_BLE_1 == sp_trans_method &&
-            RACE_SERIAL_PORT_TYPE_BLE_1 == port_type)
-        || (RACE_FOTA_SP_TRANS_METHOD_BLE_2 == sp_trans_method &&
-            RACE_SERIAL_PORT_TYPE_BLE_2 == port_type)
         || (RACE_FOTA_SP_TRANS_METHOD_1WIRE == sp_trans_method &&
             RACE_SERIAL_PORT_TYPE_1WIRE == port_type)
+        || (RACE_FOTA_SP_TRANS_METHOD_UART == sp_trans_method &&
+            RACE_SERIAL_PORT_TYPE_UART == port_type)
 #ifdef AIR_MUX_BT_HID_ENABLE
         || (RACE_FOTA_SP_TRANS_METHOD_HID == sp_trans_method &&
             RACE_SERIAL_PORT_TYPE_HID == port_type)
 #endif
+        || (RACE_FOTA_SP_TRANS_METHOD_SPP == sp_trans_method &&
+            RACE_SERIAL_PORT_TYPE_SPP == port_type)
+        || (RACE_FOTA_SP_TRANS_METHOD_BLE == sp_trans_method &&
+            RACE_SERIAL_PORT_TYPE_BLE == port_type)
+        || (RACE_FOTA_SP_TRANS_METHOD_BLE_1 == sp_trans_method &&
+            RACE_SERIAL_PORT_TYPE_BLE_1 == port_type)
+        || (RACE_FOTA_SP_TRANS_METHOD_BLE_2 == sp_trans_method &&
+            RACE_SERIAL_PORT_TYPE_BLE_2 == port_type)
+#ifdef MTK_GATT_OVER_BREDR_ENABLE
+        || (RACE_FOTA_SP_TRANS_METHOD_GATT_OVER_BREDR == sp_trans_method &&
+            RACE_SERIAL_PORT_TYPE_GATT_OVER_BREDR == port_type)
+#endif            
         ) {
         same_trans_method = TRUE;
+    }
+
+    bt_bd_addr_t *addr = race_get_bt_connection_addr(port_type);
+
+    if (NULL != addr && fota_cntx) {
+        if (bt_utils_memcmp((uint8_t *)addr, &fota_cntx->remote_address, sizeof(bt_bd_addr_t)) == 0) {
+            same_trans_method = TRUE;
+        } 
+    }
+    /*after RHO, new partner need check the address, because tool will send FOTA start(0x1c08) again*/
+    if (NULL != peer_address && fota_cntx) {
+        if (bt_utils_memcmp((uint8_t *)peer_address, &fota_cntx->remote_address, sizeof(bt_bd_addr_t)) == 0) {
+            same_trans_method = TRUE;
+        } 
     }
 
 #ifdef __FOTA_FOR_BISTO__
@@ -1131,7 +1155,7 @@ RACE_ERRCODE race_fota_cmd_preprocess(uint16_t cmd_id,
 #endif
 #endif
 
-    if (!race_fota_is_cmd_allowed(&reason, cmd_id, channel_id)) {
+    if (!race_fota_is_cmd_allowed(&reason, cmd_id, channel_id, NULL)) {
         if (RACE_TYPE_COMMAND == cmd_type ||
             RACE_TYPE_COMMAND_WITHOUT_RSP == cmd_type) {
 #if defined(RACE_LPCOMM_ENABLE) && defined(RACE_LPCOMM_SENDER_ROLE_ENABLE)
@@ -3130,6 +3154,11 @@ static RACE_ERRCODE race_fota_race_event_cb(race_event_type_enum event_type, voi
     switch (event_type) {
         case RACE_EVENT_TYPE_CONN_BLE_DISCONNECT:
         case RACE_EVENT_TYPE_CONN_SPP_DISCONNECT:
+        case RACE_EVENT_TYPE_CONN_BLE_1_DISCONNECT:
+        case RACE_EVENT_TYPE_CONN_BLE_2_DISCONNECT:
+#ifdef AIR_MUX_BT_HID_ENABLE
+        case RACE_EVENT_TYPE_CONN_HID_DISCONNECT:
+#endif            
 #ifdef MTK_AIRUPDATE_ENABLE
         case RACE_EVENT_TYPE_CONN_AIRUPDATE_DISCONNECT:
 #endif
@@ -3250,6 +3279,11 @@ static RACE_ERRCODE race_fota_race_event_cb(race_event_type_enum event_type, voi
 
         case RACE_EVENT_TYPE_CONN_BLE_CONNECT:
         case RACE_EVENT_TYPE_CONN_SPP_CONNECT:
+        case RACE_EVENT_TYPE_CONN_BLE_1_CONNECT:
+        case RACE_EVENT_TYPE_CONN_BLE_2_CONNECT:
+#ifdef AIR_MUX_BT_HID_ENABLE
+        case RACE_EVENT_TYPE_CONN_HID_CONNECT:
+#endif             
 #ifdef MTK_AIRUPDATE_ENABLE
         case RACE_EVENT_TYPE_CONN_AIRUPDATE_CONNECT:
 #endif

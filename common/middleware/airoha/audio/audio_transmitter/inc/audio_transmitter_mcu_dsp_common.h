@@ -314,15 +314,6 @@ typedef enum {
 } wireless_mic_rx_runtime_config_operation_t;
 #endif /* AIR_WIRELESS_MIC_RX_ENABLE */
 
-#if defined (AIR_DCHS_MODE_ENABLE)
-typedef enum {
-    DCHS_DL_CONFIG_OP_SET_UART_SCENARIO_VOL_INFO    = 0,
-    DCHS_DL_CONFIG_OP_SET_LOCAL_SCENARIO_1_VOL_INFO = 1,
-    DCHS_DL_CONFIG_OP_SET_LOCAL_SCENARIO_2_VOL_INFO = 2,
-    DCHS_DL_CONFIG_OP_MAX,
-} dchs_dl_runtime_config_operation_t;
-#endif
-
 typedef enum {
     /* User Unaware */
     AUDIO_ANC_MONITOR_STREAM_CONTROL = 0,
@@ -357,17 +348,25 @@ typedef enum {
 } audio_anc_monitor_get_info_t;
 
 #if defined(AIR_BT_AUDIO_DONGLE_ENABLE)
+#define BT_AUDIO_VOLUME_CH_MAX        (2)
+#define BT_AUDIO_VOLUME_LEVEL_MUTE    (0x7F)
+#define BT_AUDIO_VOLUME_LEVEL_INVALID (0xFF)
 typedef enum {
     BT_AUDIO_DONGLE_CONFIG_OP_USB_DETECT_ENABLE = 0,
     BT_AUDIO_DONGLE_CONFIG_OP_USB_DETECT_DISABLE = 1,
-    BT_AUDIO_DONGLE_CONFIG_OP_SET_MIX,
-    BT_AUDIO_DONGLE_CONFIG_OP_SET_UNMIX,
     BT_AUDIO_DONGLE_CONFIG_OP_SILENCE_DETECTION_ENABLE,
     BT_AUDIO_DONGLE_CONFIG_OP_SILENCE_DETECTION_DISABLE,
     BT_AUDIO_DONGLE_CONFIG_OP_SET_MUTE,
     BT_AUDIO_DONGLE_CONFIG_OP_SET_UNMUTE,
+    BT_AUDIO_DONGLE_CONFIG_OP_SET_VOLUME_LEVEL,
     BT_AUDIO_DONGLE_CONFIG_OP_MAX,
 } bt_audio_dongle_runtime_config_operation_t;
+
+typedef struct {
+    uint8_t ignore_flag;
+    uint8_t mute_flag;
+    int32_t gain_value; // unit: 0.01dB
+} bt_audio_dongle_gain_info_t;
 #endif
 
 typedef uint32_t audio_transmitter_runtime_config_type_t;
@@ -377,20 +376,51 @@ typedef uint32_t audio_transmitter_runtime_config_type_t;
 
 #if defined (AIR_WIRED_AUDIO_ENABLE)
 
+/*
+ * Customize for LINE IN scenario
+ */
 #if defined(AIR_DCHS_MODE_ENABLE)
-#define WIRED_AUDIO_DL_PROCESS_PERIOD 10
-#elif defined (AIR_WIRELESS_MIC_TX_ENABLE)
-#define WIRED_AUDIO_DL_PROCESS_PERIOD 5
-#elif defined (AIR_USB_AUDIO_IN_AND_OUT_MIX_ENABLE)
-#define WIRED_AUDIO_DL_PROCESS_PERIOD 3
+#define WIRED_AUDIO_LINE_IN_PROCESS_TIME 10
+#define WIRED_AUDIO_LINE_IN_HIRES_PROCESS_TIME 5
+#define WIRED_AUDIO_LINE_IN_PREFILL_SIZE 100 /* Custmize the sink prefill size of Line in, unit of percentage */
+#elif defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) || defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)
+#define WIRED_AUDIO_LINE_IN_PROCESS_TIME 3
+#define WIRED_AUDIO_LINE_IN_HIRES_PROCESS_TIME 3
+#define WIRED_AUDIO_LINE_IN_PREFILL_SIZE 100 /* Custmize the sink prefill size of Line in, unit of percentage */
 #else
-#define WIRED_AUDIO_DL_PROCESS_PERIOD 3
+#define AIR_LINE_IN_LATENCY_HIGH /* Custmize the latency of line in */
+#if defined(AIR_LINE_IN_LATENCY_LOW)
+#define WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES 32
+#elif defined(AIR_LINE_IN_LATENCY_MEDIUM)
+#define WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES 64
+#elif defined(AIR_LINE_IN_LATENCY_HIGH)
+#define WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES 128
+#else
+#define WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES 128
+#endif
+#define WIRED_AUDIO_LINE_IN_PREFILL_SIZE 100 /* Custmize the sink prefill size of Line in, unit of percentage */
 #endif
 
-#if !defined(AIR_DCHS_MODE_ENABLE)
-#define WIRED_AUDIO_DL_PROCESS_HIGH_RES_PERIOD 3
+/*
+ * Customize for USB IN scenario
+ */
+#if defined(AIR_DCHS_MODE_ENABLE)
+#define WIRED_AUDIO_USB_IN_PROCESS_PERIOD 10
+#define WIRED_AUDIO_USB_IN_PREFILL_SIZE 50 /* Custmize the sink prefill size of USB in, unit of percentage */
+#elif defined (AIR_WIRELESS_MIC_TX_ENABLE)
+#define WIRED_AUDIO_USB_IN_PROCESS_PERIOD 5
+#define WIRED_AUDIO_USB_IN_PREFILL_SIZE 50 /* Custmize the sink prefill size of USB in, unit of percentage */
+#elif defined (AIR_USB_AUDIO_IN_AND_OUT_MIX_ENABLE)
+#define WIRED_AUDIO_USB_IN_PROCESS_PERIOD 3
+#define WIRED_AUDIO_USB_IN_PREFILL_SIZE 50 /* Custmize the sink prefill size of USB in, unit of percentage */
 #else
-#define WIRED_AUDIO_DL_PROCESS_HIGH_RES_PERIOD 5
+#define AIR_USB_IN_LATENCY_HIGH /* Custmize the latency of USB in */
+#if defined(AIR_USB_IN_LATENCY_LOW)
+#define WIRED_AUDIO_USB_IN_PROCESS_PERIOD 1
+#elif defined(AIR_USB_IN_LATENCY_HIGH)
+#define WIRED_AUDIO_USB_IN_PROCESS_PERIOD 3
+#endif
+#define WIRED_AUDIO_USB_IN_PREFILL_SIZE 50 /* Custmize the sink prefill size of USB in, unit of percentage */
 #endif
 
 #if defined(AIR_DCHS_MODE_ENABLE)
@@ -409,41 +439,25 @@ typedef uint32_t audio_transmitter_runtime_config_type_t;
 #endif
 #endif
 
+/*
+ * Customize for USB OUT scenario
+ */
 #if defined (AIR_WIRELESS_MIC_TX_ENABLE)
-#define WIRED_AUDIO_UL_PROCESS_PERIOD 5
+#define WIRED_AUDIO_USB_OUT_PROCESS_PERIOD 5
+#define WIRED_AUDIO_USB_OUT_PREFILL_SIZE 100 /* Custmize the sink prefill size of USB out, unit of percentage */
 #elif defined (AIR_USB_AUDIO_IN_AND_OUT_MIX_ENABLE)
-#define WIRED_AUDIO_UL_PROCESS_PERIOD 3
+#define WIRED_AUDIO_USB_OUT_PROCESS_PERIOD 3
+#define WIRED_AUDIO_USB_OUT_PREFILL_SIZE 100 /* Custmize the sink prefill size of USB out, unit of percentage */
 #else
-#define WIRED_AUDIO_UL_PROCESS_PERIOD 15  /* Unit of ms for DSP process period */
+#define WIRED_AUDIO_USB_OUT_PROCESS_PERIOD 15
+#define WIRED_AUDIO_USB_OUT_PREFILL_SIZE 34 /* Custmize the sink prefill size of USB out, unit of percentage */
 #endif
 
-#define WIRED_AUDIO_UL_MAX_SAMPLE_RATE  192000
-
-#define AIR_LINE_IN_LATENCY_HIGH /* Custmize the latency of line in */
-#if defined(AIR_LINE_IN_LATENCY_LOW)
-#define WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES 32
-#elif defined(AIR_LINE_IN_LATENCY_MEDIUM)
-#define WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES 64
-#elif defined(AIR_LINE_IN_LATENCY_HIGH)
-#define WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES 128
-#else
-#define WIRED_AUDIO_LINE_IN_PROCESS_SAMPLES 128
-#endif
-//#define AIR_LINE_IN_PREFILL_SIZE 100 /* Custmize the prefill size of Line in, unit of percentage */
-
-#define AIR_USB_IN_LATENCY_HIGH /* Custmize the latency of USB in */
-#if defined(AIR_USB_IN_LATENCY_LOW)
-#define WIRED_AUDIO_USB_IN_PROCESS_PERIOD 1
-#elif defined(AIR_USB_IN_LATENCY_HIGH)
-#if defined (AIR_WIRELESS_MIC_TX_ENABLE)
-#define WIRED_AUDIO_USB_IN_PROCESS_PERIOD 5
-#else
-#define WIRED_AUDIO_USB_IN_PROCESS_PERIOD 3
-#endif
-#else
-#define WIRED_AUDIO_USB_IN_PROCESS_PERIOD 3
-#endif
-//#define AIR_USB_IN_PREFILL_SIZE 100 /* Custmize the prefill size of USB in, unit of percentage */
+/*
+ * Customize for LINE OUT scenario
+ */
+#define WIRED_AUDIO_LINE_OUT_PROCESS_PERIOD 15
+#define WIRED_AUDIO_LINE_OUT_PREFILL_SIZE 34 /* Custmize the sink prefill size of LINE out, unit of percentage */
 
 #endif
 

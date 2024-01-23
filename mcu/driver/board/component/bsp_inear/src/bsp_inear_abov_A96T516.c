@@ -437,7 +437,7 @@ static void bsp_inear_send_state(uint32_t key_data, airo_key_driven_t state)
         }
         bsp_inear_context.key_state = state;
     } else if (key_data == DEVICE_KEY_1) {
-        //不上报入耳键值mask if
+        //do not report inear key value, mask if
         if (bsp_inear_context.inear_state == state) {
             return ;
         }

@@ -37,6 +37,9 @@
 #define __LE_SINK_SRV_VOLUME_INTERNAL_H__
 
 #include "bt_type.h"
+#include "bt_sink_srv_le_cap_audio_manager.h"
+
+#define BT_SINK_LE_MIC_VOLUME_ADJUST_ENABLE 0
 
 bt_status_t bt_sink_srv_le_volume_init(void);
 
@@ -46,11 +49,15 @@ bt_status_t bt_sink_srv_le_volume_micp_callback(bt_msg_type_t msg, bt_status_t s
 
 bt_status_t bt_sink_srv_le_volume_set_volume(bt_sink_srv_le_stream_type_t type, uint8_t volume);
 
-bt_sink_srv_le_volume_state_t bt_sink_srv_le_volume_get_state(bt_handle_t handle);
+bt_sink_srv_le_volume_state_t bt_sink_srv_le_volume_get_state(bt_handle_t handle, bt_sink_srv_cap_am_mode mode);
 
-uint8_t bt_sink_srv_le_mapping_am_volume(uint8_t vcs_volume);
+bt_sink_srv_le_volume_state_t bt_sink_srv_le_volume_get_mic_volume_state(bt_handle_t handle);
 
-bt_status_t bt_sink_srv_le_set_am_volume(bt_sink_srv_le_stream_type_t type, uint8_t volume);
+bt_status_t bt_sink_srv_le_volume_set_mute_and_volume_level(int8_t aid, bt_sink_srv_le_stream_type_t type, bool mute, uint8_t vol_level);
+
+void bt_sink_srv_le_volume_reset_mic_volume_state(uint8_t link_idx);
+
+uint8_t bt_sink_srv_le_mapping_am_volume(uint8_t vcs_volume, bt_sink_srv_cap_am_mode mode);
 
 #endif  /* __LE_SINK_SRV_VOLUME_INTERNAL_H__ */
 

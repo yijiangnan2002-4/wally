@@ -389,6 +389,7 @@ static int32_t i2s_slave_ul_start(SOURCE source)
 #if defined AIR_GAMING_MODE_DONGLE_I2S_IN_ENABLE || defined AIR_GAMING_MODE_DONGLE_V2_I2S_SLV_IN_ENABLE || defined AIR_BLE_AUDIO_DONGLE_I2S_IN_ENABLE || defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
     if (runtime->AfeBlkControl.u4asrcflag) {
         afe_src_configuration_t asrc_config;
+        memset(&asrc_config, 0, sizeof(afe_src_configuration_t));
         afe_set_asrc_ul_configuration_parameters(source, &asrc_config);
         /* asrc check enable */
         for (uint8_t i = 0; i < MEM_ASRC_NUM; i ++) {
@@ -420,6 +421,7 @@ static int32_t i2s_slave_ul_start(SOURCE source)
     if (runtime->memory == HAL_AUDIO_MEM2) {
         if (runtime->AfeBlkControl.u4asrcflag) {
             afe_src_configuration_t asrc_config;
+            memset(&asrc_config, 0, sizeof(afe_src_configuration_t));
             afe_set_asrc_ul_configuration_parameters(source, &asrc_config);
             afe_set_asrc_enable(true, AFE_MEM_ASRC_2, (void *)&asrc_config);
             source->param.audio.AfeBlkControl.u4ReadIdx = AFE_GET_REG(ASM2_CH01_IBUF_RDPNT) - AFE_GET_REG(ASM2_IBUF_SADR);
@@ -433,6 +435,7 @@ static int32_t i2s_slave_ul_start(SOURCE source)
     } else {
         if (runtime->AfeBlkControl.u4asrcflag) {
             afe_src_configuration_t asrc_config;
+            memset(&asrc_config, 0, sizeof(afe_src_configuration_t));
             afe_set_asrc_ul_configuration_parameters(source, &asrc_config);
             afe_set_asrc_enable(true, AFE_MEM_ASRC_1, (void *)&asrc_config);
             source->param.audio.AfeBlkControl.u4ReadIdx = AFE_GET_REG(ASM_CH01_IBUF_RDPNT) - AFE_GET_REG(ASM_IBUF_SADR);
@@ -558,24 +561,28 @@ static int32_t i2s_slave_ul_stop(SOURCE source)
     // /* PDN clear I2S in clk */
     // *(volatile uint32_t *)(infrasys_baseaddr + 0x38) |= 1 << 16;
 
-
+    afe_src_configuration_t asrc_config;
+    memset(&asrc_config, 0, sizeof(afe_src_configuration_t));
+    asrc_config.id = runtime->AfeBlkControl.u4asrcid;
     // close hwsrc
 #if defined AIR_GAMING_MODE_DONGLE_I2S_IN_ENABLE || defined AIR_GAMING_MODE_DONGLE_V2_I2S_SLV_IN_ENABLE || defined AIR_BLE_AUDIO_DONGLE_I2S_IN_ENABLE || defined(AIR_BT_AUDIO_DONGLE_I2S_IN_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_LINE_IN_ENABLE)
     if (runtime->AfeBlkControl.u4asrcflag) {
-        afe_set_asrc_enable(false, runtime->AfeBlkControl.u4asrcid, NULL);
+        afe_set_asrc_enable(false, runtime->AfeBlkControl.u4asrcid, &asrc_config);
         // afe_mem_asrc_enable(AFE_MEM_ASRC_1, false);
         hal_src_set_start(runtime->AfeBlkControl.u4asrcid, false);
     }
 #else
     if (runtime->memory == HAL_AUDIO_MEM2) {
         if (runtime->AfeBlkControl.u4asrcflag) {
-            afe_set_asrc_enable(false, AFE_MEM_ASRC_2, NULL);
+            asrc_config.id = AFE_MEM_ASRC_2;
+            afe_set_asrc_enable(false, AFE_MEM_ASRC_2, &asrc_config);
             // afe_mem_asrc_enable(AFE_MEM_ASRC_2, false);
             hal_src_set_start(AFE_MEM_ASRC_2, false);
         }
     } else {
         if (runtime->AfeBlkControl.u4asrcflag) {
-            afe_set_asrc_enable(false, AFE_MEM_ASRC_1, NULL);
+            asrc_config.id = AFE_MEM_ASRC_1;
+            afe_set_asrc_enable(false, AFE_MEM_ASRC_1, &asrc_config);
             // afe_mem_asrc_enable(AFE_MEM_ASRC_1, false);
             hal_src_set_start(AFE_MEM_ASRC_1, false);
         }

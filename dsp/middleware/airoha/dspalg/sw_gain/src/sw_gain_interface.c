@@ -1208,7 +1208,7 @@ sw_gain_status_t stream_function_sw_gain_get_config(sw_gain_port_t *port, uint16
     return SW_GAIN_STATUS_OK;
 }
 
-sw_gain_status_t stream_function_sw_gain_configure_resolution(sw_gain_port_t *port, uint16_t channel, uint32_t new_resolution)
+sw_gain_status_t stream_function_sw_gain_configure_resolution(sw_gain_port_t *port, uint16_t channel, stream_resolution_t new_resolution)
 {
     sw_gain_config_t *config = NULL;
 
@@ -1419,7 +1419,7 @@ ATTR_TEXT_IN_IRAM bool stream_function_sw_gain_process(void *para)
         AUDIO_ASSERT(FALSE);
         return true;
     }
-#if !defined(AIR_HEARTHROUGH_MAIN_ENABLE) && !defined(AIR_CUSTOMIZED_PSAP_ENABLE)
+#if !defined(AIR_HEARTHROUGH_MAIN_ENABLE) && !defined(AIR_CUSTOMIZED_PSAP_ENABLE) && !defined(AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE)
     if (channel_number != port->total_channels) {
         DSP_MW_LOG_E("[SW_GAIN] channel number is not right!,ch num=%d,total num=%d,sceanrio_type=%d", 3,channel_number, port->total_channels, stream_ptr->source->scenario_type);
 #ifdef AIR_ICE_DEBUG_ENABLE
@@ -1465,7 +1465,7 @@ ATTR_TEXT_IN_IRAM bool stream_function_sw_gain_process(void *para)
         p_config = port->config + i - 1;
 
         if (resolution != p_temp_config->resolution) {
-            DSP_MW_LOG_E("[SW_GAIN] resolution is dismatch!", 0);
+            DSP_MW_LOG_E("[SW_GAIN] resolution is dismatch! %d, %d", 2,resolution,p_temp_config->resolution);
             AUDIO_ASSERT(FALSE);
             return true;
         }

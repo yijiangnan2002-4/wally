@@ -97,6 +97,8 @@ typedef struct {
 } bt_sink_srv_aws_mce_call_update_info_t;
 
 typedef struct {
+    bool is_used;
+    bt_bd_addr_t address;
     uint32_t aws_handle;
     bt_sink_srv_aws_mce_call_info_t call_info;
     void *device;
@@ -130,6 +132,8 @@ void bt_sink_srv_aws_mce_call_send_call_info(bt_bd_addr_t *remote_address, bt_si
 bt_sink_srv_aws_mce_call_context_t *bt_sink_srv_aws_mce_call_get_context_by_sco_state(bt_sink_srv_aws_mce_sco_state state);
 uint32_t bt_sink_srv_aws_mce_call_get_speaker_volume(bt_sink_srv_aws_mce_call_context_t *context);
 bt_sink_srv_aws_mce_call_context_t *bt_sink_srv_aws_mce_call_get_context_by_address(const bt_bd_addr_t *address);
+bt_sink_srv_aws_mce_call_context_t *bt_sink_srv_aws_mce_call_get_context_by_handle(uint32_t aws_handle);
+
 #ifdef AIR_FEATURE_SINK_AUDIO_SWITCH_SUPPORT
 bt_status_t bt_sink_srv_aws_mce_call_sync_hf_switch(bool value);
 #endif

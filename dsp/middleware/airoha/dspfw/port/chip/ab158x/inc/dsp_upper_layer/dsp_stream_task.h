@@ -118,8 +118,12 @@ typedef enum {
     STREAM_TASK_PR = 0,
     STREAM_TASK_AV,
     STREAM_TASK_HP,
+#ifdef AIR_AUDIO_I2S_SLAVE_TDM_TASK_ENABLE
     STREAM_TASK_TDM,
+#endif
+#ifdef AIR_DCHS_MODE_ENABLE
     STREAM_TASK_DCHS,
+#endif
     STREAM_TASK_END,
 } dsp_steram_task_id_t;
 
@@ -159,7 +163,7 @@ EXTERN TaskHandle_t  pStreamTaskHandler[];
 #ifdef AIR_AUDIO_I2S_SLAVE_TDM_TASK_ENABLE
 #define DTDM_TASK_ID pStreamTaskHandler[STREAM_TASK_TDM]
 #endif
-#ifdef AIR_DCHS_MODE_ENABLE
+#if defined AIR_DCHS_MODE_ENABLE || defined AIR_MIXER_STREAM_ENABLE
 #define DDCHS_TASK_ID pStreamTaskHandler[STREAM_TASK_DCHS]
 #endif
 

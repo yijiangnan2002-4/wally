@@ -101,6 +101,14 @@
 #include "hal_audio_message_struct_common.h"
 #endif
 
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+#include "audio_set_driver.h"
+#endif
+
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && defined(AIR_HEARTHROUGH_PSAP_ENABLE)
+#include "audio_anc_psap_control_internal.h"
+#endif
+
 #define _UNUSED(x)  ((void)(x))
 #define AUDIO_SRC_SRV_AMI_SET_FLAG(MASK, FLAG) ((MASK) |= (FLAG))
 #define AUDIO_SRC_SRV_AMI_RESET_FLAG(MASK, FLAG) ((MASK) &= ~(FLAG))
@@ -292,7 +300,7 @@ extern uint8_t AUD_VPRT_VOL_OUT_DEFAULT;
 extern uint8_t AUD_LINEIN_VOL_OUT_MAX;
 extern uint8_t AUD_LINEIN_VOL_OUT_DEFAULT;
 
-#if defined (AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_WIRED_AUDIO_ENABLE) || defined (AIR_BLE_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
+#if defined (AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_WIRED_AUDIO_ENABLE) || defined (AIR_BLE_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined (AIR_BT_AUDIO_DONGLE_ENABLE)
 extern uint8_t AUD_USB_AUDIO_SW_VOL_OUT_MAX;
 extern uint8_t AUD_USB_AUDIO_SW_VOL_OUT_DEFAULT;
 extern uint8_t AUD_USB_VOICE_SW_VOL_OUT_MAX;
@@ -486,7 +494,7 @@ bt_sink_srv_am_volume_level_t bt_sink_srv_ami_get_lineIN_default_volume_level()
 #endif
 }
 
-#if defined (AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_BLE_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
+#if defined (AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_BLE_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined (AIR_BT_AUDIO_DONGLE_ENABLE)
 /*****************************************************************************
  * FUNCTION
 
@@ -842,6 +850,51 @@ bt_sink_srv_am_result_t bt_sink_srv_ami_audio_set_volume(bt_sink_srv_am_id_t aud
     }
     return AUD_EXECUTION_FAIL;
 }
+/*****************************************************************************
+ * FUNCTION
+ *  bt_sink_srv_ami_audio_set_volume_by_gain_value
+ * DESCRIPTION
+ *  Set audio input/output volume.
+ * PARAMETERS
+ *  aud_id           [IN]
+ *  gain_value       [IN]
+ *  in_out           [IN]
+ * RETURNS
+ *  bt_sink_srv_am_result_t
+ *****************************************************************************/
+bt_sink_srv_am_result_t bt_sink_srv_ami_audio_set_volume_by_gain_value(bt_sink_srv_am_id_t aud_id,
+        int32_t gain_value,
+        bt_sink_srv_am_stream_type_t in_out)
+{
+    /*----------------------------------------------------------------*/
+    /* Local Variables                                                */
+    /*----------------------------------------------------------------*/
+    bt_sink_srv_am_background_t temp_background_t = {0};
+
+    /*----------------------------------------------------------------*/
+    /* Code Body                                                      */
+    /*----------------------------------------------------------------*/
+    audio_src_srv_report("[Sink][AMI] set volume: aud_id:%d, gain_value:%d, in_out:%d",3, aud_id, gain_value, in_out);
+    if ((aud_id < AM_REGISTER_ID_TOTAL)
+        //&& (g_rAm_aud_id[aud_id].use == ID_PLAY_STATE)
+        ) {
+
+        temp_background_t.aud_id = aud_id;
+        temp_background_t.in_out = in_out;
+        if (in_out == STREAM_OUT) {
+            temp_background_t.audio_stream_out.audio_volume_set_by_gain_value = true;
+            temp_background_t.audio_stream_out.audio_gain_value = (uint32_t)(int32_t)(int16_t)(gain_value);
+        } else if (in_out == STREAM_IN) {
+            temp_background_t.audio_stream_in.audio_volume_set_by_gain_value = true;
+            temp_background_t.audio_stream_in.audio_gain_value = (uint32_t)(int32_t)(int16_t)(gain_value);
+        }
+        bt_sink_srv_ami_send_amm(MOD_AM, MOD_AMI, AUD_SELF_CMD_REQ,
+                                 MSG_ID_STREAM_SET_VOLUME_REQ, &temp_background_t,
+                                 FALSE, NULL);
+        return AUD_EXECUTION_SUCCESS;
+    }
+    return AUD_EXECUTION_FAIL;
+}
 
 /*****************************************************************************
  * FUNCTION
@@ -866,6 +919,11 @@ bt_sink_srv_am_result_t bt_sink_srv_ami_audio_set_mute(bt_sink_srv_am_id_t aud_i
     /*----------------------------------------------------------------*/
     /* Code Body                                                      */
     /*----------------------------------------------------------------*/
+#if defined (AIR_DCHS_MODE_ENABLE)
+    if(in_out == STREAM_IN){
+        dchs_ul_audio_set_mute(mute);
+    }
+#endif
     if (aud_id == FEATURE_NO_NEED_ID) {
         temp_background_t.aud_id = aud_id;
     } else if ((aud_id < AM_REGISTER_ID_TOTAL) && (g_rAm_aud_id[aud_id].use == ID_PLAY_STATE)) {
@@ -1508,6 +1566,12 @@ bt_sink_srv_am_result_t am_audio_set_feature(bt_sink_srv_am_id_t aud_id,
                 break;
             }
 #endif
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+            case AM_AUDIO_UPDATE_DAC_MODE: {
+                local_feature->feature_param.dac_mode_update_param = feature_param->feature_param.dac_mode_update_param;
+                break;
+            }
+#endif
 #if defined (AIR_BT_ULTRA_LOW_LATENCY_ENABLE)
             case AM_AUDIO_BT_SET_PLAY_EN: {
                 memcpy(&local_feature->feature_param.play_en_param, &feature_param->feature_param.play_en_param, sizeof(audio_dsp_a2dp_dl_play_en_param_t));
@@ -1630,26 +1694,14 @@ bt_sink_srv_am_result_t am_audio_set_feature_ISR(bt_sink_srv_am_id_t aud_id,
 #ifdef AIR_DCHS_MODE_ENABLE
             case AM_UART_COSYS_CONTROL_DL: {
                 memcpy(&local_feature->feature_param.cosys_ctrl_dl, &feature_param->feature_param.cosys_ctrl_dl, sizeof(audio_dchs_cosys_ctrl_t));
-                if(feature_param->feature_param.cosys_ctrl_dl.is_send_am_front){
-                    is_send_to_front = true;
-                    audio_src_srv_report("[DCHS][AMI] msg send to AM queue front, cmd type:%d", 1, feature_param->feature_param.cosys_ctrl_dl.ctrl_type);
-                }
                 break;
             }
             case AM_UART_COSYS_CONTROL_UL: {
                 memcpy(&local_feature->feature_param.cosys_ctrl_ul, &feature_param->feature_param.cosys_ctrl_ul, sizeof(audio_dchs_cosys_ctrl_t));
-                if(feature_param->feature_param.cosys_ctrl_ul.is_send_am_front){
-                    is_send_to_front = true;
-                    audio_src_srv_report("[DCHS][AMI] msg send to AM queue front, cmd type:%d", 1, feature_param->feature_param.cosys_ctrl_ul.ctrl_type);
-                }
                 break;
             }
             case AM_DCHS: {
                 memcpy(&local_feature->feature_param.dchs_param, &feature_param->feature_param.dchs_param, sizeof(audio_dchs_cosys_ctrl_t));
-                if(feature_param->feature_param.dchs_param.is_send_am_front){
-                    is_send_to_front = true;
-                    audio_src_srv_report("[DCHS][AMI] msg send to AM queue front, cmd type:%d", 1, feature_param->feature_param.dchs_param.ctrl_type);
-                }
                 break;
             }
             case AM_UART_COSYS_CONTROL_ANC: {
@@ -2927,11 +2979,29 @@ void ami_hal_audio_status_set_running_flag(audio_scenario_type_t type, mcu2dsp_o
     ami_hal_set_mutex_lock();
     hal_audio_status_set_running_flag(type, param, is_running);
     ami_hal_set_mutex_unlock();
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+    hal_audio_status_update_dac_mode();
+#endif
     #ifdef AIR_DCHS_MODE_ENABLE
     dchs_cosys_ctrl_cmd_relay(is_running ? AUDIO_UART_COSYS_DL_OPEN : AUDIO_UART_COSYS_DL_CLOSE,  type, param, NULL);
     dchs_cosys_ctrl_cmd_relay(is_running ? AUDIO_UART_COSYS_UL_OPEN : AUDIO_UART_COSYS_UL_CLOSE, type, param, NULL);
     #endif
+    #if defined(AIR_BTA_IC_STEREO_HIGH_G3) && defined(AIR_HEARTHROUGH_PSAP_ENABLE)
+    audio_anc_psap_control_check_audio_running_flag(type, is_running);
+    #endif
 }
+
+#ifdef AIR_DCHS_MODE_ENABLE
+void ami_hal_audio_status_set_running_flag_detach_mic(audio_scenario_type_t type, mcu2dsp_open_param_t *param, bool is_running)
+{
+    if (g_ami_hal_semaphore_handle == NULL) {
+        g_ami_hal_semaphore_handle = xSemaphoreCreateMutex();
+    }
+    ami_hal_set_mutex_lock();
+    hal_audio_status_set_running_flag(type, param, is_running);
+    ami_hal_set_mutex_unlock();
+}
+#endif
 
 bool ami_hal_audio_status_query_running_flag(audio_scenario_type_t type)
 {
@@ -3893,13 +3963,12 @@ bt_sink_srv_am_result_t ami_execute_vendor_se(vendor_se_event_t event)
 #if defined(AIR_AUDIO_TRANSMITTER_ENABLE)
 /*****************************************************************************
  * FUNCTION
- *  bt_sink_srv_ami_audio_set_volume
+ *  ami_audio_set_audio_transmitter_config
  * DESCRIPTION
  *  Set audio input/output volume.
  * PARAMETERS
  *  aud_id           [IN]
- *  volume_level     [IN]
- *  in_out           [IN]
+ *  capability_t     [IN]
  * RETURNS
  *  bt_sink_srv_am_result_t
  *****************************************************************************/
@@ -3955,6 +4024,7 @@ bt_sink_srv_am_result_t ami_set_voice_mic_type(voice_mic_type_t voice_mic_type)
     /* Local Variables                                                */
     /*----------------------------------------------------------------*/
     bt_sink_srv_am_background_t temp_background_t = {0};
+    uint8_t sidetone_enable = am_audio_side_tone_get_status();
 
     /*----------------------------------------------------------------*/
     /* Code Body                                                      */
@@ -3965,6 +4035,11 @@ bt_sink_srv_am_result_t ami_set_voice_mic_type(voice_mic_type_t voice_mic_type)
         return AUD_EXECUTION_FAIL;
     }
 
+    /* Audio Scenario, task event ------------------------------------*/
+    if ((sidetone_enable != 0) && ((ST_MECH_FIR_EXTEND == am_audio_side_tone_query_method()) || (ST_MECH_IIR_EXTEND == am_audio_side_tone_query_method()))) {
+        am_audio_side_tone_disable_by_scenario(SIDETONE_SCENARIO_COMMON);
+    }
+
     //audio_src_srv_report("[DETACHABLE_MIC][Sink][AMI] ami_set_voice_mic_type: voice_mic_type(%d)", 1, voice_mic_type);
     current_voice_mic_type = voice_mic_type;
     temp_background_t.local_context.audio_detachable_mic_format.voice_mic_type = voice_mic_type;
@@ -3972,6 +4047,11 @@ bt_sink_srv_am_result_t ami_set_voice_mic_type(voice_mic_type_t voice_mic_type)
     bt_sink_srv_ami_send_amm(MOD_AM, MOD_AMI, AUD_SELF_CMD_REQ,
                              MSG_ID_VOICE_SET_MIC_TYPE_REQ, &temp_background_t,
                              FALSE, NULL);
+
+    if ((sidetone_enable != 0) && ((ST_MECH_FIR_EXTEND == am_audio_side_tone_query_method()) || (ST_MECH_IIR_EXTEND == am_audio_side_tone_query_method()))) {
+        am_audio_side_tone_enable_by_scenario(SIDETONE_SCENARIO_COMMON);
+    }
+
     return AUD_EXECUTION_SUCCESS;
 }
 
@@ -4510,6 +4590,9 @@ hal_audio_callback_t audio_volume_monitor_ccni_callback(hal_audio_event_t event,
 {
     audio_scenario_type_t type = *(audio_scenario_type_t *)user_data;
     audio_volume_monitor_node_t *new_node = audio_volume_monitor_get_node_by_scenario(type);
+    if (!new_node) {
+        return 0;
+    }
     AUD_LOG_I("[Volume Monitor] scenario type %d 0x%lx", 2, type, new_node->cb);
     (void)event;
     if (new_node->cb) {

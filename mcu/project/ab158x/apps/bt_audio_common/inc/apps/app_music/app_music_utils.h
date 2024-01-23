@@ -67,7 +67,7 @@
 #define APP_MUSIC_STEAMING_STATE_ULL_STATE       (0x04)
 typedef uint8_t app_music_streaming_state_t;
 
-#define APP_MUISC_AVRCP_RECORD_MAX_NUM    2
+#define APP_MUSIC_AVRCP_RECORD_MAX_NUM    2
 
 #define APP_MUSIC_ADJUST_VOLUME_VIA_ADDRESS_ENABLE
 
@@ -107,7 +107,7 @@ typedef struct {
 
 typedef struct {
     uint8_t                        avrcp_num;
-    app_music_avrcp_record_item_t  avrcp_device[APP_MUISC_AVRCP_RECORD_MAX_NUM];
+    app_music_avrcp_record_item_t  avrcp_device[APP_MUSIC_AVRCP_RECORD_MAX_NUM];
 } app_music_avrcp_status_t;
 
 
@@ -282,13 +282,11 @@ bool app_music_set_ull_volume(bool volume_up, uint32_t volume);
 bool app_music_send_le_audio_aird_action(apps_config_key_action_t action, uint32_t volume);
 
 /**
-* @brief      This function is used to get the last address of device or the actived decive.
+* @brief      This function is used to get the last address of device or the active device.
 * @param[out] volume_addr, use this address to adjust the volume of device.
 * @return     If return true, get the address success.
 */
-#ifdef APP_MUSIC_ADJUST_VOLUME_VIA_ADDRESS_ENABLE
-bool app_music_get_volume_device_addr(bt_sink_srv_action_volume_t *volume_addr);
-#endif
+bool app_music_get_active_device(uint8_t *active_type, bt_bd_addr_t *active_addr);
 
 /**
 * @brief      This function is used to add the avrcp status of the remote device after received the play status.

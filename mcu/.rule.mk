@@ -59,6 +59,9 @@ else
             ifeq ($(ACCOUNT_INFO),srv_airoha_epm)
                 WARNING_AS_ERROR_OPTION =
             endif # ifeq ($(ACCOUNT_INFO),srv_airoha_epm)
+            ifeq ($(ACCOUNT_INFO_PREFIX),ar7)
+                WARNING_AS_ERROR_OPTION =
+            endif
         endif # ifeq ($(AIR_FORCE_WARNING_AS_ERROR),), if it's empty need treat build warning as error
     endif # ifeq ($(AIR_FORCE_WARNING_AS_ERROR),y)
 endif # build env checking

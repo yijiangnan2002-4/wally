@@ -302,6 +302,18 @@
  * @brief Attribute value of the HID additional protocol descriptor list.
  * @param[in] psm_id  is a uint8 L2CAP channel number, the value is 0x13.
  */
+#define BT_HID_SDP_ATTRIBUTE_ADDITIONAL_PROTOCOL_DESCRIPTOR(psm_id) \
+    BT_SDP_ATTRIBUTE_HEADER_8BIT(15), \
+    BT_SDP_ATTRIBUTE_HEADER_8BIT(13),     \
+    BT_SDP_ATTRIBUTE_HEADER_8BIT(6),    \
+    BT_SDP_UUID_16BIT(BT_SDP_PROTOCOL_L2CAP),     \
+    BT_SDP_UINT_16BIT(psm_id),  \
+    BT_SDP_ATTRIBUTE_HEADER_8BIT(3),           \
+    BT_SDP_UUID_16BIT(BT_SDP_PROTOCOL_HID),     \
+    
+/**
+ * @deprecated Please use BT_HID_SDP_ATTRIBUTE_ADDITIONAL_PROTOCOL_DESCRIPTOR instead.
+ */
 #define BT_HID_SDP_ATTRIBUTE_ADDTIONAL_PROTOCOL_DESCRIPTOR(psm_id) \
     BT_SDP_ATTRIBUTE_HEADER_8BIT(15), \
     BT_SDP_ATTRIBUTE_HEADER_8BIT(13),     \

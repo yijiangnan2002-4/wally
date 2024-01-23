@@ -374,6 +374,9 @@ RACE_ERRCODE race_lpcommp_fota_start_req_hdl(race_lpcomm_packet_struct *packet, 
     uint8_t app_id_timer_id = race_fota_app_id_timer_id_get();
 #endif
     race_fota_cntx_struct *fota_cntx = race_fota_cntx_get();
+    if (NULL == fota_cntx) {
+        return RACE_ERRCODE_NOT_INITIALIZED;
+    }
     race_fota_mode_enum fota_mode = RACE_FOTA_MODE_MAX;
     race_fota_dual_device_dl_method_enum dl_method = RACE_FOTA_DUAL_DEVICE_DL_METHOD_MAX;
     uint8_t log_flw = 0;
@@ -387,6 +390,8 @@ RACE_ERRCODE race_lpcommp_fota_start_req_hdl(race_lpcomm_packet_struct *packet, 
     req = (race_lpcomm_fota_start_req_struct *)packet->payload;
     fota_mode = RACE_FOTA_START_GET_FOTA_MODE(req->fota_mode);
     dl_method = RACE_FOTA_START_GET_DL_METHOD(req->fota_mode);
+    memcpy(&fota_cntx->remote_address, &req->address, sizeof(bt_bd_addr_t));
+    RACE_LOG_MSGID_I("FOTA start address partner:%x,%x,%x,%x,%x,%x", 6, fota_cntx->remote_address[0], fota_cntx->remote_address[1], fota_cntx->remote_address[2], fota_cntx->remote_address[3],fota_cntx->remote_address[4], fota_cntx->remote_address[5]);
 
     /* Check the start cmd parameters. */
     ret = race_fota_start_check_params(RACE_RECIPIENT_TYPE_AGENT_PARTNER, fota_mode, dl_method);
@@ -408,7 +413,7 @@ RACE_ERRCODE race_lpcommp_fota_start_req_hdl(race_lpcomm_packet_struct *packet, 
 
     if (RACE_ERRCODE_SUCCESS != ret) {
         rsp.status = ret;
-    } else if (!race_fota_is_cmd_allowed(NULL, RACE_FOTA_START, packet->channel_id) || !fota_cntx) {
+    } else if (!race_fota_is_cmd_allowed(NULL, RACE_FOTA_START, packet->channel_id, &fota_cntx->remote_address) || !fota_cntx) {
         /* Status of Agent and Partner may not sync. Wait for Partner is ready to start FOTA. */
         rsp.status = RACE_ERRCODE_NOT_ALLOWED;
     } else {

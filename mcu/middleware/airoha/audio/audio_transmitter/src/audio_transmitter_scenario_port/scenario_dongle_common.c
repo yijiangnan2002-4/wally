@@ -60,6 +60,34 @@
 uint32_t dl_stream_status = 0;
 #endif /* AIR_BLE_AUDIO_DONGLE_ENABLE */
 /* Public variables ----------------------------------------------------------*/
+const int16_t g_gain_compensation_table[AUDIO_DONGLE_GAIN_COMPENSATION_STEP_MAX + 1] =
+{
+    /*
+    Ratio |    db    | Compensation
+    0%    |  -60db   | 0xE890
+    10%   |  -20db   | 0xF830
+    20%   | -13.98db | 0xFA8B
+    30%   | -10.46db | 0xFBEB
+    40%   |  -7.96db | 0xFCE5
+    50%   |  -6.02db | 0xFDA6
+    60%   |  -4.44db | 0xFE45
+    70%   |  -3.1db  | 0xFECB
+    80%   |  -1.94db | 0xFF3F
+    90%   |  -0.92db | 0xFFA5
+    100%  |     0db  | 0
+    */
+    0xE890,
+    0xF830,
+    0xFA8B,
+    0xFBEB,
+    0xFCE5,
+    0xFDA6,
+    0xFE45,
+    0xFECB,
+    0xFF3F,
+    0xFFA5,
+    0x0
+};
 /* Private functions ---------------------------------------------------------*/
 
 /****************************************************************************************************************************************************/
@@ -67,218 +95,6 @@ uint32_t dl_stream_status = 0;
 /****************************************************************************************************************************************************/
 audio_dongle_usb_handle_t audio_dongle_usb_rx_handle[AUDIO_DONGLE_USB_RX_PORT_TOTAL] = {0};
 audio_dongle_usb_handle_t audio_dongle_usb_tx_handle[AUDIO_DONGLE_USB_TX_PORT_TOTAL] = {0};
-#if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
-bool is_frist_dl_flag = true;
-bool is_frist_ul_flag = true;
-
-void usb_audio_dongle_rx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num, uint32_t threshold);
-void usb_audio_dongle_tx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num, uint32_t threshold);
-
-static void usb_audio_tx_cb_latency_debug(audio_dongle_usb_handle_t *handle, uint8_t *source_buf)
-{
-    int16_t *start_address = (int16_t *)source_buf;
-    uint32_t current_level = 0;
-    uint32_t i;
-    int16_t sample_value = 0;
-    uint16_t frame_samples;
-    uint16_t channel_num;
-    uint16_t resolution_size;
-
-    if (is_frist_dl_flag == true) {
-        is_frist_dl_flag = false;
-        usb_audio_dongle_tx_latency_debug_control(0, 1, 4, 20000);
-    }
-
-    if (handle->latency_debug_enable)
-    {
-        if (handle->usb_param.pcm.channel_mode == 1)
-        {
-            channel_num = 1;
-        }
-        else
-        {
-            channel_num = 2;
-        }
-        resolution_size = 2;
-        frame_samples = handle->frame_size / resolution_size / channel_num;
-        for (i = 0; i < frame_samples; i++) {
-            sample_value += (*(start_address + i*channel_num) / frame_samples);
-        }
-
-        if ((sample_value >= 0) && (sample_value >= handle->detect_threshold))
-        {
-            current_level = 1;
-        }
-        else if ((sample_value < 0) && (sample_value <= (-(int16_t)(handle->detect_threshold))))
-        {
-            current_level = 0;
-        }
-
-        TRANSMITTER_LOG_I("[Dongle Common][tx_Cb] latency debug monitor %d %d %d %d %d", 5, frame_samples, *start_address, sample_value, handle->detect_threshold, current_level);
-
-        if (current_level != handle->latency_debug_last_level) {
-            hal_gpio_set_output(handle->latency_debug_gpio_pin, current_level);
-            handle->latency_debug_last_level = current_level;
-        }
-    }
-}
-
-ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void usb_audio_dongle_tx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num, uint32_t threshold)
-{
-    uint32_t saved_mask;
-    TRANSMITTER_LOG_I("[Dongle Common][tx_Cb] latency debug %d %d %d %d", 4, port, enable, gpio_num, threshold);
-    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
-
-    if (enable) {
-        audio_dongle_usb_tx_handle[port].latency_debug_enable = 1;
-        audio_dongle_usb_tx_handle[port].latency_debug_last_level = 0;
-        audio_dongle_usb_tx_handle[port].latency_debug_last_sample = 0;
-        audio_dongle_usb_tx_handle[port].latency_debug_gpio_pin = gpio_num;
-        audio_dongle_usb_tx_handle[port].detect_threshold = threshold;
-    } else {
-        audio_dongle_usb_tx_handle[port].latency_debug_enable = 0;
-        audio_dongle_usb_tx_handle[port].latency_debug_last_level = 0;
-        audio_dongle_usb_tx_handle[port].latency_debug_last_sample = 0;
-        audio_dongle_usb_tx_handle[port].latency_debug_gpio_pin = gpio_num;
-        audio_dongle_usb_tx_handle[port].detect_threshold = 0;
-    }
-
-    hal_nvic_restore_interrupt_mask(saved_mask);
-
-    hal_gpio_init(audio_dongle_usb_tx_handle[port].latency_debug_gpio_pin);
-    hal_pinmux_set_function(audio_dongle_usb_tx_handle[port].latency_debug_gpio_pin, 0);
-    hal_gpio_set_direction(audio_dongle_usb_tx_handle[port].latency_debug_gpio_pin, HAL_GPIO_DIRECTION_OUTPUT);
-    hal_gpio_set_output(audio_dongle_usb_tx_handle[port].latency_debug_gpio_pin, HAL_GPIO_DATA_LOW);
-}
-
-static void usb_audio_rx_cb_latency_debug(audio_dongle_usb_handle_t *handle, uint8_t *source_buf)
-{
-    int16_t *start_address = NULL;
-    uint32_t current_level = 0;
-    uint32_t i;
-    int16_t current_sample;
-    int16_t next_sample;
-
-    if (is_frist_ul_flag == true) {
-        is_frist_ul_flag = false;
-        usb_audio_dongle_rx_latency_debug_control(0, 1, 5, 10000);
-    }
-
-    if (handle->latency_debug_enable)
-    {
-        if (handle->usb_param.pcm.format == HAL_AUDIO_PCM_FORMAT_S16_LE)
-        {
-            current_level = handle->latency_debug_last_level;
-            start_address = (int16_t *)source_buf;
-            if ((*start_address > handle->latency_debug_last_sample) &&
-                (*start_address - handle->latency_debug_last_sample > handle->detect_threshold))
-            {
-                current_level = 1;
-            }
-            else if ((*start_address < handle->latency_debug_last_sample) &&
-                    (handle->latency_debug_last_sample - *start_address > handle->detect_threshold))
-            {
-                current_level = 0;
-            }
-            for (i = 0; i < handle->frame_size/(2*handle->usb_param.pcm.channel_mode)-1; i++)
-            {
-                current_sample  = *((int16_t *)(source_buf+i*(2*handle->usb_param.pcm.channel_mode)));
-                next_sample     = *((int16_t *)(source_buf+(i+1)*(2*handle->usb_param.pcm.channel_mode)));
-                if ((current_sample > next_sample) &&
-                    (current_sample - next_sample > handle->detect_threshold))
-                {
-                    current_level = 0;
-                    break;
-                }
-                else if ((current_sample < next_sample) &&
-                        (next_sample - current_sample > handle->detect_threshold))
-                {
-                    current_level = 1;
-                    break;
-                }
-                else
-                {
-                }
-            }
-            handle->latency_debug_last_sample = *((int16_t *)(source_buf + 2 * handle->usb_param.pcm.channel_mode * (handle->frame_size/(2*handle->usb_param.pcm.channel_mode)-1)));
-            if (current_level != handle->latency_debug_last_level)
-            {
-                hal_gpio_set_output(handle->latency_debug_gpio_pin, current_level);
-                handle->latency_debug_last_level = current_level;
-            }
-        }
-        else if (handle->usb_param.pcm.format == HAL_AUDIO_PCM_FORMAT_S24_LE)
-        {
-            current_level = handle->latency_debug_last_level;
-            start_address    = (int16_t *)(source_buf+1); // drop the low 8bit
-            if ((*start_address > handle->latency_debug_last_sample) &&
-                (*start_address - handle->latency_debug_last_sample > handle->detect_threshold))
-            {
-                current_level = 1;
-            }
-            else if ((*start_address < handle->latency_debug_last_sample) &&
-                    (handle->latency_debug_last_sample - *start_address > handle->detect_threshold))
-            {
-                current_level = 0;
-            }
-            for (i = 0; i < handle->frame_size/(3*handle->usb_param.pcm.channel_mode)-1; i++)
-            {
-                current_sample  = *((int16_t *)(source_buf+i*(3*handle->usb_param.pcm.channel_mode)+1)); // drop the low 8bit
-                next_sample     = *((int16_t *)(source_buf+(i+1)*(3*handle->usb_param.pcm.channel_mode)+1)); // drop the low 8bit
-                if ((current_sample > next_sample) &&
-                    (current_sample - next_sample) > handle->detect_threshold)
-                {
-                    current_level = 0;
-                    break;
-                }
-                else if ((current_sample < next_sample) &&
-                        (next_sample - current_sample > handle->detect_threshold))
-                {
-                    current_level = 1;
-                    break;
-                }
-                else
-                {
-                }
-            }
-            handle->latency_debug_last_sample = *((int16_t *)(source_buf + 3 * handle->usb_param.pcm.channel_mode * (handle->frame_size/(3*handle->usb_param.pcm.channel_mode)-1) + 1));
-            if (current_level != handle->latency_debug_last_level)
-            {
-                hal_gpio_set_output(handle->latency_debug_gpio_pin, current_level);
-                handle->latency_debug_last_level = current_level;
-            }
-        }
-    }
-}
-
-ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void usb_audio_dongle_rx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num, uint32_t threshold)
-{
-    uint32_t saved_mask;
-    TRANSMITTER_LOG_I("[Dongle Common][Rx_Cb] latency debug %d %d %d %d", 4, port, enable, gpio_num, threshold);
-    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
-
-    if (enable) {
-        audio_dongle_usb_rx_handle[port].latency_debug_enable = 1;
-        audio_dongle_usb_rx_handle[port].latency_debug_last_level = 0;
-        audio_dongle_usb_rx_handle[port].latency_debug_last_sample = 0;
-        audio_dongle_usb_rx_handle[port].latency_debug_gpio_pin = gpio_num;
-        audio_dongle_usb_rx_handle[port].detect_threshold = threshold;
-    } else {
-        audio_dongle_usb_rx_handle[port].latency_debug_enable = 0;
-        audio_dongle_usb_rx_handle[port].latency_debug_last_level = 0;
-        audio_dongle_usb_rx_handle[port].latency_debug_last_sample = 0;
-        audio_dongle_usb_rx_handle[port].latency_debug_gpio_pin = gpio_num;
-        audio_dongle_usb_rx_handle[port].detect_threshold = 0;
-    }
-
-    hal_nvic_restore_interrupt_mask(saved_mask);
-
-    hal_gpio_init(audio_dongle_usb_rx_handle[port].latency_debug_gpio_pin);
-    hal_pinmux_set_function(audio_dongle_usb_rx_handle[port].latency_debug_gpio_pin, 0);
-    hal_gpio_set_direction(audio_dongle_usb_rx_handle[port].latency_debug_gpio_pin, HAL_GPIO_DIRECTION_OUTPUT);
-    hal_gpio_set_output(audio_dongle_usb_rx_handle[port].latency_debug_gpio_pin, HAL_GPIO_DATA_LOW);
-}
-#endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
 #if defined(AIR_USB_AUDIO_1_SPK_ENABLE) || defined(AIR_USB_AUDIO_2_SPK_ENABLE)
 static const uint8_t all_zero_buffer[192] = {0}; // 48K 1ms 2CH
 #endif
@@ -286,11 +102,18 @@ uint32_t ble_audio_codec_get_frame_size(audio_dsp_codec_type_t *codec_type, audi
 {
     uint32_t frame_size = 0;
 
-    if (*codec_type != AUDIO_DSP_CODEC_TYPE_LC3) {
-        AUDIO_ASSERT(0 && "Dongle codec_type is not LC3");
+    if ((*codec_type != AUDIO_DSP_CODEC_TYPE_LC3) && (*codec_type != AUDIO_DSP_CODEC_TYPE_LC3PLUS)) {
+        AUDIO_ASSERT(0 && "[BLE Audio Dongle] codec_type is not support");
     }
 
-    frame_size = codec_param->lc3.bit_rate * codec_param->lc3.frame_interval / 8 / 1000 / 1000;
+    if (*codec_type == AUDIO_DSP_CODEC_TYPE_LC3) {
+        frame_size = codec_param->lc3.bit_rate * codec_param->lc3.frame_interval / 8 / 1000 / 1000;
+        AUDIO_ASSERT((frame_size == codec_param->lc3.frame_size) && "[BLE Audio Dongle] lc3 error codec frame size");
+    } else if (*codec_type == AUDIO_DSP_CODEC_TYPE_LC3PLUS) {
+        frame_size = codec_param->lc3plus.bit_rate * codec_param->lc3plus.frame_interval / 8 / 1000 / 1000;
+        AUDIO_ASSERT((frame_size == codec_param->lc3plus.frame_size) && "[BLE Audio Dongle] lc3plus error codec frame size");
+    }
+    AUDIO_ASSERT((frame_size != 0) && "[BLE Audio Dongle] error codec frame size = 0");
 
     return frame_size;
 }
@@ -405,15 +228,19 @@ uint32_t audio_dongle_get_usb_audio_frame_size(audio_dsp_codec_type_t *usb_type,
                 break;
         }
         switch (usb_param->pcm.sample_rate) {
+            case 8000:
             case 16000:
+            // case 22050:
+            case 24000:
             case 32000:
-            case 44100:
+            // case 44100:
             case 48000:
             case 96000:
+            case 192000:
                 samples = usb_param->pcm.sample_rate/1000;
                 break;
             default:
-                AUDIO_ASSERT(0);
+                AUDIO_ASSERT(0 && "usb pcm sample rate is not right");
                 break;
         }
         switch (usb_param->pcm.channel_mode) {
@@ -427,7 +254,7 @@ uint32_t audio_dongle_get_usb_audio_frame_size(audio_dsp_codec_type_t *usb_type,
                 channel_num = 8;
                 break;
             default:
-                AUDIO_ASSERT(0);
+                AUDIO_ASSERT(0 && "usb pcm channel number is not right");
                 break;
         }
         switch (usb_param->pcm.format) {
@@ -438,7 +265,7 @@ uint32_t audio_dongle_get_usb_audio_frame_size(audio_dsp_codec_type_t *usb_type,
                 resolution_size = 3;
                 break;
             default:
-                AUDIO_ASSERT(0);
+                AUDIO_ASSERT(0 && "usb pcm resolution is not right");
                 break;
         }
     } else {
@@ -527,6 +354,9 @@ static void audio_dongle_usb0_rx_cb_handle(uint8_t port)
             if (available_data_size % audio_dongle_usb_rx_handle[port].frame_size) {
                 memset(p_source_buf + BLK_HEADER_SIZE, 0, audio_dongle_usb_rx_handle[port].frame_size);
             }
+#if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
+            audio_usb_rx_scenario_latency_debug(port, (p_source_buf + BLK_HEADER_SIZE));
+#endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
             hal_audio_buf_mgm_get_write_data_done(p_dsp_info, audio_dongle_usb_rx_handle[port].frame_size + BLK_HEADER_SIZE);
 
             #if DONGLE_AUDIO_COMMON_DL_PATH_DEBUG_LOG
@@ -547,10 +377,6 @@ static void audio_dongle_usb0_rx_cb_handle(uint8_t port)
 
             /* get residual usb data size */
             available_data_size = USB_Audio_Get_Len_Received_Data(port);
-
-            #if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
-            usb_audio_rx_cb_latency_debug(&audio_dongle_usb_rx_handle[port], (p_source_buf + BLK_HEADER_SIZE));
-            #endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
         }
     }
 }
@@ -658,9 +484,9 @@ static void audio_dongle_usb0_tx_cb_handle(uint8_t port)
 
     #if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
     if (data_size == 0) {
-        usb_audio_tx_cb_latency_debug(&audio_dongle_usb_tx_handle[port], (uint8_t *)all_zero_buffer);
+        audio_usb_tx_scenario_latency_debug(port, (uint8_t *)all_zero_buffer);
     } else {
-        usb_audio_tx_cb_latency_debug(&audio_dongle_usb_tx_handle[port], p_source_buf);
+        audio_usb_tx_scenario_latency_debug(port, p_source_buf);
     }
     #endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
 }
@@ -790,9 +616,9 @@ bool audio_dongle_write_data_to_usb(uint8_t usb_port, uint8_t *data, uint32_t *l
 
     #if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
     if (data_size == 0) {
-        usb_audio_tx_cb_latency_debug(&audio_dongle_usb_tx_handle[usb_port], (uint8_t *)all_zero_buffer);
+        audio_usb_tx_scenario_latency_debug(usb_port, (uint8_t *)all_zero_buffer);
     } else {
-        usb_audio_tx_cb_latency_debug(&audio_dongle_usb_tx_handle[usb_port], p_source_buf);
+        audio_usb_tx_scenario_latency_debug(usb_port, p_source_buf);
     }
     #endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
 
@@ -864,6 +690,9 @@ bool audio_dongle_read_data_from_usb(uint8_t usb_port, uint8_t *data, uint32_t *
             ((audio_transmitter_block_header_t *)p_source_buf)->sequence_number = audio_dongle_usb_rx_handle[usb_port].usb_stream_header.sequence_number;
             ((audio_transmitter_block_header_t *)p_source_buf)->data_length     = audio_dongle_usb_rx_handle[usb_port].usb_stream_header.data_length;
             memcpy(p_source_buf + BLK_HEADER_SIZE, data, audio_dongle_usb_rx_handle[usb_port].frame_size);
+#if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
+            audio_usb_rx_scenario_latency_debug(usb_port, (p_source_buf + BLK_HEADER_SIZE));
+#endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
             hal_audio_buf_mgm_get_write_data_done(p_dsp_info, audio_dongle_usb_rx_handle[usb_port].frame_size + BLK_HEADER_SIZE);
 
             #if DONGLE_AUDIO_COMMON_DL_PATH_DEBUG_LOG
@@ -876,10 +705,6 @@ bool audio_dongle_read_data_from_usb(uint8_t usb_port, uint8_t *data, uint32_t *
             /* get residual usb data size */
             available_data_size = available_data_size-audio_dongle_usb_rx_handle[usb_port].frame_size;
             data = data + audio_dongle_usb_rx_handle[usb_port].frame_size;
-
-            #if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
-            usb_audio_rx_cb_latency_debug(&audio_dongle_usb_rx_handle[usb_port], (p_source_buf + BLK_HEADER_SIZE));
-            #endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
         }
     }
 
@@ -1286,14 +1111,6 @@ void audio_dongle_set_stream_out_bt_common(audio_transmitter_config_t *config, m
     /* get codec frame size */
     uint32_t payload_size = ble_audio_codec_get_frame_size(&(config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_type),
                                                     &(config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param));
-    if ((payload_size == 0) || (payload_size != config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3.frame_size)) {
-        TRANSMITTER_LOG_E("[BLE Audio Dongle] ERROR: id [%d]-[%d] codec frame size %d, %d\r\n", 4,
-            config->scenario_type,
-            config->scenario_sub_id,
-            payload_size,
-            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3.frame_size);
-        AUDIO_ASSERT(0);
-    }
     open_param->param.stream_out = STREAM_OUT_BT_COMMON;
     open_param->stream_out_param.bt_common.scenario_type = config->scenario_type;
     open_param->stream_out_param.bt_common.scenario_sub_id = config->scenario_sub_id;
@@ -1303,7 +1120,11 @@ void audio_dongle_set_stream_out_bt_common(audio_transmitter_config_t *config, m
     open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.period                         = config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.period;
     open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.channel_enable                 = config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.channel_enable;
     open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.codec_type                     = config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_type;//AUDIO_DSP_CODEC_TYPE_LC3
-    memcpy(&(open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.codec_param.lc3), &(config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3), sizeof(audio_codec_lc3_t));
+    if (config->scenario_config.ble_audio_dongle_config.voice_ble_audio_dongle_config.codec_type == AUDIO_DSP_CODEC_TYPE_LC3) {
+        memcpy(&(open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.codec_param.lc3), &(config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3), sizeof(audio_codec_lc3_t));
+    } else if (config->scenario_config.ble_audio_dongle_config.voice_ble_audio_dongle_config.codec_type == AUDIO_DSP_CODEC_TYPE_LC3PLUS) {
+        memcpy(&(open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.codec_param.lc3plus), &(config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3plus), sizeof(audio_codec_lc3plus_t));
+    }
     /* upper layer will prepare channel 2's share memory */
     open_param->stream_out_param.bt_common.p_share_info = hal_audio_query_audio_transmitter_share_info(AUDIO_TRANSMITTER_SHARE_INFO_INDEX_BLE_AUDIO_DONGLE_BT_SEND_TO_AIR_1);
     // if (dl_stream_status == 0)
@@ -1331,20 +1152,37 @@ void audio_dongle_set_stream_out_bt_common(audio_transmitter_config_t *config, m
     } else {
         dl_stream_status |= 0x2;
     }
-    TRANSMITTER_LOG_I("[BLE Audio Dongle][dl] codec setting: %u, %u, 0x%x, %u, %u, %u, %u, %u, %u, 0x%x, 0x%x, 0x%x, 0x%x\r\n", 13,
-                        config->scenario_sub_id,
-                        config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.period,
-                        config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.channel_enable,
-                        payload_size,
-                        config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_type,
-                        config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3.sample_rate,
-                        config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3.channel_mode,
-                        config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3.frame_interval,
-                        config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3.bit_rate,
-                        open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_1,
-                        ((n9_dsp_share_info_t *)(open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_1))->start_addr,
-                        open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_2,
-                        ((n9_dsp_share_info_t *)(open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_2))->start_addr);
+    if (config->scenario_config.ble_audio_dongle_config.voice_ble_audio_dongle_config.codec_type == AUDIO_DSP_CODEC_TYPE_LC3) {
+        TRANSMITTER_LOG_I("[BLE Audio Dongle][dl] lc3 codec setting: %u, %u, 0x%x, %u, %u, %u, %u, %u, %u, 0x%x, 0x%x, 0x%x, 0x%x\r\n", 13,
+                            config->scenario_sub_id,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.period,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.channel_enable,
+                            payload_size,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_type,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3.sample_rate,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3.channel_mode,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3.frame_interval,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3.bit_rate,
+                            open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_1,
+                            ((n9_dsp_share_info_t *)(open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_1))->start_addr,
+                            open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_2,
+                            ((n9_dsp_share_info_t *)(open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_2))->start_addr);
+    } else if (config->scenario_config.ble_audio_dongle_config.voice_ble_audio_dongle_config.codec_type == AUDIO_DSP_CODEC_TYPE_LC3PLUS) {
+        TRANSMITTER_LOG_I("[BLE Audio Dongle][dl] lc3plus codec setting: %u, %u, 0x%x, %u, %u, %u, %u, %u, %u, 0x%x, 0x%x, 0x%x, 0x%x\r\n", 13,
+                            config->scenario_sub_id,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.period,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.channel_enable,
+                            payload_size,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_type,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3plus.sample_rate,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3plus.channel_mode,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3plus.frame_interval,
+                            config->scenario_config.ble_audio_dongle_config.music_ble_audio_dongle_config.codec_param.lc3plus.bit_rate,
+                            open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_1,
+                            ((n9_dsp_share_info_t *)(open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_1))->start_addr,
+                            open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_2,
+                            ((n9_dsp_share_info_t *)(open_param->stream_out_param.bt_common.scenario_param.ble_audio_dongle_param.share_buffer_channel_2))->start_addr);
+    }
 }
 #endif
 
@@ -1577,3 +1415,175 @@ bool audio_dongle_vendor_parameter_parse(audio_codec_vendor_config_t *vendor, vo
 }
 #endif /* AIR_BT_AUDIO_DONGLE_LHDC_ENABLE */
 #endif /* dongle side */
+
+/* Latency measurement for USB relative scenario */
+
+#include "hal_gpio.h"
+#include "hal_audio_message_struct_common.h"
+#include "audio_transmitter_playback_port.h"
+
+#define AUDIO_USB_RX_PORT_TOTAL 2
+#define AUDIO_USB_TX_PORT_TOTAL 1
+
+#define USB_AUDIO_RX_DEBUG_LANTENCY_16BIT_HIGH_LEVEL 0x7331
+#define USB_AUDIO_RX_DEBUG_LANTENCY_16BIT_LOW_LEVEL 0x8CCB
+#define USB_AUDIO_RX_DEBUG_LANTENCY_24BIT_HIGH_LEVEL 0x400000
+#define USB_AUDIO_RX_DEBUG_LANTENCY_24BIT_LOW_LEVEL 0xC00000
+#define USB_AUDIO_RX_DEBUG_LANTENCY_COUNT 100 /* interval(ms) for the test pluse */
+
+typedef struct {
+    hal_gpio_pin_t gpio_pin;
+    uint32_t latency_debug_enable;
+    int32_t current_threshold;
+    uint32_t current_debug_count;
+    uint32_t channels;
+    uint32_t frame_size;
+    hal_audio_format_t format;
+} audio_usb_scenario_latency_config_t;
+
+static audio_usb_scenario_latency_config_t g_audio_usb_rx_scenario_latency_config[AUDIO_USB_RX_PORT_TOTAL];
+static audio_usb_scenario_latency_config_t g_audio_usb_tx_scenario_latency_config[AUDIO_USB_TX_PORT_TOTAL];
+
+void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num)
+{
+    if (enable) {
+        g_audio_usb_rx_scenario_latency_config[usb_port].latency_debug_enable = 1;
+        g_audio_usb_rx_scenario_latency_config[usb_port].current_debug_count = 0;
+        g_audio_usb_rx_scenario_latency_config[usb_port].gpio_pin = gpio_num;
+        hal_gpio_init(gpio_num);
+        hal_pinmux_set_function(gpio_num, 0);
+        hal_gpio_set_direction(gpio_num, HAL_GPIO_DIRECTION_OUTPUT);
+    } else {
+        g_audio_usb_rx_scenario_latency_config[usb_port].latency_debug_enable = 0;
+        g_audio_usb_rx_scenario_latency_config[usb_port].current_debug_count = 0;
+        g_audio_usb_rx_scenario_latency_config[usb_port].gpio_pin = gpio_num;
+    }
+
+    hal_gpio_set_output(g_audio_usb_rx_scenario_latency_config[usb_port].gpio_pin, HAL_GPIO_DATA_LOW);
+}
+
+void audio_usb_rx_scenario_latency_debug_init(uint32_t usb_port, uint32_t frame_size, uint32_t channels, hal_audio_format_t format)
+{
+    g_audio_usb_rx_scenario_latency_config[usb_port].latency_debug_enable = 0;
+    g_audio_usb_rx_scenario_latency_config[usb_port].format = format;
+    g_audio_usb_rx_scenario_latency_config[usb_port].frame_size = frame_size;
+    g_audio_usb_rx_scenario_latency_config[usb_port].channels = channels;
+}
+
+void audio_usb_rx_scenario_latency_debug(uint32_t usb_port, uint8_t *source_buf)
+{
+    int16_t *start_16bit_address = NULL;
+    uint8_t *start_24bit_address = NULL;
+    uint32_t i, j, total_samples, frame_size, channels, debug_count;
+    int16_t current_16bit_sample_value;
+    int32_t current_24bit_sample_value;
+    hal_audio_format_t format;
+    hal_gpio_pin_t gpio_pin;
+
+    if (g_audio_usb_rx_scenario_latency_config[usb_port].latency_debug_enable) {
+        format = g_audio_usb_rx_scenario_latency_config[usb_port].format;
+        frame_size = g_audio_usb_rx_scenario_latency_config[usb_port].frame_size;
+        channels = g_audio_usb_rx_scenario_latency_config[usb_port].channels;
+        debug_count = g_audio_usb_rx_scenario_latency_config[usb_port].current_debug_count;
+        gpio_pin = g_audio_usb_rx_scenario_latency_config[usb_port].gpio_pin;
+
+        if (format == HAL_AUDIO_PCM_FORMAT_S16_LE) {
+            if (debug_count++ % USB_AUDIO_RX_DEBUG_LANTENCY_COUNT == 0) {
+                hal_gpio_set_output(gpio_pin, HAL_GPIO_DATA_HIGH);
+                current_16bit_sample_value = USB_AUDIO_RX_DEBUG_LANTENCY_16BIT_HIGH_LEVEL;
+            } else {
+                hal_gpio_set_output(gpio_pin, HAL_GPIO_DATA_LOW);
+                current_16bit_sample_value = USB_AUDIO_RX_DEBUG_LANTENCY_16BIT_LOW_LEVEL;
+            }
+            start_16bit_address = (int16_t *)source_buf;
+            total_samples = frame_size / (2 * channels);
+            for (i = 0; i < total_samples; i++) {
+                for (j = 0; j < channels; j++) {
+                    *(start_16bit_address + channels * i + j) = current_16bit_sample_value;
+                }
+            }
+        }
+        else if (format == HAL_AUDIO_PCM_FORMAT_S24_LE) {
+            if (debug_count++ % USB_AUDIO_RX_DEBUG_LANTENCY_COUNT == 0) {
+                hal_gpio_set_output(gpio_pin, HAL_GPIO_DATA_HIGH);
+                current_24bit_sample_value = USB_AUDIO_RX_DEBUG_LANTENCY_24BIT_HIGH_LEVEL;
+            } else {
+                hal_gpio_set_output(gpio_pin, HAL_GPIO_DATA_LOW);
+                current_24bit_sample_value = USB_AUDIO_RX_DEBUG_LANTENCY_24BIT_LOW_LEVEL;
+            }
+            start_24bit_address = (uint8_t *)source_buf;
+            total_samples = frame_size / (3 * channels);
+            for (i = 0; i < total_samples; i++) {
+                for (j = 0; j < channels; j++) {
+                    *(start_24bit_address + 3 * channels * i + 3 * j) = current_24bit_sample_value & 0xFF;
+                    *(start_24bit_address + 3 * channels * i + 3 * j + 1) = (current_24bit_sample_value >> 8) & 0xFF;
+                    *(start_24bit_address + 3 * channels * i + 3 * j + 2) = (current_24bit_sample_value >> 16) & 0xFF;
+                }
+            }
+        }
+
+        g_audio_usb_rx_scenario_latency_config[usb_port].current_debug_count = debug_count;
+    }
+}
+
+void audio_usb_tx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num, int32_t current_threshold)
+{
+    if (enable) {
+        hal_gpio_init(gpio_num);
+        hal_pinmux_set_function(gpio_num, 0);
+        hal_gpio_set_direction(gpio_num, HAL_GPIO_DIRECTION_OUTPUT);
+        g_audio_usb_tx_scenario_latency_config[usb_port].latency_debug_enable = 1;
+    } else {
+        g_audio_usb_tx_scenario_latency_config[usb_port].latency_debug_enable = 0;
+    }
+    g_audio_usb_tx_scenario_latency_config[usb_port].gpio_pin = gpio_num;
+    g_audio_usb_tx_scenario_latency_config[usb_port].current_threshold = current_threshold;
+
+    hal_gpio_set_output(g_audio_usb_tx_scenario_latency_config[usb_port].gpio_pin, HAL_GPIO_DATA_LOW);
+}
+
+void audio_usb_tx_scenario_latency_debug_init(uint32_t usb_port, uint32_t frame_size, uint32_t channels, hal_audio_format_t format, int32_t current_threshold)
+{
+    g_audio_usb_tx_scenario_latency_config[usb_port].latency_debug_enable = 0;
+    g_audio_usb_tx_scenario_latency_config[usb_port].format = format;
+    g_audio_usb_tx_scenario_latency_config[usb_port].frame_size = frame_size;
+    g_audio_usb_tx_scenario_latency_config[usb_port].channels = channels;
+    g_audio_usb_tx_scenario_latency_config[usb_port].current_threshold = current_threshold;
+}
+
+void audio_usb_tx_scenario_latency_debug(uint32_t usb_port, uint8_t *source_buf)
+{
+    int16_t *start_address = (int16_t *)source_buf;
+    uint32_t i;
+    int32_t sample_value;
+    uint16_t frame_samples;
+    uint16_t channel_num;
+    uint16_t resolution_size;
+    hal_gpio_pin_t gpio_pin;
+    hal_audio_format_t format;
+
+    if (g_audio_usb_tx_scenario_latency_config[usb_port].latency_debug_enable)
+    {
+        format = g_audio_usb_tx_scenario_latency_config[usb_port].format;
+        channel_num = g_audio_usb_tx_scenario_latency_config[usb_port].channels;
+        gpio_pin = g_audio_usb_tx_scenario_latency_config[usb_port].gpio_pin;
+        resolution_size = (format == HAL_AUDIO_PCM_FORMAT_S16_LE) ? 2 : 3;
+        frame_samples = g_audio_usb_tx_scenario_latency_config[usb_port].frame_size / resolution_size / channel_num;
+        sample_value = 0;
+        for (i = 0; i < frame_samples; i++) {
+            if (format == HAL_AUDIO_PCM_FORMAT_S16_LE) {
+                sample_value += (*(start_address + i * channel_num) / frame_samples);
+            } else {
+                sample_value += (*(int16_t *)((uint32_t)start_address + i * channel_num * 3 + 1) / frame_samples); /* Only fetch highest 16bit for easy calculate */
+            }
+        }
+        TRANSMITTER_LOG_I("[USB_LATENCY_DEBUG][TX] monitor 1st sample value %d, average value %d", 2, *(int16_t *)source_buf, sample_value);
+        if (sample_value >= g_audio_usb_tx_scenario_latency_config[usb_port].current_threshold) {
+            hal_gpio_set_output(gpio_pin, HAL_GPIO_DATA_HIGH);
+            TRANSMITTER_LOG_W("[USB_LATENCY_DEBUG][TX] monitor rising edge, %d, %d", 2, sample_value, g_audio_usb_tx_scenario_latency_config[usb_port].current_threshold);
+        } else {
+            hal_gpio_set_output(gpio_pin, HAL_GPIO_DATA_LOW);
+        }
+    }
+}
+

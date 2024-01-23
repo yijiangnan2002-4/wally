@@ -55,13 +55,15 @@ static void bt_sink_srv_music_transfer_state(bt_sink_srv_music_state_t state)
 
 static void bt_sink_srv_music_update_dev_state(bt_sink_srv_music_device_t *dev, bt_sink_srv_music_state_t state)
 {
-    bt_sink_srv_report_id("[sink][music][state_machine] update_dev_state-type: %d, ori: 0x%08x, cur: 0x%08x", 3, dev->handle->type, dev->handle->state, state);
+    bt_sink_srv_report_id("[sink][music][state_machine] update_dev_state-dev:0x%x, type: %d, ori: 0x%08x, cur: 0x%08x",
+        4, dev, dev->handle->type, dev->handle->state, state);
     dev->state = state;
 }
 
 static void bt_sink_srv_music_set_dev_transient_state(bt_sink_srv_music_device_t *dev, bt_sink_srv_music_transient_state_t substate)
 {
-    bt_sink_srv_report_id("[sink][music][state_machine] set_dev_transient_state--type: %d, ori: %d, cur: %d", 3, dev->handle->type, dev->handle->substate, substate);
+    bt_sink_srv_report_id("[sink][music][state_machine] set_dev_transient_state--dev:0x%x, handle:0x%x, type: %d, ori: %d, cur: %d", 5,
+        dev, dev->handle, dev->handle->type, dev->handle->substate, substate);
     audio_src_srv_set_substate(dev->handle, substate);
 }
 
@@ -176,14 +178,6 @@ static void bt_sink_srv_music_state_ready_handle(bt_sink_srv_music_device_t *dev
             if (BT_SINK_SRV_MUSIC_TRANSIENT_STATE_PREPARE_CODEC == dev->handle->substate
                 || BT_SINK_SRV_MUSIC_TRANSIENT_STATE_PREPARE_BUFFER == dev->handle->substate) {
                 bt_sink_srv_music_set_dev_transient_state(dev, BT_SINK_SRV_MUSIC_TRANSIENT_STATE_NONE);
-                audio_src_srv_update_state(dev->handle, AUDIO_SRC_SRV_EVT_PREPARE_STOP);
-            }
-            break;
-        }
-
-        case BT_SINK_SRV_MUSIC_EVT_RESUME: {
-            if (BT_SINK_SRV_MUSIC_TRANSIENT_STATE_NONE == dev->handle->substate) {
-                bt_sink_srv_music_set_dev_transient_state(dev, BT_SINK_SRV_MUSIC_TRANSIENT_STATE_CLEAR_CODEC);
                 audio_src_srv_update_state(dev->handle, AUDIO_SRC_SRV_EVT_PREPARE_STOP);
             }
             break;
@@ -307,6 +301,16 @@ static void bt_sink_srv_music_state_playing_handle(bt_sink_srv_music_device_t *d
                 bt_sink_srv_music_transfer_state(AUDIO_SRC_SRV_STATE_READY);
                 bt_sink_srv_music_update_dev_state(dev, AUDIO_SRC_SRV_STATE_READY);
                 audio_src_srv_update_state(dev->handle, AUDIO_SRC_SRV_EVT_READY);
+            }
+            break;
+        }
+
+        case BT_SINK_SRV_MUSIC_EVT_RESUME: {
+            if (BT_SINK_SRV_MUSIC_TRANSIENT_STATE_CLEAR_CODEC == dev->handle->substate) {
+                bt_sink_srv_music_transfer_state(AUDIO_SRC_SRV_STATE_READY);
+                bt_sink_srv_music_update_dev_state(dev, AUDIO_SRC_SRV_STATE_READY);
+                bt_sink_srv_music_set_dev_transient_state(dev, BT_SINK_SRV_MUSIC_TRANSIENT_STATE_PREPARE_CODEC);
+                audio_src_srv_update_state(dev->handle, AUDIO_SRC_SRV_EVT_RESUME);
             }
             break;
         }

@@ -60,7 +60,7 @@ extern uint8_t clock_mux_cur_sel(clock_mux_sel_id mux_id);
 ATTR_RWDATA_IN_TCM ESC_REGISTER_T *esc_register = (ESC_REGISTER_T *)ESC_BASE;
 
 #ifdef ESC_INTERNAL_DEBUG
-ATTR_TEXT_IN_TCM void check_mac_en(const char *called_func, uint32_t error_value);
+void check_mac_en(const char *called_func, uint32_t error_value);
 #endif
 
 /* common function declaration */
@@ -84,7 +84,7 @@ void ESC_Dev_Command(const uint16_t CS, const uint32_t cmd);
 void ESC_Dev_Command_Ext(const uint16_t CS, const uint8_t *cmd, uint8_t *data, const uint16_t outl, const uint16_t inl);
 
 /* common function definition */
-ATTR_TEXT_IN_TCM void reset_esc_register(void)
+void reset_esc_register(void)
 {
     esc_register->ESC_MAC_CTL    = 0x00000000;
     esc_register->ESC_DIRECT_CTL = 0x03027000;
@@ -142,6 +142,16 @@ ATTR_TEXT_IN_TCM void ESC_MacTrigger(void)
     esc_register->ESC_MAC_CTL = val;
     // wait for ESC ready
     while (esc_register->ESC_MAC_CTL & ESC_MAC_WAIT_DONE);
+}
+
+/*!
+    @brief
+    Set trigger and send GPRAM data toward extern PSRAM
+    Leave macro mode when done */
+ATTR_TEXT_IN_TCM void ESC_MacWaitReady(void)
+{
+    ESC_MacTrigger();
+    ESC_MacLeave();
 }
 
 
@@ -213,13 +223,13 @@ ATTR_TEXT_IN_TCM void ESC_Dev_Command_Ext(const uint16_t CS, const uint8_t *cmd,
 
 #ifdef ESC_PSRAM_ENABLE
 
-ATTR_RODATA_IN_TCM const esc_psram_setting g_setting = {
+const esc_psram_setting g_setting = {
     /*      MODE,    MAC_CTL, DIRECT_CTL,  MISC_CTL1,  MISC_CTL2,   DLY_CTL1,   DLY_CTL2,   DLY_CTL3,   DLY_CTL4( 52MHz ) DLY_CTL1,   DLY_CTL2,   DLY_CTL3,   DLY_CTL4( 26MHz )*/
 #if defined(MICRO_CHIP_23A1024)
     ESC_QPI_MODE,        //device mode
     0x00000000,          //ESC_MAC_CTL
     0x03021052,          //ESC_DIRECT_CTL
-    0x00000100,          //ESC_MISC_CTL1
+    0x00020103,          //ESC_MISC_CTL1
     0x00000000,          //ESC_MISC_CTL2
     { 0x00000000, 0x00000000, 0x00000003, 0x00000100 },    //ESC_DELAY_CTL_52MHZ
     { 0x00000000, 0x00000000, 0x00000003, 0x00000100 },    //ESC_DELAY_CTL_26MHZ
@@ -228,7 +238,7 @@ ATTR_RODATA_IN_TCM const esc_psram_setting g_setting = {
     ESC_QPI_MODE,        //device mode
     0x00000000,          //ESC_MAC_CTL
     0xEB385052,          //ESC_DIRECT_CTL
-    0x00000100,          //ESC_MISC_CTL1
+    0x00020103,          //ESC_MISC_CTL1
     0x00000000,          //ESC_MISC_CTL2
     { 0x00000000, 0x01010101, 0x00000004, 0x00000000 },    //ESC_DELAY_CTL_52MHZ
     { 0x00000000, 0x02020202, 0x00000003, 0x00000004 },    //ESC_DELAY_CTL_26MHZ
@@ -238,7 +248,7 @@ ATTR_RODATA_IN_TCM const esc_psram_setting g_setting = {
     ESC_SPIQ_MODE,       //device mode
     0x00000000,          //ESC_MAC_CTL
     0xEB385042,          //ESC_DIRECT_CTL
-    0x00000100,          //ESC_MISC_CTL1
+    0x00020103,          //ESC_MISC_CTL1
     0x00000000,          //ESC_MISC_CTL2
     { 0x00000000, 0x00000000, 0x00000003, 0x00000100 },    //ESC_DELAY_CTL_52MHZ
     { 0x00000000, 0x00000000, 0x00000003, 0x00000100 },    //ESC_DELAY_CTL_26MHZ
@@ -248,7 +258,7 @@ ATTR_RODATA_IN_TCM const esc_psram_setting g_setting = {
 #endif
 };
 
-ATTR_TEXT_IN_TCM void esc_device_reset(void)
+void esc_device_reset(void)
 {
 #if defined(MICRO_CHIP_23A1024)
     ESC_Dev_Command(0, ESC_CMD_EXIT_QUAD_MODE);
@@ -261,7 +271,7 @@ ATTR_TEXT_IN_TCM void esc_device_reset(void)
 #endif
 }
 
-ATTR_TEXT_IN_TCM void esc_internal_init(void)
+void esc_internal_init(void)
 {
     esc_clock_t clock = ESC_CLOCK_INVALID;
     /* modify registers of ESC controller */
@@ -313,114 +323,114 @@ ATTR_TEXT_IN_TCM void esc_internal_init(void)
 }
 
 
-/*!
-    @brief
-    Set trigger and send GPRAM data toward extern PSRAM
-    Leave macro mode when done */
-ATTR_TEXT_IN_TCM void ESC_MacWaitReady(void)
-{
-    ESC_MacTrigger();
-    ESC_MacLeave();
-}
-
-//#endif /* ESC_PSRAM_ENABLE */
-
-
-//#ifdef ESC_FLASH_ENABLE
 #elif defined(ESC_FLASH_ENABLE)
 ATTR_RWDATA_IN_TCM esc_ctl_block_t g_esc_ctl = { ESC_SPI_MODE, NULL, ESC_CLOCK_26MHz, false, false, false, false, false };
-ATTR_RODATA_IN_TCM esc_device_info_t g_esc_support_flash_list[] = {
+const esc_device_info_t g_esc_support_flash_list[] = {
     {
         "W25Q32JW", 0x00EF6016, 256, 16384, 0x0B, 0xEB, 0x02, 0x7A, 0x75, 1, 0, 7,
         { 0x20, 0x52, 0xD8, 0xC7 },    //erase command
-        { 0x00000000, 0x01010101, 0x00000004, 0x00000000 },    //ESC_DELAY_CTL_52MHZ
-        { 0x00000000, 0x02020202, 0x00000003, 0x00000004 },    //ESC_DELAY_CTL_26MHZ
-        { 0x00000000, 0x02020202, 0x00000003, 0x00000004 }     //ESC_DELAY_CTL_104MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_52MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_26MHZ
+        { 0x00000000, 0x00000000, 0x00000004, 0x00000003 }     //ESC_DELAY_CTL_104MHZ
+    },
+    {
+        "W25Q64JW", 0x00EF6017, 256, 32768, 0x0B, 0xEB, 0x02, 0x7A, 0x75, 1, 0, 7,
+        { 0x20, 0x52, 0xD8, 0xC7 },    //erase command
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_52MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_26MHZ
+        { 0x00000000, 0x00000000, 0x00000004, 0x00000003 }     //ESC_DELAY_CTL_104MHZ
     },
     {
         "W25Q128JW_DTR", 0x00EF8018, 256, 65536, 0x0B, 0xEB, 0x02, 0x7A, 0x75, 1, 0, 7,
         { 0x20, 0x52, 0xD8, 0xC7 },    //erase command
-        { 0x00000000, 0x01010101, 0x00000004, 0x00000000 },    //ESC_DELAY_CTL_52MHZ
-        { 0x00000000, 0x02020202, 0x00000003, 0x00000004 },    //ESC_DELAY_CTL_26MHZ
-        { 0x00000000, 0x02020202, 0x00000003, 0x00000004 }     //ESC_DELAY_CTL_104MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_52MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_26MHZ
+        { 0x00000000, 0x00000000, 0x00000004, 0x00000003 }     //ESC_DELAY_CTL_104MHZ
     },
     {
         "W25Q128JW", 0x00EF6018, 256, 65536, 0x0B, 0xEB, 0x02, 0x7A, 0x75, 1, 0, 7,
         { 0x20, 0x52, 0xD8, 0xC7 },    //erase command
-        { 0x00000000, 0x01010101, 0x00000004, 0x00000000 },    //ESC_DELAY_CTL_52MHZ
-        { 0x00000000, 0x02020202, 0x00000003, 0x00000004 },    //ESC_DELAY_CTL_26MHZ
-        { 0x00000000, 0x02020202, 0x00000003, 0x00000004 }     //ESC_DELAY_CTL_104MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_52MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_26MHZ
+        { 0x00000000, 0x00000000, 0x00000004, 0x00000003 }     //ESC_DELAY_CTL_104MHZ
     },
     {
         "W25Q256JW", 0x00EF6019, 256, 131072, 0x0B, 0xEB, 0x02, 0x7A, 0x75, 1, 0, 7,
         { 0x20, 0x52, 0xD8, 0xC7 },    //erase command
-        { 0x00000000, 0x01010101, 0x00000004, 0x00000000 },    //ESC_DELAY_CTL_52MHZ
-        { 0x00000000, 0x02020202, 0x00000003, 0x00000004 },    //ESC_DELAY_CTL_26MHZ
-        { 0x00000000, 0x02020202, 0x00000003, 0x00000004 }     //ESC_DELAY_CTL_104MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_52MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_26MHZ
+        { 0x00000000, 0x00000000, 0x00000004, 0x00000003 }     //ESC_DELAY_CTL_104MHZ
     },
     {
         "G25Q128JW", 0x00C86018, 256, 65536, 0x0B, 0xEB, 0x02, 0x7A, 0x75, 1, 0, 7,
         { 0x20, 0x52, 0xD8, 0xC7 },    //erase command
-        { 0x00000000, 0x01010101, 0x00000004, 0x00000000 },    //ESC_DELAY_CTL_52MHZ
-        { 0x00000000, 0x02020202, 0x00000003, 0x00000004 },    //ESC_DELAY_CTL_26MHZ
-        { 0x00000000, 0x02020202, 0x00000003, 0x00000004 }     //ESC_DELAY_CTL_104MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_52MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_26MHZ
+        { 0x00000000, 0x00000000, 0x00000004, 0x00000003 }     //ESC_DELAY_CTL_104MHZ
     },
+    {
+        "G25Q32JW", 0x00C86016, 256, 16384, 0x0B, 0xEB, 0x02, 0x7A, 0x75, 1, 0, 7,
+        { 0x20, 0x52, 0xD8, 0xC7 },    //erase command
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_52MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_26MHZ
+        { 0x00000000, 0x00000000, 0x00000004, 0x00000003 }     //ESC_DELAY_CTL_104MHZ
+    },
+    {
+        "G25Q64JW", 0x00C86017, 256, 32768, 0x0B, 0xEB, 0x02, 0x7A, 0x75, 1, 0, 7,
+        { 0x20, 0x52, 0xD8, 0xC7 },    //erase command
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_52MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_26MHZ
+        { 0x00000000, 0x00000000, 0x00000004, 0x00000003 }     //ESC_DELAY_CTL_104MHZ
+    },
+    {
+        "G25Q128JW", 0x00C86018, 256, 65536, 0x0B, 0xEB, 0x02, 0x7A, 0x75, 1, 0, 7,
+        { 0x20, 0x52, 0xD8, 0xC7 },    //erase command
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_52MHZ
+        { 0x00000000, 0x00000000, 0x00000003, 0x00000006 },    //ESC_DELAY_CTL_26MHZ
+        { 0x00000000, 0x00000000, 0x00000004, 0x00000003 }     //ESC_DELAY_CTL_104MHZ
+    }
 };
-#define SUPPORT_LIST_LENGTH ((sizeof(g_esc_support_flash_list))/(sizeof(esc_device_info_t)))
+#define SUPPORT_LIST_LENGTH  ((sizeof(g_esc_support_flash_list))/(sizeof(esc_device_info_t)))
 
 #define ESC_IS_4_BYTE_ADDRESS_MODE   ((esc_register->ESC_MISC_CTL2 >> ESC_ADDRESS_MODE_BIT_OFFSET) & 0x1)
 
-ATTR_TEXT_IN_TCM bool esc_judge_device(void);
-
-ATTR_TEXT_IN_TCM bool esc_is_4_byte_mode(void);
-
-ATTR_TEXT_IN_TCM void flash_write_en(void);
-
-ATTR_TEXT_IN_TCM bool write_qe_bit(uint8_t bit_value);
-
-ATTR_TEXT_IN_TCM bool device_is_busy(uint8_t status);
-
-ATTR_TEXT_IN_TCM uint8_t read_device_reg(esc_device_reg_type_t type);
-
-ATTR_TEXT_IN_TCM hal_esc_flash_status_t esc_flash_parameter_check(uint32_t addr, void *ptr, uint32_t len);
-
-ATTR_TEXT_IN_TCM void ESC_Write_C1A3(uint8_t cmd, uint32_t address, const uint8_t *buff, uint32_t length);
-
-ATTR_TEXT_IN_TCM void ESC_Write_C1A4(uint8_t cmd, uint32_t address, const uint8_t *buff, uint32_t length);
-
-/*!
-    @brief
-    Set trigger and send GPRAM data toward serial Flash
-    !!!Keep!!! macro mode when done */
-ATTR_TEXT_IN_TCM void ESC_MacWaitReady(void)
-{
-    ESC_MacTrigger();
-#if 0
-    uint32_t val;
-    /* clear ESC_MAC_TRIG but keep MACRO mode */
-    val = esc_register->ESC_MAC_CTL;
-    val &= ~(ESC_MAC_TRIG);
-    esc_register->ESC_MAC_CTL = val;
-    while (esc_register->ESC_MAC_CTL & ESC_MAC_WAIT_DONE);
-#else
-    ESC_MacLeave();
-#endif
-}
+ATTR_RWDATA_IN_TCM uint32_t sw_esc_irq;
 
 
-ATTR_TEXT_IN_TCM void set_initial_state(bool state)
+bool esc_judge_device(void);
+bool esc_is_4_byte_mode(void);
+
+void flash_write_en(void);
+
+bool write_qe_bit(uint8_t bit_value);
+
+bool device_is_busy(uint8_t status);
+
+uint8_t read_device_reg(esc_device_reg_type_t type);
+
+hal_esc_flash_status_t esc_flash_parameter_check(uint32_t addr, void *ptr, uint32_t len);
+
+void ESC_Write_C1A3(uint8_t cmd, uint32_t address, const uint8_t *buff, uint32_t length);
+
+void ESC_Write_C1A4(uint8_t cmd, uint32_t address, const uint8_t *buff, uint32_t length);
+
+void esc_wait_device_ready(uint32_t address);
+
+
+
+void set_initial_state(bool state)
 {
     g_esc_ctl.initialized = state;
 }
 
 
-ATTR_TEXT_IN_TCM bool get_initial_state(void)
+bool get_initial_state(void)
 {
     return g_esc_ctl.initialized;
 }
 
 
-ATTR_TEXT_IN_TCM hal_esc_flash_status_t esc_flash_parameter_check(uint32_t addr, void *ptr, uint32_t len)
+hal_esc_flash_status_t esc_flash_parameter_check(uint32_t addr, void *ptr, uint32_t len)
 {
     uint32_t esc_addr_range[2] = { ESC_GENERIC_SRAM_BANK_MASK, ESC_GENERIC_SRAM_BANK_MASK };
     uint32_t end_addr = addr + len;
@@ -431,16 +441,14 @@ ATTR_TEXT_IN_TCM hal_esc_flash_status_t esc_flash_parameter_check(uint32_t addr,
         return HAL_ESC_FLASH_STATUS_ERROR_NO_INIT;
     }
 
-    if ((NULL == ptr) || (0 == len) || (len > capacity)) {
+    if ((NULL == ptr) || (0 == len) || (len > capacity) || (addr > capacity) || ((addr + len) > capacity)) {
         log_hal_msgid_error("ESC flash api was called with ptr(0x%08X) and len(0x%08X)", 2, ptr, len);
         return HAL_ESC_FLASH_WRONG_PARAMETER;
     }
+    esc_addr_range[0] = 0x1000; 
+    esc_addr_range[1] = (g_esc_ctl.device->page_size * g_esc_ctl.device->page_number);
 
-    esc_addr_range[1] += (g_esc_ctl.device->page_size * g_esc_ctl.device->page_number);
-
-    if ((addr >= esc_addr_range[0]) && (end_addr < esc_addr_range[1]) && (addr < end_addr)) {
-        return HAL_ESC_FLASH_STATUS_OK;
-    } else if ((addr >= 0x0) && (end_addr < capacity)) {
+    if ((addr >= esc_addr_range[0])  && (addr < esc_addr_range[1]) && (addr < end_addr) && (end_addr < esc_addr_range[1])) {
         return HAL_ESC_FLASH_STATUS_OK;
     } else {
         log_hal_msgid_error("ESC flash api was called with invalid address.", 0);
@@ -500,7 +508,7 @@ ATTR_TEXT_IN_TCM void ESC_GPRAM_Write(uint32_t gpram_offset, const uint8_t *buff
 }
 
 
-ATTR_TEXT_IN_TCM void esc_internal_init(void)
+void esc_internal_init(void)
 {
     uint32_t jedec_id = g_esc_ctl.device->jedec_id;
     uint32_t direct_ctl = 0x0;
@@ -539,10 +547,13 @@ ATTR_TEXT_IN_TCM void esc_internal_init(void)
     }
 
     if (ESC_PARSE_MANU_ID(jedec_id) == WB_JEDEC_ID || ESC_PARSE_MANU_ID(jedec_id) == GD_JEDEC_ID) {
-        if (0xEF6018 == jedec_id || 0xC86018 == jedec_id) {
+        if (0xEF6018 == jedec_id || 0xEF6017 == jedec_id || 0xEF6016 == jedec_id ||
+            0xC86018 == jedec_id || 0xC86017 == jedec_id || 0xC86016 == jedec_id) {
             /* device is W25Q128JW, direct read: SPIQ mode, MAC write: SPI mode */
             /* config direct register and command */
+
             direct_ctl |= ((uint32_t)g_esc_ctl.device->spiq_read_cmd) << (ESC_DIRECT_READ_CMD_BIT_OFFSET);
+            direct_ctl |= ((uint32_t)g_esc_ctl.device->write_cmd) << ESC_DIRECT_WRITE_CMD_BIT_OFFSET;
             direct_ctl |= ((uint32_t)5) << (ESC_RD_DUMMY_BIT_OFFSET);    /* 6 dummy cycle */
             direct_ctl |= ((uint32_t)4) << (ESC_W_R_MODE_BIT_OFFSET);    /* b100 <==> 4 I/O mode */
             direct_ctl |= ((uint32_t)1) << (ESC_RD_DUMMY_EN_BIT_OFFSET); /* enable direct read dummy */
@@ -566,11 +577,6 @@ ATTR_TEXT_IN_TCM void esc_internal_init(void)
         esc_register->ESC_DIRECT_CTL = direct_ctl;
     }
 
-#if 0
-    log_hal_msgid_info("function %s line %d\r\n", 2, __FUNCTION__, __LINE__);
-    ESC_MacLeave();
-    log_hal_msgid_info("function %s line %d\r\n", 2, __FUNCTION__, __LINE__);
-#endif
 #ifdef HAL_SLEEP_MANAGER_ENABLED
     sleep_management_register_all_secure_suspend_callback(SLEEP_BACKUP_RESTORE_ESC, (sleep_management_suspend_callback_t)esc_backup_register_callback, NULL);
     sleep_management_register_all_secure_resume_callback(SLEEP_BACKUP_RESTORE_ESC, (sleep_management_suspend_callback_t)esc_restore_register_callback, NULL);
@@ -578,7 +584,7 @@ ATTR_TEXT_IN_TCM void esc_internal_init(void)
 }
 
 
-ATTR_TEXT_IN_TCM uint8_t read_device_reg(esc_device_reg_type_t type)
+uint8_t read_device_reg(esc_device_reg_type_t type)
 {
     uint32_t jedec_id = g_esc_ctl.device->jedec_id;
     uint8_t read_cmd = 0xFF, reg_data = 0xFF;
@@ -604,14 +610,14 @@ ATTR_TEXT_IN_TCM uint8_t read_device_reg(esc_device_reg_type_t type)
 }
 
 
-ATTR_TEXT_IN_TCM bool write_qe_bit(uint8_t bit_value)
+bool write_qe_bit(uint8_t bit_value)
 {
     uint32_t jedec_id = g_esc_ctl.device->jedec_id;
     bool result = false;
     uint8_t cmd[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
 
     if (ESC_PARSE_MANU_ID(jedec_id) == WB_JEDEC_ID) {
-        /* device is W25Q128JW */
+        /* device is W25Q128JW  W25Q64JW*/
         uint8_t origin = read_device_reg(REG_QE);
         uint8_t curr = origin, read_back = 0xFF;
         uint8_t busy_reg = 0xFF;
@@ -705,21 +711,33 @@ ATTR_TEXT_IN_TCM bool esc_judge_device(void)
             break;
         }
     }
-#if 0
-    //enable macro
-    ESC_MacLeave();
-#endif
     return device_is_support;
 }
 
 
 ATTR_TEXT_IN_TCM void esc_flash_return_ready(void)
 {
+    if(g_esc_ctl.busy == false) {
+        //no flash P/E,don't need to check busy 
+        return;
+    } else {
+        if ((g_esc_ctl.suspended == false) && (g_esc_ctl.busy == true)) {
+            if (sw_esc_irq == 0) {
+                sw_esc_irq = 1;
+                hal_nvic_set_pending_irq(ESC_IRQn);
+            }
+        }
+    }
+}
+
+//this is for exception
+ATTR_TEXT_IN_TCM void esc_flash_suspend(void)
+{
     uint32_t irq_mask;
     uint8_t device_status = 0xFF;
     uint8_t suspend_cmd = 0xFF;
 
-    hal_nvic_save_and_set_interrupt_mask_special(&irq_mask);
+    hal_nvic_save_and_set_interrupt_mask(&irq_mask);
 
     if ((g_esc_ctl.suspended == false) && (g_esc_ctl.busy == true)) {
         device_status = read_device_reg(REG_BUSY);
@@ -743,53 +761,36 @@ ATTR_TEXT_IN_TCM void esc_flash_return_ready(void)
         ESC_MacLeave();
     }
 
-#ifdef ESC_INTERNAL_DEBUG
-    check_mac_en("esc_flash_return_ready", 0x100);
-#endif
-
-    hal_nvic_restore_interrupt_mask_special(irq_mask);
+    hal_nvic_restore_interrupt_mask(irq_mask);
 }
 
 
 ATTR_TEXT_IN_TCM int32_t esc_check_ready_and_resume(void)
 {
-    uint8_t device_status;
-    //uint32_t irq_mask;
-    //int32_t result = -1;
-    //uint8_t resume_cmd = 0xFF;
-    //bool ahb_req_flag = false;
-    //uint32_t gpt_tick;
+    uint8_t status;
+    uint32_t irq_mask;
+    int32_t result = -1;
+    uint8_t resume_cmd = 0xFF;
+    bool ahb_req_flag = false;
+    uint32_t gpt_tick;
 
-    do {
-        device_status = read_device_reg(REG_BUSY);
-    }while(device_status & 1);
-
-    return 0;
-
-#if 0
-    hal_nvic_save_and_set_interrupt_mask_special(&irq_mask);
+    hal_nvic_save_and_set_interrupt_mask(&irq_mask);
 
     if (g_esc_ctl.ahb_req_while_mac == true) {
         ahb_req_flag = true;
         result = -1;
     } else {
-        device_status = read_device_reg(REG_BUSY);
+        status = read_device_reg(REG_BUSY);
 
-        if (device_is_busy(device_status) == false) {
+        if ((status & FLASH_BUSY_STATUS) == false) {
             /* current not busy */
-
             if (g_esc_ctl.suspended == true) {
-                /* only use software suspend flag */
-
                 /* check device suspend flag or
                  * driver recorded suspend flag for devices not has SUSPEND flag
                  */
-
                 resume_cmd = g_esc_ctl.device->resume_cmd;
-
                 /* issue resume command */
                 ESC_Dev_Command_Ext(0, &resume_cmd, NULL, 1, 0);
-
                 g_esc_ctl.suspended = false;
                 result = -1;
             } else {
@@ -797,35 +798,30 @@ ATTR_TEXT_IN_TCM int32_t esc_check_ready_and_resume(void)
                 g_esc_ctl.suspended = false;
                 g_esc_ctl.busy = false;
                 result = 0;
-
-                /* because of behind direct reading, leave macro mode here */
-                ESC_MacLeave();
             }
         } else {
             result = -1;    /* still busy */
         }
     }
-#ifdef ESC_INTERNAL_DEBUG
-    if (result == 0) {
-        check_mac_en("687 esc_check_ready_and_resume", 0x100);
-    }
-#endif
 
-    hal_nvic_restore_interrupt_mask_special(irq_mask);
+    hal_nvic_restore_interrupt_mask(irq_mask);
 
     if (ahb_req_flag == true) {
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &gpt_tick);
-        log_hal_msgid_warning("DMA or DSP direct read during ESC in MAC mode at %d.\r\n", 1, gpt_tick);
-        //hal_gpt_delay_ms(5);
-        hal_nvic_save_and_set_interrupt_mask_special(&irq_mask);
+        //log_hal_msgid_warning("DMA or DSP direct read during ESC in MAC mode at %d.\r\n", 1, gpt_tick);
+        hal_gpt_delay_us(50);
+        hal_nvic_save_and_set_interrupt_mask(&irq_mask);
         g_esc_ctl.ahb_req_while_mac = false;
         ahb_req_flag = false;
-        hal_nvic_restore_interrupt_mask_special(irq_mask);
+        hal_nvic_restore_interrupt_mask(irq_mask);
+    }
+
+    if (result == -1) {
+        //flash is busy, wait a while to avoid continues disable/enable irq
+        hal_gpt_delay_us(223);
     }
     return result;
-#endif
 }
-
 
 ATTR_TEXT_IN_TCM void flash_write_en(void)
 {
@@ -890,41 +886,15 @@ ATTR_TEXT_IN_TCM void ESC_Write_C1A4(uint8_t cmd, uint32_t address, const uint8_
 
 
 #ifdef HAL_ESC_SUPPORT_FLASH
-ATTR_TEXT_IN_TCM hal_esc_flash_status_t hal_esc_read_flash_data(uint32_t address, uint8_t *buffer, uint32_t len)
+hal_esc_flash_status_t hal_esc_read_flash_data(uint32_t address, uint8_t *buffer, uint32_t len)
 {
 #ifdef ESC_FLASH_ENABLE
-
     hal_esc_flash_status_t result = HAL_ESC_FLASH_STATUS_OK;
     result = esc_flash_parameter_check(address, (void *)buffer, len);
     if (result != HAL_ESC_FLASH_STATUS_OK) {
         return result;
     }
-
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-    hal_sleep_manager_lock_sleep(g_esc_sleep_handle);
-#endif
-
-#if 0
-    do {
-        can_work = esc_check_ready_and_resume();
-    } while (can_work != 0);
-#endif
-
-    /* Make sure that MAC_EN is not 1, otherwise reading data directly will cause BUS Hang. */
-    uint32_t mask;
-    hal_nvic_save_and_set_interrupt_mask_special(&mask);
-    uint32_t mac_ctl = esc_register->ESC_MAC_CTL;
-    uint32_t mac_en = mac_ctl & ESC_MAC_EN;
-    assert(mac_en != ESC_MAC_EN);
-    hal_nvic_restore_interrupt_mask_special(mask);
-
-    /* direct read */
     memcpy(buffer, (void *)(address | ESC_GENERIC_SRAM_BANK_MASK), len);
-
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-    hal_sleep_manager_unlock_sleep(g_esc_sleep_handle);
-#endif
-
     return HAL_ESC_FLASH_STATUS_OK;
 
 #else /* ESC_FLASH_ENABLE */
@@ -934,16 +904,16 @@ ATTR_TEXT_IN_TCM hal_esc_flash_status_t hal_esc_read_flash_data(uint32_t address
 
 
 /* if pointer data point to ESC flash region, read data first and then write to dest */
-ATTR_ZIDATA_IN_TCM uint8_t esc_write_buffer[ESC_GPRAM_SIZE];
-ATTR_TEXT_IN_TCM hal_esc_flash_status_t hal_esc_write_flash_data(uint32_t address, const uint8_t *data, uint32_t len)
+//ATTR_ZIDATA_IN_TCM uint8_t esc_write_buffer[ESC_GPRAM_SIZE];
+hal_esc_flash_status_t hal_esc_write_flash_data(uint32_t address, const uint8_t *data, uint32_t len)
 {
 #ifdef ESC_FLASH_ENABLE
     uint32_t page_offset, /*max_size,*/ page_size;
-    int32_t can_work;
+    int32_t busy_status = 0;
     uint32_t mask;
-    uint32_t sr = 0;
-    uint32_t To  = address;
+    uint32_t To = address;
     const uint8_t *Buf = data;
+    uint8_t esc_write_buffer[ESC_GPRAM_SIZE];
 
     hal_esc_flash_status_t result = HAL_ESC_FLASH_STATUS_OK;
     result = esc_flash_parameter_check(address, (void *)data, len);
@@ -951,12 +921,10 @@ ATTR_TEXT_IN_TCM hal_esc_flash_status_t hal_esc_write_flash_data(uint32_t addres
         return result;
     }
 
-    /* what page do we start with? */
+    /* what page does it start with */
     page_offset = address % ESC_GPRAM_SIZE;
 
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-    hal_sleep_manager_lock_sleep(g_esc_sleep_handle);
-#endif
+
     /* write everything in PAGESIZE chunks */
     while (len > 0) {
         page_size = min(len, (ESC_GPRAM_SIZE - page_offset));
@@ -964,29 +932,20 @@ ATTR_TEXT_IN_TCM hal_esc_flash_status_t hal_esc_write_flash_data(uint32_t addres
 
 write_retry:
         do {
-            can_work = esc_check_ready_and_resume();
-        } while (can_work != 0);
+            busy_status = esc_check_ready_and_resume();
+        } while (busy_status != 0);
 
         if (ESC_GENERIC_SRAM_BANK_MASK == ((uint32_t)data & ESC_GENERIC_0xFF000000_MASK)) {
             memcpy(esc_write_buffer, Buf, page_size);    /* direct read */
+            Buf = esc_write_buffer;
         }
 
-        hal_nvic_save_and_set_interrupt_mask_special(&mask);
-
+        hal_nvic_save_and_set_interrupt_mask(&mask);
         if (g_esc_ctl.suspended == true) {
             hal_nvic_restore_interrupt_mask_special(mask);
             goto write_retry;
         }
-
-#ifdef ESC_INTERNAL_DEBUG
-        check_mac_en("803 hal_esc_write_flash_data", 0x100);
-#endif
-
         flash_write_en();
-
-        if (ESC_GENERIC_SRAM_BANK_MASK == ((uint32_t)data & ESC_GENERIC_0xFF000000_MASK)) {
-            Buf = esc_write_buffer;
-        }
         if (ESC_IS_4_BYTE_ADDRESS_MODE) {
             /* 1 byte cmd and 4 bytes address */
             ESC_Write_C1A4(g_esc_ctl.device->write_cmd, To, Buf, page_size);
@@ -997,37 +956,21 @@ write_retry:
             ESC_Write_C1A3(g_esc_ctl.device->write_cmd, To, Buf, page_size);
         }
         esc_register->ESC_MAC_INL = 0;
-
         g_esc_ctl.busy = true;
         ESC_MacEnable();
-
         ESC_MacWaitReady();
         len -= page_size;
         To += page_size;
         Buf += page_size;
+        hal_nvic_restore_interrupt_mask(mask);
 
-        hal_nvic_restore_interrupt_mask_special(mask);
-
-        do {
-            sr = read_device_reg(REG_BUSY);
-            hal_gpt_delay_us(50);
-        }while(sr & 1);
-#if 0
         for (;;) {
-            can_work = esc_check_ready_and_resume();
-            if (can_work == 0) {
+            busy_status = esc_check_ready_and_resume();
+            if (busy_status == 0) {
                 break;
             }
         }
-#endif
-
-#ifdef ESC_INTERNAL_DEBUG
-        check_mac_en("836 hal_esc_write_flash_data", 0x100);
-#endif
     }
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-    hal_sleep_manager_unlock_sleep(g_esc_sleep_handle);
-#endif
 
     return HAL_ESC_FLASH_STATUS_OK;
 
@@ -1037,14 +980,12 @@ write_retry:
 }
 
 
-ATTR_TEXT_IN_TCM hal_esc_flash_status_t hal_esc_erase_flash_block(uint32_t address, hal_esc_erase_type_t type)
+hal_esc_flash_status_t hal_esc_erase_flash_block(uint32_t address, hal_esc_erase_type_t type)
 {
 #ifdef ESC_FLASH_ENABLE
     uint32_t mask;
-    int32_t can_work = 0;
-    uint32_t len = 0x0;
-    //uint16_t cmd_addr_len = 4;
-    uint32_t sr = 0;
+    int32_t busy_status = 0;
+    uint32_t len = 0;
 
     hal_esc_flash_status_t result = HAL_ESC_FLASH_STATUS_OK;
     if (type == HAL_ESC_FLASH_ERASE_4K) {
@@ -1071,29 +1012,19 @@ ATTR_TEXT_IN_TCM hal_esc_flash_status_t hal_esc_erase_flash_block(uint32_t addre
         return HAL_ESC_FLASH_STATUS_ERROR_WRONG_ADDRESS;
     }
 
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-    hal_sleep_manager_lock_sleep(g_esc_sleep_handle);
-#endif
-
 erase_retry:
     do {
-        can_work = esc_check_ready_and_resume();
-    } while (can_work != 0);
+        busy_status = esc_check_ready_and_resume();
+    } while (busy_status != 0);
 
-    hal_nvic_save_and_set_interrupt_mask_special(&mask);
+    hal_nvic_save_and_set_interrupt_mask(&mask);
     if (g_esc_ctl.suspended == true) {
-        hal_nvic_restore_interrupt_mask_special(mask);
+        hal_nvic_restore_interrupt_mask(mask);
         goto erase_retry;
     }
-
-#ifdef ESC_INTERNAL_DEBUG
-    check_mac_en("897 hal_esc_erase_flash_block", 0x100);
-#endif
-
+    
     g_esc_ctl.busy = true;
-
     flash_write_en();
-
     if (ESC_IS_4_BYTE_ADDRESS_MODE) {
         /* 1 byte cmd and 4 bytes address */
         ESC_Write_C1A4(g_esc_ctl.device->erase_cmd[type], address, NULL, 0);
@@ -1107,31 +1038,17 @@ erase_retry:
     ESC_MacEnable();
     ESC_MacWaitReady();
 
-    hal_nvic_restore_interrupt_mask_special(mask);
-    
-    do {
-        sr = read_device_reg(REG_BUSY);
-        hal_gpt_delay_us(50);
-    }while(sr & 1);
+     
+    hal_nvic_restore_interrupt_mask(mask);
 
-#if 0
     for (;;) {
-        can_work = esc_check_ready_and_resume();
-        if (can_work == 0) {
+        busy_status = esc_check_ready_and_resume();
+        if (busy_status == 0) {
             break;
         }
     }
-#ifdef ESC_INTERNAL_DEBUG
-    check_mac_en("912 hal_esc_erase_flash_block", 0x100);
-#endif
-
-#ifdef HAL_SLEEP_MANAGER_ENABLED
-    hal_sleep_manager_unlock_sleep(g_esc_sleep_handle);
-#endif
-#endif
 
     return HAL_ESC_FLASH_STATUS_OK;
-
 #else /* ESC_FLASH_ENABLE */
     return HAL_ESC_FLASH_NOT_ENABLE;
 #endif
@@ -1148,6 +1065,31 @@ ATTR_TEXT_IN_TCM void esc_isr(hal_nvic_irq_t irq)
 {
     (void)irq;
 
+    if(sw_esc_irq) {
+        uint8_t device_status = 0xFF;
+        uint8_t suspend_cmd = 0xFF;
+        if ((g_esc_ctl.suspended == false) && (g_esc_ctl.busy == true)) {
+            device_status = read_device_reg(REG_BUSY);
+            if (device_status & FLASH_BUSY_STATUS) {
+                /* device still busy */
+                suspend_cmd = g_esc_ctl.device->suspend_cmd;
+                /* 1. Issue suspend command */
+                ESC_Dev_Command_Ext(0, &suspend_cmd, NULL, 1, 0);
+                /* 2. Wait for device ready */
+                do {
+                    device_status = read_device_reg(REG_BUSY);
+                } while (device_is_busy(device_status));
+                g_esc_ctl.suspended = true;
+            } else {
+                /* device is idle now */
+                g_esc_ctl.busy = false;
+            }
+            ESC_MacLeave();
+        }
+        sw_esc_irq = 0;
+        return;
+    }
+    
 #ifdef ESC_FLASH_ENABLE
     /* DMA or DSP direct read ESC Flash while controller is in MACRO mode */
     g_esc_ctl.ahb_req_while_mac = true;
@@ -1177,22 +1119,6 @@ ATTR_TEXT_IN_TCM void esc_backup_register_callback(void *data)
 {
     (void)data; /* unused variable */
 
-#ifdef ESC_FLASH_ENABLE
-    uint32_t jedec_id = g_esc_ctl.device->jedec_id;
-    uint8_t cmd = 0xFF;
-
-    if (ESC_PARSE_MANU_ID(jedec_id) == WB_JEDEC_ID || ESC_PARSE_MANU_ID(jedec_id) == GD_JEDEC_ID) {
-        cmd = WB_POWER_DOWN_CMD;
-        ESC_Dev_Command_Ext(0, &cmd, NULL, 1, 0);
-
-        /* If the ESC_FLASH_ENABLE feature is turned on,
-         * then ESC_Dev_Command_Ext will not actively exit the MACRO mode
-         * and needs to be manually exited.
-         */
-        ESC_MacLeave();
-    }
-#endif
-
     /* backup ESC controller registers */
     g_backup_esc_reg[ESC_REG_MAC_IRQ] = esc_register->ESC_MAC_IRQ;
     g_backup_esc_reg[ESC_REG_DIRECT_CTL] = esc_register->ESC_DIRECT_CTL;
@@ -1212,27 +1138,12 @@ ATTR_TEXT_IN_TCM void esc_restore_register_callback(void *data)
     esc_register->ESC_DLY_CTL3 = g_backup_esc_reg[ESC_REG_DLY_CTL3];
     esc_register->ESC_DLY_CTL4 = g_backup_esc_reg[ESC_REG_DLY_CTL4];
 
-#ifdef ESC_FLASH_ENABLE
-    uint32_t jedec_id = g_esc_ctl.device->jedec_id;
-    uint8_t cmd = 0xFF;
-
-    if (ESC_PARSE_MANU_ID(jedec_id) == WB_JEDEC_ID || ESC_PARSE_MANU_ID(jedec_id) == GD_JEDEC_ID) {
-        cmd = WB_RELEASE_POWER_DOWN_CMD;
-        ESC_Dev_Command_Ext(0, &cmd, NULL, 1, 0);
-
-        /* If the ESC_FLASH_ENABLE feature is turned on,
-         * then ESC_Dev_Command_Ext will not actively exit the MACRO mode
-         * and needs to be manually exited.
-         */
-        ESC_MacLeave();
-    }
-#endif
 }
 #endif /* HAL_SLEEP_MANAGER_ENABLED */
 
 
 extern uint32_t hal_clock_get_freq_meter(hal_src_clock SRC_CLK, uint32_t winset);
-ATTR_TEXT_IN_TCM bool esc_set_freq_related_parameter(esc_clock_t freq)
+bool esc_set_freq_related_parameter(esc_clock_t freq)
 {
     if ((freq != ESC_CLOCK_26MHz) && (freq != ESC_CLOCK_52MHz)) {
         return false;
@@ -1283,7 +1194,7 @@ ATTR_TEXT_IN_TCM bool esc_set_freq_related_parameter(esc_clock_t freq)
 ATTR_TEXT_IN_TCM void check_mac_en(const char *called_func, uint32_t error_value)
 {
     uint32_t mask;
-    hal_nvic_save_and_set_interrupt_mask_special(&mask);
+    hal_nvic_save_and_set_interrupt_mask(&mask);
     uint32_t mac_ctl = esc_register->ESC_MAC_CTL;
     uint32_t mac_en = mac_ctl & ESC_MAC_EN;
     if (mac_en == error_value) {
@@ -1293,7 +1204,7 @@ ATTR_TEXT_IN_TCM void check_mac_en(const char *called_func, uint32_t error_value
             //hal_gpt_delay_ms(1000);
         }
     }
-    hal_nvic_restore_interrupt_mask_special(mask);
+    hal_nvic_restore_interrupt_mask(mask);
 }
 #endif
 
@@ -1312,13 +1223,12 @@ ATTR_TEXT_IN_TCM void esc_unmask_channel(void)
     ESC_MacLeave();
 }
 
-
-ATTR_TEXT_IN_TCM uint32_t esc_base_address(void)
+uint32_t esc_base_address(void)
 {
-    return ESC_GENERIC_SRAM_BANK_MASK;
+    return ESC_GENERIC_SRAM_BANK_MASK + 0x1000;
 }
 
-ATTR_TEXT_IN_TCM uint32_t esc_flash_length(void)
+uint32_t esc_flash_length(void)
 {
 #ifdef ESC_FLASH_ENABLE
     if (g_esc_ctl.device == NULL) {
@@ -1332,7 +1242,7 @@ ATTR_TEXT_IN_TCM uint32_t esc_flash_length(void)
 }
 
 
-ATTR_TEXT_IN_TCM uint32_t esc_flash_jedec_id(void)
+uint32_t esc_flash_jedec_id(void)
 {
 #ifdef ESC_FLASH_ENABLE
     if (g_esc_ctl.device == NULL) {
@@ -1344,7 +1254,7 @@ ATTR_TEXT_IN_TCM uint32_t esc_flash_jedec_id(void)
 #endif
 }
 
-ATTR_TEXT_IN_TCM void esc_memory_access_enable(void)
+void esc_memory_access_enable(void)
 {
     /* CMCFG_BOOT_FROM_SLV:
           0     access ESC memory

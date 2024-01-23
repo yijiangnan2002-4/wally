@@ -54,8 +54,13 @@
 #define CALLBACK_INPUT_PORT_MAX_NUM   10
 #define CALLBACK_OUTPUT_PORT_MAX_NUM  10
 #else
+#ifdef AIR_FULL_ADAPTIVE_ANC_STEREO_ENABLE
+#define CALLBACK_INPUT_PORT_MAX_NUM   10
+#define CALLBACK_OUTPUT_PORT_MAX_NUM  10
+#else
 #define CALLBACK_INPUT_PORT_MAX_NUM   8
 #define CALLBACK_OUTPUT_PORT_MAX_NUM  8
+#endif
 #endif
 
 #define PIC_LOGPRINT                  0
@@ -182,6 +187,7 @@ typedef struct DSP_Entry_Para_s {
     U8                      src_out_sampling_rate;
 
     U8                      pre_codec_out_sampling_rate;
+    U8                      pre_out_channel_num;
     U8                      skip_process;
     U8                      bypass_mode;
     bool                    force_resume;

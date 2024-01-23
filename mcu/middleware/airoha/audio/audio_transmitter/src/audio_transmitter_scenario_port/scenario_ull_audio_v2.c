@@ -49,6 +49,7 @@
 #include "hal_dvfs.h"
 #include "hal_nvic.h"
 #include "hal_gpt.h"
+#include "scenario_dongle_common.h"
 
 /* Private define ------------------------------------------------------------*/
 #define ULL_AUDIO_V2_DONGLE_DEBUG_UT                    0
@@ -69,13 +70,6 @@
 /* Private typedef -----------------------------------------------------------*/
 typedef struct
 {
-#if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-    hal_gpio_pin_t latency_debug_gpio_pin;
-    uint16_t latency_debug_enable;
-    uint16_t current_debug_count;
-    int16_t latency_debug_last_sample;
-    uint16_t latency_debug_last_level;
-#endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
     uint8_t first_time;
     uint8_t stream_is_started;
     uint32_t previous_gpt_count;
@@ -112,6 +106,7 @@ static bool ull_audio_v2_dongle_dl_i2s_s_started_flag = 0;
 #endif
 static bool ull_audio_v2_dongle_ul1_usb_started_flag = 0;
 static bool ull_audio_v2_dongle_ul1_lineout_started_flag = 0;
+static bool ull_audio_v2_dongle_ul1_i2s_m_outstarted_flag = 0;
 static bool ull_audio_v2_dongle_ul1_i2s_s_outstarted_flag = 0;
 
 static ull_audio_v2_dongle_usb_handle_t usb_stream_rx_handle[USB_RX_PORT_TOTAL];
@@ -147,6 +142,8 @@ const static int16_t gain_compensation_table[GAIN_COMPENSATION_STEP + 1] =
     0xFFA5,
     0x0
 };
+static audio_dsp_codec_type_t ull_audio_v2_dongle_dl_bt_link_codec_type = AUDIO_DSP_CODEC_TYPE_DUMMY;
+static uint32_t ull_audio_v2_dongle_dl_bt_link_codec_sample_rate = 0;
 static uint32_t ull_audio_v2_dongle_ul_bt_link_codec_sample_rate = 0;
 static uint32_t ull_audio_v2_dongle_ul_bt_link_codec_frame_interval = 0;
 static hal_audio_format_t ull_audio_v2_dongle_ul_bt_link_codec_frame_format = HAL_AUDIO_PCM_FORMAT_DUMMY;
@@ -178,9 +175,9 @@ extern ATTR_TEXT_IN_TCM hal_clock_status_t clock_mux_sel(clock_mux_sel_id mux_id
 #endif
 
 /* Private functions ---------------------------------------------------------*/
-#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_V2_LINE_IN_ENABLE)
+#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_V2_LINE_IN_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
 extern void bt_sink_srv_am_set_volume(bt_sink_srv_am_stream_type_t in_out, bt_sink_srv_audio_setting_vol_info_t *vol_info);
-#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_V2_LINE_IN_ENABLE) */
+#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_V2_LINE_IN_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
 static uint32_t ull_audio_v2_codec_get_frame_size(audio_dsp_codec_type_t *codec_type, audio_codec_param_t *codec_param)
 {
     uint32_t frame_size = 0;
@@ -299,100 +296,6 @@ static uint32_t usb_audio_get_frame_size(audio_dsp_codec_type_t *usb_type, audio
     return frame_size;
 }
 
-#if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-#define ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_16BIT_HIGH_LEVEL 0x7331
-#define ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_16BIT_LOW_LEVEL 0x8CCB
-#define ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_24BIT_HIGH_LEVEL 0x733173
-#define ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_24BIT_LOW_LEVEL 0x8CCB8C
-#define ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_COUNT 100
-
-static void ull_audio_v2_usb_rx_cb_latency_debug(ull_audio_v2_dongle_usb_handle_t *handle, uint8_t *source_buf)
-{
-    int16_t *start_16bit_address = NULL;
-    uint8_t *start_24bit_address = NULL;
-    uint32_t i, j, total_samples;
-    int16_t current_16bit_sample_value;
-    int32_t current_24bit_sample_value;
-
-    if (handle->latency_debug_enable) {
-        if (handle->usb_param.pcm.format == HAL_AUDIO_PCM_FORMAT_S16_LE) {
-            if (handle->current_debug_count++ % ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_COUNT == 0) {
-                hal_gpio_set_output(handle->latency_debug_gpio_pin, HAL_GPIO_DATA_HIGH);
-                current_16bit_sample_value = ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_16BIT_HIGH_LEVEL;
-            } else {
-                hal_gpio_set_output(handle->latency_debug_gpio_pin, HAL_GPIO_DATA_LOW);
-                current_16bit_sample_value = ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_16BIT_LOW_LEVEL;
-            }
-            start_16bit_address = (int16_t *)source_buf;
-            total_samples = handle->frame_size / (2 * handle->usb_param.pcm.channel_mode);
-            for (i = 0; i < total_samples; i++) {
-                for (j = 0; j < handle->usb_param.pcm.channel_mode; j++) {
-                    *(start_16bit_address + handle->usb_param.pcm.channel_mode * i + j) = current_16bit_sample_value;
-                }
-            }
-        }
-        else if (handle->usb_param.pcm.format == HAL_AUDIO_PCM_FORMAT_S24_LE) {
-            if (handle->current_debug_count++ % ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_COUNT == 0) {
-                hal_gpio_set_output(handle->latency_debug_gpio_pin, HAL_GPIO_DATA_HIGH);
-                current_24bit_sample_value = ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_24BIT_HIGH_LEVEL;
-            } else {
-                hal_gpio_set_output(handle->latency_debug_gpio_pin, HAL_GPIO_DATA_LOW);
-                current_24bit_sample_value = ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY_24BIT_LOW_LEVEL;
-            }
-            start_24bit_address = (uint8_t *)source_buf;
-            total_samples = handle->frame_size / (3 * handle->usb_param.pcm.channel_mode);
-            for (i = 0; i < total_samples; i++) {
-                for (j = 0; j < handle->usb_param.pcm.channel_mode; j++) {
-                    *(start_24bit_address + 3 * handle->usb_param.pcm.channel_mode * i + 3 * j) = current_24bit_sample_value & 0xFF;
-                    *(start_24bit_address + 3 * handle->usb_param.pcm.channel_mode * i + 3 * j + 1) = (current_24bit_sample_value >> 8) & 0xFF;
-                    *(start_24bit_address + 3 * handle->usb_param.pcm.channel_mode * i + 3 * j + 2) = (current_24bit_sample_value >> 16) & 0xFF;
-                }
-            }
-        }
-    }
-}
-
-static void usb_audio_tx_cb_latency_debug(ull_audio_v2_dongle_usb_handle_t *handle, uint8_t *source_buf)
-{
-    int16_t *start_address = (int16_t *)source_buf;
-    uint32_t current_level = 0;
-    uint32_t i;
-    int16_t sample_value = 0;
-    uint16_t frame_samples;
-    uint16_t channel_num;
-    uint16_t resolution_size;
-
-    if (handle->latency_debug_enable)
-    {
-        if (handle->usb_param.pcm.channel_mode == 1)
-        {
-            channel_num = 1;
-        }
-        else
-        {
-            channel_num = 2;
-        }
-        resolution_size = 2;
-        frame_samples = handle->frame_size / resolution_size / channel_num;
-        for (i = 0; i < frame_samples; i++) {
-            sample_value += (*(start_address + i*channel_num) / frame_samples);
-        }
-        if (sample_value >= 5000)
-        {
-            current_level = 1;
-        }
-        else
-        {
-            current_level = 0;
-        }
-        if (current_level != handle->latency_debug_last_level) {
-            hal_gpio_set_output(handle->latency_debug_gpio_pin, current_level);
-            handle->latency_debug_last_level = current_level;
-        }
-    }
-}
-#endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
-
 static void usb_audio_tx_trigger_dsp_flow(uint32_t gpt_count, uint32_t frame_num)
 {
     hal_ccni_message_t ccni_msg;
@@ -476,6 +379,7 @@ static void usb_audio_tx_cb_ull_audio_v2_dongle_0(void)
     }
 
     /* get unprocessed frame numbers in the share buffer */
+    data_size_total = hal_audio_buf_mgm_get_data_byte_count(p_dsp_info);
     frame_count = data_size_total / (usb_stream_tx_handle[0].frame_size+sizeof(audio_transmitter_block_header_t));
     /* send ccni to trigger dsp flow in every 1ms */
     usb_audio_tx_trigger_dsp_flow(gpt_count, frame_count);
@@ -511,16 +415,13 @@ static void usb_audio_tx_cb_ull_audio_v2_dongle_0(void)
         }
     }
 
-    #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-    if (data_size == 0)
-    {
-        usb_audio_tx_cb_latency_debug(&usb_stream_tx_handle[0], all_zero_buffer);
+#if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
+    if (data_size == 0) {
+        audio_usb_tx_scenario_latency_debug(0, all_zero_buffer);
+    } else {
+        audio_usb_tx_scenario_latency_debug(0, p_source_buf);
     }
-    else
-    {
-        usb_audio_tx_cb_latency_debug(&usb_stream_tx_handle[0], p_source_buf);
-    }
-    #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
+#endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
 }
 #endif
 
@@ -620,7 +521,7 @@ static void usb_audio_rx_cb_ull_audio_v2_dongle_0(void)
                 memset(p_source_buf + BLK_HEADER_SIZE, 0, usb_stream_rx_handle[0].frame_size);
             }
 #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-            ull_audio_v2_usb_rx_cb_latency_debug(&usb_stream_rx_handle[0], (p_source_buf + BLK_HEADER_SIZE));
+            audio_usb_rx_scenario_latency_debug(0, (p_source_buf + BLK_HEADER_SIZE));
 #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
             hal_audio_buf_mgm_get_write_data_done(p_dsp_info, usb_stream_rx_handle[0].frame_size + BLK_HEADER_SIZE);
 
@@ -718,7 +619,7 @@ static void usb_audio_rx_cb_ull_audio_v2_dongle_1(void)
                 memset(p_source_buf + BLK_HEADER_SIZE, 0, usb_stream_rx_handle[1].frame_size);
             }
 #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-            ull_audio_v2_usb_rx_cb_latency_debug(&usb_stream_rx_handle[1], (p_source_buf + BLK_HEADER_SIZE));
+            audio_usb_rx_scenario_latency_debug(1, (p_source_buf + BLK_HEADER_SIZE));
 #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
             hal_audio_buf_mgm_get_write_data_done(p_dsp_info, usb_stream_rx_handle[1].frame_size + BLK_HEADER_SIZE);
 
@@ -999,54 +900,16 @@ void ull_audio_v2_dongle_ut_gpt_callback(void *user_data)
 }
 #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_UT */
 
-#if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-void ull_audio_v2_dongle_rx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num)
-{
-    if (enable) {
-        usb_stream_rx_handle[port].latency_debug_enable = 1;
-        usb_stream_rx_handle[port].current_debug_count = 0;
-        usb_stream_rx_handle[port].latency_debug_gpio_pin = gpio_num;
-        hal_gpio_init(gpio_num);
-        hal_pinmux_set_function(gpio_num, 0);
-        hal_gpio_set_direction(gpio_num, HAL_GPIO_DIRECTION_OUTPUT);
-    } else {
-        usb_stream_rx_handle[port].latency_debug_enable = 0;
-        usb_stream_rx_handle[port].current_debug_count = 0;
-        usb_stream_rx_handle[port].latency_debug_gpio_pin = gpio_num;
-    }
-
-    hal_gpio_set_output(usb_stream_rx_handle[port].latency_debug_gpio_pin, HAL_GPIO_DATA_LOW);
-}
-
-void ull_audio_v2_dongle_tx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num)
-{
-    uint32_t saved_mask;
-
-    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
-
-    if (enable) {
-        usb_stream_tx_handle[port].latency_debug_enable = 1;
-        usb_stream_tx_handle[port].latency_debug_last_level = 0;
-        usb_stream_tx_handle[port].latency_debug_last_sample = 0;
-        usb_stream_tx_handle[port].latency_debug_gpio_pin = gpio_num;
-    } else {
-        usb_stream_tx_handle[port].latency_debug_enable = 0;
-        usb_stream_tx_handle[port].latency_debug_last_level = 0;
-        usb_stream_tx_handle[port].latency_debug_last_sample = 0;
-        usb_stream_tx_handle[port].latency_debug_gpio_pin = gpio_num;
-    }
-
-    hal_nvic_restore_interrupt_mask(saved_mask);
-
-    hal_gpio_set_output(usb_stream_tx_handle[port].latency_debug_gpio_pin, HAL_GPIO_DATA_LOW);
-}
-#endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
-
 static void ull_audio_v2_open_stream_out_bt(audio_transmitter_config_t *config, mcu2dsp_open_param_t *open_param)
 {
     uint32_t payload_size = 0;
     uint32_t i = 0;
     n9_dsp_share_info_ptr p_share_info;
+    audio_dsp_codec_type_t curr_codec_type;
+    uint32_t curr_sample_rate;
+
+    curr_codec_type = AUDIO_DSP_CODEC_TYPE_DUMMY;
+    curr_sample_rate = 0;
 
     /* prepare bt-out parameters to dsp */
     if ((config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_num == 0) ||
@@ -1083,7 +946,21 @@ static void ull_audio_v2_open_stream_out_bt(audio_transmitter_config_t *config, 
             }
             open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].share_info                          = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].share_info;
             open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].codec_type                          = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_type;
+            if (curr_codec_type == AUDIO_DSP_CODEC_TYPE_DUMMY) {
+                curr_codec_type = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_type;
+            } else {
+                if (curr_codec_type != config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_type) {
+                    AUDIO_ASSERT(0 && "[ULL Audio V2][DL][ERROR]Error codec type is not align");
+                }
+            }
             if (config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_type == AUDIO_DSP_CODEC_TYPE_LC3PLUS) {
+                if (curr_sample_rate == 0) {
+                    curr_sample_rate = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.lc3plus.sample_rate;
+                } else {
+                    if (curr_sample_rate != config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.lc3plus.sample_rate) {
+                        AUDIO_ASSERT(0 && "[ULL Audio V2][DL][ERROR] (LC3PLUS) Error sample rate is not align");
+                    }
+                }
                 open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].codec_param.lc3plus.sample_rate     = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.lc3plus.sample_rate;
                 open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].codec_param.lc3plus.sample_format   = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.lc3plus.sample_format;
                 open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].codec_param.lc3plus.channel_mode    = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.lc3plus.channel_mode;
@@ -1103,6 +980,13 @@ static void ull_audio_v2_open_stream_out_bt(audio_transmitter_config_t *config, 
                                     config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].share_info,
                                     ((n9_dsp_share_info_t *)(config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].share_info))->start_addr);
             } else if (config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_type == AUDIO_DSP_CODEC_TYPE_OPUS) {
+                if (curr_sample_rate == 0) {
+                    curr_sample_rate = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.opus.sample_rate;
+                } else {
+                    if (curr_sample_rate != config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.opus.sample_rate) {
+                        AUDIO_ASSERT(0 && "[ULL Audio V2][DL][ERROR] (OPUS) Error sample rate is not align");
+                    }
+                }
                 open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].codec_param.opus.sample_rate     = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.opus.sample_rate;
                 open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].codec_param.opus.sample_format   = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.opus.sample_format;
                 open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].codec_param.opus.channel_mode    = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.opus.channel_mode;
@@ -1124,6 +1008,13 @@ static void ull_audio_v2_open_stream_out_bt(audio_transmitter_config_t *config, 
                                     config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].share_info,
                                     ((n9_dsp_share_info_t *)(config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].share_info))->start_addr);
             } else if (config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_type == AUDIO_DSP_CODEC_TYPE_ULD) {
+                if (curr_sample_rate == 0) {
+                    curr_sample_rate = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.uld.sample_rate;
+                } else {
+                    if (curr_sample_rate != config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.uld.sample_rate) {
+                        AUDIO_ASSERT(0 && "[ULL Audio V2][DL][ERROR] (ULD) Error sample rate is not align");
+                    }
+                }
                 open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].codec_param.uld.sample_rate     = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.uld.sample_rate;
                 open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].codec_param.uld.sample_format   = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.uld.sample_format;
                 open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].codec_param.uld.channel_mode    = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[i].codec_param.uld.channel_mode;
@@ -1147,14 +1038,21 @@ static void ull_audio_v2_open_stream_out_bt(audio_transmitter_config_t *config, 
             open_param->stream_out_param.bt_common.scenario_param.ull_audio_v2_dongle_param.bt_link_info[i].share_info = NULL;
         }
     }
+
+    /* save global status */
+    ull_audio_v2_dongle_dl_bt_link_codec_type = curr_codec_type;
+    ull_audio_v2_dongle_dl_bt_link_codec_sample_rate = curr_sample_rate;
 }
 
 void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2dsp_open_param_t *open_param)
 {
     uint32_t payload_size = 0;
-#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_V2_LINE_IN_ENABLE)
+#if defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_V2_LINE_IN_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
     bt_sink_srv_audio_setting_vol_info_t vol_info;
-#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_V2_LINE_IN_ENABLE) */
+#endif /* defined(AIR_DONGLE_LINE_OUT_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_V2_LINE_IN_ENABLE) || defined(AIR_DONGLE_I2S_MST_OUT_ENABLE) */
+#ifdef AIR_DONGLE_I2S_MST_OUT_ENABLE
+    hal_audio_i2s_word_length_t i2s_mst_word_length;
+#endif
     sysram_status_t status;
 #ifdef AIR_SILENCE_DETECTION_ENABLE
     DSP_FEATURE_TYPE_LIST AudioFeatureList_SilenceDetection[] = {
@@ -1198,8 +1096,8 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
             /* prepare default gain settings */
             //open_param->stream_in_param.bt_common.scenario_param.ull_audio_v2_dongle_param.gain_default_L = -14400; // -144.00dB
             //open_param->stream_in_param.bt_common.scenario_param.ull_audio_v2_dongle_param.gain_default_R = -14400; // -144.00dB
-            open_param->stream_in_param.bt_common.scenario_param.ull_audio_v2_dongle_param.gain_default_L = 0; // 0dB
-            open_param->stream_in_param.bt_common.scenario_param.ull_audio_v2_dongle_param.gain_default_R = 0; // 0dB
+            open_param->stream_in_param.bt_common.scenario_param.ull_audio_v2_dongle_param.gain_default_L = -2000; // 0dB
+            open_param->stream_in_param.bt_common.scenario_param.ull_audio_v2_dongle_param.gain_default_R = -2000; // 0dB
 
             /* configure stream sink */
             /* get usb frame size */
@@ -1234,6 +1132,15 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
             open_param->stream_out_param.data_ul.p_share_info->write_offset                                             = 0;
             open_param->stream_out_param.data_ul.p_share_info->bBufferIsFull                                            = false;
             audio_transmitter_modify_share_info_by_block(open_param->stream_out_param.data_ul.p_share_info, payload_size);
+
+#if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
+            audio_usb_tx_scenario_latency_debug_init(config->scenario_sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_USB_OUT_0,
+                                                        payload_size,
+                                                        config->scenario_config.ull_audio_v2_dongle_config.ul_config.sink_param.usb_out_param.codec_param.pcm.channel_mode,
+                                                        config->scenario_config.ull_audio_v2_dongle_config.ul_config.sink_param.usb_out_param.codec_param.pcm.format,
+                                                        5000);
+#endif
+
             TRANSMITTER_LOG_I("[ULL Audio V2][UL]USB setting: %u, %u, %u, %u, %u, %u, %u, %d, %d, 0x%x, 0x%x, %d\r\n", 12,
                                 config->scenario_sub_id,
                                 config->scenario_config.ull_audio_v2_dongle_config.ul_config.sink_param.usb_out_param.codec_type,
@@ -1307,8 +1214,82 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
             break;
 
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
-            TRANSMITTER_LOG_E("[ULL Audio V2][ERROR]This scenario is not supported at now, %u\r\n", 1, config->scenario_sub_id);
+#ifdef AIR_DONGLE_I2S_MST_OUT_ENABLE
+            /* configure stream source */
+            /* prepare bt-out parameters to dsp */
+            ull_audio_v2_dongle_bt_common_source_prepare(config, open_param);
+            /* prepare default gain settings */
+            open_param->stream_in_param.bt_common.scenario_param.ull_audio_v2_dongle_param.gain_default_L = -14400; // -144.00dB
+            open_param->stream_in_param.bt_common.scenario_param.ull_audio_v2_dongle_param.gain_default_R = -14400; // -144.00dB
+            // open_param->stream_in_param.bt_common.scenario_param.ull_audio_v2_dongle_param.gain_default_L = 0; // 0dB
+            // open_param->stream_in_param.bt_common.scenario_param.ull_audio_v2_dongle_param.gain_default_R = 0; // 0dB
+            TRANSMITTER_LOG_I("[ULL Audio V2][I2S MST Out] avm play device 0x%x interface %d sample rate %d i2s format %d i2s word length %d", 5,
+                config->scenario_config.ull_audio_v2_dongle_config.ul_config.sink_param.i2s_mst_out_param.audio_device,
+                config->scenario_config.ull_audio_v2_dongle_config.ul_config.sink_param.i2s_mst_out_param.audio_interface,
+                config->scenario_config.ull_audio_v2_dongle_config.ul_config.sink_param.i2s_mst_out_param.codec_param.pcm.sample_rate,
+                config->scenario_config.ull_audio_v2_dongle_config.ul_config.sink_param.i2s_mst_out_param.i2s_fromat,
+                config->scenario_config.ull_audio_v2_dongle_config.ul_config.sink_param.i2s_mst_out_param.i2s_word_length);
+
+            /* configure stream sink */
+            /* config HW analog gain */
+            memset(&vol_info, 0, sizeof(bt_sink_srv_audio_setting_vol_info_t));
+            vol_info.type = VOL_A2DP;
+            vol_info.vol_info.a2dp_vol_info.dev = HAL_AUDIO_DEVICE_HEADSET;
+            vol_info.vol_info.a2dp_vol_info.lev = 0;
+            bt_sink_srv_am_set_volume(STREAM_OUT,  &vol_info);
+            /* config AFE */
+            open_param->param.stream_out = STREAM_OUT_AFE;
+            hal_audio_get_stream_out_setting_config(AU_DSP_AUDIO, &open_param->stream_out_param);
+            open_param->stream_out_param.afe.audio_device1 = open_param->stream_out_param.afe.audio_device;
+            open_param->stream_out_param.afe.stream_channel = HAL_AUDIO_DIRECT;
+            open_param->stream_out_param.afe.memory = HAL_AUDIO_MEM3;
+            open_param->stream_out_param.afe.audio_interface1 = open_param->stream_out_param.afe.audio_interface;
+            i2s_mst_word_length = HAL_AUDIO_I2S_WORD_LENGTH_DUMMY;
+            if (open_param->stream_out_param.afe.audio_interface == HAL_AUDIO_INTERFACE_1) {
+                i2s_mst_word_length = (hal_audio_i2s_word_length_t)(open_param->stream_out_param.afe.i2s_master_word_length[0]);
+                open_param->stream_out_param.afe.sampling_rate = open_param->stream_out_param.afe.i2s_master_sampling_rate[0];
+            } else if (open_param->stream_out_param.afe.audio_interface == HAL_AUDIO_INTERFACE_2) {
+                i2s_mst_word_length = (hal_audio_i2s_word_length_t)(open_param->stream_out_param.afe.i2s_master_word_length[1]);
+                open_param->stream_out_param.afe.sampling_rate = open_param->stream_out_param.afe.i2s_master_sampling_rate[1];
+            } else if (open_param->stream_out_param.afe.audio_interface == HAL_AUDIO_INTERFACE_3) {
+                i2s_mst_word_length = (hal_audio_i2s_word_length_t)(open_param->stream_out_param.afe.i2s_master_word_length[2]);
+                open_param->stream_out_param.afe.sampling_rate = open_param->stream_out_param.afe.i2s_master_sampling_rate[2];
+            } else if (open_param->stream_out_param.afe.audio_interface == HAL_AUDIO_INTERFACE_4) {
+                i2s_mst_word_length = (hal_audio_i2s_word_length_t)(open_param->stream_out_param.afe.i2s_master_word_length[3]);
+                open_param->stream_out_param.afe.sampling_rate = open_param->stream_out_param.afe.i2s_master_sampling_rate[3];
+            } else {
+                AUDIO_ASSERT(0);
+            }
+            if (i2s_mst_word_length == HAL_AUDIO_I2S_WORD_LENGTH_16BIT) {
+                open_param->stream_out_param.afe.format = HAL_AUDIO_PCM_FORMAT_S16_LE;
+            } else {
+                open_param->stream_out_param.afe.format = HAL_AUDIO_PCM_FORMAT_S24_LE;
+            }
+            open_param->stream_out_param.afe.stream_out_sampling_rate = open_param->stream_out_param.afe.sampling_rate;
+            open_param->stream_out_param.afe.irq_period = 0;
+            open_param->stream_out_param.afe.frame_size = open_param->stream_out_param.afe.stream_out_sampling_rate/1000; /* frame samples */
+            open_param->stream_out_param.afe.frame_number = ull_audio_v2_dongle_ul_bt_link_codec_frame_interval*4/1000;
+            open_param->stream_out_param.afe.hw_gain = false;
+            open_param->stream_out_param.afe.misc_parms = DOWNLINK_PERFORMANCE_NORMAL;
+            TRANSMITTER_LOG_I("[ULL Audio V2][UL]I2S_MST Out setting: %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u\r\n", 14,
+                                config->scenario_sub_id,
+                                open_param->stream_out_param.afe.audio_device,
+                                open_param->stream_out_param.afe.stream_channel,
+                                open_param->stream_out_param.afe.memory,
+                                open_param->stream_out_param.afe.audio_interface,
+                                open_param->stream_out_param.afe.format,
+                                open_param->stream_out_param.afe.sampling_rate,
+                                open_param->stream_out_param.afe.stream_out_sampling_rate,
+                                open_param->stream_out_param.afe.frame_size,
+                                open_param->stream_out_param.afe.frame_number,
+                                open_param->stream_out_param.afe.hw_gain,
+                                open_param->stream_out_param.afe.misc_parms,
+                                open_param->stream_out_param.afe.performance,
+                                open_param->stream_out_param.afe.dl_dac_mode);
+#else
+            TRANSMITTER_LOG_E("[ULL Audio V2][UL][I2S MST Out][ERROR]This scenario is not supported at now, %u\r\n", 1, config->scenario_sub_id);
             AUDIO_ASSERT(0);
+#endif /* AIR_DONGLE_I2S_MST_OUT_ENABLE */
             break;
 
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
@@ -1459,10 +1440,18 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
             open_param->stream_in_param.data_dl.p_share_info->bBufferIsFull = false;
             audio_transmitter_modify_share_info_by_block(open_param->stream_in_param.data_dl.p_share_info, payload_size);
             /* prepare default gain settings */
-            open_param->stream_in_param.data_dl.scenario_param.ull_audio_v2_dongle_param.gain_default_L = -14400; // -144.00dB
-            open_param->stream_in_param.data_dl.scenario_param.ull_audio_v2_dongle_param.gain_default_R = -14400; // -144.00dB
-            // open_param->stream_in_param.data_dl.scenario_param.ull_audio_v2_dongle_param.gain_default_L = 0; // 0.00dB
-            // open_param->stream_in_param.data_dl.scenario_param.ull_audio_v2_dongle_param.gain_default_R = 0; // 0.00dB
+            //open_param->stream_in_param.data_dl.scenario_param.ull_audio_v2_dongle_param.gain_default_L = -14400; // -144.00dB
+            //open_param->stream_in_param.data_dl.scenario_param.ull_audio_v2_dongle_param.gain_default_R = -14400; // -144.00dB
+             open_param->stream_in_param.data_dl.scenario_param.ull_audio_v2_dongle_param.gain_default_L = -2000; // 0.00dB
+             open_param->stream_in_param.data_dl.scenario_param.ull_audio_v2_dongle_param.gain_default_R = -2000; // 0.00dB
+
+#if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
+            audio_usb_rx_scenario_latency_debug_init(config->scenario_sub_id - AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0,
+                                                        payload_size,
+                                                        config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.usb_in_param.codec_param.pcm.channel_mode,
+                                                        config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.usb_in_param.codec_param.pcm.format);
+#endif
+
             TRANSMITTER_LOG_I("[ULL Audio V2][DL]USB setting: %u, %u, %u, %u, %u, %u, %u, %d, %d, 0x%x, 0x%x\r\n", 11,
                                 config->scenario_sub_id,
                                 config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.usb_in_param.codec_type,
@@ -1493,8 +1482,12 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
 
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_LINE_IN:
 #ifdef AIR_GAMING_MODE_DONGLE_V2_LINE_IN_ENABLE
-            /* Source setting */
             TRANSMITTER_LOG_I("[ULL Audio V2][Line In] avm play", 0);
+
+            /* Sink setting */
+            ull_audio_v2_open_stream_out_bt(config, open_param);
+
+            /* Source setting */
             open_param->param.stream_in = STREAM_IN_AFE;
             hal_audio_get_stream_in_setting_config(AU_DSP_LINEIN, &open_param->stream_in_param);
             open_param->stream_in_param.afe.audio_device        = HAL_AUDIO_DEVICE_LINEINPLAYBACK_DUAL;
@@ -1511,13 +1504,18 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
             } else {
                 open_param->stream_in_param.afe.misc_parms      = MICBIAS_SOURCE_ALL | MICBIAS3V_OUTVOLTAGE_1p85v;
             }
+            if (ull_audio_v2_dongle_dl_bt_link_codec_type == AUDIO_DSP_CODEC_TYPE_ULD) {
+                open_param->stream_in_param.afe.sampling_rate       = 48000; // 48K
+                open_param->stream_in_param.afe.frame_size          = 96;   // 2ms irq period
+            } else {
 #ifdef AIR_BTA_IC_PREMIUM_G2
-            open_param->stream_in_param.afe.sampling_rate       = 48000; // G2 -> 48K
-            open_param->stream_in_param.afe.frame_size          = 240;   // 5ms irq period
+                open_param->stream_in_param.afe.sampling_rate       = 48000; // G2 -> 48K
+                open_param->stream_in_param.afe.frame_size          = 240;   // 5ms irq period
 #else
-            open_param->stream_in_param.afe.sampling_rate       = 96000; // G3 -> 96K
-            open_param->stream_in_param.afe.frame_size          = 480;   // 5ms irq period
+                open_param->stream_in_param.afe.sampling_rate       = 96000; // G3 -> 96K
+                open_param->stream_in_param.afe.frame_size          = 480;   // 5ms irq period
 #endif
+            }
             open_param->stream_in_param.afe.frame_number        = 4;
             open_param->stream_in_param.afe.irq_period          = 0;
             open_param->stream_in_param.afe.hw_gain             = false;
@@ -1537,8 +1535,6 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
             #else
             memset(&vol_info, 0, sizeof(bt_sink_srv_audio_setting_vol_info_t)); /* avoid of build error */
             #endif
-            /* Sink setting */
-            ull_audio_v2_open_stream_out_bt(config, open_param);
 #else
             TRANSMITTER_LOG_E("[ULL Audio V2][ERROR]This scenario is not supported at now, %u\r\n", 1, config->scenario_sub_id);
             AUDIO_ASSERT(0);
@@ -1561,8 +1557,6 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
             AUDIO_ASSERT(0);
 #endif  /* AIR_GAMING_MODE_DONGLE_V2_I2S_SLV_IN_ENABLE */
 #if defined AIR_GAMING_MODE_DONGLE_V2_I2S_MST_IN_ENABLE || defined AIR_GAMING_MODE_DONGLE_V2_I2S_SLV_IN_ENABLE
-            /* Source setting */
-
             TRANSMITTER_LOG_I("[ULL][I2S In] sub_id %d avm play device 0x%x interface %d sample rate %d i2s format %d i2s word length %d", 6,
                 config->scenario_sub_id,
                 config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.i2s_mst_in_param.audio_device,
@@ -1570,6 +1564,11 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
                 config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.i2s_mst_in_param.codec_param.pcm.sample_rate,
                 config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.i2s_mst_in_param.i2s_fromat,
                 config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.i2s_mst_in_param.i2s_word_length);
+
+            /* Sink setting */
+            ull_audio_v2_open_stream_out_bt(config, open_param);
+
+            /* Source setting */
             open_param->param.stream_in = STREAM_IN_AFE;
             hal_audio_get_stream_in_setting_config(AU_DSP_LINEIN, &open_param->stream_in_param);
             open_param->stream_in_param.afe.audio_device        = config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.i2s_mst_in_param.audio_device;
@@ -1577,7 +1576,7 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
             #ifdef AIR_GAMING_MODE_DONGLE_AFE_ENABLE
             open_param->stream_in_param.afe.memory              = HAL_AUDIO_MEM1;
             #else
-            open_param->stream_in_param.afe.memory              = HAL_AUDIO_MEM2;
+            open_param->stream_in_param.afe.memory              = HAL_AUDIO_MEM1;
             #endif
 
             open_param->stream_in_param.afe.format              = HAL_AUDIO_PCM_FORMAT_S32_LE; //config->scenario_config.gaming_mode_config.i2s_mst_in_param.codec_param.pcm.format; // HAL_AUDIO_PCM_FORMAT_S16_LE;
@@ -1609,23 +1608,33 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
             #if (defined AIR_GAMING_MODE_DONGLE_V2_I2S_SLV_IN_TRACKING_VDMA_MODE_ENABLE) || (defined AIR_GAMING_MODE_DONGLE_V2_I2S_SLV_IN_TRACKING_MEMIF_MODE_ENABLE)
                 /* tracking mode */
                 if (config->scenario_sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_I2S_SLV_IN_0) {
-                    open_param->stream_in_param.afe.stream_out_sampling_rate = config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.link_param[0].codec_param.lc3plus.sample_rate;
-                    open_param->stream_in_param.afe.frame_size = open_param->stream_in_param.afe.stream_out_sampling_rate * 5 / 1000; // period 5ms
+                    open_param->stream_in_param.afe.stream_out_sampling_rate = ull_audio_v2_dongle_dl_bt_link_codec_sample_rate;
+                    if (ull_audio_v2_dongle_dl_bt_link_codec_type == AUDIO_DSP_CODEC_TYPE_ULD) {
+                        open_param->stream_in_param.afe.frame_size = open_param->stream_in_param.afe.stream_out_sampling_rate * 2 / 1000; // period 2ms
+                    } else {
+                        open_param->stream_in_param.afe.frame_size = open_param->stream_in_param.afe.stream_out_sampling_rate * 5 / 1000; // period 5ms
+                    }
                 } else {
                     /* there is no need to support tracking mode in i2s master in */
-                    open_param->stream_in_param.afe.frame_size = open_param->stream_in_param.afe.sampling_rate * 5 / 1000; // period 5ms
+                    if (ull_audio_v2_dongle_dl_bt_link_codec_type == AUDIO_DSP_CODEC_TYPE_ULD) {
+                        open_param->stream_in_param.afe.frame_size = open_param->stream_in_param.afe.sampling_rate * 2 / 1000; // period 2ms
+                    } else {
+                        open_param->stream_in_param.afe.frame_size = open_param->stream_in_param.afe.sampling_rate * 5 / 1000; // period 5ms
+                    }
                 }
             #else
-                /* In non-tracking mode, ull2.0 only support 48K/96K input media data */
-                open_param->stream_in_param.afe.frame_size = open_param->stream_in_param.afe.sampling_rate * 5 / 1000; // period 5ms
+                if (ull_audio_v2_dongle_dl_bt_link_codec_type == AUDIO_DSP_CODEC_TYPE_ULD) {
+                    /* In non-tracking mode, ull2.0 only support 48K input media data */
+                    open_param->stream_in_param.afe.frame_size = open_param->stream_in_param.afe.sampling_rate * 2 / 1000; // period 2ms
+                } else {
+                    /* In non-tracking mode, ull2.0 only support 48K/96K input media data */
+                    open_param->stream_in_param.afe.frame_size = open_param->stream_in_param.afe.sampling_rate * 5 / 1000; // period 5ms
+                }
             #endif
             open_param->stream_in_param.afe.frame_number        = 4;
             open_param->stream_in_param.afe.irq_period          = 0;
             open_param->stream_in_param.afe.hw_gain             = false;
             if (open_param->stream_in_param.afe.audio_device == HAL_AUDIO_DEVICE_I2S_MASTER) {
-                //open_param->stream_in_param.afe.with_upwdown_sampler     = true;
-                open_param->stream_in_param.afe.audio_path_input_rate    = open_param->stream_in_param.afe.sampling_rate;
-                //open_param->stream_in_param.afe.audio_path_output_rate   = open_param->stream_in_param.afe.sampling_rate;
                 // I2S setting
                 open_param->stream_in_param.afe.i2s_master_format[0]          = config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.i2s_mst_in_param.i2s_fromat;
                 open_param->stream_in_param.afe.i2s_master_word_length[0]     = config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.i2s_mst_in_param.i2s_word_length;
@@ -1635,8 +1644,6 @@ void ull_audio_v2_dongle_open_playback(audio_transmitter_config_t *config, mcu2d
                 open_param->stream_in_param.afe.i2s_format          = config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.i2s_mst_in_param.i2s_fromat;
                 open_param->stream_in_param.afe.i2s_word_length     = config->scenario_config.ull_audio_v2_dongle_config.dl_config.source_param.i2s_mst_in_param.i2s_word_length;
             }
-            /* Sink setting */
-            ull_audio_v2_open_stream_out_bt(config, open_param);
 #endif
             break;
 
@@ -1667,8 +1674,13 @@ void ull_audio_v2_dongle_start_playback(audio_transmitter_config_t *config, mcu2
             break;
 
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
+#ifdef AIR_DONGLE_I2S_MST_OUT_ENABLE
+            start_param->param.stream_in  = STREAM_IN_BT_COMMON;
+            start_param->param.stream_out = STREAM_OUT_AFE;
+#else
             TRANSMITTER_LOG_E("[ULL Audio V2][ERROR]This scenario is not supported at now, %u\r\n", 1, config->scenario_sub_id);
             AUDIO_ASSERT(0);
+#endif /* AIR_DONGLE_I2S_MST_OUT_ENABLE */
             break;
 
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
@@ -1740,6 +1752,7 @@ audio_transmitter_status_t ull_audio_v2_dongle_set_runtime_config_playback(audio
     {
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_USB_OUT_0:
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT:
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
             switch (operation)
             {
@@ -1804,11 +1817,6 @@ audio_transmitter_status_t ull_audio_v2_dongle_set_runtime_config_playback(audio
                 default:
                     break;
             }
-            break;
-
-        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
-            TRANSMITTER_LOG_E("[ULL Audio V2][ERROR]This scenario is not supported at now, %u\r\n", 1, config->scenario_sub_id);
-            AUDIO_ASSERT(0);
             break;
 
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0:
@@ -2016,10 +2024,6 @@ void ull_audio_v2_dongle_state_started_handler(uint8_t scenario_sub_id)
             hal_nvic_save_and_set_interrupt_mask(&saved_mask);
             usb_stream_tx_handle[0].first_time = 0;
             usb_stream_tx_handle[0].stream_is_started = 0;
-            #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-            usb_stream_tx_handle[0].latency_debug_enable = 0;
-            usb_stream_tx_handle[0].latency_debug_gpio_pin = HAL_GPIO_13;
-            #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
             ull_audio_v2_dongle_ul_stream_status |= 0x1<<(scenario_sub_id-AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_USB_OUT_0);
             hal_nvic_restore_interrupt_mask(saved_mask);
             #ifdef AIR_USB_AUDIO_1_MIC_ENABLE
@@ -2029,25 +2033,17 @@ void ull_audio_v2_dongle_state_started_handler(uint8_t scenario_sub_id)
             break;
 
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT:
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
             hal_nvic_save_and_set_interrupt_mask(&saved_mask);
             ull_audio_v2_dongle_ul_stream_status |= 0x1<<(scenario_sub_id-AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_USB_OUT_0);
             hal_nvic_restore_interrupt_mask(saved_mask);
             break;
 
-        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
-            TRANSMITTER_LOG_E("[ULL Audio V2][ERROR]This scenario is not supported at now, %u\r\n", 1, scenario_sub_id);
-            AUDIO_ASSERT(0);
-            break;
-
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0:
             /* update state machine */
             usb_stream_rx_handle[0].first_time = 0;
             usb_stream_rx_handle[0].stream_is_started = 0;
-            #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-            usb_stream_rx_handle[0].latency_debug_enable = 0;
-            usb_stream_rx_handle[0].latency_debug_gpio_pin = HAL_GPIO_13;
-            #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
             ull_audio_v2_dongle_dl_stream_status |= 0x1<<(scenario_sub_id-AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0);
             #if defined(AIR_USB_AUDIO_1_SPK_ENABLE)
             USB_Audio_Register_Rx_Callback(0, usb_audio_rx_cb_ull_audio_v2_dongle_0);
@@ -2058,10 +2054,6 @@ void ull_audio_v2_dongle_state_started_handler(uint8_t scenario_sub_id)
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_1:
             usb_stream_rx_handle[1].first_time = 0;
             usb_stream_rx_handle[1].stream_is_started = 0;
-            #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-            usb_stream_rx_handle[1].latency_debug_enable = 0;
-            usb_stream_rx_handle[1].latency_debug_gpio_pin = HAL_GPIO_13;
-            #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
             ull_audio_v2_dongle_dl_stream_status |= 0x1<<(scenario_sub_id-AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0);
             #if defined(AIR_USB_AUDIO_2_SPK_ENABLE)
             USB_Audio_Register_Rx_Callback(1, usb_audio_rx_cb_ull_audio_v2_dongle_1);
@@ -2107,9 +2099,6 @@ void ull_audio_v2_dongle_state_idle_handler(uint8_t scenario_sub_id)
             hal_nvic_save_and_set_interrupt_mask(&saved_mask);
             usb_stream_tx_handle[0].first_time = 0;
             usb_stream_tx_handle[0].stream_is_started = 0;
-            #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-            usb_stream_tx_handle[0].latency_debug_enable = 0;
-            #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
             ull_audio_v2_dongle_ul_stream_status &= ~(0x1<<(scenario_sub_id-AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_USB_OUT_0));
             hal_nvic_restore_interrupt_mask(saved_mask);
 #ifdef HAL_DVFS_MODULE_ENABLED
@@ -2126,6 +2115,7 @@ void ull_audio_v2_dongle_state_idle_handler(uint8_t scenario_sub_id)
             break;
 
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT:
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
             hal_nvic_save_and_set_interrupt_mask(&saved_mask);
             ull_audio_v2_dongle_ul_stream_status &= ~(0x1<<(scenario_sub_id-AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_USB_OUT_0));
@@ -2140,6 +2130,15 @@ void ull_audio_v2_dongle_state_idle_handler(uint8_t scenario_sub_id)
 #endif
                 ull_audio_v2_dongle_ul1_lineout_started_flag = false;
                 TRANSMITTER_LOG_I("[ULL Audio V2] scenario_sub_id %d unlock cpu to high", 1, scenario_sub_id);
+            } else if ((scenario_sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0) &&
+                (ull_audio_v2_dongle_ul1_i2s_m_outstarted_flag == true)) {
+#if defined(AIR_BTA_IC_PREMIUM_G2)
+                hal_dvfs_lock_control(HAL_DVFS_HIGH_SPEED_208M, HAL_DVFS_UNLOCK);
+#else
+                hal_dvfs_lock_control(HAL_DVFS_OPP_HIGH, HAL_DVFS_UNLOCK);
+#endif
+                ull_audio_v2_dongle_ul1_i2s_m_outstarted_flag = false;
+                TRANSMITTER_LOG_I("[ULL Audio V2] scenario_sub_id %d unlock cpu to high", 1, scenario_sub_id);
             } else if ((scenario_sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0) &&
                 (ull_audio_v2_dongle_ul1_i2s_s_outstarted_flag == true)) {
 #if defined(AIR_BTA_IC_PREMIUM_G2)
@@ -2153,11 +2152,6 @@ void ull_audio_v2_dongle_state_idle_handler(uint8_t scenario_sub_id)
 #endif
             break;
 
-        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
-            TRANSMITTER_LOG_E("[ULL Audio V2][ERROR]This scenario is not supported at now, %u\r\n", 1, scenario_sub_id);
-            AUDIO_ASSERT(0);
-            break;
-
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0:
             #if defined(AIR_USB_AUDIO_1_SPK_ENABLE)
             USB_Audio_Register_Rx_Callback(0, NULL);
@@ -2165,9 +2159,6 @@ void ull_audio_v2_dongle_state_idle_handler(uint8_t scenario_sub_id)
             #endif /* AIR_USB_AUDIO_1_SPK_ENABLE */
             usb_stream_rx_handle[0].first_time = 0;
             usb_stream_rx_handle[0].stream_is_started = 0;
-            #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-            usb_stream_rx_handle[0].latency_debug_enable = 0;
-            #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
             ull_audio_v2_dongle_dl_stream_status &= ~(0x1<<(scenario_sub_id-AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0));
 #ifdef HAL_DVFS_MODULE_ENABLED
             if (ull_audio_v2_dongle_dl1_usb_started_flag == true) {
@@ -2189,9 +2180,6 @@ void ull_audio_v2_dongle_state_idle_handler(uint8_t scenario_sub_id)
             #endif /* AIR_USB_AUDIO_2_SPK_ENABLE */
             usb_stream_rx_handle[1].first_time = 0;
             usb_stream_rx_handle[1].stream_is_started = 0;
-            #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-            usb_stream_rx_handle[1].latency_debug_enable = 0;
-            #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
             ull_audio_v2_dongle_dl_stream_status &= ~(0x1<<(scenario_sub_id-AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0));
 #ifdef HAL_DVFS_MODULE_ENABLED
             if (ull_audio_v2_dongle_dl2_usb_started_flag == true) {
@@ -2276,6 +2264,7 @@ void ull_audio_v2_dongle_state_starting_handler(uint8_t scenario_sub_id)
     {
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_USB_OUT_0:
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT:
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
             /* there is counter in DVFS API, so do not need add counter here */
             #ifdef HAL_DVFS_MODULE_ENABLED
@@ -2289,15 +2278,12 @@ void ull_audio_v2_dongle_state_starting_handler(uint8_t scenario_sub_id)
                 ull_audio_v2_dongle_ul1_usb_started_flag = true;
             } else if (scenario_sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT) {
                 ull_audio_v2_dongle_ul1_lineout_started_flag = true;
+            } else if (scenario_sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0) {
+                ull_audio_v2_dongle_ul1_i2s_m_outstarted_flag = true;
             } else if (scenario_sub_id == AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0) {
                 ull_audio_v2_dongle_ul1_i2s_s_outstarted_flag = true;
             }
             TRANSMITTER_LOG_I("[ULL Audio V2] lock cpu to high", 0);
-            break;
-
-        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
-            TRANSMITTER_LOG_E("[ULL Audio V2][ERROR]This scenario is not supported at now, %u\r\n", 1, scenario_sub_id);
-            AUDIO_ASSERT(0);
             break;
 
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0:
@@ -2393,12 +2379,8 @@ void ull_audio_v2_dongle_state_stoping_handler(uint8_t scenario_sub_id)
     {
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_USB_OUT_0:
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_LINE_OUT:
-        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
-            break;
-
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0:
-            TRANSMITTER_LOG_E("[ULL Audio V2][ERROR]This scenario is not supported at now, %u\r\n", 1, scenario_sub_id);
-            AUDIO_ASSERT(0);
+        case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0:
             break;
 
         case AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0:
@@ -2542,16 +2524,13 @@ audio_transmitter_status_t ull_audio_v2_dongle_read_data(uint32_t scenario_sub_i
         }
     }
 
-    #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-    if (data_size == 0)
-    {
-        usb_audio_tx_cb_latency_debug(&usb_stream_tx_handle[index], all_zero_buffer);
+#if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
+    if (data_size == 0) {
+        audio_usb_tx_scenario_latency_debug(index, all_zero_buffer);
+    } else {
+        audio_usb_tx_scenario_latency_debug(index, p_source_buf);
     }
-    else
-    {
-        usb_audio_tx_cb_latency_debug(&usb_stream_tx_handle[index], p_source_buf);
-    }
-    #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
+#endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
 
     return AUDIO_TRANSMITTER_STATUS_SUCCESS;
 }
@@ -2622,9 +2601,9 @@ audio_transmitter_status_t ull_audio_v2_dongle_write_data(uint32_t scenario_sub_
             ((audio_transmitter_block_header_t *)p_source_buf)->sequence_number = usb_stream_rx_handle[index].usb_stream_header.sequence_number;
             ((audio_transmitter_block_header_t *)p_source_buf)->data_length     = usb_stream_rx_handle[index].usb_stream_header.data_length;
             memcpy(p_source_buf + BLK_HEADER_SIZE, data, usb_stream_rx_handle[index].frame_size);
-            #if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
-            ull_audio_v2_usb_rx_cb_latency_debug(&usb_stream_rx_handle[index], (p_source_buf + BLK_HEADER_SIZE));
-            #endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
+#if ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY
+            audio_usb_rx_scenario_latency_debug(index, (p_source_buf + BLK_HEADER_SIZE));
+#endif /* ULL_AUDIO_V2_DONGLE_DEBUG_LANTENCY */
             hal_audio_buf_mgm_get_write_data_done(p_dsp_info, usb_stream_rx_handle[index].frame_size + BLK_HEADER_SIZE);
 
             #if ULL_AUDIO_V2_DONGLE_DL_PATH_DEBUG_LOG

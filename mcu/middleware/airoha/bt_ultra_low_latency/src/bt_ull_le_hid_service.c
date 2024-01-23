@@ -77,7 +77,7 @@ typedef uint8_t bt_ull_le_hid_srv_link_state_t;
 #define BT_ULL_LE_HID_SRV_LINK_STATE_DISCONNECTED                 0x00
 #define BT_ULL_LE_HID_SRV_LINK_STATE_CIS_CONNECTING               0x01
 #define BT_ULL_LE_HID_SRV_LINK_STATE_CIS_CONNECTED                0x02
-#define BT_ULL_LE_HID_SRV_LINK_STATE_WAITE_PSEUDO_ACL_CONNECTED   0x03
+#define BT_ULL_LE_HID_SRV_LINK_STATE_WAITING_PSEUDO_ACL_CONNECTED   0x03
 #define BT_ULL_LE_HID_SRV_LINK_STATE_ACL_CONNECTED                0x04
 #define BT_ULL_LE_HID_SRV_LINK_STATE_ULL_HID_SRV_CONNECTED        0x05
 #define BT_ULL_LE_HID_SRV_LINK_STATE_STREAMING                    0x06
@@ -723,7 +723,7 @@ static void bt_ull_le_hid_srv_cis_connected_ind_hdl(bt_ull_le_hid_conn_srv_msg_i
     bt_ull_le_hid_srv_set_link_state(idx, BT_ULL_LE_HID_SRV_LINK_STATE_CIS_CONNECTED);
     bt_ull_le_hid_srv_set_link_mode(idx, BT_ULL_LE_HID_SRV_LINK_MODE_NORMAL);
     /*waite for the pseudo le link is connected*/
-    bt_ull_le_hid_srv_set_link_state(idx, BT_ULL_LE_HID_SRV_LINK_STATE_WAITE_PSEUDO_ACL_CONNECTED);
+    bt_ull_le_hid_srv_set_link_state(idx, BT_ULL_LE_HID_SRV_LINK_STATE_WAITING_PSEUDO_ACL_CONNECTED);
 /*
     if (ctx->role == BT_ULL_ROLE_CLIENT) {
         return;
@@ -779,13 +779,13 @@ static void bt_ull_le_hid_srv_pseudo_link_connected_ind_hdl(bt_status_t status, 
    ull_report(BT_ULL_HID_LOG"PSEUDO ACL CONNECTED, status: %d, link state: %x, dt: %d, handle: %x", 4, status, state, device_type, ind->connection_handle);
 
    if (BT_STATUS_SUCCESS != status) {
-       if (BT_ULL_LE_HID_SRV_LINK_STATE_WAITE_PSEUDO_ACL_CONNECTED == state) {
+       if (BT_ULL_LE_HID_SRV_LINK_STATE_WAITING_PSEUDO_ACL_CONNECTED == state) {
            bt_ull_le_hid_srv_set_link_state(idx, BT_ULL_LE_HID_SRV_LINK_STATE_CIS_CONNECTED);
        }
        return;
    }
 
-   if (BT_ULL_LE_HID_SRV_LINK_STATE_WAITE_PSEUDO_ACL_CONNECTED != state ) {
+   if (BT_ULL_LE_HID_SRV_LINK_STATE_WAITING_PSEUDO_ACL_CONNECTED != state ) {
        ull_report_error(BT_ULL_HID_LOG"pseudo_acl_connected_ind_hdl, state error!!", 0);
        return;
    }
@@ -937,7 +937,7 @@ static bt_status_t bt_ull_le_hid_srv_conn_event_cb(bt_ull_le_hid_conn_srv_msg_t 
             bt_ull_le_hid_srv_cis_active_streaming_ind_hdl(ind);
             break;
         }
-        case BT_ULL_LE_HID_CONN_SRV_MSG_CIS_DEACTIVE_STREAMING_IND: {
+        case BT_ULL_LE_HID_CONN_SRV_MSG_CIS_INACTIVE_STREAMING_IND: {
             bt_ull_le_hid_srv_cis_deactive_streaming_ind_hdl(ind);
             break;
         }
@@ -3204,7 +3204,7 @@ static bt_status_t bt_ull_le_hid_srv_led_control_hdl(bt_ull_le_hid_srv_control_i
         status = bt_ull_le_hid_srv_send_data_by_device_type(BT_ULL_LE_HID_SRV_DEVICE_KEYBOARD, (uint8_t *)data, len);
         bt_ull_le_srv_memory_free(data);
     }
-    ull_report(BT_ULL_HID_LOG" bt_ull_le_hid_srv_led_control_hdl, status: 0x%x,led_control:%d", 2, status, *led_control);
+    ull_report(BT_ULL_HID_LOG" bt_ull_le_hid_srv_led_control_hdl, status: 0x%x,led_control:%d", 2, status, led_control->indicater_led);
     return status;
 }
 

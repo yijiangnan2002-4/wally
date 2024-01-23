@@ -57,9 +57,7 @@ extern "C" {
 
 typedef struct {
     uint8_t         lea_num;
-    bt_addr_t       lea_conn_addr[APP_LE_AUDIO_MAX_LINK_NUM];
     uint8_t         adv_mode;
-    bt_addr_t       adv_addr[APP_LEA_MAX_BOND_NUM];
     uint32_t        adv_timeout;
     uint8_t         bond_num;
 } PACKED app_lea_sync_info_t;

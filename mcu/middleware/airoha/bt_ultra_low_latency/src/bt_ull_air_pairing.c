@@ -52,7 +52,7 @@
 
 #define BT_ULL_AIR_PAIRING_FLAG_STARTED         (0x01)
 #define BT_ULL_AIR_PAIRING_FLAG_INITIATED       (0x02)
-#define BT_ULL_AIR_PAIRING_FLAG_INQUIRYING      (0x04)
+#define BT_ULL_AIR_PAIRING_FLAG_INQUIRING       (0x04)
 #define BT_ULL_AIR_PAIRING_FLAG_COMPLETE        (0x08)
 typedef uint8_t bt_ull_air_pairing_flag_t;
 
@@ -116,7 +116,7 @@ static void         bt_ull_air_pairing_inq_ind_handle(bt_gap_inquiry_ind_t *inq_
     ull_report("[BT_ULL][AIR_PAIRING][I] Recevice rssi %d, need rssi %d flags %d", 3,
                *(int8_t *)(inq_ret->rssi), g_ultra_low_latency_air_pairing_cnt.cnt.rssi_threshold, g_ultra_low_latency_air_pairing_cnt.flags);
     if ((*(int8_t *)(inq_ret->rssi) > g_ultra_low_latency_air_pairing_cnt.cnt.rssi_threshold) &&
-        (g_ultra_low_latency_air_pairing_cnt.flags & BT_ULL_AIR_PAIRING_FLAG_INQUIRYING)) {
+        (g_ultra_low_latency_air_pairing_cnt.flags & BT_ULL_AIR_PAIRING_FLAG_INQUIRING)) {
         bt_os_layer_aes_buffer_t decrypted_data;
         bt_os_layer_aes_buffer_t plain_text;
         bt_os_layer_aes_buffer_t aes_key;
@@ -233,7 +233,7 @@ static bt_status_t  bt_ull_air_pairing_event_handle(bt_msg_type_t msg, bt_status
         break;
         case BT_GAP_INQUIRY_CNF: {
             if (status == BT_STATUS_SUCCESS) {
-                g_ultra_low_latency_air_pairing_cnt.flags |= BT_ULL_AIR_PAIRING_FLAG_INQUIRYING;
+                g_ultra_low_latency_air_pairing_cnt.flags |= BT_ULL_AIR_PAIRING_FLAG_INQUIRING;
             } else {
                 bt_ull_air_pairing_stop();
             }
@@ -260,12 +260,12 @@ static bt_status_t  bt_ull_air_pairing_event_handle(bt_msg_type_t msg, bt_status
         }
         break;
         case BT_GAP_INQUIRY_COMPLETE_IND: {
-            g_ultra_low_latency_air_pairing_cnt.flags &= (~BT_ULL_AIR_PAIRING_FLAG_INQUIRYING);
+            g_ultra_low_latency_air_pairing_cnt.flags &= (~BT_ULL_AIR_PAIRING_FLAG_INQUIRING);
             bt_ull_air_pairing_stop();
         }
         break;
         case BT_GAP_CANCEL_INQUIRY_CNF: {
-            g_ultra_low_latency_air_pairing_cnt.flags &= (~BT_ULL_AIR_PAIRING_FLAG_INQUIRYING);
+            g_ultra_low_latency_air_pairing_cnt.flags &= (~BT_ULL_AIR_PAIRING_FLAG_INQUIRING);
             if (!(g_ultra_low_latency_air_pairing_cnt.flags & BT_ULL_AIR_PAIRING_FLAG_COMPLETE)) {
                 bt_ull_air_pairing_stop();
             } else {
@@ -309,7 +309,7 @@ bt_status_t bt_ull_air_pairing_stop(void)
     }
     bt_cm_timer_stop(BT_SINK_SRV_CM_END_AIR_PAIRING_TIMER_ID);
     bt_cm_timer_stop(BT_SINK_SRV_CM_TERMINATE_AIR_PAIRING_TIMER_ID);
-    if (g_ultra_low_latency_air_pairing_cnt.flags & BT_ULL_AIR_PAIRING_FLAG_INQUIRYING) {
+    if (g_ultra_low_latency_air_pairing_cnt.flags & BT_ULL_AIR_PAIRING_FLAG_INQUIRING) {
         bt_gap_cancel_inquiry();
     } else {
         bt_hci_iac_lap_t iac = BT_HCI_IAC_LAP_TYPE_GIAC;

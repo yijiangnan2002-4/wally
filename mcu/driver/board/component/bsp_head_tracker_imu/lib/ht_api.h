@@ -36,7 +36,7 @@
 #define __ADRSIM_MESSAGE_H__
 
 #ifdef __cplusplus
-extern "C" {
+    extern "C" {
 #endif
 
 /******************************************************************************
@@ -100,11 +100,13 @@ typedef struct {
 //void adrsim_message_deinit(void);
 //adrsim_message_class_handle_t adrsim_message_find_handle(uint8_t *index, uint8_t class_id, uint8_t message_id, uint16_t payload_length);
 
-void imu_api_initial(void);
-void imu_api_process(int timestamp, float *accel, float *gyro);
-void imu_api_get_attitude(float *att);
+void imu_api_initial(float* imu_algo_para);
+void imu_api_process(int timestamp, float* accel, float* gyro);
+void imu_api_get_attitude(float* att);
+void imu_api_calibration(int cnt, float* accel, float* gyro);
+void imu_api_get_cali_data(float* cali_config_data);
 #ifdef __cplusplus
-}  /* extern "C" */
+    }  /* extern "C" */
 #endif
 
 #endif /* __ADRSIM_MESSAGE_H___ */

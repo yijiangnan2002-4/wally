@@ -46,4 +46,5 @@ extern void mux_ll_uart_send_wakeup_cmd(void);
 extern bool mux_ll_uart_wakeup_sync(void);
 extern void mux_ll_uart_reset_lock_sleep_timer(void);
 extern void mux_ll_uart_wakeup_init(void);
+extern void mux_ll_uart_wakeup_restore(void);
 #endif

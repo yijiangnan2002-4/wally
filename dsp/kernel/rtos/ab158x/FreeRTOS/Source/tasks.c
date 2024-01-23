@@ -594,7 +594,8 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 #endif
 
 /*-----------------------------------------------------------*/
-
+TCB_t * air_record_task_array[32] = {NULL};
+uint32_t air_record_task_number = 0;
 #if( configSUPPORT_STATIC_ALLOCATION == 1 )
 
 	TaskHandle_t xTaskCreateStatic(	TaskFunction_t pxTaskCode,
@@ -628,7 +629,9 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 			/* The memory used for the task's TCB and stack are passed into this
 			function - use them. */
 			pxNewTCB = ( TCB_t * ) pxTaskBuffer; /*lint !e740 !e9087 Unusual cast is ok as the structures are designed to have the same alignment, and the size is checked by an assert. */
-			pxNewTCB->pxStack = ( StackType_t * ) puxStackBuffer;
+            air_record_task_array[air_record_task_number++] = pxNewTCB;
+            if(air_record_task_number > 31) air_record_task_number = 0;
+            pxNewTCB->pxStack = ( StackType_t * ) puxStackBuffer;
 
             #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 ) /*lint !e731 !e9029 Macro has been consolidated for readability reasons. */
                 {
@@ -800,6 +803,8 @@ static void prvAddNewTaskToReadyList( TCB_t *pxNewTCB ) PRIVILEGED_FUNCTION;
 
                     if( pxNewTCB != NULL )
                     {
+                        air_record_task_array[air_record_task_number++] = pxNewTCB;
+                        if(air_record_task_number > 31) air_record_task_number = 0;
                         /* Store the stack location in the TCB. */
                         pxNewTCB->pxStack = pxStack;
                     }
@@ -3522,6 +3527,15 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
 			CALL A FUNCTION THAT MIGHT BLOCK. */
 			vApplicationIdleHook();
 		}
+        
+        #ifdef MTK_SUPPORT_HEAP_DEBUG
+            {
+                extern void vHeapLeakSelfCheckHook(void);
+                /* call this api to check heap leak */
+                vHeapLeakSelfCheckHook();
+            }
+        #endif
+        
 		#endif /* configUSE_IDLE_HOOK */
 
                 #if ( configENABLE_PURE_WFI_MODE == 1 )
@@ -5626,6 +5640,17 @@ void vTaskClearTaskRunTimeCounter( void )
 	}
 
 #endif /* configGENERATE_RUN_TIME_STATS */
+
+/*-----------------------------------------------------------*/
+UBaseType_t uxTaskGetPxTopOfStack(TaskHandle_t xTaskHandle){
+    TCB_t *pxTCB;
+
+    pxTCB = ( xTaskHandle == NULL ) ? ( TCB_t *) pxCurrentTCB : ( TCB_t *) ( xTaskHandle );
+
+    return ( UBaseType_t )( pxTCB->pxTopOfStack);
+
+}
+
 /*-----------------------------------------------------------*/
 
 UBaseType_t uxTaskGetBottomOfStack(TaskHandle_t xTaskHandle)

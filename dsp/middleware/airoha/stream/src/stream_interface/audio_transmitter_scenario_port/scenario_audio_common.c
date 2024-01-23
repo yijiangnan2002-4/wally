@@ -32,10 +32,395 @@
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
 
+#include "scenario_audio_common.h"
+
+ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_24bit_to_D_32bit_1ch(uint8_t* src_buf, uint32_t* dest_buf, uint32_t samples)
+{
+    uint32_t i, left_sample, data0, data1, data2;
+
+    for (i = 0; i < samples / 4; i++) {
+        data0 = *((uint32_t *)src_buf+i*3+0);
+        data1 = *((uint32_t *)src_buf+i*3+1);
+        data2 = *((uint32_t *)src_buf+i*3+2);
+        dest_buf[i*4] = ((data0&0x00ffffff)<<8);
+        dest_buf[i*4+1] = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
+        dest_buf[i*4+2] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
+        dest_buf[i*4+3] = ((data2&0xffffff00));
+    }
+    left_sample = samples % 4;
+    if (left_sample == 1) {
+        data0 = *((uint32_t *)src_buf+i*3+0);
+        dest_buf[i*4] = ((data0&0x00ffffff)<<8);
+    } else if (left_sample == 2) {
+        data0 = *((uint32_t *)src_buf+i*3+0);
+        data1 = *((uint32_t *)src_buf+i*3+1);
+        dest_buf[i*4] = ((data0&0x00ffffff)<<8);
+        dest_buf[i*4+1] = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
+    } else if (left_sample == 3) {
+        data0 = *((uint32_t *)src_buf+i*3+0);
+        data1 = *((uint32_t *)src_buf+i*3+1);
+        data2 = *((uint32_t *)src_buf+i*3+2);
+        dest_buf[i*4] = ((data0&0x00ffffff)<<8);
+        dest_buf[i*4+1] = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
+        dest_buf[i*4+2] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
+    }
+}
+
+ATTR_TEXT_IN_IRAM_LEVEL_1 void ShareBufferCopy_I_16bit_to_D_16bit_2ch(uint32_t *src_buf, uint16_t *dest_buf1, uint16_t *dest_buf2, uint32_t samples)
+{
+    uint32_t data;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++) {
+        data = src_buf[i];
+        dest_buf1[i] = (uint16_t)(data >> 0);
+        dest_buf2[i] = (uint16_t)(data >> 16);
+    }
+}
+
+ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_16bit_to_D_32bit_2ch(uint32_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t samples)
+{
+    uint32_t data;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data = src_buf[i];
+        dest_buf1[i] = ((uint32_t)((uint16_t)(data>> 0)))<<16;
+        dest_buf2[i] = ((uint32_t)((uint16_t)(data>>16)))<<16;
+    }
+}
+
+ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_24bit_to_D_16bit_2ch(uint8_t* src_buf, uint16_t* dest_buf1, uint16_t* dest_buf2, uint32_t samples)
+{
+    uint32_t data0;
+    uint32_t data1;
+    uint32_t data2;
+    uint32_t i;
+
+    for (i = 0; i < (samples/2); i++)
+    {
+        data0 = *((uint32_t *)src_buf+i*3+0);
+        data1 = *((uint32_t *)src_buf+i*3+1);
+        data2 = *((uint32_t *)src_buf+i*3+2);
+        dest_buf1[i*2]   = (uint16_t)((data0&0x00ffff00)>>8);
+        dest_buf2[i*2]   = (uint16_t)((data1&0x0000ffff));
+        dest_buf1[i*2+1] = (uint16_t)(((data2&0x000000ff)<<8)|((data1&0xff000000)>>24));
+        dest_buf2[i*2+1] = (uint16_t)((data2&0xffff0000)>>16);
+    }
+}
+
+ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_24bit_to_D_32bit_2ch(uint8_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t samples)
+{
+    uint32_t data0;
+    uint32_t data1;
+    uint32_t data2;
+    uint32_t i;
+
+    for (i = 0; i < (samples/2); i++)
+    {
+        data0 = *((uint32_t *)src_buf+i*3+0);
+        data1 = *((uint32_t *)src_buf+i*3+1);
+        data2 = *((uint32_t *)src_buf+i*3+2);
+        dest_buf1[i*2]   = ((data0&0x00ffffff)<<8);
+        dest_buf2[i*2]   = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
+        dest_buf1[i*2+1] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
+        dest_buf2[i*2+1] = ((data2&0xffffff00));
+    }
+}
+
+ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_16bit_to_D_32bit_8ch(uint32_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t* dest_buf3, uint32_t* dest_buf4, uint32_t* dest_buf5, uint32_t* dest_buf6, uint32_t* dest_buf7, uint32_t* dest_buf8, uint32_t samples)
+{
+    uint32_t data0;
+    uint32_t data1;
+    uint32_t data2;
+    uint32_t data3;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data0 = src_buf[4*i + 0];
+        data1 = src_buf[4*i + 1];
+        data2 = src_buf[4*i + 2];
+        data3 = src_buf[4*i + 3];
+        dest_buf1[i] = ((uint32_t)((uint16_t)(data0>> 0)))<<16;
+        dest_buf2[i] = ((uint32_t)((uint16_t)(data0>>16)))<<16;
+        dest_buf3[i] = ((uint32_t)((uint16_t)(data1>> 0)))<<16;
+        dest_buf4[i] = ((uint32_t)((uint16_t)(data1>>16)))<<16;
+        dest_buf5[i] = ((uint32_t)((uint16_t)(data2>> 0)))<<16;
+        dest_buf6[i] = ((uint32_t)((uint16_t)(data2>>16)))<<16;
+        dest_buf7[i] = ((uint32_t)((uint16_t)(data3>> 0)))<<16;
+        dest_buf8[i] = ((uint32_t)((uint16_t)(data3>>16)))<<16;
+    }
+}
+
+ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_16bit_to_D_16bit_8ch(uint32_t* src_buf, uint16_t* dest_buf1, uint16_t* dest_buf2, uint16_t* dest_buf3, uint16_t* dest_buf4, uint16_t* dest_buf5, uint16_t* dest_buf6, uint16_t* dest_buf7, uint16_t* dest_buf8, uint32_t samples)
+{
+    uint32_t data0;
+    uint32_t data1;
+    uint32_t data2;
+    uint32_t data3;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data0 = src_buf[4*i + 0];
+        data1 = src_buf[4*i + 1];
+        data2 = src_buf[4*i + 2];
+        data3 = src_buf[4*i + 3];
+        dest_buf1[i] = ((uint16_t)(data0>> 0));
+        dest_buf2[i] = ((uint16_t)(data0>>16));
+        dest_buf3[i] = ((uint16_t)(data1>> 0));
+        dest_buf4[i] = ((uint16_t)(data1>>16));
+        dest_buf5[i] = ((uint16_t)(data2>> 0));
+        dest_buf6[i] = ((uint16_t)(data2>>16));
+        dest_buf7[i] = ((uint16_t)(data3>> 0));
+        dest_buf8[i] = ((uint16_t)(data3>>16));
+    }
+}
+
+ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_24bit_to_D_32bit_8ch(uint32_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t* dest_buf3, uint32_t* dest_buf4, uint32_t* dest_buf5, uint32_t* dest_buf6, uint32_t* dest_buf7, uint32_t* dest_buf8, uint32_t samples)
+{
+    uint32_t data0;
+    uint32_t data1;
+    uint32_t data2;
+    uint32_t data3;
+    uint32_t data4;
+    uint32_t data5;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data0 = src_buf[6*i + 0];
+        data1 = src_buf[6*i + 1];
+        data2 = src_buf[6*i + 2];
+        data3 = src_buf[6*i + 3];
+        data4 = src_buf[6*i + 4];
+        data5 = src_buf[6*i + 5];
+        dest_buf1[i] = (data0&0x00ffffff)<<8;
+        dest_buf2[i] = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
+        dest_buf3[i] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
+        dest_buf4[i] = (data2&0xffffff00);
+        dest_buf5[i] = (data3&0x00ffffff)<<8;
+        dest_buf6[i] = ((data4&0x0000ffff)<<16)|((data3&0xff000000)>>16);
+        dest_buf7[i] = ((data5&0x000000ff)<<24)|((data4&0xffff0000)>>8);
+        dest_buf8[i] = (data5&0xffffff00);
+    }
+}
+
+ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_24bit_to_D_16bit_8ch(uint32_t* src_buf, uint16_t* dest_buf1, uint16_t* dest_buf2, uint16_t* dest_buf3, uint16_t* dest_buf4, uint16_t* dest_buf5, uint16_t* dest_buf6, uint16_t* dest_buf7, uint16_t* dest_buf8, uint32_t samples)
+{
+    uint32_t data0;
+    uint32_t data1;
+    uint32_t data2;
+    uint32_t data3;
+    uint32_t data4;
+    uint32_t data5;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data0 = src_buf[6*i + 0];
+        data1 = src_buf[6*i + 1];
+        data2 = src_buf[6*i + 2];
+        data3 = src_buf[6*i + 3];
+        data4 = src_buf[6*i + 4];
+        data5 = src_buf[6*i + 5];
+        dest_buf1[i] = (uint16_t)((data0&0x00ffff00)>>8);
+        dest_buf2[i] = (uint16_t)((data1&0x0000ffff));
+        dest_buf3[i] = (uint16_t)(((data2&0x000000ff)<<8)|((data1&0xff000000)>>24));
+        dest_buf4[i] = (uint16_t)((data2&0xffff0000)>>16);
+        dest_buf5[i] = (uint16_t)((data3&0x00ffff00)>>8);
+        dest_buf6[i] = (uint16_t)((data4&0x0000ffff)<<16);
+        dest_buf7[i] = (uint16_t)(((data5&0x000000ff)<<8)|((data4&0xff000000)>>24));
+        dest_buf8[i] = (uint16_t)((data5&0xffff0000)>>16);
+    }
+}
+
+void ShareBufferCopy_D_32bit_to_D_24bit_1ch(uint32_t* src_buf, uint8_t* dest_buf1, uint32_t samples)
+{
+    uint32_t data;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data = src_buf[i];
+        *(dest_buf1+i*3+0) = (uint8_t)((data>> 8)&0xff);
+        *(dest_buf1+i*3+1) = (uint8_t)((data>>16)&0xff);
+        *(dest_buf1+i*3+2) = (uint8_t)((data>>24)&0xff);
+    }
+}
+
+void ShareBufferCopy_D_32bit_to_I_24bit_2ch(uint32_t* src_buf1, uint32_t* src_buf2, uint8_t* dest_buf1, uint32_t samples)
+{
+    uint32_t data1;
+    uint32_t data2;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data1 = src_buf1[i];
+        data2 = src_buf2[i];
+        *(dest_buf1+i*6+0) = (uint8_t)((data1>> 8)&0xff);
+        *(dest_buf1+i*6+1) = (uint8_t)((data1>>16)&0xff);
+        *(dest_buf1+i*6+2) = (uint8_t)((data1>>24)&0xff);
+        *(dest_buf1+i*6+3) = (uint8_t)((data2>> 8)&0xff);
+        *(dest_buf1+i*6+4) = (uint8_t)((data2>>16)&0xff);
+        *(dest_buf1+i*6+5) = (uint8_t)((data2>>24)&0xff);
+    }
+}
+
+void ShareBufferCopy_D_16bit_to_D_16bit_1ch(uint16_t* src_buf, uint16_t* dest_buf1, uint32_t samples)
+{
+    uint16_t data;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data = src_buf[i];
+        *(dest_buf1+i) = data;
+    }
+}
+
+void ShareBufferCopy_D_16bit_to_I_16bit_2ch(uint16_t* src_buf1, uint16_t* src_buf2, uint16_t* dest_buf1, uint32_t samples)
+{
+    uint32_t data1;
+    uint32_t data2;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data1 = src_buf1[i];
+        data2 = src_buf2[i];
+        data1 = (data1) | (data2 << 16);
+        *((uint32_t* )dest_buf1+i) = data1;
+    }
+}
+
+void ShareBufferCopy_D_32bit_to_D_16bit_1ch(uint32_t* src_buf, uint16_t* dest_buf1, uint32_t samples)
+{
+    uint32_t data;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data = src_buf[i];
+        *(dest_buf1+i) = (uint16_t)((data >> 16)&0xffff);
+    }
+}
+
+void ShareBufferCopy_D_32bit_to_I_16bit_2ch(uint32_t* src_buf1, uint32_t* src_buf2, uint16_t* dest_buf1, uint32_t samples)
+{
+    uint32_t data1;
+    uint32_t data2;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data1 = src_buf1[i];
+        data2 = src_buf2[i];
+        data1 = ((data1 >> 16)&0x0000ffff) | ((data2 >> 0)&0xffff0000);
+        *((uint32_t* )dest_buf1+i) = data1;
+    }
+}
+
+void ShareBufferCopy_D_16bit_to_I_24bit_2ch(uint16_t* src_buf1, uint16_t* src_buf2, uint8_t* dest_buf1, uint32_t samples)
+{
+    uint32_t data32;
+    uint16_t data16;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        if ((i%2) == 0)
+        {
+            data32 = (src_buf1[i]<<8); // 0x00XXXX00
+            data16 = src_buf2[i]; //0xXXXX
+            *(uint32_t *)(dest_buf1 + i*6) = data32;
+            *(uint16_t *)(dest_buf1 + i*6 + 4) = data16;
+        }
+        else
+        {
+            data16 = (src_buf1[i]&0x00ff)<<8; //0xXX00
+            data32 = (src_buf2[i]<<16) | ((src_buf1[i]&0xff00)>>8); // 0xXXXX00XX
+            *(uint16_t *)(dest_buf1 + i*6) = data16;
+            *(uint32_t *)(dest_buf1 + i*6 + 2) = data32;
+        }
+    }
+}
+
+void ShareBufferCopy_D_16bit_to_D_24bit_1ch(uint16_t* src_buf1, uint8_t* dest_buf1, uint32_t samples)
+{
+    uint32_t data32;
+    uint16_t data16;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        if ((i%2) == 0)
+        {
+            if (i != (samples - 1))
+            {
+                data32 = (src_buf1[i]<<8); // 0x00XXXX00
+                *(uint32_t *)(dest_buf1 + (i/2)*6) = data32;
+            }
+            else
+            {
+                /* prevent overflow */
+                data32 = (src_buf1[i]<<8); // 0x00XXXX00
+                *(uint16_t *)(dest_buf1 + (i/2)*6) = (uint16_t)(data32&0x0000ffff);
+                *(uint8_t *)(dest_buf1 + (i/2)*6 + 2) = (uint8_t)((data32&0x00ff0000)>>16);
+            }
+        }
+        else
+        {
+            data16 = src_buf1[i]; //0xXXXX
+            *(uint16_t *)(dest_buf1 + (i/2)*6 + 4) = data16;
+        }
+    }
+}
+
+void ShareBufferCopy_D_16bit_to_D_32bit_1ch(uint16_t* src_buf, uint32_t* dest_buf, uint32_t samples)
+{
+    uint32_t data;
+    uint32_t i;
+
+    for (i = 0; i < samples; i++)
+    {
+        data = src_buf[i];
+        *(dest_buf+i) = data<<16;
+    }
+}
+
+void ShareBufferCopy_D_16bit_to_I_24bit_1ch(uint16_t* src_buf1, uint8_t* dest_buf1, uint32_t samples)
+{
+    uint32_t data32;
+    uint32_t i, j;
+
+    j = 0;
+    for (i = 0; i < samples; i++) {
+        if ((i % 4) == 0) {
+            data32 = src_buf1[i] << 8; // 0x00XXXX00
+            *(uint32_t *)(dest_buf1 + j * 12) = data32;
+        } else if ((i % 4) == 1) {
+            data32 = src_buf1[i]; //0x0000XXXX
+            *(uint32_t *)(dest_buf1 + j * 12 + 4) = data32;
+        } else if ((i % 4) == 2) {
+            data32 = (src_buf1[i] & 0x00ff) << 24; // 0xXX000000
+            *(uint32_t *)(dest_buf1 + j * 12 + 4) |= data32;
+            data32 = (src_buf1[i] & 0xff00) >> 8;
+            *(uint32_t *)(dest_buf1 + j * 12 + 8) = data32;
+        } else {
+            data32 = src_buf1[i] << 16; // 0xXXXX0000
+            *(uint32_t *)(dest_buf1 + j * 12 + 8) |= data32;
+            j++;
+        }
+    }
+}
+
 #if defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_BLE_HEADSET_ENABLE)
 
 /* Includes ------------------------------------------------------------------*/
-#include "scenario_audio_common.h"
 #include "scenario_ble_audio.h"
 #include "hal_audio_driver.h"
 #include "scenario_bt_audio.h"
@@ -62,19 +447,33 @@
 #define DL_CLOCK_SKEW_CHECK_COUNT                                   (4)
 #define UL_CLOCK_SKEW_CHECK_COUNT                                   (4)
 #define AUDIO_USB_IN_FS_MAX_NUM                                     (6)
+#define AUDIO_USB_IN_FS_ELEMENT_SIZE                                (3)
 
 log_create_module(common_dongle_log, PRINT_LEVEL_INFO);
 /* Private typedef -----------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
-
+#if defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
+/* Playinfor for le link */
+audio_dongle_init_le_play_info_t audio_dongle_bt_init_play_info =
+{
+    .dl_retransmission_window_clk = 0,
+    .dl_retransmission_window_phase = 0,
+};
+#if defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
+extern void ull_audio_v2_dongle_init_play_info(hal_ccni_message_t msg, hal_ccni_message_t *ack);
+#endif
+#if defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
+extern ble_audio_dongle_ul_handle_t *ble_audio_dongle_first_ul_handle;
+#endif
+#endif
 /* ----------------------------------- Unified FS Convert ----------------------------------------------------------- */
 const uint32_t audio_usb_in_sample_rate_select[AUDIO_USB_IN_FS_MAX_NUM] = {
     16000, 24000, 32000, 48000, 96000, 192000
 };
 
 // low resolution, support <= 48k output
-const uint32_t audio_usb_in_unified_sample_rate_setting_low_res[AUDIO_USB_IN_FS_MAX_NUM][3] = {
+const static uint32_t audio_usb_in_unified_sample_rate_setting_low_res[AUDIO_USB_IN_FS_MAX_NUM][AUDIO_USB_IN_FS_ELEMENT_SIZE] = {
     { 16000,  48000, 48000 },
     { 24000,  48000, 48000 },
     { 32000,  96000, 48000 },
@@ -84,7 +483,7 @@ const uint32_t audio_usb_in_unified_sample_rate_setting_low_res[AUDIO_USB_IN_FS_
 };
 
 // high resolution, support 48/96/192k output
-const uint32_t audio_usb_in_unified_sample_rate_setting_hi_res[AUDIO_USB_IN_FS_MAX_NUM][3] = {
+const static uint32_t audio_usb_in_unified_sample_rate_setting_hi_res[AUDIO_USB_IN_FS_MAX_NUM][AUDIO_USB_IN_FS_ELEMENT_SIZE] = {
     { 16000,  48000, 96000 },
     { 24000,  48000, 96000 },
     { 32000,  96000, 96000 },
@@ -93,7 +492,16 @@ const uint32_t audio_usb_in_unified_sample_rate_setting_hi_res[AUDIO_USB_IN_FS_M
     { 192000, 96000, 96000 }
 };
 
-// const static uint32_t bt_audio_usb_unified_sample_rate_setting_call_mode[AUDIO_USB_IN_FS_MAX_NUM][3] = {
+const static uint32_t audio_usb_in_unified_sample_rate_setting_nb[AUDIO_USB_IN_FS_MAX_NUM][AUDIO_USB_IN_FS_ELEMENT_SIZE] = {
+    { 16000,  16000, 16000 },
+    { 24000,  48000, 16000 },
+    { 32000,  16000, 16000 },
+    { 48000,  16000, 16000 },
+    { 96000,  48000, 16000 },
+    { 192000, 64000, 16000 }
+};
+
+// const static uint32_t bt_audio_usb_unified_sample_rate_setting_call_mode[AUDIO_USB_IN_FS_MAX_NUM][AUDIO_USB_IN_FS_ELEMENT_SIZE] = {
 //     { 16000,  16000, 16000 },
 //     { 24000,  16000, 16000 },
 //     { 32000,  16000, 16000 },
@@ -212,7 +620,6 @@ uint32_t audio_dongle_get_n9_share_buffer_data_size(n9_dsp_share_info_t *share_i
     return avail_size;
 }
 
-#if !defined (AIR_ULL_BLE_HEADSET_ENABLE)
 static bool audio_dl_unified_fs_convertor_sample_rate_check(uint32_t sample_rate)
 {
     bool ret = false;
@@ -228,7 +635,7 @@ static uint32_t audio_dl_unified_fs_convertor_sample_rate_get(uint32_t in_rate, 
 {
     uint32_t sample_rate = 0;
     uint32_t raw_index   = 0;
-    if (sequence > 2) {
+    if (sequence > (AUDIO_USB_IN_FS_ELEMENT_SIZE - 1)) {
         AUDIO_ASSERT(0 && "Unified fs convert input param error!");
         return 0;
     }
@@ -259,6 +666,10 @@ static uint32_t audio_dl_unified_fs_convertor_sample_rate_get(uint32_t in_rate, 
         AUDIO_ASSERT(0 && "Unified fs convert raw index is over the limitation!");
     }
     switch (codec_type) {
+        case AUDIO_DSP_CODEC_TYPE_MSBC:
+        case AUDIO_DSP_CODEC_TYPE_CVSD:
+            sample_rate = audio_usb_in_unified_sample_rate_setting_nb[raw_index][sequence];
+            break;
         default:
             if (codec_resolution == RESOLUTION_16BIT) {
                 sample_rate = audio_usb_in_unified_sample_rate_setting_low_res[raw_index][sequence];
@@ -270,6 +681,42 @@ static uint32_t audio_dl_unified_fs_convertor_sample_rate_get(uint32_t in_rate, 
     return sample_rate;
 }
 
+static uint32_t audio_dl_unified_fs_convertor_depth_get(uint32_t in_rate, uint32_t out_rate, audio_dsp_codec_type_t codec_type, stream_resolution_t codec_resolution, uint32_t *rate)
+{
+    uint32_t rate_index_0          = in_rate;
+    uint32_t rate_index_1          = 0;
+    uint32_t rate_index_2          = 0;
+    uint32_t rate_index_3          = out_rate;
+    uint32_t fixed_ratio_src_depth = 0;
+    rate_index_1 = audio_dl_unified_fs_convertor_sample_rate_get(in_rate, codec_type, codec_resolution, 1);
+    rate_index_2 = audio_dl_unified_fs_convertor_sample_rate_get(in_rate, codec_type, codec_resolution, 2);
+    if (rate_index_0 != rate_index_3) {
+        if (rate_index_0 != rate_index_1) {
+            rate[fixed_ratio_src_depth] = rate_index_1;
+            fixed_ratio_src_depth ++;
+        }
+        if (rate_index_1 != rate_index_2) {
+            rate[fixed_ratio_src_depth] = rate_index_2;
+            fixed_ratio_src_depth ++;
+        }
+        if ((codec_resolution == RESOLUTION_32BIT) || (codec_type == AUDIO_DSP_CODEC_TYPE_MSBC) || (codec_type == AUDIO_DSP_CODEC_TYPE_CVSD)) {
+            if (rate_index_2 != rate_index_3) {
+                rate[fixed_ratio_src_depth] = rate_index_3;
+                fixed_ratio_src_depth ++;
+            }
+        }
+        if (fixed_ratio_src_depth == 0) {
+            fixed_ratio_src_depth = 1;
+            rate[0] = rate_index_0;
+        }
+    } else {
+        fixed_ratio_src_depth = 1;
+        rate[0] = rate_index_0;
+    }
+
+    return fixed_ratio_src_depth;
+}
+
 bool audio_dl_unified_fs_convertor_init(audio_dl_unified_fs_convertor_param_t *param)
 {
     bool                ret                     = false;
@@ -277,7 +724,9 @@ bool audio_dl_unified_fs_convertor_init(audio_dl_unified_fs_convertor_param_t *p
     uint32_t            process_sample_rate_max = param->process_sample_rate_max;
     uint32_t            frame_samples_base      = 0;
     bool                is_bypass_src           = false;
-    uint32_t            src_fixed_ratio_depth   = 2;
+    uint32_t            src_fixed_ratio_depth   = 0;
+    int32_t             src_fixed_ratio_cnt     = 0;
+    uint32_t            src_fixed_ratio_index   = 0;
     uint32_t            in_rate                 = param->in_rate;
     uint32_t            out_rate                = param->out_rate;
     uint32_t            period_ms               = param->period_ms;
@@ -289,6 +738,14 @@ bool audio_dl_unified_fs_convertor_init(audio_dl_unified_fs_convertor_param_t *p
     stream_resolution_t stream_resolution       = RESOLUTION_16BIT;
     SOURCE              source                  = param->source;
     uint32_t            ratio                   = 1;
+    uint32_t            next_rate               = 0;
+    uint32_t            rate[3]                 = {0};
+#ifdef AIR_FIXED_RATIO_SRC
+    src_fixed_ratio_config_t sw_src0_config     = {0};
+    src_fixed_ratio_config_t sw_src1_config     = {0};
+    src_fixed_ratio_config_t sw_src2_config     = {0};
+    src_fixed_ratio_port_quality_mode_e mode    = SRC_FIXED_RATIO_PORT_NORMAL_QUALITY;
+#endif
     UNUSED(codec_type);
     UNUSED(process_max_size);
     check_value = audio_dl_unified_fs_convertor_sample_rate_check(in_rate);
@@ -297,119 +754,123 @@ bool audio_dl_unified_fs_convertor_init(audio_dl_unified_fs_convertor_param_t *p
     frame_samples_base      = period_ms * AUDIO_DONGLE_SAMPLE_RATE_8K / 1000 / 1000;     // 8K base frame
     sample_size             = audio_dongle_get_format_bytes(pcm_format);
     stream_resolution       = (sample_size == 4) ? RESOLUTION_32BIT : RESOLUTION_16BIT;
-    is_bypass_src           = (in_rate == out_rate) ? true : false;
-    src_fixed_ratio_depth   = (stream_resolution == RESOLUTION_32BIT) ? 3 : 2;
+    // is_bypass_src           = (in_rate == out_rate) ? true : false;
+    src_fixed_ratio_depth   = audio_dl_unified_fs_convertor_depth_get(in_rate, out_rate, codec_type, stream_resolution, rate);
+    src_fixed_ratio_cnt     = (int32_t)src_fixed_ratio_depth;
+    if ((codec_type == AUDIO_DSP_CODEC_TYPE_MSBC) || (codec_type == AUDIO_DSP_CODEC_TYPE_CVSD)) {
+        mode = SRC_FIXED_RATIO_PORT_HIGH_QUALITY;
+    }
     /* 1st src fixed ratio, msbc/cvsd/sbc: 16k/48k/96k -> 48k, 32k -> 96k, 192k -> 96k */
     /* 1st src fixed ratio, lhdc: 16k/48k/96k -> 48k, 32k -> 96k, 192k -> 96k */
 #ifdef AIR_FIXED_RATIO_SRC
-    src_fixed_ratio_config_t sw_src0_config  = {0};
-    sw_src0_config.channel_number            = in_ch_num;
-    sw_src0_config.in_sampling_rate          = in_rate;
-    sw_src0_config.out_sampling_rate         = is_bypass_src ? in_rate :
-                                                               audio_dl_unified_fs_convertor_sample_rate_get(in_rate, codec_type, stream_resolution, 1);
-    sw_src0_config.resolution                = stream_resolution;
-    sw_src0_config.multi_cvt_mode            = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
-    sw_src0_config.cvt_num                   = src_fixed_ratio_depth;
-    sw_src0_config.with_codec                = false;
-    param->src0_port                         = stream_function_src_fixed_ratio_get_port(source);
-    process_sample_rate_max                  = MAX(process_sample_rate_max, sw_src0_config.out_sampling_rate);
-    sw_src0_config.max_frame_buff_size       = process_max_size;
-    if (sw_src0_config.in_sampling_rate <= sw_src0_config.out_sampling_rate) { // increase size
-        ratio                               = sw_src0_config.out_sampling_rate / sw_src0_config.in_sampling_rate;
-        process_max_size                   *= ratio;
-        sw_src0_config.max_frame_buff_size  = process_max_size;
-    } else {
-        ratio = sw_src0_config.in_sampling_rate / sw_src0_config.out_sampling_rate;
-        process_max_size /= ratio;
+    if (src_fixed_ratio_cnt >= 0) {
+        sw_src0_config.channel_number            = in_ch_num;
+        sw_src0_config.in_sampling_rate          = in_rate;
+        sw_src0_config.out_sampling_rate         = rate[src_fixed_ratio_index];
+        sw_src0_config.resolution                = stream_resolution;
+        sw_src0_config.multi_cvt_mode            = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
+        sw_src0_config.cvt_num                   = src_fixed_ratio_depth;
+        sw_src0_config.with_codec                = false;
+        param->src0_port                         = stream_function_src_fixed_ratio_get_port(source);
+        process_sample_rate_max                  = MAX(process_sample_rate_max, sw_src0_config.out_sampling_rate);
+        sw_src0_config.max_frame_buff_size       = process_max_size;
+        sw_src0_config.quality_mode              = mode;
+        if (sw_src0_config.in_sampling_rate <= sw_src0_config.out_sampling_rate) { // increase size
+            ratio                               = sw_src0_config.out_sampling_rate / sw_src0_config.in_sampling_rate;
+            process_max_size                   *= ratio;
+            sw_src0_config.max_frame_buff_size  = process_max_size;
+        } else {
+            ratio = sw_src0_config.in_sampling_rate / sw_src0_config.out_sampling_rate;
+            process_max_size /= ratio;
+        }
+        next_rate = sw_src0_config.out_sampling_rate;
+        // stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)param->src0_port, &sw_src0_config);
+        src_fixed_ratio_index ++;
+        src_fixed_ratio_cnt --;
     }
-    COMMON_DONGLE_LOG_I("[Dongle Common][scenario type %d] sw fixed src0 0x%x bypass %d, info, %d, %d, %d, %d, %d, %d, %d, %d", 11,
-                source->scenario_type,
-                param->src0_port,
-                is_bypass_src,
-                sw_src0_config.multi_cvt_mode,
-                sw_src0_config.cvt_num,
-                sw_src0_config.with_codec,
-                sw_src0_config.channel_number,
-                sw_src0_config.resolution,
-                sw_src0_config.in_sampling_rate,
-                sw_src0_config.out_sampling_rate,
-                sw_src0_config.max_frame_buff_size
-                );
-    stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)param->src0_port, &sw_src0_config);
 
     /* 2nd src fixed ratio, 48k -> 48k, 96k -> 48k */
-    src_fixed_ratio_config_t sw_src1_config = {0};
-    sw_src1_config.channel_number            = in_ch_num;
-    sw_src1_config.in_sampling_rate          = sw_src0_config.out_sampling_rate;
-    sw_src1_config.out_sampling_rate         = is_bypass_src ? sw_src0_config.out_sampling_rate :
-                                                               audio_dl_unified_fs_convertor_sample_rate_get(in_rate, codec_type, stream_resolution, 2);
-    sw_src1_config.resolution                = stream_resolution;
-    sw_src1_config.multi_cvt_mode            = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
-    sw_src1_config.cvt_num                   = src_fixed_ratio_depth;
-    sw_src1_config.with_codec                = false;
-    param->src1_port                         = stream_function_src_fixed_ratio_get_2nd_port(source);
-    process_sample_rate_max                  = MAX(process_sample_rate_max, sw_src1_config.out_sampling_rate);
-    sw_src1_config.max_frame_buff_size       = process_max_size;
-    if (sw_src1_config.in_sampling_rate <= sw_src1_config.out_sampling_rate) { // increase size
-        ratio                               = sw_src1_config.out_sampling_rate / sw_src1_config.in_sampling_rate;
-        process_max_size                   *= ratio;
-        sw_src1_config.max_frame_buff_size  = process_max_size;
-    } else {
-        ratio = sw_src1_config.in_sampling_rate / sw_src1_config.out_sampling_rate;
-        process_max_size /= ratio;
+    if (src_fixed_ratio_cnt > 0) {
+        sw_src1_config.channel_number            = in_ch_num;
+        sw_src1_config.in_sampling_rate          = next_rate;
+        sw_src1_config.out_sampling_rate         = rate[src_fixed_ratio_index];
+        sw_src1_config.resolution                = stream_resolution;
+        sw_src1_config.multi_cvt_mode            = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
+        sw_src1_config.cvt_num                   = src_fixed_ratio_depth;
+        sw_src1_config.with_codec                = false;
+        param->src1_port                         = stream_function_src_fixed_ratio_get_2nd_port(source);
+        process_sample_rate_max                  = MAX(process_sample_rate_max, sw_src1_config.out_sampling_rate);
+        sw_src1_config.max_frame_buff_size       = process_max_size;
+        sw_src1_config.quality_mode              = mode;
+        if (sw_src1_config.in_sampling_rate <= sw_src1_config.out_sampling_rate) { // increase size
+            ratio                               = sw_src1_config.out_sampling_rate / sw_src1_config.in_sampling_rate;
+            process_max_size                   *= ratio;
+            sw_src1_config.max_frame_buff_size  = process_max_size;
+        } else {
+            ratio = sw_src1_config.in_sampling_rate / sw_src1_config.out_sampling_rate;
+            process_max_size /= ratio;
+        }
+        next_rate = sw_src1_config.out_sampling_rate;
+        COMMON_DONGLE_LOG_I("[Dongle Common][scenario type %d] sw fixed src1 0x%x info, %d, %d, %d, %d, %d, %d, %d, %d, depth %d", 11,
+                    source->scenario_type,
+                    param->src1_port,
+                    sw_src1_config.multi_cvt_mode,
+                    sw_src1_config.cvt_num,
+                    sw_src1_config.with_codec,
+                    sw_src1_config.channel_number,
+                    sw_src1_config.resolution,
+                    sw_src1_config.in_sampling_rate,
+                    sw_src1_config.out_sampling_rate,
+                    sw_src1_config.max_frame_buff_size,
+                    src_fixed_ratio_depth
+                    );
+        stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)param->src1_port, &sw_src1_config);
+        src_fixed_ratio_index ++;
+        src_fixed_ratio_cnt --;
     }
-    COMMON_DONGLE_LOG_I("[Dongle Common][scenario type %d] sw fixed src1 0x%x info, %d, %d, %d, %d, %d, %d, %d", 10,
-                source->scenario_type,
-                param->src1_port,
-                sw_src1_config.multi_cvt_mode,
-                sw_src1_config.cvt_num,
-                sw_src1_config.with_codec,
-                sw_src1_config.channel_number,
-                sw_src1_config.resolution,
-                sw_src1_config.in_sampling_rate,
-                sw_src1_config.out_sampling_rate,
-                sw_src1_config.max_frame_buff_size
-                );
-    stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)param->src1_port, &sw_src1_config);
 #endif /* AIR_FIXED_RATIO_SRC */
     /* 3st sbc: sw src, 48k -> 48k/44.1k/32k/16k/8k */
     /* 3st lhdc: fixed ratio, 48k -> 48k/44.1k/32k/16k/8k */
-    if (stream_resolution == RESOLUTION_32BIT) {
+    if ((stream_resolution == RESOLUTION_32BIT) || (codec_type == AUDIO_DSP_CODEC_TYPE_MSBC) || (codec_type == AUDIO_DSP_CODEC_TYPE_CVSD)) {
 #ifdef AIR_FIXED_RATIO_SRC
-        /* 3nd src fixed ratio, 48k -> 48k, 96k -> 48k */
-        src_fixed_ratio_config_t sw_src2_config = {0};
-        sw_src2_config.channel_number            = in_ch_num;
-        sw_src2_config.in_sampling_rate          = sw_src1_config.out_sampling_rate;
-        sw_src2_config.out_sampling_rate         = is_bypass_src ? sw_src1_config.out_sampling_rate :
-                                                                   out_rate;
-        sw_src2_config.resolution                = stream_resolution;
-        sw_src2_config.multi_cvt_mode            = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
-        sw_src2_config.cvt_num                   = src_fixed_ratio_depth;
-        sw_src2_config.with_codec                = false;
-        param->src2_port                         = stream_function_src_fixed_ratio_get_3rd_port(source);
-        process_sample_rate_max                  = MAX(process_sample_rate_max, sw_src2_config.out_sampling_rate);
-        sw_src2_config.max_frame_buff_size       = process_max_size;
-        if (sw_src2_config.in_sampling_rate <= sw_src2_config.out_sampling_rate) { // increase size
-            ratio                               = sw_src2_config.out_sampling_rate / sw_src2_config.in_sampling_rate;
-            process_max_size                   *= ratio;
-            sw_src2_config.max_frame_buff_size  = process_max_size;
-        } else {
-            ratio = sw_src2_config.in_sampling_rate / sw_src2_config.out_sampling_rate;
-            process_max_size /= ratio;
+        if (src_fixed_ratio_cnt > 0) {
+            /* 3nd src fixed ratio, 48k -> 48k, 96k -> 48k */
+            sw_src2_config.channel_number            = in_ch_num;
+            sw_src2_config.in_sampling_rate          = next_rate;
+            sw_src2_config.out_sampling_rate         = out_rate;
+            sw_src2_config.resolution                = stream_resolution;
+            sw_src2_config.multi_cvt_mode            = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
+            sw_src2_config.cvt_num                   = src_fixed_ratio_depth;
+            sw_src2_config.with_codec                = false;
+            param->src2_port                         = stream_function_src_fixed_ratio_get_3rd_port(source);
+            process_sample_rate_max                  = MAX(process_sample_rate_max, sw_src2_config.out_sampling_rate);
+            sw_src2_config.max_frame_buff_size       = process_max_size;
+            sw_src2_config.quality_mode              = mode;
+            if (sw_src2_config.in_sampling_rate <= sw_src2_config.out_sampling_rate) { // increase size
+                ratio                               = sw_src2_config.out_sampling_rate / sw_src2_config.in_sampling_rate;
+                process_max_size                   *= ratio;
+                sw_src2_config.max_frame_buff_size  = process_max_size;
+            } else {
+                ratio = sw_src2_config.in_sampling_rate / sw_src2_config.out_sampling_rate;
+                process_max_size /= ratio;
+            }
+            next_rate = sw_src2_config.out_sampling_rate;
+            COMMON_DONGLE_LOG_I("[Dongle Common][scenario type %d] sw fixed src2 0x%x info, %d, %d, %d, %d, %d, %d, %d, %d, depth %d", 11,
+                        source->scenario_type,
+                        param->src2_port,
+                        sw_src2_config.multi_cvt_mode,
+                        sw_src2_config.cvt_num,
+                        sw_src2_config.with_codec,
+                        sw_src2_config.channel_number,
+                        sw_src2_config.resolution,
+                        sw_src2_config.in_sampling_rate,
+                        sw_src2_config.out_sampling_rate,
+                        sw_src2_config.max_frame_buff_size,
+                        src_fixed_ratio_depth
+                        );
+            stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)param->src2_port, &sw_src2_config);
+            src_fixed_ratio_cnt --;
         }
-        COMMON_DONGLE_LOG_I("[Dongle Common][scenario type %d] sw fixed src2 0x%x info, %d, %d, %d, %d, %d, %d, %d, %d", 10,
-                    source->scenario_type,
-                    param->src2_port,
-                    sw_src2_config.multi_cvt_mode,
-                    sw_src2_config.cvt_num,
-                    sw_src2_config.with_codec,
-                    sw_src2_config.channel_number,
-                    sw_src2_config.resolution,
-                    sw_src2_config.in_sampling_rate,
-                    sw_src2_config.out_sampling_rate,
-                    sw_src2_config.max_frame_buff_size
-                    );
-        stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)param->src2_port, &sw_src2_config);
 #endif /* AIR_FIXED_RATIO_SRC */
     } else {
 #ifdef AIR_SOFTWARE_SRC_ENABLE
@@ -418,14 +879,22 @@ bool audio_dl_unified_fs_convertor_init(audio_dl_unified_fs_convertor_param_t *p
         sw_src_config.mode               = SW_SRC_MODE_NORMAL;
         sw_src_config.channel_num        = in_ch_num;
         sw_src_config.in_res             = stream_resolution;
-        sw_src_config.in_sampling_rate   = sw_src1_config.out_sampling_rate;
-        sw_src_config.in_frame_size_max  = sw_src1_config.out_sampling_rate / AUDIO_DONGLE_SAMPLE_RATE_8K * frame_samples_base;
+        sw_src_config.in_sampling_rate   = next_rate;
+        sw_src_config.in_frame_size_max  = process_max_size;
         sw_src_config.in_frame_size_max *= sample_size;
         sw_src_config.out_res            = stream_resolution;
         sw_src_config.out_sampling_rate  = out_rate;
-        sw_src_config.out_frame_size_max = out_rate / AUDIO_DONGLE_SAMPLE_RATE_8K * frame_samples_base;
+        if (sw_src_config.in_sampling_rate <= sw_src_config.out_sampling_rate) { // increase size
+            ratio                               = sw_src_config.out_sampling_rate / sw_src_config.in_sampling_rate;
+            process_max_size                   *= ratio;
+        } else {
+            ratio = sw_src_config.in_sampling_rate / sw_src_config.out_sampling_rate;
+            process_max_size /= ratio;
+        }
+        sw_src_config.out_frame_size_max = process_max_size;
         param->src2_port                 = stream_function_sw_src_get_port(source);
         process_sample_rate_max          = MAX(process_sample_rate_max, sw_src_config.out_sampling_rate);
+        next_rate = sw_src_config.out_sampling_rate;
         COMMON_DONGLE_LOG_I("[Dongle Common][scenario type %d] sw src 0x%x info, %d, %d, %d, %d, %d, %d, %d, %d\r\n", 10,
                     source->scenario_type,
                     param->src2_port,
@@ -441,7 +910,25 @@ bool audio_dl_unified_fs_convertor_init(audio_dl_unified_fs_convertor_param_t *p
         stream_function_sw_src_init((sw_src_port_t *)param->src2_port, &sw_src_config);
 #endif /*    */
     }
-
+#ifdef AIR_FIXED_RATIO_SRC
+    sw_src0_config.max_frame_buff_size = MAX(sw_src0_config.max_frame_buff_size, sw_src1_config.max_frame_buff_size);
+    sw_src0_config.max_frame_buff_size = MAX(sw_src0_config.max_frame_buff_size, sw_src2_config.max_frame_buff_size);
+    COMMON_DONGLE_LOG_I("[Dongle Common][scenario type %d] sw fixed src0 0x%x bypass %d, info, %d, %d, %d, %d, %d, %d, %d, %d, depth %d", 12,
+                source->scenario_type,
+                param->src0_port,
+                is_bypass_src,
+                sw_src0_config.multi_cvt_mode,
+                sw_src0_config.cvt_num,
+                sw_src0_config.with_codec,
+                sw_src0_config.channel_number,
+                sw_src0_config.resolution,
+                sw_src0_config.in_sampling_rate,
+                sw_src0_config.out_sampling_rate,
+                sw_src0_config.max_frame_buff_size,
+                src_fixed_ratio_depth
+                );
+    stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)param->src0_port, &sw_src0_config);
+#endif
     /* update parameters */
     param->process_sample_rate_max = process_sample_rate_max;
     ret = true;
@@ -459,19 +946,33 @@ bool audio_dl_unified_fs_convertor_deinit(audio_dl_unified_fs_convertor_param_t 
     sample_size       = audio_dongle_get_format_bytes(pcm_format);
     stream_resolution = (sample_size == 4) ? RESOLUTION_32BIT : RESOLUTION_16BIT;
     /* 1st src fixed ratio */
-    stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)src0_port);
+    if (src0_port) {
+        #ifdef AIR_FIXED_RATIO_SRC
+        stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)src0_port);
+        #endif
+    }
     /* 2nd src fixed ratio */
-    stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)src1_port);
+    if (src1_port) {
+        #ifdef AIR_FIXED_RATIO_SRC
+        stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)src1_port);
+        #endif
+    }
     /* 3rd src */
     if (stream_resolution == RESOLUTION_32BIT) {
-        stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)src2_port);
+        if (src2_port) {
+            #ifdef AIR_FIXED_RATIO_SRC
+            stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)src2_port);
+            #endif
+        }
     } else {
-        stream_function_sw_src_deinit((sw_src_port_t *)src2_port);
+        if (src2_port) {
+            #ifdef AIR_SOFTWARE_SRC_ENABLE
+            stream_function_sw_src_deinit((sw_src_port_t *)src2_port);
+            #endif
+        }
     }
     return true;
 }
-
-#endif /* AIR_ULL_BLE_HEADSET_ENABLE */
 
 #ifdef AIR_AUDIO_TRANSMITTER_ENABLE
 uint32_t audio_dongle_get_n9_share_buffer_data_size_without_header(n9_dsp_share_info_t *share_info)
@@ -487,6 +988,50 @@ uint32_t audio_dongle_get_n9_share_buffer_data_size_without_header(n9_dsp_share_
     return ret;
 }
 #endif /* AIR_AUDIO_TRANSMITTER_ENABLE */
+
+/* Get Play infor for ULL2.0/LEA Dongle */
+#if defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
+ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void audio_dongle_init_le_play_info(hal_ccni_message_t msg, hal_ccni_message_t *ack)
+{
+    audio_dongle_init_le_play_info_t *play_info = NULL;
+    uint32_t i = 0;
+    uint32_t saved_mask = 0;
+    UNUSED(ack);
+    UNUSED(i);
+    UNUSED(saved_mask);
+    /* save play info to the global variables */
+    play_info = (audio_dongle_init_le_play_info_t *)hal_memview_cm4_to_dsp0(msg.ccni_message[1]);
+    memcpy(&audio_dongle_bt_init_play_info, play_info, sizeof(audio_dongle_init_le_play_info_t));
+
+    /* update uplink BT transmission window clk */
+#if defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
+    ull_audio_v2_dongle_init_play_info(msg, ack);
+#endif
+#if defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
+    ble_audio_dongle_ul_handle_t *le_handle = NULL;
+    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
+    if (ble_audio_dongle_first_ul_handle != NULL)
+    {
+        le_handle = ble_audio_dongle_first_ul_handle;
+        for (i = 0; i < (uint32_t)ble_audio_dongle_first_ul_handle->total_number; i++)
+        {
+            if ((audio_dongle_bt_init_play_info.dl_retransmission_window_clk != 0) && (le_handle->bt_retry_window < audio_dongle_bt_init_play_info.dl_retransmission_window_clk))
+            {
+                le_handle->bt_retry_window = audio_dongle_bt_init_play_info.dl_retransmission_window_clk;
+            }
+            /* switch the next handle */
+            le_handle = le_handle->next_ul_handle;
+        }
+    }
+    hal_nvic_restore_interrupt_mask(saved_mask);
+#endif
+
+    COMMON_DONGLE_LOG_I("[Dongle Common][UL][config] play_info->dl_timestamp_clk %d, dl_timestamp_phase %d", 2,
+        audio_dongle_bt_init_play_info.dl_retransmission_window_clk,
+        audio_dongle_bt_init_play_info.dl_retransmission_window_phase
+        );
+}
+#endif /* dongle for ull2.0/lea */
 
 #if defined(AIR_BT_AUDIO_DONGLE_USB_ENABLE)
 int32_t audio_dongle_ul_usb_clock_skew_check(void *dongle_handle, audio_dongle_type_t dongle_type)
@@ -1156,332 +1701,6 @@ void audio_dongle_afe_in_ccni_handler(void *dongle_handle, audio_dongle_type_t d
 }
 
 #endif /* afe in */
-
-ATTR_TEXT_IN_IRAM_LEVEL_1 void ShareBufferCopy_I_16bit_to_D_16bit_2ch(uint32_t *src_buf, uint16_t *dest_buf1, uint16_t *dest_buf2, uint32_t samples)
-{
-    uint32_t data;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++) {
-        data = src_buf[i];
-        dest_buf1[i] = (uint16_t)(data >> 0);
-        dest_buf2[i] = (uint16_t)(data >> 16);
-    }
-}
-
-ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_16bit_to_D_32bit_2ch(uint32_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t samples)
-{
-    uint32_t data;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data = src_buf[i];
-        dest_buf1[i] = ((uint32_t)((uint16_t)(data>> 0)))<<16;
-        dest_buf2[i] = ((uint32_t)((uint16_t)(data>>16)))<<16;
-    }
-}
-
-ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_24bit_to_D_16bit_2ch(uint8_t* src_buf, uint16_t* dest_buf1, uint16_t* dest_buf2, uint32_t samples)
-{
-    uint32_t data0;
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t i;
-
-    for (i = 0; i < (samples/2); i++)
-    {
-        data0 = *((uint32_t *)src_buf+i*3+0);
-        data1 = *((uint32_t *)src_buf+i*3+1);
-        data2 = *((uint32_t *)src_buf+i*3+2);
-        dest_buf1[i*2]   = (uint16_t)((data0&0x00ffff00)>>8);
-        dest_buf2[i*2]   = (uint16_t)((data1&0x0000ffff));
-        dest_buf1[i*2+1] = (uint16_t)(((data2&0x000000ff)<<8)|((data1&0xff000000)>>24));
-        dest_buf2[i*2+1] = (uint16_t)((data2&0xffff0000)>>16);
-    }
-}
-
-ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_24bit_to_D_32bit_2ch(uint8_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t samples)
-{
-    uint32_t data0;
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t i;
-
-    for (i = 0; i < (samples/2); i++)
-    {
-        data0 = *((uint32_t *)src_buf+i*3+0);
-        data1 = *((uint32_t *)src_buf+i*3+1);
-        data2 = *((uint32_t *)src_buf+i*3+2);
-        dest_buf1[i*2]   = ((data0&0x00ffffff)<<8);
-        dest_buf2[i*2]   = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
-        dest_buf1[i*2+1] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
-        dest_buf2[i*2+1] = ((data2&0xffffff00));
-    }
-}
-
-ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_16bit_to_D_32bit_8ch(uint32_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t* dest_buf3, uint32_t* dest_buf4, uint32_t* dest_buf5, uint32_t* dest_buf6, uint32_t* dest_buf7, uint32_t* dest_buf8, uint32_t samples)
-{
-    uint32_t data0;
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t data3;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data0 = src_buf[4*i + 0];
-        data1 = src_buf[4*i + 1];
-        data2 = src_buf[4*i + 2];
-        data3 = src_buf[4*i + 3];
-        dest_buf1[i] = ((uint32_t)((uint16_t)(data0>> 0)))<<16;
-        dest_buf2[i] = ((uint32_t)((uint16_t)(data0>>16)))<<16;
-        dest_buf3[i] = ((uint32_t)((uint16_t)(data1>> 0)))<<16;
-        dest_buf4[i] = ((uint32_t)((uint16_t)(data1>>16)))<<16;
-        dest_buf5[i] = ((uint32_t)((uint16_t)(data2>> 0)))<<16;
-        dest_buf6[i] = ((uint32_t)((uint16_t)(data2>>16)))<<16;
-        dest_buf7[i] = ((uint32_t)((uint16_t)(data3>> 0)))<<16;
-        dest_buf8[i] = ((uint32_t)((uint16_t)(data3>>16)))<<16;
-    }
-}
-
-ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_16bit_to_D_16bit_8ch(uint32_t* src_buf, uint16_t* dest_buf1, uint16_t* dest_buf2, uint16_t* dest_buf3, uint16_t* dest_buf4, uint16_t* dest_buf5, uint16_t* dest_buf6, uint16_t* dest_buf7, uint16_t* dest_buf8, uint32_t samples)
-{
-    uint32_t data0;
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t data3;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data0 = src_buf[4*i + 0];
-        data1 = src_buf[4*i + 1];
-        data2 = src_buf[4*i + 2];
-        data3 = src_buf[4*i + 3];
-        dest_buf1[i] = ((uint16_t)(data0>> 0));
-        dest_buf2[i] = ((uint16_t)(data0>>16));
-        dest_buf3[i] = ((uint16_t)(data1>> 0));
-        dest_buf4[i] = ((uint16_t)(data1>>16));
-        dest_buf5[i] = ((uint16_t)(data2>> 0));
-        dest_buf6[i] = ((uint16_t)(data2>>16));
-        dest_buf7[i] = ((uint16_t)(data3>> 0));
-        dest_buf8[i] = ((uint16_t)(data3>>16));
-    }
-}
-
-ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_24bit_to_D_32bit_8ch(uint32_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t* dest_buf3, uint32_t* dest_buf4, uint32_t* dest_buf5, uint32_t* dest_buf6, uint32_t* dest_buf7, uint32_t* dest_buf8, uint32_t samples)
-{
-    uint32_t data0;
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t data3;
-    uint32_t data4;
-    uint32_t data5;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data0 = src_buf[6*i + 0];
-        data1 = src_buf[6*i + 1];
-        data2 = src_buf[6*i + 2];
-        data3 = src_buf[6*i + 3];
-        data4 = src_buf[6*i + 4];
-        data5 = src_buf[6*i + 5];
-        dest_buf1[i] = (data0&0x00ffffff)<<8;
-        dest_buf2[i] = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
-        dest_buf3[i] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
-        dest_buf4[i] = (data2&0xffffff00);
-        dest_buf5[i] = (data3&0x00ffffff)<<8;
-        dest_buf6[i] = ((data4&0x0000ffff)<<16)|((data3&0xff000000)>>16);
-        dest_buf7[i] = ((data5&0x000000ff)<<24)|((data4&0xffff0000)>>8);
-        dest_buf8[i] = (data5&0xffffff00);
-    }
-}
-
-ATTR_TEXT_IN_IRAM void ShareBufferCopy_I_24bit_to_D_16bit_8ch(uint32_t* src_buf, uint16_t* dest_buf1, uint16_t* dest_buf2, uint16_t* dest_buf3, uint16_t* dest_buf4, uint16_t* dest_buf5, uint16_t* dest_buf6, uint16_t* dest_buf7, uint16_t* dest_buf8, uint32_t samples)
-{
-    uint32_t data0;
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t data3;
-    uint32_t data4;
-    uint32_t data5;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data0 = src_buf[6*i + 0];
-        data1 = src_buf[6*i + 1];
-        data2 = src_buf[6*i + 2];
-        data3 = src_buf[6*i + 3];
-        data4 = src_buf[6*i + 4];
-        data5 = src_buf[6*i + 5];
-        dest_buf1[i] = (uint16_t)((data0&0x00ffff00)>>8);
-        dest_buf2[i] = (uint16_t)((data1&0x0000ffff));
-        dest_buf3[i] = (uint16_t)(((data2&0x000000ff)<<8)|((data1&0xff000000)>>24));
-        dest_buf4[i] = (uint16_t)((data2&0xffff0000)>>16);
-        dest_buf5[i] = (uint16_t)((data3&0x00ffff00)>>8);
-        dest_buf6[i] = (uint16_t)((data4&0x0000ffff)<<16);
-        dest_buf7[i] = (uint16_t)(((data5&0x000000ff)<<8)|((data4&0xff000000)>>24));
-        dest_buf8[i] = (uint16_t)((data5&0xffff0000)>>16);
-    }
-}
-
-void ShareBufferCopy_D_32bit_to_D_24bit_1ch(uint32_t* src_buf, uint8_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data = src_buf[i];
-        *(dest_buf1+i*3+0) = (uint8_t)((data>> 8)&0xff);
-        *(dest_buf1+i*3+1) = (uint8_t)((data>>16)&0xff);
-        *(dest_buf1+i*3+2) = (uint8_t)((data>>24)&0xff);
-    }
-}
-
-void ShareBufferCopy_D_32bit_to_I_24bit_2ch(uint32_t* src_buf1, uint32_t* src_buf2, uint8_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data1 = src_buf1[i];
-        data2 = src_buf2[i];
-        *(dest_buf1+i*6+0) = (uint8_t)((data1>> 8)&0xff);
-        *(dest_buf1+i*6+1) = (uint8_t)((data1>>16)&0xff);
-        *(dest_buf1+i*6+2) = (uint8_t)((data1>>24)&0xff);
-        *(dest_buf1+i*6+3) = (uint8_t)((data2>> 8)&0xff);
-        *(dest_buf1+i*6+4) = (uint8_t)((data2>>16)&0xff);
-        *(dest_buf1+i*6+5) = (uint8_t)((data2>>24)&0xff);
-    }
-}
-
-void ShareBufferCopy_D_16bit_to_D_16bit_1ch(uint16_t* src_buf, uint16_t* dest_buf1, uint32_t samples)
-{
-    uint16_t data;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data = src_buf[i];
-        *(dest_buf1+i) = data;
-    }
-}
-
-void ShareBufferCopy_D_16bit_to_I_16bit_2ch(uint16_t* src_buf1, uint16_t* src_buf2, uint16_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data1 = src_buf1[i];
-        data2 = src_buf2[i];
-        data1 = (data1) | (data2 << 16);
-        *((uint32_t* )dest_buf1+i) = data1;
-    }
-}
-
-void ShareBufferCopy_D_32bit_to_D_16bit_1ch(uint32_t* src_buf, uint16_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data = src_buf[i];
-        *(dest_buf1+i) = (uint16_t)((data >> 16)&0xffff);
-    }
-}
-
-void ShareBufferCopy_D_32bit_to_I_16bit_2ch(uint32_t* src_buf1, uint32_t* src_buf2, uint16_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data1 = src_buf1[i];
-        data2 = src_buf2[i];
-        data1 = ((data1 >> 16)&0x0000ffff) | ((data2 >> 0)&0xffff0000);
-        *((uint32_t* )dest_buf1+i) = data1;
-    }
-}
-
-void ShareBufferCopy_D_16bit_to_I_24bit_2ch(uint16_t* src_buf1, uint16_t* src_buf2, uint8_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data32;
-    uint16_t data16;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        if ((i%2) == 0)
-        {
-            data32 = (src_buf1[i]<<8); // 0x00XXXX00
-            data16 = src_buf2[i]; //0xXXXX
-            *(uint32_t *)(dest_buf1 + i*6) = data32;
-            *(uint16_t *)(dest_buf1 + i*6 + 4) = data16;
-        }
-        else
-        {
-            data16 = (src_buf1[i]&0x00ff)<<8; //0xXX00
-            data32 = (src_buf2[i]<<16) | ((src_buf1[i]&0xff00)>>8); // 0xXXXX00XX
-            *(uint16_t *)(dest_buf1 + i*6) = data16;
-            *(uint32_t *)(dest_buf1 + i*6 + 2) = data32;
-        }
-    }
-}
-
-void ShareBufferCopy_D_16bit_to_D_24bit_1ch(uint16_t* src_buf1, uint8_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data32;
-    uint16_t data16;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        if ((i%2) == 0)
-        {
-            if (i != (samples - 1))
-            {
-                data32 = (src_buf1[i]<<8); // 0x00XXXX00
-                *(uint32_t *)(dest_buf1 + (i/2)*6) = data32;
-            }
-            else
-            {
-                /* prevent overflow */
-                data32 = (src_buf1[i]<<8); // 0x00XXXX00
-                *(uint16_t *)(dest_buf1 + (i/2)*6) = (uint16_t)(data32&0x0000ffff);
-                *(uint8_t *)(dest_buf1 + (i/2)*6 + 2) = (uint8_t)((data32&0x00ff0000)>>16);
-            }
-        }
-        else
-        {
-            data16 = src_buf1[i]; //0xXXXX
-            *(uint16_t *)(dest_buf1 + (i/2)*6 + 4) = data16;
-        }
-    }
-}
-
-void ShareBufferCopy_D_16bit_to_D_32bit_1ch(uint16_t* src_buf, uint32_t* dest_buf, uint32_t samples)
-{
-    uint32_t data;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data = src_buf[i];
-        *(dest_buf+i) = data<<16;
-    }
-}
 
 void audio_dongle_sink_get_share_buffer_avail_size(SINK sink, uint32_t *avail_size)
 {

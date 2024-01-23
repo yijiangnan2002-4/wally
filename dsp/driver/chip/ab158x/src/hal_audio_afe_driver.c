@@ -1553,7 +1553,6 @@ void afe_audio_set_output_analog_gain(void)
     uint32_t reg_max = 0;
     uint32_t reg_min = 0;
     uint32_t minimum_db_to_minimum_reg_value = 0;
-    hal_audio_afe_clock_on();
 
     db_unit = ((int32_t)afe.stream_out.analog_gain_index) / 100;
     db_max = 12;
@@ -1567,7 +1566,6 @@ void afe_audio_set_output_analog_gain(void)
     AFE_SET_REG(ZCD_CON2, amp_gain, 0xfff);
 
     log_hal_msgid_info("DSP afe_audio_set_output_analog_gain :0x%x \r\n", 1, amp_gain);
-    hal_audio_afe_clock_off();
 }
 
 void afe_audio_set_input_analog_gain(void)
@@ -1580,7 +1578,6 @@ void afe_audio_set_input_analog_gain(void)
     uint32_t reg_max = 0;
     uint32_t reg_min = 0;
     uint32_t minimum_db_to_minimum_reg_value = 1;
-    hal_audio_afe_clock_on();
     if (afe.stream_in.mute_flag) {
     } else {
         db_unit = ((int32_t)afe.stream_in.analog_gain_index) / 100;
@@ -1593,7 +1590,6 @@ void afe_audio_set_input_analog_gain(void)
         ANA_SET_REG(AUDENC_ANA_CON0, amp_gain << 8, 0x0700);
         ANA_SET_REG(AUDENC_ANA_CON1, amp_gain << 8, 0x0700);
     }
-    hal_audio_afe_clock_off();
 }
 
 void afe_audio_set_output_digital_gain(afe_digital_gain_t gain_type)
@@ -1685,7 +1681,6 @@ static int16_t aud_afe_digital_gain_ctrl;
 
 void afe_set_hardware_digital_gain(afe_hardware_digital_gain_t gain_type, uint32_t gain)
 {
-    hal_audio_afe_clock_on();
     switch (gain_type) {
         case AFE_HW_DIGITAL_GAIN1:
             AFE_SET_REG(AFE_GAIN1_CON1, gain, 0xfffff);
@@ -1696,13 +1691,11 @@ void afe_set_hardware_digital_gain(afe_hardware_digital_gain_t gain_type, uint32
         default:
             break;
     }
-    hal_audio_afe_clock_off();
 }
 
 uint32_t afe_get_hardware_digital_gain(afe_hardware_digital_gain_t gain_type)
 {
     uint32_t register_value;
-    hal_audio_afe_clock_on();
     switch (gain_type) {
         case AFE_HW_DIGITAL_GAIN1:
             register_value = AFE_GET_REG(AFE_GAIN1_CON1);
@@ -1714,7 +1707,6 @@ uint32_t afe_get_hardware_digital_gain(afe_hardware_digital_gain_t gain_type)
             register_value = AFE_GET_REG(AFE_GAIN1_CON1);
             break;
     }
-    hal_audio_afe_clock_off();
     return register_value;
 }
 
@@ -1989,7 +1981,6 @@ bool afe_set_sidetone_filter(bool enable)
                         if (try_cnt == 9) {
                             //[TBD: do error handle] notify
 #if 0
-                            hal_audio_afe_clock_off();
                             log_hal_msgid_warning("DSP sidetone time out\r\n", 0);
                             return;
 #else
@@ -3056,7 +3047,7 @@ uint32_t afe_get_asrc_irq_status(afe_mem_asrc_id_t asrc_id)
     return 0;
 }
 
-void afe_set_asrc(afe_mem_asrc_id_t asrc_id, afe_asrc_config_p config, bool enable)
+void afe_set_asrc(afe_mem_asrc_id_t asrc_id, afe_src_configuration_p config, bool enable)
 {
     UNUSED(asrc_id);
     UNUSED(config);
@@ -3215,7 +3206,7 @@ void afe_set_asrc_compensating_sample(afe_mem_asrc_id_t asrc_id, uint32_t output
         RG_Value = (((output_buffer_rate * (U32)4096) / (U32)100) - (U32)step);
     } else {
 //            RG_Value = (((output_buffer_rate*(U32)4096)/(U32)100) + (output_buffer_rate*(U32)step*4096)/(4096*4*100));
-        RG_Value = (((output_buffer_rate * (U32)4096) / (U32)100) + (U32)step );
+        RG_Value = (((output_buffer_rate * (U32)4096) / (U32)100) + (U32)step);
     }
 
 

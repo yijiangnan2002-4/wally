@@ -544,7 +544,7 @@ static RACE_ERRCODE bt_race_audio_event_callback(void *param, void *user_data)
         APPS_LOG_MSGID_I("[ANC_SRV] RaceCMD anc_onoff=%d", 1, anc_onoff);
 #ifndef AIR_HEARTHROUGH_MAIN_ENABLE
         if (anc_onoff) {
-            voice_prompt_play_sync_vp_successed();
+            voice_prompt_play_sync_vp_succeed();
         }
 #endif
     }

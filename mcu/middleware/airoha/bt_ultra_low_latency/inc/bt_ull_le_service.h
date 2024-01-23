@@ -39,7 +39,7 @@
 /**
  * @addtogroup Bluetooth_Services_Group Bluetooth Services
  * @{
- * @addtogroup BluetoothServices_ULL Ultra Low Latency LE
+ * @addtogroup BluetoothServices_ULL Ultra Low Latency
  * @{
  * This section describes the Ultra Low Latency (ULL) LE APIs and events.
  * Clients (Ex. Headset/Earbuds) with a low wireless audio latency utilize Ultra Low Latency when they are connected with a well-matched server (Ex. Dongle).
@@ -53,7 +53,7 @@
  * |\b RSI                        | Resolvable Set Identifier. |
  * |\b CS                         | Coordinated Set. |
  *
- * @section bt_ull_api_usage How to use this module
+ * @section bt_ull_le_srv_api_usage How to use this module
  *  - Step1: Initialize Bluetooth Ultra Low Latency LE service during system initialization (Mandatory).
  *   - Sample code in client (Ex. Headset/Earbuds):
  *    @code
@@ -165,22 +165,25 @@ typedef uint8_t bt_ull_le_set_codec_port_t;
  *  @brief Define the state of ULL dongle audio stream.
  */
 typedef uint8_t bt_ull_le_srv_latency_t;
-#define BT_ULL_LE_SRV_LATENCY_DEFAULT        (0x00)                              /* Defualt mode, ull air latency is 5 ms */
-#define BT_ULL_LE_SRV_LATENCY_SINGLE_LINK_MODE    BT_ULL_LE_SRV_LATENCY_DEFAULT  /* Single link mode, ull air latency is 5 ms */
-#define BT_ULL_LE_SRV_LATENCY_MULTI_LINK_HFP_STANDBY_MODE   BT_ULL_LE_SRV_LATENCY_DEFAULT               /* Multi link HFP standby mode, ull air latency is 5 ms */
-#define BT_ULL_LE_SRV_LATENCY_MULTI_LINK_LEA_INTERVAL_MORE_THAN_30MS_STANDBY_MODE  (0x01) /* Multi link LE audio standby mode with more than 30 ms connection interval, ull air latency is 10 ms*/
-#define BT_ULL_LE_SRV_LATENCY_MULTI_LINK_A2DP_STANDBY_MODE  (0x02)               /* Multi link A2DP standby mode, ull air latency is 15 ms*/
-#define BT_ULL_LE_SRV_LATENCY_MULTI_LINK_CONNECTING_MODE    (0x03)               /* Multi link connecting mode, ull air latency is 20 ms */                 
-#define BT_ULL_LE_SRV_LATENCY_MULTI_LINK_LEA_7_5MS_30MS_STANDBY_MODE    BT_ULL_LE_SRV_LATENCY_MULTI_LINK_A2DP_STANDBY_MODE   /*  Multi link LE audio standby mode with 60 ms connection interval, ull air latency is 15 ms*/
+#define BT_ULL_LE_SRV_LATENCY_DEFAULT        (0x00)                              /**< Default mode, ull air latency is 5 ms. */
+#define BT_ULL_LE_SRV_LATENCY_SINGLE_LINK_MODE    BT_ULL_LE_SRV_LATENCY_DEFAULT  /**< Single link mode, ull air latency is 5 ms. */
+#define BT_ULL_LE_SRV_LATENCY_MULTI_LINK_HFP_STANDBY_MODE   BT_ULL_LE_SRV_LATENCY_DEFAULT               /**< Multi link HFP standby mode, ull air latency is 5 ms. */
+#define BT_ULL_LE_SRV_LATENCY_MULTI_LINK_LEA_INTERVAL_MORE_THAN_30MS_STANDBY_MODE  (0x01) /**< Multi link LE audio standby mode with more than 30 ms connection interval, ull air latency is 10 ms. */
+#define BT_ULL_LE_SRV_LATENCY_MULTI_LINK_A2DP_STANDBY_MODE  (0x02)               /**< Multi link A2DP standby mode, ull air latency is 15 ms. */
+#define BT_ULL_LE_SRV_LATENCY_MULTI_LINK_CONNECTING_MODE    (0x03)               /**< Multi link connecting mode, ull air latency is 20 ms. */
+#define BT_ULL_LE_SRV_LATENCY_MULTI_LINK_LEA_7_5MS_30MS_STANDBY_MODE    BT_ULL_LE_SRV_LATENCY_MULTI_LINK_A2DP_STANDBY_MODE   /**<  Multi link LE audio standby mode with 60 ms connection interval, ull air latency is 15 ms. */
 
+/**
+ * @brief Define the audio quality of ULL LE.
+ */
 typedef uint8_t bt_ull_le_srv_audio_quality_t;
-#define BT_ULL_LE_SRV_AUDIO_QUALITY_TYPE_INVALID        0x00                     /* Invalid audio quality */ 
-#define BT_ULL_LE_SRV_AUDIO_QUALITY_TYPE_DEFAULT        0x01                     /* DL: sampling rate: 96K, bit rate: 304K, UL: sampling rate: 16K, 32K or 48K, bit rate: 64K or 104K*/ 
-#define BT_ULL_LE_SRV_AUDIO_QUALITY_TWO_STREAMING_A2DP  0x02                     /* DL: sampling rate: 96K, bit rate: 250K, UL: sampling rate: N/A, have not uplink */
-#define BT_ULL_LE_SRV_AUDIO_QUALITY_TWO_STREAMING_HFP   0x03                     /* DL: sampling rate: 96K, bit rate: 250K, UL: sampling rate: N/A, have not uplink */ 
-#define BT_ULL_LE_SRV_AUDIO_QUALITY_HIGH_QUALITY        0x04                     /* DL: sampling rate: 96K, bit rate: 560K, UL: sampling rate: 16K, 32K or 48K, bit rate: 104K */ 
-#define BT_ULL_LE_SRV_AUDIO_QUALITY_HIGH_RESOLUTION     0x05                     /* DL: sampling rate: 96K, bit rate: 940K, UL: sampling rate: 16K, 32K or 48K, bit rate: 104K */
-#define BT_ULL_LE_SRV_AUDIO_QUALITY_LOW_POWER           0x06                     /* DL: sampling rate: 96K, bit rate: 940K, UL: sampling rate: 16K, 32K or 48K, bit rate: 104K */
+#define BT_ULL_LE_SRV_AUDIO_QUALITY_TYPE_INVALID        0x00                     /**< Invalid audio quality */ 
+#define BT_ULL_LE_SRV_AUDIO_QUALITY_TYPE_DEFAULT        0x01                     /**< DL: sampling rate: 96K, bit rate: 304K, UL: sampling rate: 16K, 32K or 48K, bit rate: 64K or 104K*/
+#define BT_ULL_LE_SRV_AUDIO_QUALITY_TWO_STREAMING_A2DP  0x02                     /**< DL: sampling rate: 96K, bit rate: 250K, UL: sampling rate: N/A, have not uplink */
+#define BT_ULL_LE_SRV_AUDIO_QUALITY_TWO_STREAMING_HFP   0x03                     /**< DL: sampling rate: 96K, bit rate: 250K, UL: sampling rate: N/A, have not uplink */
+#define BT_ULL_LE_SRV_AUDIO_QUALITY_HIGH_QUALITY        0x04                     /**< DL: sampling rate: 96K, bit rate: 560K, UL: sampling rate: 16K, 32K or 48K, bit rate: 104K */
+#define BT_ULL_LE_SRV_AUDIO_QUALITY_HIGH_RESOLUTION     0x05                     /**< DL: sampling rate: 96K, bit rate: 940K, UL: sampling rate: 16K, 32K or 48K, bit rate: 104K */
+#define BT_ULL_LE_SRV_AUDIO_QUALITY_LOW_POWER           0x06                     /**< DL: sampling rate: 96K, bit rate: 940K, UL: sampling rate: 16K, 32K or 48K, bit rate: 104K */
 
 /**
  * @brief Define the codec type of ULL Dongle LE.
@@ -191,6 +194,7 @@ typedef uint8_t bt_ull_le_codec_t;
 #define BT_ULL_LE_CODEC_VENDOR                 0x02      /**< Vendor codec type. */
 #define BT_ULL_LE_CODEC_ULD                    0x04      /**< ULD codec type. */
 #define BT_ULL_LE_CODEC_DL_ULD_UL_LC3PLUS      0x05      /**< DL ULD codec type,UL LC3Plus codec type.*/
+#define BT_ULL_LE_CODEC_DL_ULD_UL_OPUS         0x06      /**< DL ULD codec type,UL OPUS codec type.*/
 
 /**
  * @brief Define the channel mode of ULL Dongle LE.
@@ -201,6 +205,9 @@ typedef uint8_t bt_ull_le_channel_mode_t;
 #define BT_ULL_LE_CHANNEL_MODE_DUAL_MONO   0x04          /**< Dual mono mode. */
 
 
+/**
+ * @brief Define the streaming mode of ULL LE.
+ */
 typedef uint8_t bt_ull_le_stream_mode_t;
 #define BT_ULL_LE_STREAM_MODE_DOWNLINK      0x00         /**< Downlink streaming mode. */
 #define BT_ULL_LE_STREAM_MODE_UPLINK        0x01         /**< Uplink streaming mode. */
@@ -209,7 +216,7 @@ typedef uint8_t bt_ull_le_stream_mode_t;
  * @brief Define the scenario that the client will switch.
  */
 typedef uint8_t bt_ull_le_scenario_t;
-#define BT_ULL_LE_SCENARIO_INVALID          0x00        /**<  Invalid scenario type. */
+#define BT_ULL_LE_SCENARIO_INVALID          0x00        /**< Invalid scenario type. */
 #define BT_ULL_LE_SCENARIO_ULLV2_0          0x01        /**< Switch to ULL2.0 scenario. */
 #define BT_ULL_LE_SCENARIO_ULLV3_0          0x02        /**< Switch to ULL3.0 scenario  */
 
@@ -260,37 +267,37 @@ typedef struct {
  * @brief Define the device information of ULL Client.
  */
 typedef struct {
-    bt_ull_client_t client_type;
-    uint8_t         size;                       /**< The size of ULL LE Coordinated set. */
-    bt_key_t        sirk;                       /**< The SIRK of ULL LE Coordinated set. */
-	bt_bd_addr_t    local_random_addr;          /**< The random address of ULL LE. */
+    bt_ull_client_t client_type;                                       /**< The ULL client type.*/
+    uint8_t         size;                                              /**< The size of ULL LE Coordinated set. */
+    bt_key_t        sirk;                                              /**< The SIRK of ULL LE Coordinated set. */
+    bt_bd_addr_t    local_random_addr;                                 /**< The random address of ULL LE. */
 #ifdef AIR_WIRELESS_MIC_ENABLE
-    bt_ull_le_channel_mode_t  client_preferred_channel_mode; /**< The channel mode only used for wirelss mic*/
+    bt_ull_le_channel_mode_t  client_preferred_channel_mode;           /**< The channel mode only used for wireless mic*/
 #else
-    bt_ull_le_codec_t  client_preferred_codec_type; /**< The client prefferred codec type only used for ull v2*/
+    bt_ull_le_codec_t  client_preferred_codec_type;                    /**< The client preferred codec type only used for ull v2*/
 #endif
-    bt_addr_t       group_device_addr[BT_ULL_LE_MAX_LINK_NUM - 1];
+    bt_addr_t       group_device_addr[BT_ULL_LE_MAX_LINK_NUM - 1];     /**< The remote device address that is in the same group.*/
 } bt_ull_le_device_info_t;
 
 /**
- * @brief This structure defines the parameters of event #BT_ULL_EVENT_LE_CONNECTED
+ *  @brief This structure defines the parameters of event #BT_ULL_EVENT_LE_CONNECTED
  *         which indicates the result of ULL LE connect.
  */
 typedef struct {
-    bt_status_t status;
-    bt_ull_client_t client_type;
-    uint8_t set_size;
-    uint16_t conn_handle;
-    bt_key_t sirk;
-    bt_addr_t group_device_addr[BT_ULL_LE_MAX_LINK_NUM - 1];
+    bt_status_t status;                           /**< The ULL LE connection status.*/
+    bt_ull_client_t client_type;                  /**< The ULL client type.*/
+    uint8_t set_size;                             /**< The size of ULL LE Coordinated set. */
+    uint16_t conn_handle;                         /**< The LE connection handle. */
+    bt_key_t sirk;                                /**< The SIRK of ULL LE Coordinated set. */
+    bt_addr_t group_device_addr[BT_ULL_LE_MAX_LINK_NUM - 1]; /**< The device address that is in the same group.*/
 } bt_ull_le_connected_info_t;
 
 /**
- * @brief This structure defines the parameters of event #BT_ULL_EVENT_LE_DISCONNECTED
+ *  @brief This structure defines the parameters of event #BT_ULL_EVENT_LE_DISCONNECTED
  *         which indicates the result of ULL LE disconnect.
  */
 typedef struct {
-    uint16_t conn_handle;
+    uint16_t conn_handle;                         /**< The LE connection handle. */
 } bt_ull_le_disconnect_info_t;
 
 /**
@@ -299,15 +306,15 @@ typedef struct {
  */
 typedef struct {
     union {
-        bt_ull_le_stream_mode_t stream_mode;
-        bt_ull_streaming_t      stream;
+        bt_ull_le_stream_mode_t stream_mode;    /**< The streaming mode. */
+        bt_ull_streaming_t      stream;         /**< The streaming info. */
     };
 } bt_ull_le_streaming_start_ind_t;
 
 
 /**
  * @brief This structure defines the parameters of event #BT_ULL_EVENT_LE_STREAMING_STOP_IND
- *         which indicates the result of ULL LE streaming is stoped.
+ *         which indicates the result of ULL LE streaming is stopped.
  */
 typedef bt_ull_le_streaming_start_ind_t bt_ull_le_streaming_stop_ind_t;
 
@@ -405,7 +412,7 @@ bt_ull_role_t bt_ull_le_srv_get_role(void);
 
 /**
  * @brief   This function set the access address for adv and scan.
- * @param[in]                #bt_ull_le_set_adv_scan_access_addr_t, the access address parameters.
+ * @param[in] access_addr     the access address parameters.
  * @return                #BT_STATUS_SUCCESS, the operation completed successfully.
  *                        #BT_STATUS_FAIL, the operation has failed.
  */
@@ -413,9 +420,8 @@ bt_status_t bt_ull_le_srv_set_access_address(bt_ull_le_set_adv_scan_access_addr_
 
 /**
  * @brief   This function enable/disable adaptive bitrate mode.
- * @param[in]                #bt_ull_le_adaptive_bitrate_params_t,  parameters of adaptive bitrate.
+ * @param[in] adaptive_bitrate_param       the parameters of adaptive bitrate.
  * @return                #BT_STATUS_SUCCESS, the operation completed successfully.
- *      
  */
 bt_status_t bt_ull_le_srv_enable_adaptive_bitrate_mode(bt_ull_le_adaptive_bitrate_params_t *adaptive_bitrate_param);
 

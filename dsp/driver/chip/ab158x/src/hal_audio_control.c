@@ -65,16 +65,16 @@
 #include "hal_audio_driver.h"
 #endif
 
-#ifdef AIR_DCHS_MODE_ENABLE
-#include "stream_dchs.h"
-#endif
-
 #ifdef AIR_SILENCE_DETECTION_ENABLE
 #include "silence_detection_interface.h"
 #endif
 
 #include "hal_audio_cm4_dsp_message.h"
 #include "dsp_audio_msg.h"
+
+#ifdef AIR_MIXER_STREAM_ENABLE
+#include "stream_mixer.h"
+#endif
 
 #ifdef HAL_AUDIO_MODULE_ENABLED
 #define I2S_SHARE_CLOCK_INDEX 24
@@ -87,6 +87,10 @@
 extern afe_sidetone_param_t dsp_afe_sidetone;
 extern afe_sidetone_param_extension_t dsp_afe_sidetone_extension;
 #endif
+#if (defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)) && defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+extern void stream_function_hearing_aid_set_dac_mode(U8 audio_dac_mode);
+#endif
+
 extern afe_samplerate_general_t afe_samplerate_convert_samplerate_to_register_value(uint32_t samplerate);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -95,11 +99,11 @@ extern afe_samplerate_general_t afe_samplerate_convert_samplerate_to_register_va
 
 
 #if defined(AIR_BTA_IC_PREMIUM_G2)
-    #define AFE_ADC_NUMBER          (3)
+#define AFE_ADC_NUMBER          (3)
 #elif defined(BASE_STEREO_HIGH_G3_TYPE_77) || defined(AIR_BTA_IC_PREMIUM_G3)
-    #define AFE_ADC_NUMBER          (2)
+#define AFE_ADC_NUMBER          (2)
 #else
-    #define AFE_ADC_NUMBER          (1)
+#define AFE_ADC_NUMBER          (1)
 #endif
 
 
@@ -118,8 +122,8 @@ uint16_t                     vow_pre_ch1_noise_msb = 0;
 HAL_AUDIO_SEMAPHO_HANDLE g_audio_device_mutex = NULL;
 
 /* ADC and Dmic performance control*/
-uint32_t afe_adc_performance_control[AFE_ADC_NUMBER][AFE_PEROFRMANCE_MAX][(AUDIO_SCENARIO_TYPE_END/32) + 1] = {};
-uint32_t afe_dmic_clock_control[(HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_MAX - HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1) + 1][AFE_DMIC_CLOCK_MAX][(AUDIO_SCENARIO_TYPE_END/32) + 1] = {};
+uint32_t afe_adc_performance_control[AFE_ADC_NUMBER][AFE_PEROFRMANCE_MAX][(AUDIO_SCENARIO_TYPE_END / 32) + 1] = {};
+uint32_t afe_dmic_clock_control[(HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_MAX - HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1) + 1][AFE_DMIC_CLOCK_MAX][(AUDIO_SCENARIO_TYPE_END / 32) + 1] = {};
 
 /* DAC Deactive mode */
 #if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
@@ -144,6 +148,9 @@ hal_audio_performance_mode_t afe_adc_performance_mode[AFE_ANALOG_NUMBER];
 hal_audio_volume_digital_gain_fade_time_setting_parameter_t g_gain_fade_time_setting[AFE_HW_DIGITAL_GAIN_NUM];
 #endif
 uint32_t pre_src1_empty_gpt_cnt = 0; // use to detect HWSRC 1 underflow during eSCO
+#ifdef AIR_MCU_DSP_DEPENDECY_CHECK_ENABLE
+extern audio_clock_share_buffer_p audio_clock_param;
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Functiion Prototype //////////////////////////////////////////////////////////////////////////////////////////////
@@ -154,7 +161,7 @@ uint32_t hal_audio_control_get_audio_count(void);
 uint32_t hal_audio_control_get_current_offset(hal_audio_current_offset_parameter_t *offset_handle, hal_audio_get_value_command_t command);
 uint32_t hal_audio_control_set_current_offset(hal_audio_current_offset_parameter_t *offset_handle, hal_audio_set_value_command_t command);
 
-void hal_audio_component_id_resource_management(audio_scenario_type_t type, hal_audio_agent_t agent, bool control);
+bool hal_audio_component_id_resource_management(audio_scenario_type_t type, hal_audio_agent_t agent, bool control);
 bool hal_audio_status_get_all_agent_status(void);
 bool hal_audio_status_get_agent_status(hal_audio_agent_t agent);
 bool hal_audio_status_get_sub_agent_status(hal_audio_sub_agent_t sub_agent);
@@ -162,8 +169,9 @@ bool hal_audio_status_get_sub_agent_of_device_agent_status(hal_audio_device_agen
 bool hal_audio_status_get_agent_status(hal_audio_agent_t agent);
 bool hal_audio_status_get_agent_of_type_status(hal_audio_agent_t agent, audio_scenario_type_t type);
 bool hal_audio_status_get_agent_except_type_status(hal_audio_agent_t agent, audio_scenario_type_t type1, audio_scenario_type_t type2);
-
+audio_scenario_type_t hal_audio_status_get_type_of_agent(hal_audio_agent_t agent);
 //void hal_audio_device_set_sub_component_id(hal_audio_device_parameter_t *handle, hal_audio_control_t device, hal_audio_device_agent_t agent, bool control);
+void hal_audio_status_check_sub_agent_dependency(hal_audio_device_agent_t device_agent, hal_audio_sub_agent_t sub_agent, bool control);
 bool hal_audio_sub_component_id_resource_management(hal_audio_device_agent_t device_agent, hal_audio_sub_agent_t sub_agent, bool control);
 
 //bool hal_audio_device_set_inout_cnt(hal_audio_device_parameter_t *handle, hal_audio_control_t device, hal_audio_control_status_t control);
@@ -301,7 +309,7 @@ void hal_audio_control_initialize(void)
     if (g_audio_device_mutex == NULL) {
         g_audio_device_mutex = xSemaphoreCreateMutex();
     }
-    if(!g_audio_device_mutex) {
+    if (!g_audio_device_mutex) {
         HAL_AUDIO_LOG_ERROR("DSP - Error create mutex FAIL \n", 0);
         OS_ASSERT(FALSE);
     }
@@ -605,13 +613,11 @@ static hal_audio_irq_entry afe_irq_vow_snr_function;
 
 uint32_t g_dsp_agent_type[HAL_AUDIO_AGENT_NUMBERS][(AUDIO_SCEANRIO_TYPE_MAX + 31) / 32] = {0};
 uint32_t g_dsp_sub_agent_type[HAL_AUDIO_SUB_AGENT_NUMBERS] = {0};
-bool g_dsp_agent_on[HAL_AUDIO_AGENT_NUMBERS];
-bool g_dsp_agent_off[HAL_AUDIO_AGENT_NUMBERS];
 audio_scenario_type_t delay_off_type;
 
 bool hal_audio_status_get_all_agent_status(void)
 {
-    for (uint32_t i = 0; i <= (HAL_AUDIO_AGENT_NUMBERS-1); i++) {
+    for (uint32_t i = 0; i <= (HAL_AUDIO_AGENT_NUMBERS - 1); i++) {
         for (uint32_t j = 0; j <= (AUDIO_SCENARIO_TYPE_END / 32); j++) {
             if (g_dsp_agent_type[i][j] != 0) {
                 //HAL_AUDIO_LOG_INFO("[Audio Agent] agent %d is used", 1,i);
@@ -656,19 +662,19 @@ bool hal_audio_status_get_agent_except_type_status(hal_audio_agent_t agent, audi
             if (index1 == index2) {
                 if (g_dsp_agent_type[agent][i] & (~(1 << bit_mask1)) & (~(1 << bit_mask2))) {
                     HAL_AUDIO_LOG_INFO("#hal_audio_status_get_agent_except_type_status# [Audio Agent] agent %d is used, [0x%x]", 2
-                                        , agent,g_dsp_agent_type[agent][i] & (~(1 << bit_mask1)) & (~(1 << bit_mask2)));
+                                       , agent, g_dsp_agent_type[agent][i] & (~(1 << bit_mask1)) & (~(1 << bit_mask2)));
                     return true; // means this agent is enabled by some scenario except type
                 }
             } else if (i == index1) {
                 if (g_dsp_agent_type[agent][i] & (~(1 << bit_mask1))) {
                     HAL_AUDIO_LOG_INFO("#hal_audio_status_get_agent_except_type_status# [Audio Agent] agent %d is used, [0x%x]", 2
-                                        , agent,g_dsp_agent_type[agent][i] & (~(1 << bit_mask1)));
+                                       , agent, g_dsp_agent_type[agent][i] & (~(1 << bit_mask1)));
                     return true; // means this agent is enabled by some scenario except type
                 }
             } else if (i == index2) {
                 if (g_dsp_agent_type[agent][i] & (~(1 << bit_mask2))) {
                     HAL_AUDIO_LOG_INFO("#hal_audio_status_get_agent_except_type_status# [Audio Agent] agent %d is used, [0x%x]", 2
-                                        , agent,g_dsp_agent_type[agent][i] & (~(1 << bit_mask2)));
+                                       , agent, g_dsp_agent_type[agent][i] & (~(1 << bit_mask2)));
                     return true; // means this agent is enabled by some scenario except type
                 }
             }
@@ -690,10 +696,26 @@ bool hal_audio_status_get_agent_except_type_status(hal_audio_agent_t agent, audi
     return false; // this agent is not used except type
 }
 
+audio_scenario_type_t hal_audio_status_get_type_of_agent(hal_audio_agent_t agent)
+{
+    //HAL_AUDIO_LOG_INFO("[Audio Agent] #hal_audio_status_get_type_of_agent# agent %d", 1, agent);
+    for (uint32_t i = 0; i <= (AUDIO_SCENARIO_TYPE_END / 32); i++) {
+        if (g_dsp_agent_type[agent][i] != 0) {
+            for (uint32_t j = 0; j < 32; j++) {
+                if ((g_dsp_agent_type[agent][i] >> j) & 0x1) {
+                    return (i * 32 + j);
+                }
+            }
+        }
+    }
+    //HAL_AUDIO_LOG_INFO("[Audio Agent] #hal_audio_status_get_type_of_agent# agent %d is not used", 1, agent);
+    return AUDIO_SCEANRIO_TYPE_NO_USE; // this agent is not used
+}
+
 bool hal_audio_status_get_sub_agent_status(hal_audio_sub_agent_t sub_agent)
 {
-        if (g_dsp_sub_agent_type[sub_agent] != 0) {
-            //HAL_AUDIO_LOG_INFO("[Audio Agent] sub_agent %d is used", 1, sub_agent);
+    if (g_dsp_sub_agent_type[sub_agent] != 0) {
+        //HAL_AUDIO_LOG_INFO("[Audio Agent] sub_agent %d is used", 1, sub_agent);
         return true; // means this sub_agent is enabled by some device agent
     }
     //HAL_AUDIO_LOG_INFO("[Audio Agent] sub_agent %d is not used", 1, sub_agent);
@@ -702,12 +724,12 @@ bool hal_audio_status_get_sub_agent_status(hal_audio_sub_agent_t sub_agent)
 
 bool hal_audio_status_get_sub_agent_of_device_agent_status(hal_audio_device_agent_t device_agent, hal_audio_sub_agent_t sub_agent)
 {
-    bool is_used = ((g_dsp_sub_agent_type[sub_agent] >> device_agent) & 0x1);
+    bool is_used = (g_dsp_sub_agent_type[sub_agent] >> device_agent) & 0x1;
     //HAL_AUDIO_LOG_INFO("[Audio Agent] device_agent %d, sub_agent %d, is used %d", 3, device_agent, sub_agent, is_used);
     return is_used; // means this this sub_agent is enabled by this device agent
 }
 
-void hal_audio_component_id_resource_management(audio_scenario_type_t type, hal_audio_agent_t agent, bool control)
+bool hal_audio_component_id_resource_management(audio_scenario_type_t type, hal_audio_agent_t agent, bool control)
 {
     //HAL_AUDIO_LOG_INFO("[Audio Agent] #hal_audio_component_id_resource_management# type %d, agent %d, control %d", 3, type, agent, control);
 
@@ -717,42 +739,63 @@ void hal_audio_component_id_resource_management(audio_scenario_type_t type, hal_
                             agent
                            );
         assert(0);
-        return;
+        return 0;
     }
     // get index
     uint32_t index = type / 32;
     uint32_t bit_mask = type % 32;
+    bool g_dsp_agent_on_off;
     hal_audio_agent_t couple_agent_cnt = agent;
     uint32_t couple_agent_num = 0;
-    hal_audio_agent_t couple_agent[5] = {HAL_AUDIO_AGENT_ERROR,HAL_AUDIO_AGENT_ERROR,HAL_AUDIO_AGENT_ERROR,HAL_AUDIO_AGENT_ERROR,HAL_AUDIO_AGENT_ERROR};
+    hal_audio_agent_t couple_agent[5] = {HAL_AUDIO_AGENT_ERROR, HAL_AUDIO_AGENT_ERROR, HAL_AUDIO_AGENT_ERROR, HAL_AUDIO_AGENT_ERROR, HAL_AUDIO_AGENT_ERROR};
 
     if ((agent >= HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MIN) && (agent <= HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MAX)) {
         couple_agent_num = 5;
         for (uint32_t i = 0; i < couple_agent_num; i++) {
-            couple_agent[i] =  couple_agent_cnt+=4;
+            couple_agent[i] =  couple_agent_cnt += 4;
             if (couple_agent[i] > HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MAX) {
-                couple_agent[i] = HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MIN+couple_agent[i]-HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MAX-1;
+                couple_agent[i] = HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MIN + couple_agent[i] - HAL_AUDIO_AGENT_DEVICE_I2S_MASTER_MAX - 1;
             }
-            //HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent[%d] = %d",2,i,couple_agent[i]);
+            //HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent[%d] = %d", 2, i, couple_agent[i]);
         }
     } else if ((agent >= HAL_AUDIO_AGENT_DEVICE_I2S_SLAVE_MIN) && (agent <= HAL_AUDIO_AGENT_DEVICE_I2S_SLAVE_MAX)) {
         couple_agent_num = 1;
         for (uint32_t i = 0; i < couple_agent_num; i++) {
-            couple_agent[i] =  couple_agent_cnt+=3;
+            couple_agent[i] =  couple_agent_cnt += 3;
             if (couple_agent[i] > HAL_AUDIO_AGENT_DEVICE_I2S_SLAVE_MAX) {
-                couple_agent[i] = HAL_AUDIO_AGENT_DEVICE_I2S_SLAVE_MIN+couple_agent[i]-HAL_AUDIO_AGENT_DEVICE_I2S_SLAVE_MAX-1;
+                couple_agent[i] = HAL_AUDIO_AGENT_DEVICE_I2S_SLAVE_MIN + couple_agent[i] - HAL_AUDIO_AGENT_DEVICE_I2S_SLAVE_MAX - 1;
             }
-            //HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent[%d] = %d",2,i,couple_agent[i]);
+            //HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent[%d] = %d", 2, i, couple_agent[i]);
         }
     } else if ((agent >= HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_DUAL) && (agent <= HAL_AUDIO_AGENT_DEVICE_ADDA_MAX)) {
         couple_agent_num = 2;
         for (uint32_t i = 0; i < couple_agent_num; i++) {
-            couple_agent[i] =  couple_agent_cnt+=4;
+            couple_agent[i] =  couple_agent_cnt += 4;
             if (couple_agent[i] > HAL_AUDIO_AGENT_DEVICE_ADDA_MAX) {
-                couple_agent[i] = HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_DUAL+couple_agent[i]-HAL_AUDIO_AGENT_DEVICE_ADDA_MAX-1;
+                couple_agent[i] = HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_DUAL + couple_agent[i] - HAL_AUDIO_AGENT_DEVICE_ADDA_MAX - 1;
             }
-            //HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent[%d] = %d",2,i,couple_agent[i]);
+            //HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent[%d] = %d", 2, i, couple_agent[i]);
         }
+    } else if ((agent >= HAL_AUDIO_AGENT_BLOCK_UPDN_MIN) && (agent <= HAL_AUDIO_AGENT_BLOCK_UPDN_MAX)) {
+        couple_agent_num = 1;
+        if (agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_L) {
+            couple_agent[0] = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_R;
+        } else if (agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_R) {
+            couple_agent[0] = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_L;
+        } else if (agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L) {
+            couple_agent[0] = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R;
+        } else if (agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R) {
+            couple_agent[0] = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L;
+        } else if (agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_L) {
+            couple_agent[0] = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_R;
+        } else if (agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_R) {
+            couple_agent[0] = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_L;
+        } else if (agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L) {
+            couple_agent[0] = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R;
+        } else if (agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R) {
+            couple_agent[0] = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L;
+        }
+        //HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent[0] = %d", 1, couple_agent[0]);
     }
 
     if (control) {
@@ -770,19 +813,25 @@ void hal_audio_component_id_resource_management(audio_scenario_type_t type, hal_
             assert(0);
         }
         if (hal_audio_status_get_agent_status(agent)) {
-        //if (g_dsp_agent_type[agent][0] || g_dsp_agent_type[agent][1] || g_dsp_agent_type[agent][2] || g_dsp_agent_type[agent][3]) {
-            g_dsp_agent_on[agent] = false;
+            //if (g_dsp_agent_type[agent][0] || g_dsp_agent_type[agent][1] || g_dsp_agent_type[agent][2] || g_dsp_agent_type[agent][3]) {
+            g_dsp_agent_on_off = false;
         } else {
             if (couple_agent[0] == HAL_AUDIO_AGENT_ERROR) {
-                g_dsp_agent_on[agent] = true;
+                g_dsp_agent_on_off = true;
             } else {
                 for (uint32_t i = 0; i < couple_agent_num; i++) {
                     if (hal_audio_status_get_agent_status(couple_agent[i])) {
-                        //HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent %d is used",1,couple_agent[i]);
-                        g_dsp_agent_on[agent] = false;
+                        /*HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent %d is used: [0x%x][0x%x][0x%x][0x%x]", 5,
+                                           couple_agent[i],
+                                           g_dsp_agent_type[couple_agent[i]][3],
+                                           g_dsp_agent_type[couple_agent[i]][2],
+                                           g_dsp_agent_type[couple_agent[i]][1],
+                                           g_dsp_agent_type[couple_agent[i]][0]
+                                          );*/
+                        g_dsp_agent_on_off = false;
                         break;
                     }
-                    g_dsp_agent_on[agent] = true;
+                    g_dsp_agent_on_off = true;
                 }
             }
         }
@@ -803,84 +852,240 @@ void hal_audio_component_id_resource_management(audio_scenario_type_t type, hal_
         }
         g_dsp_agent_type[agent][index] &= ~(1 << bit_mask);
         if (hal_audio_status_get_agent_status(agent)) {
-        //if (g_dsp_agent_type[agent][0] || g_dsp_agent_type[agent][1] || g_dsp_agent_type[agent][2] || g_dsp_agent_type[agent][3]) {
-            g_dsp_agent_off[agent] = false;
+            //if (g_dsp_agent_type[agent][0] || g_dsp_agent_type[agent][1] || g_dsp_agent_type[agent][2] || g_dsp_agent_type[agent][3]) {
+            g_dsp_agent_on_off = false;
         } else {
             if (couple_agent[0] == HAL_AUDIO_AGENT_ERROR) {
-                g_dsp_agent_off[agent] = true;
+                g_dsp_agent_on_off = true;
             } else {
                 for (uint32_t i = 0; i < couple_agent_num; i++) {
                     if (hal_audio_status_get_agent_status(couple_agent[i])) {
-                        //HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent %d is used",1,couple_agent[i]);
-                        g_dsp_agent_off[agent] = false;
+                        /*HAL_AUDIO_LOG_INFO("[Audio Agent] couple_agent %d is used", 5,
+                                           couple_agent[i],
+                                           g_dsp_agent_type[couple_agent[i]][3],
+                                           g_dsp_agent_type[couple_agent[i]][2],
+                                           g_dsp_agent_type[couple_agent[i]][1],
+                                           g_dsp_agent_type[couple_agent[i]][0]
+                                          );*/
+                        g_dsp_agent_on_off = false;
                         break;
                     }
-                    g_dsp_agent_off[agent] = true;
+                    g_dsp_agent_on_off = true;
                 }
             }
         }
     }
 
-    /*HAL_AUDIO_LOG_INFO("[Audio Agent] agent %d, type %d, agent on %d, agent off %d", 4, agent, type, g_dsp_agent_on[agent], g_dsp_agent_off[agent]);
+    /*HAL_AUDIO_LOG_INFO("[Audio Agent] agent %d, type %d, on/off %d", 3, agent, type, g_dsp_agent_on_off);
     HAL_AUDIO_LOG_INFO("[Audio Agent] agent %d: [0x%x][0x%x][0x%x][0x%x]", 5,
-                        agent,
-                        g_dsp_agent_type[agent][3],
-                        g_dsp_agent_type[agent][2],
-                        g_dsp_agent_type[agent][1],
-                        g_dsp_agent_type[agent][0]
-                       );*/
+                       agent,
+                       g_dsp_agent_type[agent][3],
+                       g_dsp_agent_type[agent][2],
+                       g_dsp_agent_type[agent][1],
+                       g_dsp_agent_type[agent][0]
+                      );*/
+    return g_dsp_agent_on_off;
 }
 
-ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_sub_component_id_resource_management(hal_audio_device_agent_t device_agent, hal_audio_sub_agent_t sub_agent, bool control)
-{
-    //HAL_AUDIO_LOG_INFO("[Audio Agent] #hal_audio_sub_component_id_resource_management# device_agent %d, sub_agent %d, control %d", 3, device_agent, sub_agent, control);
+#ifdef AIR_SUB_AGENT_DEPENDECY_CHECK_ENABLE
+static const uint32_t sub_agent_dependency_table[HAL_AUDIO_SUB_AGENT_NUMBERS] = {
+    /* sub agent */
+    0, // HAL_AUDIO_AFE_CLOCK_AFE
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE), // HAL_AUDIO_AFE_CLOCK_I2S0
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE), // HAL_AUDIO_AFE_CLOCK_I2S1
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE), // HAL_AUDIO_AFE_CLOCK_I2S2
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE), // HAL_AUDIO_AFE_CLOCK_I2S3
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CLOCK_APLL), // HAL_AUDIO_AFE_CLOCK_22M
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CLOCK_APLL2), // HAL_AUDIO_AFE_CLOCK_24M
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE), // HAL_AUDIO_AFE_CLOCK_APLL
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE), // HAL_AUDIO_AFE_CLOCK_APLL2
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CONTROL_ADDA), // HAL_AUDIO_AFE_CLOCK_ADC_COMMON
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CLOCK_ADC_COMMON) | (1 << HAL_AUDIO_AFE_CONTROL_ADDA), // HAL_AUDIO_AFE_CLOCK_ADC23
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CLOCK_ADC_COMMON) | (1 << HAL_AUDIO_AFE_CONTROL_ADDA), // HAL_AUDIO_AFE_CLOCK_ADC45
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CONTROL_ADDA), // HAL_AUDIO_AFE_CLOCK_ANC
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CONTROL_ADDA) | (1 << HAL_AUDIO_AFE_CLOCK_ADC_COMMON), // HAL_AUDIO_AFE_CLOCK_ADC_HIRES
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CONTROL_ADDA), // HAL_AUDIO_AFE_CLOCK_DAC
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CONTROL_ADDA) | (1 << HAL_AUDIO_AFE_CLOCK_DAC), // HAL_AUDIO_AFE_CLOCK_DAC_HIRES
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE), // HAL_AUDIO_AFE_CLOCK_I2S_SLV_HCLK
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE), // HAL_AUDIO_AFE_CONTROL_ADDA
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE), // HAL_AUDIO_AFE_CLOCK_SRC_COMMON
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CLOCK_SRC_COMMON), // HAL_AUDIO_AFE_CLOCK_SRC1
+    (1 << HAL_AUDIO_AFE_CLOCK_AFE) | (1 << HAL_AUDIO_AFE_CLOCK_SRC_COMMON), // HAL_AUDIO_AFE_CLOCK_SRC2
+};
 
-    //uint32_t index = device_agent / 32;
-    //uint32_t bit_mask = device_agent % 32;
-    bool g_dsp_sub_agent_on_off;
+static const uint32_t sub_agent_device_agent_dependency_table[HAL_AUDIO_SUB_AGENT_NUMBERS] = {
+    /* sub agent */
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_AFE), // HAL_AUDIO_AFE_CLOCK_AFE
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER), // HAL_AUDIO_AFE_CLOCK_I2S0
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER), // HAL_AUDIO_AFE_CLOCK_I2S1
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER), // HAL_AUDIO_AFE_CLOCK_I2S2
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER), // HAL_AUDIO_AFE_CLOCK_I2S3
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER), // HAL_AUDIO_AFE_CLOCK_22M
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER), // HAL_AUDIO_AFE_CLOCK_24M
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER), // HAL_AUDIO_AFE_CLOCK_APLL
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER), // HAL_AUDIO_AFE_CLOCK_APLL2
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL3), // HAL_AUDIO_AFE_CLOCK_ADC_COMMON
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2), // HAL_AUDIO_AFE_CLOCK_ADC23
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL3), // HAL_AUDIO_AFE_CLOCK_ADC45
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL4) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ANC), // HAL_AUDIO_AFE_CLOCK_ANC
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL3) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL4), // HAL_AUDIO_AFE_CLOCK_ADC_HIRES
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_DL1), // HAL_AUDIO_AFE_CLOCK_DAC
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_DL1), // HAL_AUDIO_AFE_CLOCK_DAC_HIRES
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_SLAVE) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_SLAVE) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_SLAVE), // HAL_AUDIO_AFE_CLOCK_I2S_SLV_HCLK
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_DL1) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL3) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL4), // HAL_AUDIO_AFE_CONTROL_ADDA
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC1) | (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC2), // HAL_AUDIO_AFE_CLOCK_SRC_COMMON
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC1), // HAL_AUDIO_AFE_CLOCK_SRC1
+    (1 << HAL_AUDIO_DEVICE_AGENT_DEVICE_HWSRC2), // HAL_AUDIO_AFE_CLOCK_SRC2
+};
+#endif
+#ifdef AIR_MCU_DSP_DEPENDECY_CHECK_ENABLE
+static const uint32_t sub_agent_audio_clock_dependency_table[HAL_AUDIO_SUB_AGENT_NUMBERS] = {
+    /* sub agent */
+    (1 << AUDIO_CLOCK_INT), // HAL_AUDIO_AFE_CLOCK_AFE
+    0, // HAL_AUDIO_AFE_CLOCK_I2S0
+    0, // HAL_AUDIO_AFE_CLOCK_I2S1
+    0, // HAL_AUDIO_AFE_CLOCK_I2S2
+    0, // HAL_AUDIO_AFE_CLOCK_I2S3
+    (1 << AUDIO_CLOCK_INTF1_IN) | (1 << AUDIO_CLOCK_INTF1_OUT), // HAL_AUDIO_AFE_CLOCK_22M
+    (1 << AUDIO_CLOCK_INTF0_IN) | (1 << AUDIO_CLOCK_INTF0_OUT), // HAL_AUDIO_AFE_CLOCK_24M
+    (1 << AUDIO_CLOCK_INTF1_IN) | (1 << AUDIO_CLOCK_INTF1_OUT), // HAL_AUDIO_AFE_CLOCK_APLL
+    (1 << AUDIO_CLOCK_INTF0_IN) | (1 << AUDIO_CLOCK_INTF0_OUT), // HAL_AUDIO_AFE_CLOCK_APLL2
+    0, // HAL_AUDIO_AFE_CLOCK_ADC_COMMON
+    0, // HAL_AUDIO_AFE_CLOCK_ADC23
+    0, // HAL_AUDIO_AFE_CLOCK_ADC45
+    0, // HAL_AUDIO_AFE_CLOCK_ANC
+    (1 << AUDIO_CLOCK_UPLINK), // HAL_AUDIO_AFE_CLOCK_ADC_HIRES
+    (1 << AUDIO_POWER_DAC), // HAL_AUDIO_AFE_CLOCK_DAC
+    (1 << AUDIO_CLOCK_DWLINK), // HAL_AUDIO_AFE_CLOCK_DAC_HIRES
+    0, // HAL_AUDIO_AFE_CLOCK_I2S_SLV_HCLK
+    0, // HAL_AUDIO_AFE_CONTROL_ADDA
+    0, // HAL_AUDIO_AFE_CLOCK_SRC_COMMON
+    0, // HAL_AUDIO_AFE_CLOCK_SRC1
+    0, // HAL_AUDIO_AFE_CLOCK_SRC2
+};
+#endif
+
+void hal_audio_status_check_sub_agent_dependency(hal_audio_device_agent_t device_agent, hal_audio_sub_agent_t sub_agent, bool control)
+{
+#ifdef AIR_SUB_AGENT_DEPENDECY_CHECK_ENABLE
+    //HAL_AUDIO_LOG_INFO("[Audio Agent] hal_audio_status_check_sub_agent_dependency device_agent(%d) sub_agent(%d) control(%d)", 3, device_agent, sub_agent, control);
+
+    /* check device_agent/sub_agent dependency, expected device_agent uses sub_agent? */
+    if (!(sub_agent_device_agent_dependency_table[sub_agent] & (1 << device_agent))) { // sub_agent is not dependency on this device agent
+        HAL_AUDIO_LOG_ERROR("[Audio Agent] ERROR: device_agent(%d) should not enable sub_agent(%d)", 2, device_agent, sub_agent);
+        AUDIO_ASSERT(0);
+    }
+    /* check sub_agent/sub_agent dependency */
+    for (hal_audio_sub_agent_t i = HAL_AUDIO_SUB_AGENT_MIN; i < HAL_AUDIO_SUB_AGENT_NUMBERS; i ++) {
+        if (control) {
+            /* when sub_agent is going to on, up-stream sub_agent should be already on */
+            if ((sub_agent_dependency_table[sub_agent] & (1 << i)) && (!hal_audio_status_get_sub_agent_status(i))) { // dependency sub_agent is not enable
+                HAL_AUDIO_LOG_ERROR("[Audio Agent] ERROR: sub_agent(%d) should be on, because sub_agent(%d) is to be enable, 0x%lx", 3, i, sub_agent, (uint32_t)(sub_agent_dependency_table[sub_agent]));
+                AUDIO_ASSERT(0);
+            }
+        } else {
+            /* when sub_agent is going to off, down-stream sub_agent should be already off */
+            if ((sub_agent_dependency_table[i] & (1 << sub_agent)) && (hal_audio_status_get_sub_agent_status(i))) {
+                HAL_AUDIO_LOG_ERROR("[Audio Agent] ERROR: sub_agent(%d) should be off, because sub_agent(%d) is disable", 2, i, sub_agent);
+                AUDIO_ASSERT(0);
+            }
+        }
+    }
+#else
+    UNUSED(device_agent);
+    UNUSED(sub_agent);
+    UNUSED(control);
+#endif
+#ifdef AIR_MCU_DSP_DEPENDECY_CHECK_ENABLE
+    //HAL_AUDIO_LOG_INFO("[DEBUG] mcu_clock_enable:0x%x, dsp_clock_used:0x%x", 2, audio_clock_param->mcu_clock_enable, audio_clock_param->dsp_clock_used);
+
+    /* check CG(mcu)/sub_agent dependency, when sub_agent is going to on, one of CG(mcu) should be already on */
+    if (control && sub_agent_audio_clock_dependency_table[sub_agent]) {
+        for (audio_clock_setting_type_t j = AUDIO_CLOCK_INT; j < AUDIO_POWER_END; j ++) {
+            if ((sub_agent_audio_clock_dependency_table[sub_agent] & (1 << j))) {
+                //HAL_AUDIO_LOG_INFO("[DEBUG] Check sub_agent:%d, clock CG:%d", 2, sub_agent, j);
+                if (audio_clock_param->mcu_clock_enable & (1 << j)) { // dependency clock cg is enable
+                    break;
+                }
+            }
+            if (j == (AUDIO_POWER_END - 1)) {
+                HAL_AUDIO_LOG_ERROR("[Audio Agent] ERROR: One of dependency Clock CG(0x%lx) should be on, because sub_agent(%d) is to be enable(%d)", 3, audio_clock_param->mcu_clock_enable, sub_agent, control);
+                AUDIO_ASSERT(0);
+            }
+        }
+    }
+#endif
+}
+
+static void hal_audio_check_excess_onoff(hal_audio_device_agent_t device_agent, hal_audio_sub_agent_t sub_agent, bool control)
+{
+    /* no need check excess on/off for AFE clock */
+    if (sub_agent == HAL_AUDIO_AFE_CLOCK_AFE) {
+        return;
+    }
 
     if (control) {
         if (g_dsp_sub_agent_type[sub_agent] & (1 << device_agent)) {
-            log_hal_msgid_error("[Audio Agent] ERROR: sub_agent %d device_agent %d is already enable", 2,
-                                sub_agent,
-                                device_agent);
-            log_hal_msgid_error("[Audio Agent] sub_agent %d: [0x%x]", 2,
-                                sub_agent,
-                                g_dsp_sub_agent_type[sub_agent]
-                                );
-            assert(0);
+            log_hal_msgid_error("[Audio Agent] ERROR: sub_agent %d, device_agent %d is already enable", 2, sub_agent, device_agent);
+            log_hal_msgid_error("[Audio Agent] sub_agent %d: [0x%x]", 2, sub_agent, g_dsp_sub_agent_type[sub_agent]);
+            AUDIO_ASSERT(0);
         }
-        if (hal_audio_status_get_sub_agent_status(sub_agent)) {
-            g_dsp_sub_agent_on_off = false;
-        } else {
-            g_dsp_sub_agent_on_off = true;
-        }
-        g_dsp_sub_agent_type[sub_agent] |= (1 << device_agent);
     } else {
-        if ((g_dsp_sub_agent_type[sub_agent] & (1 << device_agent)) == 0) {
-            log_hal_msgid_error("[Audio Agent] ERROR: sub_agent %d, device_agent %d is already disable", 2,
-                                sub_agent,
-                                device_agent);
-            log_hal_msgid_error("[Audio Agent] sub_agent %d: [0x%x]", 2,
-                                sub_agent,
-                                g_dsp_sub_agent_type[sub_agent]
-                               );
-            assert(0);
-        } else {
-            g_dsp_sub_agent_type[sub_agent] &= ~(1 << device_agent);
-        }
-        g_dsp_sub_agent_type[sub_agent] &= ~(1 << device_agent);
-        if (hal_audio_status_get_sub_agent_status(sub_agent)) {
-            g_dsp_sub_agent_on_off = false;
-        } else {
-            g_dsp_sub_agent_on_off = true;
+        if (!(g_dsp_sub_agent_type[sub_agent] & (1 << device_agent))) {
+            log_hal_msgid_error("[Audio Agent] ERROR: sub_agent %d, device_agent %d is already disable", 2, sub_agent, device_agent);
+            log_hal_msgid_error("[Audio Agent] sub_agent %d: [0x%x]", 2, sub_agent, g_dsp_sub_agent_type[sub_agent]);
+            AUDIO_ASSERT(0);
         }
     }
+}
+
+bool hal_audio_sub_component_id_resource_management(hal_audio_device_agent_t device_agent, hal_audio_sub_agent_t sub_agent, bool control)
+{
+    //HAL_AUDIO_LOG_INFO("[Audio Agent] #hal_audio_sub_component_id_resource_management# device_agent %d, sub_agent %d, control %d", 3, device_agent, sub_agent, control);
+#ifdef AIR_MCU_DSP_DEPENDECY_CHECK_ENABLE
+    if (!audio_clock_param) {
+        HAL_AUDIO_LOG_ERROR("[Audio Agent] ERROR: audio_clock_param is NULL.", 0);
+        AUDIO_ASSERT(0);
+    }
+#endif
+    if (sub_agent == HAL_AUDIO_AFE_CLOCK_AFE && hal_audio_status_get_all_agent_status()) {
+        // do not control AFE clock, because some agents may be using it
+        //HAL_AUDIO_LOG_INFO("[Audio Agent] skip AFE clock control", 0);
+        return false;
+    }
+
+    /* illegal(excess) on/off request */
+    hal_audio_check_excess_onoff(device_agent, sub_agent, control);
+
+    /* get sub_agent status (before) */
+    bool before = hal_audio_status_get_sub_agent_status(sub_agent);
+
+    /* update resource management info */
+    if (control) {
+        g_dsp_sub_agent_type[sub_agent] |= (1 << device_agent);
+    } else {
+        g_dsp_sub_agent_type[sub_agent] &= ~(1 << device_agent);
+    }
+#ifdef AIR_MCU_DSP_DEPENDECY_CHECK_ENABLE
+    if (hal_audio_status_get_sub_agent_status(sub_agent)) {
+        audio_clock_param->dsp_clock_used |= (1 << sub_agent);
+    } else {
+        audio_clock_param->dsp_clock_used &= ~(1 << sub_agent);
+    }
+#endif
+    /* sub_agent status changed? (on->off or off->on) */
+    bool g_dsp_sub_agent_on_off = (before != hal_audio_status_get_sub_agent_status(sub_agent));
+
+    /* check dependencies */
+    if (g_dsp_sub_agent_on_off) {
+        hal_audio_status_check_sub_agent_dependency(device_agent, sub_agent, control);
+    }
+
     /*HAL_AUDIO_LOG_INFO("[Audio Agent] sub_agent %d, device_agent %d, sub_agent on/off %d", 3, sub_agent, device_agent, g_dsp_sub_agent_on_off);
     HAL_AUDIO_LOG_INFO("[Audio Agent] sub_agent %d: [0x%x]", 2,
-                        sub_agent,
-                        g_dsp_sub_agent_type[sub_agent]
-                        );*/
+                       sub_agent,
+                       g_dsp_sub_agent_type[sub_agent]
+                      );*/
     return g_dsp_sub_agent_on_off;
 }
 
@@ -907,12 +1112,12 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_device_set_agent(hal_audio_device_p
         }
     }
     audio_scenario_type_t type = handle->common.scenario_type;
-    #ifdef MTK_ANC_ENABLE
+#ifdef MTK_ANC_ENABLE
     if (device == HAL_AUDIO_CONTROL_DEVICE_ANC) {
         type = AUDIO_SCENARIO_TYPE_ANC;
     }
-    #endif
-    HAL_AUDIO_LOG_INFO("#hal_audio_device_set_agent# device 0x%x, agent %d, type %d, on/off %d", 4, device, agent, type, control);
+#endif
+    HAL_AUDIO_LOG_INFO("#hal_audio_device_set_agent# device 0x%x, agent %d, device_agent %d, type %d, on/off %d", 5, device, agent, device_agent, type, control);
     int32_t device_number_for_status = agent - HAL_AUDIO_AGENT_DEVICE_MIN;
     hal_audio_device_status_t *device_status = ((device_number_for_status >= 0) && (device_number_for_status < HAL_AUDIO_AGENT_DEVICE_NUMBERS))
                                                ? &hal_audio_device_status[device_number_for_status]
@@ -925,22 +1130,18 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_device_set_agent(hal_audio_device_p
             *device_status = HAL_AUDIO_DEVICE_STATUS_OPEN;
             hal_audio_afe_set_enable(true);
             hal_nvic_save_and_set_interrupt_mask(&mask);
-            #ifdef MTK_ANC_ENABLE
-            if ((device == HAL_AUDIO_CONTROL_DEVICE_ANC) && (hal_audio_anc_get_using_count(handle) < 1)) {
-                g_dsp_agent_on[agent] = false;
-            } else {
-                hal_audio_component_id_resource_management(type, agent, control);
-            }
-            #else
-                hal_audio_component_id_resource_management(type, agent, control);
-            #endif
-            if (g_dsp_agent_on[agent]) {
+            if (
+#ifdef MTK_ANC_ENABLE
+                (!((device == HAL_AUDIO_CONTROL_DEVICE_ANC) && (hal_audio_anc_get_using_count(handle) < 1))) &&
+#endif
+                hal_audio_component_id_resource_management(type, agent, control)
+            ) {
                 hal_nvic_restore_interrupt_mask(mask);
-                #ifdef AIR_NLE_ENABLE
+#ifdef AIR_NLE_ENABLE
                 if ((agent == HAL_AUDIO_AGENT_DEVICE_ANC) || (agent == HAL_AUDIO_AGENT_DEVICE_SIDETONE)) {
                     Sink_Audio_NLE_Enable(FALSE);
                 }
-                #endif
+#endif
                 HAL_AUDIO_LOG_INFO("afe_set on agnet %d device %d\r\n", 2, agent, device);
                 //hal_audio_device_set_sub_component_id(handle, device, device_agent, control);
                 hal_audio_device_setting(handle, device, control);
@@ -952,7 +1153,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_device_set_agent(hal_audio_device_p
         } else {
             /* Add mutex to protect multi task access (sidetone os timer callback)*/
             hal_audio_device_set_mutex_lock(g_audio_device_mutex);
-            HAL_AUDIO_LOG_INFO("[Wait delay timer] agent %d, delay_off_type %d, type %d",3 ,agent,delay_off_type,type);
+            HAL_AUDIO_LOG_INFO("[Wait delay timer] agent %d, delay_off_type %d, type %d", 3, agent, delay_off_type, type);
             hal_audio_component_id_resource_management(delay_off_type, agent, false);
             hal_audio_component_id_resource_management(type, agent, true);
             // Wait delay timer
@@ -962,16 +1163,12 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_device_set_agent(hal_audio_device_p
         // avoid multi-task access (sidetone os timer callback)
         hal_audio_device_set_mutex_lock(g_audio_device_mutex);
         hal_nvic_save_and_set_interrupt_mask(&mask);
-        #ifdef MTK_ANC_ENABLE
-        if ((device == HAL_AUDIO_CONTROL_DEVICE_ANC) && (hal_audio_anc_get_using_count(handle) < 1)) {
-            g_dsp_agent_off[agent] = false;
-        } else {
-            hal_audio_component_id_resource_management(type, agent, control);
-        }
-        #else
-            hal_audio_component_id_resource_management(type, agent, control);
-        #endif
-        if (!g_dsp_agent_off[agent]) {
+        if (
+#ifdef MTK_ANC_ENABLE
+            ((device == HAL_AUDIO_CONTROL_DEVICE_ANC) && (hal_audio_anc_get_using_count(handle) < 1)) ||
+#endif
+            !hal_audio_component_id_resource_management(type, agent, control)
+        ) {
             hal_nvic_restore_interrupt_mask(mask);
             //Distinguish L&R
             hal_audio_device_distinguish_channel(handle, device, control);
@@ -1054,7 +1251,9 @@ bool hal_audio_device_setting(hal_audio_device_parameter_t *handle, hal_audio_co
         case HAL_AUDIO_CONTROL_DEVICE_SPDIF:
             hal_audio_device_set_spdif(&handle->spdif, device, control);
             break;
-        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK:
+        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_L:
+        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_R:
+        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL:
             hal_audio_device_set_ul_loopback(&handle->loopback, device, control);
             break;
 #ifdef MTK_ANC_ENABLE
@@ -1217,9 +1416,9 @@ bool hal_audio_device_set_delay_timer(hal_audio_device_parameter_t *handle, hal_
             //if ((hal_audio_agent_user_count[HAL_AUDIO_AGENT_DEVICE_OUTPUT]-hal_audio_agent_user_count[HAL_AUDIO_AGENT_MEMORY_DL12])==1) {
             if (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_DEVICE_ADDA_DL1)) {
                 if (amp_control.delay_handle.delay_output_off_time_ms) {
-                    #ifdef AIR_RESET_SDM_ENABLE
+#ifdef AIR_RESET_SDM_ENABLE
                     hal_audio_dl_reset_sdm_enable(true);
-                    #endif
+#endif
                     //Set timer
                     if (amp_control.delay_handle.agent != HAL_AUDIO_AGENT_ERROR) {
                         HAL_AUDIO_LOG_WARNING("DSP - Warning Hal Audio another output device close while timer started %d @@", 1, amp_control.delay_handle.agent);
@@ -1253,7 +1452,7 @@ bool hal_audio_device_set_delay_timer(hal_audio_device_parameter_t *handle, hal_
                     HAL_AUDIO_TIMER_STOP(amp_control.delay_handle.timer_handler);
                     HAL_AUDIO_LOG_INFO("DSP - Hal Audio output delay off timer cancel %d", 1, amp_control.delay_handle.agent);
                     hal_audio_device_status[amp_control.delay_handle.agent - HAL_AUDIO_AGENT_DEVICE_MIN] = HAL_AUDIO_DEVICE_STATUS_OPEN;
-                    if(amp_control.delay_handle.agent != HAL_AUDIO_AGENT_ERROR){
+                    if (amp_control.delay_handle.agent != HAL_AUDIO_AGENT_ERROR) {
                         amp_control.delay_handle.agent = HAL_AUDIO_AGENT_ERROR;
                         with_timer = true;
 #if (HAL_AUDIO_CHANGE_OUTPUT_RATE)
@@ -1298,7 +1497,7 @@ void hal_audio_dmic_manage_clock(hal_audio_device_agent_t device_agent, afe_dmic
     uint32_t s_bitmask = scenario_type % 32;
     uint32_t c_idx;
 
-    if((device_agent < HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1 || device_agent > HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_MAX) || clock_rate >= AFE_DMIC_CLOCK_MAX || scenario_type >= AUDIO_SCENARIO_TYPE_END) {
+    if ((device_agent < HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1 || device_agent > HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_MAX) || clock_rate >= AFE_DMIC_CLOCK_MAX || scenario_type >= AUDIO_SCENARIO_TYPE_END) {
         log_hal_msgid_error("Audio Dmic manager set fail interface:%d, clk:%d, scenario:%d", 3, device_agent - HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_MIN, clock_rate, scenario_type);
         assert(0);
         return;
@@ -1308,16 +1507,16 @@ void hal_audio_dmic_manage_clock(hal_audio_device_agent_t device_agent, afe_dmic
 
     log_hal_msgid_info("Audio Dmic manager set interface:%d, clk:%d, scenario:%d, enable:%d", 4, device_agent + 1, clock_rate, scenario_type, enable);
 
-    if(enable) {
-        for(c_idx = AFE_DMIC_CLOCK_3_25M ; c_idx < AFE_DMIC_CLOCK_MAX ; c_idx++) {
-            if(c_idx == clock_rate) {
+    if (enable) {
+        for (c_idx = AFE_DMIC_CLOCK_3_25M ; c_idx < AFE_DMIC_CLOCK_MAX ; c_idx++) {
+            if (c_idx == clock_rate) {
                 afe_dmic_clock_control[device_agent][c_idx][s_idx] |= (1 << s_bitmask);
             } else {
                 afe_dmic_clock_control[device_agent][c_idx][s_idx] &= ~(1 << s_bitmask);
             }
         }
     } else {
-        for(c_idx = AFE_DMIC_CLOCK_3_25M ; c_idx < AFE_DMIC_CLOCK_MAX ; c_idx++) {
+        for (c_idx = AFE_DMIC_CLOCK_3_25M ; c_idx < AFE_DMIC_CLOCK_MAX ; c_idx++) {
             afe_dmic_clock_control[device_agent][c_idx][s_idx] &= ~(1 << s_bitmask);
         }
     }
@@ -1329,16 +1528,16 @@ afe_dmic_clock_rate_t hal_audio_dmic_get_suitable_clock(hal_audio_device_agent_t
 
     uint32_t c_idx, s_idx;
 
-    if(device_agent < HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1 || device_agent > HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_MAX) {
-        log_hal_msgid_error("Audio Dmic manager get clk fail interface:%d", 1, device_agent - HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_MIN );
+    if (device_agent < HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1 || device_agent > HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_MAX) {
+        log_hal_msgid_error("Audio Dmic manager get clk fail interface:%d", 1, device_agent - HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_MIN);
         return AFE_DMIC_CLOCK_DUMMY;
     }
 
     device_agent -= HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1;
 
-    for(c_idx = AFE_DMIC_CLOCK_3_25M ; c_idx < AFE_DMIC_CLOCK_MAX ; c_idx++) {
-        for(s_idx = 0 ; s_idx < (AUDIO_SCENARIO_TYPE_END/32) + 1 ; s_idx++) {
-            if(afe_dmic_clock_control[device_agent][c_idx][s_idx]){
+    for (c_idx = AFE_DMIC_CLOCK_3_25M ; c_idx < AFE_DMIC_CLOCK_MAX ; c_idx++) {
+        for (s_idx = 0 ; s_idx < (AUDIO_SCENARIO_TYPE_END / 32) + 1 ; s_idx++) {
+            if (afe_dmic_clock_control[device_agent][c_idx][s_idx]) {
                 log_hal_msgid_info("Audio Dmic manager get clk interface:%d clk:%d", 2, device_agent + 1, c_idx);
                 return c_idx;
             }
@@ -1358,7 +1557,7 @@ void hal_audio_adc_manage_performance(afe_analog_select_t analog_select, hal_aud
     uint32_t p_idx;
 
 
-    if((analog_select > AFE_ADC_NUMBER || analog_select < AFE_ANALOG_ADC0) || performance >= AFE_PEROFRMANCE_MAX || scenario_type >= AUDIO_SCENARIO_TYPE_END) {
+    if ((analog_select > AFE_ADC_NUMBER || analog_select < AFE_ANALOG_ADC0) || performance >= AFE_PEROFRMANCE_MAX || scenario_type >= AUDIO_SCENARIO_TYPE_END) {
         log_hal_msgid_error("Audio ADC performance manager set fail adc:%d, perf:%d, scenario:%d", 3, analog_select - 1, performance, scenario_type);
         assert(0);
         return;
@@ -1368,16 +1567,16 @@ void hal_audio_adc_manage_performance(afe_analog_select_t analog_select, hal_aud
 
     log_hal_msgid_info("Audio ADC performance manager set adc:%d, perf:%d, scenario:%d, enable:%d", 4, analog_select, performance, scenario_type, enable);
 
-    if(enable) {
-        for(p_idx = AFE_PEROFRMANCE_NORMAL_MODE ; p_idx < AFE_PEROFRMANCE_MAX ; p_idx++) {
-            if(p_idx == performance) {
+    if (enable) {
+        for (p_idx = AFE_PEROFRMANCE_NORMAL_MODE ; p_idx < AFE_PEROFRMANCE_MAX ; p_idx++) {
+            if (p_idx == performance) {
                 afe_adc_performance_control[analog_select][p_idx][s_idx] |= (1 << s_bitmask);
             } else {
                 afe_adc_performance_control[analog_select][p_idx][s_idx] &= ~(1 << s_bitmask);
             }
         }
     } else {
-        for(p_idx = AFE_PEROFRMANCE_NORMAL_MODE ; p_idx < AFE_PEROFRMANCE_MAX ; p_idx++) {
+        for (p_idx = AFE_PEROFRMANCE_NORMAL_MODE ; p_idx < AFE_PEROFRMANCE_MAX ; p_idx++) {
             afe_adc_performance_control[analog_select][p_idx][s_idx] &= ~(1 << s_bitmask);
         }
     }
@@ -1390,7 +1589,7 @@ hal_audio_performance_mode_t hal_audio_adc_get_suitable_performance(afe_analog_s
     uint32_t high_pfm_chk = false;
 
 
-    if(analog_select > AFE_ADC_NUMBER) {
+    if (analog_select > AFE_ADC_NUMBER) {
         log_hal_msgid_error("Audio ADC performance manager get fail adc:%d", 1, analog_select - 1);
         return AFE_PEROFRMANCE_DUMMY;
     }
@@ -1398,15 +1597,15 @@ hal_audio_performance_mode_t hal_audio_adc_get_suitable_performance(afe_analog_s
     /*Skip  AFE_ANALOG_DAC */
     analog_select -= 1;
 
-    for(p_idx = AFE_PEROFRMANCE_HIGH_MODE ; p_idx < AFE_PEROFRMANCE_MAX ; p_idx++) {
+    for (p_idx = AFE_PEROFRMANCE_HIGH_MODE ; p_idx < AFE_PEROFRMANCE_MAX ; p_idx++) {
         /* check AFE_PEROFRMANCE_HIGH_MODE first */
-        if(!high_pfm_chk && p_idx == AFE_PEROFRMANCE_LOW_POWER_MODE) {
+        if (!high_pfm_chk && p_idx == AFE_PEROFRMANCE_LOW_POWER_MODE) {
             p_idx = AFE_PEROFRMANCE_NORMAL_MODE;
             high_pfm_chk = true;
         }
         /* check other performance */
-        for(s_idx = 0 ; s_idx < (AUDIO_SCENARIO_TYPE_END/32) + 1 ; s_idx++) {
-            if(afe_adc_performance_control[analog_select][p_idx][s_idx]){
+        for (s_idx = 0 ; s_idx < (AUDIO_SCENARIO_TYPE_END / 32) + 1 ; s_idx++) {
+            if (afe_adc_performance_control[analog_select][p_idx][s_idx]) {
                 log_hal_msgid_info("Audio ADC performance manager get adc:%d performance:%d", 2, analog_select, p_idx);
                 return p_idx;
             }
@@ -1421,7 +1620,7 @@ hal_audio_performance_mode_t hal_audio_adc_get_suitable_performance(afe_analog_s
 bool hal_audio_device_distinguish_channel(hal_audio_device_parameter_t *handle, hal_audio_control_t device, hal_audio_control_status_t control)
 {
     UNUSED(handle);
-    if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL|HAL_AUDIO_CONTROL_DEVICE_LINE_IN_DUAL)) {
+    if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LINE_IN_DUAL)) {
 #if 0
         hal_audio_device_parameter_analog_mic_t *handle_mic = (hal_audio_device_parameter_analog_mic_t *)handle;
         if (!handle_mic->with_external_bias) {
@@ -1446,7 +1645,7 @@ bool hal_audio_device_distinguish_channel(hal_audio_device_parameter_t *handle, 
         tar_clk = hal_audio_dmic_get_suitable_clock(device_agent);
 
 
-        if(cur_clk != tar_clk) {
+        if (cur_clk != tar_clk) {
             handle->digital_mic.dmic_clock_rate = tar_clk;
             HAL_AUDIO_LOG_INFO("Audio Dmic manager change clock agent:%d, clk:%d\r\n", 2, device_agent, tar_clk);
             hal_audio_device_enable_digital_mic(&handle->digital_mic, device_agent, false);
@@ -1469,7 +1668,7 @@ bool hal_audio_device_distinguish_channel(hal_audio_device_parameter_t *handle, 
                 (handle->dac.with_force_change_rate) &&
                 (hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_DEVICE_ANC)) &&
                 (!hal_audio_status_get_agent_except_type_status(HAL_AUDIO_AGENT_DEVICE_ADDA_DL1, AUDIO_SCENARIO_TYPE_ANC, handle->dac.scenario_type))
-            ) {
+               ) {
                 dl_require_rate = handle->dac.rate;
                 is_force_change_rate = true;
             }
@@ -1545,7 +1744,6 @@ bool hal_audio_device_change_rate(hal_audio_device_parameter_t *handle, hal_audi
     return false;
 }
 
-
 #if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
 bool hal_audio_device_enter_dac_deactive_mode(bool enter_deactive_mode)
 {
@@ -1556,11 +1754,8 @@ bool hal_audio_device_enter_dac_deactive_mode(bool enter_deactive_mode)
 
         afe_volume_analog_set_mute(AFE_HW_ANALOG_GAIN_OUTPUT, AFE_VOLUME_MUTE_FRAMEWORK, enter_deactive_mode);
 
-
         afe_dac_cur_param.dac_mode = hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT);
         afe_dac_cur_param.performance = hal_get_adc_performance_mode(AFE_ANALOG_DAC);
-
-    //    dac_param.dc_compensation_value = 0x9090;
 
         if (afe_analog_control[AFE_ANALOG_DAC].counter) {
             analog_control |= AFE_ANALOG_COMMON;
@@ -1572,31 +1767,34 @@ bool hal_audio_device_enter_dac_deactive_mode(bool enter_deactive_mode)
             analog_control |= AFE_ANALOG_R_CH;
         }
 
-
         if (enter_deactive_mode) {
 
             afe_dac_enter_deactive_mode = true;
-
+#if (defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE))
+            stream_function_hearing_aid_set_dac_mode(0xFF);
+#endif
             if(analog_control & AFE_ANALOG_COMMON) {
                 if (afe_dac_cur_param.dac_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSD) {
-                    hal_audio_ana_set_dac_classd_enable(&afe_dac_cur_param, analog_control, false);
+                    hal_audio_ana_set_dac_classd_enable(&afe_dac_cur_param, analog_control, HAL_AUDIO_CONTROL_OFF);
                 } else if (afe_dac_cur_param.dac_mode == HAL_AUDIO_ANALOG_OUTPUT_OLCLASSD){
-                    hal_audio_ana_set_dac_open_loop_classd_enable(&afe_dac_cur_param, analog_control, false);
+                    hal_audio_ana_set_dac_open_loop_classd_enable(&afe_dac_cur_param, analog_control, HAL_AUDIO_CONTROL_OFF);
                 } else {
-                    hal_audio_ana_set_dac_classg_enable(&afe_dac_cur_param, analog_control, false);
+                    hal_audio_ana_set_dac_classg_enable(&afe_dac_cur_param, analog_control, HAL_AUDIO_CONTROL_OFF);
                 }
                 hal_audio_adda_set_dl(HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_DL1, afe_dac_cur_param.rate, (hal_audio_dl_sdm_setting_t)afe_dac_cur_param.dl_sdm_setting, HAL_AUDIO_CONTROL_OFF);
             }
         } else {
+#if (defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE))
+            stream_function_hearing_aid_set_dac_mode(afe_dac_cur_param.dac_mode);
+#endif
             if(analog_control & AFE_ANALOG_COMMON) {
                 if (afe_dac_cur_param.dac_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSD) {
-                    hal_audio_ana_set_dac_classd_enable(&afe_dac_cur_param, analog_control, true);
+                    hal_audio_ana_set_dac_classd_enable(&afe_dac_cur_param, analog_control, HAL_AUDIO_CONTROL_ON);
                 } else if (afe_dac_cur_param.dac_mode == HAL_AUDIO_ANALOG_OUTPUT_OLCLASSD){
-                    hal_audio_ana_set_dac_open_loop_classd_enable(&afe_dac_cur_param, analog_control, true);
+                    hal_audio_ana_set_dac_open_loop_classd_enable(&afe_dac_cur_param, analog_control, HAL_AUDIO_CONTROL_ON);
                 } else {
-                    hal_audio_ana_set_dac_classg_enable(&afe_dac_cur_param, analog_control, true);
+                    hal_audio_ana_set_dac_classg_enable(&afe_dac_cur_param, analog_control, HAL_AUDIO_CONTROL_ON);
                 }
-
                 hal_audio_dl_set_inverse(afe_dac_cur_param.with_phase_inverse);
                 hal_audio_adda_set_dl(HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_DL1, afe_dac_cur_param.rate, (hal_audio_dl_sdm_setting_t)afe_dac_cur_param.dl_sdm_setting, HAL_AUDIO_CONTROL_ON);
             }
@@ -1619,23 +1817,25 @@ bool hal_audio_device_enter_dac_deactive_mode(bool enter_deactive_mode)
 bool hal_audio_device_set_dac(hal_audio_device_parameter_dac_t *handle, hal_audio_control_t device, hal_audio_control_status_t control)
 {
 #if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
-    memcpy(&afe_dac_cur_param, handle, sizeof(hal_audio_device_parameter_dac_t));
-    if(!afe_dac_enter_deactive_mode) {
-#endif
+    if(!afe_dac_enter_deactive_mode ){
         if (control == HAL_AUDIO_CONTROL_ON) {
+            memcpy(&afe_dac_cur_param, handle, sizeof(hal_audio_device_parameter_dac_t));
+#else
+        if (control == HAL_AUDIO_CONTROL_ON) {
+#endif
             //hal_audio_adda_set_global_bias_enable(true);
 
             hal_audio_device_analog_set_output(handle, device, HAL_AUDIO_CONTROL_ON);
             hal_audio_dl_set_inverse(handle->with_phase_inverse);
-            #ifdef AIR_NLE_ENABLE
+#ifdef AIR_NLE_ENABLE
             if ((afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG2) ||
                 (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB) ||
                 (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG3)) {
                 Sink_Audio_NLE_Init();
             }
-            #endif
+#endif
             hal_audio_adda_set_dl(HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_DL1, handle->rate, (hal_audio_dl_sdm_setting_t)handle->dl_sdm_setting, HAL_AUDIO_CONTROL_ON);
-            #ifdef AIR_NLE_ENABLE
+#ifdef AIR_NLE_ENABLE
             if ((afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG2) ||
                 (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB) ||
                 (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG3)) {
@@ -1644,28 +1844,28 @@ bool hal_audio_device_set_dac(hal_audio_device_parameter_dac_t *handle, hal_audi
                     Sink_Audio_NLE_Enable(TRUE);
                 }
             }
-            #endif
+#endif
         } else {
-            #ifdef AIR_NLE_ENABLE
+#ifdef AIR_NLE_ENABLE
             if ((afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG2) ||
-               (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB) ||
+                (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB) ||
                 (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG3)) {
                 if ((!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_DEVICE_ANC)) &&
-                   (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_DEVICE_SIDETONE))) {
+                    (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_DEVICE_SIDETONE))) {
                     Sink_Audio_NLE_Enable(FALSE);
                 }
             }
-            #endif
+#endif
             hal_audio_device_analog_set_output(handle, device, HAL_AUDIO_CONTROL_OFF);
 
             hal_audio_adda_set_dl(HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_DL1, handle->rate, (hal_audio_dl_sdm_setting_t)handle->dl_sdm_setting, HAL_AUDIO_CONTROL_OFF);
-            #ifdef AIR_NLE_ENABLE
+#ifdef AIR_NLE_ENABLE
             if ((afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG2) ||
                 (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB) ||
                 (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSG3)) {
                 Sink_Audio_NLE_Deinit();
             }
-            #endif
+#endif
             //hal_audio_adda_set_global_bias_enable(false);
         }
 #if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
@@ -1818,48 +2018,48 @@ bool hal_audio_device_set_i2s_master(hal_audio_device_parameter_i2s_master_t *ha
         is_low_jitter = true;
     }
     HAL_AUDIO_LOG_INFO("DSP - Hal Audio DIG I2S MASTER:%d, rate:%d, word_length:%d, i2s_format:%d, is_low_jitter:%d, with_mclk:%d, enable:%d", 7, i2s_id, handle->rate, handle->word_length, handle->i2s_format, handle->is_low_jitter, handle->with_mclk, control);
-    #if 0
-       hal_gpio_init(2);
-       hal_pinmux_set_function(2,3);
-       hal_gpio_init(3);
-       hal_pinmux_set_function(3,3);
-       hal_gpio_init(4);
-       hal_pinmux_set_function(4,3);
-       hal_gpio_init(6);
-       hal_pinmux_set_function(6,3);
-       hal_gpio_init(5);
-       hal_pinmux_set_function(5,3);//O:I2S_MST0_MCLK
-       hal_gpio_init(16);
-       hal_pinmux_set_function(16,3);
-       hal_gpio_init(26);
-       hal_pinmux_set_function(26,3);
-       hal_gpio_init(17);
-       hal_pinmux_set_function(17,3);
-       hal_gpio_init(18);
-       hal_pinmux_set_function(18,3);
-       hal_gpio_init(15);
-       hal_pinmux_set_function(15,3);//O:I2S_MST1_MCLK
-       hal_gpio_init(29);
-       hal_pinmux_set_function(29,1);
-       hal_gpio_init(32);
-       hal_pinmux_set_function(32,1);
-       hal_gpio_init(33);
-       hal_pinmux_set_function(33,1);
-       hal_gpio_init(37);
-       hal_pinmux_set_function(37,1);
-       hal_gpio_init(31);
-       hal_pinmux_set_function(31,1);//O:I2S_MST2_MCLK
-       hal_gpio_init(38);
-       hal_pinmux_set_function(38,1);
-       hal_gpio_init(39);
-       hal_pinmux_set_function(39,1);
-       hal_gpio_init(40);
-       hal_pinmux_set_function(40,1);
-       hal_gpio_init(43);
-       hal_pinmux_set_function(43,1);
-       hal_gpio_init(41);
-       hal_pinmux_set_function(41,1);//O:I2S_MST3_MCLK
-    #endif
+#if 0
+    hal_gpio_init(2);
+    hal_pinmux_set_function(2, 3);
+    hal_gpio_init(3);
+    hal_pinmux_set_function(3, 3);
+    hal_gpio_init(4);
+    hal_pinmux_set_function(4, 3);
+    hal_gpio_init(6);
+    hal_pinmux_set_function(6, 3);
+    hal_gpio_init(5);
+    hal_pinmux_set_function(5, 3); //O:I2S_MST0_MCLK
+    hal_gpio_init(16);
+    hal_pinmux_set_function(16, 3);
+    hal_gpio_init(26);
+    hal_pinmux_set_function(26, 3);
+    hal_gpio_init(17);
+    hal_pinmux_set_function(17, 3);
+    hal_gpio_init(18);
+    hal_pinmux_set_function(18, 3);
+    hal_gpio_init(15);
+    hal_pinmux_set_function(15, 3); //O:I2S_MST1_MCLK
+    hal_gpio_init(29);
+    hal_pinmux_set_function(29, 1);
+    hal_gpio_init(32);
+    hal_pinmux_set_function(32, 1);
+    hal_gpio_init(33);
+    hal_pinmux_set_function(33, 1);
+    hal_gpio_init(37);
+    hal_pinmux_set_function(37, 1);
+    hal_gpio_init(31);
+    hal_pinmux_set_function(31, 1); //O:I2S_MST2_MCLK
+    hal_gpio_init(38);
+    hal_pinmux_set_function(38, 1);
+    hal_gpio_init(39);
+    hal_pinmux_set_function(39, 1);
+    hal_gpio_init(40);
+    hal_pinmux_set_function(40, 1);
+    hal_gpio_init(43);
+    hal_pinmux_set_function(43, 1);
+    hal_gpio_init(41);
+    hal_pinmux_set_function(41, 1); //O:I2S_MST3_MCLK
+#endif
     if (control == HAL_AUDIO_CONTROL_ON) {
         hal_audio_i2s_set_clk(device_agent, i2s_id, control);
         if (is_low_jitter || handle->with_mclk) {
@@ -1958,15 +2158,15 @@ bool hal_audio_device_set_vow(hal_audio_device_parameter_vow_t *handle, hal_audi
     HAL_AUDIO_LOG_INFO("DSP - Hal Audio VOW mic_selection:0x%x, mic1_selection:0x%x, vow_with_hpf:0x%x, snr_threshold:0x%x, dma_irq_threshold:0x%x on/off:%d", 6, handle->mic_selection, handle->mic1_selection, handle->vow_with_hpf, handle->snr_threshold, handle->dma_irq_threshold, control);
     if ((handle->mic_selection | handle->mic1_selection)&HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL) {
         /*Either one is DMIC */
-        if((handle->mic_selection != HAL_AUDIO_CONTROL_NONE)&&(handle->mic1_selection != HAL_AUDIO_CONTROL_NONE)) {
+        if ((handle->mic_selection != HAL_AUDIO_CONTROL_NONE) && (handle->mic1_selection != HAL_AUDIO_CONTROL_NONE)) {
             hal_wow_set_dmic(handle->vow_mode, handle->dmic_selection, HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL, control);
-        }else if(handle->mic_selection != HAL_AUDIO_CONTROL_NONE) {
+        } else if (handle->mic_selection != HAL_AUDIO_CONTROL_NONE) {
             hal_wow_set_dmic(handle->vow_mode, handle->dmic_selection, HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_L, control);
-        }else {
+        } else {
             hal_wow_set_dmic(handle->vow_mode, handle->dmic_selection, HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_R, control);
         }
         HAL_AUDIO_LOG_INFO("DSP - Hal Audio VOW dmic_selection:0x%x, vow_mode:0x%x", 2, handle->dmic_selection, handle->vow_mode);
-    } else if ((handle->mic_selection & HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL) || (handle->mic1_selection & HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL)){
+    } else if ((handle->mic_selection & HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL) || (handle->mic1_selection & HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL)) {
         /*AMIC*/
         afe_analog_select_t analog_select = AFE_ANALOG_ADC0;
         afe_analog_select_t analog_select1 = AFE_ANALOG_ADC0;
@@ -2004,6 +2204,9 @@ bool hal_audio_device_set_vow(hal_audio_device_parameter_vow_t *handle, hal_audi
 void hal_audio_sidetone_off_handler(void)
 {
     afe_set_sidetone_enable(false, &dsp_afe_sidetone, &dsp_afe_sidetone_extension, true);
+    if (sidetone_control.sidetone_stop_done_entry) {
+        sidetone_control.sidetone_stop_done_entry();
+    }
 }
 
 void hal_audio_sidetone_off_callback(void)
@@ -2104,22 +2307,22 @@ bool hal_audio_device_set_sidetone(hal_audio_device_parameter_sidetone_t *handle
             hal_sidetone_set_input(HAL_AUDIO_DEVICE_AGENT_DEVICE_SIDETONE, false);
             if (sidetone_control.tick_align_enable) {
 #ifdef AIR_SIDETONE_USE_I2S_TICK_SOURCE
-            i2s_id = AIR_SIDETONE_USE_I2S_TICK_SOURCE;
-            i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER + (i2s_id - AFE_I2S0);
+                i2s_id = AIR_SIDETONE_USE_I2S_TICK_SOURCE;
+                i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER + (i2s_id - AFE_I2S0);
 #else
-            if ((hal_device_convert_device_agent(handle->output_device, handle->output_interface)) == HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER) {
-                i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER;
-            } else if ((hal_device_convert_device_agent(handle->output_device, handle->output_interface)) == HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER) {
-                i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER;
-            } else if ((hal_device_convert_device_agent(handle->output_device, handle->output_interface)) == HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER) {
-                i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER;
-            } else if ((hal_device_convert_device_agent(handle->output_device, handle->output_interface)) == HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER) {
-                i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER;
-            } else {
-                i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER;
-                HAL_AUDIO_LOG_INFO("DSP - sidetone no I2S source tick to align", 0);
-                assert(0);
-            }
+                if ((hal_device_convert_device_agent(handle->output_device, handle->output_interface)) == HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER) {
+                    i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER;
+                } else if ((hal_device_convert_device_agent(handle->output_device, handle->output_interface)) == HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER) {
+                    i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S1_MASTER;
+                } else if ((hal_device_convert_device_agent(handle->output_device, handle->output_interface)) == HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER) {
+                    i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S2_MASTER;
+                } else if ((hal_device_convert_device_agent(handle->output_device, handle->output_interface)) == HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER) {
+                    i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S3_MASTER;
+                } else {
+                    i2s_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER;
+                    HAL_AUDIO_LOG_INFO("DSP - sidetone no I2S source tick to align", 0);
+                    assert(0);
+                }
 #endif
                 sidetone_control.tick_align_enable = false;
                 hal_audio_i2s_set_rate(i2s_id, 0x0);
@@ -2130,9 +2333,6 @@ bool hal_audio_device_set_sidetone(hal_audio_device_parameter_sidetone_t *handle
             hal_audio_path_set_interconnection(AUDIO_INTERCONNECTION_DISCONNECT, HAL_AUDIO_PATH_CHANNEL_DIRECT, sidetone_control.input_interconn_select, AUDIO_INTERCONNECTION_OUTPUT_O10);
             //afe_set_sidetone_enable(false, &dsp_afe_sidetone, &dsp_afe_sidetone_extension, true); //close mic and dac
             hal_audio_sidetone_off_callback();
-            if (sidetone_control.sidetone_stop_done_entry) {
-                sidetone_control.sidetone_stop_done_entry();
-            }
         }
     }
 
@@ -2225,15 +2425,14 @@ bool hal_audio_device_analog_set_input(hal_audio_device_parameter_t *handle, hal
 
     if (analog_select == AFE_ANALOG_ADC0) {
         pfunc = hal_audio_ana_set_adc0_enable;
-    }
-    else if (analog_select == AFE_ANALOG_ADC1) {
+    } else if (analog_select == AFE_ANALOG_ADC1) {
         pfunc = hal_audio_ana_set_adc23_enable;
     }
 //    else if (analog_select == AFE_ANALOG_ADC2) {
 //        pfunc = hal_audio_ana_set_adc45_enable;
 //    }
     else {
-        log_hal_msgid_warning("DSP - Hal Audio control. ADC not exist. idx : %d", 1 ,analog_select);
+        log_hal_msgid_warning("DSP - Hal Audio control. ADC not exist. idx : %d", 1, analog_select);
     }
 
 #if (HAL_AUDIO_KEEP_ADC_HIGHER_PERFORMANCE_MODE)
@@ -2268,8 +2467,8 @@ bool hal_audio_device_analog_set_input(hal_audio_device_parameter_t *handle, hal
         }
 
         if (analog_control) {
-            if(pfunc) {
-                if((analog_control & AFE_ANALOG_R_CH) && (analog_control & AFE_ANALOG_L_CH)){
+            if (pfunc) {
+                if ((analog_control & AFE_ANALOG_R_CH) && (analog_control & AFE_ANALOG_L_CH)) {
                     /* Dual mic need to step enable */
                     pfunc(adc_parameter, (AFE_ANALOG_R_CH | AFE_ANALOG_COMMON), true);
 
@@ -2304,8 +2503,8 @@ bool hal_audio_device_analog_set_input(hal_audio_device_parameter_t *handle, hal
             if (afe_analog_control[analog_select].channel_counter.channel_r != 0) {
                 analog_control &= ~AFE_ANALOG_R_CH;
             }
-            if(pfunc) {
-                if((analog_control & AFE_ANALOG_R_CH) && (analog_control & AFE_ANALOG_L_CH)){
+            if (pfunc) {
+                if ((analog_control & AFE_ANALOG_R_CH) && (analog_control & AFE_ANALOG_L_CH)) {
                     /* Dual mic need to step disable */
                     pfunc(adc_parameter, AFE_ANALOG_L_CH, false);
 
@@ -2338,8 +2537,8 @@ bool hal_audio_device_analog_set_input(hal_audio_device_parameter_t *handle, hal
             analog_control |= AFE_ANALOG_R_CH;
         }
 
-        if(pfunc) {
-            if((analog_control & AFE_ANALOG_L_CH) && (analog_control & AFE_ANALOG_R_CH)){
+        if (pfunc) {
+            if ((analog_control & AFE_ANALOG_L_CH) && (analog_control & AFE_ANALOG_R_CH)) {
                 /* Dual mic need to step reset */
                 pfunc(adc_parameter, AFE_ANALOG_L_CH, false);
                 pfunc(adc_parameter, (AFE_ANALOG_R_CH | AFE_ANALOG_COMMON), false);
@@ -2410,11 +2609,11 @@ bool hal_audio_device_analog_set_output(hal_audio_device_parameter_dac_t *dac_pa
 
 
 #if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
-            if(!afe_dac_enter_deactive_mode ){
+            if (!afe_dac_enter_deactive_mode) {
 #endif
                 if (dac_param->dac_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSD) {
                     hal_audio_ana_set_dac_classd_enable(dac_param, analog_control, true);
-                } else if (dac_param->dac_mode == HAL_AUDIO_ANALOG_OUTPUT_OLCLASSD){
+                } else if (dac_param->dac_mode == HAL_AUDIO_ANALOG_OUTPUT_OLCLASSD) {
                     hal_audio_ana_set_dac_open_loop_classd_enable(dac_param, analog_control, true);
                 } else {
                     hal_audio_ana_set_dac_classg_enable(dac_param, analog_control, true);
@@ -2450,12 +2649,12 @@ bool hal_audio_device_analog_set_output(hal_audio_device_parameter_dac_t *dac_pa
                 analog_control &= ~AFE_ANALOG_R_CH;
             }
 #if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
-            if(!afe_dac_enter_deactive_mode ){
+            if (!afe_dac_enter_deactive_mode) {
 #endif
-                //hal_audio_ana_set_dac_enable(&handle->dac, analog_control, false);
-                if (dac_param->dac_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSD) {
+                    //hal_audio_ana_set_dac_enable(&handle->dac, analog_control, false);
+                if (hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT) == HAL_AUDIO_ANALOG_OUTPUT_CLASSD) {
                     hal_audio_ana_set_dac_classd_enable(dac_param, analog_control, false);
-                } else if (dac_param->dac_mode == HAL_AUDIO_ANALOG_OUTPUT_OLCLASSD){
+                } else if (hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT) == HAL_AUDIO_ANALOG_OUTPUT_OLCLASSD) {
                     hal_audio_ana_set_dac_open_loop_classd_enable(dac_param, analog_control, false);
                 } else {
                     hal_audio_ana_set_dac_classg_enable(dac_param, analog_control, false);
@@ -2568,25 +2767,22 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_memory_set_agent(hal_audio_memory_p
     UNUSED(memory_interface);
     if (control == HAL_AUDIO_CONTROL_ON) {
         hal_audio_afe_set_enable(true);
-        hal_audio_component_id_resource_management(type, agent, control);
-        if (g_dsp_agent_on[agent]) {
+        if (hal_audio_component_id_resource_management(type, agent, control)) {
             hal_audio_memory_setting(handle, memory_interface, control);
         } else {
-            #ifndef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
-                #if (HAL_AUDIO_PATH_ECHO_CONNECTION_MODE == 0)
-                    if (agent == HAL_AUDIO_AGENT_MEMORY_AWB2) {
-                        //Enable up/downSample
-                        afe_updown_configuration_t updown_configuration;
-                        updown_configuration.input_rate = hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH23);
-                        updown_configuration.output_rate = handle->audio_path_rate;
-                        updown_configuration.non_integer_multiple_rate = hal_audio_updown_get_non_integer_multiple_rate(updown_configuration.input_rate, updown_configuration.output_rate);
-                        updown_configuration.is_non_integer_multiple = false;
-                        updown_configuration.is_echo_configure_input = false;
-                        hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23, handle->scenario_type, control);
-                        hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23, handle->scenario_type, control);
-                    }
-                #endif
-            #endif
+#ifndef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
+#if (HAL_AUDIO_PATH_ECHO_CONNECTION_MODE == 0)
+            if (agent == HAL_AUDIO_AGENT_MEMORY_AWB2) {
+                //Enable up/downSample
+                afe_updown_configuration_t updown_configuration;
+                updown_configuration.input_rate = hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH23_L);
+                updown_configuration.output_rate = handle->audio_path_rate;
+                updown_configuration.is_echo_configure_input = false;
+                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23_L, handle->scenario_type, control);
+                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23_L, handle->scenario_type, control);
+            }
+#endif
+#endif
             //Get memory agent setting while agent is occupied.
             handle->buffer_addr = hal_memory_get_address(agent);
             handle->buffer_length = hal_memory_get_length(agent);
@@ -2595,23 +2791,22 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_memory_set_agent(hal_audio_memory_p
 
     } else {
         hal_nvic_save_and_set_interrupt_mask(&mask);
-        hal_audio_component_id_resource_management(type, agent, control);
-        if (g_dsp_agent_off[agent]) {
+        if (hal_audio_component_id_resource_management(type, agent, control)) {
             hal_nvic_restore_interrupt_mask(mask);
             hal_audio_memory_setting(handle, memory_interface, control);
             //hal_nvic_restore_interrupt_mask_special(mask);
             hal_audio_afe_set_enable(false);
         } else {
             hal_nvic_restore_interrupt_mask(mask);
-            #ifndef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
-                if (agent == HAL_AUDIO_AGENT_MEMORY_AWB2) {
-                    //Disable up/downSample
-                    afe_updown_configuration_t updown_configuration;
-                    updown_configuration.is_echo_configure_input = false;
-                    hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23, handle->scenario_type, control);
-                    hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23, handle->scenario_type, control);
-                }
-            #endif
+#ifndef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
+            if (agent == HAL_AUDIO_AGENT_MEMORY_AWB2) {
+                //Disable up/downSample
+                afe_updown_configuration_t updown_configuration;
+                updown_configuration.is_echo_configure_input = false;
+                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23_L, handle->scenario_type, control);
+                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23_L, handle->scenario_type, control);
+            }
+#endif
         }
     }
     return false;
@@ -2674,20 +2869,18 @@ bool hal_audio_memory_setting(hal_audio_memory_parameter_t *handle, hal_audio_co
                 //Enable downSample
                 afe_updown_configuration_t updown_configuration;
                 //handle->audio_path_rate = 32000;
-                updown_configuration.input_rate = hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH23);
+                updown_configuration.input_rate = hal_updown_get_input_rate(AFE_UPDOWN_SAMPLER_UP_CH23_L);
                 updown_configuration.output_rate = handle->audio_path_rate;
-                updown_configuration.non_integer_multiple_rate = hal_audio_updown_get_non_integer_multiple_rate(updown_configuration.input_rate, updown_configuration.output_rate);
-                updown_configuration.is_non_integer_multiple = false;
                 updown_configuration.is_echo_configure_input = false;
-                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23, handle->scenario_type, control);
-                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23, handle->scenario_type, control);
+                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23_L, handle->scenario_type, control);
+                hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23_L, handle->scenario_type, control);
             }
 #elif (HAL_AUDIO_PATH_ECHO_CONNECTION_MODE == 1)
             //Connect from UL loopback
             {
                 hal_audio_device_parameter_loopback_t loopback;
                 loopback.rate = handle->audio_path_rate;
-                loopback.audio_device = HAL_AUDIO_CONTROL_DEVICE_LOOPBACK;
+                loopback.audio_device = HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL;
                 loopback.ul_interface = HAL_AUDIO_INTERFACE_4;
                 loopback.iir_filter = HAL_AUDIO_UL_IIR_DISABLE;
                 loopback.loopback_setting = AFE_AUDIO_UL_LOOPBACK_FROM_7BIT_SDM;
@@ -2707,8 +2900,9 @@ bool hal_audio_memory_setting(hal_audio_memory_parameter_t *handle, hal_audio_co
             /* Workaround:Toggle memory enable to reset current index for waiting play_en */
             hal_memory_set_enable(agent, HAL_AUDIO_CONTROL_ON);
             hal_memory_set_enable(agent, HAL_AUDIO_CONTROL_OFF);
-
+            #ifndef AIR_MIXER_STREAM_ENABLE
             hal_memory_set_palyen(agent, control);
+            #endif
         } else if (handle->sync_status & HAL_AUDIO_MEMORY_SYNC_SW_TRIGGER) {
 
         } else if (handle->sync_status & HAL_AUDIO_MEMORY_SYNC_AUDIO_FORWARDER) {
@@ -2724,16 +2918,13 @@ bool hal_audio_memory_setting(hal_audio_memory_parameter_t *handle, hal_audio_co
                 pre_src1_empty_gpt_cnt = 0;
             }
             afe_src_configuration_t src_configuration;
+            memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
             hal_audio_src_set_parameters(handle, &src_configuration);
             hal_audio_src_configuration(&src_configuration, control);
             hal_audio_src_set_start(&src_configuration, handle->sync_status, control);
         }
     } else {
-        if (handle->sync_status & HAL_AUDIO_MEMORY_SYNC_PLAY_EN
-        #ifdef AIR_DCHS_MODE_ENABLE
-        && (!dchs_dl_check_scenario_play_en_exist(HAL_AUDIO_AGENT_MEMORY_DL12) || agent == HAL_AUDIO_AGENT_MEMORY_DL12 || (!dchs_dl_check_scenario_exist(LOCAL_SCENARIO_1) && !dchs_dl_check_scenario_exist(LOCAL_SCENARIO_2) && !dchs_dl_check_scenario_exist(UART_SCENARIO)))
-        #endif
-        ) {
+        if (handle->sync_status & HAL_AUDIO_MEMORY_SYNC_PLAY_EN) {
             AFE_SET_REG(AFE_AUDIO_BT_SYNC_CON0, 0x0003, 0x0003);
         } else {
             hal_memory_set_enable(agent, HAL_AUDIO_CONTROL_ON);
@@ -2745,6 +2936,7 @@ bool hal_audio_memory_setting(hal_audio_memory_parameter_t *handle, hal_audio_co
                 pre_src1_empty_gpt_cnt = 0;
             }
             afe_src_configuration_t src_configuration;
+            memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
             hal_audio_src_set_parameters(handle, &src_configuration);
             hal_audio_src_set_start(&src_configuration, handle->sync_status, control);
             hal_audio_src_configuration(&src_configuration, control);
@@ -2756,22 +2948,25 @@ bool hal_audio_memory_setting(hal_audio_memory_parameter_t *handle, hal_audio_co
             //Disable downSample
             afe_updown_configuration_t updown_configuration;
             updown_configuration.is_echo_configure_input = false;
-            hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23, handle->scenario_type, control);
-            hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23, handle->scenario_type, control);
+            hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_DOWN_CH23_L, handle->scenario_type, control);
+            hal_audio_updown_set_agent(&updown_configuration, AFE_UPDOWN_SAMPLER_UP_CH23_L, handle->scenario_type, control);
         }
 #endif
 #endif
-        if (handle->sync_status & HAL_AUDIO_MEMORY_SYNC_PLAY_EN) {
+        #ifndef AIR_MIXER_STREAM_ENABLE
+        if (handle->sync_status & HAL_AUDIO_MEMORY_SYNC_PLAY_EN)
+        #endif
+        {
             hal_memory_set_palyen(agent, control);
             AFE_SET_REG(AFE_AUDIO_BT_SYNC_CON0, 0x0000, 0x0003);
         }
-        #ifdef AIR_RESET_SDM_ENABLE
         if (agent == HAL_AUDIO_AGENT_MEMORY_DL1) {
+            hal_hw_gain_set_target(AFE_HW_DIGITAL_GAIN1, 0);
             hal_hw_gain_set_current_gain(AFE_HW_DIGITAL_GAIN1, 0);
         } else if (agent == HAL_AUDIO_AGENT_MEMORY_DL2) {
+            hal_hw_gain_set_target(AFE_HW_DIGITAL_GAIN2, 0);
             hal_hw_gain_set_current_gain(AFE_HW_DIGITAL_GAIN2, 0);
         }
-        #endif
 
         //Free SRAM
         hal_memory_free_sram(type, agent);
@@ -2933,7 +3128,7 @@ void hal_audoi_get_audio_sram_table(audio_sram_table_t *table_ptr, audio_scenari
         HAL_AUDIO_LOG_ERROR("audio_sram_table exceed number :%d, table size: :%d", 2, table_number, HAL_AUDIO_COMPONENT_NUMBERS);
         assert(0);
     } else {
-        memcpy(audio_sram_table, table_ptr, table_number*sizeof(audio_sram_table_t));
+        memcpy(audio_sram_table, table_ptr, table_number * sizeof(audio_sram_table_t));
     }
 }
 
@@ -2944,9 +3139,16 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_allocate_sram(audio_scenario_t
     int32_t search_block, bottom_index, top_index;
     audio_scenario_type_t component_type = AUDIO_SCEANRIO_TYPE_NO_USE;
     int32_t component_block_num = 0, component_search_block = 0, component_search_direction = 0, component_search_block_last = 0;
-    //printf("[Audio SRAM][Allocate] scenario_type:%d,user_type:%d,size:%d",type,user_type,size);
-    uint32_t i;
-    for (i = 0 ; i < HAL_AUDIO_COMPONENT_NUMBERS ; i++) {
+    HAL_AUDIO_LOG_INFO("[Audio SRAM][Allocate]#hal_memory_allocate_sram# scenario_type:%d,user_type:%d,size:%d", 3, type, user_type, size);
+
+    for (uint32_t j = 0; j < HAL_AUDIO_MEMORY_SRAM_BLOCK_NUMBER; j ++) {
+        if (hal_sram_manager.block[j].user == user_type) {
+            HAL_AUDIO_LOG_ERROR("[Audio SRAM] AGENT(%d) already allocated type:%d", 2, user_type, type);
+            AUDIO_ASSERT(FALSE);
+        }
+    }
+
+    for (uint32_t i = 0 ; i < HAL_AUDIO_COMPONENT_NUMBERS ; i++) {
         if (audio_sram_table[i].component_type == type) {
             component_type = audio_sram_table[i].component_type;
             component_block_num = audio_sram_table[i].component_sram_block_num;
@@ -2976,7 +3178,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_allocate_sram(audio_scenario_t
     hal_nvic_save_and_set_interrupt_mask(&mask);
     top_index = bottom_index = 0;
     for (; (search_block >= component_search_block) && (search_block <= component_search_block_last) ; search_block += component_search_direction) {
-        //printf("[Audio SRAM][Allocate] search_block:%d, user_type:%d",search_block,hal_sram_manager.block[search_block].user);
+        //HAL_AUDIO_LOG_INFO("[Audio SRAM][Allocate] search_block:%d, user_type:%d",2,search_block,hal_sram_manager.block[search_block].user);
         if (hal_sram_manager.block[search_block].user == HAL_AUDIO_AGENT_ERROR) {
             if (allow_size == 0) {
                 if (component_search_direction > 0) {
@@ -2986,8 +3188,12 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_allocate_sram(audio_scenario_t
                 }
             }
             allow_size += HAL_AUDIO_MEMORY_SRAM_BLOCK_SIZE;
-            //printf("allow_size:%d",allow_size);
+            //HAL_AUDIO_LOG_INFO("allow_size:%d",1,allow_size);
         } else {
+            if (hal_sram_manager.block[search_block].component_type != type) {
+                HAL_AUDIO_LOG_ERROR("[Audio SRAM] Detect Conflicts: %d != %d", 2, type, hal_sram_manager.block[search_block].component_type);
+                AUDIO_ASSERT(FALSE);
+            }
             allow_size = 0;
         }
 
@@ -3006,20 +3212,20 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_allocate_sram(audio_scenario_t
     if (allow_size >= size) {
         for (search_block = top_index ; search_block <= bottom_index ; search_block++) {
             hal_sram_manager.block[search_block].user = user_type;
+            hal_sram_manager.block[search_block].component_type = type;
             hal_sram_manager.remain_block--;
         }
         hal_audio_afe_set_enable(true);//add for issue BTA-6421,Before using aduio sram, you need to enable afe.
         get_ptr = hal_sram_manager.block[top_index].sram_addr;
         memset((U8 *)get_ptr, 0, size);
         hal_nvic_restore_interrupt_mask(mask);
-        HAL_AUDIO_LOG_INFO("[Audio SRAM][Allocate] DSP - Hal Audio Memory SRAM alloc. Scenario type:%d, User type:%d, Allocate size:%d, Block index:%d, remain size:%d, Reamin block:%d, get_ptr = 0x%x", 7, type, user_type, size, top_index, allow_size, hal_sram_manager.remain_block,get_ptr);
+        HAL_AUDIO_LOG_INFO("[Audio SRAM][Allocate] DSP - Hal Audio Memory SRAM alloc. Scenario type:%d, User type:%d, Allocate size:%d, Block index:%d, remain size:%d, Reamin block:%d, get_ptr = 0x%x", 7, type, user_type, size, top_index, allow_size, hal_sram_manager.remain_block, get_ptr);
     } else {
         hal_nvic_restore_interrupt_mask(mask);
         HAL_AUDIO_LOG_ERROR("[Audio SRAM][Allocate] DSP - Error Hal Audio Memory SRAM alloc fail. Scenario type:%d, User type:%d, Allocate size:%d, Remain size:%d, Reamin block:%d", 5, type, user_type, size, allow_size, hal_sram_manager.remain_block);
         assert(FALSE);
     }
 
-    //LOG_PRINT_AUDIO("DSP SRAM Allocate Type:%d, 7, size:%d, block index:%d, Reamin_block:%d", user_type, size, top_index, hal_sram_manager.remain_block);
     return get_ptr;
 }
 
@@ -3051,7 +3257,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_free_sram(audio_scenario_type_
     hal_nvic_save_and_set_interrupt_mask(&mask);
 
     for (search_block = component_search_block ; search_block <= component_search_block_last ; search_block++) {
-        if (hal_sram_manager.block[search_block].user == user_type) {
+        if ((hal_sram_manager.block[search_block].user == user_type) && (hal_sram_manager.block[search_block].component_type == type))  {
             hal_sram_manager.block[search_block].user = HAL_AUDIO_AGENT_ERROR;
             hal_sram_manager.remain_block++;
 
@@ -3060,9 +3266,13 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_free_sram(audio_scenario_type_
             }
             block_number++;
         }
+        //LOG_PRINT_AUDIO("[Audio SRAM][Free] search_block:%d, user_type:%d",2,search_block,hal_sram_manager.block[search_block].user);
     }
     if (block_number) { //found user
         hal_audio_afe_set_enable(false);//add for issue BTA-6421,Before using aduio sram, you need to enable afe.
+    } else {
+        HAL_AUDIO_LOG_ERROR("[Audio SRAM] Detect abnormal free requests", 0);
+        AUDIO_ASSERT(FALSE);
     }
     HAL_AUDIO_LOG_INFO("[Audio SRAM][Free] DSP - Hal Audio Memory SRAM free: scenario_type:%d, user_type:%d, free number:%d, block index:%d, Reamin_block:%d", 5, type, user_type, block_number, top_index, hal_sram_manager.remain_block);
     hal_nvic_restore_interrupt_mask(mask);
@@ -3085,7 +3295,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_allocate_sram(audio_scenario_t
         (user_type == HAL_AUDIO_AGENT_MEMORY_VUL3)) {
         //backward usage
         search_direction = -1;
-        search_block = HAL_AUDIO_MEMORY_SRAM_BLOCK_NUMBER-1;
+        search_block = HAL_AUDIO_MEMORY_SRAM_BLOCK_NUMBER - 1;
 
     } else {
         //forward usage
@@ -3093,12 +3303,12 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_allocate_sram(audio_scenario_t
         search_block = 0;
     }
 
-   hal_nvic_save_and_set_interrupt_mask(&mask);
+    hal_nvic_save_and_set_interrupt_mask(&mask);
     top_index = bottom_index = 0;
-    for ( ; (search_block>=0)&&(search_block<HAL_AUDIO_MEMORY_SRAM_BLOCK_NUMBER) ; search_block+=search_direction) {
+    for (; (search_block >= 0) && (search_block < HAL_AUDIO_MEMORY_SRAM_BLOCK_NUMBER) ; search_block += search_direction) {
         if (hal_sram_manager.block[search_block].user == HAL_AUDIO_AGENT_ERROR) {
-            if (allow_size==0) {
-                if (search_direction>0) {
+            if (allow_size == 0) {
+                if (search_direction > 0) {
                     top_index = search_block;
                 } else {
                     bottom_index = search_block;
@@ -3109,9 +3319,9 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_allocate_sram(audio_scenario_t
             allow_size = 0;
         }
 
-        if (allow_size>=size) {
+        if (allow_size >= size) {
             //Find available SRAM
-            if (search_direction>0) {
+            if (search_direction > 0) {
                 bottom_index = search_block;
             } else {
                 top_index = search_block;
@@ -3121,18 +3331,18 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_allocate_sram(audio_scenario_t
     }
 
 
-    if (allow_size>=size) {
-        for (search_block=top_index ; search_block <= bottom_index ; search_block++) {
+    if (allow_size >= size) {
+        for (search_block = top_index ; search_block <= bottom_index ; search_block++) {
             hal_sram_manager.block[search_block].user = user_type;
             hal_sram_manager.remain_block--;
         }
         hal_nvic_restore_interrupt_mask(mask);
         hal_audio_afe_set_enable(true);//add for issue BTA-6421,Before using aduio sram, you need to enable afe.
         get_ptr = hal_sram_manager.block[top_index].sram_addr;
-        memset((U8*)get_ptr, 0, size);
+        memset((U8 *)get_ptr, 0, size);
         HAL_AUDIO_LOG_INFO("DSP - Hal Audio Memory SRAM alloc Type:%d, size:%d, block index:%d, Reamin_block:%d", 4, user_type, size, top_index, hal_sram_manager.remain_block);
     } else {
-       hal_nvic_restore_interrupt_mask(mask);
+        hal_nvic_restore_interrupt_mask(mask);
         HAL_AUDIO_LOG_ERROR("DSP - Error Hal Audio Memory SRAM alloc fail. Type:%d, size:%d, Reamin_block:%d", 3, user_type, size, hal_sram_manager.remain_block);
         OS_ASSERT(FALSE);
     }
@@ -3149,18 +3359,18 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ uint32_t hal_memory_free_sram(audio_scenario_type_
     uint32_t mask;
     hal_nvic_save_and_set_interrupt_mask(&mask);
 
-    for (search_block=0 ; search_block < HAL_AUDIO_MEMORY_SRAM_BLOCK_NUMBER ; search_block++) {
+    for (search_block = 0 ; search_block < HAL_AUDIO_MEMORY_SRAM_BLOCK_NUMBER ; search_block++) {
         if (hal_sram_manager.block[search_block].user == user_type) {
             hal_sram_manager.block[search_block].user = HAL_AUDIO_AGENT_ERROR;
             hal_sram_manager.remain_block++;
 
-            if (block_number==0) {
+            if (block_number == 0) {
                 top_index = search_block;
             }
             block_number++;
         }
     }
-    if(block_number){//found user
+    if (block_number) { //found user
         hal_audio_afe_set_enable(false);//add for issue BTA-6421,Before using aduio sram, you need to enable afe.
     }
     hal_nvic_restore_interrupt_mask(mask);
@@ -3272,7 +3482,9 @@ bool hal_audio_src_set_parameters(hal_audio_memory_parameter_t *handle, afe_src_
         if (handle->memory_select & (HAL_AUDIO_MEMORY_DL_SRC1 | HAL_AUDIO_MEMORY_DL_SRC2)) {
             configuration->mode = AFE_SRC_CONTINUOUS;
         } else {
+            #ifndef AIR_MIXER_STREAM_ENABLE
             configuration->hw_update_obuf_rdpnt = true;
+            #endif
             if (handle->src_tracking_clock_source) {
                 configuration->mode = AFE_SRC_TRACKING_MODE_TX;
                 configuration->tracking_clock = handle->src_tracking_clock_source;
@@ -3307,27 +3519,27 @@ bool hal_audio_src_set_parameters(hal_audio_memory_parameter_t *handle, afe_src_
     src_buffer_info->format = handle->pcm_format;
 
 
-    HAL_AUDIO_LOG_INFO("DSP - Hal Audio SRC mode:%d, id:%d, in:%d, out:%d", 4, configuration->mode, configuration->id, configuration->input_buffer.rate, configuration->output_buffer.rate);
+    HAL_AUDIO_LOG_INFO("DSP - Hal Audio SRC mode:%d, id:%d, in:%d, out:%d, hwsrc_type:%d", 5, configuration->mode, configuration->id, configuration->input_buffer.rate, configuration->output_buffer.rate, configuration->hwsrc_type);
     return false;
 }
 ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_src_enable_clock(afe_mem_asrc_id_t asrc_id, hal_audio_control_status_t control)
 {
     if (control == HAL_AUDIO_CONTROL_ON) {
-        hal_audio_clock_enable_src(true);
+        hal_audio_clock_enable_src(asrc_id, true);
         if (asrc_id == AFE_MEM_ASRC_1) {
-            hal_audio_clock_enable_src1(true);
+            hal_audio_clock_enable_src1(asrc_id, true);
         } else {
-            hal_audio_clock_enable_src2(true);
+            hal_audio_clock_enable_src2(asrc_id, true);
         }
     } else {
         if (asrc_id == AFE_MEM_ASRC_1) {
-            hal_audio_clock_enable_src1(false);
+            hal_audio_clock_enable_src1(asrc_id, false);
         } else {
-            hal_audio_clock_enable_src2(false);
+            hal_audio_clock_enable_src2(asrc_id, false);
         }
-        hal_audio_clock_enable_src(false);
+        hal_audio_clock_enable_src(asrc_id, false);
     }
-    HAL_AUDIO_LOG_INFO("[HWSRC]hal_audio_src_enable_clock done, src_id:%d, enable:%d", 2,asrc_id, control);
+    HAL_AUDIO_LOG_INFO("[HWSRC]hal_audio_src_enable_clock done, src_id:%d, enable:%d", 2, asrc_id, control);
     return false;
 }
 
@@ -3372,7 +3584,7 @@ bool hal_audio_src_clear_buffer_data(afe_mem_asrc_id_t src_id)
     AFE_WRITE(ASM_CH01_IBUF_WRPNT + addr_offset, AFE_READ(ASM_CH01_IBUF_RDPNT + addr_offset));
     // Output Buffer almost empty
     AFE_WRITE(ASM_CH01_OBUF_RDPNT + addr_offset, AFE_READ(ASM_CH01_OBUF_WRPNT + addr_offset) - 16);
-    HAL_AUDIO_LOG_INFO("[HWSRC]hal_audio_src_clear_buffer_data, src_id:%d",1,src_id);
+    HAL_AUDIO_LOG_INFO("[HWSRC]hal_audio_src_clear_buffer_data, src_id:%d", 1, src_id);
     return false;
 }
 
@@ -3409,7 +3621,7 @@ bool hal_audio_hardware_gain_set_agent(afe_hardware_digital_gain_t gain_select, 
         hw_gain_agent = HAL_AUDIO_AGENT_BLOCK_HWGAIN1;
     } else if (gain_select == AFE_HW_DIGITAL_GAIN2) {
         hw_gain_agent = HAL_AUDIO_AGENT_BLOCK_HWGAIN2;
-    } else if (gain_select == AFE_HW_DIGITAL_GAIN3){
+    } else if (gain_select == AFE_HW_DIGITAL_GAIN3) {
         hw_gain_agent = HAL_AUDIO_AGENT_BLOCK_HWGAIN3;
     } else {
         hw_gain_agent = HAL_AUDIO_AGENT_BLOCK_HWGAIN4;
@@ -3417,17 +3629,20 @@ bool hal_audio_hardware_gain_set_agent(afe_hardware_digital_gain_t gain_select, 
     HAL_AUDIO_LOG_INFO("#hal_audio_hardware_gain_set_agent# agent %d, type %d, on/off %d", 3, hw_gain_agent, type, control);
 
     if (control == HAL_AUDIO_CONTROL_ON) {
-        hal_audio_component_id_resource_management(type, hw_gain_agent, control);
-        if (g_dsp_agent_on[hw_gain_agent]) {
+        hal_audio_afe_set_enable(true);
+        if (hal_audio_component_id_resource_management(type, hw_gain_agent, control)) {
 #ifdef AIR_HWGAIN_SET_FADE_TIME_ENABLE
             if (g_gain_fade_time_setting[gain_select].memory_select) {
                 hal_audio_volume_set_digital_gain_fade_time_setting(&g_gain_fade_time_setting[gain_select]);
             }
 #endif
             //HW gain enable deadlock Workaround
-            if ((gain_select == AFE_HW_DIGITAL_GAIN3) || (gain_select == AFE_HW_DIGITAL_GAIN4)){
-                hal_hw_gain_set_enable(gain_select, samplerate, true);
-            } else if (!hal_hw_gain_get_enable(gain_select)){
+            if ((gain_select == AFE_HW_DIGITAL_GAIN3) || (gain_select == AFE_HW_DIGITAL_GAIN4)) {
+                if (!hal_hw_gain_get_enable(gain_select)) {
+                    hal_hw_gain_set_enable(AFE_HW_DIGITAL_GAIN3, samplerate, true);
+                    hal_hw_gain_set_enable(AFE_HW_DIGITAL_GAIN4, samplerate, true);
+                }
+            } else if (!hal_hw_gain_get_enable(gain_select)) {
                 hal_hw_gain_set_enable(AFE_HW_DIGITAL_GAIN1, samplerate, true);
                 hal_hw_gain_set_enable(AFE_HW_DIGITAL_GAIN2, samplerate, true);
             }
@@ -3448,14 +3663,14 @@ bool hal_audio_hardware_gain_set_agent(afe_hardware_digital_gain_t gain_select, 
             }
         }
     } else {
-        hal_audio_component_id_resource_management(type, hw_gain_agent, control);
-        if (g_dsp_agent_off[hw_gain_agent]) {
+        if (hal_audio_component_id_resource_management(type, hw_gain_agent, control)) {
             afe_volume_digital_set_mute(gain_select, AFE_VOLUME_MUTE_BLOCK_DISABLE, true);
-            if (gain_select == HAL_AUDIO_AGENT_BLOCK_HWGAIN3 || (gain_select == AFE_HW_DIGITAL_GAIN4)) {
-                hal_hw_gain_set_enable(gain_select, samplerate, false);
+            if (((gain_select == AFE_HW_DIGITAL_GAIN3) && (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_BLOCK_HWGAIN4))) ||
+                ((gain_select == AFE_HW_DIGITAL_GAIN4) && (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_BLOCK_HWGAIN3)))) {
+                hal_hw_gain_set_enable(AFE_HW_DIGITAL_GAIN3, samplerate, false);
+                hal_hw_gain_set_enable(AFE_HW_DIGITAL_GAIN4, samplerate, false);
             } else if (((gain_select == AFE_HW_DIGITAL_GAIN1) && (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_BLOCK_HWGAIN2))) ||
-                      ((gain_select == AFE_HW_DIGITAL_GAIN2) && (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_BLOCK_HWGAIN1))))
-            {
+                       ((gain_select == AFE_HW_DIGITAL_GAIN2) && (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_BLOCK_HWGAIN1)))) {
                 hal_hw_gain_set_enable(AFE_HW_DIGITAL_GAIN2, samplerate, false);
                 hal_hw_gain_set_enable(AFE_HW_DIGITAL_GAIN1, samplerate, false);
             }
@@ -3473,6 +3688,7 @@ bool hal_audio_hardware_gain_set_agent(afe_hardware_digital_gain_t gain_select, 
             if (hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_BLOCK_HWGAIN4)) {
                 afe_volume_digital_update(AFE_HW_DIGITAL_GAIN4);
             }
+            hal_audio_afe_set_enable(false);
 
         }
     }
@@ -3847,120 +4063,94 @@ bool hal_audio_updown_set_agent(afe_updown_configuration_t *configure, afe_updow
 {
     hal_audio_agent_t updown_agent;
     bool is_toggle_control = false;
-    uint32_t input_rate = configure->input_rate;
-    uint32_t output_rate = configure->output_rate;
-    uint32_t non_integer_multiple_rate = configure->non_integer_multiple_rate;
-    if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01) {
-        updown_agent = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23) {
-        if (configure->is_echo_configure_input) {
-            updown_agent = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_CONFIGURE;
-        } else {
-            updown_agent = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23;
-        }
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01) {
+
+    if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_L) {
+        updown_agent = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_L;
+    } else if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_R) {
+        updown_agent = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_R;
+    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_L) {
 #ifdef AIR_3RD_PARTY_AUDIO_PLATFORM_ENABLE
         if (configure->is_echo_configure_input) {
-            updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_CONFIGURE;
+            updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_L_CONFIGURE;
         } else {
-            updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01;
+            updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_L;
         }
 #else
-        updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01;
+        updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_L;
 #endif
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23) {
+    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_R) {
+        updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_R;
+    } else if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_L) {
         if (configure->is_echo_configure_input) {
-            updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_CONFIGURE;
+            updown_agent = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L_CONFIGURE;
         } else {
-            updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23;
+            updown_agent = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L;
+        }
+    } else if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_R) {
+        if (configure->is_echo_configure_input) {
+            updown_agent = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R_CONFIGURE;
+        } else {
+            updown_agent = HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R;
+        }
+    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_L) {
+        if (configure->is_echo_configure_input) {
+            updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_L_CONFIGURE;
+        } else {
+            updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_L;
+        }
+    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_R) {
+        if (configure->is_echo_configure_input) {
+            updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_R_CONFIGURE;
+        } else {
+            updown_agent = HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_R;
         }
     } else {
         HAL_AUDIO_LOG_WARNING("DSP - Warning invalid updown sampler control %d @@", 1, updown_id);
         return true;
     }
     HAL_AUDIO_LOG_INFO("#hal_audio_updown_set_agent# agent %d, type %d, on/off %d", 3, updown_agent, type, control);
-    HAL_AUDIO_LOG_INFO("[UPDOWN_SAMPLER] updown_id:%d,updown_agent:%d,input_rate:%d, output_rate:%d,non_integer_multiple_rate:%d,is_non_integer_multiple:%d,is_echo_configure_input:%d,control:%d\r\n", 8, updown_id, updown_agent, input_rate, output_rate, non_integer_multiple_rate, configure->is_non_integer_multiple, configure->is_echo_configure_input,control);
+    HAL_AUDIO_LOG_INFO("[UPDOWN_SAMPLER] updown_id:%d,updown_agent:%d,input_rate:%d, output_rate:%d, is_echo_configure_input:%d,control:%d\r\n", 6, updown_id, updown_agent, configure->input_rate, configure->output_rate, configure->is_echo_configure_input, control);
 
     if (control == HAL_AUDIO_CONTROL_ON) {
-        hal_audio_component_id_resource_management(type, updown_agent, control);
-        if (g_dsp_agent_on[updown_agent]) {
-            if (configure->is_non_integer_multiple) {
-                if (configure->input_rate >= configure->output_rate) {
-                    if ((updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01) || (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23)) {
-                        input_rate = configure->input_rate;
-                        output_rate = configure->non_integer_multiple_rate;
-                    } else {
-                        input_rate = configure->non_integer_multiple_rate;
-                        output_rate = configure->output_rate;
-                    }
-                } else {
-                    if ((updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01) || (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23)) {
-                        input_rate = configure->non_integer_multiple_rate;
-                        output_rate = configure->output_rate;
-                    } else {
-                        input_rate = configure->input_rate;
-                        output_rate = configure->non_integer_multiple_rate;
-                    }
-                }
-                HAL_AUDIO_LOG_INFO("updown_id:%d ,input_rate:%d, output_rate:%d\r\n", 3, updown_id, input_rate, output_rate);
-                hal_audio_updown_set_configuration(updown_id, input_rate, output_rate);
-                hal_tick_align_set_updown(updown_id, configure->tick_align, true);
+        hal_audio_afe_set_enable(true);
+        if (hal_audio_component_id_resource_management(type, updown_agent, control)) {
+
+
+            if ((updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L_CONFIGURE) || (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R_CONFIGURE)) {
+                hal_updown_set_input_rate(updown_id, configure->input_rate);
+                //hal_tick_align_set_updown(updown_id, configure->tick_align, true);
+            } else if ((updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_L_CONFIGURE) || (updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_R_CONFIGURE)) {
+                //hal_updown_set_input_rate(updown_id, configure->input_rate);
+                //hal_tick_align_set_updown(updown_id, configure->tick_align, true);
+            } else if ((updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L) || (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R)) {
+                hal_updown_set_output_rate(updown_id, configure->output_rate);
+                hal_updown_set_ratio(updown_id, hal_updown_get_input_rate(updown_id), configure->output_rate);
+                hal_audio_updown_set_start(updown_id, control);
+            } else if ((updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_L) || (updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_R)) {
+                hal_updown_set_input_rate(updown_id, configure->input_rate);
+                //hal_tick_align_set_updown(updown_id, configure->tick_align, true);
+                hal_updown_set_output_rate(updown_id, configure->output_rate);
+                hal_updown_set_ratio(updown_id, hal_updown_get_input_rate(updown_id), configure->output_rate);
                 hal_audio_updown_set_start(updown_id, control);
             } else {
-                if (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_CONFIGURE) {
-                    hal_updown_set_input_rate(updown_id, configure->input_rate);
-                    hal_tick_align_set_updown(updown_id, configure->tick_align, true);
-                } else if (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23) {
-                    hal_updown_set_output_rate(updown_id, non_integer_multiple_rate);
-                    hal_updown_set_ratio(updown_id, hal_updown_get_input_rate(updown_id), non_integer_multiple_rate);
-                    hal_audio_updown_set_start(updown_id, control);
-                } else if (updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_CONFIGURE) {
-                    //hal_updown_set_input_rate(updown_id, configure->input_rate);
-                    hal_tick_align_set_updown(updown_id, configure->tick_align, true);
-                } else if (updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23) {
-                    hal_updown_set_input_rate(updown_id, non_integer_multiple_rate);
-                    hal_tick_align_set_updown(updown_id, configure->tick_align, true);
-                    hal_updown_set_output_rate(updown_id, output_rate);
-                    hal_updown_set_ratio(updown_id, hal_updown_get_input_rate(updown_id), output_rate);
-                    hal_audio_updown_set_start(updown_id, control);
-                } else if (updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_CONFIGURE) {
-                    hal_updown_set_input_rate(updown_id, configure->input_rate);
-                    hal_tick_align_set_updown(updown_id, configure->tick_align, true);
-                } else {
-                    hal_audio_updown_set_configuration(updown_id, configure->input_rate, configure->output_rate);
-                    hal_tick_align_set_updown(updown_id, configure->tick_align, true);
-                    hal_audio_updown_set_start(updown_id, control);
-                }
-                is_toggle_control = true;
-            }
-        } else if ((updown_agent != HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_CONFIGURE) && (updown_agent != HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_CONFIGURE)) {
-            HAL_AUDIO_LOG_WARNING("DSP - Warning updown is occupancy %d @@", 1, updown_id);
-        } else {
-            if (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_CONFIGURE) {
-                hal_updown_set_input_rate(updown_id, configure->input_rate);
-                hal_tick_align_set_updown(updown_id, configure->tick_align, true);
-            } else if (updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_CONFIGURE) {
-                //hal_updown_set_input_rate(updown_id, configure->input_rate);
-                hal_tick_align_set_updown(updown_id, configure->tick_align, true);
+                hal_audio_updown_set_configuration(updown_id, configure->input_rate, configure->output_rate);
+                //hal_tick_align_set_updown(updown_id, configure->tick_align, true);
+                hal_audio_updown_set_start(updown_id, control);
             }
             is_toggle_control = true;
         }
     } else {
-        hal_audio_component_id_resource_management(type, updown_agent, control);
-        if (g_dsp_agent_off[updown_agent]) {
-            if (updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_CONFIGURE) {
-                hal_tick_align_set_updown(updown_id, configure->tick_align, false);
-            } else if (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23) {
+        if (hal_audio_component_id_resource_management(type, updown_agent, control)) {
+            if (updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_L_CONFIGURE) {
+                //hal_tick_align_set_updown(updown_id, configure->tick_align, false);
+            } else if ((updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L) || (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_R)) {
                 hal_audio_updown_set_start(updown_id, control);
-            } else if (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_CONFIGURE) {
-                hal_tick_align_set_updown(updown_id, configure->tick_align, false);
-            } else if (updown_agent == HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_CONFIGURE) {
-                hal_tick_align_set_updown(updown_id, configure->tick_align, false);
+            } else if (updown_agent == HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE23_L_CONFIGURE) {
+                //hal_tick_align_set_updown(updown_id, configure->tick_align, false);
             } else {
-                hal_tick_align_set_updown(updown_id, configure->tick_align, false);
+                //hal_tick_align_set_updown(updown_id, configure->tick_align, false);
                 hal_audio_updown_set_start(updown_id, control);
             }
-            is_toggle_control = true;
         }
     }
     return is_toggle_control;
@@ -3968,8 +4158,12 @@ bool hal_audio_updown_set_agent(afe_updown_configuration_t *configure, afe_updow
 
 uint32_t hal_audio_updown_get_non_integer_multiple_rate(uint32_t input_rate, uint32_t output_rate)
 {
-    uint32_t i, gcd, lcm, non_integer_multiple_rate;
-    if ((input_rate == 0) || (output_rate == 0) || (input_rate % 16000 != 0) ||(output_rate % 16000 != 0)) {
+    uint32_t i, gcd, lcm;
+
+    if ((input_rate < 8000) || (input_rate > 192000) || (output_rate < 8000) || (output_rate > 192000) ||
+        (input_rate % 8000 != 0) || (output_rate % 8000 != 0)) {
+        HAL_AUDIO_LOG_ERROR("Wrong updown path rate: input_rate:%d, output_rate:%d", 2, input_rate, output_rate);
+        AUDIO_ASSERT(false);
         return input_rate;
     }
     for (i = 1; i <= input_rate && i <= output_rate; ++i) {
@@ -3977,22 +4171,10 @@ uint32_t hal_audio_updown_get_non_integer_multiple_rate(uint32_t input_rate, uin
             gcd = i;
         }
     }
-    lcm = (input_rate * output_rate) / gcd;
-    if (input_rate >= output_rate) {
-        if (input_rate % output_rate == 0) {
-            non_integer_multiple_rate = input_rate;
-        } else {
-            non_integer_multiple_rate = lcm;
-        }
-    } else {
-        if (output_rate % input_rate == 0) {
-            non_integer_multiple_rate = output_rate;
-        } else {
-            non_integer_multiple_rate = gcd;
-        }
-    }
-    HAL_AUDIO_LOG_INFO("upwdown get non integer multiple rate, input_rate:%d, output_rate:%d, non_integer_multiple_rate:%d\r\n", 3, input_rate, output_rate, non_integer_multiple_rate);
-    return non_integer_multiple_rate;
+    lcm = (input_rate / gcd) * output_rate;
+
+    HAL_AUDIO_LOG_INFO("upwdown get non integer multiple rate, input_rate:%d, output_rate:%d, non_integer_multiple_rate:%d\r\n", 3, input_rate, output_rate, lcm);
+    return lcm;
 }
 
 bool hal_audio_updown_set_configuration(afe_updown_sampler_id_t updown_id, uint32_t input_rate, uint32_t output_rate)
@@ -4056,17 +4238,31 @@ bool hal_audio_adda_set_ul_clock(hal_audio_device_agent_t device_agent, bool ena
 {
     //Workaround:Prevent state machine is unfinished
     HAL_AUDIO_DELAY_US(5);
-
-    if (device_agent == HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2) {
-        hal_audio_clock_enable_adc2(device_agent, enable);
-    } else if (device_agent == HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL3) {
-        hal_audio_clock_enable_adc3(device_agent, enable);
-    } else if (device_agent == HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL4) {
-        hal_audio_clock_enable_adda_anc(device_agent, enable);
+    if (enable) {
+        if (device_agent == HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2) {
+            hal_audio_clock_enable_adc(device_agent, enable);
+            hal_audio_clock_enable_adc2(device_agent, enable);
+        } else if (device_agent == HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL3) {
+            hal_audio_clock_enable_adc(device_agent, enable);
+            hal_audio_clock_enable_adc3(device_agent, enable);
+        } else if (device_agent == HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL4) {
+            hal_audio_clock_enable_adda_anc(device_agent, enable);
+        } else {
+            hal_audio_clock_enable_adc(device_agent, enable);
+        }
     } else {
-        hal_audio_clock_enable_adc(device_agent, enable);
+        if (device_agent == HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2) {
+            hal_audio_clock_enable_adc2(device_agent, enable);
+            hal_audio_clock_enable_adc(device_agent, enable);
+        } else if (device_agent == HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL3) {
+            hal_audio_clock_enable_adc3(device_agent, enable);
+            hal_audio_clock_enable_adc(device_agent, enable);
+        } else if (device_agent == HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL4) {
+            hal_audio_clock_enable_adda_anc(device_agent, enable);
+        } else {
+            hal_audio_clock_enable_adc(device_agent, enable);
+        }
     }
-
     //Workaround:Prevent state machine is unfinished
     HAL_AUDIO_DELAY_US(5);
 
@@ -4188,7 +4384,14 @@ bool hal_audio_adda_set_dl(hal_audio_device_agent_t device_agent, uint32_t sampl
         afe_samplerate_set_dl_samplerate(samplerate);
 
         hal_audio_clock_set_dac(device_agent, true);
-        hal_audio_dl_set_fifo_swap((afe_analog_control[AFE_ANALOG_DAC].channel_counter.channel_l != 0)/*false*/);
+#ifdef AIR_NLE_ENABLE
+        if ((hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT) == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB) ||
+            (hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT) == HAL_AUDIO_ANALOG_OUTPUT_CLASSG2) ||
+            (hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT) == HAL_AUDIO_ANALOG_OUTPUT_CLASSG3))  {
+            hal_audio_dl_set_mono((afe_analog_control[AFE_ANALOG_DAC].channel_counter.channel_l == 0));
+        }
+#endif
+        hal_audio_dl_set_fifo_swap((afe_analog_control[AFE_ANALOG_DAC].channel_counter.channel_l == 0));
         hal_audio_dl_set_sdm(sdm_setting, true);
         hal_audio_dl_set_hires(device_agent, true);
         hal_audio_adda_set_enable(device_agent, true);
@@ -4209,6 +4412,13 @@ bool hal_audio_adda_set_dl(hal_audio_device_agent_t device_agent, uint32_t sampl
         hal_audio_adda_set_enable(device_agent, false);
         hal_audio_dl_set_hires(device_agent, false);
         hal_audio_dl_set_fifo_swap(false);
+#ifdef AIR_NLE_ENABLE
+        if ((hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT) == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB) ||
+            (hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT) == HAL_AUDIO_ANALOG_OUTPUT_CLASSG2) ||
+            (hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT) == HAL_AUDIO_ANALOG_OUTPUT_CLASSG3))  {
+            hal_audio_dl_set_mono(false);
+        }
+#endif
         hal_audio_clock_set_dac(device_agent, false);
     }
     return false;
@@ -4629,22 +4839,22 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static void hal_audio_irq_audiosys_active(uint32_t
     gpt_time_duration_sum[irq_idx] += gpt_time_duration;
     gpt_time_duration_cnt[irq_idx]++;
 
-    if(gpt_time_duration > gpt_time_duration_max[irq_idx])
+    if (gpt_time_duration > gpt_time_duration_max[irq_idx]) {
         gpt_time_duration_max[irq_idx] = gpt_time_duration;
+    }
 
-    #if 0
+#if 0
     DSP_MW_LOG_W("[DSP_MIPS] ISR ID: 0x%X, time: %d us, MAX time: %d us", 3
-        , i
-        , gpt_time_duration
-        , gpt_time_duration_max[i]);
-    #endif
+                 , i
+                 , gpt_time_duration
+                 , gpt_time_duration_max[i]);
+#endif
 
-    if(gpt_time_duration_cnt[irq_idx] >= CNT_MAX)
-    {
+    if (gpt_time_duration_cnt[irq_idx] >= CNT_MAX) {
         DSP_MW_LOG_I("[DSP_MIPS] AUDIO ISR ID: 0x%X, AVG time: %d us, MAX time: %d us", 3
-            , irq_idx
-            , gpt_time_duration_sum[irq_idx] >> 13
-            , gpt_time_duration_max[irq_idx]);
+                     , irq_idx
+                     , gpt_time_duration_sum[irq_idx] >> 13
+                     , gpt_time_duration_max[irq_idx]);
         gpt_time_duration_sum[irq_idx] = 0;
         gpt_time_duration_cnt[irq_idx] = 0;
         gpt_time_duration_max[irq_idx] = 0;
@@ -4698,39 +4908,6 @@ uint32_t hal_audio_temp_record_cnt;
 
 #ifdef MTK_HWSRC_IN_STREAM
 extern SemaphoreHandle_t gHwsrc_port_semphr;
-void hal_audio_irq_src_in_stream_handler(hal_nvic_irq_t irq)
-{
-    UNUSED(irq);
-    uint32_t irq_en_mask;
-    uint32_t volatile irq_status;
-    BaseType_t xHigherPriorityTaskWoken;
-    // U16 outSRC_ro;
-    // U16 outSRC_wo;
-    // U16 outSRC_count;
-    // U16 outSRC_mem_size = 12288;
-    irq_status = AFE_GET_REG(ASM_IFR)&ASM_IFR_MASK;
-    irq_en_mask = (AFE_GET_REG(ASM_IER))&ASM_IFR_MASK;
-
-    if(irq_status & 0x100){
-        // outSRC_ro = AFE_READ(ASM_CH01_OBUF_RDPNT)- AFE_READ(ASM_OBUF_SADR);
-        // outSRC_wo = AFE_READ(ASM_CH01_OBUF_WRPNT)-AFE_GET_REG(ASM_OBUF_SADR);
-        // outSRC_count = (outSRC_wo > outSRC_ro) ?
-        //                                 outSRC_wo - outSRC_ro :
-        //                                 outSRC_wo + outSRC_mem_size - outSRC_ro;
-
-        if(gHwsrc_port_semphr && (pdTRUE == xSemaphoreGiveFromISR(gHwsrc_port_semphr,&xHigherPriorityTaskWoken)))
-        {
-            // DSP_MW_LOG_I("asrc_port_give_semphr sucess", 0);
-            hal_src_set_irq_enable(0, FALSE);
-            AFE_SET_REG(ASM_IFR, irq_status, irq_en_mask);
-            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-            return;
-        }
-        DSP_MW_LOG_I("asrc_port_give_semphr fail", 0);
-    }
-
-    return;
-}
 #endif
 
 void hal_audio_irq_src1_handler(hal_nvic_irq_t irq)
@@ -4738,6 +4915,25 @@ void hal_audio_irq_src1_handler(hal_nvic_irq_t irq)
     UNUSED(irq);
     uint32_t irq_en_mask;
     uint32_t volatile irq_status;
+    irq_status = AFE_GET_REG(ASM_IFR)&ASM_IFR_MASK;
+    irq_en_mask = (AFE_GET_REG(ASM_IER))&ASM_IFR_MASK;
+#ifdef MTK_HWSRC_IN_STREAM
+    BaseType_t xHigherPriorityTaskWoken;
+    afe_src_configuration_t src_configuration;
+    memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
+    src_configuration.id = 0;
+
+    if (irq_status & 0x100) {
+        if (gHwsrc_port_semphr && (pdTRUE == xSemaphoreGiveFromISR(gHwsrc_port_semphr, &xHigherPriorityTaskWoken))) {
+            // DSP_MW_LOG_I("asrc_port_give_semphr sucess", 0);
+            hal_src_set_irq_enable(&src_configuration, FALSE);
+            AFE_SET_REG(ASM_IFR, irq_status, irq_en_mask);
+            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+            return;
+        }
+        // DSP_MW_LOG_I("asrc_port_give_semphr fail", 0);
+    }
+#endif
 
 #ifdef ENABLE_HWSRC_CLKSKEW
     volatile SINK sink = Sink_blks[SINK_TYPE_AUDIO];
@@ -4761,7 +4957,6 @@ void hal_audio_irq_src1_handler(hal_nvic_irq_t irq)
 #endif /*ENABLE_HWSRC_CLKSKEW*/
 
     g_run_isr = true;
-    irq_status = AFE_GET_REG(ASM_IFR)&ASM_IFR_MASK;
 
     if (afe_irq_src1_function) {
         afe_irq_src1_function();
@@ -4783,7 +4978,6 @@ void hal_audio_irq_src1_handler(hal_nvic_irq_t irq)
         }
         AFE_SET_REG(ASM_CH01_OBUF_RDPNT, output_new_read << ASM_CH01_OBUF_RDPNT_POS, ASM_CH01_OBUF_RDPNT_MASK);
     } else {
-        irq_en_mask = (AFE_GET_REG(ASM_IER))&ASM_IFR_MASK;
 
         //*******************ASRC IRQ HANDLER Begin************************//
 #ifdef ENABLE_HWSRC_CLKSKEW
@@ -5133,11 +5327,7 @@ void hal_audio_irq_initialize(void)
 
     //SRC 1
     hal_nvic_disable_irq(AUDIOSYS1_IRQn);
-#ifndef MTK_HWSRC_IN_STREAM
     ret |= hal_nvic_register_isr_handler(AUDIOSYS1_IRQn, (hal_nvic_isr_t)hal_audio_irq_src1_handler);
-#else
-    ret |= hal_nvic_register_isr_handler(AUDIOSYS1_IRQn, (hal_nvic_isr_t)hal_audio_irq_src_in_stream_handler);
-#endif
     ret |= hal_nvic_enable_irq(AUDIOSYS1_IRQn);
     //SRC 2
     hal_nvic_disable_irq(AUDIOSYS2_IRQn);

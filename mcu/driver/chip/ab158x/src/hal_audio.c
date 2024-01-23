@@ -69,8 +69,11 @@ extern void dchs_dl_get_stream_out_volume(hal_audio_hw_stream_out_index_t hw_gai
 
 #if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
 void hal_audio_status_change_dac_mode_config(uint32_t new_dac_mode);
-uint32_t* targe_dac_mode = NULL;
+uint8_t default_dac_mode = 0;
+uint8_t ha_dac_mode_flag = 0;
+uint8_t target_dac_mode = 0xff;
 #endif
+
 
 #if defined(HAL_AUDIO_SUPPORT_APLL)
 extern hal_clock_status_t clock_mux_sel(clock_mux_sel_id mux_id, uint32_t mux_sel);
@@ -94,13 +97,15 @@ uint16_t g_stream_in_code_type   = AUDIO_DSP_CODEC_TYPE_PCM;//modify for opus
 uint16_t g_wwe_mode = 0;
 encoder_bitrate_t g_bit_rate = ENCODER_BITRATE_32KBPS;
 
-#ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
 volatile voice_mic_type_t current_voice_mic_type = VOICE_MIC_TYPE_FIXED;
 voice_mic_type_t hal_audio_query_voice_mic_type(void)
 {
+#ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
     return current_voice_mic_type;
-}
+#else
+    return VOICE_MIC_TYPE_FIXED;
 #endif
+}
 
 audio_common_t audio_common;
 HAL_AUDIO_DVFS_CLK_SELECT_t audio_nvdm_dvfs_config;
@@ -1146,9 +1151,11 @@ hal_audio_status_t hal_audio_translate_mic_config(hal_audio_mic_config_t *mic_co
         stream_in_open_param->afe.bias_voltage[i] = mic_config->bias_voltage[i];
     }
     for (i = 0; i < 3; i++) {
+        stream_in_open_param->afe.dmic_clock_rate[i] = mic_config->dmic_clock_rate[i];
         stream_in_open_param->afe.iir_filter[i] = mic_config->iir_filter[i];
     }
     stream_in_open_param->afe.bias_select = mic_config->bias_select;
+    stream_in_open_param->afe.misc_parms |= (uint32_t)(mic_config->bias_select) << 20;
     stream_in_open_param->afe.with_external_bias = mic_config->with_external_bias;
     stream_in_open_param->afe.with_bias_lowpower = mic_config->with_bias_lowpower;
     stream_in_open_param->afe.bias1_2_with_LDO0 = mic_config->bias1_2_with_LDO0;
@@ -1167,6 +1174,7 @@ hal_audio_status_t hal_audio_translate_mic_config(hal_audio_mic_config_t *mic_co
         log_hal_msgid_info("stream_in_open_param->afe.bias_voltage[%d] = %d", 2, i, stream_in_open_param->afe.bias_voltage[i]);
     }
     for (i = 0; i < 3; i++) {
+        log_hal_msgid_info("mic_config->dmic_clock_rate[%d] = %d", 2, i, stream_in_open_param->afe.dmic_clock_rate[i]);
         log_hal_msgid_info("stream_in_open_param->afe.iir_filter[%d] = %d", 2, i, stream_in_open_param->afe.iir_filter[i]);
     }
     log_hal_msgid_info("stream_in_open_param->afe.bias_select = %d", 1, stream_in_open_param->afe.bias_select);
@@ -1197,6 +1205,7 @@ hal_audio_status_t hal_audio_get_mic_config(audio_scenario_sel_t Audio_or_Voice,
         mic_config->bias_voltage[i] = stream_in_open_param.afe.bias_voltage[i];
     }
     for (i = 0; i < 3; i++) {
+        mic_config->dmic_clock_rate[i] = stream_in_open_param.afe.dmic_clock_rate[i];
         mic_config->iir_filter[i] = stream_in_open_param.afe.iir_filter[i];
     }
     mic_config->bias_select = stream_in_open_param.afe.bias_select;
@@ -1217,6 +1226,7 @@ hal_audio_status_t hal_audio_get_mic_config(audio_scenario_sel_t Audio_or_Voice,
         log_hal_msgid_info("mic_config->bias_voltage[%d] = %d", 2, i, mic_config->bias_voltage[i]);
     }
     for (i = 0; i < 3; i++) {
+        log_hal_msgid_info("mic_config->dmic_clock_rate[%d] = %d", 2, i, mic_config->dmic_clock_rate[i]);
         log_hal_msgid_info("mic_config->iir_filter[%d] = %d", 2, i, mic_config->iir_filter[i]);
     }
     log_hal_msgid_info("mic_config->bias_select = %d", 1, mic_config->bias_select);
@@ -1238,9 +1248,7 @@ hal_audio_status_t hal_audio_get_stream_in_setting_config(audio_scenario_sel_t A
     hal_gpio_data_t channel_gpio_data = HAL_GPIO_DATA_LOW;
     uint8_t channel_temp = 0;
     uint32_t i = 0;
-    stream_in_open_param->afe.with_upwdown_sampler = false;
-    stream_in_open_param->afe.audio_path_input_rate = 0;
-    stream_in_open_param->afe.audio_path_output_rate = 0;
+    memset(stream_in_open_param->afe.audio_device_input_rate, 0, sizeof(stream_in_open_param->afe.audio_device_input_rate));
     hal_audio_device_t *audio_device = NULL;
     hal_audio_interface_t *audio_interface = NULL;
 
@@ -1593,8 +1601,6 @@ hal_audio_status_t hal_audio_get_stream_in_setting_config(audio_scenario_sel_t A
     /*max 8 device support on platform*/
     for (uint32_t i = 0; i < 8; i++) {
         if (*audio_device & (HAL_AUDIO_DEVICE_I2S_MASTER | HAL_AUDIO_DEVICE_I2S_MASTER_L | HAL_AUDIO_DEVICE_I2S_MASTER_R)) {
-            stream_in_open_param->afe.audio_path_output_rate = 16000;
-            stream_in_open_param->afe.with_upwdown_sampler = true;
             /*config I2S HW settings*/
             if (*audio_interface & HAL_AUDIO_INTERFACE_1) {
                 switch (audio_nvdm_HW_config.I2SM_config.I2S0_Master_Low_jitter) {
@@ -1610,15 +1616,12 @@ hal_audio_status_t hal_audio_get_stream_in_setting_config(audio_scenario_sel_t A
                 switch (audio_nvdm_HW_config.voice_scenario.Voice_I2S0_Master_Sampling_Rate) {
                     case 0x1: //----0x1: fix 48000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[0] = 48000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[0];
                         break;
                     case 0x2: //----0x2: fix 96000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[0] = 96000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[0];
                         break;
                     case 0x3: //----0x3: fix 32000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[0] = 32000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[0];
                         break;
                     case 0x0: //----0x0: by scenario
                     default:
@@ -1639,15 +1642,12 @@ hal_audio_status_t hal_audio_get_stream_in_setting_config(audio_scenario_sel_t A
                 switch (audio_nvdm_HW_config.voice_scenario.Voice_I2S1_Master_Sampling_Rate) {
                     case 0x1: //----0x1: fix 48000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[1] = 48000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[1];
                         break;
                     case 0x2: //----0x2: fix 96000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[1] = 96000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[1];
                         break;
                     case 0x3: //----0x3: fix 32000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[1] = 32000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[1];
                         break;
                     case 0x0: //----0x0: by scenario
                     default:
@@ -1668,15 +1668,12 @@ hal_audio_status_t hal_audio_get_stream_in_setting_config(audio_scenario_sel_t A
                 switch (audio_nvdm_HW_config.voice_scenario.Voice_I2S2_Master_Sampling_Rate) {
                     case 0x1: //----0x1: fix 48000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[2] = 48000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[2];
                         break;
                     case 0x2: //----0x2: fix 96000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[2] = 96000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[2];
                         break;
                     case 0x3: //----0x3: fix 32000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[2] = 32000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[2];
                         break;
                     case 0x0: //----0x0: by scenario
                     default:
@@ -1684,7 +1681,7 @@ hal_audio_status_t hal_audio_get_stream_in_setting_config(audio_scenario_sel_t A
                         break;
                 }
             } else if (*audio_interface & HAL_AUDIO_INTERFACE_4) {
-               switch (audio_nvdm_HW_config.I2SM_config.I2S3_Master_Low_jitter) {
+                switch (audio_nvdm_HW_config.I2SM_config.I2S3_Master_Low_jitter) {
                     case 0x1: //----0x1: APLL
                         stream_in_open_param->afe.is_low_jitter[3] = true;
                         break;
@@ -1697,15 +1694,12 @@ hal_audio_status_t hal_audio_get_stream_in_setting_config(audio_scenario_sel_t A
                 switch (audio_nvdm_HW_config.voice_scenario.Voice_I2S3_Master_Sampling_Rate) {
                     case 0x1: //----0x1: fix 48000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[3] = 48000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[3];
                         break;
                     case 0x2: //----0x2: fix 96000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[3] = 96000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[3];
                         break;
                     case 0x3: //----0x3: fix 32000Hz
                         stream_in_open_param->afe.i2s_master_sampling_rate[3] = 32000;
-                        stream_in_open_param->afe.audio_path_input_rate = stream_in_open_param->afe.i2s_master_sampling_rate[3];
                         break;
                     case 0x0: //----0x0: by scenario
                     default:
@@ -1784,6 +1778,9 @@ hal_audio_status_t hal_audio_get_stream_in_setting_config(audio_scenario_sel_t A
         }
         //---DMIC clock
         memset(stream_in_open_param->afe.dmic_clock_rate, 0x00, sizeof(stream_in_open_param->afe.dmic_clock_rate));
+        stream_in_open_param->afe.dmic_clock_rate[0] = audio_nvdm_HW_config.dmic_config.DMIC_First_Digital_MIC_Clk_Rate;
+        stream_in_open_param->afe.dmic_clock_rate[1] = audio_nvdm_HW_config.dmic_config.DMIC_Second_Digital_MIC_Clk_Rate;
+        stream_in_open_param->afe.dmic_clock_rate[2] = audio_nvdm_HW_config.dmic_config.DMIC_Third_Digital_MIC_Clk_Rate;
     }
     /*Audio Channel selection setting*/
     if (audio_Channel_Select.modeForAudioChannel) {
@@ -3514,11 +3511,13 @@ void hal_audio_status_change_dac_mode_config(uint32_t new_dac_mode)
 
 void hal_audio_status_change_dac_mode_handler(void)
 {
-    if(targe_dac_mode) {
-        hal_audio_status_change_dac_mode_config(*targe_dac_mode);
-        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_DAC_EXIT_DEACTIVE_MODE, *(uint16_t*)targe_dac_mode, 0, true);
-        vPortFreeNC(targe_dac_mode);
-        targe_dac_mode = NULL;
+    if(target_dac_mode != 0xff) {
+        hal_audio_status_change_dac_mode_config(target_dac_mode);
+        hal_audio_dsp_controller_send_message(  MSG_MCU2DSP_COMMON_DAC_EXIT_DEACTIVE_MODE,
+                                                (uint16_t)target_dac_mode,
+                                                (uint32_t)(target_dac_mode == HAL_AUDIO_DAC_MODE_CLASSD ? audio_nvdm_HW_config.adc_dac_config.ADDA_DAC_CLD_Gain_Compensation : 0x1E),
+                                                false);
+        target_dac_mode = 0xff;
     }
 }
 
@@ -3526,16 +3525,31 @@ bool hal_audio_status_change_dac_mode(uint32_t dac_mode)
 {
     bool prc_result = false;
 
-    if(dac_mode != audio_nvdm_HW_config.adc_dac_config.ADDA_DAC_Mode_Sel && (targe_dac_mode == NULL)) {
-        targe_dac_mode  = (uint32_t *)pvPortMallocNC(sizeof(uint32_t));
-        *targe_dac_mode = dac_mode;
-        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_DAC_ENTER_DEACTIVE_MODE, 0, 0, false);
-        prc_result = true;
+    log_hal_msgid_info("[AM][DAC Change Mode] change dac mode. Mode: %d -> %d \n", 2, audio_nvdm_HW_config.adc_dac_config.ADDA_DAC_Mode_Sel, dac_mode);
+
+    if (hal_audio_status_get_clock_gate_status(AUDIO_POWER_DAC)) {
+        if (target_dac_mode == 0xff){
+            if(dac_mode != audio_nvdm_HW_config.adc_dac_config.ADDA_DAC_Mode_Sel) {
+                target_dac_mode = (uint8_t)dac_mode;
+                hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_DAC_ENTER_DEACTIVE_MODE, 0, 0, false);
+                prc_result = true;
+            }
+        } else {
+            target_dac_mode = (uint8_t)dac_mode;
+        }
+    } else {
+        audio_nvdm_HW_config.adc_dac_config.ADDA_DAC_Mode_Sel = dac_mode;
     }
 
     return prc_result;
 }
 
+uint8_t hal_audio_status_get_dac_mode(void)
+{
+    return audio_nvdm_HW_config.adc_dac_config.ADDA_DAC_Mode_Sel;
+}
+
 #endif  /*AIR_DAC_MODE_RUNTIME_CHANGE*/
+
 
 #endif /* defined(HAL_AUDIO_MODULE_ENABLED) */

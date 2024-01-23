@@ -142,6 +142,7 @@ static void app_speaker_switch_to_single(void)
         APPS_LOG_MSGID_I(LOG_TAG" switch_to_single, already SINGLE continue", 0);
         app_speaker_ctx.switch_state = APP_SPEAKER_SWITCH_STATE_NONE;
 #ifdef AIR_LE_AUDIO_ENABLE
+        app_lea_conn_mgr_control_temp_reconnect_type(TRUE);
         app_lea_service_start_advertising(APP_LEA_ADV_MODE_TARGET_ALL, FALSE, 0);
 #endif
     }
@@ -168,7 +169,7 @@ static void app_speaker_control_music_play(bt_aws_mce_srv_mode_t pre_mode, bt_aw
     bt_aws_mce_srv_mode_t mode = bt_aws_mce_srv_get_mode();
     //uint32_t a2dp = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK), NULL, 0);
     if (role == BT_AWS_MCE_ROLE_AGENT) {
-        if ((pre_mode == BT_AWS_MCE_SRV_MODE_DOUBLE|| pre_mode == BT_AWS_MCE_SRV_MODE_SINGLE || pre_role != BT_AWS_MCE_ROLE_AGENT) && mode == BT_AWS_MCE_SRV_MODE_BROADCAST) {
+        if ((pre_mode == BT_AWS_MCE_SRV_MODE_DOUBLE || pre_mode == BT_AWS_MCE_SRV_MODE_SINGLE || pre_role != BT_AWS_MCE_ROLE_AGENT) && mode == BT_AWS_MCE_SRV_MODE_BROADCAST) {
             bt_sink_srv_music_audio_switch(FALSE, BT_SINK_SRV_ACTION_PAUSE);
         } else if (pre_mode == BT_AWS_MCE_SRV_MODE_BROADCAST && (mode == BT_AWS_MCE_SRV_MODE_SINGLE || mode == BT_AWS_MCE_SRV_MODE_DOUBLE)) {
             bt_sink_srv_music_audio_switch(TRUE, BT_SINK_SRV_ACTION_PLAY);
@@ -296,15 +297,15 @@ static bool app_speaker_disconnect_all(void)
     }
 
     if (need_disconnect_edr) {
-        bt_status = app_bt_conn_mgr_disconnect_edr(NULL);
+        bt_status = app_bt_conn_mgr_disconnect_edr(NULL, FALSE);
     }
 
     // For LEA, both disconnect all LEA Link
 #ifdef AIR_LE_AUDIO_ENABLE
-    app_lea_service_stop_advertising(FALSE);
+    app_lea_service_quick_stop_adv();
     if (app_lea_conn_mgr_get_conn_num() > 0) {
         app_lea_service_disconnect(FALSE, APP_LE_AUDIO_DISCONNECT_MODE_ALL, NULL,
-                                   BT_HCI_STATUS_CONNECTION_TERMINATED_BY_LOCAL_HOST);
+                                   BT_HCI_STATUS_REMOTE_TERMINATED_CONNECTION_DUE_TO_POWER_OFF);
         bt_status = BT_STATUS_SUCCESS;
     }
 
@@ -374,7 +375,7 @@ static bool app_speaker_ignore_switch_key_action(void)
     if (app_speaker_ctx.switch_state != APP_SPEAKER_SWITCH_STATE_NONE) {
         APPS_LOG_MSGID_E(LOG_TAG" ignore_switch_key_action, switch ongoing", 0);
         is_ignore = TRUE;
-    } else if (mmi_state >= APP_HFP_INCOMING && mmi_state <= APP_HFP_MULTITPART_CALL) {
+    } else if (mmi_state >= APP_HFP_INCOMING && mmi_state <= APP_HFP_MULTIPARTY_CALL) {
         APPS_LOG_MSGID_E(LOG_TAG" ignore_switch_key_action, call ongoing", 0);
         is_ignore = TRUE;
     }
@@ -616,7 +617,7 @@ static bool app_speaker_proc_aws_event(uint32_t event_id, void *extra_data, size
 
         if (mode == BT_AWS_MCE_SRV_MODE_SINGLE && app_speaker_ctx.target_mode == BT_AWS_MCE_SRV_MODE_SINGLE) {
             if (app_speaker_ctx.switch_state != APP_SPEAKER_SWITCH_STATE_FAIL) {
-                app_speaker_play_vp(VP_INDEX_SUCCESSED);
+                app_speaker_play_vp(VP_INDEX_SUCCEED);
                 ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                     APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN, NULL, 0,
                                     NULL, 0);
@@ -645,9 +646,9 @@ static bool app_speaker_proc_aws_event(uint32_t event_id, void *extra_data, size
             app_bt_conn_mgr_reconnect_edr();
         } else if ((mode == BT_AWS_MCE_SRV_MODE_DOUBLE
 #ifndef MTK_BT_SPEAKER_DISABLE_BROADCAST_EDR
-                || mode == BT_AWS_MCE_SRV_MODE_BROADCAST
+                    || mode == BT_AWS_MCE_SRV_MODE_BROADCAST
 #endif
-                ) && ind->pre_role != BT_AWS_MCE_ROLE_AGENT && role == BT_AWS_MCE_ROLE_AGENT) {
+                   ) && ind->pre_role != BT_AWS_MCE_ROLE_AGENT && role == BT_AWS_MCE_ROLE_AGENT) {
             APPS_LOG_MSGID_I(LOG_TAG" AWS event, reconnect_edr for switch Agent", 0);
             app_bt_conn_mgr_reconnect_edr();
         }
@@ -672,10 +673,13 @@ static bool app_speaker_proc_aws_event(uint32_t event_id, void *extra_data, size
         if (mode == BT_AWS_MCE_SRV_MODE_BROADCAST) {
             app_lea_service_stop_advertising(FALSE);
         } else if (visible) {
+            app_lea_conn_mgr_control_temp_reconnect_type(TRUE);
             app_lea_service_start_advertising(APP_LEA_ADV_MODE_GENERAL, FALSE, APP_LE_AUDIO_ADV_TIME);
         } else if (mode == BT_AWS_MCE_SRV_MODE_DOUBLE && role == BT_AWS_MCE_ROLE_PARTNER) {
+            app_lea_conn_mgr_control_temp_reconnect_type(TRUE);
             app_lea_service_start_advertising(APP_LEA_ADV_MODE_GENERAL, FALSE, APP_LE_AUDIO_TEMP_GENERAL_ADV_TIME);
         } else {
+            app_lea_conn_mgr_control_temp_reconnect_type(TRUE);
             app_lea_service_start_advertising(APP_LEA_ADV_MODE_TARGET_ALL, FALSE, 0);
         }
 #endif
@@ -754,7 +758,7 @@ static bool app_speaker_proc_bt_cm_event(uint32_t event_id, void *extra_data, si
                        && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)) {
                 // only for partner/client
                 if (app_speaker_ctx.switch_state == APP_SPEAKER_SWITCH_STATE_MODE_SWITCHED) {
-                    app_speaker_play_vp(VP_INDEX_SUCCESSED);
+                    app_speaker_play_vp(VP_INDEX_SUCCEED);
                     app_speaker_ctx.switch_state = APP_SPEAKER_SWITCH_STATE_NONE;
                 }
                 app_speaker_check_control_emp();
@@ -769,24 +773,24 @@ static bool app_speaker_proc_bt_cm_event(uint32_t event_id, void *extra_data, si
             if ((BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AIR) & remote_update->pre_connected_service)
                 && !(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AIR) & remote_update->connected_service)) {
                 if (mode == BT_AWS_MCE_SRV_MODE_BROADCAST && role == BT_AWS_MCE_ROLE_AGENT) {
-                    app_bt_conn_mgr_disconnect_edr(addr);
+                    app_bt_conn_mgr_disconnect_edr(addr, FALSE);
                 }
             } else if (!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK) & remote_update->pre_connected_service)
-                    && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK) & remote_update->connected_service)) {
+                       && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK) & remote_update->connected_service)) {
                 bt_cm_profile_service_state_t avrcp = bt_cm_get_profile_service_state(addr, BT_CM_PROFILE_SERVICE_AVRCP);
                 bt_cm_profile_service_state_t hfp = bt_cm_get_profile_service_state(addr, BT_CM_PROFILE_SERVICE_HFP);
                 if (avrcp && !hfp) {
                     reconnect_profile_event = TRUE;
                 }
             } else if (!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP) & remote_update->pre_connected_service)
-                    && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP) & remote_update->connected_service)) {
+                       && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AVRCP) & remote_update->connected_service)) {
                 bt_cm_profile_service_state_t a2dp = bt_cm_get_profile_service_state(addr, BT_CM_PROFILE_SERVICE_A2DP_SINK);
                 bt_cm_profile_service_state_t hfp = bt_cm_get_profile_service_state(addr, BT_CM_PROFILE_SERVICE_HFP);
                 if (a2dp && !hfp) {
                     reconnect_profile_event = TRUE;
                 }
             } else if (!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP) & remote_update->pre_connected_service)
-                    && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP) & remote_update->connected_service)) {
+                       && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP) & remote_update->connected_service)) {
                 ui_shell_remove_event(EVENT_GROUP_UI_SHELL_SPEAKER, APP_SPEAKER_EVENT_RECONNECT_OTHER_PROFILE);
             }
 

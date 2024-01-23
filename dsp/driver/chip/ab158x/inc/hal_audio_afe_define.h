@@ -44,20 +44,6 @@
 #include "hal_audio_register.h"
 #include "hal_audio_message_struct_common.h"
 
-#define AFE_READ(addr)          *((volatile uint32_t *)(addr))
-#define AFE_WRITE(addr, val)    *((volatile uint32_t *)(addr)) = val
-#define AFE_WRITE8(addr, val)   *((volatile uint8_t *)(addr)) = val
-//#define AFE_SET_REG(addr, val, msk)  AFE_WRITE((addr), ((AFE_READ(addr) & (~(msk))) | ((val) & (msk))))
-//#define AFE_GET_REG(addr)       *((volatile uint32_t *)(addr))
-
-//#define ANA_READ(addr)          *((volatile uint16_t *)(addr))
-#define ANA_WRITE(addr, val)    *((volatile uint16_t *)(addr)) = val
-//#define ANA_SET_REG(addr, val, msk)  ANA_WRITE((addr), ((ANA_READ(addr) & (~(msk))) | ((val) & (msk))))
-//#define ANA_GET_REG(addr)       *((volatile uint16_t *)(addr))
-
-//#define AFE_BASE          (0xD0000000)
-//#define ABB_BASE          (0xA2070000)
-
 /* Internal sram */
 #define AFE_INTERNAL_SRAM_VP_PHY_BASE   (AFE_BASE + 0x2000)
 #if defined(ENABLE_HWSRC_ON_MAIN_STREAM) || defined(MTK_HWSRC_IN_STREAM)

@@ -59,10 +59,13 @@
 #endif
 #include "bt_le_audio_msglog.h"
 #include "bt_le_audio_def.h"
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 #include "bt_sink_srv_music.h"
+#endif
 #include "bt_utils.h"
 #include "bt_device_manager_le.h"
-
+#include "bt_timer_external.h"
+#include "bt_sink_srv_state_manager.h"
 
 /**************************************************************************************************
 * Define
@@ -141,6 +144,8 @@ bool g_cap_am_switch_suspending = false;
 
 bool g_cap_am_local_mute = 0;/*To record mute state set by upper layer, priority: APP > VCS*/
 
+bool g_cap_am_streaming_with_conversational_context = 0;/*To record DSP streaming context*/
+
 cap_audio_manager_suspend_callback_on_bt_task_data g_cap_am_suspend_callback_on_bt_task = {NULL, NULL};
 
 /**************************************************************************************************
@@ -180,6 +185,7 @@ extern void le_sink_srv_set_streaming_state(bool is_streaming);
 #ifdef AIR_BT_LATENCY_TEST_MODE_ENABLE
 extern void bt_ble_set_special_device(bool is_special);
 #endif
+extern bool bt_sink_srv_call_get_sidetone_enable_config(void);
 
 /**************************************************************************************************
 * Static Functions
@@ -247,6 +253,7 @@ static void bt_sink_srv_cap_am_action_callback(bt_sink_srv_am_id_t aud_id, bt_si
     uint8_t state = bt_sink_srv_cap_am_get_state(mode);
     bt_handle_t conn_handle = bt_sink_srv_cap_get_ble_link_by_streaming_mode(mode);
     bool ul_only = bt_sink_srv_cap_stream_is_source_ase_only(conn_handle, true);
+
 #ifdef AIR_BT_LATENCY_TEST_MODE_ENABLE
     bt_ble_set_special_device(false);
 #endif
@@ -262,11 +269,17 @@ static void bt_sink_srv_cap_am_action_callback(bt_sink_srv_am_id_t aud_id, bt_si
             if (mode == g_cap_am_switch_suspending_mode) {
                 le_audio_log("[CAP][AM] switch to resuming", 0);
                 g_cap_am_switch_suspending_mode = CAP_INVALID_UINT8;
+                if (mode <= CAP_AM_UNICAST_CALL_MODE_END && !ul_only) {
+                    bt_sink_srv_cap_am_lea_control_sidetone(true);
+                }
                 bt_sink_srv_cap_stream_restarting_complete_response(mode);
                 break;
             } else if (mode == g_cap_am_restarting_dsp_mode) {
                 le_audio_log("[CAP][AM] DSP restarting finished", 0);
                 g_cap_am_restarting_dsp_mode = CAP_INVALID_UINT8;
+                if (mode <= CAP_AM_UNICAST_CALL_MODE_END && !ul_only) {
+                    bt_sink_srv_cap_am_lea_control_sidetone(true);
+                }
                 bt_sink_srv_cap_stream_restarting_complete_response(mode);
                 break;
             }
@@ -333,9 +346,15 @@ static void bt_sink_srv_cap_am_action_callback(bt_sink_srv_am_id_t aud_id, bt_si
 
                         bt_sink_srv_cap_stream_set_service_ble_link(conn_handle);
                         g_cap_am_current_mode = mode;
-                        bt_sink_srv_le_volume_state_t volume_state = bt_sink_srv_le_volume_get_state(conn_handle);
-                        bt_sink_srv_le_set_am_volume(BT_SINK_SRV_LE_STREAM_TYPE_OUT, volume_state.volume);
+                        bt_sink_srv_le_volume_state_t volume_state = bt_sink_srv_le_volume_get_state(conn_handle, mode);
+                        bt_sink_srv_le_volume_set_volume(BT_SINK_SRV_LE_STREAM_TYPE_OUT, volume_state.volume);
                         bt_sink_srv_le_volume_set_mute(BT_SINK_SRV_LE_STREAM_TYPE_OUT, volume_state.mute);
+                        #if BT_SINK_LE_MIC_VOLUME_ADJUST_ENABLE
+                        if (mode <= CAP_AM_UNICAST_CALL_MODE_END) {
+                            bt_sink_srv_le_volume_state_t mic_vol = bt_sink_srv_le_volume_get_mic_volume_state(conn_handle);
+                            bt_sink_srv_le_volume_set_mute_and_volume_level(g_cap_am_ctl[mode].cap_aid, BT_SINK_SRV_LE_STREAM_TYPE_IN, mic_vol.mute, mic_vol.volume);
+                        }
+                        #endif
 
                         if (mode == g_cap_am_restarting_psedev_mode) {
                             /* Restart AM success, no need to send ASE notification, just set data path */
@@ -356,7 +375,7 @@ static void bt_sink_srv_cap_am_action_callback(bt_sink_srv_am_id_t aud_id, bt_si
 
                         if (mode <= CAP_AM_UNICAST_CALL_MODE_END && !ul_only) {
                             //respond both ASE Characteristic
-                            am_audio_side_tone_enable();
+                            bt_sink_srv_cap_am_lea_control_sidetone(true);
                             bt_sink_srv_cap_stream_enabling_response(conn_handle, true, AUDIO_DIRECTION_SOURCE);
                         }
                         bt_sink_srv_cap_stream_set_all_cis_data_path(conn_handle);
@@ -395,6 +414,8 @@ static void bt_sink_srv_cap_am_action_callback(bt_sink_srv_am_id_t aud_id, bt_si
             notify.handle = conn_handle;
             bt_sink_srv_event_callback(BT_SINK_SRV_EVENT_LE_LEA_STREAMING_STOP, &notify, sizeof(bt_sink_srv_lea_streaming_stop_t));
 #endif
+            g_cap_am_streaming_with_conversational_context = false;
+
             if (mode == g_cap_am_switch_suspending_mode) {
                 le_audio_log("[CAP][AM] switch to suspending", 0);
                 break;
@@ -410,9 +431,15 @@ static void bt_sink_srv_cap_am_action_callback(bt_sink_srv_am_id_t aud_id, bt_si
                     /*Unicast*/
                     if (sub_msg == AUD_CMD_COMPLETE) {
                         //bt_sink_srv_cap_stream_reset_avm_buffer();
+#ifdef BT_SINK_DUAL_ANT_ENABLE
+#ifdef BT_SINK_DUAL_ANT_ROLE_SLAVE
+                        bt_sink_srv_cap_am_take_give_resource(mode, false);
+#endif
+#endif
+                        bt_sink_srv_le_volume_set_mute_ex(BT_SINK_SRV_LE_STREAM_TYPE_OUT, 0, false);
+                        g_cap_am_current_mode = CAP_INVALID_UINT8;
                         bt_sink_srv_cap_am_send_event_and_set_state(mode, AUDIO_SRC_SRV_EVT_READY);
                         bt_sink_srv_cap_stream_clear_service_ble_link(conn_handle);
-                        g_cap_am_current_mode = CAP_INVALID_UINT8;
 
 
                         if (g_cap_am_ctl[mode].deinit_needed) {
@@ -430,11 +457,6 @@ static void bt_sink_srv_cap_am_action_callback(bt_sink_srv_am_id_t aud_id, bt_si
                         if (mode <= CAP_AM_UNICAST_CALL_MODE_END) {
                             bt_sink_srv_cap_stream_disabling_response(conn_handle, true, AUDIO_DIRECTION_SOURCE);
                         }
-#ifdef BT_SINK_DUAL_ANT_ENABLE
-#ifdef BT_SINK_DUAL_ANT_ROLE_SLAVE
-                        bt_sink_srv_cap_am_take_give_resource(mode, false);
-#endif
-#endif
                     } else {
                         bt_sink_srv_cap_stream_disabling_response_all(conn_handle, false,
                             (ul_only ? AUDIO_DIRECTION_SOURCE : AUDIO_DIRECTION_SINK));
@@ -451,8 +473,8 @@ static void bt_sink_srv_cap_am_action_callback(bt_sink_srv_am_id_t aud_id, bt_si
                     bt_sink_srv_cap_stream_service_big_t *service_big = bt_sink_srv_cap_stream_get_service_big();
                     //bt_sink_srv_ami_audio_set_mute(aud_id, false, STREAM_OUT);
                     //bt_sink_srv_cap_stream_reset_avm_buffer();
-                    bt_sink_srv_cap_am_send_event_and_set_state(mode, AUDIO_SRC_SRV_EVT_READY);
                     g_cap_am_current_mode = CAP_INVALID_UINT8;
+                    bt_sink_srv_cap_am_send_event_and_set_state(mode, AUDIO_SRC_SRV_EVT_READY);
 
                     if (g_cap_am_ctl[mode].deinit_needed) {
                         bt_sink_srv_cap_am_send_event_and_set_state(mode, AUDIO_SRC_SRV_EVT_UNAVAILABLE);
@@ -472,9 +494,15 @@ static void bt_sink_srv_cap_am_action_callback(bt_sink_srv_am_id_t aud_id, bt_si
 
             } else if (state == CAP_AM_STATE_SUSPEND_WAIT_STOP && sub_msg == AUD_CMD_COMPLETE) {
                 //bt_sink_srv_cap_stream_reset_avm_buffer();
+#ifdef BT_SINK_DUAL_ANT_ENABLE
+#ifdef BT_SINK_DUAL_ANT_ROLE_SLAVE
+                bt_sink_srv_cap_am_take_give_resource(mode, false);
+#endif
+#endif
+                bt_sink_srv_le_volume_set_mute_ex(BT_SINK_SRV_LE_STREAM_TYPE_OUT, 0, false);
+                g_cap_am_current_mode = CAP_INVALID_UINT8;
                 bt_sink_srv_cap_am_send_event_and_set_state(mode, AUDIO_SRC_SRV_EVT_READY);
                 audio_src_srv_add_waiting_list(g_cap_am_ctl[mode].p_handle);
-                g_cap_am_current_mode = CAP_INVALID_UINT8;
 
 #ifdef AIR_LE_AUDIO_CIS_ENABLE
                 if (mode <= CAP_AM_UNICAST_MODE_END && conn_handle != BT_HANDLE_INVALID) {
@@ -497,8 +525,14 @@ static void bt_sink_srv_cap_am_action_callback(bt_sink_srv_am_id_t aud_id, bt_si
 
             } else if (state == CAP_AM_STATE_WAIT_PLAY && sub_msg == AUD_CMD_COMPLETE) {
                 //bt_sink_srv_cap_stream_reset_avm_buffer();
-                bt_sink_srv_cap_am_send_event_and_set_state(mode, AUDIO_SRC_SRV_EVT_READY);
+#ifdef BT_SINK_DUAL_ANT_ENABLE
+#ifdef BT_SINK_DUAL_ANT_ROLE_SLAVE
+                bt_sink_srv_cap_am_take_give_resource(mode, false);
+#endif
+#endif
+                bt_sink_srv_le_volume_set_mute_ex(BT_SINK_SRV_LE_STREAM_TYPE_OUT, 0, false);
                 g_cap_am_current_mode = CAP_INVALID_UINT8;
+                bt_sink_srv_cap_am_send_event_and_set_state(mode, AUDIO_SRC_SRV_EVT_READY);
                 bt_sink_srv_cap_am_send_event_and_set_state(mode, AUDIO_SRC_SRV_EVT_UNAVAILABLE);
                 bt_sink_srv_cap_am_callback_deregister(mode);
             }
@@ -526,8 +560,11 @@ static void bt_sink_srv_cap_am_play_callback(audio_src_srv_handle_t *handle)
     bt_le_audio_direction_t direction = bt_sink_srv_cap_stream_find_streaming_ase_direction(conn_handle, true);
     bt_sink_srv_cap_stream_service_big_t *service_big = bt_sink_srv_cap_stream_get_service_big();
 
-    le_audio_log("[CAP][AM] play callback, mode:%d, state:%d, switch_suspending:%d, switch_suspending_mode:%d, dsp_restarting_mode:%d",
-        5, mode, state, g_cap_am_switch_suspending, g_cap_am_switch_suspending_mode, g_cap_am_restarting_dsp_mode);
+    le_audio_log("[CAP][AM] play callback, mode:%d, state:%d, priority:%d, switch_suspending:%d, switch_suspending_mode:%d, dsp_restarting_mode:%d",
+            6, mode, state, g_cap_am_ctl[mode].p_handle->priority, g_cap_am_switch_suspending, g_cap_am_switch_suspending_mode, g_cap_am_restarting_dsp_mode);
+
+    //To reset priority
+    g_cap_am_ctl[mode].p_handle->priority = ((mode <= CAP_AM_UNICAST_CALL_MODE_END) ? AUDIO_SRC_SRV_PRIORITY_HIGH : AUDIO_SRC_SRV_PRIORITY_NORMAL);
 
     if (mode <= CAP_AM_UNICAST_CALL_MODE_END) {
         g_cap_am_ctl[mode].p_handle->priority = AUDIO_SRC_SRV_PRIORITY_HIGH;
@@ -652,13 +689,14 @@ static void bt_sink_srv_cap_am_play_callback(audio_src_srv_handle_t *handle)
 #if (BROADCAST_MUSIC_RESUME)
                     bt_sink_srv_cap_stream_bmr_scan_param_ex_t scan_param = {0};
                     bt_addr_t temp_addr = {0};
-                    scan_param.duration = DEFAULT_SCAN_TIMEOUT;
-                    scan_param.bis_sync_state = BT_BASS_BIS_SYNC_NO_PREFERENCE;
                     bt_sink_srv_cap_stream_get_default_bmr_scan_info(&scan_param);
+
                     if (memcmp(&temp_addr, &scan_param.bms_address, sizeof(bt_addr_t))) {
+                        scan_param.duration = DEFAULT_SCAN_TIMEOUT;
+                        scan_param.bis_sync_state = BT_BASS_BIS_SYNC_NO_PREFERENCE;
                         scan_param.scan_type= BT_HCI_SCAN_FILTER_ACCEPT_ONLY_ADVERTISING_PACKETS_IN_WHITE_LIST;
+                        bt_sink_srv_cap_stream_scan_broadcast_source_ex(&scan_param);
                     }
-                    bt_sink_srv_cap_stream_scan_broadcast_source_ex(&scan_param);
 #endif
                 return;
             }
@@ -697,17 +735,28 @@ static void bt_sink_srv_cap_am_play_callback(audio_src_srv_handle_t *handle)
             bt_ble_set_special_device(true);
         }
 #endif
+        if (context_type & AUDIO_CONTENT_TYPE_CONVERSATIONAL) {
+            g_cap_am_streaming_with_conversational_context = true;;
+        }
+
         aud_cap.codec.ble_format.ble_codec.context_type = context_type;
         le_audio_log("[CAP][AM] context_type:%d", 1, context_type);
 
         bt_sink_srv_le_volume_state_t volume_state = {0};
-
+#if BT_SINK_LE_MIC_VOLUME_ADJUST_ENABLE
+#ifdef AIR_LE_AUDIO_CIS_ENABLE
+        bt_sink_srv_le_volume_state_t mic_vol = {0};
+        if (mode <= CAP_AM_UNICAST_CALL_MODE_END) {
+            mic_vol = bt_sink_srv_le_volume_get_mic_volume_state(conn_handle);
+        }
+#endif
+#endif
         if (mode == CAP_AM_BROADCAST_MUSIC_MODE) {
             volume_state.volume = bt_sink_srv_cap_stream_get_broadcast_volume();
             volume_state.mute = bt_sink_srv_cap_stream_is_broadcast_mute();
         } else {
 #ifdef AIR_LE_AUDIO_CIS_ENABLE
-            volume_state = bt_sink_srv_le_volume_get_state(conn_handle);
+            volume_state = bt_sink_srv_le_volume_get_state(conn_handle, mode);
 #endif
 
             if (mode <= CAP_AM_UNICAST_CALL_MODE_END || ul_only ) {
@@ -811,23 +860,46 @@ static void bt_sink_srv_cap_am_play_callback(audio_src_srv_handle_t *handle)
         aud_cap.codec.ble_format.ble_codec.frame_payload_length = config_info.frame_payload_length;
         aud_cap.codec.ble_format.ble_event = BT_CODEC_MEDIA_REQUEST;
         aud_cap.audio_stream_in.audio_device  = CAP_AUDIO_INPUT_DEVICE;
-        aud_cap.audio_stream_in.audio_volume  = AUD_VOL_IN_LEVEL0;
+#if BT_SINK_LE_MIC_VOLUME_ADJUST_ENABLE
+#ifdef AIR_LE_AUDIO_CIS_ENABLE
+        if (mode <= CAP_AM_UNICAST_CALL_MODE_END) {
+            aud_cap.audio_stream_in.audio_volume = mic_vol.volume;
+            aud_cap.audio_stream_in.audio_mute = mic_vol.mute;
+        } else
+#endif
+#endif
+        {
+            aud_cap.audio_stream_in.audio_volume  = AUD_VOL_IN_LEVEL0;
+        }
         aud_cap.audio_stream_out.audio_device = CAP_AUDIO_OUTPUT_DEVICE;
         aud_cap.audio_stream_out.audio_volume = (bt_sink_srv_am_volume_level_out_t)(volume_state.volume);
         aud_cap.audio_stream_out.audio_mute = g_cap_am_local_mute ? g_cap_am_local_mute : volume_state.mute;
         /*g_cap_am_local_mute is set by upper layer, which has higher priority than VCS*/
 
+        if ((mode >= CAP_AM_UNICAST_MUSIC_MODE_START && !config_info.frame_payload_length) ||
+            (mode <= CAP_AM_UNICAST_CALL_MODE_END && !ul_config.frame_payload_length)) {
+            /*No config info, stop and set ready*/
+            bt_sink_srv_cap_am_set_state(mode, CAP_AM_STATE_PREPARE_STOP);
+            bt_sink_srv_cap_am_send_event_and_set_state(mode, AUDIO_SRC_SRV_EVT_PREPARE_STOP);
+            return;
+        }
+
         if (g_cap_am_switch_suspending_mode != mode && mode < CAP_AM_MODE_NUM && g_cap_am_restarting_dsp_mode != mode) {
             bt_sink_srv_cap_am_set_state(mode, CAP_AM_STATE_WAIT_PLAY);
         }
 
-        if (config_info.frame_payload_length &&
-            mode >= CAP_AM_UNICAST_MUSIC_MODE_START && mode <= CAP_AM_UNICAST_MUSIC_MODE_END) {
+        if (mode >= CAP_AM_UNICAST_MUSIC_MODE_START && mode <= CAP_AM_UNICAST_MUSIC_MODE_END) {
             le_sink_srv_set_streaming_state(true);
         }
 
         am_result = bt_sink_srv_ami_audio_play(g_cap_am_ctl[mode].cap_aid, &aud_cap);
-
+#if BT_SINK_LE_MIC_VOLUME_ADJUST_ENABLE
+#ifdef AIR_LE_AUDIO_CIS_ENABLE
+        if (mode <= CAP_AM_UNICAST_CALL_MODE_END) {
+            bt_sink_srv_le_volume_set_mute_and_volume_level(g_cap_am_ctl[mode].cap_aid, BT_SINK_SRV_LE_STREAM_TYPE_IN, mic_vol.mute, mic_vol.volume);
+        }
+#endif
+#endif
         le_audio_log("[CAP][AM] play callback, play result:%d, mode:%d, switch_suspending_mode:%d", 3, am_result, mode, g_cap_am_switch_suspending_mode);
 
         if (am_result != AUD_EXECUTION_SUCCESS && g_cap_am_switch_suspending_mode != mode) {
@@ -876,7 +948,7 @@ static void bt_sink_srv_cap_am_stop_callback(audio_src_srv_handle_t *handle)
         }
 
         if (mode <= CAP_AM_UNICAST_CALL_MODE_END) {
-            am_audio_side_tone_disable();
+            bt_sink_srv_cap_am_lea_control_sidetone(false);
         }
 
         if (AUD_EXECUTION_FAIL == bt_sink_srv_ami_audio_stop(g_cap_am_ctl[mode].cap_aid)) {
@@ -961,7 +1033,7 @@ static void bt_sink_srv_cap_am_suspend_callback(audio_src_srv_handle_t *handle, 
                         bt_sink_srv_cap_stream_hold_call(conn_handle);
                     }
                     //bt_le_audio_sink_call_hold_all_active_accept_others(conn_handle, BLE_CCP_GTBS_INDEX);
-                    am_audio_side_tone_disable();
+                    bt_sink_srv_cap_am_lea_control_sidetone(false);
 #if (RELEASE_LE_CALL_WHEN_INTERRUPT)
                     /*Call mode*/
                     //bt_sink_srv_cap_am_set_state(mode, CAP_AM_STATE_WAIT_STOP);
@@ -1518,7 +1590,9 @@ static bool bt_sink_srv_cap_am_resume_timer_start(bt_sink_srv_cap_am_mode mode, 
         return false;
     }
 
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     bt_sink_srv_music_start_vp_detection(g_cap_am_ctl[mode].p_handle, duration_ms);
+#endif
     return true;
 }
 #endif
@@ -1534,7 +1608,9 @@ static bool bt_sink_srv_cap_am_resume_timer_stop(bt_sink_srv_cap_am_mode mode)
     if (CAP_AM_STATE_SUSPENDING == bt_sink_srv_cap_am_get_state(mode)) {
         bt_sink_srv_cap_am_set_state(mode, CAP_AM_STATE_IDLE);
     }
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     bt_sink_srv_music_stop_vp_detection(g_cap_am_ctl[mode].p_handle);
+#endif
     return true;
 }
 #endif
@@ -1640,7 +1716,8 @@ void bt_sink_srv_cap_am_audio_start(bt_sink_srv_cap_am_mode mode)
     uint8_t state = bt_sink_srv_cap_am_get_state(mode);
     le_audio_log("[CAP][AM] audio start, mode:%d, state:%d", 2, mode, state);
 
-    if(state == CAP_AM_STATE_IDLE || state == CAP_AM_STATE_SUSPENDING) {
+    if(state == CAP_AM_STATE_IDLE || state == CAP_AM_STATE_SUSPENDING || state == CAP_AM_STATE_PREPARE_PLAY) {
+        g_cap_am_ctl[mode].stop_needed = false;
 
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
         if (mode >= CAP_AM_UNICAST_MUSIC_MODE_START && mode <= CAP_AM_UNICAST_MUSIC_MODE_END) {
@@ -1838,7 +1915,7 @@ bool bt_sink_srv_cap_am_switch_psedev(bt_sink_srv_cap_am_mode new_mode)
     le_audio_log("[CAP][AM] bt_sink_srv_cap_am_switch_psedev, current current_mode:%d, new_mode:%d, ", 2,
         g_cap_am_current_mode, new_mode);
 
-    if (g_cap_am_current_mode >= CAP_AM_MODE_NUM || new_mode >= CAP_AM_MODE_NUM) {
+    if (g_cap_am_current_mode >= CAP_AM_MODE_NUM || new_mode >= CAP_AM_MODE_NUM || g_cap_am_current_mode == new_mode) {
         return false;
     }
 
@@ -1848,6 +1925,7 @@ bool bt_sink_srv_cap_am_switch_psedev(bt_sink_srv_cap_am_mode new_mode)
 
 
     bt_sink_srv_cap_am_set_state(new_mode, CAP_AM_STATE_PREPARE_PLAY);
+    g_cap_am_ctl[new_mode].p_handle->priority = AUDIO_SRC_SRV_PRIORITY_HIGH + 1;//Temporary set highest priority to resume this psedev first
     audio_src_srv_add_waiting_list(g_cap_am_ctl[new_mode].p_handle);
     bt_sink_srv_cap_am_audio_stop(g_cap_am_current_mode);
     return true;
@@ -1922,6 +2000,13 @@ bool bt_sink_srv_cap_am_is_psedev_streaming(bt_sink_srv_cap_am_mode mode)
 }
 
 
+bool bt_sink_srv_cap_am_is_dsp_streaming_with_conversational_context(void)
+{
+    le_audio_log("[CAP][AM] streaming_with_conversational_context:%d", 1, g_cap_am_streaming_with_conversational_context);
+
+    return g_cap_am_streaming_with_conversational_context;
+}
+
 #if 1//def BT_SINK_MUSIC_NEW_VP_INTERRUPT_SOLUTION
 bool bt_sink_srv_cap_am_resume_timer_callback_handler(audio_src_srv_handle_t *handle)
 {
@@ -1950,6 +2035,22 @@ bool bt_sink_srv_cap_am_reset_suspending(bt_sink_srv_cap_am_mode mode)
         bt_sink_srv_cap_am_set_state(mode, CAP_AM_STATE_IDLE);
     }
     audio_src_srv_del_waiting_list(g_cap_am_ctl[mode].p_handle);
+    return true;
+}
+
+bool bt_sink_srv_cap_am_lea_control_sidetone(bool enable)
+{
+    le_audio_log("[CAP][AM] bt_sink_srv_cap_am_control_sidetone, current_mode:%d, enable:%d", 2, g_cap_am_current_mode, enable);
+
+    if (enable) {
+        if (g_cap_am_current_mode > CAP_AM_UNICAST_CALL_MODE_END || !bt_sink_srv_call_get_sidetone_enable_config()) {
+            return false;
+        }
+
+        am_audio_side_tone_enable();
+    } else {
+        am_audio_side_tone_disable();
+    }
     return true;
 }
 

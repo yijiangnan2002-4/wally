@@ -44,7 +44,7 @@
 
 /* Private define ------------------------------------------------------------*/
 #define SRC_FIXED_RATIO_PORT_MAX    (10)
-#define SRC_FIXED_RATIO_CVT_MAX     (3)
+#define SRC_FIXED_RATIO_CVT_MAX     (5)
 #define SRC_FIXED_RATIO_MAX         (3)
 #define SRC_FIXED_RATIO_DEBUG_LOG   (0)
 #define ENDIAN_RVRS(A) (A)
@@ -318,6 +318,45 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ src_fixed_ratio_port_t *stream_function_src_fixed_
     return port;
 }
 
+/**
+ * @brief This function is used to get the src port.
+ *        If the owner does not have a src port, it will malloc a port for this owner.
+ *        If the owner have a src port, it will return the port directly.
+ *        If the owner is NULL, it will return the first unused port.
+ *
+ * @param owner is who want to get or query a src port or NULL.
+ * @return src_fixed_ratio_port_t* is the result.
+ */
+
+ATTR_TEXT_IN_RAM_FOR_MASK_IRQ src_fixed_ratio_port_t *stream_function_src_fixed_ratio_get_number_port(void *owner, int32_t port_number)
+{
+    int32_t i;
+    int32_t j = 0;
+    uint32_t saved_mask;
+    src_fixed_ratio_port_t *port = NULL;
+
+    /* Find out a port for this owner */
+    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
+    for (i = SRC_FIXED_RATIO_PORT_MAX - 1; i >= 0; i--) {
+        if (src_fixed_ratio_port[i].owner == owner) {
+            j++;
+        }
+        if ((src_fixed_ratio_port[i].owner == NULL) && (j == (port_number - 1))) {
+            port = &src_fixed_ratio_port[i];
+            break;
+        }
+    }
+    hal_nvic_restore_interrupt_mask(saved_mask);
+
+    if (port == NULL) {
+        DSP_MW_LOG_E("[SRC_FIXED_RATIO] No.%d Port not available!", 1, port_number);
+        return port;
+    }
+    port->owner = owner;
+    DSP_MW_LOG_I("[SRC_FIXED_RATIO] get No.%d port%d, owner:0x%x", 3, port_number, i, owner);
+    return port;
+}
+
 
 /**
  * @brief This function is used to configure the src port.
@@ -371,12 +410,18 @@ void stream_function_src_fixed_ratio_init(src_fixed_ratio_port_t *port, src_fixe
     port->factor = factor;
     port->multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE;
     port->cvt_num = 1;
+    port->init_cnt = 0;
     if ((config->multi_cvt_mode > SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE)
         && (config->multi_cvt_mode < SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_MAX)
         && (config->cvt_num <= SRC_FIXED_RATIO_CVT_MAX)) {
         port->multi_cvt_mode = config->multi_cvt_mode;
         port->cvt_num = config->cvt_num;
     }
+
+    if(config->multi_cvt_mode == SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE_AND_ALTERNATE && port->cvt_num == 0) {
+        port->cvt_num = 1;
+    }
+
     port->with_codec = config->with_codec;
     if ((config->max_frame_buff_size > 0) && ((config->max_frame_buff_size & 0xFFFF0000) == 0)) {
         port->tmp_buff_size = config->max_frame_buff_size;
@@ -505,13 +550,16 @@ void stream_function_src_fixed_ratio_change_in_sampling_rate(src_fixed_ratio_por
  */
 bool stream_function_src_fixed_ratio_initialize(void *para)
 {
+    src_fixed_ratio_processing_num_config_t *processing_num_config = (src_fixed_ratio_processing_num_config_t *)stream_function_get_working_buffer(para);
     int32_t i, j, k;
     src_fixed_ratio_port_t *port = NULL;
     DSP_STREAMING_PARA_PTR stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
     uint32_t channel_number;
     uint32_t instance_size = 0, quality_mode = 0;
     void* smp_instance_ptr = NULL;
-    uint32_t *port_ch_num, *port_status;
+    uint32_t *port_ch_num;
+    src_fixed_ratio_port_status_e *port_status;
+    uint16_t cvt_num;
 
     /* Find out the port of this stream */
     for (i = SRC_FIXED_RATIO_PORT_MAX - 1; i >= 0; i--) {
@@ -531,6 +579,12 @@ bool stream_function_src_fixed_ratio_initialize(void *para)
         DSP_MW_LOG_I("[SRC_FIXED_RATIO] Port %d found!", 1, i);
     }
 #endif
+
+    if(port->multi_cvt_mode == SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE_AND_ALTERNATE && processing_num_config->processing_num == 0) {
+        port->init_cnt++;
+        processing_num_config->processing_num = port->init_cnt;
+        DSP_MW_LOG_I("[SRC_FIXED_RATIO] mode:SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE_AND_ALTERNATE, owner:%d, feature_num:%d", 2, src_fixed_ratio_port[i].owner, processing_num_config->processing_num);
+    }
 
     if (port->with_codec) {
         if (((DSP_ENTRY_PARA_PTR)para)->number.field.process_sequence == ((DSP_ENTRY_PARA_PTR)para)->number.field.feature_number - 1) {
@@ -588,7 +642,21 @@ bool stream_function_src_fixed_ratio_initialize(void *para)
         port->smp_instance_ptr[k] = smp_instance_ptr;
     }
 
-    if (port->cvt_num > 1) { // initialize other ports of same owner
+    cvt_num = port->cvt_num;
+
+    if(port->multi_cvt_mode == SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE_AND_ALTERNATE) {
+        int32_t next_proc_index = i - (port->cvt_num);
+        if(src_fixed_ratio_port[next_proc_index].owner != src_fixed_ratio_port[i].owner) {
+#if SRC_FIXED_RATIO_DEBUG_LOG
+            DSP_MW_LOG_I("[SRC_FIXED_RATIO] get error next_proc_index:%d, 1st cvt_num:%d, first_proc_index:%d", 3, next_proc_index, port->cvt_num, i);
+#endif
+            AUDIO_ASSERT(0 && "[SRC_FIXED_RATIO] get error next_proc_index!!!");
+        } else {
+            cvt_num += src_fixed_ratio_port[next_proc_index].cvt_num;
+        }
+    }
+
+    if (cvt_num > 1) { // initialize other ports of same owner
         src_fixed_ratio_port_t *other_port = NULL;
         for (j = i - 1; j >= 0; j--) {
             /* Check if this source or sink has already owned a sw src */
@@ -643,6 +711,24 @@ bool stream_function_src_fixed_ratio_initialize(void *para)
     return 0;
 }
 
+uint32_t src_fixed_ratio_cal_max_ratio(src_fixed_ratio_port_t *port[SRC_FIXED_RATIO_CVT_MAX], uint32_t port_num)
+{
+    uint32_t begin_rate = port[0]->in_sampling_rate;
+    uint32_t max_rate = 0, max_ratio = 1;
+    uint32_t i = 0;
+
+    for(i = 0; i < port_num; i++) {
+        if(port[i]->out_sampling_rate > max_rate) {
+            max_rate = port[i]->out_sampling_rate;
+        }
+    }
+
+    if(max_rate > begin_rate) {
+        max_ratio = max_rate / begin_rate;
+    }
+    return max_ratio;
+}
+
 /**
  * @brief This function is used to process the src in run-time
  *
@@ -653,6 +739,8 @@ bool stream_function_src_fixed_ratio_initialize(void *para)
 ATTR_TEXT_IN_IRAM bool stream_function_src_fixed_ratio_process(void *para)
 {
     src_fixed_ratio_port_t *port[SRC_FIXED_RATIO_CVT_MAX] = {NULL};
+    src_fixed_ratio_processing_num_config_t *processing_num_config = (src_fixed_ratio_processing_num_config_t *)stream_function_get_working_buffer(para);
+    uint32_t cvt_start_index = 0;
     DSP_STREAMING_PARA_PTR stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
     SOURCE source = stream_ptr->source;
     SINK sink = stream_ptr->sink;
@@ -665,6 +753,7 @@ ATTR_TEXT_IN_IRAM bool stream_function_src_fixed_ratio_process(void *para)
     uint8_t *in_data_buffer;
     int16_t out_frame_cnt;
     uint32_t sample_size;
+    uint32_t max_ratio;
 
 #if SRC_FIXED_RATIO_DEBUG_LOG
     uint32_t current_timestamp = 0;
@@ -676,23 +765,23 @@ ATTR_TEXT_IN_IRAM bool stream_function_src_fixed_ratio_process(void *para)
         /* Check if this source or sink has already owned a sw src */
         if ((src_fixed_ratio_port[i].owner == source) ||
             (src_fixed_ratio_port[i].owner == sink)) {
-            port[0] = &src_fixed_ratio_port[i];
+            port[cvt_start_index] = &src_fixed_ratio_port[i];
 #if SRC_FIXED_RATIO_DEBUG_LOG
             DSP_MW_LOG_I("[SRC_FIXED_RATIO]port %d is found, owner:0x%x", 2, i, src_fixed_ratio_port[i].owner);
 #endif
             break;
         }
     }
-    if (port[0] == NULL) {
+    if (port[cvt_start_index] == NULL) {
         AUDIO_ASSERT(FALSE && "[SRC_FIXED_RATIO] Port is not found!");
         return TRUE;
     }
 
-    if (port[0]->status == SRC_FIXED_RATIO_PORT_STAT_BYPASS) {
+    if (port[cvt_start_index]->status == SRC_FIXED_RATIO_PORT_STAT_BYPASS) {
         return false;
     }
 
-    if (port[0]->with_codec) {
+    if (port[cvt_start_index]->with_codec) {
         if (((DSP_ENTRY_PARA_PTR)para)->number.field.process_sequence == ((DSP_ENTRY_PARA_PTR)para)->number.field.feature_number - 1) {
 
             channel_number = stream_function_get_device_channel_number(para);
@@ -723,55 +812,7 @@ ATTR_TEXT_IN_IRAM bool stream_function_src_fixed_ratio_process(void *para)
         in_sampling_rate = stream_function_get_samplingrate(para);
         channel_number = stream_function_get_channel_number(para);
     }
-    process_buff_size = in_frame_size * SRC_FIXED_RATIO_MAX;
-#if SRC_FIXED_RATIO_DEBUG_LOG
-    DSP_MW_LOG_I("[SRC_FIXED_RATIO][START]in_frame_size:%d, in_sampling_rate:%d, channel_number:%d, tmp_buff_size:%d", 4, in_frame_size, in_sampling_rate, channel_number, process_buff_size);
-    DSP_MW_LOG_I("[SRC_FIXED_RATIO][start]: %d, %u", 2, in_frame_size, current_timestamp);
-#endif /* SW_SRC_DEBUG_LOG */
 
-    if (!in_frame_size) {
-        // DSP_MW_LOG_I("[SW_SRC] Input length is 0!", 0);
-        return FALSE;
-    }
-
-//    if (port[0]->channel_number != channel_number)
-//    {
-//        DSP_MW_LOG_E("[SRC_FIXED_RATIO] ch number is not right!", 0);
-//        AUDIO_ASSERT(FALSE);
-//        return TRUE;
-//    }
-
-    if ((port[0]->resolution != RESOLUTION_16BIT) && (port[0]->resolution != RESOLUTION_32BIT)) {
-        AUDIO_ASSERT(FALSE && "[SRC_FIXED_RATIO] resolution is not right!");
-        return TRUE;
-    }
-
-    /* check if the in_sampling_rate is matched */
-    if ((port[0]->in_sampling_rate != src_fixed_ratio_fs_converter(in_sampling_rate)) && (port[0]->cvt_num <= 1)) {
-#if SRC_FIXED_RATIO_DEBUG_LOG
-        DSP_MW_LOG_E("[SRC_FIXED_RATIO] input sampling rate is not right, %u, %u!", 2, port[0]->in_sampling_rate, src_fixed_ratio_fs_converter(in_sampling_rate));
-#endif
-        AUDIO_ASSERT(FALSE && "[SRC_FIXED_RATIO] input sampling rate is not right");
-        return TRUE;
-    }
-
-    /* check if in_sampling_rate and out_sampling_rate are same */
-    if ((port[0]->in_sampling_rate == port[0]->out_sampling_rate) && ((port[0]->cvt_num <= 1) || (port[0]->multi_cvt_mode == SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_ALTERNATE))) {
-        return FALSE;
-    }
-
-    if (port[0]->tmp_buff == NULL) {
-        port[0]->tmp_buff = (U8 *)preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, process_buff_size);
-        if (port[0]->tmp_buff == NULL) {
-            AUDIO_ASSERT(FALSE && "[SRC_FIXED_RATIO] tmp buff malloc FAIL!");
-        }
-        port[0]->tmp_buff_size = process_buff_size;
-
-    }
-    if (port[0]->tmp_buff_size < in_frame_size) {
-        AUDIO_ASSERT(FALSE && "[SRC_FIXED_RATIO] tmp_buff_size < in_frame_size");
-    }
-    in_data_buffer = port[0]->tmp_buff;
     //check other port
     for (m = i - 1; m >= 0; m--) {
         /* Check if this source or sink  own other sw src */
@@ -791,9 +832,66 @@ ATTR_TEXT_IN_IRAM bool stream_function_src_fixed_ratio_process(void *para)
         }
     }
 
-    if ((port[0]->cvt_num <= 1) || (port[0]->multi_cvt_mode == SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_ALTERNATE)) {
+    max_ratio = src_fixed_ratio_cal_max_ratio(port, n+1);
+    process_buff_size = in_frame_size * max_ratio;
+
+#if SRC_FIXED_RATIO_DEBUG_LOG
+    DSP_MW_LOG_I("[SRC_FIXED_RATIO][START]in_frame_size:%d, in_sampling_rate:%d, channel_number:%d, tmp_buff_size:%d, mode:%d", 5, in_frame_size, in_sampling_rate, channel_number, process_buff_size, port[cvt_start_index]->multi_cvt_mode);
+    DSP_MW_LOG_I("[SRC_FIXED_RATIO][start]: %d, %u", 2, in_frame_size, current_timestamp);
+#endif /* SW_SRC_DEBUG_LOG */
+
+    if (!in_frame_size) {
+        // DSP_MW_LOG_I("[SW_SRC] Input length is 0!", 0);
+        return FALSE;
+    }
+
+//    if (port[0]->channel_number != channel_number)
+//    {
+//        DSP_MW_LOG_E("[SRC_FIXED_RATIO] ch number is not right!", 0);
+//        AUDIO_ASSERT(FALSE);
+//        return TRUE;
+//    }
+
+    if((port[cvt_start_index]->multi_cvt_mode) == SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE_AND_ALTERNATE) {
+        cvt_start_index = (processing_num_config->processing_num - 1) * (port[0]->cvt_num);
+    }
+
+    if ((port[cvt_start_index]->resolution != RESOLUTION_16BIT) && (port[cvt_start_index]->resolution != RESOLUTION_32BIT)) {
+        AUDIO_ASSERT(FALSE && "[SRC_FIXED_RATIO] resolution is not right!");
+        return TRUE;
+    }
+
+    /* check if the in_sampling_rate is matched */
+    if ((port[cvt_start_index]->in_sampling_rate != src_fixed_ratio_fs_converter(in_sampling_rate)) && (port[cvt_start_index]->cvt_num <= 1)) {
+#if SRC_FIXED_RATIO_DEBUG_LOG
+        DSP_MW_LOG_E("[SRC_FIXED_RATIO] input sampling rate is not right, %u, %u!", 2, port[cvt_start_index]->in_sampling_rate, src_fixed_ratio_fs_converter(in_sampling_rate));
+#endif
+        AUDIO_ASSERT(FALSE && "[SRC_FIXED_RATIO] input sampling rate is not right");
+        return TRUE;
+    }
+
+    /* check if in_sampling_rate and out_sampling_rate are same */
+    if ((port[cvt_start_index]->in_sampling_rate == port[cvt_start_index]->out_sampling_rate) && ((port[cvt_start_index]->cvt_num <= 1) || (port[cvt_start_index]->multi_cvt_mode == SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_ALTERNATE))) {
+        return FALSE;
+    }
+
+    if ((port[cvt_start_index]->tmp_buff == NULL) || (port[cvt_start_index]->tmp_buff_size < in_frame_size)) {
+        port[cvt_start_index]->tmp_buff = (U8 *)preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, process_buff_size);
+        if (port[cvt_start_index]->tmp_buff == NULL) {
+            AUDIO_ASSERT(FALSE && "[SRC_FIXED_RATIO] tmp buff malloc FAIL!");
+        }
+        port[cvt_start_index]->tmp_buff_size = process_buff_size;
+    }
+
+    if (port[cvt_start_index]->tmp_buff_size < in_frame_size) {
+        AUDIO_ASSERT(FALSE && "[SRC_FIXED_RATIO] tmp_buff_size < in_frame_size");
+    }
+
+    in_data_buffer = port[cvt_start_index]->tmp_buff;
+
+    if ((port[cvt_start_index]->cvt_num <= 1) || (port[cvt_start_index]->multi_cvt_mode == SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_ALTERNATE)) {
         int32_t port_select = -1;
-        for (m = 0; m < port[0]->cvt_num; m++) {
+        for (m = 0; m < port[cvt_start_index]->cvt_num; m++) {
             if (port[m]->in_sampling_rate == src_fixed_ratio_fs_converter(in_sampling_rate)) {
                 port_select = m;
                 break;
@@ -862,19 +960,27 @@ ATTR_TEXT_IN_IRAM bool stream_function_src_fixed_ratio_process(void *para)
 #endif /* SW_SRC_DEBUG_LOG */
 
     } else { // consecutive converters
-        if (port[1] == NULL) {
+        if (port[cvt_start_index + 1] == NULL) {
             AUDIO_ASSERT(0 && "[SRC_FIXED_RATIO] 2nd Port is not found!");
         }
-        if (port[0]->cvt_num != (n + 1)) {
+
+        if(port[cvt_start_index]->multi_cvt_mode == SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE_AND_ALTERNATE) {
+            if(cvt_start_index == 0) {
+                n = port[cvt_start_index]->cvt_num - 1;
+            } else {
+                n -= port[0]->cvt_num;
+            }
+        }
+        if (port[cvt_start_index]->cvt_num != (n + 1)) {
 #if SRC_FIXED_RATIO_DEBUG_LOG
-            DSP_MW_LOG_E("[SRC_FIXED_RATIO] converter number is not match! %d != %d", 2, port[0]->cvt_num, (n + 1));
+            DSP_MW_LOG_E("[SRC_FIXED_RATIO] converter number is not match! %d != %d", 2, port[cvt_start_index]->cvt_num, (n + 1));
 #endif
             AUDIO_ASSERT(0 && "[SRC_FIXED_RATIO] converter number is not match!");
         }
 
-        sample_size = (port[0]->resolution == RESOLUTION_16BIT) ? sizeof(int16_t) : sizeof(int32_t);
+        sample_size = (port[cvt_start_index]->resolution == RESOLUTION_16BIT) ? sizeof(int16_t) : sizeof(int32_t);
 
-        for (m = 0; m < port[0]->cvt_num; m++) {
+        for (m = cvt_start_index; m < (port[cvt_start_index]->cvt_num + (uint16_t)cvt_start_index); m++) {
             for (j = 0; j < (int32_t)port[m]->channel_number; j++) {
                 memset(in_data_buffer, 0, port[0]->tmp_buff_size);
                 memcpy(in_data_buffer, stream_function_get_inout_buffer(para, j + 1), in_frame_size);
@@ -884,7 +990,7 @@ ATTR_TEXT_IN_IRAM bool stream_function_src_fixed_ratio_process(void *para)
 #endif
 
                 if (port[m]->factor != 1) {
-                    if (port[0]->resolution == RESOLUTION_16BIT) {
+                    if (port[cvt_start_index]->resolution == RESOLUTION_16BIT) {
                         out_frame_cnt = updn_samp_prcs_16b(port[m]->smp_instance_ptr[j], port[m]->is_upsample, port[m]->factor, (S16 *)in_data_buffer, (S16 *)stream_function_get_inout_buffer(para, j + 1), in_frame_size / sample_size);
                     } else {
                         out_frame_cnt = updn_samp_prcs_32b(port[m]->smp_instance_ptr[j], port[m]->is_upsample, port[m]->factor, (S32 *)in_data_buffer, (S32 *)stream_function_get_inout_buffer(para, j + 1), in_frame_size / sample_size);

@@ -74,6 +74,9 @@ typedef struct {
 } voice_ecnr_common_para_t;
 
 DSP_PARA_AEC_STRU *g_voice_ecnr_nvkey_aec;
+#if defined(AIR_AI_NR_PREMIUM_ENABLE) || defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE)
+static U32 g_igo_nr_curr_mode = 0;
+#endif
 
 static voice_ecnr_status_t voice_ecnr_common_init(void *para, voice_ecnr_common_para_t **p_common, bool alloc_flag, uint32_t alloc_size, uint32_t magic_number)
 {
@@ -458,8 +461,8 @@ typedef struct {
 #if defined(AIR_AI_NR_PREMIUM_INEAR_500K_BROADSIDE_ENABLE) || defined(AIR_AI_NR_PREMIUM_INEAR_500K_PRO_TWS_OO_ENABLE) || defined(AIR_AI_NR_PREMIUM_200K_SHORT_BOOM_OO_ENABLE) || defined(AIR_AI_NR_PREMIUM_INEAR_500K_PRO_DISTRACTOR_ENABLE)
     DSP_ALIGN4 DSP_PARA_WB_TX_EQ_STRU ff_eq_1;
 #endif
-#if (defined(AIR_AI_NR_PREMIUM_ENABLE) && !defined(AIR_BTA_IC_PREMIUM_G2)) || defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE)
-    DSP_ALIGN4 DSP_PARA_AST_EQ_STRU fb_eq;
+#if defined(AIR_AI_NR_PREMIUM_ENABLE) || defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE)
+    DSP_ALIGN4 DSP_PARA_AST_EQ_STRU fb_eq[6];
 #endif
 #ifdef AIR_VOICE_BAND_CONFIG_TYPE_FB
     DSP_ALIGN16 int32_t NR_out_buf[720];//worst case: 48k/ 24bit/ 15ms
@@ -532,6 +535,7 @@ voice_ecnr_status_t voice_ecnr_nr_init(void *para)
     voice_ecnr_status_t ret;
 
 #if defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE) || defined(AIR_AI_NR_PREMIUM_ENABLE)
+    U32 igo_mode = 0;
     work_buf_size = IGO_NR_MEMSIZE;
 #else
     work_buf_size = 0;
@@ -552,7 +556,13 @@ voice_ecnr_status_t voice_ecnr_nr_init(void *para)
         #if defined(AIR_AI_NR_PREMIUM_ENABLE) || defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE)
         voice_ecnr_check_txnr_lib_match(para);//check igo lib match stream
         #endif
+        #if (defined(AIR_BTA_IC_PREMIUM_G2) && (defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE) || defined(AIR_AI_NR_PREMIUM_200K_SHORT_BOOM_OO_ENABLE))) || (!defined(AIR_BTA_IC_PREMIUM_G2) && (defined(AIR_AI_NR_PREMIUM_ENABLE) || defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE)))
+        if (igo_nr_get_curr_mode() == g_igo_nr_curr_mode) {
+            return VOICE_ECNR_STATUS_BYPASS;
+        }
+        #else
         return VOICE_ECNR_STATUS_BYPASS;
+        #endif
     }
 
     /* load nvkey */
@@ -574,8 +584,13 @@ voice_ecnr_status_t voice_ecnr_nr_init(void *para)
 #if defined(AIR_AI_NR_PREMIUM_INEAR_500K_BROADSIDE_ENABLE) || defined(AIR_AI_NR_PREMIUM_INEAR_500K_PRO_TWS_OO_ENABLE) || defined(AIR_AI_NR_PREMIUM_200K_SHORT_BOOM_OO_ENABLE)  || defined(AIR_AI_NR_PREMIUM_INEAR_500K_PRO_DISTRACTOR_ENABLE)
     nvkey_read_full_key(NVKEY_DSP_PARA_WB_TX_PRE_EQ, &g_voice_ecnr_nr_para->ff_eq_1, sizeof(DSP_PARA_WB_TX_EQ_STRU));
 #endif
-#if (defined(AIR_AI_NR_PREMIUM_ENABLE) && !defined(AIR_BTA_IC_PREMIUM_G2)) || defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE)
-    nvkey_read_full_key(NVKEY_DSP_PARA_AST_EQ, &g_voice_ecnr_nr_para->fb_eq, sizeof(DSP_PARA_AST_EQ_STRU));
+#if defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE) || defined(AIR_AI_NR_PREMIUM_ENABLE)
+    nvkey_read_full_key(NVKEY_DSP_PARA_AST_EQ,   &g_voice_ecnr_nr_para->fb_eq[0], sizeof(DSP_PARA_AST_EQ_STRU));
+    nvkey_read_full_key(NVKEY_DSP_PARA_AST_EQ_1, &g_voice_ecnr_nr_para->fb_eq[1], sizeof(DSP_PARA_AST_EQ_STRU));
+    nvkey_read_full_key(NVKEY_DSP_PARA_AST_EQ_2, &g_voice_ecnr_nr_para->fb_eq[2], sizeof(DSP_PARA_AST_EQ_STRU));
+    nvkey_read_full_key(NVKEY_DSP_PARA_AST_EQ_3, &g_voice_ecnr_nr_para->fb_eq[3], sizeof(DSP_PARA_AST_EQ_STRU));
+    nvkey_read_full_key(NVKEY_DSP_PARA_AST_EQ_4, &g_voice_ecnr_nr_para->fb_eq[4], sizeof(DSP_PARA_AST_EQ_STRU));
+    nvkey_read_full_key(NVKEY_DSP_PARA_AST_EQ_5, &g_voice_ecnr_nr_para->fb_eq[5], sizeof(DSP_PARA_AST_EQ_STRU));
 #endif
 
     /* Init the alg */
@@ -589,7 +604,6 @@ voice_ecnr_status_t voice_ecnr_nr_init(void *para)
     }
     DSP_MW_LOG_I("[DSP][VOICE_NR] NR init nr level %d", 1, g_igo_nr_level);
 #elif defined(AIR_AI_NR_PREMIUM_200K_SHORT_BOOM_OO_ENABLE)
-    _SWITCH_MODE igo_mode;
     igo_mode = igo_nr_get_curr_mode();
     if (gDspAlgParameter.EscoMode.Tx == VOICE_NB) {
         IGO_NR_Init(g_voice_ecnr_nr_para->ScratchMemory, (uint32_t *)(g_voice_ecnr_nr_para->ResKey), &g_voice_ecnr_nr_para->ff_eq, &g_voice_ecnr_nr_para->ff_eq_1, igo_mode, g_igo_nr_level, _NB);
@@ -601,7 +615,6 @@ voice_ecnr_status_t voice_ecnr_nr_init(void *para)
 
 #elif (defined(AIR_AI_NR_PREMIUM_ENABLE) && !defined(AIR_BTA_IC_PREMIUM_G2)) || defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE)
 
-    _SWITCH_MODE igo_mode;
     _BAND_MODE baud_mode;
 
     igo_mode = igo_nr_get_curr_mode();
@@ -636,10 +649,10 @@ voice_ecnr_status_t voice_ecnr_nr_init(void *para)
 #endif
 
 #endif
-
     g_voice_ecnr_nr_para->common.init_flag = true;
 
     #if defined(AIR_AI_NR_PREMIUM_ENABLE) || defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE)
+    g_igo_nr_curr_mode = igo_mode;
     voice_ecnr_check_txnr_lib_match(para);//check igo lib match stream
     #endif
 
@@ -686,7 +699,7 @@ void voice_ecnr_check_lib_version(void)
     version_info_t version_info;
     IGO_NR_Get_Lib_Version(&version_info);
     bool v1_check_result = false;
-    bool v3_check_result = (version_info.v3 == 2);//now all lib need nr_para->ResKey[2]: two nvkey with 2*512bytes
+    bool v3_check_result = (version_info.v3 > 0);
     switch (version_info.v1) {
         case 2://156x official release -> 3RD_PARTY_AI_NR | 3RD_PARTY_AI_NR_INEAR
             #if defined(AIR_BTA_IC_PREMIUM_G2) && (defined(AIR_AI_NR_PREMIUM_200K_ENABLE) || defined(AIR_AI_NR_PREMIUM_INEAR_200K_ENABLE))
@@ -811,6 +824,12 @@ voice_ecnr_status_t voice_ecnr_nr_process(void *para, uint32_t length, int16_t *
         ((gDspAlgParameter.EscoMode.Tx == VOICE_NB || gDspAlgParameter.EscoMode.Tx == VOICE_WB) && (length != VOICE_WB_15_MS_FRAME_SIZE))) {
         return VOICE_ECNR_STATUS_ERROR;
     }
+
+#if (defined(AIR_BTA_IC_PREMIUM_G2) && (defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE) || defined(AIR_AI_NR_PREMIUM_200K_SHORT_BOOM_OO_ENABLE))) || (!defined(AIR_BTA_IC_PREMIUM_G2) && (defined(AIR_AI_NR_PREMIUM_ENABLE) || defined(AIR_AI_NR_PREMIUM_INEAR_ENABLE)))
+    if (igo_nr_get_curr_mode() != g_igo_nr_curr_mode) {
+        voice_ecnr_nr_init(para);
+    }
+#endif
 
 #if defined(AIR_AI_NR_PREMIUM_ENABLE) && defined(AIR_BTA_IC_PREMIUM_G2)
 

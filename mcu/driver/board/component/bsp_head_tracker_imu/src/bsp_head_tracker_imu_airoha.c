@@ -116,7 +116,7 @@ void airo_algo_process()
     avail_num = bsp_imu_sensor_control(s_imu_sensor_handle, BSP_IMU_SENSOR_CMD_GET_FRAME_CNT, 0);
     bsp_head_tracker_log_d("[bsp][headtracker][air] algo process, available frame %d", 1, avail_num);
     temp = avail_num / MAX_IMU_BUFF_SZ + 1;
-    pRawdata = s_init_config.spv_data.spv_value;
+    pRawdata = pRawdata;
     for (n = 0; n < temp; n++) {
         read_num = bsp_imu_sensor_get_data(s_imu_sensor_handle, s_frame_buff, MAX_IMU_BUFF_SZ);
         for (i = 0; i < read_num; i++) {
@@ -134,12 +134,10 @@ void airo_algo_process()
                   );
 #endif
             if (s_init_config.spv_mode == false) {
-                ftemp[0] -= pRawdata[0];
-                ftemp[1] -= pRawdata[1];
-                ftemp[2] -= pRawdata[2];
-                ftemp[3] = (ftemp[3] - pRawdata[3]) * ONE_DEGREE_RAD;
-                ftemp[4] = (ftemp[4] - pRawdata[4]) * ONE_DEGREE_RAD;
-                ftemp[5] = (ftemp[5] - pRawdata[5]) * ONE_DEGREE_RAD;
+                //covert mdps to rad/s
+                ftemp[3]  = ftemp[3] * ONE_DEGREE_RAD;
+                ftemp[4]  = ftemp[4] * ONE_DEGREE_RAD;
+                ftemp[5]  = ftemp[5] * ONE_DEGREE_RAD;
 #ifdef HEADTRACKER_DEBUG_EN
                 printf("[bsp][headtracker][air] after cali data, accl {%f, %f, %f}, gyro {%f, %f, %f}, timestamp %f",
                         (double) ftemp[0], (double) ftemp[1], (double) ftemp[2],
@@ -149,25 +147,20 @@ void airo_algo_process()
 #endif
                 imu_api_process((uint32_t) s_frame_buff[i].head.system_time_ms, &ftemp[0], &ftemp[3]);
             } else {
-                if (cali_cnt == 0) {
-                    ftemp[2] -= 1;
-                    memcpy(s_init_config.spv_data.spv_value, ftemp, sizeof(ftemp));
-                } else if (cali_cnt < MAX_HEAD_TRACKER_CALI_DATA_NUM) {
-                    ftemp[2] -= 1;
-                    s_init_config.spv_data.spv_value[0] = (s_init_config.spv_data.spv_value[0] + ftemp[0])/2;
-                    s_init_config.spv_data.spv_value[1] = (s_init_config.spv_data.spv_value[1] + ftemp[1])/2;
-                    s_init_config.spv_data.spv_value[2] = (s_init_config.spv_data.spv_value[2] + ftemp[2])/2;
-                    s_init_config.spv_data.spv_value[3] = (s_init_config.spv_data.spv_value[3] + ftemp[3])/2;
-                    s_init_config.spv_data.spv_value[4] = (s_init_config.spv_data.spv_value[4] + ftemp[4])/2;
-                    s_init_config.spv_data.spv_value[5] = (s_init_config.spv_data.spv_value[5] + ftemp[5])/2;
-                    pRawdata = s_init_config.spv_data.spv_value;
+                if ( MAX_HEAD_TRACKER_CALI_DATA_NUM > cali_cnt) {
+                    ftemp[3] = ftemp[3] * ONE_DEGREE_RAD;
+                    ftemp[4] = ftemp[4] * ONE_DEGREE_RAD;
+                    ftemp[5] = ftemp[5] * ONE_DEGREE_RAD;
+                    imu_api_calibration(cali_cnt, &ftemp[0], &ftemp[3]);
+                } else {
+                    imu_api_get_cali_data(&s_init_config.spv_data.spv_value[0]);
+                    pRawdata = &s_init_config.spv_data.spv_value[0];
 #ifdef HEADTRACKER_DEBUG_EN
                     printf("[bsp][headtracker][air] cali value, accl {%f, %f, %f}, gyro {%f, %f, %f}",
                         (double) pRawdata[0], (double) pRawdata[1], (double) pRawdata[2],
                         (double) pRawdata[3], (double) pRawdata[4], (double) pRawdata[5]
-                        );
+                    );
 #endif
-                } else {
                     bsp_head_tracker_log_w("[bsp][headtracker][air] listen, cali succ and will stop service!", 0);
                     head_track_lib_service(HEAD_TRACKER_SERVICE_STOP, 0); /* no need run task so stop service */
                     break;
@@ -181,9 +174,9 @@ void airo_algo_process()
         event_type = BSP_HEAD_TRACKER_EVENT_RAD_VECTOT_RDY;
         user_data = (void *) &ftemp[0];
         s_init_config.callback(s_headtrack_air_handle, event_type, user_data);
-    } else if (cali_cnt == MAX_HEAD_TRACKER_CALI_DATA_NUM) {
+    } else if (cali_cnt >= MAX_HEAD_TRACKER_CALI_DATA_NUM) {
         event_type = BSP_HEAD_TRACKER_EVENT_CALI_SUCC;
-        user_data = s_init_config.spv_data.spv_value;
+        user_data = &s_init_config.spv_data.spv_value[0];
         s_init_config.callback(s_headtrack_air_handle, event_type, user_data);
         cali_cnt = 0;
     }
@@ -198,7 +191,7 @@ static void head_track_airo_lib_service_handle(head_tracker_imu_service_type_t s
     switch (service_id) {
         case HEAD_TRACKER_SERVICE_INIT: {
             if (s_init_config.spv_mode == false) {
-                imu_api_initial();
+                imu_api_initial(&s_init_config.spv_data.spv_value[0]);
             }
             bsp_head_tracker_log_i("[bsp][headtracker][air] imu_api_initial done!", 0);
         }

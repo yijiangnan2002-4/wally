@@ -151,6 +151,10 @@ extern bt_ull_le_srv_context_t g_ull_le_ctx;
 extern bt_ull_le_hid_srv_context_t g_bt_ull_hid_le_ctx;
 #endif
 
+#ifdef BT_ULL_LE_THROUGHPUT_DEBUG
+uint32_t g_max_frame_seq;
+#endif
+
 static n9_dsp_share_info_t *g_ull_le_share_info[BT_ULL_LE_TRANSMITTER_SHARE_INFO_MAX];
 static uint8_t const g_ull_le_uuid128_default[BT_ULL_LE_MAX_UUID_LENGTH] = {
     0x45, 0x4C, 0x42, 0x61, 0x68, 0x6F, 0x72, 0x69,               \
@@ -193,7 +197,7 @@ bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_48k_br_200k_stero = {
     BT_ULL_LE_CHANNEL_MODE_STEREO,              /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_126,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_201_6_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_48K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_48K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_48k_br_160k_stero = {
@@ -203,7 +207,7 @@ bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_48k_br_160k_stero = {
     BT_ULL_LE_CHANNEL_MODE_STEREO,              /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_100,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_160_0_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_48K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_48K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 //for 1565 opus codec
@@ -214,7 +218,7 @@ bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_48k_br_320k_stero = {
     BT_ULL_LE_CHANNEL_MODE_DUAL_MONO,           /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_200,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_320_0_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_48K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_48K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_96k_br_172k_stero = {
@@ -224,7 +228,7 @@ bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_96k_br_172k_stero = {
     BT_ULL_LE_CHANNEL_MODE_STEREO,              /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_108,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_172_8_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_96K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_96K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_96k_br_272k_stero = {
@@ -234,7 +238,7 @@ bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_96k_br_272k_stero = {
     BT_ULL_LE_CHANNEL_MODE_STEREO,              /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_170,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_272_0_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_96K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_96K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_96k_br_304k_stero = {
@@ -244,7 +248,7 @@ bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_96k_br_304k_stero = {
     BT_ULL_LE_CHANNEL_MODE_STEREO,              /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_190,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_304_0_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_96K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_96K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_96k_br_560k_stero = {
@@ -254,7 +258,7 @@ bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_96k_br_560k_stero = {
     BT_ULL_LE_CHANNEL_MODE_STEREO,              /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_350,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_560_0_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_96K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_96K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 //for 1577 mHDT high-res audio
@@ -265,7 +269,7 @@ bt_ull_le_codec_param_t g_ull_le_spk_stream_param_samp_96k_br_940k_stero = {
     BT_ULL_LE_CHANNEL_MODE_DUAL_MONO,           /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_588,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_940_8_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_96K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_96K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_spk_stream_codec_uld_samp_48k_br_400k_stero = {
@@ -275,7 +279,7 @@ bt_ull_le_codec_param_t g_ull_le_spk_stream_codec_uld_samp_48k_br_400k_stero = {
     BT_ULL_LE_CHANNEL_MODE_STEREO,              /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_100,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_400_0_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_48K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_48K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 /***********************************************************Up Link***********************************************************************************/
@@ -286,7 +290,7 @@ bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_16k_br_32k_mono = {
     BT_ULL_LE_CHANNEL_MODE_MONO,                /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_20,       /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_32_0_KBPS,        /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_16K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_16K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_16k_br_64k_mono = {
@@ -296,7 +300,7 @@ bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_16k_br_64k_mono = {
     BT_ULL_LE_CHANNEL_MODE_MONO,                /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_40,     /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_64_0_KBPS,     /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_16K,             /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_16K,             /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_mic_stream_codec_uld_samp_32k_br_64k_mono = {
@@ -306,7 +310,7 @@ bt_ull_le_codec_param_t g_ull_le_mic_stream_codec_uld_samp_32k_br_64k_mono = {
     BT_ULL_LE_CHANNEL_MODE_MONO,                /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_40,       /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_64_0_KBPS,        /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_32K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_32K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_32k_br_64k_mono = {
     BT_ULL_LE_SDU_INTERVAL_5000_US,             /* SDU interval */
@@ -315,7 +319,7 @@ bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_32k_br_64k_mono = {
     BT_ULL_LE_CHANNEL_MODE_MONO,                /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_40,       /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_64_0_KBPS,        /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_32K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_32K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_16k_br_104k_mono = {
@@ -325,7 +329,7 @@ bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_16k_br_104k_mono = {
     BT_ULL_LE_CHANNEL_MODE_DUAL_MONO,           /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_65,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_104_0_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_16K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_16K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_32k_br_104k_mono = {
@@ -335,7 +339,7 @@ bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_32k_br_104k_mono = {
     BT_ULL_LE_CHANNEL_MODE_DUAL_MONO,           /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_65,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_104_0_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_32K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_32K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_48k_br_104k_mono = {
@@ -345,7 +349,7 @@ bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_48k_br_104k_mono = {
     BT_ULL_LE_CHANNEL_MODE_DUAL_MONO,           /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_65,    /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_104_0_KBPS,       /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_48K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_48K,            /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 //wireless mic ul stero
@@ -356,7 +360,7 @@ bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_48k_br_200k_stero = {
     BT_ULL_LE_CHANNEL_MODE_STEREO,              /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_126,     /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_201_6_KBPS,        /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_48K,             /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_48K,             /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 //wireless mic ul mono
 bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_48k_br_100k_mono = {
@@ -366,7 +370,7 @@ bt_ull_le_codec_param_t g_ull_le_mic_stream_param_samp_48k_br_100k_mono = {
     BT_ULL_LE_CHANNEL_MODE_MONO,                /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_63,     /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_100_8_KBPS,        /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_48K,             /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_48K,             /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 //wireless mic ul mono (ULD codec)
 bt_ull_le_codec_param_t g_ull_le_mic_stream_uld_codec_param_samp_48k_br_200k_mono = {
@@ -376,7 +380,7 @@ bt_ull_le_codec_param_t g_ull_le_mic_stream_uld_codec_param_samp_48k_br_200k_mon
     BT_ULL_LE_CHANNEL_MODE_MONO,                /**< b0: Mono, b1: Stereo: b2:dual channel. */
     BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_25,     /* Maximum SDU size (unit: octets) */
     BT_ULL_LE_DEFAULT_BITRATE_200_0_KBPS,        /* bitrate. uinit:bps */
-    BT_ULL_LE_DEFAULT_SAMPLERTE_48K,             /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
+    BT_ULL_LE_DEFAULT_SAMPLERATE_48K,             /* Streaming data sample rate, unit:HZ (16000,44100,48000,96000...) */
 };
 
 
@@ -948,6 +952,38 @@ bt_status_t bt_ull_le_srv_write_aud_quality_to_nvkey(bt_ull_le_srv_audio_quality
     return NVKEY_STATUS_OK == status ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
 }
 
+bool bt_ull_le_srv_read_aircis_inactive_mode_enable(void)
+{
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+    nvkey_status_t status = NVKEY_STATUS_ERROR;
+    bool aircis_inactive_mode_enable = false;
+    uint32_t size = sizeof(uint8_t);
+    status = nvkey_read_data(NVID_BT_HOST_ULL_INACTIVE_MODE_ENABLE, (uint8_t *)&aircis_inactive_mode_enable, &size);
+    if (NVKEY_STATUS_OK != status && NVKEY_STATUS_ITEM_NOT_FOUND != status) {
+        ull_report_error("[ULL][LE] bt_ull_le_srv_read_aircis_inactive_mode_enable, error status:%d, size: %d", 2, status, size);
+    } else {
+        ull_report("[ULL][LE] bt_ull_le_srv_read_aircis_inactive_mode_enable, status:%d, enable: %d", 2, status, aircis_inactive_mode_enable);
+    }
+    return aircis_inactive_mode_enable;
+#else
+    return false;
+#endif
+}
+
+bt_status_t bt_ull_le_srv_write_aircis_inactive_mode_enable(bool enable)
+{
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+    nvkey_status_t status = NVKEY_STATUS_ERROR;
+    bool aircis_inactive_mode_enable = enable;
+    uint32_t size = sizeof(uint8_t);
+    status = nvkey_write_data(NVID_BT_HOST_ULL_INACTIVE_MODE_ENABLE, (const uint8_t *)&aircis_inactive_mode_enable, size);
+    ull_report("[ULL][LE] bt_ull_le_srv_write_aircis_inactive_mode_enable, status:%d, enable: %d", 2, status, aircis_inactive_mode_enable);
+    return NVKEY_STATUS_OK == status ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
+#else
+    return BT_STATUS_FAIL;
+#endif
+}
+
 void bt_ull_le_srv_change_audio_quality(bt_ull_role_t role, bt_ull_le_srv_audio_quality_t quality)
 {
 #if defined (AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
@@ -980,11 +1016,11 @@ void bt_ull_le_srv_change_audio_quality(bt_ull_role_t role, bt_ull_le_srv_audio_
              if (BT_ULL_LE_CODEC_LC3PLUS == stream_ctx->codec_type) {
                  stream_ctx->audio_quality = BT_ULL_LE_SRV_AUDIO_QUALITY_HIGH_QUALITY;
                  //bt_ull_le_srv_write_aud_quality_to_nvkey(stream_ctx->audio_quality);
-                 if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == codec_param->ul_samplerate) {
+                 if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == codec_param->ul_samplerate) {
                      bt_ull_le_srv_set_codec_param(role, &g_ull_le_spk_stream_param_samp_96k_br_560k_stero, &g_ull_le_mic_stream_param_samp_16k_br_104k_mono);
-                 } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_32K == codec_param->ul_samplerate) {
+                 } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_32K == codec_param->ul_samplerate) {
                      bt_ull_le_srv_set_codec_param(role, &g_ull_le_spk_stream_param_samp_96k_br_560k_stero, &g_ull_le_mic_stream_param_samp_32k_br_104k_mono);
-                 } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_48K == codec_param->ul_samplerate) {
+                 } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_48K == codec_param->ul_samplerate) {
                      bt_ull_le_srv_set_codec_param(role, &g_ull_le_spk_stream_param_samp_96k_br_560k_stero, &g_ull_le_mic_stream_param_samp_48k_br_104k_mono);
                  } else {
                      ull_report_error("[ULL][LE] bt_ull_le_srv_change_audio_quality, Not support EDRLE 4M", 0);
@@ -998,11 +1034,11 @@ void bt_ull_le_srv_change_audio_quality(bt_ull_role_t role, bt_ull_le_srv_audio_
              if (BT_ULL_LE_CODEC_LC3PLUS == stream_ctx->codec_type) {
                  stream_ctx->audio_quality = BT_ULL_LE_SRV_AUDIO_QUALITY_HIGH_RESOLUTION;
                  //bt_ull_le_srv_write_aud_quality_to_nvkey(stream_ctx->audio_quality);
-                 if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == codec_param->ul_samplerate) {
+                 if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == codec_param->ul_samplerate) {
                      bt_ull_le_srv_set_codec_param(role, &g_ull_le_spk_stream_param_samp_96k_br_940k_stero, &g_ull_le_mic_stream_param_samp_16k_br_104k_mono);
-                 } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_32K == codec_param->ul_samplerate) {
+                 } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_32K == codec_param->ul_samplerate) {
                      bt_ull_le_srv_set_codec_param(role, &g_ull_le_spk_stream_param_samp_96k_br_940k_stero, &g_ull_le_mic_stream_param_samp_32k_br_104k_mono);
-                 } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_48K == codec_param->ul_samplerate) {
+                 } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == codec_param->dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_48K == codec_param->ul_samplerate) {
                      bt_ull_le_srv_set_codec_param(role, &g_ull_le_spk_stream_param_samp_96k_br_940k_stero, &g_ull_le_mic_stream_param_samp_48k_br_104k_mono);
                  } else {
                      ull_report_error("[ULL][LE] bt_ull_le_srv_change_audio_quality, Not support EDRLE 4M", 0);
@@ -1019,10 +1055,10 @@ void bt_ull_le_srv_change_audio_quality(bt_ull_role_t role, bt_ull_le_srv_audio_
                  if (BT_ULL_ROLE_CLIENT == role) {
                      //bt_ull_le_srv_write_aud_quality_to_nvkey(stream_ctx->audio_quality);
                  }
-                 //codec_param->dl_samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_48K;
-                 if (BT_ULL_LE_DEFAULT_SAMPLERTE_16K == codec_param->ul_samplerate) {
+                 //codec_param->dl_samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_48K;
+                 if (BT_ULL_LE_DEFAULT_SAMPLERATE_16K == codec_param->ul_samplerate) {
                      bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_200k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_64k_mono));
-                 } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_32K == codec_param->ul_samplerate) {
+                 } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_32K == codec_param->ul_samplerate) {
                      bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_200k_stero), &(g_ull_le_mic_stream_param_samp_32k_br_64k_mono));
                  }
              } else {
@@ -1188,7 +1224,7 @@ static n9_dsp_share_info_t *bt_ull_le_srv_get_avm_buffer_info(bt_ull_le_share_in
         switch (type) {
         case BT_ULL_LE_SHARE_INFO_DL_CH_1: {
             p_dsp_info = (n9_dsp_share_info_t *)hal_audio_query_audio_transmitter_share_info(AUDIO_TRANSMITTER_SHARE_INFO_INDEX_ULL_AUDIO_V2_DONGLE_BT_SEND_TO_AIR_0);
-#if defined(AIR_BTA_IC_STEREO_HIGH_G3)
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && !defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
             if (BT_ULL_LE_CODEC_LC3PLUS == codec) {
                 bt_ull_le_srv_init_n9_dsp_share_info(p_dsp_info, g_ull_le_dl_ch1_addr, BT_ULL_LE_SHARE_BUFFER_DL_CH1_SIZE, BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_588 >> 1); /*max bitrate is 940.8k, max sdu size is 588, set max value for ABR feature*/
             } else {
@@ -1202,7 +1238,7 @@ static n9_dsp_share_info_t *bt_ull_le_srv_get_avm_buffer_info(bt_ull_le_share_in
 
         case BT_ULL_LE_SHARE_INFO_DL_CH_2: {
             p_dsp_info = (n9_dsp_share_info_t *)hal_audio_query_audio_transmitter_share_info(AUDIO_TRANSMITTER_SHARE_INFO_INDEX_ULL_AUDIO_V2_DONGLE_BT_SEND_TO_AIR_1);
-#if defined(AIR_BTA_IC_STEREO_HIGH_G3)
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && !defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
             if (BT_ULL_LE_CODEC_LC3PLUS == codec) {
                 bt_ull_le_srv_init_n9_dsp_share_info(p_dsp_info, g_ull_le_dl_ch2_addr, BT_ULL_LE_SHARE_BUFFER_DL_CH2_SIZE, BT_ULL_LE_DEFAULT_DOWNLINK_SDU_SIZE_588 >> 1); /*max bitrate is 940.8k, max sdu size is 588, set max value for ABR feature*/
             } else {
@@ -1219,7 +1255,7 @@ static n9_dsp_share_info_t *bt_ull_le_srv_get_avm_buffer_info(bt_ull_le_share_in
             p_dsp_info = (n9_dsp_share_info_t *)hal_audio_query_audio_transmitter_share_info(AUDIO_TRANSMITTER_SHARE_INFO_INDEX_ULL_AUDIO_V2_DONGLE_BT_RECEIVE_FROM_AIR_0);
 #ifdef AIR_ULL_ECNR_POST_PART_ENABLE
             /*for AB156x ULL 2.0  uplink AINR Feature.*/
-#if defined(AIR_BTA_IC_STEREO_HIGH_G3)
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && !defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
             if (BT_ULL_LE_CODEC_LC3PLUS == codec) {
                 bt_ull_le_srv_init_n9_dsp_share_info(p_dsp_info, g_ull_le_ul_ch1_addr, BT_ULL_LE_SHARE_BUFFER_UL_CH1_SIZE, BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_65 + 1); /*max bitrate is 940.8k, max sdu size is 588, set max value for ABR feature*/
             } else {
@@ -1229,7 +1265,7 @@ static n9_dsp_share_info_t *bt_ull_le_srv_get_avm_buffer_info(bt_ull_le_share_in
             bt_ull_le_srv_init_n9_dsp_share_info(p_dsp_info, g_ull_le_ul_ch1_addr, BT_ULL_LE_SHARE_BUFFER_UL_CH1_SIZE, frame_size + 1);
 #endif
 #else
-#if defined(AIR_BTA_IC_STEREO_HIGH_G3)
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && !defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
             if (BT_ULL_LE_CODEC_LC3PLUS == codec) {
                 bt_ull_le_srv_init_n9_dsp_share_info(p_dsp_info, g_ull_le_ul_ch1_addr, BT_ULL_LE_SHARE_BUFFER_UL_CH1_SIZE, BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_65); /*max bitrate is 940.8k, max sdu size is 588, set max value for ABR feature*/
             } else {
@@ -1246,7 +1282,7 @@ static n9_dsp_share_info_t *bt_ull_le_srv_get_avm_buffer_info(bt_ull_le_share_in
             p_dsp_info = (n9_dsp_share_info_t *)hal_audio_query_audio_transmitter_share_info(AUDIO_TRANSMITTER_SHARE_INFO_INDEX_ULL_AUDIO_V2_DONGLE_BT_RECEIVE_FROM_AIR_1);
 #ifdef AIR_ULL_ECNR_POST_PART_ENABLE
             /*for AB156x ULL 2.0  uplink AINR Feature.*/
-#if defined(AIR_BTA_IC_STEREO_HIGH_G3)
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && !defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
             if (BT_ULL_LE_CODEC_LC3PLUS == codec) {
                 bt_ull_le_srv_init_n9_dsp_share_info(p_dsp_info, g_ull_le_ul_ch2_addr, BT_ULL_LE_SHARE_BUFFER_UL_CH2_SIZE, BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_65 + 1); /*max bitrate is 940.8k, max sdu size is 588, set max value for ABR feature*/
             } else {
@@ -1256,7 +1292,7 @@ static n9_dsp_share_info_t *bt_ull_le_srv_get_avm_buffer_info(bt_ull_le_share_in
             bt_ull_le_srv_init_n9_dsp_share_info(p_dsp_info, g_ull_le_ul_ch2_addr, BT_ULL_LE_SHARE_BUFFER_UL_CH2_SIZE, frame_size + 1);
 #endif
 #else
-#if defined(AIR_BTA_IC_STEREO_HIGH_G3)
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3) && !defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
             if (BT_ULL_LE_CODEC_LC3PLUS == codec) {
                 bt_ull_le_srv_init_n9_dsp_share_info(p_dsp_info, g_ull_le_ul_ch2_addr, BT_ULL_LE_SHARE_BUFFER_UL_CH2_SIZE, BT_ULL_LE_DEFAULT_UPLINK_SDU_SIZE_65); /*max bitrate is 940.8k, max sdu size is 588, set max value for ABR feature*/
             } else {
@@ -1574,8 +1610,13 @@ bt_ull_le_codec_t bt_ull_le_srv_get_client_preffered_codec(bt_ull_le_scenario_t 
 
    if (BT_ULL_LE_SCENARIO_ULLV3_0 == mode_type) {
         #if defined AIR_ULL_AUDIO_V3_ENABLE
+#ifdef AIR_AUDIO_VEND_CODEC_ENABLE
+           ull_report("[ULL][LE] client preffered codec type DL is ULD And UL is OPUS! ", 0);
+           codec_type =  BT_ULL_LE_CODEC_DL_ULD_UL_OPUS;
+#else
            ull_report("[ULL][LE] client preffered codec type DL is ULD And UL is LC3PLUS! ", 0);
            codec_type =  BT_ULL_LE_CODEC_DL_ULD_UL_LC3PLUS;
+#endif
         #endif
    } else if (BT_ULL_LE_SCENARIO_ULLV2_0 == mode_type) {
         #if (defined AIR_WIRELESS_MIC_ENABLE) && (defined AIR_AUDIO_ULD_CODEC_ENABLE)
@@ -1598,11 +1639,11 @@ bt_ull_le_codec_t bt_ull_le_srv_get_client_preffered_codec(bt_ull_le_scenario_t 
 
 uint32_t bt_ull_le_srv_get_client_preffered_dl_codec_samplerate(bt_ull_le_scenario_t mode_type)
 {
-    uint32_t samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_96K; //default dl 96K
+    uint32_t samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_96K; //default dl 96K
 
     if (BT_ULL_LE_SCENARIO_ULLV3_0 == mode_type) {
         #if defined AIR_ULL_AUDIO_V3_ENABLE
-            samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_48K;
+            samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_48K;
             ull_report("[ULL][LE] ULLV3 Codec support DL samplerate: %d!", 1, samplerate);
         #endif
     } else if (BT_ULL_LE_SCENARIO_ULLV2_0 == mode_type) {
@@ -1610,20 +1651,20 @@ uint32_t bt_ull_le_srv_get_client_preffered_dl_codec_samplerate(bt_ull_le_scenar
             samplerate = g_ull_le_dchs_dl_codec_samplerate;
             ull_report("[ULL][LE] DCHS support DL samplerate: %d!", 1, samplerate);
         #elif (defined AIR_WIRELESS_MIC_ENABLE) || ((defined AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) && (defined FIXED_SAMPLING_RATE_TO_48KHZ))
-            samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_48K; //dual mode dl 48K
+            samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_48K; //dual mode dl 48K
             ull_report("[ULL][LE] Dual Chip support DL samplerate: %d!", 1, samplerate);
         #elif defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
-            samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_48K;
+            samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_48K;
             ull_report("[ULL][LE] ULL HID DL saplerate: %d!", 1, samplerate);
         #elif defined (AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) && defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
-            samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_96K;
+            samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_96K;
             ull_report("[ULL][LE] Dual Chip support DL samplerate: %d!", 1, samplerate);
         #else
             #if defined(AIR_AUDIO_VEND_CODEC_ENABLE)
-                samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_48K;
+                samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_48K;
                 ull_report("[ULL][LE] Opus Codec support DL samplerate: %d!", 1, samplerate);
             #elif defined (AIR_AUDIO_LC3PLUS_CODEC_ENABLE)
-                samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_96K;
+                samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_96K;
                 ull_report("[ULL][LE] LC3+ Codec support DL samplerate: %d!", 1, samplerate);
             #endif
         #endif
@@ -1634,32 +1675,45 @@ uint32_t bt_ull_le_srv_get_client_preffered_dl_codec_samplerate(bt_ull_le_scenar
 
 uint32_t bt_ull_le_srv_get_client_preffered_ul_codec_samplerate(bt_ull_le_scenario_t mode_type)
 {
-    uint32_t samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_16K;
+    uint32_t samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_16K;
 
     if(BT_ULL_LE_SCENARIO_ULLV3_0 == mode_type) {
         #if defined AIR_ULL_AUDIO_V3_ENABLE
-            samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_32K;
+#ifdef AIR_AUDIO_VEND_CODEC_ENABLE
+            samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_16K;
+#else
+            samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_32K;
+#endif
             ull_report("[ULL][LE] ULLV3 Codec support ul samplerate: %d!", 1, samplerate);
         #endif
     } else if (BT_ULL_LE_SCENARIO_ULLV2_0 == mode_type) {
         #ifdef AIR_WIRELESS_MIC_ENABLE
-            samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_48K;
+            samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_48K;
             ull_report("[ULL][LE] Wireless mic ul samplerate: %d!", 1, samplerate);
+
         #elif defined (AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE)
-            samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_16K;
-            ull_report("[ULL][LE] ULL2.0 HID ul samplerate: %d!", 1, samplerate);
+            #if defined(AIR_BT_ULL_FB_ENABLE)
+                samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_48K;
+                ull_report("[ULL][LE] HID ULL2.0(FB) LC3+ ul samplerate: %d!", 1, samplerate);
+            #elif defined (AIR_BT_ULL_SWB_ENABLE)
+                samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_32K;
+                ull_report("[ULL][LE] HID ULL2.0(SWB) LC3+ ul samplerate: %d!", 1, samplerate);
+            #elif defined (AIR_BT_ULL_WB_ENABLE)
+                samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_16K;
+                ull_report("[ULL][LE] HID ULL2.0(WB) LC3+ ul samplerate: %d!", 1, samplerate);
+            #endif
         #elif defined (AIR_AUDIO_VEND_CODEC_ENABLE)
-            samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_16K;
+            samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_16K;
             ull_report("[ULL][LE] ULL2.0 Opus ul samplerate: %d!", 1, samplerate);
         #elif defined (AIR_AUDIO_LC3PLUS_CODEC_ENABLE)
             #if defined(AIR_BT_ULL_FB_ENABLE)
-                samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_48K;
+                samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_48K;
                 ull_report("[ULL][LE] ULL2.0(FB) LC3+ ul samplerate: %d!", 1, samplerate);
             #elif defined (AIR_BT_ULL_SWB_ENABLE)
-                samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_32K;
+                samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_32K;
                 ull_report("[ULL][LE] ULL2.0(SWB) LC3+ ul samplerate: %d!", 1, samplerate);
             #elif defined (AIR_BT_ULL_WB_ENABLE)
-                samplerate = BT_ULL_LE_DEFAULT_SAMPLERTE_16K;
+                samplerate = BT_ULL_LE_DEFAULT_SAMPLERATE_16K;
                 ull_report("[ULL][LE] ULL2.0(WB) LC3+ ul samplerate: %d!", 1, samplerate);
             #endif
         #endif
@@ -1673,20 +1727,20 @@ void bt_ull_le_srv_set_codec_param_by_sample_rate(bt_ull_role_t role, uint32_t d
     ull_report("[ULL][LE]set codec param, role: 0x%x, dl_samplerate: %d, ul_samplerate: %d", 3, role, dl_samplerate, ul_samplerate);
 #ifdef AIR_BTA_IC_PREMIUM_G3
     if (BT_ULL_LE_CODEC_LC3PLUS == bt_ull_le_srv_get_codec_type()) {
-    if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_32K == ul_samplerate) {
+    if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_32K == ul_samplerate) {
         bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_200k_stero), &(g_ull_le_mic_stream_param_samp_32k_br_64k_mono));
         ull_report("[ULL][LE] chip(DCHS): ab158x, DL default codec param(48KHZ/200Kbps), UL default codec param(32KHZ/64Kbps)!", 0);
-    } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_32K == ul_samplerate) {
+    } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_32K == ul_samplerate) {
         bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_96k_br_304k_stero), &(g_ull_le_mic_stream_param_samp_32k_br_64k_mono));
         ull_report("[ULL][LE] chip(ULL 2.0): ab158x, DL default codec param(96KHZ/304Kbps), UL default codec param(32KHZ/64Kbps)!", 0);
-        } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_48K == ul_samplerate) {
+        } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_48K == ul_samplerate) {
                 bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_96k_br_272k_stero), &(g_ull_le_mic_stream_param_samp_48k_br_104k_mono));
                 ull_report("[ULL][LE] chip: ab158x(ULL2.0), DL support lc3plus codec, default codec param(96KHZ/272Kbps), UL default codec param(48KHZ/104Kbps)!", 0);
         }
     }
 #elif defined(AIR_BTA_IC_PREMIUM_G2)
 #ifdef AIR_WIRELESS_MIC_ENABLE
-    if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_48K == ul_samplerate) {
+    if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_48K == ul_samplerate) {
         if (BT_ULL_LE_CODEC_ULD == bt_ull_le_srv_get_codec_type()) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_200k_stero), &(g_ull_le_mic_stream_uld_codec_param_samp_48k_br_200k_mono));
             ull_report("[ULL][LE] chip(WIRELESS MIC): ab156x, wireless mic, DL default ULD codec param(48KHZ/201.6Kbps), UL default codec param(48KHZ/200.0Kbps)!", 0);
@@ -1697,31 +1751,31 @@ void bt_ull_le_srv_set_codec_param_by_sample_rate(bt_ull_role_t role, uint32_t d
     }
 #else
     if (BT_ULL_LE_CODEC_LC3PLUS == bt_ull_le_srv_get_codec_type()) {
-        if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == ul_samplerate) {
+        if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_96k_br_304k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab156x(ULL 2.0), DL default lc3plus codec param(96KHZ/304Kbps), UL default codec param(16KHZ/64Kbps)!", 0);
         }
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
-        else if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == ul_samplerate) {
+        else if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_200k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_32k_mono));
             ull_report("[ULL][LE] chip: ab156x (ULL2.0 HID), DL support lc3plus codec, default codec param(48KHZ/200Kbps), UL default codec param(16KHZ/32Kbps)!", 0);
         }
 #endif
-        else if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == ul_samplerate) {
+        else if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_200k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab156x Dual chip(ULL2.0), DL support lc3plus codec, default codec param(48KHZ/200Kbps), UL default codec param(16KHZ/64Kbps)!", 0);
-        } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_32K == ul_samplerate) {
+        } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_32K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_200k_stero), &(g_ull_le_mic_stream_param_samp_32k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab156x Dual chip(ULL2.0), DL support lc3plus codec, default codec param(48KHZ/200Kbps), UL default codec param(32KHZ/64Kbps)!", 0);
-        } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_32K == ul_samplerate) {
+        } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_32K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_96k_br_304k_stero), &(g_ull_le_mic_stream_param_samp_32k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab156x Dongle + ab158x Headset, DL support lc3plus codec, default codec param(96KHZ/304Kbps), UL default codec param(32KHZ/64Kbps)!", 0);
-        } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_48K == ul_samplerate) {
+        } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_48K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_96k_br_272k_stero), &(g_ull_le_mic_stream_param_samp_48k_br_104k_mono));
             ull_report("[ULL][LE] chip: ab156x(ULL2.0), DL support lc3plus codec, default codec param(96KHZ/272Kbps), UL default codec param(48KHZ/104Kbps)!", 0);
         }
     } else if (BT_ULL_LE_CODEC_OPUS == bt_ull_le_srv_get_codec_type()) {
-        if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == ul_samplerate) {
+        if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_320k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab156x(ULL 2.0), DL support opus codec, default codec param(48KHZ/320Kbps), UL default codec param(16KHZ/64Kbps)!", 0);
         }
@@ -1729,44 +1783,53 @@ void bt_ull_le_srv_set_codec_param_by_sample_rate(bt_ull_role_t role, uint32_t d
 #endif
 #elif defined(AIR_BTA_IC_STEREO_HIGH_G3)
     if (BT_ULL_LE_CODEC_LC3PLUS == bt_ull_le_srv_get_codec_type()) {
-        if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == ul_samplerate) {
+        if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_96k_br_304k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab157x(ULL 2.0), DL default lc3plus codec param(96KHZ/304Kbps), UL default codec param(16KHZ/64Kbps)!", 0);
         }
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE
-        else if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == ul_samplerate) {
+        else if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == ul_samplerate) {
             //bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_200k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_32k_mono));
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_160k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_32k_mono));
             ull_report("[ULL][LE] chip: ab157x (ULL2.0 HID), DL support lc3plus codec, default codec param(48KHZ/160Kbps), UL default codec param(16KHZ/32Kbps)!", 0);
-        } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == ul_samplerate) {
+        } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_96k_br_304k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab157x (ULL2.0 HID), DL support lc3plus codec, default codec param(96KHZ/304Kbps), UL default codec param(16KHZ/64Kbps)!", 0);
         }
 #endif
-        else if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == ul_samplerate) {
+        else if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_200k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab157x Dual chip(ULL2.0), DL support lc3plus codec, default codec param(48KHZ/200Kbps), UL default codec param(16KHZ/64Kbps)!", 0);
-        } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_32K == ul_samplerate) {
+        } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_32K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_200k_stero), &(g_ull_le_mic_stream_param_samp_32k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab157x Dual chip(ULL2.0), DL support lc3plus codec, default codec param(48KHZ/200Kbps), UL default codec param(32KHZ/64Kbps)!", 0);
-        } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_32K == ul_samplerate) {
+        } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_32K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_96k_br_304k_stero), &(g_ull_le_mic_stream_param_samp_32k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab157x(ULL2.0), DL support lc3plus codec, default codec param(96KHZ/304Kbps), UL default codec param(32KHZ/64Kbps)!", 0);
-        } else if (BT_ULL_LE_DEFAULT_SAMPLERTE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_48K == ul_samplerate) {
+        } else if (BT_ULL_LE_DEFAULT_SAMPLERATE_96K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_48K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_96k_br_272k_stero), &(g_ull_le_mic_stream_param_samp_48k_br_104k_mono));
             ull_report("[ULL][LE] chip: ab157x(ULL2.0), DL support lc3plus codec, default codec param(96KHZ/272Kbps), UL default codec param(48KHZ/104Kbps)!", 0);
         }
     } else if (BT_ULL_LE_CODEC_OPUS == bt_ull_le_srv_get_codec_type()) {
-        if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_16K == ul_samplerate) {
+        if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == ul_samplerate) {
             bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_param_samp_48k_br_320k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_64k_mono));
             ull_report("[ULL][LE] chip: ab157x(ULL 2.0), DL support opus codec, default codec param(48KHZ/320Kbps), UL default codec param(16KHZ/64Kbps)!", 0);
         }
     } else if (BT_ULL_LE_CODEC_DL_ULD_UL_LC3PLUS == bt_ull_le_srv_get_codec_type()) {
-      if (BT_ULL_LE_DEFAULT_SAMPLERTE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERTE_32K == ul_samplerate) {
+      if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_32K == ul_samplerate) {
          bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_codec_uld_samp_48k_br_400k_stero), &(g_ull_le_mic_stream_codec_uld_samp_32k_br_64k_mono));
          ull_report("[ULL][LE] chip: ab157x(ULL3.0), DL support uld codec,UL support lc3plus codec, default codec param(48KHZ/400Kbps), UL default codec param(32KHZ/64kbps)!", 0);
       }
-    } else {
+    }
+#ifdef AIR_AUDIO_VEND_CODEC_ENABLE
+    else if (BT_ULL_LE_CODEC_DL_ULD_UL_OPUS == bt_ull_le_srv_get_codec_type()) {
+      if (BT_ULL_LE_DEFAULT_SAMPLERATE_48K == dl_samplerate && BT_ULL_LE_DEFAULT_SAMPLERATE_16K == ul_samplerate) {
+         bt_ull_le_srv_set_codec_param(role, &(g_ull_le_spk_stream_codec_uld_samp_48k_br_400k_stero), &(g_ull_le_mic_stream_param_samp_16k_br_64k_mono));
+         ull_report("[ULL][LE] chip: ab157x(ULL3.0), DL support uld codec,UL support OPUS codec, default codec param(48KHZ/400Kbps), UL default codec param(16KHZ/64kbps)!", 0);
+      }
+    }
+#endif
+    else {
          ull_report("[ULL][LE] chip: ab157x(ULL), Set unsupport codec param!", 0);
     }
 #else
@@ -2068,6 +2131,21 @@ void bt_ull_le_srv_silence_detection_notify_client_status(bool is_silence, bt_ul
     bt_ull_le_hid_srv_silence_detection_notify_client(is_silence, transmitter_type);
 #endif
 
+}
+bool bt_ull_le_srv_check_inactive_aircis_feature_on(void)
+{
+#if defined AIR_ULL_AUDIO_V3_ENABLE || defined AIR_BLE_ULTRA_LOW_LATENCY_WITH_HID_ENABLE//ULL v3 and ULL HID not support this feature
+    return false;
+#else
+	bt_ull_le_srv_context_t *ctx = bt_ull_le_srv_get_context();
+    if (BT_ULL_HEADSET_CLIENT == ctx->client_type) {
+        return true; // for headset, AirCIS inactive mode feature default open.
+    } else if (BT_ULL_EARBUDS_CLIENT == ctx->client_type) { //for earbuds, AirCIS inactive mode feature default close, user can use AT CMD open the feature.
+        return ctx->aircis_inactive_mode_enable;
+    } else {
+        return false; //for other client type (not headset nor earbuds, AirCIS inactive mode feature default close)
+    }
+#endif
 }
 
 #endif

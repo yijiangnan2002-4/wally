@@ -48,6 +48,7 @@ else
     LIBS += $(strip $(LIBDIR2))/leakage_compensation/$(IC_CONFIG)/libld_v2_ab158x.a
 endif
 endif
+
 endif
 
 ###################################################

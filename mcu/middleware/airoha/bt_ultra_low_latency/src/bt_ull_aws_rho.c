@@ -206,7 +206,7 @@ static void bt_ull_rho_status_callback(const bt_bd_addr_t *addr, bt_aws_mce_role
 
             if (BT_AWS_MCE_ROLE_PARTNER == role) {
                 if(BT_STATUS_SUCCESS == status) {
-                     if (ull_context->dl_latency > BT_ULL_DOWNLINK_LIMIATTION_MULTILINK) {
+                     if (ull_context->dl_latency > BT_ULL_DOWNLINK_LIMITATION_MULTILINK) {
                          bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_UNKNOW, BT_CM_COMMON_TYPE_ENABLE);
                      } else {
                          if (ull_context->is_ull_connected) {
@@ -237,7 +237,7 @@ static void bt_ull_rho_status_callback(const bt_bd_addr_t *addr, bt_aws_mce_role
                 }
             }else if (BT_AWS_MCE_ROLE_AGENT == role) {
                  if(status != BT_STATUS_SUCCESS) {
-                      if (ull_context->dl_latency > BT_ULL_DOWNLINK_LIMIATTION_MULTILINK) {
+                      if (ull_context->dl_latency > BT_ULL_DOWNLINK_LIMITATION_MULTILINK) {
                           bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_UNKNOW, BT_CM_COMMON_TYPE_ENABLE);
                       } else {
                         if (ull_context->is_ull_connected) {

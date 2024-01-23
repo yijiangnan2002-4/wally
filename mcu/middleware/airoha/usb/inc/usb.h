@@ -35,6 +35,8 @@
 #ifndef USB_H
 #define USB_H
 
+#ifdef AIR_USB_ENABLE
+
 /* C library */
 #include <stdint.h>
 #include <stdbool.h>
@@ -290,20 +292,10 @@ typedef enum {
 #define USB_OTG_HNP_SUPPORT                        0x02
 #define USB_OTG_SRP_SUPPORT                        0x01
 
-/***********************************************
-    Hub class code definition
-************************************************/
-#define USB_HUB_DEVICE_CLASS_CODE                  0x09
-#define USB_HUB_DEVICE_SUBCLASS_CODE               0x00
-//#define USB_HUB_DEVICE_PROTOCOL_CODE             0x00
-#define USB_HUB_INTERFACE_CLASS_CODE               0x09
-#define USB_HUB_INTERFACE_SUBCLASS_CODE            0x00
-//#define USB_HUB_INTERFACE_PROTOCOL_CODE          0x00
 
 /***********************************************
     Implement definition
 ************************************************/
-
 /* Define configuration, interface, ep number */
 #define USB_MAX_CONFIG                   6  /* configuration number */
 #define USB_MAX_IAD                      6
@@ -313,13 +305,6 @@ typedef enum {
 #define USB_MAX_INTERFACE                6  /* interface number, TODO: modify value base on options */
 #endif
 #define USB_MAX_INTERFACE_ALTERNATE_NUM  3  /* interface alternate seting number */
-
-#define USB_MAX_EP_BULK_TX               2  /* max bulk in ep number */
-#define USB_MAX_EP_BULK_RX               2  /* max bulk out ep number */
-#define USB_MAX_EP_INTR_TX               2  /* max interrupt in ep number */
-#define USB_MAX_EP_INTR_RX               2  /* max interrupt out number */
-#define USB_MAX_EP_ISO_TX                2  /* max isochronous in ep number */
-#define USB_MAX_EP_ISO_RX                2  /* max isochronous out ep number */
 
 #define USB_MAX_STRING                  20  /* string number */
 #define USB_MAX_EP_PER_IF                3  /* 3 is for image class */
@@ -730,18 +715,17 @@ typedef struct {
 // optimize code size : cannot change order
     Usb_Dev_Dscr       devdscr;
     Usb_Cfg_Dscr       cfgdscr;
-    Usb_Ep_Info        ep_bulk_tx_info[USB_MAX_EP_BULK_TX];
-    Usb_Ep_Info        ep_bulk_rx_info[USB_MAX_EP_BULK_RX];
-    Usb_Ep_Info        ep_intr_tx_info[USB_MAX_EP_INTR_TX];
-    Usb_Ep_Info        ep_intr_rx_info[USB_MAX_EP_INTR_RX];
-    Usb_Ep_Info        ep_iso_tx_info[USB_MAX_EP_ISO_TX];
-    Usb_Ep_Info        ep_iso_rx_info[USB_MAX_EP_ISO_RX];
-    Usb_Interface_Info if_info[USB_MAX_INTERFACE];
-    usb_string_t       string[USB_MAX_STRING];
+    Usb_Ep_Info        ep_bulk_tx_info[HAL_USB_MAX_NUMBER_ENDPOINT_TX];
+    Usb_Ep_Info        ep_bulk_rx_info[HAL_USB_MAX_NUMBER_ENDPOINT_RX];
+    Usb_Ep_Info        ep_intr_tx_info[HAL_USB_MAX_NUMBER_ENDPOINT_TX];
+    Usb_Ep_Info        ep_intr_rx_info[HAL_USB_MAX_NUMBER_ENDPOINT_RX];
+    Usb_Ep_Info        ep_iso_tx_info [HAL_USB_MAX_NUMBER_ENDPOINT_TX];
+    Usb_Ep_Info        ep_iso_rx_info [HAL_USB_MAX_NUMBER_ENDPOINT_RX];
+    Usb_Interface_Info if_info [USB_MAX_INTERFACE];
+    usb_string_t       string  [USB_MAX_STRING];
     Usb_IAD_Dscr       iad_desc[USB_MAX_IAD];
 
     Usb_Dev_Qual_Dscr            dev_qual_dscr;
-    //Usb_Other_Speed_Cfg_Dscr     other_speed_cfg_dscr;
     /* Workaround for no HAL_USB build include */
 #ifdef HAL_USB_MODULE_ENABLED
     hal_usb_test_mode_type_t     usb_test_type;
@@ -904,4 +888,7 @@ void usb_drv_disable(void);
 void usb_evt_exec_cb(usb_evt_t event, void *usb_data);
 void usb_evt_register_cb(usb_user_t user, usb_evt_t evt, usb_cb_func_t func, void* user_data);
 
+#endif /* AIR_USB_ENABLE */
+
 #endif /* USB_H */
+

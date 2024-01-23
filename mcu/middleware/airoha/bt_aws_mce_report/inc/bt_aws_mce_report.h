@@ -161,6 +161,8 @@ extern "C"
 #define BT_AWS_MCE_REPORT_MODULE_PSAP           (BT_AWS_MCE_REPORT_MODULE_START + 15)        /**< The module type of PSAP. */
 #define BT_AWS_MCE_REPORT_MODULE_ANC_ADAPT      (BT_AWS_MCE_REPORT_MODULE_START + 16)        /**< The module type of Adaptive ANC. */
 #define BT_AWS_MCE_REPORT_MODULE_VOICE_LEQ      (BT_AWS_MCE_REPORT_MODULE_START + 17)        /**< The module type of CPD LEQ. */
+#define BT_AWS_MCE_REPORT_MODULE_LE_REMOTE_INFO (BT_AWS_MCE_REPORT_MODULE_START + 18)        /**< The module type of LE remote information. */
+#define BT_AWS_MCE_REPORT_MODULE_AUDIO_GAIN     (BT_AWS_MCE_REPORT_MODULE_START + 19)        /**< The module type of audio gain. */
 
 #define BT_AWS_MCE_REPORT_MODULE_APP_START   (BT_AWS_MCE_REPORT_MODULE_START + BT_AWS_MCE_REPORT_MODULE_RANGE )  /**< The start value of the APP bt_aws_mce_report module type. */
 #define BT_AWS_MCE_REPORT_MODULE_APP_RANGE   (0x20)                                                              /**< The maximum number of APP bt_aws_mce_report module types that are supported. */

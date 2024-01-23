@@ -57,6 +57,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifdef AIR_BTA_IC_PREMIUM_G3
+#include "dsp_memory.h"
+#endif
+
 
 extern uint32_t _preloader_pic_iram_start[];    //this is DSP0 IRAM free start, defined in memory layout link script
 extern uint32_t _preloader_pic_iram_end[];      //this is DSP0 IRAM free end, defined in memory layout link script
@@ -102,6 +106,20 @@ preloader_pisplit_pool_info_t preloader_pisplit_customer_static_pools[] = {
         (uint32_t)_preloader_pic_dram_end,
         PRELOADER_D_HIGH_PERFORMANCE
     },
+    #ifdef AIR_BTA_IC_PREMIUM_G3
+    {
+        //SYSRAM Code
+        (void *)DSP_SYSRAM_CODE_PIC_POOL,
+        (uint32_t)(DSP_SYSRAM_CODE_PIC_POOL + DSP_SYSRAM_CODE_PIC_POOL_SIZE),
+        PRELOADER_I_LOW_PERFORMANCE
+    },
+    {
+        //SYSRAM Data
+        (void *)DSP_SYSRAM_DATA_PIC_POOL,
+        (uint32_t)(DSP_SYSRAM_DATA_PIC_POOL + DSP_SYSRAM_DATA_PIC_POOL_SIZE),
+        PRELOADER_D_LOW_PERFORMANCE
+    },
+    #endif
 };
 
 #ifdef PRELOADER_ENABLE_DSP0_LOAD_FOR_DSP1

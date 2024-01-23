@@ -352,6 +352,16 @@ BT_EXTERN_C_BEGIN
 bt_status_t ble_bap_ascs_config_codec(bt_handle_t handle, ble_bap_ascs_config_codec_operation_t *param);
 
 /**
+ * @brief               This function initiates codec config operation to the specified remote device.
+ * @param[in] handle    is the connection handle of the Bluetooth link.
+ * @param[in] param     is the parameters of codec config operation.
+ * @param[in] length    is the length of the enabling command.
+ * @return              #BT_STATUS_SUCCESS, the operation completed successfully.
+ *                      #BT_STATUS_FAIL, the operation has failed.
+ */
+bt_status_t ble_bap_ascs_config_codec_ex(bt_handle_t handle, uint8_t *param, uint16_t length);
+
+/**
  * @brief               This function initiates codec qos operation to the specified remote device.
  * @param[in] handle    is the connection handle of the Bluetooth link.
  * @param[in] param     is the parameters of qos config operation.

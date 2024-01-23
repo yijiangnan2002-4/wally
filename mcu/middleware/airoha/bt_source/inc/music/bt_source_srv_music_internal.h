@@ -77,6 +77,11 @@ typedef uint8_t bt_source_srv_state_t;
 
 #define BT_SOURCE_SRV_AVRCP_CONNECTION_TIMER_DUR  (800)
 
+#define BT_SOURCE_SRV_NEXT_ACTION_IS_NO_ACTION (0x00)
+#define BT_SOURCE_SRV_NEXT_ACTION_SWITCH_CODEC_TO_SBC (0x01)
+#define BT_SOURCE_SRV_NEXT_ACTION_SWITCH_CODEC_TO_VENDOR_CODEC (0x02)
+typedef uint32_t bt_source_srv_next_action_t;
+
 
 typedef struct {
     bt_bd_addr_t dev_addr;
@@ -87,6 +92,8 @@ typedef struct {
     uint32_t max_mtu;
     uint8_t detect_flag;
     uint8_t flag;/*bit0:register_flag, bit1:mute_flag*/
+    uint32_t next_action;
+    uint32_t codec_type;
     bt_a2dp_codec_capability_t capabilty;/*codec*/
 
     /*avrcp*/

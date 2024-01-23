@@ -371,7 +371,7 @@ bt_status_t bt_sink_srv_avrcp_handle_set_absolute_volume_ind(bt_avrcp_set_absolu
     bt_status_t ret = BT_STATUS_SUCCESS;
     if (BT_STATUS_SUCCESS == status) {
         bt_sink_srv_music_device_t *dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_AVRCP_HD, (void *) & (absolute_volume_event->handle));
-        bt_avrcp_send_set_absoulte_volume_response(absolute_volume_event->handle, absolute_volume_event->volume);
+        bt_avrcp_send_set_absolute_volume_response(absolute_volume_event->handle, absolute_volume_event->volume);
         bt_utils_assert(dev && "NULL dev");
 
         ret = bt_sink_srv_avrcp_set_absolute_volume(absolute_volume_event, status);
@@ -465,7 +465,7 @@ static void bt_sink_srv_avrcp_send_get_capability_cnf(bt_avrcp_get_capability_re
         
         params.number = cnf->capability_count;
 
-        uint8_t copy_num = cnf->capability_count;
+        uint32_t copy_num = cnf->capability_count;
         if (copy_num > BT_SINK_SRV_MAX_CAPABILITY_VALUE_LENGTH) {
             copy_num = BT_SINK_SRV_MAX_CAPABILITY_VALUE_LENGTH;
         }
@@ -484,7 +484,7 @@ static int32_t bt_sink_srv_avrcp_handle_get_capability_cnf(bt_avrcp_get_capabili
     bt_utils_assert(dev && "Null dev");
     if (cnf->type == BT_AVRCP_CAPABILITY_EVENTS_SUPPORTED) {
         
-        uint8_t cap_num = cnf->capability_count;
+        uint32_t cap_num = cnf->capability_count;
         if (cap_num > BT_SINK_SRV_MAX_CAPABILITY_VALUE_LENGTH) {
             cap_num = BT_SINK_SRV_MAX_CAPABILITY_VALUE_LENGTH;
         }
@@ -504,7 +504,7 @@ static int32_t bt_sink_srv_avrcp_handle_get_capability_cnf(bt_avrcp_get_capabili
 static void bt_sink_srv_avrcp_send_get_element_attributes_cnf(bt_avrcp_get_element_attributes_response_t *cnf,
     bt_status_t status, bt_bd_addr_t *address, bool save_left_data)
 {
-    bt_sink_srv_avrcp_get_element_attributes_cnf_t params;
+    bt_sink_srv_avrcp_get_element_attributes_cnf_t params = {0};
     static uint8_t *left_attribute_data = NULL;
     static uint32_t left_length = 0;
     static uint8_t left_number = 0;
@@ -514,7 +514,6 @@ static void bt_sink_srv_avrcp_send_get_element_attributes_cnf(bt_avrcp_get_eleme
     bt_sink_srv_report_id("[sink][music][avrcp] get_element_attributes_cnf(s):packet_type:%d,length:%d,number:0x%x,data:0x%x,left_length:%d,left_number:%d,left_attribute_data:0x%x,save_left_data:%d",
         8, cnf->packet_type, cnf->length, cnf->number, cnf->data, left_length, left_number, left_attribute_data, save_left_data);
 
-    bt_sink_srv_memset(&params, 0, sizeof(bt_sink_srv_avrcp_get_element_attributes_cnf_t));
     bt_sink_srv_memcpy(&params.address, address, sizeof(bt_bd_addr_t));
     params.status = status;
     if (BT_STATUS_SUCCESS == status) {
@@ -1184,6 +1183,11 @@ static void bt_sink_srv_avrcp_handle_play_status_notification(uint32_t handle, u
     if (dev->last_wear_action) {
         bt_sink_srv_avrcp_handle_last_wear_action(dev);
     }
+#if (BT_A2DP_TOTAL_LINK_NUM>3)
+    if (BT_AVRCP_STATUS_PLAY_PLAYING == avrcp_status) {
+        dev->avrcp_play_count = bt_sink_srv_state_manager_get_play_count();
+    }
+#endif
     /* Notify change to appliation */
     bt_sink_srv_music_avrcp_status_change_notify(&dev->dev_addr, dev->avrcp_status);
 

@@ -46,17 +46,17 @@
 
 #define APP_FAST_PAIR_PERSONALIZED_NAME_SIZE        (128)   /* The size of maximum size of personalized name. */
 
-/* Customer can store 10 model_set data in NVkey and there is a seleceted_set to indicate which model set is useful. */
+/* Customer can store 10 model_set data in NVkey and there is a selected_set to indicate which model set is useful. */
 #define APP_FAST_PAIR_MODEL_SET_MAX_NUMBER          (10)
 
-/* NvkeyDefine NVID_APP_FAST_PAIR_CONFIGURE */
+/* Nvkey Define NVID_APP_FAST_PAIR_CONFIGURE */
 /**
  *  @brief This structure defines the data format of NVID_APP_FAST_PAIR_CONFIGURE.
  */
 typedef struct {
     uint8_t     fps_enable;             /**< True means fast pair service feature is enable. */
     uint8_t     max_account;            /**< Maximum google account to support. */
-    uint8_t     seleceted_set;          /**< Which model set is selected. */
+    uint8_t     selected_set;          /**< Which model set is selected. */
     uint8_t     tx_power_available;     /**< True means set Tx power value in Adv data. */
     int8_t      tx_power_level;         /**< The value should be smaller than the Tx power value when level the device 1 meter. */
     uint8_t     component_num;          /**< The count of the components. In AWS project, it should be 3(left, right and charger case). */
@@ -72,7 +72,7 @@ typedef struct {
     uint8_t     private_key[32];    /**< The private key of the model. */
 } PACKED app_fast_pair_set_t;
 
-/* NvkeyDefine NVID_APP_FAST_PAIR_PROTECTED */
+/* Nvkey Define NVID_APP_FAST_PAIR_PROTECTED */
 /**
  *  @brief This structure defines the format of a model stored in NVkey, it's the encrypted data from model set and app_fast_pair_nvdm_key.
  */

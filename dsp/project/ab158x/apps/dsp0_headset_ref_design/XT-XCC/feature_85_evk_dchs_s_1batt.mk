@@ -110,7 +110,7 @@ AIR_ANC_ENVIRONMENT_DETECTION_ENABLE = n
 AIR_AUDIO_TRANSMITTER_ENABLE = y
 
 # This option is used to support HWSRC for DL1.
-AIR_HWSRC_ON_MAIN_STREAM_ENABLE = n
+AIR_HWSRC_ON_MAIN_STREAM_ENABLE = y
 
 # This option is for speaker project hwsrc clk skew. It should not be enabled by default.
 AIR_HWSRC_IN_STREAM_ENABLE = n
@@ -118,7 +118,7 @@ AIR_HWSRC_IN_STREAM_ENABLE = n
 # This option is used to enable/disable HWSRC CLK SKEW.
 # This feature option/configuration is shared between the MCU and DSP side.
 # Dependency: AIR_HWSRC_ON_MAIN_STREAM_ENABLE must be enabled when this option is set to y.
-AIR_HWSRC_CLKSKEW_ENABLE = n
+AIR_HWSRC_CLKSKEW_ENABLE = y
 
 # This option is to enable/disable the detachable mic.
 # This feature option/configuration is shared between the MCU and DSP side.

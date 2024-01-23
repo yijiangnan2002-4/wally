@@ -347,6 +347,12 @@ Macros</h2></td></tr>
 <tr class="memitem:gabeedf2b508f375840e321b46eb75f7a2"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group___bluetoothhbif__gap__define.html#gabeedf2b508f375840e321b46eb75f7a2">BT_GAP_LE_ULL_PSEUDO_LINK_CONNECT_IND</a>&#160;&#160;&#160;(<a class="el" href="group___bluetoothbt__primary__type__define.html#gaaee071f7a8274af81de7dedd10f11474">BT_MODULE_GAP</a> | 0x003A)</td></tr>
 <tr class="memdesc:gabeedf2b508f375840e321b46eb75f7a2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Connect indication with <a class="el" href="structbt__gap__le__connection__ind__t.html" title="This structure defines the associated parameter type in the callback for BT_GAP_LE_CONNECT_IND event...">bt_gap_le_connection_ind_t</a>, indicates a ULL connection is created.  <a href="#gabeedf2b508f375840e321b46eb75f7a2">More...</a><br /></td></tr>
 <tr class="separator:gabeedf2b508f375840e321b46eb75f7a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gab962b03981f2b5706e80242afb1c469a"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group___bluetoothhbif__gap__define.html#gab962b03981f2b5706e80242afb1c469a">BT_GAP_LE_ENABLE_SUBRATE_CNF</a>&#160;&#160;&#160;(<a class="el" href="group___bluetoothbt__primary__type__define.html#gaaee071f7a8274af81de7dedd10f11474">BT_MODULE_GAP</a> | 0x003B)</td></tr>
+<tr class="memdesc:gab962b03981f2b5706e80242afb1c469a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enable LE subrate confirmation with NULL payload.  <a href="#gab962b03981f2b5706e80242afb1c469a">More...</a><br /></td></tr>
+<tr class="separator:gab962b03981f2b5706e80242afb1c469a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gac2a011836acf25cb9fb73008bc0a1da9"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group___bluetoothhbif__gap__define.html#gac2a011836acf25cb9fb73008bc0a1da9">BT_GAP_LE_SUBRATE_CHANGE_IND</a>&#160;&#160;&#160;(<a class="el" href="group___bluetoothbt__primary__type__define.html#gaaee071f7a8274af81de7dedd10f11474">BT_MODULE_GAP</a> | 0x003C)</td></tr>
+<tr class="memdesc:gac2a011836acf25cb9fb73008bc0a1da9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Indicate that a LE connection subrate update procedure has completed and some parameters of the specified connection have been changed with <a class="el" href="structbt__gap__le__subrate__change__ind__t.html" title="This structure defines the LE link subrate change in the callback for BT_GAP_LE_SUBRATE_CHANGE_IND ev...">bt_gap_le_subrate_change_ind_t</a>.  <a href="#gac2a011836acf25cb9fb73008bc0a1da9">More...</a><br /></td></tr>
+<tr class="separator:gac2a011836acf25cb9fb73008bc0a1da9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga58490111bba9b0fd2209b2c95f9738b5"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group___bluetoothhbif__gap__define.html#ga58490111bba9b0fd2209b2c95f9738b5">BT_GAP_LE_SET_PRIVACY_MODE_CNF</a>&#160;&#160;&#160;(<a class="el" href="group___bluetoothbt__primary__type__define.html#gaaee071f7a8274af81de7dedd10f11474">BT_MODULE_GAP</a> | 0x0060)</td></tr>
 <tr class="memdesc:ga58490111bba9b0fd2209b2c95f9738b5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set privacy mode confirmation with NULL payload.  <a href="#ga58490111bba9b0fd2209b2c95f9738b5">More...</a><br /></td></tr>
 <tr class="separator:ga58490111bba9b0fd2209b2c95f9738b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1593,6 +1599,20 @@ Typedefs</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="gab962b03981f2b5706e80242afb1c469a"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define BT_GAP_LE_ENABLE_SUBRATE_CNF&#160;&#160;&#160;(<a class="el" href="group___bluetoothbt__primary__type__define.html#gaaee071f7a8274af81de7dedd10f11474">BT_MODULE_GAP</a> | 0x003B)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Enable LE subrate confirmation with NULL payload. </p>
+
+</div>
+</div>
 <a class="anchor" id="gad999d96ad257ea197053de8e9d587989"></a>
 <div class="memitem">
 <div class="memproto">
@@ -2835,6 +2855,20 @@ Typedefs</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="gac2a011836acf25cb9fb73008bc0a1da9"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define BT_GAP_LE_SUBRATE_CHANGE_IND&#160;&#160;&#160;(<a class="el" href="group___bluetoothbt__primary__type__define.html#gaaee071f7a8274af81de7dedd10f11474">BT_MODULE_GAP</a> | 0x003C)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Indicate that a LE connection subrate update procedure has completed and some parameters of the specified connection have been changed with <a class="el" href="structbt__gap__le__subrate__change__ind__t.html" title="This structure defines the LE link subrate change in the callback for BT_GAP_LE_SUBRATE_CHANGE_IND ev...">bt_gap_le_subrate_change_ind_t</a>. </p>
+
+</div>
+</div>
 <a class="anchor" id="gad798ddc274a00355ea87ee7076cb8f16"></a>
 <div class="memitem">
 <div class="memproto">
@@ -3079,7 +3113,7 @@ Typedefs</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Thu Sep 28 2023 17:13:31 for AB158x Series MCU API Reference by
+    <li class="footer">Generated on Fri Dec 29 2023 02:13:04 for AB158x Series MCU API Reference by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.11 </li>
   </ul>

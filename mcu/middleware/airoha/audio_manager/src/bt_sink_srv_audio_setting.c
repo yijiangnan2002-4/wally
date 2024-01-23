@@ -99,7 +99,7 @@ uint8_t AUD_LINEIN_VOL_OUT_DEFAULT;
 uint8_t AUD_USB_AUDIO_VOL_OUT_MAX;
 uint8_t AUD_USB_AUDIO_VOL_OUT_DEFAULT;
 
-#if defined (AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_BLE_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
+#if defined (AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_BLE_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined (AIR_BT_AUDIO_DONGLE_ENABLE)
 uint8_t AUD_USB_AUDIO_SW_VOL_OUT_MAX;
 uint8_t AUD_USB_AUDIO_SW_VOL_OUT_DEFAULT;
 uint8_t AUD_USB_VOICE_SW_VOL_OUT_MAX;
@@ -2625,6 +2625,63 @@ void bt_sink_srv_audio_setting_set_audio_platform_output_volume(vol_type_t type,
     }
 }
 
+#endif
+
+#ifdef AIR_MUTE_MIC_DETECTION_ENABLE
+#define AUDIO_VOLUME_MONITOR_DEBUG_ENABLE 0
+#define MUTE_MIC_DETECTION_THD -8500
+#define MUTE_MIC_DETECTION_INTERVAL_MS 600
+audio_dsp_mute_speaking_detection_param_t  mute_speaking_detection_info;
+extern bt_sink_srv_am_background_t *g_prCurrent_player;
+#if defined(AIR_WIRED_AUDIO_ENABLE) && defined(AIR_USB_AUDIO_ENABLE)
+extern bool g_usb_out_vad_enable;
+#endif
+uint8_t mute_mic_detection_cnt = 0;
+bool last_det_sta = false;
+
+void mute_mic_detection(int32_t *out_data, uint32_t volume_len, void *user_data){
+    //audio_src_srv_report("[VAD] %d",1,*out_data);
+    if(((g_prCurrent_player && g_prCurrent_player->audio_stream_in.audio_mute)
+#if defined(AIR_WIRED_AUDIO_ENABLE) && defined(AIR_USB_AUDIO_ENABLE)
+        ||(g_usb_out_vad_enable)
+#endif
+        ) && (*out_data > MUTE_MIC_DETECTION_THD)){
+        mute_mic_detection_cnt++;
+    }else{
+        if(last_det_sta){
+            last_det_sta = false;
+            /* send notification to APP */
+            if(mute_speaking_detection_info.callback != NULL) {
+                audio_src_srv_report("[VAD][TEAMS] UL mute speaking detected end",0);
+                mute_speaking_detection_info.callback(false);
+            } else {
+                audio_src_srv_report("[VAD][TEAMS] UL mute speaking detected end without callback",0);
+            }
+#if AUDIO_VOLUME_MONITOR_DEBUG_ENABLE
+            audio_src_srv_report("[VAD][Audio Spectrum Meter] mute_mic_detection_end", 0);
+#endif
+        }
+        mute_mic_detection_cnt = 0;
+    }
+
+    if(mute_mic_detection_cnt > (MUTE_MIC_DETECTION_INTERVAL_MS /15) && !last_det_sta){
+        /* send notification to APP */
+        if(mute_speaking_detection_info.callback != NULL) {
+            audio_src_srv_report("[VAD][TEAMS] UL mute speaking detected start",0);
+            mute_speaking_detection_info.callback(true);
+        } else {
+            audio_src_srv_report("[VAD][TEAMS] UL mute speaking detected start without callback",0);
+        }
+        last_det_sta = true;
+        mute_mic_detection_cnt = 0;
+#if AUDIO_VOLUME_MONITOR_DEBUG_ENABLE
+        audio_src_srv_report("[VAD][Audio Spectrum Meter] mute_mic_detection_start", 0);
+#endif
+    }
+#if AUDIO_VOLUME_MONITOR_DEBUG_ENABLE
+    audio_src_srv_report("[VAD][Audio Spectrum Meter] mute_mic_detection_cnt %d", 1,mute_mic_detection_cnt);
+#endif
+}
 #endif
 
 #endif /* __BT_SINK_SRV_AUDIO_SETTING_SUPPORT__ */

@@ -55,6 +55,11 @@ typedef uint8_t bt_gap_sco_status_t;
 #define BT_GAP_mHDT_RATE_EDR6    (0x10)
 #define BT_GAP_mHDT_RATE_EDR8    (0x20)
 
+#define BT_GAP_SCO_STATUS_DISCONNECTED    (0x00)
+#define BT_GAP_SCO_STATUS_DISCONNECTNG    (0x01)
+#define BT_GAP_SCO_STATUS_CONNECTNG       (0x02)
+#define BT_GAP_SCO_STATUS_CONNECTED       (0x03)
+
 BT_PACKED(
 typedef struct {
     uint32_t transmit_band_with;

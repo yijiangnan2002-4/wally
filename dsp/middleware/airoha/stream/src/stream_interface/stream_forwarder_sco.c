@@ -63,6 +63,11 @@
 #define CONN_BT_TIMCON_BASE 0xB0000000
 #endif
 #endif//AIR_DCHS_MODE_ENABLE
+
+#ifdef AIR_MIXER_STREAM_ENABLE
+#include "stream_mixer.h"
+#endif
+
 #define DSP_FORWARD_BUFFER_SIZE          120
 #define DSP_SCO_INBAND_INFORMATION       20
 #ifdef AIR_HFP_SYNC_STOP_ENABLE
@@ -75,7 +80,7 @@ Stream_n9sco_Config_Ptr N9SCO_setting;
 uint16_t escoseqn;
 bool g_ignore_next_drop_flag = false; // avoid double drop in dav task
 
-static int32_t g_sco_pkt_type;
+static sco_pkt_type g_sco_pkt_type;
 static int32_t g_sco_frame_per_pkt_num;
 static int32_t g_sco_frame_id;
 static int32_t g_rx_fwd_irq_time;
@@ -124,6 +129,9 @@ static src_fixed_ratio_port_t *g_esco_ul_src_fixed_ratio_port;
 #endif
 static src_fixed_ratio_port_t *g_esco_ul_src_fixed_ratio_2nd_port;
 static src_fixed_ratio_port_t *g_esco_dl_src_fixed_ratio_port;
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ) || defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+static src_fixed_ratio_port_t *g_esco_dl_src_fixed_ratio_2nd_port;
+#endif
 
 static uint32_t internal_fs_converter(stream_samplerate_t fs)
 {
@@ -183,7 +191,7 @@ void Sco_UL_Fix_Sample_Rate_Init(void)
         smp_config.channel_number = 1;
         smp_config.in_sampling_rate = internal_fs_converter(FS_RATE_16K);
         smp_config.out_sampling_rate = internal_fs_converter(FS_RATE_8K);
-        smp_config.resolution = ul_stream->callback.EntryPara.resolution.feature_res;
+        smp_config.resolution = ul_stream->callback.EntryPara.resolution.sink_out_res;
         smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE;
         smp_config.cvt_num = 1;
         smp_config.with_codec = true;
@@ -214,31 +222,126 @@ void Sco_DL_Fix_Sample_Rate_Init(void)
     DSP_STREAMING_PARA_PTR dl_stream;
     src_fixed_ratio_config_t smp_config = {0};
     volatile SOURCE source = Source_blks[SOURCE_TYPE_N9SCO];
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+    uint32_t out_sampling_rate = internal_fs_converter(FS_RATE_96K);
+#elif defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ)
+    uint32_t out_sampling_rate = internal_fs_converter(FS_RATE_48K);
+#else
+    uint32_t out_sampling_rate = internal_fs_converter(FS_RATE_16K);
+#endif
 
-    if (gDspAlgParameter.EscoMode.Rx == VOICE_NB) {
-        /* Used in the 1st stage for 8K -> 16K */
+#if !defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ) && !defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+    if (gDspAlgParameter.EscoMode.Rx == VOICE_NB) /* Used in the 1st stage for 8K -> 16K */
+#endif
+    {
         dl_stream = DSP_Streaming_Get(source, source->transform->sink);
-        dl_stream->callback.EntryPara.in_sampling_rate = FS_RATE_8K;
+        if (gDspAlgParameter.EscoMode.Rx == VOICE_NB) {
+            dl_stream->callback.EntryPara.in_sampling_rate = FS_RATE_8K;
+            smp_config.out_sampling_rate = internal_fs_converter(FS_RATE_16K);
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ) || defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+            smp_config.cvt_num = 2;
+            smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_ALTERNATE;
+#else
+            smp_config.cvt_num = 1;
+            smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE;
+#endif
+        } else {
+            dl_stream->callback.EntryPara.in_sampling_rate = FS_RATE_16K;
+            smp_config.out_sampling_rate = out_sampling_rate;
+            smp_config.cvt_num = 1;
+            smp_config.with_codec = true;
+            smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE;
+        }
+#if defined(AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE)
+        smp_config.channel_number = 2;
+#else
         smp_config.channel_number = 1;
+#endif
         smp_config.in_sampling_rate = internal_fs_converter((stream_samplerate_t)(dl_stream->callback.EntryPara.in_sampling_rate));
-        smp_config.out_sampling_rate = internal_fs_converter(FS_RATE_16K);
         smp_config.resolution = dl_stream->callback.EntryPara.resolution.feature_res;
-        smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE;
-        smp_config.cvt_num = 1;
         smp_config.with_codec = true;
         g_esco_dl_src_fixed_ratio_port = stream_function_src_fixed_ratio_get_port(source);
         stream_function_src_fixed_ratio_init(g_esco_dl_src_fixed_ratio_port, &smp_config);
+
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ) || defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+        if (gDspAlgParameter.EscoMode.Rx == VOICE_NB) {
+            smp_config.in_sampling_rate = internal_fs_converter(FS_RATE_16K);
+            smp_config.out_sampling_rate = out_sampling_rate;
+            g_esco_dl_src_fixed_ratio_2nd_port = stream_function_src_fixed_ratio_get_2nd_port(source);
+            stream_function_src_fixed_ratio_init(g_esco_dl_src_fixed_ratio_2nd_port, &smp_config);
+        }
+#endif
     }
 }
 
 void Sco_DL_Fix_Sample_Rate_Deinit(void)
 {
-    if (gDspAlgParameter.EscoMode.Rx == VOICE_NB) {
+#if !defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ) && !defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+    if (gDspAlgParameter.EscoMode.Rx == VOICE_NB)
+#endif
+    {
         if (g_esco_dl_src_fixed_ratio_port) {
             stream_function_src_fixed_ratio_deinit(g_esco_dl_src_fixed_ratio_port);
             g_esco_dl_src_fixed_ratio_port = NULL;
         }
     }
+
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ) || defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+    if (gDspAlgParameter.EscoMode.Rx == VOICE_NB && g_esco_dl_src_fixed_ratio_2nd_port) {
+        stream_function_src_fixed_ratio_deinit(g_esco_dl_src_fixed_ratio_2nd_port);
+        g_esco_dl_src_fixed_ratio_2nd_port = NULL;
+    }
+#endif
+}
+#endif
+#if defined(AIR_MUTE_MIC_DETECTION_ENABLE)
+#include "volume_estimator_interface.h"
+#include "stream_nvkey_struct.h"
+#include "preloader_pisplit.h"
+#include "audio_nvdm_common.h"
+void *p_hfp_ul_vol_estimator_nvkey_buf = NULL;
+volume_estimator_port_t *p_hfp_ul_meter_port;
+
+void Sco_UL_Volume_Estimator_Init(SINK sink){
+    /* init volume estimator port */
+    p_hfp_ul_vol_estimator_nvkey_buf = preloader_pisplit_malloc_memory(PRELOADER_D_HIGH_PERFORMANCE, sizeof(audio_spectrum_meter_nvkey_t));
+    if (p_hfp_ul_vol_estimator_nvkey_buf == NULL) {
+        AUDIO_ASSERT(0);
+    }
+    if (nvkey_read_full_key(NVKEY_DSP_PARA_SILENCE_DETECTION2, p_hfp_ul_vol_estimator_nvkey_buf, sizeof(audio_spectrum_meter_nvkey_t)) != NVDM_STATUS_NAT_OK) {
+        AUDIO_ASSERT(0);
+    }
+    volume_estimator_config_t config;
+    p_hfp_ul_meter_port = volume_estimator_get_port(sink);
+    if (p_hfp_ul_meter_port == NULL) {
+        AUDIO_ASSERT(0 && "[HFP] Audio Spectrum memter port is null.");
+    }
+    config.resolution = RESOLUTION_16BIT;
+    config.frame_size = sink->transform->source->param.audio.rate/1000 * 15 * ((config.resolution == RESOLUTION_16BIT)? 2:4);
+    //config.frame_size = sink->transform->source->param.audio.rate/1000 * sink->param.n9ble.frame_interval/1000 * ((config.resolution == RESOLUTION_16BIT)? 2:4);
+    config.channel_num = 1;
+    config.mode = VOLUME_ESTIMATOR_CHAT_INSTANT_MODE;
+    config.sample_rate = sink->transform->source->param.audio.rate;
+    config.nvkey_para = (void *)&(((audio_spectrum_meter_nvkey_t *)p_hfp_ul_vol_estimator_nvkey_buf)->chat_vol_nvkey);
+    config.internal_buffer = NULL;
+    config.internal_buffer_size = 0;
+    volume_estimator_init(p_hfp_ul_meter_port, &config);
+    DSP_MW_LOG_I("[HFP] volume estimator 0x%x info, %d, %d, %d,internal_buffer 0x%x, 0x%x\r\n", 6,
+                p_hfp_ul_meter_port,
+                config.frame_size,
+                config.channel_num,
+                config.sample_rate,
+                config.internal_buffer,
+                config.internal_buffer_size);
+}
+
+void Sco_UL_Volume_Estimator_Deinit(void){
+    volume_estimator_deinit(p_hfp_ul_meter_port);
+    if (p_hfp_ul_vol_estimator_nvkey_buf) {
+        preloader_pisplit_free_memory(p_hfp_ul_vol_estimator_nvkey_buf);
+        p_hfp_ul_vol_estimator_nvkey_buf = NULL;
+    }
+    DSP_MW_LOG_I("[BLE] volume estimator deinit",0);
 }
 #endif
 
@@ -378,6 +481,7 @@ static void Sco_Sink_N9Sco_Buffer_Init(SINK sink)
     Sco_Tx_update_writeoffset_share_information(sink, 0);
 }
 
+#ifndef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
 #ifndef AIR_DCHS_MODE_ENABLE
 static void Sco_Rx_Self_Recover_Process(SOURCE source, SINK sink)
 {
@@ -415,11 +519,14 @@ static void Sco_Rx_Self_Recover_Process(SOURCE source, SINK sink)
                 /* Fix the ASRC pointer */
                 if (audio->AfeBlkControl.u4asrcflag) {
 #ifdef ENABLE_HWSRC_CLKSKEW
-                    if (ClkSkewMode_g == CLK_SKEW_V2) {
+                    if (sink->param.audio.clk_skew_mode == CLK_SKEW_V2) {
                         // enable src1 to avoid hwsrc underflow
                         if (afe_get_asrc_irq_is_enabled(AFE_MEM_ASRC_1, ASM_IER_IBUF_EMPTY_INTEN_MASK) == false) {
                             // afe_set_asrc_irq_enable(AFE_MEM_ASRC_1, false);
-                            hal_src_set_irq_enable(AFE_MEM_ASRC_1, true);
+                            afe_src_configuration_t src_configuration;
+                            memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
+                            src_configuration.id = AFE_MEM_ASRC_1;
+                            hal_src_set_irq_enable(&src_configuration, true);
                         }
                     } else {
                         hal_audio_set_value_parameter_t set_value_parameter;
@@ -459,6 +566,7 @@ static void Sco_Rx_Self_Recover_Process(SOURCE source, SINK sink)
         }
     }
 }
+#endif
 #endif
 
 static void Sco_RX_IntrHandler(void)
@@ -663,9 +771,11 @@ static void Sco_RX_IntrHandler(void)
     /* Check the position offset of WPTR/RPTR for both AVM buffer and AFE buffer */
     source->streamBuffer.AVMBufferInfo.WriteIndex = (uint16_t)avm_buf_next_wo;
     if ((avm_buf_next_wo % (uint32_t)source->streamBuffer.AVMBufferInfo.MemBlkSize) == 0) {
+#ifndef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
         #ifndef AIR_DCHS_MODE_ENABLE
         Sco_Rx_Self_Recover_Process(source, sink);
         #endif
+#endif
     }
 
     /* Trigger 1st DL AFE IRQ by below condition
@@ -685,13 +795,16 @@ static void Sco_RX_IntrHandler(void)
         #endif
             play_en_bt_clk = Forwarder_Rx_AncClk();
             MCE_TransBT2NativeClk(play_en_bt_clk, 1250, &play_en_nclk, &play_en_intra_clk, BT_CLK_Offset);
+            #if AIR_MIXER_STREAM_ENABLE
+            MCE_TransBT2NativeClk(play_en_bt_clk + 0x8, 1250, &play_en_nclk, &play_en_intra_clk, BT_CLK_Offset);
+            mixer_stream_setup_play_en(play_en_nclk, play_en_intra_clk, source, AUDIO_SCENARIO_TYPE_HFP_DL);
+            #else
             hal_audio_afe_set_play_en(play_en_nclk, (uint32_t)play_en_intra_clk);
+            #endif
             DSP_MW_LOG_I("[RX FWD] Play_En config with bt_clk:0x%08x, play_en_nclk:0x%08x, play_en_intra_clk:0x%08x", 3, play_en_bt_clk, play_en_nclk, play_en_intra_clk);
         #ifdef AIR_DCHS_MODE_ENABLE
         }else{
-            if(!dchs_dl_check_scenario_play_en_exist(HAL_AUDIO_AGENT_MEMORY_DL1)){
-                dchs_dl_set_hfp_play_en();
-            }
+            dchs_dl_set_hfp_play_en();
         }
         #endif
 
@@ -952,7 +1065,9 @@ static BOOL SinkCloseSco(SINK sink)
 #if defined(AIR_FIXED_RATIO_SRC)
     Sco_UL_Fix_Sample_Rate_Deinit();
 #endif
-
+#if defined(AIR_MUTE_MIC_DETECTION_ENABLE)
+    Sco_UL_Volume_Estimator_Deinit();
+#endif
     return true;
 }
 

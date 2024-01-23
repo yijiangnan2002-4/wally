@@ -106,8 +106,11 @@ extern afe_sidetone_param_extension_t dsp_afe_sidetone_extension;
 #ifdef MTK_WWE_ENABLE
 // extern hal_audio_device_parameter_vow_t *dsp_vow;
 extern hal_audio_device_parameter_vow_t hwvad_vow_control;
-
 #endif
+#if defined(MTK_ANC_ENABLE) && defined(AIR_BTA_IC_STEREO_HIGH_G3)
+extern void dsp_anc_task_event_handler(uint32_t arg, void *param);
+#endif
+
 /******************************************************************************
  * Variables
  ******************************************************************************/
@@ -441,18 +444,22 @@ VOID DTM(VOID)
             case DTM_EVENT_ID_DAC_DEACTIVE_MODE_ENTER:
                 hal_audio_device_enter_dac_deactive_mode(true);
                 break;
-
             case DTM_EVENT_ID_DAC_DEACTIVE_MODE_EXIT:
                 {
-                    uint32_t old_dac_mode = hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT);
+                    hal_audio_analog_mdoe_t new_dac_mode = (cur_queue.arg & 0xFF);
+                    uint8_t cld_gain_compensation = (cur_queue.arg >> 16);
 
-                    if(old_dac_mode != cur_queue.arg) {
-                        hal_volume_set_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT, cur_queue.arg);
-                        hal_audio_device_enter_dac_deactive_mode(false);
-                    } else {
-                        DSP_MW_LOG_E("invalid DTM event id: %d\n", 1, cur_queue.event_id);
-                        assert(0);
-                    }
+                    AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, cld_gain_compensation << AFE_ADDA_DL_SDM_DCCOMP_CON_ATTGAIN_CTL_POS, AFE_ADDA_DL_SDM_DCCOMP_CON_ATTGAIN_CTL_MASK);
+                    hal_volume_set_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT, new_dac_mode);
+                    hal_audio_device_enter_dac_deactive_mode(false);
+                }
+                break;
+#endif
+
+#if defined(MTK_ANC_ENABLE) && defined(AIR_BTA_IC_STEREO_HIGH_G3)
+            case DTM_EVENT_ID_ANC_TASK_EVENT:{
+                    //DSP_MW_LOG_I("[M:anc] DTM event, param 0x%x", 1, cur_queue.arg);
+                    dsp_anc_task_event_handler(cur_queue.arg, NULL);
                 }
                 break;
 #endif

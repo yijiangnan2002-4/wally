@@ -470,15 +470,15 @@ static bool app_advance_passthrough_resume(bool is_sync)
     return success;
 }
 
-static void app_advance_passthrough_swich_from_aws(app_advance_pt_sync_pt_t *sync_data)
+static void app_advance_passthrough_switch_from_aws(app_advance_pt_sync_pt_t *sync_data)
 {
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
-    APPS_LOG_MSGID_I(LOG_TAG" swich_from_aws, [%02X] enable=%d->%d is_sync=%d",
+    APPS_LOG_MSGID_I(LOG_TAG" switch_from_aws, [%02X] enable=%d->%d is_sync=%d",
                      4, role, app_advance_pt_ctx.enable, sync_data->enable, sync_data->is_sync);
     if (role == BT_AWS_MCE_ROLE_PARTNER
         && sync_data->enable != app_advance_pt_ctx.enable) {
         if (sync_data->enable && app_advance_pt_ctx.charger_in) {
-            APPS_LOG_MSGID_I(LOG_TAG" swich_from_aws, [%02X] need_resume due to charger_in", 1, role);
+            APPS_LOG_MSGID_I(LOG_TAG" switch_from_aws, [%02X] need_resume due to charger_in", 1, role);
             app_advance_pt_ctx.need_resume = TRUE;
             return;
         }
@@ -492,7 +492,7 @@ static void app_advance_passthrough_swich_from_aws(app_advance_pt_sync_pt_t *syn
         }
         app_advance_passthrough_enable_imp(enable, &audio_param);
     } else {
-        APPS_LOG_MSGID_I(LOG_TAG" swich_from_aws, ignore", 0);
+        APPS_LOG_MSGID_I(LOG_TAG" switch_from_aws, ignore", 0);
     }
 }
 
@@ -759,7 +759,7 @@ void app_advance_passthrough_handle_aws_data(void *data, uint32_t len)
 {
     if (data != NULL && len == sizeof(app_advance_pt_sync_pt_t)) {
         app_advance_pt_sync_pt_t *sync_data = (app_advance_pt_sync_pt_t *)data;
-        app_advance_passthrough_swich_from_aws(sync_data);
+        app_advance_passthrough_switch_from_aws(sync_data);
     } else if (data != NULL && len == sizeof(app_advance_pt_sync_state_t)) {
         app_advance_pt_sync_state_t *sync_state = (app_advance_pt_sync_state_t *)data;
         app_advance_pt_ctx.need_resume = sync_state->need_resume;

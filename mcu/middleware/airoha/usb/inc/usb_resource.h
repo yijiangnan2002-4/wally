@@ -35,6 +35,8 @@
 #ifndef USB_RESOURCE_H
 #define USB_RESOURCE_H
 
+#ifdef AIR_USB_ENABLE
+
 #include <stdbool.h>
 #include <stdint.h>
 #include "usb.h"
@@ -94,6 +96,8 @@ void USB_String_Nvkey_Write(void);
 void USB_String_Nvkey_Read(void);
 
 extern bool        g_USB_Software_Speed_skip_enable;
+
+#endif /* AIR_USB_ENABLE */
 
 #endif /* USB_RESOURCE_H */
 

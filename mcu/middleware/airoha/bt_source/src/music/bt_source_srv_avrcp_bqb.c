@@ -316,7 +316,7 @@ bt_status_t bt_srv_avrcp_bqb_common_cb(bt_msg_type_t msg, bt_status_t status, vo
                 3, status, set_vol->handle, set_vol->volume);
 
             /* To do: Adjust system volume here */
-            bt_avrcp_send_set_absoulte_volume_response(set_vol->handle, set_vol->volume);
+            bt_avrcp_send_set_absolute_volume_response(set_vol->handle, set_vol->volume);
 
             break;
         }

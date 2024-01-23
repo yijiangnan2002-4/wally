@@ -62,10 +62,10 @@ static bool app_dual_chip_master_transient_proc_ui_shell_group(ui_shell_activity
         case EVENT_ID_SHELL_SYSTEM_ON_CREATE: {
             APPS_LOG_MSGID_I(LOG_TAG": create", 0);
             self->local_context = extra_data;
-            ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+            ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN, NULL, 0,
                                 NULL, 0);
-            ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+            ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_UPDATE_MMI_STATE, NULL, 0,
                                 NULL, 0);
             break;
@@ -143,10 +143,10 @@ static bool app_dual_chip_master_transient_proc_dual_chip_cmd_group(ui_shell_act
                 if (old_mmi_state_level != new_mmi_state_level) {
                     ui_shell_finish_activity(self, self);
                     if (APP_DUAL_CHIP_MASTER_MMI_PRIORITY_IDLE == new_mmi_state_level) {
-                        ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                        ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                             APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN, NULL, 0,
                                             NULL, 0);
-                        ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                        ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                             APPS_EVENTS_INTERACTION_UPDATE_MMI_STATE, NULL, 0,
                                             NULL, 0);
                     } else {
@@ -170,10 +170,10 @@ static bool app_dual_chip_master_transient_proc_dual_chip_cmd_group(ui_shell_act
                         ui_shell_start_activity(self, app_master_transient_activity_proc, activity_priority, local_context, 0);
                     }
                 } else if (local_context->slave_mmi_state != new_state) {
-                    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                         APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN, NULL, 0,
                                         NULL, 0);
-                    ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                         APPS_EVENTS_INTERACTION_UPDATE_MMI_STATE, NULL, 0,
                                         NULL, 0);
                 }
@@ -191,7 +191,7 @@ static bool app_dual_chip_master_transient_proc_dual_chip_cmd_group(ui_shell_act
             if (extra_data) {
                 apps_race_cmd_co_sys_led_pattern_format_t *bg_format = (apps_race_cmd_co_sys_led_pattern_format_t *)extra_data;
                 local_context->slave_bg_led_pattern = bg_format->index;
-                ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                     APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN, NULL, 0,
                                     NULL, 0);
             }

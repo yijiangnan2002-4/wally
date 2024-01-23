@@ -972,6 +972,10 @@ typedef enum {
 #ifdef AIR_KEEP_I2S_ENABLE
     AM_AUDIO_DEVICE = 1 << 26,
 #endif
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+    AM_AUDIO_UPDATE_DAC_MODE = 1 << 27,
+#endif
+
 } am_feature_type_t;
 
 /** @brief AWS one source or two source */
@@ -1057,6 +1061,13 @@ typedef struct am_adaptive_ff {
     anc_fwd_iir_t *cmp_new_filter;
 } bt_sink_srv_am_adaptive_ff_param_t;
 #endif
+#endif
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+typedef struct am_dac_mode_update {
+    uint32_t event;
+    uint32_t event_type;
+    uint32_t param;
+} bt_sink_srv_am_dac_mode_update_param_t;
 #endif
 #ifdef MTK_ANC_SURROUND_MONITOR_ENABLE
 typedef struct am_anc_monitor {
@@ -1182,6 +1193,9 @@ typedef union audio_feature_param {
 #ifdef MTK_ANC_SURROUND_MONITOR_ENABLE
     bt_sink_srv_am_anc_monitor_param_t anc_monitor_param;
 #endif
+#ifdef AIR_DAC_MODE_RUNTIME_CHANGE
+        bt_sink_srv_am_dac_mode_update_param_t dac_mode_update_param;
+#endif
     audio_nr_param_t nr_param;
 #ifdef AIR_DCHS_MODE_ENABLE
     audio_dchs_cosys_ctrl_t cosys_ctrl_dl;
@@ -1282,6 +1296,8 @@ typedef struct {
     bt_sink_srv_am_device_set_t        audio_device;
     bt_sink_srv_am_volume_level_in_t   audio_volume;
     bool                           audio_mute;
+    bool                            audio_volume_set_by_gain_value;
+    uint32_t                        audio_gain_value;
 } bt_sink_srv_am_audio_stream_in_t;
 
 /**
@@ -1291,6 +1307,8 @@ typedef struct {
     bt_sink_srv_am_device_set_t         audio_device;
     bt_sink_srv_am_volume_level_out_t   audio_volume;
     bool                            audio_mute;
+    bool                            audio_volume_set_by_gain_value;
+    uint32_t                        audio_gain_value;
 } bt_sink_srv_am_audio_stream_out_t;
 
 
@@ -1470,7 +1488,7 @@ typedef struct aeq_para_s
     U16             detect_par_s;
     U16             detect_ctrl_s;
     U8              detect_bypass_s;
-}AEQ_SZ_PARA_t;
+}PACKED AEQ_SZ_PARA_t;
 #endif
 
 typedef struct {
@@ -1601,7 +1619,7 @@ extern bt_sink_srv_am_volume_level_t bt_sink_srv_ami_get_lineIN_max_volume_level
  */
 extern bt_sink_srv_am_volume_level_t bt_sink_srv_ami_get_lineIN_default_volume_level();
 
-#if defined (AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_BLE_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
+#if defined (AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_BLE_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined (AIR_BT_AUDIO_DONGLE_ENABLE)
 extern bt_sink_srv_am_volume_level_t bt_sink_srv_ami_get_usb_voice_sw_max_volume_level();
 extern bt_sink_srv_am_volume_level_t bt_sink_srv_ami_get_usb_voice_sw_default_volume_level();
 extern bt_sink_srv_am_volume_level_t bt_sink_srv_ami_get_usb_music_sw_max_volume_level();
@@ -1611,7 +1629,7 @@ extern bt_sink_srv_am_volume_level_t bt_sink_srv_ami_get_usb_music_sw_default_vo
 /**
  * @brief                   This function is employed to open a new audio handler to get the registered ID.
  * @param[in] pseudo_device_type      Priority level
- * @param[in] handler       Callback function for A.M. notification
+ * @param[in] handler       Callback function for A.M. notification. Please note that this cb only returns the processing result. Please do not do other things in cb, such as switching pseudo device status,etc
  * @return                  A valid registered ID that is 0~(AM_REGISTER_ID_TOTAL-1) on success or AUD_EXECUTION_FAIL on failure
  */
 extern bt_sink_srv_am_id_t ami_audio_open(bt_sink_srv_am_type_t pseudo_device_type,
@@ -1635,7 +1653,7 @@ extern bt_sink_srv_am_result_t ami_audio_stop(bt_sink_srv_am_id_t aud_id);
 /**
  * @brief                   This function is employed to open a new audio handler to get the registered ID.
  * @param[in] priority      Priority level
- * @param[in] handler       Callback function for A.M. notification
+ * @param[in] handler       Callback function for A.M. notification. Please note that this cb only returns the processing result. Please do not do other things in cb, such as switching pseudo device status,etc
  * @return                  A valid registered ID that is 0~(AM_REGISTER_ID_TOTAL-1) on success or AUD_EXECUTION_FAIL on failure
  */
 extern bt_sink_srv_am_id_t bt_sink_srv_ami_audio_open(bt_sink_srv_am_priority_t priority, bt_sink_srv_am_notify_callback handler);
@@ -1672,6 +1690,15 @@ extern bt_sink_srv_am_result_t bt_sink_srv_ami_audio_close(bt_sink_srv_am_id_t a
  */
 extern bt_sink_srv_am_result_t bt_sink_srv_ami_audio_set_volume(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am_volume_level_t volume_level, bt_sink_srv_am_stream_type_t in_out);
 
+/**
+ * @brief                   This function is employed to set audio in/out volume by gain.
+ *                          About input/output, depend on definition of configuration am_stream_type_t.
+ * @param[in] aud_id        Specified audio ID 0~(AM_REGISTER_ID_TOTAL-1)
+ * @param[in] gain_value    Representing the audio gain level
+ * @param[in] in_out        STREAM_IN / STREAM_OUT
+ * @return                  AUD_EXECUTION_SUCCESS on success or AUD_EXECUTION_FAIL on failure
+ */
+extern bt_sink_srv_am_result_t bt_sink_srv_ami_audio_set_volume_by_gain_value(bt_sink_srv_am_id_t aud_id, int32_t gain_value, bt_sink_srv_am_stream_type_t in_out);
 /**
  * @brief                   This function is employed to mute on audio stream in/out.
  *                          About input/output, depend on definition of configuration am_stream_type_t.
@@ -2030,6 +2057,18 @@ bt_sink_srv_am_result_t bt_sink_srv_ami_audio_set_mixer_volume(bt_sink_srv_am_vo
  * @return                  None.
  */
 void ami_hal_audio_status_set_running_flag(audio_scenario_type_t type, mcu2dsp_open_param_t *param, bool is_running);
+
+#ifdef AIR_DCHS_MODE_ENABLE
+/**
+ * @brief                   This function is employed to control audio clock/micbias/hi-res/low-jitter for dchs open/close detach mic.
+ * @param[in] type          Audio scenario type.
+ * @param[in] param         Open parameters of audio scenario, it will contain all kinds of settings.
+ * @param[in] is_running    True/False. True is to enable and false is to disable.
+ * @return                  None.
+ */
+
+void ami_hal_audio_status_set_running_flag_detach_mic(audio_scenario_type_t type, mcu2dsp_open_param_t *param, bool is_running);
+#endif
 
 /**
  * @brief                   This function is employed to check clock cg status of the specified audio scenario.

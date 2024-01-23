@@ -15,6 +15,8 @@ AUDIO_MANAGER_SRV_FILES  = $(AUDIO_MANAGER_SRC)/audio_src_srv.c \
                            $(AUDIO_MANAGER_SRC)/peq_setting.c \
                            $(AUDIO_MANAGER_SRC)/ecnr_setting.c \
                            $(AUDIO_MANAGER_SRC)/audio_set_driver.c \
+                           $(AUDIO_MANAGER_SRC)/downlink_sw_gain.c \
+                           $(AUDIO_MANAGER_SRC)/fixrate_control.c \
 
 C_FILES += $(AUDIO_MANAGER_SRV_FILES)
 

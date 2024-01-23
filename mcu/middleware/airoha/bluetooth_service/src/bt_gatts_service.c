@@ -49,6 +49,15 @@
 
 log_create_module(BT_GATTS, PRINT_LEVEL_INFO);
 
+#if _MSC_VER >= 1500
+#pragma comment(linker, "/alternatename:_bt_gatts_service_get_gap_device_name_with_handle=_default_bt_gatts_service_get_gap_device_name_with_handle")
+#elif defined(__GNUC__) || defined(__ICCARM__) || defined(__CC_ARM)
+#pragma weak bt_gatts_service_get_gap_device_name_with_handle = default_bt_gatts_service_get_gap_device_name_with_handle
+#else
+#error "Unsupported Platform"
+#endif
+bt_status_t bt_gatts_service_get_gap_device_name_with_handle(bt_handle_t connection_handle, uint8_t *device_name, uint32_t *length);
+
 #define BT_GATTS_SRV_DEVNAME_MAX_LEN             (248)     /**< The Max length of the Device Name characteristic value. */
 #define BT_GATTS_LE_AUDUIO_DEVNAME_MAX_LEN       (34)
 
@@ -229,6 +238,11 @@ static const bt_sdps_record_t bt_gatts_gatt_sdp_record = {
 /** gatt service collects all bt_gatts_service_rec_t. */
 /** IMPORTAMT: handle:0x0000 is reserved, please start your handle from 0x0001. */
 
+static bt_status_t default_bt_gatts_service_get_gap_device_name_with_handle(bt_handle_t connection_handle, uint8_t *device_name, uint32_t *length)
+{
+    return BT_STATUS_FAIL;
+}
+
 
 /** GAP Service, attribute handle from 0x0001. */
 bt_status_t bt_gatts_service_set_gap_device_name(const uint8_t *device_name, uint16_t length)
@@ -269,6 +283,8 @@ const uint8_t *bt_gatts_service_get_le_audio_device_name(void)
 static uint32_t bt_if_gap_device_name_callback(const uint8_t rw, uint16_t handle, void *data, uint16_t size, uint16_t offset)
 {
     char *device_name = &gatts_device_name[0];
+    char app_device_name[BT_GATTS_SRV_DEVNAME_MAX_LEN] = {0};
+    uint32_t length = BT_GATTS_SRV_DEVNAME_MAX_LEN;
     uint32_t max_size = BT_GATTS_SRV_DEVNAME_MAX_LEN;
     uint32_t str_size = 0;
     uint32_t copy_size = 0;
@@ -281,6 +297,11 @@ static uint32_t bt_if_gap_device_name_callback(const uint8_t rw, uint16_t handle
 #endif
 
     if (BT_GATTS_CALLBACK_READ == rw) {
+
+        if (bt_gatts_service_get_gap_device_name_with_handle(handle, (uint8_t *)app_device_name, &length) == BT_STATUS_SUCCESS) {
+            LOG_MSGID_I(BT_GATTS, "[GATTS][SRV] get device name success by handle = %02x", 1, handle);
+            device_name = app_device_name;
+        }
 
         str_size = strlen(device_name);
         if (size == 0) {
@@ -847,6 +868,27 @@ const bt_gatts_service_t bt_if_gatt_service = {
     .records = bt_if_gatt_service_rec
 };
 
+#ifdef AIR_CUST_PAIR_ENABLE
+static const bt_gatts_service_rec_t *bt_if_gatt_service_without_data_hash_rec[] = {
+    (const bt_gatts_service_rec_t *) &bt_if_gatt_primary_service,
+    (const bt_gatts_service_rec_t *) &bt_if_gatt_char4_service_changed,
+    (const bt_gatts_service_rec_t *) &bt_if_gatt_service_changed,
+    (const bt_gatts_service_rec_t *) &bt_if_gatt_client_config,
+    (const bt_gatts_service_rec_t *) &bt_if_gatt_server_config,
+    (const bt_gatts_service_rec_t *) &bt_if_gatt_char4_client_supported_features,
+    (const bt_gatts_service_rec_t *) &bt_if_gatts_client_supported_features,
+    (const bt_gatts_service_rec_t *) &bt_if_gatt_char4_server_supported_features,
+    (const bt_gatts_service_rec_t *) &bt_if_gatt_server_supported_features,
+};
+
+const bt_gatts_service_t bt_if_gatt_service_without_data_hash = {
+    .starting_handle = BT_GATTS_GATT_SRV_START_HANDLE,
+    .ending_handle = BT_GATTS_GATT_SRV_END_HANDLE - 2,
+    .required_encryption_key_size = 7,
+    .records = bt_if_gatt_service_without_data_hash_rec
+};
+#endif
+
 #else
 /*---------------------------------------------*/
 BT_GATTS_NEW_PRIMARY_SERVICE_16(bt_if_gatt_primary_service, BT_GATT_UUID16_GATT_SERVICE);
@@ -1044,9 +1086,10 @@ static bt_gatts_service_hash_t bt_gatts_service_get_uuid_index(const bt_uuid_t *
     return BT_GATTS_SERVICE_HASH_INVALID_TYPE;
 }
 
-static uint32_t bt_gatts_service_get_attribute_value(const bt_gatts_service_rec_t *record, bt_gatts_service_hash_t type, uint8_t *buffer, uint32_t length)
+static uint32_t bt_gatts_service_get_attribute_value(const bt_gatts_service_rec_t *record, bt_gatts_service_hash_t type, uint8_t *buffer, uint32_t length, uint16_t current_handle)
 {
     uint32_t value_length = 0;
+    const bt_uuid_t *mapping_uuid = g_hash_uuid[type];
     switch (type) {
         case BT_GATTS_SERVICE_HASH_PRIMARY_SERVICE:
         case BT_GATTS_SERVICE_HASH_SECONDARY_SERVICE: {
@@ -1054,28 +1097,41 @@ static uint32_t bt_gatts_service_get_attribute_value(const bt_gatts_service_rec_
                 bt_gatts_primary_service_16_t *primary_service_16 = (bt_gatts_primary_service_16_t *)record;
                 bt_utils_memcpy(buffer, &primary_service_16->uuid16, sizeof(uint16_t));
                 value_length = sizeof(uint16_t);
+                LOG_MSGID_I(BT_GATTS, "[GATTS][SRV] attribute handle:%02x data:%02x-%02x-%02x", 4, current_handle, current_handle, mapping_uuid->uuid16, primary_service_16->uuid16);
             } else if (record->value_len == sizeof(bt_uuid_t)) {
                 bt_gatts_primary_service_128_t *primary_service_128 = (bt_gatts_primary_service_128_t *)record;
                 bt_utils_memcpy(buffer, &primary_service_128->uuid128, sizeof(bt_uuid_t));
                 value_length = sizeof(bt_uuid_t);
+                LOG_MSGID_I(BT_GATTS, "[GATTS][SRV] attribute handle:%02x data:%02x-%02x", 3, current_handle, current_handle, mapping_uuid->uuid16);
+                LOG_HEXDUMP_I(BT_GATTS, "[GATTS][SRV] attribute UUID128:", &mapping_uuid->uuid, sizeof(bt_uuid_t));
             }
         }
         break;
         case BT_GATTS_SERVICE_HASH_INCLUDED_SERVICE: {
             bt_gatts_included_service_t *include_service = (bt_gatts_included_service_t *)record;
+            bt_gatts_included_service_value_t *include_service_value = &include_service->value;
             bt_utils_memcpy(buffer, &include_service->value, sizeof(bt_gatts_included_service_value_t));
             value_length = sizeof(bt_gatts_included_service_value_t);
+            LOG_MSGID_I(BT_GATTS, "[GATTS][SRV] attribute handle:%02x data:%02x-%02x-%02x-%02x-%02x", 6, current_handle, current_handle, mapping_uuid->uuid16,
+                                include_service_value->service_handle, include_service_value->end_group_handle, include_service_value->uuid16);
         }
         break;
         case BT_GATTS_SERVICE_HASH_CHARC: {
             if (record->value_len == sizeof(bt_gatts_characteristic_uuid16_value_t)) {
                 bt_gatts_characteristic_16_t *charc_16 = (bt_gatts_characteristic_16_t *)record;
+                bt_gatts_characteristic_uuid16_value_t *charc_16_value = &charc_16->value;
                 bt_utils_memcpy(buffer, &charc_16->value, sizeof(bt_gatts_characteristic_uuid16_value_t));
                 value_length = sizeof(bt_gatts_characteristic_uuid16_value_t);
+                LOG_MSGID_I(BT_GATTS, "[GATTS][SRV] attribute handle:%02x data:%02x-%02x-%02x-%02x-%02x", 6, current_handle, current_handle, mapping_uuid->uuid16,
+                                charc_16_value->properties, charc_16_value->handle, charc_16_value->uuid16);
             } else if (record->value_len == sizeof(bt_gatts_characteristic_uuid128_value_t)) {
                 bt_gatts_characteristic_128_t *charc_128 = (bt_gatts_characteristic_128_t *)record;
+                bt_gatts_characteristic_uuid128_value_t *charc_128_value = &charc_128->value;
                 bt_utils_memcpy(buffer, &charc_128->value, sizeof(bt_gatts_characteristic_uuid128_value_t));
                 value_length = sizeof(bt_gatts_characteristic_uuid128_value_t);
+                LOG_MSGID_I(BT_GATTS, "[GATTS][SRV] attribute handle:%02x data:%02x-%02x-%02x-%02x", 5, current_handle, current_handle, mapping_uuid->uuid16,
+                                charc_128_value->properties, charc_128_value->handle);
+                LOG_HEXDUMP_I(BT_GATTS, "[GATTS][SRV] attribute UUID128:", &charc_128_value->uuid128.uuid, sizeof(bt_uuid_t));
             }
         }
         break;
@@ -1083,6 +1139,7 @@ static uint32_t bt_gatts_service_get_attribute_value(const bt_gatts_service_rec_
             bt_gatts_characteristic_extended_properties_t *charc_extend_properties = (bt_gatts_characteristic_extended_properties_t *)record;
             bt_utils_memcpy(buffer, &charc_extend_properties->extended_properties, sizeof(uint16_t));
             value_length = sizeof(uint16_t);
+            LOG_MSGID_I(BT_GATTS, "[GATTS][SRV] attribute handle:%02x data:%02x-%02x-%02x", 4, current_handle, current_handle, mapping_uuid->uuid16, charc_extend_properties->extended_properties);
         }
         break;
         case BT_GATTS_SERVICE_HASH_CHARC_USER_DESCRIPTION:
@@ -1091,6 +1148,7 @@ static uint32_t bt_gatts_service_get_attribute_value(const bt_gatts_service_rec_
         case BT_GATTS_SERVICE_HASH_CHARC_FORMAT:
         case BT_GATTS_SERVICE_HASH_AGGREGATE_FORMAT: {
             /* these type values are not hashed */
+            LOG_MSGID_I(BT_GATTS, "[GATTS][SRV] attribute handle:%02x data:%02x-%02x", 3, current_handle, current_handle, mapping_uuid->uuid16);
         }
         break;
         default:
@@ -1108,7 +1166,6 @@ static uint32_t bt_gatts_service_get_service_information(const bt_gatts_service_
     uint8_t *fill_buffer = buffer;
 
     while (current_handle <= service->ending_handle) {
-        uint8_t *p_print_buffer = fill_buffer;
         bt_gatts_service_hash_t type = bt_gatts_service_get_uuid_index(current_record->uuid_ptr);
         if (type == BT_GATTS_SERVICE_HASH_INVALID_TYPE) {
             current_handle++;
@@ -1125,11 +1182,7 @@ static uint32_t bt_gatts_service_get_service_information(const bt_gatts_service_
         total_length += sizeof(uint16_t);
         fill_buffer += sizeof(uint16_t);
         /* fill attribute value */
-        uint32_t value_length = bt_gatts_service_get_attribute_value(current_record, type, fill_buffer, length - total_length);
-        LOG_MSGID_I(BT_GATTS, "[GATTS][SRV] handle %02x:", 1, current_handle);
-        for (uint32_t i = 0; i < value_length + 4; i++) {
-            LOG_MSGID_I(BT_GATTS, "[GATTS][SRV] data %02x:", 1, p_print_buffer[i]);
-        }
+        uint32_t value_length = bt_gatts_service_get_attribute_value(current_record, type, fill_buffer, length - total_length, current_handle);
 
         total_length += value_length;
         fill_buffer += value_length;

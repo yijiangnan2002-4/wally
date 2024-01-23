@@ -54,6 +54,7 @@
 #include "app_line_in_idle_activity.h"
 #endif
 #ifdef AIR_LE_AUDIO_ENABLE
+#include "app_lea_service.h"
 #include "app_lea_service_conn_mgr.h"
 #include "app_le_audio_aird_client.h"
 #endif
@@ -164,8 +165,27 @@ static atci_status_t app_atcmd_handler(atci_parse_cmd_param_t *parse_cmd)
             else if (strstr(cmd, "SWITCH") > 0) {
                 sscanf(cmd, "SWITCH,%d", &cmd_id);
                 bt_handle_t handle = app_lea_conn_mgr_get_handle(cmd_id);
-                APPS_LOG_MSGID_I(LOG_TAG" switch_device, cmd_id=%d handle=0x%04X", 2, cmd_id, handle);
+                APPS_LOG_MSGID_I(LOG_TAG"[LEA] switch_device, cmd_id=%d handle=0x%04X", 2, cmd_id, handle);
                 app_le_audio_aird_client_switch_device(handle, 1);
+            }
+            else if (strstr(cmd, "ADD_BOND") > 0) {
+                int addr_id = 0;
+                int type = 0;
+                sscanf(cmd, "ADD_BOND,%d,%d", &addr_id, &type);
+                uint8_t addr[BT_BD_ADDR_LEN] = {0};
+                memset(addr, (addr_id & 0xFF), BT_BD_ADDR_LEN);
+                APPS_LOG_MSGID_I(LOG_TAG"[LEA] ADD_BOND, addr_id=%02X type=%d", 2, addr_id, type);
+                app_lea_conn_mgr_add_bond_info(BT_ADDR_PUBLIC, addr, APP_LEA_CONN_TYPE_LE_AUDIO);
+                extern void app_lea_conn_mgr_update_reconnect_type(const uint8_t *bd_addr, uint8_t reconnect_type);
+                app_lea_conn_mgr_update_reconnect_type(addr, type);
+                app_lea_service_refresh_advertising(1000);
+            }
+            else if (strstr(cmd, "Disconnect") > 0) {
+                int reason = 0;
+                sscanf(cmd, "Disconnect,%02X", &reason);
+                APPS_LOG_MSGID_I(LOG_TAG"[LEA] Disconnect, reason=0x%02X", 1, reason);
+                app_lea_service_disconnect(FALSE, APP_LE_AUDIO_DISCONNECT_MODE_DISCONNECT_LEA,
+                                           NULL, reason);
             }
 #endif
 #if defined(APPS_LINE_IN_SUPPORT) || defined(AIR_LINE_IN_MIX_ENABLE) || defined(AIR_LINE_OUT_ENABLE)

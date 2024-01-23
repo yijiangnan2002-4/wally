@@ -52,17 +52,17 @@ extern "C" {
 #endif
 
 
-#define VOICE_PROMPT_RT_DEFAULT_DELAY 600     /* Default loop ringtone delay time for the first playment. */
+#define VOICE_PROMPT_RT_DEFAULT_DELAY 600     /* Default loop ringtone delay time for the first play. */
 
 typedef enum {
-    VIOCE_PROMPT_STAT_NONE,
-    VIOCE_PROMPT_STAT_INIT,
-    VIOCE_PROMPT_STAT_PLAYING,
-    VIOCE_PROMPT_STAT_STOPING,
-    VIOCE_PROMPT_STAT_SNIFF_EXITING,
-    VIOCE_PROMPT_STAT_WAIT_IF_UNLOCK,
-    //VIOCE_PROMPT_STAT_RECVED_PLAY, //partner
-    //VIOCE_PROMPT_STAT_RECVED_STOP, //partner
+    VOICE_PROMPT_STAT_NONE,
+    VOICE_PROMPT_STAT_INIT,
+    VOICE_PROMPT_STAT_PLAYING,
+    VOICE_PROMPT_STAT_STOPPING,
+    VOICE_PROMPT_STAT_SNIFF_EXITING,
+    VOICE_PROMPT_STAT_WAIT_IF_UNLOCK,
+    //VOICE_PROMPT_STAT_RECVD_PLAY, //partner
+    //VOICE_PROMPT_STAT_RECVD_STOP, //partner
 } voice_prompt_state_t;
 
 

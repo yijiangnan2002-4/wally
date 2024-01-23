@@ -309,7 +309,7 @@ int32_t lis2dw12_all_sources_get(lis2dw12_ctx_t *ctx,
 }
 /**
   * @brief  usr_offset_x: [set] Accelerometer X-axis user offset correction
-  *                                expressed in two¡¯s complement, weight
+  *                                expressed in two's complement, weight
   *                                depends on bit USR_OFF_W. The value must be
   *                                in the range [-127 127].
   *
@@ -324,7 +324,7 @@ int32_t lis2dw12_usr_offset_x_set(lis2dw12_ctx_t *ctx, uint8_t *buff)
 
 /**
   * @brief  usr_offset_x: [get] Accelerometer X-axis user offset
-  *                                correction expressed in two¡¯s complement,
+  *                                correction expressed in two's complement,
   *                                weight depends on bit USR_OFF_W.
   *                                The value must be in the range [-127 127].
   *
@@ -338,7 +338,7 @@ int32_t lis2dw12_usr_offset_x_get(lis2dw12_ctx_t *ctx, uint8_t *buff)
 }
 /**
   * @brief  usr_offset_y: [set] Accelerometer Y-axis user offset
-  *                                correction expressed in two¡¯s complement,
+  *                                correction expressed in two's complement,
   *                                weight depends on bit USR_OFF_W.
   *                                The value must be in the range [-127 127].
   *
@@ -353,7 +353,7 @@ int32_t lis2dw12_usr_offset_y_set(lis2dw12_ctx_t *ctx, uint8_t *buff)
 
 /**
   * @brief  usr_offset_y: [get] Accelerometer Y-axis user offset
-  *                                correction expressed in two¡¯s complement,
+  *                                correction expressed in two's complement,
   *                                weight depends on bit USR_OFF_W.
   *                                The value must be in the range [-127 127].
   *
@@ -367,7 +367,7 @@ int32_t lis2dw12_usr_offset_y_get(lis2dw12_ctx_t *ctx, uint8_t *buff)
 }
 /**
   * @brief  usr_offset_z: [set] Accelerometer Z-axis user offset
-  *                                correction expressed in two¡¯s complement,
+  *                                correction expressed in two's complement,
   *                                weight depends on bit USR_OFF_W.
   *                                The value must be in the range [-127 127].
   *
@@ -382,7 +382,7 @@ int32_t lis2dw12_usr_offset_z_set(lis2dw12_ctx_t *ctx, uint8_t *buff)
 
 /**
   * @brief  usr_offset_z: [get] Accelerometer Z-axis user offset
-  *                                correction expressed in two¡¯s complement,
+  *                                correction expressed in two's complement,
   *                                weight depends on bit USR_OFF_W.
   *                                The value must be in the range [-127 127].
   *
@@ -449,7 +449,7 @@ int32_t lis2dw12_offset_weight_get(lis2dw12_ctx_t *ctx,
 /**
   * @brief  temperature_raw: [get] Temperature data output register (r).
   *                                L and H registers together express a
-  *                                16-bit word in two¡¯s complement.
+  *                                16-bit word in two's complement.
   *
   * @param  lis2dw12_ctx_t *ctx: read / write interface definitions
   * @param  uint8_t * : buffer that stores data read
@@ -463,7 +463,7 @@ int32_t lis2dw12_temperature_raw_get(lis2dw12_ctx_t *ctx, uint8_t *buff)
 /**
   * @brief  acceleration_raw: [get] Linear acceleration output register.
   *                                 The value is expressed as a 16-bit word
-  *                                 in two¡¯s complement.
+  *                                 in two's complement.
   *
   * @param  lis2dw12_ctx_t *ctx: read / write interface definitions
   * @param  uint8_t * : buffer that stores data read

@@ -175,6 +175,7 @@ void bt_ull_le_am_sync_sidetone_status(bool is_ul_port_streaming);
  */
 void bt_ull_le_am_operate_waiting_list_for_a2dp_resync(bool add_waiting_list);
 bool bt_ull_le_am_is_stop_ongoing(bt_ull_le_am_mode_t mode);
+bool bt_ull_le_am_check_request_start_flag(bt_ull_le_am_mode_t mode);
 
 BT_EXTERN_C_END
 

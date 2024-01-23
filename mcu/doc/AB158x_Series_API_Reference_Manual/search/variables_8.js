@@ -18,11 +18,17 @@ var searchData=
   ['hf_5findicators',['hf_indicators',['../structbt__hfp__hf__indicators__enable__ind__t.html#ac51ab6c4651ee87c57ce3b4f0cd6acd4',1,'bt_hfp_hf_indicators_enable_ind_t']]],
   ['hf_5findicators_5ffeature',['hf_indicators_feature',['../structbt__hfp__hf__indicators__feature__ind__t.html#a4984733eaab73e27afd999e6b87ff126',1,'bt_hfp_hf_indicators_feature_ind_t']]],
   ['hfnmiena',['hfnmiena',['../structhal__mpu__config__t.html#a953ecbbdda55c9109bac008ec7bfbeb8',1,'hal_mpu_config_t']]],
+  ['hfp_5fcall_5fchange',['hfp_call_change',['../structbt__source__srv__call__state__change__t.html#a9de98df13a4ef4d6525eb42d02f05d86',1,'bt_source_srv_call_state_change_t']]],
+  ['hfp_5fcodec',['hfp_codec',['../structbt__source__srv__get__playing__device__codec__t.html#a59c031fef59936bdfc78dffb7e7569c7',1,'bt_source_srv_get_playing_device_codec_t']]],
   ['hfp_5fhandle',['hfp_handle',['../structbt__aws__mce__role__handover__profile__t.html#a3d044637196bca6a4ffbbf93fee4655b',1,'bt_aws_mce_role_handover_profile_t']]],
+  ['hfp_5finit_5fparameter',['hfp_init_parameter',['../structbt__source__srv__init__parameter__t.html#a4fb7bd1f1fdfd7ffd41d4358f5b12cd6',1,'bt_source_srv_init_parameter_t']]],
+  ['hfp_5fnew_5fcall',['hfp_new_call',['../structbt__source__srv__new__call__t.html#ae93bb3242ea92a03188abedab341d70d',1,'bt_source_srv_new_call_t']]],
   ['hfp_5fversion',['hfp_version',['../structbt__hfp__slc__connected__ind__t.html#accf0de2c657bd492a1cb79ceac1fdf48',1,'bt_hfp_slc_connected_ind_t']]],
   ['hi_5flevel_5ftime',['hi_level_time',['../structhal__isink__pwm__mode__t.html#a5aad3a952154f57048e7ccdb7ea494d2',1,'hal_isink_pwm_mode_t']]],
   ['high_5fnthr',['high_nthr',['../structhal__captouch__config__t.html#a2f1e52186fb7c99e4f636f153e1a9bc1',1,'hal_captouch_config_t']]],
   ['high_5fspeed_5fkhz',['high_speed_khz',['../structhal__i3c__master__config__t.html#a200d150b5ae6d6b90d427cb445e8a84b',1,'hal_i3c_master_config_t']]],
   ['high_5fthr',['high_thr',['../structhal__captouch__config__t.html#a32fb73cdcb0c1879fa443a83b798c8e0',1,'hal_captouch_config_t']]],
+  ['hold_5ffeature',['hold_feature',['../structbt__source__srv__hfp__feature__config__t.html#a6b7adc389048b3793641d11157999b89',1,'bt_source_srv_hfp_feature_config_t']]],
+  ['host_5fvolume_5fscale',['host_volume_scale',['../structbt__source__srv__common__feature__config__t.html#a6d926b4dad80e9d030fffb554dda9590',1,'bt_source_srv_common_feature_config_t']]],
   ['hsp_5fhandle',['hsp_handle',['../structbt__aws__mce__role__handover__profile__t.html#abbbbff03197b8b44a9ed294b54db81d3',1,'bt_aws_mce_role_handover_profile_t']]]
 ];

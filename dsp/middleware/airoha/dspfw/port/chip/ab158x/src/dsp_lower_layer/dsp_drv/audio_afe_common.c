@@ -43,6 +43,9 @@
 #include "hal_audio_afe_define.h"
 #include "audio_afe_common.h"
 #include "hal_resource_assignment.h"
+#ifdef MTK_BT_A2DP_ENABLE
+#include "stream_n9_a2dp.h"
+#endif
 #ifdef AIR_BT_CLK_SKEW_ENABLE
 #include "clk_skew.h"
 #endif
@@ -59,6 +62,10 @@
 #include "full_adapt_anc_api.h"
 #endif
 #endif
+#ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+#include "stream_llf.h"
+#endif
+
 #ifdef AIR_BT_CODEC_BLE_ENABLED
 #include "stream_n9ble.h"
 #endif
@@ -80,6 +87,10 @@
 
 #if defined(AIR_WIRED_AUDIO_ENABLE)
 #include "scenario_wired_audio.h"
+#endif
+
+#ifdef AIR_MIXER_STREAM_ENABLE
+#include "stream_mixer.h"
 #endif
 
 #ifdef ENABLE_HWSRC_CLKSKEW
@@ -137,10 +148,12 @@ extern gaming_mode_dongle_ul_handle_t *gaming_mode_dongle_first_ul_handle;
 #ifdef AIR_ICE_DEBUG_ENABLE
 #include "hal_ice_debug.h"
 #endif
-#if 0
-volatile bool g_a2dp_hwsrc_ng_flag = false;
-U32 hwsrc_hal_check, pre_iro;
+
+#ifdef MTK_BT_A2DP_ENABLE
+U32 g_hwsrc_halt_check, g_pre_iro;
+extern volatile bool g_a2dp_hwsrc_ng_flag;
 #endif
+
 void afe_dl_playen_release(SINK sink)
 {
     hal_audio_memory_parameter_t *mem_handle = &(sink->param.audio.mem_handle);
@@ -1080,7 +1093,6 @@ ATTR_TEXT_IN_IRAM void afe_dl1_wireless_mic_rx_interrupt_handler(void)
 #endif
 }
 #endif
-
 ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
 {
     uint32_t pre_offset, isr_interval;
@@ -1093,9 +1105,7 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
     bool empty = true, overflow_check_flag = false;
     bool empty_WriteOffset;
     bool empty_eSCO = false;
-#if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE))
     uint32_t gpt_cnt;
-#endif/* AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE  AIR_DUAL_CHIP_I2S_ENABLE*/
 
     if ((sink == NULL) || (sink->transform == NULL) || (sink->transform->source == NULL)) {
         return;
@@ -1110,6 +1120,7 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
 #endif
 
     source = sink->transform->source;
+
     pStream = DSP_Streaming_Get(source, sink);
 
     MCE_GetBtClk(&bt_clk,&bt_phase, BT_CLK_Offset);
@@ -1118,17 +1129,12 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
         MCE_GetBtClk(&bt_clk,&bt_phase, DCHS_CLK_Offset);
     }
     #endif
-#if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE))
+
     hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &gpt_cnt);
-#endif/* AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE  AIR_DUAL_CHIP_I2S_ENABLE*/
     Clock_Skew_Check_Isr_Status_From_SrcSnk(source, sink, bt_clk, bt_phase);
 
     if (Clock_Skew_ECDC_Is_Enable(source, sink)){
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-        Clock_Skew_Isr_Time_Update(source, sink, bt_clk, bt_phase);
-#else
         Clock_Skew_Isr_Time_Update(source, sink, gpt_cnt, sink->param.audio.count);
-#endif/* AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE  AIR_DUAL_CHIP_I2S_ENABLE*/
     }
 
 #if defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
@@ -1145,6 +1151,9 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
 
 #ifdef ENABLE_HWSRC_ON_MAIN_STREAM
     afe_block_t *afe_block = &sink->param.audio.AfeBlkControl;
+    afe_src_configuration_t src_configuration;
+    memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
+    src_configuration.id = AFE_MEM_ASRC_1;
 #endif
     BUFFER_INFO *buffer_info = &sink->streamBuffer.BufferInfo;
     hw_current_read_idx = WORD_ALIGN(AFE_GET_REG(AFE_DL1_CUR));
@@ -1169,6 +1178,22 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
         afe_block->u4ReadIdx = oro;
         afe_block->u4WriteIdx = owo;
         src_out_data = (owo >= oro) ? (owo - oro) : (owo + osize - oro);
+#ifdef MTK_BT_A2DP_ENABLE
+        if ((source->type == SOURCE_TYPE_A2DP) && (g_a2dp_hwsrc_ng_flag == false)){
+            if ((iro != iwo) && (iro == g_pre_iro)){
+                g_hwsrc_halt_check++;
+                if (g_hwsrc_halt_check == 8){
+                    g_a2dp_hwsrc_ng_flag = true;
+                    g_hwsrc_halt_check = 0;
+                    DSP_MW_LOG_E("HWSRC halt trigger re-sync", 0);
+                    Au_DL_send_reinit_request(MSG2_DSP2CN4_REINIT_AFE_ABNORMAL, TRUE);
+                }
+            }else{
+                g_pre_iro = iro;
+                g_hwsrc_halt_check = 0;
+            }
+        }
+#endif
 #if 0
         if ((source->type == SOURCE_TYPE_A2DP) && (g_a2dp_hwsrc_ng_flag == false)){
             if ((iro != iwo) && (iro == pre_iro)){
@@ -1299,6 +1324,11 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
     if (runtime->irq_exist == false) {
         runtime->irq_exist = true;
 
+#ifdef MTK_BT_A2DP_ENABLE
+        g_a2dp_hwsrc_ng_flag = false;
+        g_hwsrc_halt_check = 0;
+#endif
+
         #if defined(MTK_ANC_ENABLE) && defined(AIR_ANC_SCENARIO_CONTROL_GAIN_ENABLE)
         //anc call mode on
         if ((sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_DL)||(sink->scenario_type == AUDIO_SCENARIO_TYPE_HFP_DL)) {
@@ -1338,11 +1368,6 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
             }
         }
 #endif
-        #ifdef AIR_DCHS_MODE_ENABLE
-        if(dchs_dl_check_scenario_play_en_exist(HAL_AUDIO_AGENT_MEMORY_DL1)){
-            dchs_dl_set_scenario_play_en_exist(HAL_AUDIO_AGENT_MEMORY_DL1, false);
-        }
-        #endif
         DSP_MW_LOG_I("DSP afe dl1 interrupt first: scenario type[%d] size%d Wo:%d Ro:%d bt_clk 0x%x bt_intra:0x%x gpt_time:%d", 7,
                 sink->scenario_type,
                 SourceSize(source),
@@ -1359,6 +1384,7 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
         }
 #endif /* AIR_WIRELESS_MIC_RX_ENABLE */
     } else if (runtime->AfeBlkControl.u4awsflag == true) {
+        #ifndef AIR_MIXER_STREAM_ENABLE
         uint32_t sync_reg_mon1 = afe_get_bt_sync_monitor(AUDIO_DIGITAL_BLOCK_MEM_DL1);
         uint32_t sync_reg_mon2 = afe_get_bt_sync_monitor_state(AUDIO_DIGITAL_BLOCK_MEM_DL1);
         if ((sync_reg_mon1 == 0) || (sync_reg_mon2 == 0)) {
@@ -1371,6 +1397,7 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
                 }
             }
         }
+        #endif
     }
     dl_irq_cnt++;
 
@@ -1379,7 +1406,10 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
 #endif
     {
         /* Update Clk Skew: clk information */
-        if (afe_get_bt_sync_monitor_state(AUDIO_DIGITAL_BLOCK_MEM_DL1)) {
+        #ifdef AIR_MIXER_STREAM_ENABLE
+        if (afe_get_bt_sync_monitor_state(AUDIO_DIGITAL_BLOCK_MEM_DL1))
+        #endif
+        {
             Clock_Skew_Offset_Update(BT_CLK_Offset, source, sink);
             #ifdef AIR_DCHS_MODE_ENABLE
             if(dchs_get_device_mode() == DCHS_MODE_LEFT){
@@ -1412,9 +1442,7 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
                 DSP_MW_LOG_I("[ClkSkew] DL irq_cnt:%d, cp:%d, fs_in:%d, fs_out:%d, cnt:%d", 5, irq_period.irq_counter, cp_samples, runtime->src_rate, runtime->rate, runtime->count);
             }*/
             hal_audio_control_set_value((hal_audio_set_value_parameter_t *)&irq_period, HAL_AUDIO_SET_MEMORY_IRQ_PERIOD);
-#if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE))
             Clock_Skew_Samples_Cnt_Update(source, sink, (U16)irq_period.irq_counter);
-#endif /* AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE  AIR_DUAL_CHIP_I2S_ENABLE*/
 #endif
         }
 
@@ -1427,25 +1455,7 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
         }
         pre_offset = buffer_info->ReadOffset;
 
-        #ifdef AIR_DCHS_MODE_ENABLE
-        if(dchs_get_device_mode() == DCHS_MODE_SINGLE){
-            buffer_info->ReadOffset = hw_current_read_idx - dl_base_addr;
-        }else{
-            if(source->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_OUT || dchs_get_device_mode() == DCHS_MODE_LEFT){
-                buffer_info->ReadOffset = hw_current_read_idx - dl_base_addr;
-            }else{
-                if(dchs_dl_check_scenario_exist(LOCAL_SCENARIO_1)){
-                    if(dchs_dl_check_hwsrc_enable(LOCAL_SCENARIO_1)){
-                    afe_mem_asrc_id_t hwsrc_id = dchs_dl_get_hwsrc_id(LOCAL_SCENARIO_1);
-                        U32 addr_offset = hwsrc_id * 0x100;
-                        buffer_info->ReadOffset = AFE_READ(ASM_CH01_IBUF_RDPNT + addr_offset) - AFE_READ(ASM_IBUF_SADR + addr_offset);
-                    }
-                }
-            }
-        }
-        #else
         buffer_info->ReadOffset = hw_current_read_idx - dl_base_addr;
-        #endif
 
         isr_interval = (pre_offset <= buffer_info->ReadOffset)
                        ? (buffer_info->ReadOffset - pre_offset)
@@ -1482,16 +1492,16 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
 
                 #ifdef AIR_CELT_DEC_V2_ENABLE
                 if(source->param.n9ble.codec_type == BT_BLE_CODEC_VENDOR) {
-                    drop_amount = 108;
+                    drop_amount = g_ble_abr_length + 2*source->param.n9ble.plc_state_len;
                 }
                 #endif
 
-                if(source->param.n9ble.predict_packet_cnt) {
-                    ++source->param.n9ble.predict_packet_cnt;
+                if(source->param.n9ble.predict_packet_cnt[0]) {
+                    ++source->param.n9ble.predict_packet_cnt[0];
                 }
 
-                if(source->param.n9ble.predict_packet_cnt_sub) {
-                    ++source->param.n9ble.predict_packet_cnt_sub;
+                if(source->param.n9ble.predict_packet_cnt[1]) {
+                    ++source->param.n9ble.predict_packet_cnt[1];
                 }
 
                 SourceDrop(source, drop_amount);
@@ -1504,7 +1514,7 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
             if (Clock_Skew_HWSRC_Is_Enable(source,sink)) {
                 if (afe_get_asrc_irq_is_enabled(AFE_MEM_ASRC_1, ASM_IER_IBUF_EMPTY_INTEN_MASK) == false) { //modify for clock skew
                     // afe_set_asrc_irq_enable(AFE_MEM_ASRC_1, false);
-                    hal_src_set_irq_enable(AFE_MEM_ASRC_1, true);
+                    hal_src_set_irq_enable(&src_configuration, true);
                     //DSP_MW_LOG_I("asrc afe_dl1_interrupt_handler asrc_irq_is_enabled %d",1,afe_get_asrc_irq_is_enabled(AFE_MEM_ASRC_1, ASM_IER_IBUF_EMPTY_INTEN_MASK));
                 }
             }
@@ -1550,7 +1560,7 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
             if (Clock_Skew_HWSRC_Is_Enable(source,sink)) {
                 if (afe_get_asrc_irq_is_enabled(AFE_MEM_ASRC_1, ASM_IER_IBUF_EMPTY_INTEN_MASK) == false) { //modify for clock skew
                     // afe_set_asrc_irq_enable(AFE_MEM_ASRC_1, false);
-                    hal_src_set_irq_enable(AFE_MEM_ASRC_1, true);
+                    hal_src_set_irq_enable(&src_configuration, true);
                     //DSP_MW_LOG_I("asrc afe_dl1_interrupt_handler asrc_irq_is_enabled %d",1,afe_get_asrc_irq_is_enabled(AFE_MEM_ASRC_1, ASM_IER_IBUF_EMPTY_INTEN_MASK));
                 }
             }
@@ -1608,7 +1618,7 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
                     empty = false;
                 }
 #ifdef AIR_BT_CODEC_BLE_ENABLED
-                if (source->type == SOURCE_TYPE_N9BLE && source->param.n9ble.context_type == BLE_CONTENT_TYPE_ULL_BLE) {
+                if (source->type == SOURCE_TYPE_N9BLE && ((source->param.n9ble.context_type == BLE_CONTENT_TYPE_ULL_BLE)||(source->param.n9ble.context_type == BLE_CONTEXT_GAME))) {
                     empty = false;
                     //DSP_MW_LOG_W("[BLE] ULL Skip SRAM Empty protect", 0);
                 }
@@ -1644,7 +1654,7 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
                 if (Clock_Skew_HWSRC_Is_Enable(source,sink)) {
                     if (afe_get_asrc_irq_is_enabled(AFE_MEM_ASRC_1, ASM_IER_IBUF_EMPTY_INTEN_MASK) == false) { //modify for clock skew
                     // afe_set_asrc_irq_enable(AFE_MEM_ASRC_1, false);
-                    hal_src_set_irq_enable(AFE_MEM_ASRC_1, true);
+                    hal_src_set_irq_enable(&src_configuration, true);
                         //DSP_MW_LOG_W("asrc afe_dl1_interrupt_handler asrc_irq_is_enabled %d",1,afe_get_asrc_irq_is_enabled(AFE_MEM_ASRC_1, ASM_IER_IBUF_EMPTY_INTEN_MASK));
                     }
                 }
@@ -1671,15 +1681,22 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
                         if (sink->param.audio.channel_num == 4) {
                             memset((void *)(buffer_info->startaddr[1] + buffer_info->ReadOffset), 0, buffer_info->WriteOffset - buffer_info->ReadOffset);
+                            if (sink->param.audio.channel_num == 6) {
+                                memset((void *)(buffer_info->startaddr[2] + buffer_info->ReadOffset), 0, buffer_info->WriteOffset - buffer_info->ReadOffset);
+                            }
                         }
 #endif
                     } else {
                         memset((void *)(dl_base_addr + buffer_info->ReadOffset), 0, buffer_info->length - buffer_info->ReadOffset);
                         memset((void *)dl_base_addr, 0, buffer_info->WriteOffset);
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-                        if (sink->param.audio.channel_num == 4) {
+                        if (sink->param.audio.channel_num >= 4) {
                             memset((void *)(buffer_info->startaddr[1] + buffer_info->ReadOffset), 0, buffer_info->length - buffer_info->ReadOffset);
                             memset((void *)buffer_info->startaddr[1], 0, buffer_info->WriteOffset);
+                            if (sink->param.audio.channel_num >= 6) {
+                                memset((void *)(buffer_info->startaddr[2] + buffer_info->ReadOffset), 0, buffer_info->length - buffer_info->ReadOffset);
+                                memset((void *)buffer_info->startaddr[2], 0, buffer_info->WriteOffset);
+                            }
                         }
 #endif
                     }
@@ -1808,6 +1825,14 @@ ATTR_TEXT_IN_IRAM void afe_dl1_interrupt_handler(void)
         }
     }
 
+    #if 0
+    static uint32_t hwsrc_owo;
+    if (hwsrc_owo == AFE_GET_REG(ASM_CH01_OBUF_WRPNT)) {
+        DSP_MW_LOG_E("0x1160:0x%x", 1, AFE_GET_REG(ASM_CH01_OBUF_WRPNT));
+    }
+    hwsrc_owo = AFE_GET_REG(ASM_CH01_OBUF_WRPNT);
+    #endif
+
 #ifdef ENABLE_HWSRC_ON_MAIN_STREAM
     if (afe_block->u4asrcflag) {
 //#if (AFE_REGISTER_ASRC_IRQ)
@@ -1882,10 +1907,10 @@ uint32_t clock_skew_asrc_get_input_sample_size(void)
     switch (source_type) {
         case SOURCE_TYPE_A2DP:
             codec_cap_ptr = &(sink->transform->source->param.n9_a2dp.codec_info.codec_cap);
-            if ((codec_cap_ptr->type == BT_A2DP_CODEC_VENDOR) && (codec_cap_ptr->codec.vend.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID)){
+            if ((codec_cap_ptr->type == BT_A2DP_CODEC_VENDOR) && ((codec_cap_ptr->codec.vend.codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID) || (codec_cap_ptr->codec.vend.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID))){
                 sample_size = 240;
             }else{
-            sample_size = 128;
+                sample_size = 128;
             }
             break;
 
@@ -1955,11 +1980,9 @@ ATTR_TEXT_IN_IRAM void afe_vul1_interrupt_handler(void)
     bool callback_busy_flag = false;
     bool overflow_flag_vul1 = false;
     uint32_t overflow_ReadOffset;
-#if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE))
     uint32_t gpt_cnt;
-#endif /* AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE  AIR_DUAL_CHIP_I2S_ENABLE*/
-
     SOURCE source = Source_blks[SOURCE_TYPE_AUDIO];
+
     if (source != NULL) {
 
 #if defined(AIR_WIRED_AUDIO_ENABLE)
@@ -1973,22 +1996,21 @@ ATTR_TEXT_IN_IRAM void afe_vul1_interrupt_handler(void)
 
 #ifdef AIR_BT_CLK_SKEW_ENABLE
         MCE_GetBtClk(&bt_clk,&bt_phase, BT_CLK_Offset);
-#if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE))
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &gpt_cnt);
-#endif /* AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE  AIR_DUAL_CHIP_I2S_ENABLE*/
         Clock_Skew_Check_Isr_Status_From_SrcSnk(source, source->transform->sink, bt_clk, bt_phase);
+        if (Clock_Skew_ECDC_Is_Enable(source, source->transform->sink)){
+            Clock_Skew_Isr_Time_Update(source, source->transform->sink, gpt_cnt, source->param.audio.count);
+        }
 #endif
 
         if (Clock_Skew_ECDC_Is_Enable(source, source->transform->sink)){
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-            Clock_Skew_Isr_Time_Update(source, source->transform->sink, bt_clk, bt_phase);
-#else
             Clock_Skew_Isr_Time_Update(source, source->transform->sink, gpt_cnt, source->param.audio.count);
-#endif /* AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE  AIR_DUAL_CHIP_I2S_ENABLE*/
         }
+
 
         AUDIO_PARAMETER *runtime = &source->param.audio;
         BUFFER_INFO *buffer_info = &source->streamBuffer.BufferInfo;
+
         if (runtime->channel_num >= 2) {
             rcdc_ch_num = 2;
         } else {
@@ -2084,9 +2106,7 @@ ATTR_TEXT_IN_IRAM void afe_vul1_interrupt_handler(void)
                DSP_MW_LOG_I("[ClkSkew] Vul cp_samples:%d, count:%d, irq_counter:%d", 3, cp_samples, runtime->count, irq_period.irq_counter);
             }*/
             hal_audio_control_set_value((hal_audio_set_value_parameter_t *)&irq_period, HAL_AUDIO_SET_MEMORY_IRQ_PERIOD);
-#if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE))
             Clock_Skew_Samples_Cnt_Update(source, source->transform->sink, (U16)irq_period.irq_counter);
-#endif /* AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE  AIR_DUAL_CHIP_I2S_ENABLE*/
 #endif
 #endif
             //hal_nvic_save_and_set_interrupt_mask(&mask);
@@ -2255,7 +2275,9 @@ ATTR_TEXT_IN_IRAM void afe_vul1_interrupt_handler(void)
     }
 }
 #endif /* enable dongle */
-
+#if defined(AIR_MULTI_MIC_STREAM_ENABLE) || defined(MTK_ANC_SURROUND_MONITOR_ENABLE) || defined(AIR_WIRED_AUDIO_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADAPTIVE_EQ_ENABLE) || defined (AIR_BT_AUDIO_DONGLE_ENABLE)
+static uint32_t irq_cnt = 0;
+#endif
 ATTR_TEXT_IN_IRAM void afe_subsource_interrupt_handler(void)
 {
 #if defined(AIR_MULTI_MIC_STREAM_ENABLE) || defined(MTK_ANC_SURROUND_MONITOR_ENABLE) || defined(AIR_WIRED_AUDIO_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADAPTIVE_EQ_ENABLE) || defined (AIR_BT_AUDIO_DONGLE_ENABLE)
@@ -2361,6 +2383,13 @@ ATTR_TEXT_IN_IRAM void afe_subsource_interrupt_handler(void)
         if (afe_offset_overflow_check(pre_offset, buffer_info, false)) {
             DSP_MW_LOG_W("DSP Sub-Source:%d OFFSET_OVERFLOW ! pre:0x%x, w:0x%x, r:0x%x", 4, source_type, pre_offset, buffer_info->WriteOffset, buffer_info->ReadOffset);
             buffer_info->ReadOffset = (buffer_info->ReadOffset + (buffer_info->length) / 2) % buffer_info->length;
+            irq_cnt++;
+        } else {
+            irq_cnt = 0;
+        }
+
+        if(irq_cnt >= 10) {
+            assert(false);
         }
 
         /* Stream handler */
@@ -2524,26 +2553,9 @@ ATTR_TEXT_IN_IRAM void afe_dl2_interrupt_handler(void)
             hw_current_read_idx = word_size_align((S32) dl_base_addr);
         }
         pre_offset = buffer_info->ReadOffset;
-        #ifdef AIR_DCHS_MODE_ENABLE
-        if(dchs_get_device_mode() == DCHS_MODE_SINGLE){
-            buffer_info->ReadOffset = hw_current_read_idx - dl_base_addr;
-        }else{
-            if(dchs_get_device_mode() == DCHS_MODE_RIGHT){
-                if(dchs_dl_check_scenario_exist(LOCAL_SCENARIO_2)){
-                    if(dchs_dl_check_hwsrc_enable(LOCAL_SCENARIO_2)){
-                        afe_mem_asrc_id_t hwsrc_id = dchs_dl_get_hwsrc_id(LOCAL_SCENARIO_2);
-                        U32 addr_offset = hwsrc_id * 0x100;
-                        buffer_info->ReadOffset = AFE_READ(ASM_CH01_IBUF_RDPNT + addr_offset) - AFE_READ(ASM_IBUF_SADR + addr_offset);
-                        //DSP_MW_LOG_I("[DCHS DL]buffer_info->ReadOffset=%d,pre_offset=%d,iwo=%d,addr_offset=0x%x",4,buffer_info->ReadOffset , pre_offset,AFE_READ(ASM_CH01_IBUF_WRPNT + addr_offset) - AFE_READ(ASM_IBUF_SADR + addr_offset),addr_offset);
-                    }
-                }
-            }else if(dchs_get_device_mode() == DCHS_MODE_LEFT){
-                buffer_info->ReadOffset = hw_current_read_idx - dl_base_addr;
-            }
-        }
-        #else
+
         buffer_info->ReadOffset = hw_current_read_idx - dl_base_addr;
-        #endif
+
         if (dl_base_addr != NULL) { //Prevent to access null pointer when the last isr is executed after HW is turned off and pointer is cleared
             /*Clear up last time used memory */
             if (buffer_info->ReadOffset >= pre_offset) {
@@ -2629,8 +2641,12 @@ ATTR_TEXT_IN_IRAM void afe_dl2_interrupt_handler(void)
                 g_hwsrc_halt_count = 0;
                 g_log_ro = pre_offset;
             }
-            DSP_MW_LOG_W("TEST halt count %u", 1, g_hwsrc_halt_count);
-            g_hwsrc_halt_count ++;
+            uint32_t iro = AFE_READ(ASM2_CH01_IBUF_RDPNT) - AFE_READ(ASM2_IBUF_SADR);
+            uint32_t iwo = AFE_READ(ASM2_CH01_IBUF_WRPNT) - AFE_READ(ASM2_IBUF_SADR);
+            if(iro != iwo){
+                DSP_MW_LOG_W("TEST halt count %u", 1, g_hwsrc_halt_count);
+                g_hwsrc_halt_count ++;
+            }
         }
         if (g_hwsrc_halt_count > 30) { // over 150ms
             DSP_MW_LOG_W("TEST hwsrc iro %d iwo %d oro %d owo %d ifr 0x%x ier 0x%x gen:0x%x ch01:0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x", 16,
@@ -2724,25 +2740,8 @@ ATTR_TEXT_IN_IRAM void afe_dl3_interrupt_handler(void)
             hw_current_read_idx = WORD_ALIGN(dl_base_addr);
         }
         pre_offset = buffer_info->ReadOffset;
-        #ifdef AIR_DCHS_MODE_ENABLE
-        if(dchs_get_device_mode() == DCHS_MODE_SINGLE){
-            buffer_info->ReadOffset = hw_current_read_idx - dl_base_addr;
-        }else{
-            if(dchs_get_device_mode() == DCHS_MODE_RIGHT){
-                if(dchs_dl_check_scenario_exist(LOCAL_SCENARIO_1)){
-                    if(dchs_dl_check_hwsrc_enable(LOCAL_SCENARIO_1)){
-                    afe_mem_asrc_id_t hwsrc_id = dchs_dl_get_hwsrc_id(LOCAL_SCENARIO_1);
-                        U32 addr_offset = hwsrc_id * 0x100;
-                        buffer_info->ReadOffset = AFE_READ(ASM_CH01_IBUF_RDPNT + addr_offset) - AFE_READ(ASM_IBUF_SADR + addr_offset);
-                    }
-                }
-            }else if(dchs_get_device_mode() == DCHS_MODE_LEFT){
-                buffer_info->ReadOffset = hw_current_read_idx - dl_base_addr;
-            }
-        }
-        #else
+
         buffer_info->ReadOffset = hw_current_read_idx - dl_base_addr;
-        #endif
 
         #if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE)
         if ((sink->param.audio.scenario_id == AUDIO_TRANSMITTER_ADVANCED_PASSTHROUGH) && (sink->param.audio.scenario_sub_id == AUDIO_TRANSMITTER_ADVANCED_PASSTHROUGH_HEARING_AID))
@@ -2771,9 +2770,27 @@ ATTR_TEXT_IN_IRAM void afe_dl3_interrupt_handler(void)
                 }
                 if (buffer_info->WriteOffset > buffer_info->ReadOffset) {
                     memset((void *)hw_current_read_idx, 0, buffer_info->WriteOffset - buffer_info->ReadOffset);
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+                    if (sink->param.audio.channel_num == 4) {
+                        memset((void *)(buffer_info->startaddr[1] + buffer_info->ReadOffset), 0, buffer_info->WriteOffset - buffer_info->ReadOffset);
+                        if (sink->param.audio.channel_num == 6) {
+                            memset((void *)(buffer_info->startaddr[2] + buffer_info->ReadOffset), 0, buffer_info->WriteOffset - buffer_info->ReadOffset);
+                        }
+                    }
+#endif
                 } else {
                     memset((void *)hw_current_read_idx, 0, buffer_info->length - buffer_info->ReadOffset);
                     memset((void *)dl_base_addr, 0, buffer_info->WriteOffset);
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+                    if (sink->param.audio.channel_num >= 4) {
+                        memset((void *)(buffer_info->startaddr[1] + buffer_info->ReadOffset), 0, buffer_info->length - buffer_info->ReadOffset);
+                        memset((void *)buffer_info->startaddr[1], 0, buffer_info->WriteOffset);
+                        if (sink->param.audio.channel_num >= 6) {
+                            memset((void *)(buffer_info->startaddr[2] + buffer_info->ReadOffset), 0, buffer_info->length - buffer_info->ReadOffset);
+                            memset((void *)buffer_info->startaddr[2], 0, buffer_info->WriteOffset);
+                        }
+                    }
+#endif
                 }
         } else if (buffer_info->ReadOffset != buffer_info->WriteOffset) {
             buffer_info->bBufferIsFull = FALSE;
@@ -2905,24 +2922,14 @@ ATTR_TEXT_IN_IRAM void afe_dl12_interrupt_handler(void)
         runtime->irq_exist = true;
         DSP_MW_LOG_I("DSP afe dl12 interrupt start\r\n", 0);
         afe_dl_playen_release(sink);
-        #ifdef AIR_DCHS_MODE_ENABLE
-        if(dchs_get_device_mode() != DCHS_MODE_SINGLE){
-            if(dchs_dl_check_scenario_play_en_exist(HAL_AUDIO_AGENT_MEMORY_DL12)){
-                dchs_play_en_timeout_flag = true;
-                dchs_dl_set_scenario_play_en_exist(HAL_AUDIO_AGENT_MEMORY_DL12, false);
-                dchs_dl_play_en_disable(HAL_AUDIO_AGENT_MEMORY_DL12);
-                dchs_send_unlock_sleep_msg(true);
-            }
-        }
-        #endif
     }
     if (1) {//afe_get_memory_path_enable(AUDIO_DIGITAL_BLOCK_MEM_DL12)
         //DSP_MW_LOG_I("TEST TT\r\n", 0);
         //hal_nvic_save_and_set_interrupt_mask(&mask);
-        #ifdef AIR_DCHS_MODE_ENABLE
-        g_dchs_dl_process_count ++;
-        g_dchs_dl_data_mix_count ++;
-        //AUDIO_ASSERT((g_dchs_dl_process_count <= 20) && "[DCHS DL] dl12 process count > 20");
+        #ifdef AIR_MIXER_STREAM_ENABLE
+        g_mixer_stream_mix_count ++;
+        g_mixer_stream_process_count ++;
+        //DSP_MW_LOG_W("[Mixer Stream]wo:%d,ro:%d,length:%d,g_mixer_stream_process_count:%d", 4, buffer_info->WriteOffset, buffer_info->ReadOffset, buffer_info->length,g_mixer_stream_process_count);
         #endif
         if (hw_current_read_idx == 0) { //should chk setting if =0
             hw_current_read_idx = WORD_ALIGN(dl_base_addr);
@@ -2947,8 +2954,8 @@ ATTR_TEXT_IN_IRAM void afe_dl12_interrupt_handler(void)
             } else {
                 buffer_info->WriteOffset = (buffer_info->ReadOffset * 2 + (buffer_info->length - pre_offset)) % buffer_info->length;
             }
-            #ifdef AIR_DCHS_MODE_ENABLE
-            if(sink->scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL){
+            #ifdef AIR_MIXER_STREAM_ENABLE
+            if(sink->scenario_type == AUDIO_SCENARIO_TYPE_MIXER_STREAM){
                 sink->param.audio.sram_empty_fill_size += ((buffer_info->WriteOffset >= pre_write_offset) ? (buffer_info->WriteOffset - pre_write_offset) : (buffer_info->length - pre_write_offset + buffer_info->WriteOffset));
                 DSP_MW_LOG_W("[DCHS DL] DL12 SRAM Empty, fill silence:%d", 1, ((buffer_info->WriteOffset >= pre_write_offset) ? (buffer_info->WriteOffset - pre_write_offset) : (buffer_info->length - pre_write_offset + buffer_info->WriteOffset)));
             }
@@ -3194,7 +3201,7 @@ bool afe_audio_device_ready(SOURCE_TYPE source_type, SINK_TYPE sink_type)
     volatile SINK sink = Sink_blks[sink_type];
     if (source_type == SOURCE_TYPE_N9SCO && sink_type == SINK_TYPE_AUDIO) { //esco DL
         //check hwsrc2 rx tracking ready
-        if (sink->param.audio.audio_device == HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE) {
+        if (sink->param.audio.audio_device == HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE && sink->param.audio.clk_skew_mode == CLK_SKEW_DISSABLE) {
 #ifdef AIR_HWSRC_RX_TRACKING_ENABLE
             DSP_MW_LOG_I("[HWSRC]: check ASM2_FREQUENCY_2 = 0x%x \r\n", 1, AFE_READ(ASM2_FREQUENCY_2));
             if (AFE_READ(ASM2_FREQUENCY_2) == 0xa00000 || AFE_READ(ASM2_FREQUENCY_2) == 0x0) {
@@ -3242,3 +3249,18 @@ void dsp_sync_callback_adapt_anc(cm4_dsp_audio_sync_action_type_t request_action
     }
 }
 #endif
+
+#ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+void dsp_sync_callback_llf(cm4_dsp_audio_sync_action_type_t request_action_id, void *user_data)
+{
+    cm4_dsp_audio_sync_request_param_t *sync_info;
+    sync_info = (cm4_dsp_audio_sync_request_param_t*)user_data;
+
+    if (request_action_id == MCU2DSP_SYNC_REQUEST_SET_MUTE) {
+        bool mute = sync_info->vol_gain_info.gain ? false : true;
+        dsp_llf_mute_dl(mute);
+    }
+    DSP_MW_LOG_I("[LLF SYNC] action:%u, mute:%u", 2, request_action_id, (sync_info->vol_gain_info.gain ? 0 : 1));
+}
+#endif
+

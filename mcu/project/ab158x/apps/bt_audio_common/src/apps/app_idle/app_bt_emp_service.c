@@ -45,6 +45,7 @@
 #include "app_bt_emp_service.h"
 #include "apps_debug.h"
 #include "apps_events_event_group.h"
+#include "app_bt_takeover_service.h"
 
 #ifdef MTK_AWS_MCE_ENABLE
 #include "bt_aws_mce_srv.h"
@@ -109,7 +110,11 @@ static uint8_t app_bt_emp_srv_get_bt_cm_num(bool enable)
         bt_cm_num += 1;
     }
     if (enable) {
+#ifdef AIR_3_LINK_MULTI_POINT_ENABLE
+        bt_cm_num += 2;
+#else
         bt_cm_num += 1;
+#endif
     }
     return bt_cm_num;
 }
@@ -201,7 +206,7 @@ static void app_bt_emp_srv_update_nvkey(bool enable)
                         APPS_EVENTS_INTERACTION_MULTI_POINT_STATE_CHANGED, NULL, 0, NULL, 0);
 }
 
-#ifdef AIR_XIAOAI_ENABLE
+#if 0 //#ifdef AIR_XIAOAI_ENABLE
 static bool app_bt_emp_disconnect_edr(const uint8_t *keep_addr)
 {
     if (keep_addr == NULL) {
@@ -249,9 +254,8 @@ static void app_bt_emp_disconnect_non_va_link()
     bool is_le_audio_mma = conn_info.is_le_audio_mma;
     bool is_ble = conn_info.is_ble;
     uint8_t *addr = conn_info.phone_addr;
-    APPS_LOG_MSGID_I(LOG_TAG" disconnect_non_va_link, xiaoai_state=%d is_ble=%d is_le_audio_mma=%d addr=%02X:%02X:%02X:%02X:%02X:XX",
-                     8, xiaoai_state, is_ble, is_le_audio_mma, addr[5], addr[4], addr[3],
-                     addr[2], addr[1]);
+    APPS_LOG_MSGID_I(LOG_TAG" disconnect_non_va_link, xiaoai_state=%d is_ble=%d is_le_audio_mma=%d addr=%08X%04X",
+                     5, xiaoai_state, is_ble, is_le_audio_mma, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
     if (xiaoai_state == XIAOAI_STATE_CONNECTED) {
         if (!is_ble) {
             // SPP - Disconnect All LEA
@@ -347,7 +351,7 @@ bool app_bt_emp_switch_enable(bool enable)
     return TRUE;
 }
 
-bool app_bt_emp_enable(bool enable)
+bool app_bt_emp_enable(bool enable, bool disconnect_one_when_off)
 {
     if (app_bt_emp_enable_flag == enable) {
         APPS_LOG_MSGID_I(LOG_TAG" enable, already enable=%d", 1, enable);
@@ -385,6 +389,18 @@ bool app_bt_emp_enable(bool enable)
         goto exit;
     }
 
+#if 1
+    APPS_LOG_MSGID_I(LOG_TAG" enable, enable=%d disconnect_one_when_off=%d", 2, enable, disconnect_one_when_off);
+    const bt_device_manager_link_record_t *link_record = bt_device_manager_link_record_get_connected_link();
+    if (!enable && link_record->connected_num == 2 && disconnect_one_when_off) {
+        // Disconnect one, not keep XiaoAI MMA Link
+        app_bt_takeover_service_disconnect_one();
+    }
+
+    // Check keep_phone_addr (now only keep one SP connection)
+    bt_bd_addr_t keep_phone_addr[1] = {{0}};
+    uint8_t list_size = 0;
+#else
     // Check keep_phone_addr (now only keep one SP connection)
     bt_bd_addr_t keep_phone_addr[1] = {{0}};
     uint8_t list_size = 0;
@@ -395,9 +411,8 @@ bool app_bt_emp_enable(bool enable)
         bool is_le_audio_mma = conn_info.is_le_audio_mma;
         bool is_ble = conn_info.is_ble;
         uint8_t *addr = conn_info.phone_addr;
-        APPS_LOG_MSGID_I(LOG_TAG"[XIAOAI_EMP_OFF] enable, xiaoai_state=%d is_ble=%d is_le_audio_mma=%d addr=%02X:%02X:%02X:%02X:%02X:XX",
-                         8, xiaoai_state, is_ble, is_le_audio_mma,
-                         addr[5], addr[4], addr[3], addr[2], addr[1]);
+        APPS_LOG_MSGID_I(LOG_TAG"[XIAOAI_EMP_OFF] enable, xiaoai_state=%d is_ble=%d is_le_audio_mma=%d addr=%08X%04X",
+                         5, xiaoai_state, is_ble, is_le_audio_mma, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
         if (xiaoai_state == XIAOAI_STATE_CONNECTED) {
             if (!is_ble) {
                 // XiaoAI Android SPP, disconnect all LEA and other EDR
@@ -419,14 +434,15 @@ bool app_bt_emp_enable(bool enable)
         }
 #endif
     }
+#endif
 
     // Count bt_cm_number
     uint8_t bt_cm_num = app_bt_emp_srv_get_bt_cm_num(enable);
-    // BT CM set max connection_number
+    // BT CM set max connection_number, but not disconnect when 4->3 EMP OFF
     bt_status_t status = bt_cm_set_max_connection_number(bt_cm_num, keep_phone_addr, list_size, TRUE);
     uint8_t *addr = (uint8_t *)keep_phone_addr;
-    APPS_LOG_MSGID_I(LOG_TAG" enable, bt_cm_num=%d %02X:%02X:%02X:%02X:%02X:XX list_size=%d status=0x%08X",
-                     8, bt_cm_num, addr[5], addr[4], addr[3], addr[2], addr[1],
+    APPS_LOG_MSGID_I(LOG_TAG" enable, bt_cm_num=%d addr=%08X%04X list_size=%d status=0x%08X",
+                     5, bt_cm_num, *((uint32_t *)(addr + 2)), *((uint16_t *)addr),
                      list_size, status);
     if (status != BT_STATUS_SUCCESS) {
         goto exit;
@@ -444,16 +460,6 @@ exit:
         APPS_LOG_MSGID_E(LOG_TAG" enable, enable=%d fail", 1, enable);
     }
     return success;
-}
-
-void app_bt_emp_reset_max_conn_num()
-{
-    uint8_t bt_cm_num = app_bt_emp_srv_get_bt_cm_num(app_bt_emp_enable_flag);
-
-    bt_bd_addr_t keep_phone_addr[1] = {{0}};
-    bt_status_t status = bt_cm_set_max_connection_number(bt_cm_num, keep_phone_addr, 0, TRUE);
-    APPS_LOG_MSGID_I(LOG_TAG" reinit, emp_enable_flag=%d bt_cm num=%d status=0x%08X",
-                     3, app_bt_emp_enable_flag, bt_cm_num, status);
 }
 
 bool app_bt_emp_srv_user_register(app_bt_emp_srv_user_id user_id, app_bt_emp_switch_allow_cb_t func)

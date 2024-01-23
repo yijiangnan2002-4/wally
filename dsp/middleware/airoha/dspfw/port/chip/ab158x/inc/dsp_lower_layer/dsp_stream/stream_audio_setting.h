@@ -72,6 +72,7 @@ typedef struct Audio_Fade_Ctrl_u {
 } PACKED Audio_Fade_Ctrl_t, *Audio_Fade_Ctrl_Ptr;
 
 typedef struct Audio_Source_Config_u {
+    clkskew_mode_t clkskew_mode;
     U16  Frame_Size;
     U8   Buffer_Frame_Num;
     BOOL Mute_Flag;
@@ -82,6 +83,7 @@ typedef struct Audio_Source_Config_u {
 } Audio_Source_config_t;
 
 typedef struct Audio_Sink_Config_u {
+    clkskew_mode_t clkskew_mode;
     U16  Frame_Size;
     U8   Buffer_Frame_Num;
     U8   Target_Q_Frame_Num;
@@ -93,9 +95,6 @@ typedef struct Audio_Sink_Config_u {
     U8   Zero_Padding_Cnt;
     U8   Software_Channel_Num;
     afe_fetch_format_per_sampel_t FetchFormatPerSample;
-#ifdef ENABLE_HWSRC_CLKSKEW
-    clkskew_mode_t clkskew_mode;
-#endif
 } Audio_Sink_config_t;
 
 typedef struct Audio_VP_Config_u {

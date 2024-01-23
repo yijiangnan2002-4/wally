@@ -45,7 +45,9 @@
 #endif
 #include "stream_n9sco.h"
 
-
+#ifdef AIR_BTA_IC_PREMIUM_G2
+#include "hal_resource_assignment.h"
+#endif
 /**
  *
  *  Definition
@@ -294,5 +296,40 @@ VOID DSP_CTRL_AudioAnaInitialize(VOID)
     AFE_WRITE(AUDENC_ANA_CON43, 0x400);
     AFE_WRITE(AUDDEC_ANA_CON9, 0x2);
     // ANA_SET_REG((AUDENC_ANA_CON43), (0x04 << AUDENC_ANA_CON43_RG_AUDUL_ADC23_REV0_POS) | (0x00 << AUDENC_ANA_CON43_RG_AUDUL_PGA23_REV0_POS), AUDENC_ANA_CON43_RG_AUDUL_ADC23_REV0_MASK | AUDENC_ANA_CON43_RG_AUDUL_PGA23_REV0_MASK);
+}
+#endif
+
+#if (defined AIR_BTA_IC_PREMIUM_G2) || (defined AIR_BTA_IC_STEREO_HIGH_G3)
+extern bool hal_audio_device_set_mic_bias(hal_audio_mic_bias_parameter_t *mic_bias);
+VOID DSP_CTRL_AudioMicBiasControl(hal_ccni_message_t msg, hal_ccni_message_t *ack)
+{
+    UNUSED(ack);
+    mcu2dsp_open_param_p           open_param = NULL;
+    hal_audio_mic_bias_parameter_t mic_bias   = {0};
+    bool                           control    = msg.ccni_message[0] & 0xFFFF;
+    /* remap to non-cacheable address */
+    if (msg.ccni_message[1] == 0) {
+        AUDIO_ASSERT(0 && "Invalid open parameter pointer from mcu side. $DSP_CTRL_AudioMicBiasControl");
+        return;
+    }
+    open_param = (mcu2dsp_open_param_p)hal_memview_cm4_to_dsp0(msg.ccni_message[1]);
+    /* copy parameters from mcu to dsp */
+    for (uint8_t i = 0; i < 5; i++) {
+        mic_bias.bias_voltage[i] = open_param->stream_in_param.afe.bias_voltage[i];
+    }
+    mic_bias.bias1_2_with_LDO0 = open_param->stream_in_param.afe.bias1_2_with_LDO0;
+    mic_bias.bias_select       = open_param->stream_in_param.afe.bias_select;
+    mic_bias.enable            = control;
+    hal_audio_device_set_mic_bias(&mic_bias);
+    HAL_AUDIO_LOG_INFO("[DSP_CTRL] mic bias control, enable %d, voltage %d, %d, %d, %d, %d, bias1_2_with_LDO0 %d, bias_select %d", 8,
+        mic_bias.enable,
+        mic_bias.bias_voltage[0],
+        mic_bias.bias_voltage[1],
+        mic_bias.bias_voltage[2],
+        mic_bias.bias_voltage[3],
+        mic_bias.bias_voltage[4],
+        mic_bias.bias1_2_with_LDO0,
+        mic_bias.bias_select
+        );
 }
 #endif

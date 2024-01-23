@@ -76,7 +76,7 @@ void bt_ull_set_music_enable(uint32_t handle, bt_avm_role_t role, bool enable, u
     uint16_t uplink_retry;
     if (BT_ULL_UPLINK_MAX == ctx->ul_latency) {
         uplink_retry = 18;
-    } else if (BT_ULL_DOWNLINK_LIMIATTION == ctx->ul_latency) {
+    } else if (BT_ULL_DOWNLINK_LIMITATION == ctx->ul_latency) {
         uplink_retry = 2;   // air latency: 7.5ms
     } else {
         uplink_retry = 4;   // air latency: 15ms

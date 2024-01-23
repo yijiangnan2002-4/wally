@@ -287,19 +287,25 @@ bool bt_conn_component_app_interaction_event_proc(ui_shell_activity_t *self, uin
     }
 #endif
 #if defined(AIR_MULTI_POINT_ENABLE) && defined(MTK_AWS_MCE_ENABLE)
-    bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
-    if (event_id == APPS_EVENTS_INTERACTION_MULTIPOINT_SWITCH_AWS
-        && role == BT_AWS_MCE_ROLE_PARTNER) {
+    if (event_id == APPS_EVENTS_INTERACTION_MULTIPOINT_SWITCH_AWS) {
         /* Only received by partner when AWS is failed to switch to another remote device in 3s.*/
         home_screen_local_context_type_t *local_ctx = (home_screen_local_context_type_t *)self->local_context;
         APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY" Partner aws switch fail", 0);
         local_ctx->connection_state = false;
         memset(&(local_ctx->conn_device), 0, sizeof(app_conn_device_info_t) * APP_CONN_MAX_DEVICE_NUM);
-        if (local_ctx->state == APP_HOME_SCREEN_STATE_IDLE && (!local_ctx->bt_power_off)) {
-            voice_prompt_param_t vp = {0};
-            vp.vp_index = VP_INDEX_DEVICE_DISCONNECTED;
-            voice_prompt_play(&vp, NULL);
-            //apps_config_set_vp(VP_INDEX_DEVICE_DISCONNECTED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
+#if defined(AIR_SPEAKER_ENABLE)
+        bt_aws_mce_srv_mode_t curr_mode = bt_aws_mce_srv_get_mode();
+        bt_aws_mce_role_t curr_role = bt_device_manager_aws_local_info_get_role();
+        if (curr_mode != BT_AWS_MCE_SRV_MODE_SINGLE && curr_mode != BT_AWS_MCE_SRV_MODE_SINGLE
+            && (curr_role & (BT_AWS_MCE_ROLE_CLIENT | BT_AWS_MCE_ROLE_PARTNER)))
+#endif
+        {
+            if (local_ctx->state == APP_HOME_SCREEN_STATE_IDLE && (!local_ctx->bt_power_off)) {
+                voice_prompt_param_t vp = {0};
+                vp.vp_index = VP_INDEX_DEVICE_DISCONNECTED;
+                voice_prompt_play(&vp, NULL);
+                //apps_config_set_vp(VP_INDEX_DEVICE_DISCONNECTED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
+            }
         }
         bt_conn_component_update_mmi();
         ret = true;

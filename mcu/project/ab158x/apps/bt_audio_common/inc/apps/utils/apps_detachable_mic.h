@@ -43,9 +43,11 @@
 #ifndef __APPS_DETACHABLE_MIC_H__
 #define __APPS_DETACHABLE_MIC_H__
 
+#include  "hal_audio_internal.h"
 
 void app_detachable_mic_switch();
 void app_detachable_mic_det_init();
+void detachable_mic_set_mic_type(voice_mic_type_t mic);
 
 #endif //__APPS_DETACHABLE_MIC_H__
 #endif //AIR_AUDIO_DETACHABLE_MIC_ENABLE

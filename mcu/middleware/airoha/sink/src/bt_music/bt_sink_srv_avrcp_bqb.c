@@ -318,10 +318,10 @@ static int32_t bt_sink_srv_avrcp_bqb_get_folder_items_cnf(bt_avrcp_browse_get_fo
     int32_t ret = 0;
     bool change_path = 0;
     bool get_item_attr = 0;
-    uint16_t length = 0;
+    uint32_t length = 0;
     uint8_t *name = NULL;
     bt_avrcp_get_folder_items_response_value_t *item = NULL;
-    uint16_t num_items = 0;
+    uint32_t num_items = 0;
     uint8_t folder_idx = 0;
 
     if (status != BT_STATUS_SUCCESS) {
@@ -387,7 +387,7 @@ static int32_t bt_sink_srv_avrcp_bqb_get_folder_items_cnf(bt_avrcp_browse_get_fo
             } else {
                 uint8_t num_attr;
                 bt_avrcp_attribute_value_entry_t *attr;
-                uint16_t value_len;
+                uint32_t value_len;
                 uint8_t *value;
                 bt_sink_srv_report_id("[sink][music][avrcp][BQB] get_folder_items_cnf-num_items:0x%x name_len 0x%04x", 2, num_items, item->media_element_item.displayable_name_length);
                 length = item->media_element_item.displayable_name_length;
@@ -456,10 +456,10 @@ static int32_t bt_sink_srv_avrcp_bqb_get_folder_items_cnf(bt_avrcp_browse_get_fo
 static int32_t bt_sink_srv_avrcp_bqb_set_browsed_player_cnf(bt_avrcp_browse_set_browsed_player_cnf_t *cnf, bt_status_t status)
 {
     int32_t ret = 0;
-    bt_avrcp_folder_name_pair_t *folder_path;
-    uint8_t folder_depth;
-    uint16_t length;
-    uint8_t *name;
+    bt_avrcp_folder_name_pair_t *folder_path = NULL;
+    uint32_t folder_depth = 0;
+    uint32_t length = 0;
+    uint8_t *name = NULL;
 
     if (status != BT_STATUS_SUCCESS) {
         return ret;
@@ -536,9 +536,9 @@ static int32_t bt_sink_srv_avrcp_bqb_change_path_cnf(bt_avrcp_browse_change_path
 static int32_t bt_sink_srv_avrcp_bqb_get_item_attributes_cnf(bt_avrcp_browse_get_item_attributes_cnf_t *cnf, bt_status_t status)
 {
     int32_t ret = 0;
-    uint8_t num;
+    uint32_t num = 0;
     bt_avrcp_attribute_value_entry_t *attr;
-    uint16_t i;
+    uint32_t i = 0;
     uint8_t *value;
 
     if (status != BT_STATUS_SUCCESS) {
@@ -995,7 +995,7 @@ static int32_t bt_sink_srv_avrcp_bqb_get_item_attributes_ind(bt_avrcp_browse_get
     uint32_t *attr = ind->attribute_list;
     uint8_t *dataPtr = NULL;
     uint8_t *dataPtrBackup = NULL;
-    uint8_t num_attr = ind->num_of_attributes;
+    uint32_t num_attr = ind->num_of_attributes;
 
     if (status != BT_STATUS_SUCCESS) {
         return ret;
@@ -1357,7 +1357,7 @@ bt_status_t bt_sink_srv_avrcp_bqb_common_cb(bt_msg_type_t msg, bt_status_t statu
                 3, status, set_vol->handle, set_vol->volume);
 
             /* To do: Adjust system volume here */
-            bt_avrcp_send_set_absoulte_volume_response(set_vol->handle, set_vol->volume);
+            bt_avrcp_send_set_absolute_volume_response(set_vol->handle, set_vol->volume);
 
             break;
         }

@@ -32,30 +32,10 @@
  * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
  */
 
-
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    usbms_adap.h
- *
- * Project:
- * --------
- *   Maui_Software
- *
- * Description:
- * ------------
- *   This file intends for usb adaption layer for mass storage definitions
- *
- * Author:
- * -------
- *   Jensen Hu
- *   CJung Chen
- *
- *****************************************************************************/
-
 #ifndef USBMS_ADAP_H
 #define USBMS_ADAP_H
+
+#ifdef AIR_USB_MSC_ENABLE
 
 /* C library */
 #include <stdbool.h>
@@ -89,5 +69,7 @@ extern bool USB_Ms_Read_Write(USB_MS_DIRECTION direct, uint8_t LUN, void *data, 
 extern bool USB_Ms_Prevmedia_Removal(uint8_t LUN, bool enable);
 extern USB_STORAGE_DEV_TYPE USB_Ms_Dev_Type(uint8_t LUN);
 
-#endif //USBMS_ADAP_H
+#endif /* AIR_USB_MSC_ENABLE */
+
+#endif /* USBMS_ADAP_H */
 

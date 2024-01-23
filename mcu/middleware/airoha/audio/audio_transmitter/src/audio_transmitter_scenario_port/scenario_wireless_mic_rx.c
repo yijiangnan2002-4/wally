@@ -42,6 +42,7 @@
 #include "audio_dump.h"
 #include "hal_audio.h"
 #include "nvkey.h"
+#include "scenario_dongle_common.h"
 
 /* Private define ------------------------------------------------------------*/
 #define WIRELESS_MIC_RX_DEBUG_UT                    1
@@ -56,12 +57,6 @@
 /* Private typedef -----------------------------------------------------------*/
 typedef struct
 {
-#if WIRELESS_MIC_RX_DEBUG_LANTENCY
-    hal_gpio_pin_t latency_debug_gpio_pin;
-    uint16_t latency_debug_enable;
-    int16_t latency_debug_last_sample;
-    uint16_t latency_debug_last_level;
-#endif /* WIRELESS_MIC_RX_DEBUG_LANTENCY */
     uint8_t first_time;
     uint8_t stream_is_started;
     uint32_t previous_gpt_count;
@@ -235,48 +230,6 @@ static uint32_t usb_audio_get_frame_size(audio_dsp_codec_type_t *usb_type, audio
 
 static uint32_t g_wireless_mic_rx_usb_onoff_flag = false;
 
-#if WIRELESS_MIC_RX_DEBUG_LANTENCY
-static void usb_audio_tx_cb_latency_debug(wireless_mic_rx_usb_handle_t *handle, uint8_t *source_buf)
-{
-    int16_t *start_address = (int16_t *)source_buf;
-    uint32_t current_level = 0;
-    uint32_t i;
-    int16_t sample_value = 0;
-    uint16_t frame_samples;
-    uint16_t channel_num;
-    uint16_t resolution_size;
-
-    if (handle->latency_debug_enable)
-    {
-        channel_num = handle->usb_param.pcm.channel_mode;
-        resolution_size = (handle->usb_param.pcm.format == HAL_AUDIO_PCM_FORMAT_S16_LE) ? 2 : 3;
-        frame_samples = handle->frame_size / resolution_size / channel_num;
-        for (i = 0; i < frame_samples; i++) {
-            if (handle->usb_param.pcm.format == HAL_AUDIO_PCM_FORMAT_S16_LE)
-            {
-                sample_value += (*(start_address + i*channel_num) / frame_samples);
-            }
-            else
-            {
-                sample_value += (*(int16_t *)((uint32_t)start_address + i*channel_num*3 + 1) / frame_samples);
-            }
-        }
-        if (sample_value >= 5000)
-        {
-            current_level = 1;
-        }
-        else
-        {
-            current_level = 0;
-        }
-        if (current_level != handle->latency_debug_last_level) {
-            hal_gpio_set_output(handle->latency_debug_gpio_pin, current_level);
-            handle->latency_debug_last_level = current_level;
-        }
-    }
-}
-#endif /* WIRELESS_MIC_RX_DEBUG_LANTENCY */
-
 void wireless_mic_rx_tx_usb_irq_debug_onoff_control(uint32_t irq_onoff_flag)
 {
     g_wireless_mic_rx_usb_onoff_flag = irq_onoff_flag;
@@ -404,16 +357,13 @@ static void usb_audio_tx_cb_wireless_mic_rx_0(void)
         }
     }
 
-    #if WIRELESS_MIC_RX_DEBUG_LANTENCY
-    if (data_size == 0)
-    {
-        usb_audio_tx_cb_latency_debug(&usb_stream_tx_handle[0], all_zero_buffer);
+#if WIRELESS_MIC_RX_DEBUG_LANTENCY
+    if (data_size == 0) {
+        audio_usb_tx_scenario_latency_debug(0, all_zero_buffer);
+    } else {
+        audio_usb_tx_scenario_latency_debug(0, p_source_buf);
     }
-    else
-    {
-        usb_audio_tx_cb_latency_debug(&usb_stream_tx_handle[0], p_source_buf);
-    }
-    #endif /* WIRELESS_MIC_RX_DEBUG_LANTENCY */
+#endif /* WIRELESS_MIC_RX_DEBUG_LANTENCY */
 }
 #endif /* AIR_USB_AUDIO_1_MIC_ENABLE */
 
@@ -603,31 +553,6 @@ void wireless_mic_rx_ut_music_callback(audio_transmitter_event_t event, void *da
 }
 #endif /* WIRELESS_MIC_RX_DEBUG_UT */
 
-#if WIRELESS_MIC_RX_DEBUG_LANTENCY
-void wireless_mic_rx_tx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num)
-{
-    uint32_t saved_mask;
-
-    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
-
-    if (enable) {
-        usb_stream_tx_handle[port].latency_debug_enable = 1;
-        usb_stream_tx_handle[port].latency_debug_last_level = 0;
-        usb_stream_tx_handle[port].latency_debug_last_sample = 0;
-        usb_stream_tx_handle[port].latency_debug_gpio_pin = gpio_num;
-    } else {
-        usb_stream_tx_handle[port].latency_debug_enable = 0;
-        usb_stream_tx_handle[port].latency_debug_last_level = 0;
-        usb_stream_tx_handle[port].latency_debug_last_sample = 0;
-        usb_stream_tx_handle[port].latency_debug_gpio_pin = gpio_num;
-    }
-
-    hal_nvic_restore_interrupt_mask(saved_mask);
-
-    hal_gpio_set_output(usb_stream_tx_handle[port].latency_debug_gpio_pin, HAL_GPIO_DATA_LOW);
-}
-#endif /* WIRELESS_MIC_RX_DEBUG_LANTENCY */
-
 void wireless_mic_rx_open_playback(audio_transmitter_config_t *config, mcu2dsp_open_param_t *open_param)
 {
     uint32_t payload_size = 0;
@@ -689,6 +614,15 @@ void wireless_mic_rx_open_playback(audio_transmitter_config_t *config, mcu2dsp_o
             open_param->stream_out_param.data_ul.p_share_info->write_offset                                             = 0;
             open_param->stream_out_param.data_ul.p_share_info->bBufferIsFull                                            = false;
             audio_transmitter_modify_share_info_by_block(open_param->stream_out_param.data_ul.p_share_info, payload_size);
+
+#if WIRELESS_MIC_RX_DEBUG_LANTENCY
+            audio_usb_tx_scenario_latency_debug_init(config->scenario_sub_id - AUDIO_TRANSMITTER_WIRELESS_MIC_RX_UL_USB_OUT_0,
+                                                        payload_size,
+                                                        config->scenario_config.wireless_mic_rx_config.ul_config.sink_param.usb_out_param.codec_param.pcm.channel_mode,
+                                                        config->scenario_config.wireless_mic_rx_config.ul_config.sink_param.usb_out_param.codec_param.pcm.format,
+                                                        5000);
+#endif /* WIRELESS_MIC_RX_DEBUG_LANTENCY */
+
             TRANSMITTER_LOG_I("[Wireless MIC RX][UL]USB setting: %u, %u, %u, %u, %u, %u, %u, %d, %d, 0x%x, 0x%x\r\n", 11,
                                 config->scenario_sub_id,
                                 config->scenario_config.wireless_mic_rx_config.ul_config.sink_param.usb_out_param.codec_type,
@@ -1104,10 +1038,6 @@ void wireless_mic_rx_state_started_handler(uint8_t scenario_sub_id)
             hal_nvic_save_and_set_interrupt_mask(&saved_mask);
             usb_stream_tx_handle[0].first_time = 0;
             usb_stream_tx_handle[0].stream_is_started = 0;
-            #if WIRELESS_MIC_RX_DEBUG_LANTENCY
-            usb_stream_tx_handle[0].latency_debug_enable = 0;
-            usb_stream_tx_handle[0].latency_debug_gpio_pin = HAL_GPIO_13;
-            #endif /* WIRELESS_MIC_RX_DEBUG_LANTENCY */
             wireless_mic_rx_ul_stream_status |= 0x1<<(scenario_sub_id-AUDIO_TRANSMITTER_WIRELESS_MIC_RX_UL_USB_OUT_0);
             hal_nvic_restore_interrupt_mask(saved_mask);
             #ifdef AIR_USB_AUDIO_1_MIC_ENABLE
@@ -1150,9 +1080,6 @@ void wireless_mic_rx_state_idle_handler(uint8_t scenario_sub_id)
             hal_nvic_save_and_set_interrupt_mask(&saved_mask);
             usb_stream_tx_handle[0].first_time = 0;
             usb_stream_tx_handle[0].stream_is_started = 0;
-            #if WIRELESS_MIC_RX_DEBUG_LANTENCY
-            usb_stream_tx_handle[0].latency_debug_enable = 0;
-            #endif /* WIRELESS_MIC_RX_DEBUG_LANTENCY */
             wireless_mic_rx_ul_stream_status &= ~(0x1<<(scenario_sub_id-AUDIO_TRANSMITTER_WIRELESS_MIC_RX_UL_USB_OUT_0));
             hal_nvic_restore_interrupt_mask(saved_mask);
             break;

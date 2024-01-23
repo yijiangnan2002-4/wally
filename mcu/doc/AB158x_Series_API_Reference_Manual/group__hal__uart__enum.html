@@ -203,6 +203,10 @@ Enumerations</h2></td></tr>
 <br />
 &#160;&#160;<a class="el" href="group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2a4fc01cb1de9c14655cb4ea99a9c45b8c">HAL_UART_EVENT_WAKEUP_SLEEP</a> = 3, 
 <br />
+&#160;&#160;<a class="el" href="group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2acbc7b05b24b3607dee91a5106efd6bbf">HAL_UART_EVENT_SW_FLOW_CTRL</a> = 4, 
+<br />
+&#160;&#160;<a class="el" href="group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2a620125ae41555d38e8918921b1343dcd">HAL_UART_EVENT_HW_FLOW_CTRL</a> = 5, 
+<br />
 &#160;&#160;<a class="el" href="group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2a7f41f5f4186ce6a4055caa698c5e1a02">HAL_UART_EVENT_TRANSMISSION_DONE</a> = 6, 
 <br />
 &#160;&#160;<a class="el" href="group__hal__uart__enum.html#gga2f02e4100036aabebab64a61165036b2ab9e61eb9c32192a528e6ba2cbfcd66a3">HAL_UART_EVENT_RECEIVE_BREAK_SIGNAL</a> = 8
@@ -320,6 +324,14 @@ Enumerations</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a class="anchor" id="gga2f02e4100036aabebab64a61165036b2a4fc01cb1de9c14655cb4ea99a9c45b8c"></a>HAL_UART_EVENT_WAKEUP_SLEEP&#160;</td><td class="fielddoc">
 <p>Indicates if there happened UART RX wakeup sleep. </p>
+</td></tr>
+<tr><td class="fieldname"><a class="anchor" id="gga2f02e4100036aabebab64a61165036b2acbc7b05b24b3607dee91a5106efd6bbf"></a>HAL_UART_EVENT_SW_FLOW_CTRL&#160;</td><td class="fielddoc">
+<p>Indicates if there software flowcontrol is working. </p>
+<p>ex. received xoff </p>
+</td></tr>
+<tr><td class="fieldname"><a class="anchor" id="gga2f02e4100036aabebab64a61165036b2a620125ae41555d38e8918921b1343dcd"></a>HAL_UART_EVENT_HW_FLOW_CTRL&#160;</td><td class="fielddoc">
+<p>Indicates if there hardware flowcontrol is working. </p>
+<p>ex. cts pull high </p>
 </td></tr>
 <tr><td class="fieldname"><a class="anchor" id="gga2f02e4100036aabebab64a61165036b2a7f41f5f4186ce6a4055caa698c5e1a02"></a>HAL_UART_EVENT_TRANSMISSION_DONE&#160;</td><td class="fielddoc">
 <p>Indicates if there is data transfer completed. </p>
@@ -484,7 +496,7 @@ Enumerations</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Thu Sep 28 2023 17:13:32 for AB158x Series MCU API Reference by
+    <li class="footer">Generated on Fri Dec 29 2023 02:13:05 for AB158x Series MCU API Reference by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.11 </li>
   </ul>

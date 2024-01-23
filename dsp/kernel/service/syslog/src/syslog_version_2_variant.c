@@ -658,6 +658,10 @@ NO_INLINE ATTR_TEXT_IN_IRAM volatile uint8_t *find_start_of_cpu_log_filters(uint
 
 #if !defined(MTK_DEBUG_LEVEL_NONE)
 
+#ifdef AIR_ICE_DEBUG_ENABLE
+#include "hal_ice_debug.h"
+#endif
+
 bool log_port_init(void)
 {
     uint8_t cpu_id;
@@ -850,6 +854,13 @@ NO_INLINE ATTR_TEXT_IN_IRAM static bool check_log_control(const void *is_module_
         }
     }
 
+#ifdef AIR_ICE_DEBUG_ENABLE
+    /* check whether system is in ice debugging. */
+    if (hal_ice_debug_is_enabled() == true) {
+        return false;
+    }
+#endif
+
     return true;
 }
 
@@ -873,9 +884,9 @@ uint32_t syslog_port_query_init_number(void)
         log_int_level = 0xF;
     }
 
-#ifndef AIR_BTA_IC_PREMIUM_G2
+#if !defined(AIR_BTA_IC_PREMIUM_G2) && !defined(DSP_MIPS_FEATURE_PROFILE) && !defined(DSP_MIPS_STREAM_PROFILE) && !defined(DSP_MIPS_AUD_SYS_ISR_PROFILE)
     if (((log_int_level & 0xF) == 0x4) && (g_syslog_share_variable->debug_flag == 0x1)) {
-        assert(0);
+        assert(0 && "[DSP] Asserted by syslog monitor, disable irq call syslog API");
     }
 #endif
 
@@ -1043,7 +1054,7 @@ ATTR_TEXT_IN_IRAM void print_module_log(void *handle,
 
     if (syslog_port_query_curent_stack_space() < SYSLOG_TEXT_RESERVE_STACK_SPACE) {
         /* stack reserce space is not enough */
-        assert(0);
+        assert(0 && "Asserted by syslog monitor, TEXT Stack space is not enough");
     }
 
     va_start(ap, message);
@@ -1118,7 +1129,7 @@ ATTR_TEXT_IN_IRAM void dump_module_buffer(void *handle,
 
     if (syslog_port_query_curent_stack_space() < SYSLOG_TEXT_RESERVE_STACK_SPACE) {
         /* stack reserce space is not enough */
-        assert(0);
+        assert(0 && "Asserted by syslog monitor, HEXDUMP Stack space is not enough");
     }
 
     va_start(ap, message);
@@ -1326,7 +1337,7 @@ ATTR_TEXT_IN_IRAM void print_module_msgid_log(void *handle,
 
     if (syslog_port_query_curent_stack_space() < SYSLOG_MSGID_RESERVE_STACK_SPACE) {
         /* stack reserce space is not enough */
-        assert(0);
+        assert(0 && "Asserted by syslog monitor, MSGID_* Stack space is not enough");
     }
 
     va_start(list, arg_cnt);
@@ -1347,7 +1358,7 @@ ATTR_TEXT_IN_IRAM void print_module_msgid_log_debug(void *handle,
 
     if (syslog_port_query_curent_stack_space() < SYSLOG_MSGID_RESERVE_STACK_SPACE) {
         /* stack reserce space is not enough */
-        assert(0);
+        assert(0 && "Asserted by syslog monitor, MSGID_D Stack space is not enough");
     }
 
     va_start(list, arg_cnt);
@@ -1368,7 +1379,7 @@ ATTR_TEXT_IN_IRAM void print_module_msgid_log_info(void *handle,
 
     if (syslog_port_query_curent_stack_space() < SYSLOG_MSGID_RESERVE_STACK_SPACE) {
         /* stack reserce space is not enough */
-        assert(0);
+        assert(0 && "Asserted by syslog monitor, MSGID_I Stack space is not enough");
     }
 
     va_start(list, arg_cnt);
@@ -1389,7 +1400,7 @@ ATTR_TEXT_IN_IRAM void print_module_msgid_log_warning(void *handle,
 
     if (syslog_port_query_curent_stack_space() < SYSLOG_MSGID_RESERVE_STACK_SPACE) {
         /* stack reserce space is not enough */
-        assert(0);
+        assert(0 && "Asserted by syslog monitor, MSGID_W Stack space is not enough");
     }
 
     va_start(list, arg_cnt);
@@ -1410,7 +1421,7 @@ ATTR_TEXT_IN_IRAM void print_module_msgid_log_error(void *handle,
 
     if (syslog_port_query_curent_stack_space() < SYSLOG_MSGID_RESERVE_STACK_SPACE) {
         /* stack reserce space is not enough */
-        assert(0);
+        assert(0 && "Asserted by syslog monitor, MSGID_E Stack space is not enough");
     }
 
     va_start(list, arg_cnt);
@@ -1436,7 +1447,7 @@ ATTR_TEXT_IN_IRAM uint32_t dump_module_tlv_buffer(void *handle,
 
     if (syslog_port_query_curent_stack_space() < SYSLOG_MSGID_RESERVE_STACK_SPACE) {
         /* stack reserce space is not enough */
-        assert(0);
+        assert(0 && "Asserted by syslog monitor, TLVDUMP Stack space is not enough");
     }
 
     /* Limit the max size of dump data when calling LOG_TLVDUMP_*() */

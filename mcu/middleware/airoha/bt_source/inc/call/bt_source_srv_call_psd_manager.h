@@ -68,8 +68,13 @@ typedef uint8_t bt_source_srv_call_psd_sub_state_t;
 #define BT_SOURCE_SRV_CALL_PSD_NEXT_STATE_PLAY                  0x03
 typedef uint8_t bt_source_srv_call_psd_next_state_t;
 
+#define BT_SOURCE_SRV_CALL_PSD_NEXT_SUB_STATE_NONE              0x00
+#define BT_SOURCE_SRV_CALL_PSD_NEXT_SUB_STATE_CONNECTING        0x01
+typedef uint8_t bt_source_srv_call_psd_next_sub_state_t;
+
 #define BT_SOURCE_SRV_CALL_PSD_FLAG_NONE                       0x0000
 #define BT_SOURCE_SRV_CALL_PSD_FLAG_TRANSMITTER_TAKED          0x0001
+#define BT_SOURCE_SRV_CALL_PSD_FLAG_NEED_ADD_WL                0x0002
 
 #define BT_SOURCE_SRV_CALL_PSD_FLAG_TRANSMITTER_ADD_WL         0x0010
 #define BT_SOURCE_SRV_CALL_PSD_FLAG_AUDIO_REPLAYING            0x0020
@@ -94,6 +99,7 @@ typedef struct {
     bt_source_srv_call_psd_state_t              state;
     bt_source_srv_call_psd_sub_state_t          sub_state;
     bt_source_srv_call_psd_next_state_t         next_state;
+    bt_source_srv_call_psd_next_sub_state_t     next_sub_state;
     bt_source_srv_call_audio_codec_type_t       codec_type;
     bt_source_srv_call_audio_volume_t           speaker_volume;
     bt_source_srv_call_audio_volume_t           mic_volume;

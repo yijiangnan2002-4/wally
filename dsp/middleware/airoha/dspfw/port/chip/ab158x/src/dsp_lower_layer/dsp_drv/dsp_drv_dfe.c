@@ -651,6 +651,7 @@ VOID DSP_DRV_SRC_END(SRC_PTR_s src_ptr)
             DSP_MW_LOG_I("Disable ASRC\n", 0);
 
             afe_src_configuration_t src_configuration;
+            memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
             src_configuration.id = AFE_MEM_ASRC_1;
             hal_audio_src_set_start(&src_configuration, HAL_AUDIO_MEMORY_SYNC_NONE, HAL_AUDIO_CONTROL_OFF);
             hal_audio_src_configuration(&src_configuration, HAL_AUDIO_CONTROL_OFF);

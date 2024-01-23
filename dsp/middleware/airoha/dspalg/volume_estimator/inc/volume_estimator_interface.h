@@ -53,7 +53,7 @@
 
 /* Public define -------------------------------------------------------------*/
 #define VOLUME_ESTIMATOR_PORT_MAX            3
-
+#define VOLUME_ESTIMATOR_CALCULATE_FRAME_SAMPLE_SIZE      (40)   // 40 samples for processing each channel each time
 /* Public typedef ------------------------------------------------------------*/
 typedef enum {
     VOLUME_ESTIMATOR_STATUS_ERROR = 0,

@@ -51,12 +51,18 @@ typedef uint8_t bt_sink_srv_state_manager_device_type_t;
 #define BT_SINK_SRV_STATE_MANAGER_EVENT_GET_CALL_DEVICE     0x01
 #define BT_SINK_SRV_STATE_MANAGER_EVENT_GET_MEDIA_DEVICE    0x02
 #define BT_SINK_SRV_STATE_MANAGER_EVENT_GET_INBAND_SUPPORT  0x03
+#define BT_SINK_SRV_STATE_MANAGER_EVENT_GET_PLAY_COUNT      0x04
 typedef uint8_t bt_sink_srv_state_manager_event_t;
 
 #define BT_SINK_SRV_STATE_MANAGER_DEVICE_MASK_NONE          0x00
 #define BT_SINK_SRV_STATE_MANAGER_DEVICE_MASK_CALL          0x01
 #define BT_SINK_SRV_STATE_MANAGER_DEVICE_MASK_MEDIA         0x02
 typedef uint8_t bt_sink_srv_state_manager_device_mask_t;
+
+#define BT_SINK_SRV_STATE_MANAGER_PLAY_COUNT_INVALID        0x0000
+#define BT_SINK_SRV_STATE_MANAGER_PLAY_COUNT_MIN            0x0001
+#define BT_SINK_SRV_STATE_MANAGER_PLAY_COUNT_MAX            0xFFFF
+typedef uint16_t bt_sink_srv_state_manager_play_count_t;
 
 typedef struct {
     bt_sink_srv_state_manager_device_type_t         type;
@@ -83,7 +89,7 @@ typedef struct {
 typedef union {
     bt_sink_srv_state_manager_get_reject_config_t   get_reject_config;
     bt_sink_srv_state_manager_get_suspend_config_t  get_suspend_config;
-    bt_sink_srv_state_manager_get_resume_config_t   get_resume_config; 
+    bt_sink_srv_state_manager_get_resume_config_t   get_resume_config;
 } bt_sink_srv_state_manager_get_config_t;
 
 uint32_t bt_sink_srv_state_manager_get_played_device_list(
@@ -114,6 +120,7 @@ bt_status_t bt_sink_srv_state_manager_get_config(
     bt_sink_srv_config_t *config);
 
 void bt_sink_srv_state_manager_initialize(void);
+bt_sink_srv_state_manager_play_count_t bt_sink_srv_state_manager_get_play_count(void);
 void bt_sink_srv_state_manager_running_psedev_change(audio_src_srv_handle_t *running);
 bt_status_t bt_sink_srv_state_manager_action_handler(bt_sink_srv_action_t action, void *parameter);
 

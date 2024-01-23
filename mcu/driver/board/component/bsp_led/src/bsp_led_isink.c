@@ -539,7 +539,6 @@ void  bsp_led_process_ex(bsp_led_channel_t channel, uint8_t state)
                 isink_cfg.timing.t2.t_falling = (t2 * 3) / 5;
                 isink_cfg.timing.t2.t_darkest = t2 - isink_cfg.timing.t2.t_falling;
 
-                //hal_isink_stop(channel);
                 hal_isink_configure_ext(channel, &isink_cfg);
                 hal_isink_stop(channel);
                 hal_isink_start(channel);

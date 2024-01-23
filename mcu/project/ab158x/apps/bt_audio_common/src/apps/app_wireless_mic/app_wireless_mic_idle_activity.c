@@ -111,7 +111,7 @@ typedef enum {
     APP_WIRELESS_MIC_RECORDER_STATE_STOPPED = 0,
     APP_WIRELESS_MIC_RECORDER_STATE_STARTING,
     APP_WIRELESS_MIC_RECORDER_STATE_STARTED,
-    APP_WIRELESS_MIC_RECORDER_STATE_STOPING
+    APP_WIRELESS_MIC_RECORDER_STATE_STOPPING
 } app_wireless_mic_recorder_state_t;
 
 typedef enum {
@@ -524,7 +524,7 @@ static bool app_wireless_mic_idle_proc_key_event_group(ui_shell_activity_t *self
         case KEY_MUTE_MIC: {
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
             if (!app_ull_is_le_ull_connected()) {
-                /* Can not mute/unmute during the disconnected states*/
+                /* Can not mute/un-mute during the disconnected states*/
                 break;
             }
 #endif
@@ -619,7 +619,7 @@ void app_wireless_mic_update_read_point(uint32_t len)
 bool app_wireless_mic_idle_proc_audio_data()
 {
     bool ret = true;
-    bool wrire_ret = false;
+    bool write = false;
     uint8_t *data1 = NULL;
     uint32_t len   = 0;
     audio_transmitter_status_t status = AUDIO_TRANSMITTER_STATUS_FAIL;
@@ -630,8 +630,8 @@ bool app_wireless_mic_idle_proc_audio_data()
             if (len > 0) {
                 //LOG_AUDIO_DUMP(data1, len, VOICE_TX_MIC_0);
                 {
-                    wrire_ret = app_wireless_mic_write_fatfs(data1, len);
-                    if (!wrire_ret) {
+                    write = app_wireless_mic_write_fatfs(data1, len);
+                    if (!write) {
                         app_wireless_mic_stop_audio_transmitter();
                     }
                 }

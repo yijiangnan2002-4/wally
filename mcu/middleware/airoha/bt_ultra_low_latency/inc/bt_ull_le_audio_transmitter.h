@@ -241,6 +241,7 @@ bt_ull_le_at_silence_detection_mode_t bt_ull_le_at_get_silence_detection_mode(vo
 bool bt_ull_le_at_is_prepare_start(bt_ull_transmitter_t transmitter_type); 
 bool bt_ull_le_at_is_any_transmitter_start(bt_ull_role_t role);
 bt_status_t bt_ull_le_at_reinit( bt_ull_transmitter_t transmitter_type);
+void bt_ull_le_at_stop_silence_detection(void);
 
 
 

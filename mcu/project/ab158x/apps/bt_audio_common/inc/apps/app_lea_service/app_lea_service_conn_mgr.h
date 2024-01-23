@@ -85,9 +85,13 @@ uint8_t    *app_lea_conn_mgr_get_unify_addr(const uint8_t *addr);
 
 bool        app_lea_conn_mgr_is_bond_link(const uint8_t *addr);
 bool        app_lea_conn_mgr_is_ull_link(const uint8_t *addr);
+uint8_t    *app_lea_conn_mgr_get_ull_dongle_addr(void);
 bool        app_lea_conn_mgr_is_lea_dongle_link(const uint8_t *addr);
+uint8_t    *app_lea_conn_mgr_get_lea_dongle_addr(void);
+void        app_lea_conn_mgr_reset_lea_dongle(void);
 
 uint8_t     app_lea_conn_mgr_get_conn_type(bt_handle_t handle);
+uint8_t     app_lea_conn_mgr_get_conn_type_by_addr(const uint8_t *addr);
 
 uint8_t     app_lea_conn_mgr_get_index(bt_handle_t handle);
 
@@ -100,11 +104,12 @@ app_lea_bond_info_t *app_lea_conn_mgr_get_bond_info(void);
 uint8_t     app_lea_conn_mgr_get_bond_num(void);
 void        app_lea_conn_mgr_reset_bond_info(void);
 bool        app_lea_conn_mgr_add_bond_info(uint8_t addr_type, uint8_t *addr, uint8_t conn_type);
-bool        app_lea_conn_mgr_remove_bond_info(uint8_t addr_type, uint8_t *addr);
+bool        app_lea_conn_mgr_remove_bond_info(bool disconnect, uint8_t addr_type, uint8_t *addr);
 void        app_lea_conn_mgr_reset_keep_ull2_bond_info(void);
+void        app_lea_conn_mgr_clear_lea_keep_ull2_bond_info(void);
 
 bool        app_lea_conn_mgr_is_need_reconnect_adv(void);
-void        app_lea_conn_mgr_get_reconnect_info(uint8_t *direct_num, uint8_t *active_num, uint8_t *unactive_num);
+void        app_lea_conn_mgr_get_reconnect_info(bool adjust, uint8_t *direct_num, uint8_t *active_num, uint8_t *inactive_num);
 void        app_lea_conn_mgr_get_reconnect_addr(uint8_t sub_mode, bt_addr_t *addr_list, uint8_t *list_num);
 
 bool        app_lea_conn_mgr_is_support_addr_resolution(uint8_t *addr);
@@ -115,6 +120,8 @@ bool        app_lea_conn_mgr_disconnect_by_handle(bt_handle_t handle,
 void        app_lea_conn_mgr_disconnect_dongle(void);
 
 void        app_lea_conn_mgr_set_reconnect_targeted_addr(bool sync, const uint8_t *addr);
+
+void        app_lea_conn_mgr_control_temp_reconnect_type(bool enable);
 
 void        app_lea_conn_mgr_enable_multi_conn(bool enable);
 

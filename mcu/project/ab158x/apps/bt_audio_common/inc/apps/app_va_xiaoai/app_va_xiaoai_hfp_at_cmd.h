@@ -51,24 +51,41 @@
 
 bool app_va_xiaoai_hfp_miui_basic_atcmd();
 
-void app_va_xiaoai_hfp_miui_more_atcmd_report_feature();
-void app_va_xiaoai_hfp_miui_more_atcmd_report_all_status();
+void app_va_xiaoai_hfp_miui_more_atcmd_report_feature(uint8_t *addr);
+void app_va_xiaoai_hfp_miui_more_atcmd_report_all_status(uint8_t *addr);
 
 // Use type=0x00 for single_state_report
-void app_va_xiaoai_hfp_miui_more_atcmd_report_anc();
-void app_va_xiaoai_hfp_miui_more_atcmd_report_key();
-void app_va_xiaoai_hfp_miui_more_atcmd_report_voice();
-void app_va_xiaoai_hfp_miui_more_atcmd_report_eq();
-void app_va_xiaoai_hfp_miui_more_atcmd_report_game_mode();
-void app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(uint8_t data);
+void app_va_xiaoai_hfp_miui_more_atcmd_report_anc(uint8_t *addr);
+void app_va_xiaoai_hfp_miui_more_atcmd_report_key(uint8_t *addr);
+void app_va_xiaoai_hfp_miui_more_atcmd_report_voice(uint8_t *addr);
+void app_va_xiaoai_hfp_miui_more_atcmd_report_eq(uint8_t *addr);
+void app_va_xiaoai_hfp_miui_more_atcmd_report_game_mode(uint8_t *addr);
+void app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(uint8_t *addr, uint8_t data);
+
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+bool app_va_xiaoai_is_support_auto_audio_switch();
+bool app_va_xiaoai_is_exist_audio_switch_connected();
+
+void app_va_xiaoai_disable_audio_switch();
+
+void app_va_xiaoai_hfp_miui_more_atcmd_report_audio_switch_feature(uint8_t *addr);
+#endif
 
 void app_va_xiaoai_hfp_handle_mma_atcmd(uint16_t type, uint8_t *atcmd_data, uint16_t atcmd_data_len);
 
 void app_va_xiaoai_hfp_at_cmd_register(bool enable);
 
-bool app_va_xiaoai_send_atcmd(uint16_t mma_type, const char *atcmd, uint32_t atcmd_len);
+bool app_va_xiaoai_send_atcmd(uint8_t *addr, uint16_t mma_type, const char *atcmd, uint32_t atcmd_len);
 
 void app_va_xiaoai_report_miui_fast_connect_at_cmd();
+
+void app_va_xiaoai_resend_hfp_atcmd(uint8_t *addr);
+void app_va_xiaoai_clear_hfp_atcmd(uint8_t *addr);
+
+void app_va_xiaoai_hfp_at_cmd_proc_ui_shell_event(uint32_t event_group,
+                                                  uint32_t event_id,
+                                                  void *extra_data,
+                                                  uint32_t data_len);
 
 #endif /* AIR_XIAOAI_ENABLED */
 

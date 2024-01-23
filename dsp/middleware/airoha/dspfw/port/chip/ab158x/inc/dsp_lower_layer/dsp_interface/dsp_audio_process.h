@@ -184,7 +184,13 @@ EXTERN VOID DSP_I2D_BufferCopy_32bit_mute(U32 *SrcBuf,
                                           U16  SampleSize,
                                           BOOL muteflag);
 
-
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+extern dl_sw_gain_default_para_t g_DL_SW_gain_default_para;
+extern bool stream_function_DL_SW_initialize(void *para);
+extern bool stream_function_DL_SW_process(void *para);
+extern void DL_SW_gain_setting(hal_ccni_message_t msg, hal_ccni_message_t *ack);
+extern void DL_SW_get_default_para(hal_ccni_message_t msg, hal_ccni_message_t *ack);
+#endif
 
 
 #endif /* _DSP_AUDIOPROCESS_H_ */

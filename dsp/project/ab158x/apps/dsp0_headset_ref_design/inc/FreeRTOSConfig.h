@@ -109,8 +109,14 @@
    + 512B for pic ld_nr
    + 1K for dual chip
    + 5.5k for pasp new feature (sink + source + DLL task)
+   + 1k for anc timer and more scenario memory need.
 */
-#define configTOTAL_HEAP_SIZE           ( ( size_t ) (66 * 1024) )
+//TODO: workaround, psap not enable in SDK 3.9.0
+#if defined(AIR_HEARTHROUGH_MAIN_ENABLE)
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) (70 * 1024) )
+#else
+#define configTOTAL_HEAP_SIZE           ( ( size_t ) (61 * 1024 + 512) )
+#endif
 #endif
 
 #define configMAX_TASK_NAME_LEN         ( 8 )

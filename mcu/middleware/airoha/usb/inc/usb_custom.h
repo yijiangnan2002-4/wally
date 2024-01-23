@@ -35,6 +35,8 @@
 #ifndef USB_CUSTOM_H
 #define USB_CUSTOM_H
 
+#ifdef AIR_USB_ENABLE
+
 /* C library */
 #include <stdbool.h>
 #include <stdint.h>
@@ -86,6 +88,7 @@ typedef enum {
     USB_STRING_USAGE_XBOX            = 11,
     USB_STRING_USAGE_MOUSE           = 12,
     USB_STRING_USAGE_KEYBOARD        = 13,
+    USB_STRING_USAGE_MFI             = 14,
 } usb_string_usage_t;
 
 typedef struct {
@@ -142,4 +145,7 @@ typedef struct {
 
 const USB_MS_PARAM *USB_GetMsParam(void);
 
-#endif
+#endif /* AIR_USB_ENABLE */
+
+#endif /* USB_CUSTOM_H */
+

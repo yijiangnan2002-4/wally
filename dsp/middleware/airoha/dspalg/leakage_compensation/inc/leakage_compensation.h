@@ -47,7 +47,6 @@
 #define LD_STATUS_TIMEOUT              (4)
 #define LD_STATUS_TERMINATE            (5) //terminated by higher priority job
 
-
 typedef struct {
     DSP_PARA_LD_STRU LD_para;
     U16 reserved;
@@ -59,6 +58,5 @@ void leakage_detection_set_duration(uint32_t report_thd, uint32_t no_response_th
 void leakage_detection_load_nvkey(void *nvkey);
 bool stream_function_leakage_compensation_initialize(void *para);
 bool stream_function_leakage_compensation_process(void *para);
-
 
 #endif /* _LEAKAGE_COMPENSATION_H_ */

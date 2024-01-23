@@ -126,15 +126,10 @@ struct wired_audio_handle_t {
     uint32_t avm_write_offset;
     uint32_t avm_read_offset;
     wired_audio_handle_t *next_dl_handle;
-#ifdef AIR_FIXED_RATIO_SRC
-    src_fixed_ratio_port_t *src_fix_port;
-    src_fixed_ratio_port_t *src_fix_2nd_port;
-#endif
+    void *src1_port;
+    void *src2_port;
 #ifdef AIR_SOFTWARE_GAIN_ENABLE
     sw_gain_port_t *gain_port;
-#endif
-#ifdef AIR_SOFTWARE_SRC_ENABLE
-    sw_src_port_t *src_port;
 #endif
 #ifdef AIR_SOFTWARE_CLK_SKEW_ENABLE
     sw_clk_skew_port_t *clk_skew_port;
@@ -162,6 +157,7 @@ struct wired_audio_handle_t {
     uint32_t first_process_flag;
     uint32_t first_afe_irq_gpt;
     n9_dsp_share_info_ptr share_buffer_info;
+    hal_audio_format_t process_format;
 };
 
 #if 0

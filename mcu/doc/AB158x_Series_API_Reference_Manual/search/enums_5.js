@@ -11,7 +11,6 @@ var searchData=
   ['hal_5faudio_5fbias_5fselection_5ft',['hal_audio_bias_selection_t',['../group__hal__audio__enum.html#ga6edb87709234b9d36c942eff04a251a9',1,'hal_platform.h']]],
   ['hal_5faudio_5fbias_5fvoltage_5ft',['hal_audio_bias_voltage_t',['../group__hal__audio__enum.html#gaa026b3a80fd3e97ee73fa0f521bc8f74',1,'hal_platform.h']]],
   ['hal_5faudio_5fbits_5fper_5fsample_5ft',['hal_audio_bits_per_sample_t',['../group__hal__audio__enum.html#gacc2bf0bb6346847e86755bc5e1a4c4dc',1,'hal_audio.h']]],
-  ['hal_5faudio_5fdmic_5fselection_5ft',['hal_audio_dmic_selection_t',['../group__hal__audio__enum.html#ga0fe1145ea865ef61b081e8a257df4096',1,'hal_platform.h']]],
   ['hal_5faudio_5fevent_5ft',['hal_audio_event_t',['../group__hal__audio__enum.html#ga95c1a2313b6bf4e0eef81759cc3a1678',1,'hal_audio.h']]],
   ['hal_5faudio_5fi2s_5fformat_5ft',['hal_audio_i2s_format_t',['../group__hal__audio__enum.html#gaf2b28129d2027c1155e8fd10220de5a7',1,'hal_platform.h']]],
   ['hal_5faudio_5fi2s_5fword_5flength_5ft',['hal_audio_i2s_word_length_t',['../group__hal__audio__enum.html#gafb5315fa6ccc394eea7fb3818ca5242e',1,'hal_platform.h']]],

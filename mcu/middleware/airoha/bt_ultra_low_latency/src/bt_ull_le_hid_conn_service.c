@@ -68,10 +68,10 @@ typedef uint8_t bt_ull_le_hid_conn_srv_air_cis_state_t;
 #define BT_ULL_LE_HID_CONN_SRV_CIG_STATE_REMOVING          (0x03)
 typedef uint8_t bt_ull_le_hid_conn_srv_cig_state_t;
 
-#define BT_ULL_LE_HID_CONN_SRV_SWITCH_SCENNARIO_STATE_NONE              (0x00)
-#define BT_ULL_LE_HID_CONN_SRV_SWITCH_SCENNARIO_STATE_CREATING          (0x01)
-#define BT_ULL_LE_HID_CONN_SRV_SWITCH_SCENNARIO_STATE_CREATED           (0x02)
-#define BT_ULL_LE_HID_CONN_SRV_SWITCH_SCENNARIO_STATE_REMOVING          (0x03)
+#define BT_ULL_LE_HID_CONN_SRV_SWITCH_SCENARIO_STATE_NONE              (0x00)
+#define BT_ULL_LE_HID_CONN_SRV_SWITCH_SCENARIO_STATE_CREATING          (0x01)
+#define BT_ULL_LE_HID_CONN_SRV_SWITCH_SCENARIO_STATE_CREATED           (0x02)
+#define BT_ULL_LE_HID_CONN_SRV_SWITCH_SCENARIO_STATE_REMOVING          (0x03)
 typedef uint8_t bt_ull_le_hid_conn_srv_change_scenario_state_t;
 
 
@@ -2908,7 +2908,7 @@ static void bt_ull_le_hid_conn_srv_deactive_streaming_cnf_hdl(bt_status_t status
     msg.status = status;
     msg.streaming_deactive.acl_handle = bt_ull_le_hid_conn_srv_get_acl_handle(idx);
     msg.streaming_deactive.device_type= bt_ull_le_hid_conn_srv_get_device_type(idx);
-    bt_ull_le_hid_conn_srv_notify_msg(BT_ULL_LE_HID_CONN_SRV_MSG_CIS_DEACTIVE_STREAMING_IND, &msg);
+    bt_ull_le_hid_conn_srv_notify_msg(BT_ULL_LE_HID_CONN_SRV_MSG_CIS_INACTIVE_STREAMING_IND, &msg);
 
 
 NEXT_ACTION:

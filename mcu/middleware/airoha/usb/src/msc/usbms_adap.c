@@ -32,26 +32,6 @@
  * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
  */
 
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    usbms_adap.c
- *
- * Project:
- * --------
- *   Maui_Software
- *
- * Description:
- * ------------
- *  This file implements usb adaption layer for mass storage
- *
- * Author:
- * -------
- *  Jensen Hu
- *
- *****************************************************************************/
-
 #ifdef AIR_USB_MSC_ENABLE
 
 /* C library */
@@ -202,3 +182,4 @@ USB_STORAGE_DEV_TYPE USB_Ms_Dev_Type(uint8_t LUN)
 }
 
 #endif /* AIR_USB_MSC_ENABLE */
+

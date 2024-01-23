@@ -170,6 +170,10 @@ static const U8 source_data[] = {
 };
 #endif
 
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+#include "downlink_sw_gain.h"
+#endif
+
 #define _UNUSED(x)  ((void)(x))
 log_create_module(atcmd_aud, PRINT_LEVEL_INFO);
 
@@ -870,6 +874,31 @@ atci_status_t atci_cmd_hdlr_audio(atci_parse_cmd_param_t *parse_cmd)
                 atci_send_response(presponse);
             }
 //#endif
+#ifdef AIR_FADP_ANC_COMPENSATION_ENABLE
+            else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=SZ_DETECTION,") != NULL) {
+                char *chr = NULL;
+                chr = strchr(parse_cmd->string_ptr, ',');
+                if (chr == NULL) {
+                    presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+                } else {
+                    chr++;
+                    if (strstr((char *)chr, "ENABLE") != NULL) {
+                        LOGMSGIDI("[AT][RECORD_SzD] Enable Sz Detection.", 0);
+                        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_RECORD_FANC_COMP_SET_PARAM, 1, 1, true);
+                        presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+                    } else if (strstr((char *)chr, "DISABLE") != NULL) {
+                        LOGMSGIDI("[AT][RECORD_SzD] Disable Sz Detection.", 0);
+                        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_RECORD_FANC_COMP_SET_PARAM, 1, 0, true);
+                        presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+                    } else {
+                        LOGMSGIDE("[AT][RECORD_SzD] Sz Detection AT cmd error.", 0);
+                        presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+                    }
+                }
+                presponse->response_len = strlen((const char *)presponse->response_buf);
+                atci_send_response(presponse);
+            }
+#endif
 #endif
 #ifdef AIR_RECORD_ENABLE
             else if ((strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=RECORD") != NULL) || (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=WWE") != NULL)) {
@@ -1264,6 +1293,28 @@ atci_status_t atci_cmd_hdlr_audio(atci_parse_cmd_param_t *parse_cmd)
                     } else {
                         am_audio_cpd_set_hse_mode(HSE);
                         LOGMSGIDE("AUD_SET_HSE %d.", 1, HSE);
+                    }
+                    presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+                    presponse->response_len = strlen((const char *)presponse->response_buf);
+                    atci_send_response(presponse);
+                }
+          } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=LC3_SET_PLC,") != NULL) {
+                char *chr = NULL;
+                uint8_t PLC;
+                chr = strchr(parse_cmd->string_ptr, ',');
+                if (chr == NULL) {
+                    LOGMSGIDE("LC3_SET_PLC NULL error.", 0);
+                    presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+                    presponse->response_len = strlen((const char *)presponse->response_buf);
+                    atci_send_response(presponse);
+                } else {
+                    chr++;
+                    sscanf(chr, "%hhd", &PLC);
+                    if ((PLC != 0)&&(PLC != 1)) {
+                        LOGMSGIDE("LC3_SET_PLC error, must be 0 / 1", 0);
+                    } else {
+                        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_BLE_AUDIO_SET_LC3_PARAM, 0, PLC, false);
+                        LOGMSGIDE("LC3_SET_PLC %d.", 1, PLC);
                     }
                     presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                     presponse->response_len = strlen((const char *)presponse->response_buf);
@@ -3998,59 +4049,57 @@ ata_end:
 #if defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
             else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=BLE_AUDIO_DONGLE_DL_LATENCY_ON_1") != NULL) {
                 uint32_t gpio_pin;
-                int32_t detect_threshold;
                 //LOGMSGIDI("BLE_AUDIO_DONGLE_DL_LATENCY_ON_1", 0);
-                extern void ble_audio_dongle_rx_latency_debug_control(uint32_t port, bool enable, hal_gpio_pin_t gpio_pin, int32_t detect_threshold);
-                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu,%lu", &gpio_pin, &detect_threshold);
-                ble_audio_dongle_rx_latency_debug_control(0, true, gpio_pin, detect_threshold);
+                extern void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu", &gpio_pin);
+                audio_usb_rx_scenario_latency_debug_control(0, true, gpio_pin);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
             } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=BLE_AUDIO_DONGLE_DL_LATENCY_OFF_1") != NULL) {
                 uint32_t gpio_pin;
-                int32_t detect_threshold;
                 //LOGMSGIDI("BLE_AUDIO_DONGLE_DL_LATENCY_OFF_1", 0);
-                extern void ble_audio_dongle_rx_latency_debug_control(uint32_t port, bool enable, hal_gpio_pin_t gpio_pin, int32_t detect_threshold);
-                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu,%lu", &gpio_pin, &detect_threshold);
-                ble_audio_dongle_rx_latency_debug_control(0, false, gpio_pin, detect_threshold);
+                extern void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu", &gpio_pin);
+                audio_usb_rx_scenario_latency_debug_control(0, false, gpio_pin);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
             } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=BLE_AUDIO_DONGLE_DL_LATENCY_ON_2") != NULL) {
                 uint32_t gpio_pin;
-                int32_t detect_threshold;
                 //LOGMSGIDI("BLE_AUDIO_DONGLE_DL_LATENCY_ON_2", 0);
-                extern void ble_audio_dongle_rx_latency_debug_control(uint32_t port, bool enable, hal_gpio_pin_t gpio_pin, int32_t detect_threshold);
-                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu,%lu", &gpio_pin, &detect_threshold);
-                ble_audio_dongle_rx_latency_debug_control(1, true, gpio_pin, detect_threshold);
+                extern void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu", &gpio_pin);
+                audio_usb_rx_scenario_latency_debug_control(1, true, gpio_pin);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
             } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=BLE_AUDIO_DONGLE_DL_LATENCY_OFF_2") != NULL) {
                 uint32_t gpio_pin;
-                int32_t detect_threshold;
                 //LOGMSGIDI("BLE_AUDIO_DONGLE_DL_LATENCY_OFF_2", 0);
-                extern void ble_audio_dongle_rx_latency_debug_control(uint32_t port, bool enable, hal_gpio_pin_t gpio_pin, int32_t detect_threshold);
-                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu,%lu", &gpio_pin, &detect_threshold);
-                ble_audio_dongle_rx_latency_debug_control(1, false, gpio_pin, detect_threshold);
+                extern void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu", &gpio_pin);
+                audio_usb_rx_scenario_latency_debug_control(1, false, gpio_pin);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
             } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=BLE_AUDIO_DONGLE_UL_LATENCY_ON_1") != NULL) {
+                int32_t current_threshold;
                 uint32_t gpio_pin;
                 //LOGMSGIDI("BLE_AUDIO_DONGLE_UL_LATENCY_ON_1", 0);
-                extern void ble_audio_dongle_tx_latency_debug_control(uint32_t port, bool enable, hal_gpio_pin_t gpio_pin);
-                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu", &gpio_pin);
-                ble_audio_dongle_tx_latency_debug_control(0, true, gpio_pin);
+                extern void audio_usb_tx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num, int32_t current_threshold);
+                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu,%d", &gpio_pin, (int *)&current_threshold);
+                audio_usb_tx_scenario_latency_debug_control(0, true, gpio_pin, current_threshold);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
             } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=BLE_AUDIO_DONGLE_UL_LATENCY_OFF_1") != NULL) {
+                int32_t current_threshold;
                 uint32_t gpio_pin;
                 //LOGMSGIDI("BLE_AUDIO_DONGLE_UL_LATENCY_OFF_1", 0);
-                extern void ble_audio_dongle_tx_latency_debug_control(uint32_t port, bool enable, hal_gpio_pin_t gpio_pin);
-                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu", &gpio_pin);
-                ble_audio_dongle_tx_latency_debug_control(0, false, gpio_pin);
+                extern void audio_usb_tx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num, int32_t current_threshold);
+                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu,%d", &gpio_pin, (int *)&current_threshold);
+                audio_usb_tx_scenario_latency_debug_control(0, false, gpio_pin, current_threshold);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
@@ -4063,8 +4112,8 @@ ata_end:
                 param1 = strtok(NULL, ",");
                 sscanf(param1, "%d", (unsigned int *)&gpio_num);
                 LOGMSGIDI("ULL_AUDIO_V2_DONGLE_DL_LATENCY_ON_1, gpio = %d", 1, gpio_num);
-                extern void ull_audio_v2_dongle_rx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num);
-                ull_audio_v2_dongle_rx_latency_debug_control(0, true, gpio_num);
+                extern void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+                audio_usb_rx_scenario_latency_debug_control(0, true, gpio_num);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
@@ -4074,8 +4123,8 @@ ata_end:
                 param1 = strtok(NULL, ",");
                 sscanf(param1, "%d", (unsigned int *)&gpio_num);
                 LOGMSGIDI("ULL_AUDIO_V2_DONGLE_DL_LATENCY_OFF_1, gpio = %d", 1, gpio_num);
-                extern void ull_audio_v2_dongle_rx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num);
-                ull_audio_v2_dongle_rx_latency_debug_control(0, false, gpio_num);
+                extern void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+                audio_usb_rx_scenario_latency_debug_control(0, false, gpio_num);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
@@ -4085,8 +4134,8 @@ ata_end:
                 param1 = strtok(NULL, ",");
                 sscanf(param1, "%d", (unsigned int *)&gpio_num);
                 LOGMSGIDI("ULL_AUDIO_V2_DONGLE_DL_LATENCY_ON_2, gpio = %d", 1, gpio_num);
-                extern void ull_audio_v2_dongle_rx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num);
-                ull_audio_v2_dongle_rx_latency_debug_control(1, true, gpio_num);
+                extern void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+                audio_usb_rx_scenario_latency_debug_control(1, true, gpio_num);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
@@ -4096,69 +4145,65 @@ ata_end:
                 param1 = strtok(NULL, ",");
                 sscanf(param1, "%d", (unsigned int *)&gpio_num);
                 LOGMSGIDI("ULL_AUDIO_V2_DONGLE_DL_LATENCY_OFF_2, gpio = %d", 1, gpio_num);
-                extern void ull_audio_v2_dongle_rx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num);
-                ull_audio_v2_dongle_rx_latency_debug_control(1, false, gpio_num);
+                extern void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+                audio_usb_rx_scenario_latency_debug_control(1, false, gpio_num);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
             } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=ULL_AUDIO_V2_DONGLE_UL_LATENCY_ON_1") != NULL) {
+                int32_t current_threshold;
                 uint32_t gpio_num;
-                char *param1 = strtok(parse_cmd->string_ptr, ",");
-                param1 = strtok(NULL, ",");
-                sscanf(param1, "%d", (unsigned int *)&gpio_num);
-                LOGMSGIDI("ULL_AUDIO_V2_DONGLE_UL_LATENCY_ON_1, gpio = %d", 1, gpio_num);
-                extern void ull_audio_v2_dongle_tx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num);
-                ull_audio_v2_dongle_tx_latency_debug_control(0, true, gpio_num);
+                sscanf((char *)parse_cmd->string_ptr, "%*[^,],%d,%d", (unsigned int *)&gpio_num, (int *)&current_threshold);
+                LOGMSGIDI("ULL_AUDIO_V2_DONGLE_UL_LATENCY_ON_1, gpio = %d, current_threshold %d", 2, gpio_num, current_threshold);
+                extern void audio_usb_tx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num, int32_t current_threshold);
+                audio_usb_tx_scenario_latency_debug_control(0, true, gpio_num, current_threshold);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
             } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=ULL_AUDIO_V2_DONGLE_UL_LATENCY_OFF_1") != NULL) {
+                int32_t current_threshold;
                 uint32_t gpio_num;
-                char *param1 = strtok(parse_cmd->string_ptr, ",");
-                param1 = strtok(NULL, ",");
-                sscanf(param1, "%d", (unsigned int *)&gpio_num);
-                LOGMSGIDI("ULL_AUDIO_V2_DONGLE_UL_LATENCY_OFF_1, gpio = %d", 1, gpio_num);
-                extern void ull_audio_v2_dongle_tx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num);
-                ull_audio_v2_dongle_tx_latency_debug_control(0, false, gpio_num);
+                sscanf((char *)parse_cmd->string_ptr, "%*[^,],%d,%d", (unsigned int *)&gpio_num, (int *)&current_threshold);
+                LOGMSGIDI("ULL_AUDIO_V2_DONGLE_UL_LATENCY_OFF_1, gpio = %d, current_threshold %d", 2, gpio_num, current_threshold);
+                extern void audio_usb_tx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num, int32_t current_threshold);
+                audio_usb_tx_scenario_latency_debug_control(0, false, gpio_num, current_threshold);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
             }
 #endif /* defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) */
 #if defined(AIR_BT_AUDIO_DONGLE_ENABLE)
-            else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=AUDIO_DONGLE_LATENCY_DEBUG") != NULL) {\
+            else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=AUDIO_DONGLE_LATENCY_DEBUG") != NULL) {
                 /* AT+EAUDIO=AUDIO_DONGLE_LATENCY_DEBUG,<UL/DL>,<USB PORT>,<ON/OFF>,<gpio pin> */
-                extern void usb_audio_dongle_rx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num, uint32_t threshold);
-                extern void usb_audio_dongle_tx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num, uint32_t threshold);
+                extern void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+                extern void audio_usb_tx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num, int32_t current_threshold);
                 unsigned int is_ul    = 0;
                 unsigned int usb_port = 0;
                 unsigned int control  = 0;
                 unsigned int gpio     = 0;
-                unsigned int threshold = 0;
+                int32_t current_threshold;
                 atci_response_flag_t response = ATCI_RESPONSE_FLAG_APPEND_OK;
-                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%u,%u,%u,%u,%u",
+                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%u,%u,%u,%u,%d",
                     &is_ul,
                     &usb_port,
                     &control,
                     &gpio,
-                    &threshold
-                    );
+                    (int *)&current_threshold);
                 LOGMSGIDI("AUDIO_DONGLE_LATENCY_DEBUG, is ul %d, usb port %d, on/off %d gpio %d threshold %d", 5,
                     is_ul,
                     usb_port,
                     control,
                     gpio,
-                    threshold
-                    );
+                    current_threshold);
                 if (is_ul) {
                     if (usb_port == 0) {
-                        usb_audio_dongle_tx_latency_debug_control(usb_port, control, gpio, threshold);
+                        audio_usb_tx_scenario_latency_debug_control(usb_port, control, gpio, current_threshold);
                     } else {
                         response = ATCI_RESPONSE_FLAG_APPEND_ERROR;
                     }
                 } else {
                     if (usb_port <= 1) {
-                        usb_audio_dongle_rx_latency_debug_control(usb_port, control, gpio, threshold);
+                        audio_usb_rx_scenario_latency_debug_control(usb_port, control, gpio);
                     } else {
                         response = ATCI_RESPONSE_FLAG_APPEND_ERROR;
                     }
@@ -4171,14 +4216,19 @@ ata_end:
 #if defined(AIR_WIRED_AUDIO_ENABLE)
 #if defined(AIR_USB_AUDIO_ENABLE)
             else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=WIRED_AUDIO_LATENCY_DEBUG") != NULL) {
-                extern void wired_audio_usb_latency_debug_control(bool is_rx, uint32_t port, bool is_enable, uint32_t gpio_num, int32_t low_threshold, int32_t high_threshold);
+                extern void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+                extern void audio_usb_tx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num, int32_t current_threshold);
+                int32_t current_threshold;
                 uint32_t is_rx, usb_port, is_enable, test_gpio_num;
-                int32_t low_threshold, high_threshold;
-                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu,%lu,%lu,%lu,%d,%d",
-                        &is_rx, &usb_port, &is_enable, &test_gpio_num, (int *)&low_threshold, (int *)&high_threshold);
-                LOGMSGIDI("Wired audio latency debug: is_rx %d, usb_port %d, is_enable %d, test_gpio_num %d, low_threshold %d, high_threshold %d", 6,
-                            is_rx, usb_port, is_enable, test_gpio_num, low_threshold, high_threshold);
-                wired_audio_usb_latency_debug_control((bool)is_rx, usb_port, (bool)is_enable, test_gpio_num, low_threshold, high_threshold);
+                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu,%lu,%lu,%lu,%d",
+                        &is_rx, &usb_port, &is_enable, &test_gpio_num, (int *)&current_threshold);
+                LOGMSGIDI("Wired audio latency debug: is_rx %d, usb_port %d, is_enable %d, test_gpio_num %d, current_threshold %d", 5,
+                            is_rx, usb_port, is_enable, test_gpio_num, current_threshold);
+                if (is_rx == true) {
+                    audio_usb_rx_scenario_latency_debug_control(usb_port, is_enable, test_gpio_num);
+                } else {
+                    audio_usb_tx_scenario_latency_debug_control(usb_port, is_enable, test_gpio_num, current_threshold);
+                }
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
@@ -4309,24 +4359,22 @@ ata_end:
 #endif
 #if defined(AIR_WIRELESS_MIC_RX_ENABLE)
             else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=WIRELESS_MIC_RX_UL_LATENCY_ON_1") != NULL) {
+                int32_t current_threshold;
                 uint32_t gpio_num;
-                char *param1 = strtok(parse_cmd->string_ptr, ",");
-                param1 = strtok(NULL, ",");
-                sscanf(param1, "%d", (unsigned int *)&gpio_num);
-                LOGMSGIDI("WIRELESS_MIC_RX_UL_LATENCY_ON_1, gpio = %d", 1, gpio_num);
-                extern void wireless_mic_rx_tx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num);
-                wireless_mic_rx_tx_latency_debug_control(0, true, gpio_num);
+                sscanf((char *)parse_cmd->string_ptr, "%*[^,],%d,%d", (unsigned int *)&gpio_num, (int *)&current_threshold);
+                LOGMSGIDI("WIRELESS_MIC_RX_UL_LATENCY_ON_1, gpio = %d, current_threshold %d", 2, gpio_num, current_threshold);
+                extern void audio_usb_tx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num, int32_t current_threshold);
+                audio_usb_tx_scenario_latency_debug_control(0, true, gpio_num, current_threshold);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
             } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=WIRELESS_MIC_RX_UL_LATENCY_OFF_1") != NULL) {
+                int32_t current_threshold;
                 uint32_t gpio_num;
-                char *param1 = strtok(parse_cmd->string_ptr, ",");
-                param1 = strtok(NULL, ",");
-                sscanf(param1, "%d", (unsigned int *)&gpio_num);
-                LOGMSGIDI("WIRELESS_MIC_RX_UL_LATENCY_OFF_1, gpio = %d", 1, gpio_num);
-                extern void wireless_mic_rx_tx_latency_debug_control(uint32_t port, bool enable, uint32_t gpio_num);
-                wireless_mic_rx_tx_latency_debug_control(0, false, gpio_num);
+                sscanf((char *)parse_cmd->string_ptr, "%*[^,],%d,%d", (unsigned int *)&gpio_num, (int *)&current_threshold);
+                LOGMSGIDI("WIRELESS_MIC_RX_UL_LATENCY_OFF_1, gpio = %d, current_threshold %d", 2, gpio_num, current_threshold);
+                extern void audio_usb_tx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num, int32_t current_threshold);
+                audio_usb_tx_scenario_latency_debug_control(0, false, gpio_num, current_threshold);
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
@@ -4463,24 +4511,171 @@ ata_end:
             #endif
             #ifdef AIR_AUDIO_DUMP_ENABLE
             else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=AUDIO_DUMP") != NULL) {
-                int dump_id, dump_enable;
-                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%d,%d", &dump_id, &dump_enable);
-                LOGMSGIDI("[MCU][Audio Dump][AT-CMD] runtime cfg audio dump, id: %d, enable:%d", 2, dump_id, dump_enable);
                 atci_response_flag_t result;
-                if(dump_id <= 0 || dump_id >= 65535){
-                    result = ATCI_RESPONSE_FLAG_APPEND_ERROR;
-                } else {
-                    uint32_t CfgValue = 0;
-                    CfgValue |= dump_id;
-                    CfgValue |= (dump_enable << 16);
-                    hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_AUDIO_DUMP_MASK, 3, CfgValue, false);
+                if(strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=AUDIO_DUMP_BLOCK") != NULL){ //set block dump
+                    int block_enable;
+                    sscanf((char *)parse_cmd->string_ptr,"%*[^,],%d", &block_enable);
+                    LOGMSGIDI("[MCU][Audio Dump][AT-CMD] set block audio dump, enable:%d", 1, block_enable);
+                    hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_AUDIO_DUMP_MASK, 4, block_enable, false);
                     result = ATCI_RESPONSE_FLAG_APPEND_OK;
+                } else if(strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=AUDIO_DUMP_6M") != NULL) { //set uart 3M/6M
+                    int enable = 0;
+                    sscanf((char *)parse_cmd->string_ptr,"%*[^,],%d", &enable);
+                    uint32_t table_size;
+                    nvkey_status_t result1   = nvkey_data_item_length(NVID_PERI_LOG_SETTING, &table_size);
+                    U8 *nvkey_value = (U8 *)pvPortMalloc(table_size);
+                    AUDIO_ASSERT(nvkey_value != NULL);
+                    nvkey_status_t result2   = nvkey_read_data(NVID_PERI_LOG_SETTING, nvkey_value, &table_size);
+                    enable ? (nvkey_value[2] |= 0x1) : (nvkey_value[2] &= 0xFE);
+                    nvkey_status_t result3 = nvkey_write_data(NVID_PERI_LOG_SETTING, (U8 *)nvkey_value, table_size);
+                    vPortFree(nvkey_value);
+                    LOGMSGIDI("[MCU][Audio Dump][AT-CMD] set uart 6M, enable:%d,result:%d,%d,%d", 4, (U8)enable,result1,result2,result3);
+                    result = ATCI_RESPONSE_FLAG_APPEND_OK;
+                } else { //set dump id & dump device
+                    int dump_id, dump_enable;
+                    sscanf((char *)parse_cmd->string_ptr,"%*[^,],%d,%d", &dump_id, &dump_enable);
+                    LOGMSGIDI("[MCU][Audio Dump][AT-CMD] runtime cfg audio dump, id: %d, enable:%d", 2, dump_id, dump_enable);
+                    if(dump_id <= 0 || dump_id >= 65535){
+                        result = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+                    } else {
+                        uint32_t CfgValue = 0;
+                        CfgValue |= dump_id;
+                        CfgValue |= (dump_enable << 16);
+                        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_AUDIO_DUMP_MASK, 3, CfgValue, false);
+                        result = ATCI_RESPONSE_FLAG_APPEND_OK;
+                    }
                 }
                 presponse->response_flag = result;
                 presponse->response_len = strlen((const char *)presponse->response_buf);
                 atci_send_response(presponse);
             }
             #endif
+#if defined(AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE)
+            else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=LR_VOLUME_BALANCE_SET") != NULL) {
+                LR_balance_para_t para;
+                char *para1 = strtok(parse_cmd->string_ptr, ",");
+                para1 = strtok(NULL, ",");
+                char *para2 = strtok(NULL, ",");
+                if ((para1 != NULL) && (para2 != NULL)) {
+                    sscanf(para1, "%d", (unsigned int *)&(para.LR_balance_status));
+                    sscanf(para2, "%d", (unsigned int *)&(para.LR_balance_ID));
+                    LOGMSGIDI("AT LR_VOLUME_BALANCE_SET, LR_balance_status=%d, LR_balance_ID=%d\r\n", 2, para.LR_balance_status, para.LR_balance_ID);
+                    DL_SW_gain_set_lr_volume_balance_param(&para);
+                    presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+                } else {
+                    LOGMSGIDE("AT LR_VOLUME_BALANCE_SET, para error\r\n", 0);
+                    presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+                }
+                presponse->response_len = strlen((const char *)presponse->response_buf);
+                atci_send_response(presponse);
+            } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=LR_VOLUME_BALANCE_GET") != NULL) {
+                LR_balance_para_t para;
+                if(DL_SW_gain_get_lr_volume_balance_param(&para)){
+                    LOGMSGIDI("AT LR_VOLUME_BALANCE_GET, LR_balance_status=%d, LR_balance_ID=%d\r\n", 2, para.LR_balance_status, para.LR_balance_ID);
+                    presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+                } else {
+                    LOGMSGIDE("AT LR_VOLUME_BALANCE_GET, error\r\n", 0);
+                    presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+                }
+                presponse->response_len = strlen((const char *)presponse->response_buf);
+                atci_send_response(presponse);
+            } else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=DL_SW_GAIN_FADE_TIME") != NULL) {
+                int index, in_out, step, sample_per_step;
+                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%d,%d,%d,%d", &index, &in_out, &step, &sample_per_step);
+                dl_sw_gain_fade_para_t para;
+                para.index = index;
+                para.new_step = step;
+                para.new_samples_per_step = sample_per_step;
+                if(in_out == 0){
+                    DL_SW_gain_set_fade_in_param(para);
+                } else if(in_out == 1){
+                    DL_SW_gain_set_fade_out_param(para);
+                }
+                presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+                presponse->response_len = strlen((const char *)presponse->response_buf);
+                atci_send_response(presponse);
+            }
+#endif /* defined(AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE) */
+#if defined AIR_BTA_IC_PREMIUM_G2  || defined AIR_BTA_IC_STEREO_HIGH_G3//|| defined AIR_BTA_IC_PREMIUM_G3
+            else if (strstr((char *)parse_cmd->string_ptr, "AT+EAUDIO=MICBIAS_CONTROL") != NULL) {
+                /* <on/off>,<bias_select> */
+                uint32_t             is_on       = 0;
+                uint32_t             bias_select = 0;
+                atci_response_flag_t res         = ATCI_RESPONSE_FLAG_APPEND_OK;
+                static uint32_t      bias_count  = 0;
+                mcu2dsp_open_param_t *open_param = pvPortMallocNC(sizeof(mcu2dsp_open_param_t));
+                sscanf((char *)parse_cmd->string_ptr,"%*[^,],%lu,%lu",
+                    &is_on,
+                    &bias_select
+                    );
+                LOGMSGIDI("[AUD] micbias keep %d, bias select 0x%x", 2,
+                    is_on,
+                    bias_select
+                    );
+                memset(open_param, 0, sizeof(mcu2dsp_open_param_t));
+                open_param->param.stream_in                      = STREAM_IN_AFE;
+                open_param->stream_in_param.afe.audio_device     = HAL_AUDIO_DEVICE_MAIN_MIC_DUAL;
+                open_param->stream_in_param.afe.audio_device1    = HAL_AUDIO_DEVICE_MAIN_MIC_DUAL;
+                open_param->stream_in_param.afe.audio_interface  = HAL_AUDIO_INTERFACE_1;
+                open_param->stream_in_param.afe.audio_interface1 = HAL_AUDIO_INTERFACE_1;
+                open_param->stream_in_param.afe.bias_select      = bias_select;
+                #if defined AIR_BTA_IC_PREMIUM_G2
+                    /* get amic volatage level */
+                    for (uint8_t i = 0; i < 5; i++) {
+                        open_param->stream_in_param.afe.bias_voltage[i] = audio_nvdm_HW_config.adc_dac_config.ADDA_Voice_Bias_Level[4-i];
+                        open_param->stream_in_param.afe.misc_parms |= (uint32_t)(audio_nvdm_HW_config.adc_dac_config.ADDA_Voice_Bias_Level[4-i]) << (4 * i);
+                    }
+                    if (audio_nvdm_HW_config.adc_dac_config.ADDA_Voice_Bias012_share_LDO) {
+                        open_param->stream_in_param.afe.bias1_2_with_LDO0 = true;
+                    } else {
+                        open_param->stream_in_param.afe.bias1_2_with_LDO0 = false;
+                    }
+                #elif defined AIR_BTA_IC_STEREO_HIGH_G3
+                    for (uint8_t i = 0; i < 5; i++) {
+                        open_param->stream_in_param.afe.bias_voltage[i] = audio_nvdm_HW_config.adc_dac_config.ADDA_Voice_Bias0_Level;
+                    }
+                    open_param->stream_in_param.afe.bias1_2_with_LDO0 = true;
+                #endif
+
+                if (is_on) {
+                    if (ami_hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_MICBIAS_CONTROL)) {
+                        #ifdef AIR_BTA_IC_PREMIUM_G3
+                            LOGMSGIDW("[AUD] micbias control is already on", 0);
+                            res = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+                        #endif
+                    } else {
+                        bias_count = 0;
+                        ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_MICBIAS_CONTROL, open_param, true);
+                    }
+                    bias_count ++;
+                    /* send ccni msg to control d-die, only used for mic bias in dsp side */
+                    #if defined AIR_BTA_IC_PREMIUM_G2 || defined AIR_BTA_IC_STEREO_HIGH_G3
+                        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_MICBIAS_CONTROL, is_on, (uint32_t)open_param, true);
+                    #endif
+                } else {
+                    bias_count --;
+                    /* send ccni msg to control d-die, only used for mic bias in dsp side */
+                    #if defined AIR_BTA_IC_PREMIUM_G2 || defined AIR_BTA_IC_STEREO_HIGH_G3
+                        hal_audio_dsp_controller_send_message(MSG_MCU2DSP_COMMON_MICBIAS_CONTROL, is_on, (uint32_t)open_param, true);
+                    #endif
+                    if (!ami_hal_audio_status_query_running_flag(AUDIO_SCENARIO_TYPE_MICBIAS_CONTROL)) {
+                        #ifdef AIR_BTA_IC_PREMIUM_G3
+                            LOGMSGIDW("[AUD] micbias control is already off", 0);
+                            res = ATCI_RESPONSE_FLAG_APPEND_ERROR;
+                        #endif
+                    } else {
+                        if (bias_count == 0) {
+                            ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_MICBIAS_CONTROL, NULL, false);
+                        }
+                    }
+                }
+                vPortFreeNC(open_param);
+                open_param = NULL;
+                presponse->response_flag = res;
+                presponse->response_len = strlen((const char *)presponse->response_buf);
+                atci_send_response(presponse);
+            }
+#endif
             else {
                 /* invalid AT command */
                 LOGMSGIDI("atci_cmd_hdlr_audio: command not exist \r\n", 0);

@@ -118,6 +118,8 @@ void uart_restore_all_registers(void)
         uartx->IER_UNION.IER                  = log_para->uart_rg_IER           ;
         uartx->RXTRIG                         = log_para->uart_rg_RXTRIG        ;
         uartx->FRACDIV                        = log_para->uart_rg_FRACDIV       ;
+        uartx->RX_TO_CON_UNION.RX_TO_CON      = log_para->uart_rg_RX_TO_CON     ;
+        uartx->RX_TOC_DEST                    = log_para->uart_rg_RX_TO_DEST    ;
 
         //uartx->FCR_UNION.FCR |=  UART_FCR_CLRT_MASK | UART_FCR_CLRR_MASK; // clear uart hw fifo
         //uartx->THR                            = log_para->uart_rg_XOFF_XON >> 8 ;
@@ -145,7 +147,6 @@ void uart_restore_all_registers(void)
         dma_rx->VDMA_START                   |= VDMA_START_BIT_MASK             ;
         uartx->DMA_CON_UNION.DMA_CON          = log_para->uart_rg_DMACON        ;
         uartx->FCR_UNION.FCR |=  UART_FCR_CLRT_MASK | UART_FCR_CLRR_MASK; // clear uart hw fifo
-        //*(volatile uint32_t*)0xA0030050 = *(volatile uint32_t*)0xA0030050;
     }
 
     while (hal_hw_semaphore_give(HW_SEMAPHORE_SLEEP) != HAL_HW_SEMAPHORE_STATUS_OK);

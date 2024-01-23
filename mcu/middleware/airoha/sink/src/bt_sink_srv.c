@@ -39,12 +39,18 @@
 #include "bt_sink_srv_common.h"
 #include "bt_sink_srv_state_manager.h"
 #include "bt_connection_manager_internal.h"
+#ifdef AIR_BT_SINK_CALL_ENABLE
 #include "bt_sink_srv_call.h"
+#ifdef MTK_BT_PBAP_ENABLE
+#include "bt_sink_srv_pbapc.h"
+#endif
+#endif
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 #include "bt_sink_srv_avrcp.h"
 #include "bt_sink_srv_a2dp.h"
-#include "bt_sink_srv_pbapc.h"
-#include "bt_sink_srv_aws_mce.h"
 #include "bt_sink_srv_aws_mce_a2dp.h"
+#endif
+#include "bt_sink_srv_aws_mce.h"
 
 #ifdef AIR_BT_CODEC_BLE_ENABLED
 #include "bt_sink_srv_le.h"
@@ -94,10 +100,13 @@ static bt_sink_srv_type_t bt_sink_srv_get_current_type();
 #endif
 
 const bt_sink_srv_action_callback_table_t bt_sink_srv_action_callback_table[BT_SINK_SRV_MAX_ACTION_TABLE_SIZE] = {
+#ifdef AIR_BT_SINK_CALL_ENABLE
     {
         SINK_MODULE_MASK_COMMON | SINK_MODULE_MASK_HFP | SINK_MODULE_MASK_HSP,
         bt_sink_srv_call_action_handler
     },
+#endif    
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     {
         SINK_MODULE_MASK_COMMON | SINK_MODULE_MASK_A2DP | SINK_MODULE_MASK_AVRCP,
         bt_sink_srv_music_a2dp_action_handler
@@ -112,10 +121,13 @@ const bt_sink_srv_action_callback_table_t bt_sink_srv_action_callback_table[BT_S
         SINK_MODULE_MASK_COMMON | SINK_MODULE_MASK_AVRCP,
         bt_sink_srv_music_avrcp_action_handler
     },
+#endif
+#if defined(AIR_BT_SINK_CALL_ENABLE) && defined(MTK_BT_PBAP_ENABLE)
     {
         SINK_MODULE_MASK_COMMON | SINK_MODULE_MASK_PBAPC,
         bt_sink_srv_pbapc_action_handler
     },
+#endif
 #ifdef MTK_IAP2_PROFILE_ENABLE
 #ifndef MTK_IAP2_VIA_MUX_ENABLE
     {
@@ -201,9 +213,14 @@ void bt_sink_srv_init(bt_sink_feature_config_t *features)
 
     bt_sink_srv_config_features(features);
     // initialize sink call (contains: hf && hsp)
+#ifdef AIR_BT_SINK_CALL_ENABLE
     bt_sink_srv_call_init();
+#endif
     // initialize sink music (contains: a2dp_sink && /* avrcp managed by sink music */)
+
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
     bt_sink_srv_music_init();
+#endif
 
 #ifdef BT_SINK_DUAL_ANT_ENABLE
     bt_sink_srv_dual_ant_init();

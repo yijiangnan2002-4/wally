@@ -679,26 +679,28 @@ static void *apps_race_cmd_handler(ptr_race_pkt_t p_race_package, uint16_t lengt
                         }
                         break;
                     }
-#if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE_V2)
                     case APPS_RACE_CMD_CONFIG_TYPE_ADVANCED_PASSTHROUGH: {
+                        uint8_t status = RACE_ERRCODE_SUCCESS;
+#if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE_V2)
                         void *p_data = &(cmd->config_data);
                         uint8_t enable = *(uint8_t *)p_data;
                         bool cur_enable = app_advance_passthrough_is_enable();
                         APPS_LOG_MSGID_I(LOG_TAG" [ADVANCE_PT] switch via RACE, enable=%d->%d", 2, cur_enable, enable);
-                        uint8_t status = RACE_ERRCODE_SUCCESS;
                         if (cur_enable != enable) {
                             bool success = app_advance_passthrough_switch();
                             if (!success) {
                                 status = RACE_ERRCODE_FAIL;
                             }
                         }
+#else
+                        status = RACE_ERRCODE_NOT_SUPPORT;
+#endif //AIR_ADVANCED_PASSTHROUGH_ENABLE or AIR_ADVANCED_PASSTHROUGH_ENABLE_V2
                         if (pEvt) {
                             ((RSP *)pEvt)->status = status;
                             ((RSP *)pEvt)->config_type = APPS_RACE_CMD_CONFIG_TYPE_ADVANCED_PASSTHROUGH;
                         }
                         break;
                     }
-#endif
                     case APPS_RACE_CMD_CONFIG_TYPE_USB_LOGGING_MODE: {
                         void *p_data = &(cmd->config_data);
                         uint8_t enable = *((uint8_t *)p_data);
@@ -812,6 +814,25 @@ static void *apps_race_cmd_handler(ptr_race_pkt_t p_race_package, uint16_t lengt
                         break;
                     }
 #endif
+                    case APPS_RACE_CMD_CONFIG_TYPE_CALL_RX_EQ_CFG: {
+                        ((RSP *)pEvt)->config_type = APPS_RACE_CMD_CONFIG_TYPE_CALL_RX_EQ_CFG;
+                        void *p_data = &(cmd->config_data);
+                        if (p_data == NULL
+#ifdef SUPPORT_ROLE_HANDOVER_SERVICE
+                           || (role != BT_AWS_MCE_ROLE_AGENT && role != BT_AWS_MCE_ROLE_NONE)
+#endif
+                        ) {
+                            ((RSP *)pEvt)->status = APP_CALL_RX_EQ_SET_ERROR;
+                            break;
+                        }
+
+                        app_call_rx_eq_type_t received_eq_type = *(app_call_rx_eq_type_t *)p_data;
+                        APPS_LOG_MSGID_I(LOG_TAG" [CALL_RX_EQ] received_eq_type=%d", 1, received_eq_type);
+                        app_call_rx_eq_set_status_t set_result = app_call_rx_eq_type_set(received_eq_type);
+                        ((RSP *)pEvt)->status      = set_result;
+                        break;
+                    }
+
                     default:
                         if (pEvt) {
                             RACE_FreePacket(pEvt);
@@ -972,10 +993,9 @@ static void *apps_race_cmd_handler(ptr_race_pkt_t p_race_package, uint16_t lengt
                         }
                         break;
                     }
-#if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE_V2)
                     case APPS_RACE_CMD_CONFIG_TYPE_ADVANCED_PASSTHROUGH: {
-                        bool enable = app_advance_passthrough_is_enable();
                         APPS_LOG_MSGID_I(LOG_TAG" [ADVANCE_PT] get via RACE", 0);
+                        bool enable = false;
                         typedef struct {
                             uint8_t status;
                             uint16_t config_type;
@@ -988,7 +1008,12 @@ static void *apps_race_cmd_handler(ptr_race_pkt_t p_race_package, uint16_t lengt
                                                      channel_id);
                         if (pEvt != NULL) {
                             ((QUERY_RSP *)pEvt)->config_type = APPS_RACE_CMD_CONFIG_TYPE_ADVANCED_PASSTHROUGH;
+#if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE_V2)
+                            enable = app_advance_passthrough_is_enable();
                             ((QUERY_RSP *)pEvt)->status = RACE_ERRCODE_SUCCESS;
+#else
+                            ((QUERY_RSP *)pEvt)->status = RACE_ERRCODE_NOT_SUPPORT;
+#endif
                             ((QUERY_RSP *)pEvt)->enable = enable;
                             APPS_LOG_MSGID_I(LOG_TAG" [ADVANCE_PT] get via RACE, enable=%d", 1, enable);
                         } else {
@@ -996,7 +1021,7 @@ static void *apps_race_cmd_handler(ptr_race_pkt_t p_race_package, uint16_t lengt
                         }
                         break;
                     }
-#endif
+
                     case APPS_RACE_CMD_CONFIG_TYPE_USB_LOGGING_MODE: {
                         typedef struct {
                             uint8_t enable;

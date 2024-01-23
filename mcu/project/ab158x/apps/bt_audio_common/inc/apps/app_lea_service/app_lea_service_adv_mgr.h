@@ -54,23 +54,20 @@ extern "C" {
 
 void        app_lea_adv_mgr_start_advertising(uint8_t mode, bool sync, uint32_t timeout);
 void        app_lea_adv_mgr_stop_advertising(bool sync);
+void        app_lea_adv_mgr_quick_stop_adv(void);
+void        app_lea_adv_mgr_refresh_advertising(uint32_t delay);
 uint8_t     app_lea_adv_mgr_get_adv_mode(void);
 bool        app_lea_adv_mgr_update_adv_interval(uint16_t interval_min, uint16_t interval_max);
 
 bool        app_lea_adv_mgr_control_adv_data(uint8_t adv_type, bool enable);
 
-#if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE) && defined(AIR_BLE_ULL_PARING_MODE_ENABLE)
-bool        app_lea_adv_mgr_enable_ull2_pairing_mode(bool enable);
-#endif
 #if defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+bool        app_lea_adv_mgr_enable_ull2_pairing_mode(bool enable);
+
 bool        app_lea_adv_mgr_enable_ull2_reconnect_mode(bool enable);
 #endif
 
-void        app_lea_adv_mgr_get_adv_info(uint8_t *mode, bt_addr_t *target_addr, uint32_t *timeout);
-
-bool        app_lea_adv_mgr_update_target_addr(app_le_audio_update_target_mode_t mode,
-                                               bt_addr_type_t addr_type,
-                                               const uint8_t *addr);
+void        app_lea_adv_mgr_get_adv_info(uint8_t *mode, uint32_t *timeout);
 
 void        app_lea_adv_mgr_init(void);
 

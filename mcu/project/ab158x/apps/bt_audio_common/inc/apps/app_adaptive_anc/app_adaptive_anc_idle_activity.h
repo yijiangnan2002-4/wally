@@ -49,7 +49,7 @@ extern "C" {
 
 typedef enum {
     APP_ADAPTIVE_ANC_IDLE = 0,
-    APP_ADAPTIVE_ANC_SUEPENDING_ANC,
+    APP_ADAPTIVE_ANC_SUSPENDING_ANC,
     APP_ADAPTIVE_ANC_STARTED
 } app_adaptive_anc_state_t;
 

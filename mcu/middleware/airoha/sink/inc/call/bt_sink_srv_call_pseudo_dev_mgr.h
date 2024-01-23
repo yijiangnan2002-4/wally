@@ -73,12 +73,13 @@ typedef uint32_t bt_sink_srv_call_pseudo_dev_sub_state_t;
 #define BT_SINK_SRV_CALL_PSD_FLAG_SUSPEND               (0x02)
 #define BT_SINK_SRV_CALL_PSD_FLAG_TAKED_MIC_RESOURCE    (0x04)
 #define BT_SINK_SRV_CALL_PSD_FLAG_ADD_MIC_RES_WAIT_LIST (0x08)
-
 #if defined (AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
 #define BT_SINK_SRV_CALL_PSD_FLAG_IF_PENDING            (0x10)
 #endif
-
+#define BT_SINK_SRV_CALL_PSD_FLAG_ENABLE_SIDETONE       (0x20)
 typedef uint8_t bt_sink_srv_call_pseudo_dev_flag_t;
+#define BT_SINK_SRV_CALL_PSD_FLAG_SCO_ACTIVED           (0x40)
+#define BT_SINK_SRV_CALL_PSD_FLAG_CODEC_STARTED         (0x80)
 
 typedef struct {
     void (*play)(audio_src_srv_handle_t *handle);
@@ -129,6 +130,7 @@ void bt_sink_srv_call_psd_give_mic_resource();
 #endif
 
 bt_sink_srv_call_pseudo_dev_t *bt_sink_srv_call_psd_get_dev_by_audio_src(audio_src_srv_handle_t *audio_src);
+bool bt_sink_srv_call_psd_get_playing_state(void);
 
 void bt_sink_srv_call_psd_suspend(audio_src_srv_handle_t *handle, audio_src_srv_handle_t *int_hd);
 bt_sink_srv_call_pseudo_dev_t *bt_source_srv_call_psd_find_device_by_handle( void *handle);

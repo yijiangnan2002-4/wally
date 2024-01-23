@@ -411,18 +411,12 @@ typedef struct {
 
 #ifdef AIR_DCHS_MODE_ENABLE
 typedef struct {
-    hal_audio_memory_t in_memory;
-    hal_audio_memory_t out_memory;
-    hal_audio_interface_t in_interface;
-    hal_audio_interface_t out_interface;
     hal_audio_format_t format;
     uint32_t sampling_rate;
     uint32_t frame_size;
     uint32_t frame_number;
-    uint32_t  irq_period;
-    uint32_t  context_type;
     uint8_t   scenario_type;
-    uint8_t   channel_num;
+    uint32_t  codec_type;
 } audio_transmitter_dchs_config_t;
 #endif
 
@@ -638,7 +632,15 @@ typedef struct {
 } bt_audio_usb_detect_config_t;
 
 typedef struct {
+    // 0%~100%
+    uint8_t  vol_ratio;
+    // 0x7F: BT_AUDIO_VOLUME_LEVEL_MUTE
+    // 0xFF: BT_AUDIO_VOLUME_LEVEL_INVALID
+    uint8_t  vol_level[BT_AUDIO_VOLUME_CH_MAX];
+} bt_audio_volume_config_t;
+typedef struct {
     union {
+        bt_audio_volume_config_t     vol_config;
         bt_audio_usb_detect_config_t usb_detect;
     } config;
 } audio_transmitter_bt_audio_runtime_config_t;

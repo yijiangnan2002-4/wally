@@ -71,6 +71,9 @@ typedef struct {
     uint8_t speaker_volume;
     bt_sink_srv_call_rho_flag_t rho_flag;
 #endif /* AIR_MULTI_POINT_ENABLE */
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+    bt_sink_srv_state_manager_play_count_t play_count;
+#endif
 }) bt_sink_srv_call_rho_content_t;
 
 extern bt_sink_srv_hf_context_t g_sink_srv_hf_context[BT_SINK_SRV_HF_LINK_NUM];
@@ -186,6 +189,9 @@ static bt_status_t bt_sink_srv_call_role_handover_get_data(const bt_bd_addr_t *a
             g_bt_sink_srv_call_rho_content.rho_flag &= ~BT_SINK_SRV_CALL_RHO_FLAG_LAST_DEVICE;
         }
 #endif /* AIR_MULTI_POINT_ENABLE */
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+        g_bt_sink_srv_call_rho_content.play_count = hf_context->play_count;
+#endif
         bt_sink_srv_report_id("[CALL][AWS_MCE][RHO]get data, HF data(0x%x, 0x%x, 0x%x, 0x%x)", 4,
                               g_bt_sink_srv_call_rho_content.ag_featues, g_bt_sink_srv_call_rho_content.ag_chld_feature,
                               g_bt_sink_srv_call_rho_content.call_state, g_bt_sink_srv_call_rho_content.flag);
@@ -213,7 +219,10 @@ static bt_status_t bt_sink_srv_call_role_handover_get_data(const bt_bd_addr_t *a
 static bt_status_t bt_sink_srv_call_role_handover_update(bt_role_handover_update_info_t *info)
 {
     bt_utils_assert(info != NULL);
-    bt_sink_srv_aws_mce_call_context_t *aws_context = bt_sink_srv_aws_mce_call_get_context_by_address(info->addr);
+    bt_bd_addr_t address;
+    bt_sink_srv_memcpy(&address, info->addr, sizeof(bt_bd_addr_t));
+    uint32_t aws_handle  = bt_sink_srv_aws_mce_get_handle(&address);
+    bt_sink_srv_aws_mce_call_context_t *aws_context = bt_sink_srv_aws_mce_call_get_context_by_handle(aws_handle);
 
     if (info->is_active) {
         bt_utils_assert((aws_context != NULL) && "AWS connection not found in active link");
@@ -300,6 +309,10 @@ static bt_status_t bt_sink_srv_call_role_handover_update(bt_role_handover_update
             bt_sink_srv_hf_stored_data_t stored_data = {0};
             stored_data.speaker_volume = (uint8_t)bt_sink_srv_call_psd_get_speaker_volume(hf_context->device) | BT_SINK_SRV_HF_VOLUME_MASK;
             bt_sink_srv_hf_set_nvdm_data((bt_bd_addr_t *)info->addr, &stored_data, sizeof(stored_data));
+
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+            hf_context->play_count = rho_context->play_count;
+#endif
         } else if (info->profile_info->hsp_handle != 0) {
 #ifdef MTK_BT_HSP_ENABLE
             /* 2. Update hsp context. */
@@ -489,6 +502,8 @@ static void bt_sink_srv_call_role_handover_status_callback(
 #if defined(MTK_BT_CM_SUPPORT) && defined(AIR_MULTI_POINT_ENABLE)
                     if (bt_sink_srv_hf_get_connected_sco_count() > 1) {
                         bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_UNKNOW, BT_CM_COMMON_TYPE_DISABLE);
+                    } else {
+                        bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_UNKNOW, BT_CM_COMMON_TYPE_ENABLE);
                     }
 #endif
                 } else {

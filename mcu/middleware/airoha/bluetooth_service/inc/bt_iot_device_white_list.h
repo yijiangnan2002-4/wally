@@ -59,6 +59,8 @@ typedef enum {
     BT_IOT_CALL_HEADSET_BLOCK_ESCO_CONNECTION_WITH_RECONNECT,   /* 14, IOT issue: when the HFP reconnect and the call is exist, the headset will block the esco connection initiated by the dongle. */
     BT_IOT_MUSIC_NO_PRE_NEXT_PASS_THROUGH_CMD, /* 15, IOT issue: when music is paused , plug out & in dongle again, earbuds can't send prex & next passthrough cmd. */
     BT_IOT_IDENTIFY_LEA_SUPPORT_DEVICE, /* 16, To identify LEA support device. */
+    BT_IOT_DEVICE_IDENTIFY_APPLE, /* 17, To identify Apple device. */
+    BT_IOT_MUSIC_NOT_SUPPORT_STATUS_CHANGE_NOTIFY_DEVICE,/*18, not support */
 } bt_iot_device_white_list_iot_case_t;
 
 typedef struct {

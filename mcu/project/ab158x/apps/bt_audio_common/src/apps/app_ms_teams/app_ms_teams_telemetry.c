@@ -155,7 +155,7 @@ void app_ms_teams_load_default_telemetry_setting()
     //app_ms_teams_set_button_press_info_mute(on_off);
     //app_ms_teams_set_button_press_info_flash(on_off);
     //app_ms_teams_set_connected_wireless_device_changed(yes_no);
-    //app_ms_teams_set_local_reference_coult(count);
+    //app_ms_teams_set_local_reference_count(count);
 
     /* follow item is only device triggered item, call follow action while the status changed. */
     //app_ms_teams_set_voice_activity_while_muted(yes_no);
@@ -215,7 +215,7 @@ bool app_ms_teams_set_dongle_fw_version(uint8_t *ver, uint32_t len)
 
 bool app_ms_teams_set_don_to_answer_setting(bool en)
 {
-    app_ms_teams_get_telemetry_info()->don_to_seeting = en;
+    app_ms_teams_get_telemetry_info()->don_to_setting = en;
     return true;
 }
 
@@ -390,7 +390,7 @@ bool app_ms_teams_set_local_reference_count(uint32_t count)
 }
 
 /**
-* @brief      This function will be called everty time the voice detected while you muted microphone during call.
+* @brief      This function will be called every time the voice detected while you muted microphone during call.
 * @param[in]  yes_no true means voice detected and false means not detected.
 * @return     Success or Failed, true means Success.
 */

@@ -355,10 +355,10 @@ void afe_set_asrc_irq_enable(afe_mem_asrc_id_t asrc_id, bool enable);
 bool afe_get_asrc_irq_is_enabled(afe_mem_asrc_id_t asrc_id, uint32_t interrupt);
 void afe_clear_asrc_irq(afe_mem_asrc_id_t asrc_id, uint32_t status);
 uint32_t afe_get_asrc_irq_status(afe_mem_asrc_id_t asrc_id);
-void afe_set_asrc(afe_mem_asrc_id_t asrc_id, afe_asrc_config_p config, bool enable);
+void afe_set_asrc(afe_mem_asrc_id_t asrc_id, afe_src_configuration_p config, bool enable);
 int32_t afe_mem_asrc_enable(afe_mem_asrc_id_t asrc_id, bool enable);
 hal_audio_src_tracking_clock_t afe_set_asrc_tracking_clock(hal_audio_interface_t audio_interface);
-void afe_set_asrc_enable(bool enable, afe_mem_asrc_id_t asrc_id, afe_asrc_config_p asrc_config);
+void afe_set_asrc_enable(bool enable, afe_mem_asrc_id_t asrc_id, afe_src_configuration_p asrc_config);
 #ifdef ENABLE_HWSRC_CLKSKEW
 void afe_set_asrc_compensating_sample(afe_mem_asrc_id_t asrc_id, uint32_t output_buffer_rate, S32 cp_point);
 #endif

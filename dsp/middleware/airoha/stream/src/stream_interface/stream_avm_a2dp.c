@@ -40,6 +40,9 @@
 #include "dtm.h"
 #include "stream_n9_a2dp.h"
 #include "stream_n9sco.h"
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+#include "lc3plus_dec_interface.h"
+#endif
 #ifdef AIR_BT_CLK_SKEW_ENABLE
 #include "long_term_clk_skew.h"
 #endif
@@ -71,7 +74,7 @@ log_create_module(strm_a2dp, PRINT_LEVEL_INFO);
 #define N9_A2DP_DEBUG_LOG   0
 #define AAC_FRAME_DECODE_SAMPLE_NUM 1024
 #define BUFFER_EMPTY_ASI_PADDING_NUM 1024
-#define LHDC_BUFFER_EMPTY_ASI_PADDING_NUM 960
+#define VENDOR_BUFFER_EMPTY_ASI_PADDING_NUM 960
 #define SBC_FRAME_DECODE_SAMPLE_NUM 128
 #define AAC_BITRATE_REPORT_ACCUM_TIME 30
 #define BUFFER_EMPTY_REINIT_THD 5
@@ -280,6 +283,11 @@ ATTR_TEXT_IN_IRAM_LEVEL static U32 a2dp_get_hdr_info(SOURCE source)
     U16 return_status = RETURN_PASS;
     bt_codec_a2dp_hdr_type_t a2dp_hdr_info;
     do {
+         if (share_buff_info->ReadIndex == share_buff_info->WriteIndex) {
+            a2dp_hdr_info.frame_size = 0;
+            return_status = RETURN_FAIL;
+            break;
+         }
         memcpy(&a2dp_hdr_info, (U8 *)(source->streamBuffer.AVMBufferInfo.StartAddr + share_buff_info->MemBlkSize * share_buff_info->ReadIndex), sizeof(bt_codec_a2dp_hdr_type_t));
 
         /* Save global information */
@@ -546,8 +554,10 @@ static VOID vend_get_frame_information(SOURCE source, bt_codec_a2dp_vend_frame_h
 static U16 vend_get_frame_size(SOURCE source)
 {
     U16 frame_size;
-#if defined(MTK_BT_A2DP_VENDOR_2_ENABLE)    
-    if (source->param.n9_a2dp.codec_info.codec_cap.codec.vend.codec_id ==  BT_A2DP_CODEC_VENDOR_2_CODEC_ID){
+#if defined(MTK_BT_A2DP_VENDOR_2_ENABLE) || defined(AIR_BT_A2DP_LC3PLUS_ENABLE)
+    U32 codec_id;
+    codec_id = source->param.n9_a2dp.codec_info.codec_cap.codec.vend.codec_id;
+    if (codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID) {
         switch (source->streamBuffer.AVMBufferInfo.SampleRate) {
             case 44100:
             case 48000:
@@ -565,8 +575,23 @@ static U16 vend_get_frame_size(SOURCE source)
                 frame_size = 0;
                 break;
         }
+    } else if (codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID) {
+        switch (source->streamBuffer.AVMBufferInfo.SampleRate) {
+            case 48000:
+                frame_size = 240;
+                break;
+            case 96000:
+                frame_size = 480;
+                break;
+            default :
+                frame_size = 0;
+                break;
+        }
+        if (source->param.n9_a2dp.codec_info.codec_cap.codec.vend.duration_resolution & 0x40) {//10ms
+            frame_size = frame_size<<1;
+        }
     } else
-#endif        
+#endif
     {
     switch (source->streamBuffer.AVMBufferInfo.SampleRate) {
         case 44100:
@@ -714,13 +739,13 @@ static bool sbc_report_bitrate(SOURCE source)
     //STRM_A2DP_LOG_I("sbc bit rate %d", 1, *(source->param.n9_a2dp.a2dp_bitrate_report.p_a2dp_bitrate_report));
     return (sbc_frame_info.SyncWord == 0x9c);
 }
-void Au_DL_send_reinit_request(DSP_REINIT_CAUSE reinit_msg)
+void Au_DL_send_reinit_request(DSP_REINIT_CAUSE reinit_msg, uint32_t from_ISR)
 {
     hal_ccni_message_t msg;
     memset((void *)&msg, 0, sizeof(hal_ccni_message_t));
     msg.ccni_message[0] = MSG_DSP2MCU_BT_AUDIO_DL_REINIT_REQUEST << 16;
     msg.ccni_message[1] = reinit_msg;
-    aud_msg_tx_handler(msg, 0, FALSE);
+    aud_msg_tx_handler(msg, 0, from_ISR);
 }
 
 void Au_DL_send_alc_request(U32 alc_latency)
@@ -818,7 +843,7 @@ void a2dp_trigger_reinit(N9_A2DP_PARAMETER *n9_a2dp_param,avm_share_buf_info_t *
 #else
     UNUSED(share_buff_info);
     UNUSED(n9_a2dp_param);
-    Au_DL_send_reinit_request(MSG2_DSP2CN4_REINIT_BUF_ABNORMAL);
+    Au_DL_send_reinit_request(MSG2_DSP2CN4_REINIT_BUF_ABNORMAL, FALSE);
 #endif
 }
 
@@ -862,7 +887,7 @@ void a2dp_reinit_monitor(SOURCE source, N9_A2DP_PARAMETER *n9_a2dp_param,avm_sha
     }
 
     if(n9_a2dp_param->reinit_state == reinit_state_trigger_mode){//trigger reinit
-        Au_DL_send_reinit_request(MSG2_DSP2CN4_REINIT_BUF_ABNORMAL);
+        Au_DL_send_reinit_request(MSG2_DSP2CN4_REINIT_BUF_ABNORMAL, FALSE);
         n9_a2dp_param->reinit_state = reinit_state_normal_mode;
     }
 #else
@@ -895,9 +920,97 @@ ATTR_TEXT_IN_IRAM_LEVEL BOOL SourceReadBuf_N9_a2dp(SOURCE source, U8 *dst_addr, 
     } else
 #endif
     {
-        memcpy(dst_addr, (U8 *)(share_buff_info->StartAddr + share_buff_info->ReadIndex * share_buff_info->MemBlkSize + sizeof(bt_codec_a2dp_hdr_type_t)), length);
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+        bt_codec_capability_t *codec_cap;
+        U32 i;
+        codec_cap = &(source->param.n9_a2dp.codec_info.codec_cap);
+        if ((codec_cap->type == BT_A2DP_CODEC_VENDOR) && (codec_cap->codec.vend.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID)){
+            if (source->param.n9_a2dp.is_plc_frame == true)
+            {
+                *dst_addr = LC3PLUS_DEC_FRAME_STATUS_PLC;
+                dst_addr += source->param.n9_a2dp.plc_state_len;
+                for (i=0; i < length; i++) {
+                    *dst_addr++ = 0;
+                }
+                STRM_A2DP_LOG_I("[LC3PLUS] PLC", 0);
+            } else {
+                *dst_addr = LC3PLUS_DEC_FRAME_STATUS_NORMAL;
+                dst_addr += source->param.n9_a2dp.plc_state_len;
+                memcpy(dst_addr, (U8 *)(share_buff_info->StartAddr + share_buff_info->ReadIndex * share_buff_info->MemBlkSize + sizeof(bt_codec_a2dp_hdr_type_t)), length);
+            }
+
+        } else
+#endif
+        {
+            memcpy(dst_addr, (U8 *)(share_buff_info->StartAddr + share_buff_info->ReadIndex * share_buff_info->MemBlkSize + sizeof(bt_codec_a2dp_hdr_type_t)), length);
+        }
     }
     return TRUE;
+}
+
+ATTR_TEXT_IN_IRAM_LEVEL bt_codec_a2dp_hdr_type_ptr get_a2dp_hdr_info_ptr(SOURCE source, avm_share_buf_info_t *share_buff_info, U32 index)
+{
+    U32 MemBlkSize = share_buff_info->MemBlkSize;
+    return (bt_codec_a2dp_hdr_type_ptr)(source->streamBuffer.AVMBufferInfo.StartAddr + (index  * MemBlkSize));
+}
+
+ATTR_TEXT_IN_IRAM_LEVEL BOOL check_source_buffer_a2dp(U32 boundary_samples)
+{
+    SOURCE source = Source_blks[SOURCE_TYPE_A2DP];
+    avm_share_buf_info_t *share_buff_info  = (avm_share_buf_info_t *)source->param.n9_a2dp.share_info_base_addr;
+    N9_A2DP_PARAMETER *n9_a2dp_param    = &(source->param.n9_a2dp);
+    U32 FrameSampleNum = share_buff_info->FrameSampleNum;
+    U32 current_asi = n9_a2dp_param->predict_asi;
+    U32 wo = share_buff_info->WriteIndex;
+    U32 ro = share_buff_info->ReadIndex;
+    U32 MemBlkNum = share_buff_info->MemBlkNum;
+    bt_codec_a2dp_hdr_type_ptr a2dp_hdr_info_ptr;
+    U32 good_frame_num = 0;
+    U32 boundary_frames = boundary_samples / FrameSampleNum;
+    U32 boundary_asi = boundary_samples + current_asi;
+    U32 used_blk_num = ((MemBlkNum + wo - ro) % MemBlkNum);
+    U32 i = 0;
+    U32 frame_asi = 0;
+    U8  pcb_state = 0;
+
+    a2dp_hdr_info_ptr =  get_a2dp_hdr_info_ptr(source, share_buff_info, ro);
+
+    DSP_MW_LOG_I("[NICK] used_blk_num:%d, boundary_frames:%d", 2, used_blk_num, boundary_frames);
+
+    if(used_blk_num < (boundary_frames + 1)) {
+        return false;
+    }
+
+    current_asi += FrameSampleNum;
+
+    for(i = 1; i < used_blk_num; i++) {
+
+        a2dp_hdr_info_ptr =  get_a2dp_hdr_info_ptr(source, share_buff_info, ro + i);
+        frame_asi = (a2dp_hdr_info_ptr->frame_asi & ASI_MASK);
+        pcb_state = a2dp_hdr_info_ptr->pcb_state;
+
+        if(frame_asi > boundary_asi) {
+            break;
+        }
+
+        if(current_asi == frame_asi) {
+            if(pcb_state == PCB_STATE_USED) {
+                good_frame_num++;
+            }
+            current_asi += FrameSampleNum;
+        } else if(current_asi < frame_asi){
+            current_asi = frame_asi;
+            if(pcb_state == PCB_STATE_USED) {
+                good_frame_num++;
+            }
+        }
+    }
+    DSP_MW_LOG_I("[NICK2] used_blk_num:%d, boundary_frames:%d, good_frame_num:%d", 3, used_blk_num, boundary_frames, good_frame_num);
+    if(good_frame_num >= boundary_frames) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 ATTR_TEXT_IN_IRAM_LEVEL U32 SourceSize_N9_a2dp(SOURCE source)
@@ -913,7 +1026,9 @@ ATTR_TEXT_IN_IRAM_LEVEL U32 SourceSize_N9_a2dp(SOURCE source)
 #if (!defined(FPGA_ENV) && defined(AIR_BT_CLK_SKEW_ENABLE))|| defined(MTK_PEQ_ENABLE)
     ltcs_anchor_info_t *pcdc_info = (ltcs_anchor_info_t *)source->param.n9_a2dp.pcdc_info_buf;
 #endif
-
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+    bt_codec_capability_t *codec_cap = &(source->param.n9_a2dp.codec_info.codec_cap);
+#endif
 #ifdef AIR_A2DP_REINIT_V2_ENABLE
     U8 role = share_buff_info->role;
 #endif
@@ -980,9 +1095,12 @@ ATTR_TEXT_IN_IRAM_LEVEL U32 SourceSize_N9_a2dp(SOURCE source)
             && (afe_get_dl1_query_data_amount() <= a2dp_get_buffer_thd(source)) && (afe_get_bt_sync_monitor(AUDIO_DIGITAL_BLOCK_MEM_DL1) != 0)) {
             if (share_buff_info->ReadIndex == share_buff_info->WriteIndex) {
                 if (((avm_share_buf_info_t *)source->param.n9_a2dp.share_info_base_addr)->ForwarderAddr < 8192) {
-#if defined(MTK_BT_A2DP_VENDOR_2_ENABLE)
-                    if ((source->param.n9_a2dp.codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) && (source->param.n9_a2dp.codec_info.codec_cap.codec.vend.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID)){
-                        ((avm_share_buf_info_t *)source->param.n9_a2dp.share_info_base_addr)->ForwarderAddr += LHDC_BUFFER_EMPTY_ASI_PADDING_NUM;
+#if defined(MTK_BT_A2DP_VENDOR_2_ENABLE) || defined(AIR_BT_A2DP_LC3PLUS_ENABLE)
+                    U32 codec_id;
+                    codec_id = source->param.n9_a2dp.codec_info.codec_cap.codec.vend.codec_id;
+                    if ((source->param.n9_a2dp.codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) && ((codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID))){
+                        ((avm_share_buf_info_t *)source->param.n9_a2dp.share_info_base_addr)->ForwarderAddr += VENDOR_BUFFER_EMPTY_ASI_PADDING_NUM;
+                    } else if ((source->param.n9_a2dp.codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) && ((codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID))){
                     } else
 #endif
                     {
@@ -1012,6 +1130,12 @@ ATTR_TEXT_IN_IRAM_LEVEL U32 SourceSize_N9_a2dp(SOURCE source)
     /* Check there is data in share buffer or not */
     else {
         frame_size = n9_a2dp_param->current_frame_size;
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+        if ((codec_cap->type == BT_A2DP_CODEC_VENDOR) && (codec_cap->codec.vend.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID)){
+            frame_size += source->param.n9_a2dp.plc_state_len;
+            n9_a2dp_param->current_frame_size = frame_size;
+        }
+#endif
         n9_a2dp_param->predict_asi = n9_a2dp_param->predict_asi & ASI_MASK;
         if ((n9_a2dp_param->predict_asi == n9_a2dp_param->current_asi) || (!((n9_a2dp_param->mce_flag == TRUE) && (source->transform->sink->type == SINK_TYPE_AUDIO)))) {
             //do nothing
@@ -1050,6 +1174,18 @@ ATTR_TEXT_IN_IRAM_LEVEL U32 SourceSize_N9_a2dp(SOURCE source)
         }
 
     }
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+    if ((codec_cap->type == BT_A2DP_CODEC_VENDOR) && (codec_cap->codec.vend.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID)){
+        if (enterbcm) {
+            source->param.n9_a2dp.is_plc_frame = true;
+            enterbcm = FALSE;
+            frame_size = A2DP_Get_FrameSize(source);
+            n9_a2dp_param->current_frame_size = frame_size;
+        } else {
+            source->param.n9_a2dp.is_plc_frame = false;
+        }
+    }
+#endif
     if (enterbcm) {
 #ifdef AIR_A2DP_REINIT_V2_ENABLE
         if(n9_a2dp_param->reinit_request_cnt){
@@ -1086,9 +1222,8 @@ ATTR_TEXT_IN_IRAM_LEVEL U32 SourceSize_N9_a2dp(SOURCE source)
     } else if (n9_a2dp_param->codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) {
         bt_codec_a2dp_vend_frame_header_t vend_frame_info;
         vend_get_frame_information(source, &vend_frame_info);
-        
-        if (n9_a2dp_param->codec_info.codec_cap.codec.vend.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID){
-        } else{
+
+        if (n9_a2dp_param->codec_info.codec_cap.codec.vend.codec_id == 0xAA) {
             if (vend_frame_info.vend_byte1 != 0xAA) {
                 wrong_sync_word = vend_frame_info.vend_byte1;
                 if (n9_a2dp_param->current_frame_size != 0) {
@@ -1192,6 +1327,15 @@ ATTR_TEXT_IN_IRAM_LEVEL VOID SourceDrop_N9_a2dp(SOURCE source, U32 amount)
         DSP_Callback_BypassModeCtrl(source, source->transform->sink, STREAMING_MODE);
         return;
     }
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+        bt_codec_capability_t *codec_cap;
+        codec_cap = &(source->param.n9_a2dp.codec_info.codec_cap);
+        if ((codec_cap->type == BT_A2DP_CODEC_VENDOR) && (codec_cap->codec.vend.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID)){
+            if (source->param.n9_a2dp.is_plc_frame == true) {
+                return;
+            }
+        }
+#endif
     if ((n9_a2dp_param->buffer_empty_cnt < REINIT_FLAG) && (source->transform != NULL)) {
         if ((source->param.n9_a2dp.alc_monitor == FALSE) && (source->param.n9_a2dp.sink_latency != 0)) {
 #ifndef AIR_A2DP_REINIT_V2_ENABLE
@@ -1253,14 +1397,16 @@ ATTR_TEXT_IN_IRAM_LEVEL VOID SourceDrop_N9_a2dp(SOURCE source, U32 amount)
     }
     /* VENDOR part */
     else if (n9_a2dp_param->codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) {
-#if defined(MTK_BT_A2DP_VENDOR_2_ENABLE)        
-        if (n9_a2dp_param->codec_info.codec_cap.codec.vend.codec_id == BT_A2DP_CODEC_VENDOR_2_CODEC_ID){
+#if defined(MTK_BT_A2DP_VENDOR_2_ENABLE) || defined(AIR_BT_A2DP_LC3PLUS_ENABLE)
+        U32 codec_id;
+        codec_id = n9_a2dp_param->codec_info.codec_cap.codec.vend.codec_id;
+        if ((codec_id == BT_A2DP_CODEC_LHDC_CODEC_ID) || (codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID)){
             if (n9_a2dp_param->current_frame_size == amount)
             {
                 share_information_read_index_update(source);
             }
         } else
-#endif            
+#endif
         {
 #if defined(MTK_BT_A2DP_VENDOR_BC_ENABLE) || defined(MTK_BT_A2DP_VENDOR_1_BC_ENABLE)
         if ((source->param.n9_a2dp.sink_latency != 0) && (n9_a2dp_param->current_frame_size == amount))
@@ -1294,6 +1440,11 @@ BOOL SourceClose_N9_a2dp(SOURCE source)
     ((n9_dsp_share_info_t *)source->param.n9_a2dp.share_info_base_addr)->notify_count = 0;
 #if defined(MTK_BT_A2DP_VENDOR_BC_ENABLE) || defined(MTK_BT_A2DP_VENDOR_1_BC_ENABLE)
     DSPMEM_Free(source->taskId, (VOID *)source);
+#endif
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+    if ((source->param.n9_a2dp.codec_info.codec_cap.type == BT_A2DP_CODEC_VENDOR) && (source->param.n9_a2dp.codec_info.codec_cap.codec.vend.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID)){
+        stream_codec_decoder_lc3plus_deinit(LC3PLUS_DEC_PORT_0,source);
+    }
 #endif
     return TRUE;
 }
@@ -1916,7 +2067,41 @@ VOID SourceInit_N9_a2dp(SOURCE source)
         source->param.n9_a2dp.codec_info.codec_cap.type = BT_A2DP_CODEC_AIRO_CELT;
     }
 #endif
-
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+    bt_codec_capability_t *codec_cap;
+    codec_cap = &(source->param.n9_a2dp.codec_info.codec_cap);
+    if ((codec_cap->type == BT_A2DP_CODEC_VENDOR) && (codec_cap->codec.vend.codec_id == BT_A2DP_CODEC_LC3PLUS_CODEC_ID)){
+        /* init lc3plus codec */
+        lc3plus_dec_port_config_t lc3plus_dec_config;
+        lc3plus_dec_config.sample_bits      = 32;
+        lc3plus_dec_config.sample_rate      = a2dp_get_samplingrate(source);
+        lc3plus_dec_config.bit_rate         = 0;
+        lc3plus_dec_config.in_channel_num   = 1;
+        lc3plus_dec_config.out_channel_num  = 2;
+        lc3plus_dec_config.channel_mode     = LC3PLUS_DEC_CHANNEL_MODE_STEREO;
+        if (codec_cap->codec.vend.duration_resolution & 0x40) {
+            lc3plus_dec_config.frame_interval   = 10000;
+        } else {
+            lc3plus_dec_config.frame_interval   = 5000;
+        }
+        lc3plus_dec_config.frame_size       = 0;
+        lc3plus_dec_config.frame_samples    = A2DP_Get_FrameSize(source);
+        lc3plus_dec_config.plc_enable       = 1;
+        lc3plus_dec_config.plc_method       = LC3PLUS_PLCMETH_ADV_TDC_NS;
+        stream_codec_decoder_lc3plus_init(LC3PLUS_DEC_PORT_0, source, &lc3plus_dec_config);
+        STRM_A2DP_LOG_I("[LC3PLUS] init %u, %u, %u, %u, %u, %u, %u, %u, %u, %u\r\n", 10,
+                    lc3plus_dec_config.sample_bits,
+                    lc3plus_dec_config.sample_rate,
+                    lc3plus_dec_config.bit_rate,
+                    lc3plus_dec_config.channel_mode,
+                    lc3plus_dec_config.in_channel_num,
+                    lc3plus_dec_config.out_channel_num,
+                    lc3plus_dec_config.frame_interval,
+                    lc3plus_dec_config.frame_size,
+                    lc3plus_dec_config.frame_samples,
+                    lc3plus_dec_config.plc_enable);
+    }
+#endif
     /* interface init */
     if (source->param.n9_a2dp.codec_info.codec_cap.type == BT_A2DP_CODEC_AIRO_CELT) {
 #ifdef MTK_BT_A2DP_AIRO_CELT_ENABLE

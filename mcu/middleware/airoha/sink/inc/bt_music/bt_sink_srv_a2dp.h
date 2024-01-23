@@ -56,8 +56,8 @@
 #define BT_SINK_SRV_A2DP_SPECIAL_DEVICE_MTU_SIZE    (672)
 #define BT_SINK_SRV_A2DP_NORMAL_MTU_SIZE            (895)
 
-#define BT_SINK_SRV_A2DP_PSEUDO_COUNT           (3)
-#define BT_SINK_SRV_MCE_A2DP_PSEUDO_COUNT       (3)
+#define BT_SINK_SRV_A2DP_PSEUDO_COUNT           (BT_A2DP_TOTAL_LINK_NUM)
+#define BT_SINK_SRV_MCE_A2DP_PSEUDO_COUNT       (BT_AWS_MCE_TOTAL_CONNECTION_NUM)
 #define BT_SINK_SRV_A2DP_PSEUDO_FLAG_USEED      (1 << 0)
 
 #define BT_SINK_SRV_A2DP_MAGIC_CODE             (0xa000)
@@ -108,6 +108,20 @@ typedef struct {
     uint32_t reserved_2;
     uint32_t reserved_3;
 } PACKED bt_sink_srv_a2dp_basic_config_2_t;
+
+typedef struct {
+    uint8_t name_len;
+    char name[7];
+} bt_sink_srv_a2dp_codec_name_t;
+
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+typedef struct {
+    bool changed_flag;
+    uint16_t sample_frequency;
+    uint8_t frame_duration;
+} bt_sink_srv_a2dp_lc3plus_change_t;
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -168,16 +182,19 @@ void bt_sink_srv_a2dp_update_base_timer(uint32_t timer_id, uint32_t data);
 
 bt_status_t bt_sink_srv_a2dp_get_codec_parameters(bt_sink_srv_a2dp_basic_config_t *config_data);
 bt_status_t bt_sink_srv_a2dp_get_codec_parameters_ext(bt_sink_srv_a2dp_basic_config_2_t *config_data);
-
+bt_status_t bt_sink_srv_a2dp_get_codec_type(bt_sink_srv_a2dp_codec_name_t *codec_data);
+#ifdef AIR_BT_A2DP_LC3PLUS_ENABLE
+void bt_sink_srv_a2dp_change_lc3plus_param(uint16_t sample_frequency, uint8_t frame_duration);
+#endif
 #ifdef MTK_AUDIO_SYNC_ENABLE
 void bt_sink_srv_music_volume_sync_callback(bt_sink_srv_sync_status_t status, bt_sink_srv_sync_callback_data_t *sync_data);
 #endif
 void bt_sink_srv_a2dp_disconnect_avrcp_timer(uint32_t timer_id, uint32_t data);
-int32_t bt_sink_srv_a2dp_add_waitinglist(audio_src_srv_handle_t *handle);
+void bt_sink_srv_a2dp_add_waitinglist(audio_src_srv_handle_t *handle);
 int32_t bt_sink_srv_a2dp_set_volume(uint8_t volume, bt_sink_srv_music_device_t *sp_dev);
 
 #ifdef AIR_BT_FAST_PAIR_SASS_ENABLE
-bt_status_t bt_sink_srv_a2dp_int_user_conf_set(uint8_t val, bt_bd_addr_ptr_t addr);
+bt_status_t bt_sink_srv_a2dp_int_user_conf_set(uint32_t val, bt_bd_addr_ptr_t addr);
 #endif
 void bt_sink_srv_a2dp_set_no_retransmission_mode(uint16_t seq_num, uint16_t length);
 

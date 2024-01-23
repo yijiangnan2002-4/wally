@@ -32,9 +32,10 @@
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
 
-
 #ifndef USB_XBOX_H
 #define USB_XBOX_H
+
+#ifdef AIR_USB_XBOX_ENABLE
 
 /* C library */
 #include <stdbool.h>
@@ -131,4 +132,7 @@ void USB_XBOX_AudioIf_Enable(void);
 void USB_XBOX_AudioIf_Reset(void);
 void USB_XBOX_AudioIf_Speed_Reset(bool b_other_speed);
 
-#endif // USB_XBOX_H
+#endif /* AIR_USB_XBOX_ENABLE */
+
+#endif /* USB_XBOX_H */
+

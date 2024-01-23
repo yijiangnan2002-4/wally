@@ -542,7 +542,6 @@ void port_syslog_anti_nest_check_end(void)
 #endif
 
 volatile uint32_t syslog_check_assert_flag = 0;
-
 void syslog_port_enable_dis_irq_call_log_assert(void)
 {
     syslog_check_assert_flag = 0x1;
@@ -799,9 +798,13 @@ log_nvkey_status_t syslog_port_form_nvkey_init(uint32_t *port)
     }
 
     /* use reserve value bit for disable irq print log check */
-#ifndef AIR_BTA_IC_PREMIUM_G2
+#ifndef AIR_BTA_IC_PREMIUM_G2  
+    /* config the disable irq check for print log   */
+    extern exception_config_mode_t exception_config_mode ;
+    if (exception_config_mode.exception_mode_t.mask_irq_check_assert) {
     /* enable disable irq call log assert and disable irq call os API assert */
     syslog_port_enable_dis_irq_call_log_assert();
+    }
 #endif
 
     /* 1wire setting init */

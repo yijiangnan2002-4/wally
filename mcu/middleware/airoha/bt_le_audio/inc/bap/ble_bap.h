@@ -120,8 +120,9 @@ enum {
     BLE_BAP_ASE_RECEIVER_START_READY_IND,                   /**< An ASE Receiver Start Ready operation initiated by BAP client, with #bap_ase_receiver_start_ready_ind_t as the payload in the callback function.*/
     BLE_BAP_ASE_RECEIVER_STOP_READY_IND,                    /**< An ASE Receiver Stop Ready operation initiated by BAP client, with #bap_ase_receiver_start_ready_ind_t as the payload in the callback function.*/
     BLE_BAP_ASE_UPDATE_METADATA_IND,                        /**< An ASE Update metadata operation initiated by BAP client, with #bap_ase_update_metadata_ind_t as the payload in the callback function.*/
+    BLE_BAP_ASE_READY_IND,                                  /**< To inform upper layer that ASE has been read or configured. */
 
-    /*Broadcast*/ /*12*/
+    /*Broadcast*/ /*13*/
     BLE_BAP_BASE_BROADCAST_AUDIO_ANNOUNCEMENTS_IND,         /**< An BASE Broadcast Audio Announcements received in Extended Advertising, with #bap_broadcast_audio_announcements_ind_t as the payload in the callback function.*/
     BLE_BAP_BASE_PERIODIC_ADV_SYNC_ESTABLISHED_NOTIFY,      /**< The notification when BASE Periodic Advertising Synchronization is established, with #bap_periodic_adv_sync_established_notify_t as the payload in the callback function.*/
     BLE_BAP_BASE_BASIC_AUDIO_ANNOUNCEMENTS_IND,             /**< An BASE Basic Audio Announcements received in Periodic Advertising, with #bap_basic_audio_announcements_ind_t as the payload in the callback function.*/
@@ -134,6 +135,7 @@ enum {
     BLE_BAP_BASE_BASS_ADD_SOURCE_IND,
     BLE_BAP_BASE_SCAN_STOPPPED_IND,
     BLE_BAP_BASE_BASS_MODIFY_SOURCE_IND,
+    BLE_BAP_BASE_BASS_REMOVE_SOURCE_IND,
 
     BLE_BAP_BASE_PERIODIC_ADV_TERMINATE_CNF,
     BLE_BAP_BASE_BIG_TERMINATE_CNF,
@@ -306,6 +308,14 @@ typedef struct {
 } PACKED ble_bap_ase_update_metadata_ind_t;
 
 /**
+ *  @brief This structure defines the parameter data type for event #BAP_ASE_UPDATE_METADATA_IND.
+ */
+typedef struct {
+    bt_handle_t connect_handle;                                 /**< Connection handle. */
+    ble_ascs_ready_event_t ready_event;                         /**< Ready event. */
+} PACKED ble_bap_ase_ready_ind_t;
+
+/**
  *  @brief This structure defines the data type of ASE ID list when multiple ASEs are being enable.
  */
 typedef struct {
@@ -465,6 +475,11 @@ typedef struct {
     uint8_t source_id;
     ble_bap_bass_modify_source_param_t *param;
 } ble_bap_bass_modify_source_ind_t;
+
+typedef struct {
+    bt_handle_t connect_handle;
+    uint8_t source_id;
+} ble_bap_bass_remove_source_ind_t;
 
 typedef bt_gap_le_setup_iso_data_path_cnf_t ble_bap_set_setup_iso_data_path_notify_t;
 typedef bt_gap_le_remove_iso_data_path_cnf_t ble_bap_set_remove_iso_data_path_notify_t;

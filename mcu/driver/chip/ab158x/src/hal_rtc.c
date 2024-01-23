@@ -531,8 +531,10 @@ hal_rtc_status_t hal_rtc_init(void)
     }
 #endif
     /*setup gpio & eint & irq & clear wakeup state*/
-    rtc_init_gpio_setting();/*init rtc gpio*/
-    rtc_init_eint_setting();/*init rtc eint*/
+    if (config->op_state & RTC_STATE_POWER_LOST_FLG) {
+        rtc_init_gpio_setting();/*init rtc gpio*/
+        rtc_init_eint_setting();/*init rtc eint*/
+    }
     rtc_internal_ioctrl(RTC_IOCTL_CLEAR_WAKEUP_STATUS, 0, 0);
     rtc_init_irq_setting(); /*init rtc interrupt*/
     rtc_internal_ioctrl(RTC_IOCTL_GET_IRQ_STATUS, 0, 0);

@@ -228,7 +228,7 @@ voice_prompt_queue_status_t voice_prompt_queue_delete_by_vp_index(uint32_t vp_in
     return voice_prompt_queue_delete_by_vp_index_start(vp_index, 0);
 }
 
-voice_prompt_queue_status_t voice_prompt_queue_delete_by_vp_index_expcur(uint32_t vp_index)
+voice_prompt_queue_status_t voice_prompt_queue_delete_by_vp_index_skip_cur(uint32_t vp_index)
 {
     return voice_prompt_queue_delete_by_vp_index_start(vp_index, 1);
 }

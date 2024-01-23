@@ -72,7 +72,7 @@
  *                {
  *                    if (conn_handle) {
  *                        switch (event) {
- *                            case BLE_BAS_EVENT_BATTRY_LEVEL_READ:
+ *                            case BLE_BAS_EVENT_BATTERY_LEVEL_READ:
  *                                uint8_t battery_level = 100;
  *                                return battery_level;
  *                            case BLE_BAS_EVENT_CCCD_READ:
@@ -121,10 +121,18 @@ BT_EXTERN_C_BEGIN
  * This section defines the BAS event types.
  */
 
-typedef uint16_t ble_bas_event_t;   /**< The event type of BAS. */
-#define BLE_BAS_EVENT_BATTRY_LEVEL_READ         0x00 /**< Battery Level Characteristic Read event. */
-#define BLE_BAS_EVENT_CCCD_READ                 0x01 /**< Client Characteristic Configuration Read event. */
-#define BLE_BAS_EVENT_CCCD_WRITE                0x02 /**< Client Characteristic Configuration Write event. */
+/**
+ * @brief Define the BAS service event type.
+ */
+typedef uint16_t ble_bas_event_t;                       /**< The event type of BAS. */
+#define BLE_BAS_EVENT_BATTERY_LEVEL_READ        0x00    /**< Battery Level Characteristic Read event. */
+#define BLE_BAS_EVENT_CCCD_READ                 0x01    /**< Client Characteristic Configuration Read event. */
+#define BLE_BAS_EVENT_CCCD_WRITE                0x02    /**< Client Characteristic Configuration Write event. */
+
+/**
+ * @deprecated Use #BLE_BAS_EVENT_BATTERY_LEVEL_READ instead.
+ */
+#define BLE_BAS_EVENT_BATTRY_LEVEL_READ  (BLE_BAS_EVENT_BATTERY_LEVEL_READ)    /**< This event will be phased out and removed in the next SDK major version. Do not use. */
 
 /**
  * @}
@@ -149,7 +157,7 @@ bt_status_t ble_bas_notify_battery_level(bt_handle_t conn_handle, uint8_t batter
  * @brief   This function is a user-defined callback for the application to listen to the read event of Battery Level Characteristic and Client Configuration Characteristic Descriptor.
  * @param[in] event           is the event of type @ref ble_bas_event_t.
  * @param[in] conn_handle     is the connection handle.
- * @return                    the response to the read event of Battery Level Characteristic or Client Configuration Characteristic Descriptor. If the read event type is @ref BLE_BAS_EVENT_BATTRY_LEVEL_READ,
+ * @return                    the response to the read event of Battery Level Characteristic or Client Configuration Characteristic Descriptor. If the read event type is @ref BLE_BAS_EVENT_BATTERY_LEVEL_READ,
  *                            the return value is the corresponding battery level. If the read event type is @ref BLE_BAS_EVENT_CCCD_READ, the return value is either 0 or 1.
  */
 uint8_t ble_bas_read_callback(ble_bas_event_t event, bt_handle_t conn_handle);

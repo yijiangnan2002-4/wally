@@ -141,7 +141,7 @@ static bt_status_t bt_sink_srv_music_role_handover_service_allowed(const bt_bd_a
     }
 #endif
 #ifdef MTK_AUDIO_SYNC_ENABLE
-    extern uint8_t bt_sink_srv_get_sync_counter(void);
+    extern uint32_t bt_sink_srv_get_sync_counter(void);
     if (0 != bt_sink_srv_get_sync_counter()) {
         ret = BT_STATUS_FAIL;
     }
@@ -204,7 +204,7 @@ static bt_status_t bt_sink_srv_music_role_handover_service_get_data(const bt_bd_
                 return BT_STATUS_SUCCESS;
             }
 #endif
-    
+
             change_ctx->conn_bit = sp_dev->conn_bit;
             change_ctx->flag = sp_dev->flag;
             change_ctx->a2dp_status = sp_dev->a2dp_status;
@@ -212,6 +212,10 @@ static bt_status_t bt_sink_srv_music_role_handover_service_get_data(const bt_bd_
             change_ctx->last_play_pause_action = sp_dev->last_play_pause_action;
             change_ctx->rho_temp_flag = 0;
             change_ctx->avrcp_volume = sp_dev->avrcp_volume;
+#if (BT_A2DP_TOTAL_LINK_NUM>3)
+            change_ctx->avrcp_play_count = sp_dev->avrcp_play_count;
+            change_ctx->a2dp_start_count = sp_dev->a2dp_start_count;
+#endif
 #ifdef  AIR_MULTI_POINT_ENABLE
             bt_sink_srv_memcpy(&(change_ctx->codec_cap), &(sp_dev->codec), sizeof(bt_a2dp_codec_capability_t));
 #endif
@@ -219,7 +223,7 @@ static bt_status_t bt_sink_srv_music_role_handover_service_get_data(const bt_bd_
             if (BT_STATUS_SUCCESS == bt_device_manager_remote_find_pnp_info(sp_dev->dev_addr, &device_id)) {
                 bt_sink_srv_memcpy(&change_ctx->device_id, &device_id, sizeof(bt_device_manager_db_remote_pnp_info_t));
             }
-            
+
             if (sp_dev->handle->flag & AUDIO_SRC_SRV_FLAG_WAITING) {
                 BT_SINK_SRV_SET_FLAG(change_ctx->rho_temp_flag, BT_SINK_SRV_MUSIC_RHO_WAITING_LIST_FLAG);
             }
@@ -263,15 +267,23 @@ static void bt_sink_srv_music_role_handover_update_sp_context(bt_sink_srv_music_
     bt_sink_srv_music_context_t *ctx = bt_sink_srv_music_get_context();
     bt_sink_srv_music_device_t *run_dev = ctx->run_dev;
 
-    bt_sink_srv_report_id("[sink][music][rho] update_sp_context-run_dev:0x%x, sp_dev:0x%x, change_ctx:0x%x-0x%x-0x%x-0x%x-0x%x-0x%x-0x%x-0x%x", 10,
+#if (BT_A2DP_TOTAL_LINK_NUM>3)
+    bt_sink_srv_report_id("[sink][music][rho] update_sp_context-run_dev:0x%x,sp_dev:0x%x,change_ctx:0x%x-0x%x-0x%x-0x%x-0x%x-0x%x-0x%x-0x%x-0x%x-0x%x", 12,
+        run_dev, sp_dev, change_ctx->rho_temp_flag,change_ctx->a2dp_status,change_ctx->avrcp_status, change_ctx->last_play_pause_action,
+        change_ctx->flag, change_ctx->op, change_ctx->vol_rsp_flag, change_ctx->vol, change_ctx->avrcp_play_count, change_ctx->a2dp_start_count);
+#else
+    bt_sink_srv_report_id("[sink][music][rho] update_sp_context-run_dev:0x%x,sp_dev:0x%x,change_ctx:0x%x-0x%x-0x%x-0x%x-0x%x-0x%x-0x%x-0x%x", 10,
         run_dev, sp_dev, change_ctx->rho_temp_flag,change_ctx->a2dp_status,change_ctx->avrcp_status, change_ctx->last_play_pause_action,
         change_ctx->flag, change_ctx->op, change_ctx->vol_rsp_flag, change_ctx->vol);
+#endif
     sp_dev->handle->type = AUDIO_SRC_SRV_PSEUDO_DEVICE_A2DP;
     if (run_dev && sp_dev == run_dev && (!(run_dev->op & BT_SINK_SRV_MUSIC_OP_DRV_PLAY))) {
+        bt_sink_srv_report_id("[sink][music][rho] set_rho_happen_during_starting_play", 0);
         BT_SINK_SRV_SET_FLAG(sp_dev->flag, BT_SINK_SRV_MUSIC_FLAG_RHO_HAPPEN_DURING_STARTING_PLAY);
     } else {
         sp_dev->flag = change_ctx->flag;
-        sp_dev->op = change_ctx->op;
+        // codec status should be keeped
+        sp_dev->op = (change_ctx->op & (~BT_SINK_SRV_MUSIC_OP_CODEC_OPEN)) | (sp_dev->op & BT_SINK_SRV_MUSIC_OP_CODEC_OPEN);
     }
     sp_dev->conn_bit = change_ctx->conn_bit;
     sp_dev->volume_change_status = change_ctx->vol_rsp_flag;
@@ -283,12 +295,16 @@ static void bt_sink_srv_music_role_handover_update_sp_context(bt_sink_srv_music_
     sp_dev->avrcp_status = change_ctx->avrcp_status;
     sp_dev->last_play_pause_action = change_ctx->last_play_pause_action;
     sp_dev->avrcp_volume = change_ctx->avrcp_volume;
+#if (BT_A2DP_TOTAL_LINK_NUM>3)
+    sp_dev->avrcp_play_count = change_ctx->avrcp_play_count;
+    sp_dev->a2dp_start_count = change_ctx->a2dp_start_count;
+#endif
 #ifdef  AIR_MULTI_POINT_ENABLE
     bt_sink_srv_memcpy(&(sp_dev->codec), &(change_ctx->codec_cap), sizeof(bt_a2dp_codec_capability_t));
 #endif
     bt_device_manager_remote_update_pnp_info((void *)sp_addr, &change_ctx->device_id);
     if (change_ctx->rho_temp_flag & BT_SINK_SRV_MUSIC_RHO_WAITING_LIST_FLAG) {
-        audio_src_srv_add_waiting_list(sp_dev->handle);
+        bt_sink_srv_a2dp_add_waitinglist(sp_dev->handle);
     }
     if (change_ctx->vol != BT_SINK_SRV_A2DP_INVALID_VOLUME) {
         if (run_dev == sp_dev) {

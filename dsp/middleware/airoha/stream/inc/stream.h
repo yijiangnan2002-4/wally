@@ -185,7 +185,7 @@ EXTERN SINK StreamAudioAfe2Sink(audio_hardware hardware, audio_instance instance
 #if defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined (AIR_PROMPT_SOUND_DUMMY_SOURCE_ENABLE) || defined(AIR_HFP_DNN_PATH_ENABLE) || defined(AIR_DCHS_MODE_ENABLE) || defined(AIR_WIRELESS_MIC_RX_ENABLE) || defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
 EXTERN SINK StreamAudioAfe3Sink(audio_hardware hardware, audio_instance instance, audio_channel channel);
 #endif
-#if defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined (AIR_DCHS_MODE_ENABLE)
+#if defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined (AIR_MIXER_STREAM_ENABLE)
 EXTERN SINK StreamAudioAfe12Sink(audio_hardware hardware, audio_instance instance, audio_channel channel);
 #endif
 #ifdef AIR_AUDIO_I2S_SLAVE_TDM_ENABLE
@@ -464,10 +464,6 @@ EXTERN SOURCE StreamAudioAdaptAncSource(void *param);
 
 #ifdef AIR_HW_VIVID_PT_ENABLE
 EXTERN SOURCE StreamAudioHWVividPTSource(void *param);
-#endif
-
-#ifdef AIR_DCHS_MODE_ENABLE
-EXTERN SOURCE StreamUartSource(void *param);
 #endif
 
 #endif

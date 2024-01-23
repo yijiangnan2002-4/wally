@@ -54,6 +54,9 @@
 #ifdef MTK_PEQ_ENABLE
 #include "bt_sink_srv_ami.h"
 #endif
+#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+#include "app_lea_service_conn_mgr.h"
+#endif
 
 /**
  *  @brief This structure defines the NVDM item info.
@@ -93,6 +96,15 @@ void factory_rst_reserved_nvdm_item_list_check(void)
         /* Flag set to be factory reset, all NVDM items except for those in FACTORY_RST_RESERVED_NVDM_ITEM_LIST will be deleted. */
         LOG_MSGID_I(common, "Detect Factory Reset, re-organize the NVDM region", 1);
 
+#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
+#ifdef AIR_BLE_ULL_KEEP_APP_BOND_INFO_ENABLE
+        // Always keep ULL2 bond info on APP layer even if factory reset
+        app_lea_conn_mgr_reset_keep_ull2_bond_info();
+#else
+        // Reset NVKEY "NVID_APP_LE_AUDIO_CONN_FLAG" (LEA/ULL2 Bond Info on APP layer)
+        app_lea_conn_mgr_reset_bond_info();
+#endif
+#endif
 
         /* Clear nvdm item. */
         for (i = 0; i < (sizeof(g_factory_rst_clear_nvdm_items) / sizeof(factory_rst_reserved_nvdm_item_t)); i++) {

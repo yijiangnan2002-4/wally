@@ -87,7 +87,9 @@
 #define ASCS_OCTETS_PER_CODEC_FRAME_117     0x0075      /**< 117 Octets per codec frame */
 #define ASCS_OCTETS_PER_CODEC_FRAME_120     0x0078      /**< 120 Octets per codec frame */
 #define ASCS_OCTETS_PER_CODEC_FRAME_155     0x009B      /**< 155 Octets per codec frame */
+#define ASCS_OCTETS_PER_CODEC_FRAME_160     0x00A0      /**< 160 Octets per codec frame */
 #define ASCS_OCTETS_PER_CODEC_FRAME_190     0x00BE      /**< 190 Octets per codec frame */
+#define ASCS_OCTETS_PER_CODEC_FRAME_310     0x0136      /**< 310 Octets per codec frame */
 
 /**
  * @brief The ASCS UUID type definitions.
@@ -109,7 +111,17 @@ typedef uint8_t ble_ascs_uuid_t;                                     /**< UUID t
 #define SUPPORTED_PRESENTATION_DELAY_MIN               (20000)
 #define PREFERRED_PRESENTATION_DELAY_MAX               (40000)
 #define PREFERRED_PRESENTATION_DELAY_MIN               (20000)
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+#define GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MAX    (40000)
+#define GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MIN    (10000)
+#define GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MAX    (10000)
+#define GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MIN    (10000)
 
+#define GAMING_UPLINK_SUPPORTED_PRESENTATION_DELAY_MAX      (60000)
+#define GAMING_UPLINK_SUPPORTED_PRESENTATION_DELAY_MIN      (10000)
+#define GAMING_UPLINK_PREFERRED_PRESENTATION_DELAY_MAX      (60000)
+#define GAMING_UPLINK_PREFERRED_PRESENTATION_DELAY_MIN      (60000)
+#endif
 /**
  * @brief The ASE state.
  */
@@ -197,8 +209,29 @@ enum {
     QOS_80KBPS_SETTING,     /**< 80kbps, */
     QOS_96KBPS_SETTING,     /**< 96kbps, */
     QOS_124KBPS_SETTING,    /**< 124kbps, */
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+    QOS_128KBPS_SETTING,    /**< 128kbps, */
     QOS_152KBPS_SETTING,    /**< 152kbps, */
+    QOS_248KBPS_SETTING,    /**< 248kbps, */
+#endif
 };
+
+typedef enum {
+    ASCS_READY_EVENT_READ_ASE,
+    ASCS_READY_EVENT_CCCD,
+    ASCS_READY_EVENT_ASE_STATE_CHANGE,
+} ble_ascs_ready_event_t;
+
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+enum {
+    DOWNLINK_QOS_64KBPS_SETTING,     /**< 64kbps */
+    DOWNLINK_QOS_80KBPS_SETTING,     /**< 80kbps, */
+    DOWNLINK_QOS_96KBPS_SETTING,     /**< 96kbps, */
+    UPLINK_QOS_64KBPS_SETTING,       /**< 64kbps */
+    UPLINK_QOS_80KBPS_SETTING,       /**< 80kbps, */
+    GMAP_QOS_SETTING_MAX,
+};
+#endif
 
 /**
  * @brief The ASCS max number of characteristics.

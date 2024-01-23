@@ -68,7 +68,7 @@
 
 static bool s_muted = false;
 static usb_hid_srv_event_t s_last_call_state = USB_HID_SRV_EVENT_CALL_END;
-static apps_config_key_action_t s_key_action_preparse_result = KEY_ACTION_INVALID;
+static apps_config_key_action_t s_key_action_pre_parse_result = KEY_ACTION_INVALID;
 
 static bool _proc_ui_shell_group(struct _ui_shell_activity *self, uint32_t event_id, void *extra_data, size_t data_len)
 {
@@ -112,33 +112,33 @@ static bool _proc_key_event(struct _ui_shell_activity *self, uint32_t event_id, 
 {
     bool ret = true;
     apps_config_state_t mmi_sta = apps_config_key_get_mmi_state();
-    if (mmi_sta >= APP_HFP_INCOMING && mmi_sta <= APP_HFP_MULTITPART_CALL) {
+    if (mmi_sta >= APP_HFP_INCOMING && mmi_sta <= APP_HFP_MULTIPARTY_CALL) {
         ;/* The key event will remap by app_hid_call_coexist_hfp in hfp activity. */
     } else {
         app_hid_call_coexist_hfp(event_id, KEY_ACTION_INVALID);
     }
 
-    if (s_key_action_preparse_result != KEY_ACTION_INVALID) {
-        APPS_LOG_MSGID_I(TAG"_proc_key_event, preparse_result=%d", 1, s_key_action_preparse_result);
+    if (s_key_action_pre_parse_result != KEY_ACTION_INVALID) {
+        APPS_LOG_MSGID_I(TAG"_proc_key_event, pre parse_result=%d", 1, s_key_action_pre_parse_result);
     }
 
-    if (s_key_action_preparse_result == KEY_END_CALL ||
-        s_key_action_preparse_result == KEY_CANCEL_OUT_GOING_CALL) {
+    if (s_key_action_pre_parse_result == KEY_END_CALL ||
+        s_key_action_pre_parse_result == KEY_CANCEL_OUT_GOING_CALL) {
 #ifdef AIR_MS_TEAMS_ENABLE
         app_ms_teams_set_button_press_info_hook(false);
 #endif
         app_hid_call_send_action(USB_HID_SRV_ACTION_TERMINATE_CALL);
-    } else if (s_key_action_preparse_result == KEY_REJCALL) {
+    } else if (s_key_action_pre_parse_result == KEY_REJCALL) {
 #ifdef AIR_MS_TEAMS_ENABLE
         app_ms_teams_set_button_press_info_hook(false);
 #endif
         app_hid_call_send_action(USB_HID_SRV_ACTION_REJECT_CALL);
-    } else if (s_key_action_preparse_result == KEY_ACCEPT_CALL) {
+    } else if (s_key_action_pre_parse_result == KEY_ACCEPT_CALL) {
 #ifdef AIR_MS_TEAMS_ENABLE
         app_ms_teams_set_button_press_info_hook(true);
 #endif
         app_hid_call_send_action(USB_HID_SRV_ACTION_ACCEPT_CALL);
-    } else if (s_key_action_preparse_result == KEY_ONHOLD_CALL) {
+    } else if (s_key_action_pre_parse_result == KEY_ONHOLD_CALL) {
         if (s_last_call_state == USB_HID_SRV_EVENT_CALL_HOLD || s_last_call_state == USB_HID_SRV_EVENT_CALL_REMOTE_HOLD) {
 #ifdef AIR_MS_TEAMS_ENABLE
             app_ms_teams_set_button_press_info_flash(false);
@@ -153,7 +153,7 @@ static bool _proc_key_event(struct _ui_shell_activity *self, uint32_t event_id, 
     } else {
         ret = false;
     }
-    s_key_action_preparse_result = KEY_ACTION_INVALID;
+    s_key_action_pre_parse_result = KEY_ACTION_INVALID;
 
     if (extra_data != NULL) {
         apps_config_key_action_t action = *(uint16_t *)extra_data;
@@ -253,7 +253,7 @@ apps_config_key_action_t app_hid_call_coexist_hfp(uint32_t event_id, apps_config
     }
 
     /* remap mmi state */
-    if (mmi_sta >= APP_HFP_INCOMING && mmi_sta <= APP_HFP_MULTITPART_CALL) {
+    if (mmi_sta >= APP_HFP_INCOMING && mmi_sta <= APP_HFP_MULTIPARTY_CALL) {
         switch (mmi_sta) {
             case APP_HFP_INCOMING:
             case APP_HFP_TWC_INCOMING:
@@ -268,9 +268,9 @@ apps_config_key_action_t app_hid_call_coexist_hfp(uint32_t event_id, apps_config
                 }
                 break;
             case APP_STATE_HELD_ACTIVE:
-            case APP_HFP_CALLACTIVE:
-            case APP_HFP_CALLACTIVE_WITHOUT_SCO:
-            case APP_HFP_MULTITPART_CALL:
+            case APP_HFP_CALL_ACTIVE:
+            case APP_HFP_CALL_ACTIVE_WITHOUT_SCO:
+            case APP_HFP_MULTIPARTY_CALL:
                 switch (s_last_call_state) {
                     case USB_HID_SRV_EVENT_CALL_END:
                         break;
@@ -283,7 +283,7 @@ apps_config_key_action_t app_hid_call_coexist_hfp(uint32_t event_id, apps_config
                         break;
 #endif
                     default:
-                        remap_mmi_sta = APP_HFP_MULTITPART_CALL;
+                        remap_mmi_sta = APP_HFP_MULTIPARTY_CALL;
                         break;
                 }
                 break;
@@ -301,7 +301,7 @@ apps_config_key_action_t app_hid_call_coexist_hfp(uint32_t event_id, apps_config
                 break;
 #endif
             default:
-                remap_mmi_sta = APP_HFP_CALLACTIVE;
+                remap_mmi_sta = APP_HFP_CALL_ACTIVE;
                 break;
         }
     }
@@ -339,10 +339,10 @@ apps_config_key_action_t app_hid_call_coexist_hfp(uint32_t event_id, apps_config
         /* If just one call exist, find which one. If at least two call exist, hfp call is higher prority. */
         case KEY_END_CALL:
         case KEY_ONHOLD_CALL:
-            if (mmi_sta >= APP_HFP_INCOMING && mmi_sta <= APP_HFP_MULTITPART_CALL) {
+            if (mmi_sta >= APP_HFP_INCOMING && mmi_sta <= APP_HFP_MULTIPARTY_CALL) {
                 hfp_action = remap_action;
             } else if (s_last_call_state != USB_HID_SRV_EVENT_CALL_END) {
-                s_key_action_preparse_result = remap_action;
+                s_key_action_pre_parse_result = remap_action;
             } else {
                 APPS_LOG_MSGID_E(TAG"app_hid_call_coexist_hfp, unexpected status.", 0);
             }
@@ -350,7 +350,7 @@ apps_config_key_action_t app_hid_call_coexist_hfp(uint32_t event_id, apps_config
         /* If just one call exist, find which one. If at least two call exist, hid call is higher prority. */
         case KEY_3WAY_HOLD_ACTIVE_ACCEPT_OTHER:
             if (s_last_call_state == USB_HID_SRV_EVENT_CALL_INCOMING) {
-                s_key_action_preparse_result = KEY_ACCEPT_CALL;
+                s_key_action_pre_parse_result = KEY_ACCEPT_CALL;
                 if (mmi_sta == APP_HFP_INCOMING) {
                     hfp_action = KEY_REJCALL;
                 } else if (mmi_sta > APP_HFP_INCOMING) {
@@ -359,20 +359,20 @@ apps_config_key_action_t app_hid_call_coexist_hfp(uint32_t event_id, apps_config
             } else if (mmi_sta == APP_HFP_INCOMING) {
                 hfp_action = KEY_ACCEPT_CALL;
                 if (s_last_call_state == USB_HID_SRV_EVENT_CALL_INCOMING) {
-                    s_key_action_preparse_result = KEY_REJCALL;
+                    s_key_action_pre_parse_result = KEY_REJCALL;
                 } else if (s_last_call_state > USB_HID_SRV_EVENT_CALL_INCOMING) {
-                    s_key_action_preparse_result = KEY_END_CALL;
+                    s_key_action_pre_parse_result = KEY_END_CALL;
                 }
             } else {
                 APPS_LOG_MSGID_E(TAG"app_hid_call_coexist_hfp, unexpected status in multipart call case.", 0);
             }
             break;
-        /* hid call is higher prority. */
+        /* hid call is higher priority. */
         case KEY_REJCALL_SECOND_PHONE:
             if (mmi_sta == APP_HFP_INCOMING) {
                 hfp_action = KEY_REJCALL;
             } else if (s_last_call_state == USB_HID_SRV_EVENT_CALL_INCOMING) {
-                s_key_action_preparse_result = KEY_REJCALL;
+                s_key_action_pre_parse_result = KEY_REJCALL;
             } else {
                 APPS_LOG_MSGID_E(TAG"app_hid_call_coexist_hfp, unexpected status in twc incoming call case.", 0);
             }
@@ -380,7 +380,7 @@ apps_config_key_action_t app_hid_call_coexist_hfp(uint32_t event_id, apps_config
     }
 
     APPS_LOG_MSGID_I(TAG"app_hid_call_coexist_hfp, return hfp_action=%d, pre parse key action=%d.", 2,
-                     hfp_action, s_key_action_preparse_result);
+                     hfp_action, s_key_action_pre_parse_result);
     return hfp_action;
 }
 

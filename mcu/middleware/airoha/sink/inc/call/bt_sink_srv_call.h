@@ -72,6 +72,9 @@ bt_status_t bt_sink_srv_call_get_device_state(bt_sink_srv_device_state_t *device
 bt_sink_srv_call_context_t *bt_sink_srv_call_get_context(void);
 bt_sink_srv_am_id_t bt_sink_srv_call_get_playing_audio_id(void);
 
+bool bt_sink_srv_call_get_sidetone_enable_config(void);
+void bt_sink_srv_call_sidetone_config_change_notify(bool enable);
+
 #ifdef AIR_FEATURE_SINK_AUDIO_SWITCH_SUPPORT
 bt_status_t bt_sink_srv_call_audio_switch_handle(bool value, void *playing_dev, void *paly_idle_dev);
 #endif

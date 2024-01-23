@@ -806,7 +806,8 @@ ATTR_TEXT_IN_RAM int32_t SF_DAL_ProgramData(void *MTDData, void *Address, void *
     uint32_t      written;                // length for single round program
     uint32_t      length;                 // length for single round program
     uint32_t      cmd1;
-
+    uint32_t      write_check_data;
+    
     ASSERT_RET((~D->Signature == (uint32_t)D->RegionInfo), 0);
 
     /*
@@ -880,6 +881,8 @@ retry:
         SFI_MacWaitReady(D->CS);
         sf_program_flag = 0x3;
         sf_program_suspend = 0;
+        //record last byte
+        write_check_data = *(p_data_first + written - 1);
         RestoreIRQMask(savedMask);
 
         do {
@@ -896,6 +899,10 @@ retry:
         address += written;
 
         if (RESULT_FLASH_DONE != result) {
+            if (write_check_data != *(p_data_first + written - 1)) {
+                //data is changed during write 
+                result = RESULT_PROGRAM_CHECK_ERR;
+            }
             break;
         }
     }

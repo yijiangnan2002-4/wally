@@ -59,10 +59,14 @@ void app_lea_service_enable_multi_conn(bool enable);
 
 void app_lea_service_start_advertising(uint8_t mode, bool sync, uint32_t timeout);
 void app_lea_service_stop_advertising(bool sync);
+void app_lea_service_quick_stop_adv(void);
+void app_lea_service_refresh_advertising(uint32_t delay);
 
 void app_lea_service_start_reconnect_adv(const uint8_t *addr);
 
 bool app_lea_service_is_enabled_lea(void);
+
+void app_lea_service_reset_lea_dongle(void);
 
 #define APP_LEA_SERVICE_ADV_DATA_LEA        0
 #define APP_LEA_SERVICE_ADV_DATA_ULL        1
@@ -72,6 +76,7 @@ typedef enum {
     APP_LE_AUDIO_DISCONNECT_MODE_ALL,
     APP_LE_AUDIO_DISCONNECT_MODE_DISCONNECT,
     APP_LE_AUDIO_DISCONNECT_MODE_DISCONNECT_ULL,
+    APP_LE_AUDIO_DISCONNECT_MODE_DISCONNECT_LEA,
     APP_LE_AUDIO_DISCONNECT_MODE_KEEP,
 } app_le_audio_disconnect_mode_t;
 

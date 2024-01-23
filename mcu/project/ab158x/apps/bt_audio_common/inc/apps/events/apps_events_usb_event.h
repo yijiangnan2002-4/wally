@@ -78,7 +78,7 @@ typedef enum {
     APPS_EVENTS_USB_AUDIO_SAMPLE_RATE,   /**<  Notify app the sample rate of the USB audio. Parameter please ref#app_events_usb_sample_rate_t */
     APPS_EVENTS_USB_AUDIO_SUSPEND,       /**<  Notify app the USB is suspend. */
     APPS_EVENTS_USB_AUDIO_RESUME,        /**<  Notify app the USB is resume. */
-    APPS_EVENTS_USB_AUDIO_RESET,         /**<  Notify app the USB dirver reset. Parameter is NULL */
+    APPS_EVENTS_USB_AUDIO_RESET,         /**<  Notify app the USB driver reset. Parameter is NULL */
     APPS_EVENTS_USB_CONFIG_CHECKER,      /**<  Notify app to check the USB configured or not */
     APPS_EVENTS_USB_CONFIG_DONE,         /**<  Notify app the USB configuration done */
     APPS_EVENTS_USB_AUDIO_SAMPLE_SIZE,   /**<  Notify app the sample size of USB audio */
@@ -139,6 +139,7 @@ typedef enum {
     APPS_USB_MODE_BT_LEA            = 12,
     APPS_USB_MODE_CDC               = 13,
     APPS_USB_MODE_BT_ULL2           = 14,
+    APPS_USB_MODE_HID               = 16,
     APPS_USB_MODE_MAX,
 } app_usb_mode_t;
 

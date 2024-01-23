@@ -59,10 +59,13 @@
 #define BT_SOURCE_SRV_HFP_FLAG_CALL_AG_INDICATOR_ENABLED      0x0010
 #define BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECTING                 0x0020
 #define BT_SOURCE_SRV_HFP_FLAG_SCO_DISCONNECT                 0x0040
-#define BT_SOURCE_SRV_HFP_FLAG_CANCEL_SCO_TO_RECONNECT        0x0080
+#define BT_SOURCE_SRV_HFP_FLAG_SCO_RECONNECT                  0x0080
 #define BT_SOURCE_SRV_HFP_FLAG_RING_START                     0x0100
 #define BT_SOURCE_SRV_HFP_FLAG_MIC_MUTED                      0x0200
-#define BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED                  0x0400
+#define BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT                    0x0800
+#ifdef AIR_FEATURE_SOURCE_MHDT_SUPPORT
+#define BT_SOURCE_SRV_HFP_FLAG_MHDT_EXITED                    0x1000
+#endif
 typedef uint16_t bt_source_srv_hfp_flag_t;
 
 /* BQB test */
@@ -75,7 +78,14 @@ typedef uint8_t bt_source_srv_hfp_bqb_flag_t;
 
 #define BT_SOURCE_SRV_HFP_FLAG_SCO_CONNECT_WITH_SLC                     0x0001
 #define BT_SOURCE_SRV_HFP_FLAG_SLC_GET_CALL_INFO_COMPLETE               0x0002
+#define BT_SOURCE_SRV_HFP_FLAG_SPEAKER_MUTED                            0x0004
 typedef uint16_t bt_source_srv_hfp_common_flag_t;
+
+#define BT_SOURCE_SRV_HFP_ESCO_STATE_DISCONNECTED                        0x00
+#define BT_SOURCE_SRV_HFP_ESCO_STATE_CONNECTING                          0x01
+#define BT_SOURCE_SRV_HFP_ESCO_STATE_CONNECTED                           0x02
+#define BT_SOURCE_SRV_HFP_ESCO_STATE_DISCONNECTING                       0x03
+typedef uint8_t bt_source_srv_hfp_esco_state_t;
 
 #define BT_SOURCE_SRV_HFP_FLAG_IS_SET(context, flag)       (context->flags & (flag))
 #define BT_SOURCE_SRV_HFP_SET_FLAG(context, flag)          (context->flags |= (flag))

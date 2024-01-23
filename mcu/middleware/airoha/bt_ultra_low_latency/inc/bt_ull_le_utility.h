@@ -59,7 +59,7 @@
 
 BT_EXTERN_C_BEGIN
 
-//#define BT_ULL_LE_THROUGHPUT_DEBUG
+#define BT_ULL_LE_THROUGHPUT_DEBUG
 #ifdef BT_ULL_LE_THROUGHPUT_DEBUG
 #include "hal_gpt.h"
 #endif
@@ -141,10 +141,10 @@ typedef uint8_t bt_ull_le_srv_audio_out_t;
 #define BT_ULL_LE_DEFAULT_BITRATE_940_8_KBPS  (940800)
 
 
-#define BT_ULL_LE_DEFAULT_SAMPLERTE_16K       (16000)
-#define BT_ULL_LE_DEFAULT_SAMPLERTE_32K       (32000)
-#define BT_ULL_LE_DEFAULT_SAMPLERTE_48K       (48000)
-#define BT_ULL_LE_DEFAULT_SAMPLERTE_96K       (96000)
+#define BT_ULL_LE_DEFAULT_SAMPLERATE_16K       (16000)
+#define BT_ULL_LE_DEFAULT_SAMPLERATE_32K       (32000)
+#define BT_ULL_LE_DEFAULT_SAMPLERATE_48K       (48000)
+#define BT_ULL_LE_DEFAULT_SAMPLERATE_96K       (96000)
 
 /**
  * @brief Defines for audio locations.
@@ -242,11 +242,13 @@ typedef uint16_t bt_ull_le_srv_iso_interval_t; /* unit is 1.25 ms*/
 typedef uint8_t bt_ull_le_srv_phy_t;
 
 typedef uint8_t bt_ull_le_restart_streaming_reason_t;
-#define BT_ULL_LE_RESTART_STREAMING_REASON_LATEBCY_CHANGE       0x00
+#define BT_ULL_LE_RESTART_STREAMING_REASON_LATENCY_CHANGE       0x00
 #define BT_ULL_LE_RESTART_STREAMING_REASON_ALLOW_PALY           0x01
 #define BT_ULL_LE_RESTART_STREAMING_REASON_RESERVED             0x02
 #define BT_ULL_LE_RESTART_STREAMING_REASON_AIRCIS_RECONNECT     0x03
 
+//BOB: add temp feature option for developement inactive Aircis fearure, BT_ULL_LE_KEEP_CIS_ALWAYS_ALIVE
+//#define AIR_BLE_ULTRA_LOW_LATENCY_KEEP_CIS_ALWAYS_ALIVE
 /**
  * @brief This structure defines the codec info ULL Dongle.
  */
@@ -271,6 +273,7 @@ typedef struct {
     uint32_t                   audio_location;
     bt_ull_le_srv_capability_t capability_msk;
     uint8_t                    aws_connected;
+    bool                       aircis_inactive_enable;
 } bt_ull_le_srv_configuration_t;
 
 /**
@@ -291,6 +294,7 @@ typedef struct {
     bool                             is_removing_cig_for_change_aud_quality;
     bool                             is_removing_cig_for_change_aud_codec;
     bool                             is_streaming_locked;
+    bool                             aircis_inactive_mode_enable;
     uint8_t                          restart_streaming_mask;
     bt_ull_le_srv_stream_state_t     curr_stream_state;         /**< Current audio stream state */
     bt_ull_callback                  callback;
@@ -442,6 +446,10 @@ bt_ull_le_stream_mode_t bt_ull_le_srv_get_stream_mode(bt_ull_transmitter_t trans
 void *bt_ull_le_srv_get_stream_info(bt_ull_role_t role, bt_ull_transmitter_t transmitter);
 bool bt_ull_le_srv_is_any_streaming_started(bt_ull_role_t role);
 void bt_ull_le_srv_set_transmitter_is_start(bt_ull_transmitter_t transmitter_type, bool is_start);
+void bt_ull_le_srv_set_curr_stream_state(bt_ull_le_srv_stream_state_t curr_stream_state);
+bool bt_ull_le_srv_check_inactive_aircis_feature_on(void);
+bool bt_ull_le_srv_read_aircis_inactive_mode_enable(void);
+bt_status_t bt_ull_le_srv_write_aircis_inactive_mode_enable(bool enable);
 
 
 BT_EXTERN_C_END

@@ -56,6 +56,7 @@
 
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
 #define FAST_PAIR_SPP_RHO_PENDING                   (0x01)
+#define FAST_PAIR_SPP_RHO_DISABLE                   (0x02)
 #endif
 typedef uint8_t     bt_fast_pair_spp_flags_t;
 
@@ -127,6 +128,9 @@ static bt_status_t  bt_fast_pair_spp_aws_mce_rho_is_allowed(const bt_bd_addr_t *
             g_bt_fast_pair_spp_flags |= FAST_PAIR_SPP_RHO_PENDING;
             return BT_STATUS_PENDING;
         }
+    }
+    if (g_bt_fast_pair_spp_flags & FAST_PAIR_SPP_RHO_DISABLE) {
+        return BT_STATUS_FAIL;
     }
 #endif
     return BT_STATUS_SUCCESS;
@@ -533,6 +537,18 @@ static bt_status_t  bt_fast_pair_profile_service_handle_cb(bt_cm_profile_service
     return status;
 }
 #endif
+
+void bt_fast_pair_set_rho_pending(bool pending)
+{
+#ifdef SUPPORT_ROLE_HANDOVER_SERVICE
+    if (pending) {
+        g_bt_fast_pair_spp_flags |= FAST_PAIR_SPP_RHO_DISABLE;
+    } else {
+        g_bt_fast_pair_spp_flags &= (~FAST_PAIR_SPP_RHO_DISABLE);
+    }
+    bt_fast_pair_log("[BT_FAST_PAIR][I] set rho pending : 0x%x", 1, g_bt_fast_pair_spp_flags);
+#endif
+}
 
 void                bt_fast_pair_spp_init(void)
 {

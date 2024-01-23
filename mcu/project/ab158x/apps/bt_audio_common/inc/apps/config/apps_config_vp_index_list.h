@@ -44,6 +44,7 @@
 #ifndef __APPS_CONFIG_APPS_CONFIG_VP_INDEX_LIST_H__
 #define __APPS_CONFIG_APPS_CONFIG_VP_INDEX_LIST_H__
 
+#define VP_INDEX_SUCCESSED VP_INDEX_SUCCEED
 enum {
     VP_INDEX_POWER_ON                   = 0,
     VP_INDEX_POWER_OFF                  = 1,
@@ -55,7 +56,7 @@ enum {
     VP_INDEX_CALL_ENDED                 = 7,
     VP_INDEX_LOW_BATTERY                = 8,
     VP_INDEX_FAILED                     = 9,
-    VP_INDEX_SUCCESSED                  = 10,
+    VP_INDEX_SUCCEED                    = 10,
     VP_INDEX_DOORBELL                   = 11,
     VP_INDEX_PRESS                      = 12,
     VP_INDEX_DOUBLE                     = 13,

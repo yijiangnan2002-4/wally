@@ -105,7 +105,7 @@ typedef uint8_t ble_aics_mute_state_t;
 #define BLE_AICS_AUDIO_INPUT_TYPE_ANALOG                 0x03   /**< Analog Interface. */
 #define BLE_AICS_AUDIO_INPUT_TYPE_DIGITAL                0x04   /**< Digital Interface. */
 #define BLE_AICS_AUDIO_INPUT_TYPE_RADIO                  0x05   /**< AM/FM/XM/etc. */
-#define BLE_AICS_AUDIO_INPUT_TYPE_SREAMING               0x06   /**< Streaming Audio Source. */
+#define BLE_AICS_AUDIO_INPUT_TYPE_STREAMING              0x06   /**< Streaming Audio Source. */
 typedef uint8_t ble_aics_audio_input_type_t;
 
 /**

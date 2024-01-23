@@ -2,6 +2,7 @@ var searchData=
 [
   ['battery',['battery',['../structbt__hfp__indicator__t.html#a6b8bcdac6d6a6a47271afdfb6dacc4fd',1,'bt_hfp_indicator_t']]],
   ['battery_5findicator_5fvalue',['battery_indicator_value',['../structbt__hfp__ag__init__param__t.html#aae7024dd148a0bb1539b1163e48b2333',1,'bt_hfp_ag_init_param_t']]],
+  ['battery_5flevel',['battery_level',['../structbt__source__srv__battery__level__change__t.html#a1362498f14cf794da96bf9a05dcc05b9',1,'bt_source_srv_battery_level_change_t::battery_level()'],['../structbt__source__srv__hfp__init__parameter__t.html#a1362498f14cf794da96bf9a05dcc05b9',1,'bt_source_srv_hfp_init_parameter_t::battery_level()']]],
   ['baudrate',['baudrate',['../structhal__uart__config__t.html#a4326827f3f05aba7eae095213c9d9d14',1,'hal_uart_config_t::baudrate()'],['../structmux__set__config__uart__param__t.html#a4326827f3f05aba7eae095213c9d9d14',1,'mux_set_config_uart_param_t::baudrate()'],['../structserial__port__setting__uart__t.html#a4326827f3f05aba7eae095213c9d9d14',1,'serial_port_setting_uart_t::baudrate()']]],
   ['bdr_5fble_5ffine_5ftx_5fpower_5flevel_5foffset',['bdr_ble_fine_tx_power_level_offset',['../structbt__config__tx__power__ext__t.html#a9bc1b852054b6f15c167592b08f5822e',1,'bt_config_tx_power_ext_t']]],
   ['bdr_5fble_5ftx_5fpower_5flevel_5foffset',['bdr_ble_tx_power_level_offset',['../structbt__config__tx__power__ext__t.html#a39489c76aa0c8bd562098e60f26ffcb9',1,'bt_config_tx_power_ext_t']]],

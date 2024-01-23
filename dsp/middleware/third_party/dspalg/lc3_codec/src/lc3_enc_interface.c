@@ -263,10 +263,18 @@ VOID LC3_Tab_Enc_MemInit (VOID* para,LC3I_Param *param){
         if (p_lc3i_tab_common == NULL && lc3_memory == NULL) {
             lc3_memory = (LC3_INSTANCE_PTR) preloader_pisplit_malloc_memory( PRELOADER_D_HIGH_PERFORMANCE , sizeof(LC3_INSTANCE));
             /*Table Common*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+            lc3i_tab_common_size = LC3PLUSN_Tab_Common_Get_MemSize();
+#else
             lc3i_tab_common_size = LC3I_Tab_Common_Get_MemSize();
+#endif
             lc3i_tab_common_size = (lc3i_tab_common_size + 7) / 8 * 8;
             p_lc3i_tab_common = (void*) preloader_pisplit_malloc_memory( PRELOADER_D_HIGH_PERFORMANCE , lc3i_tab_common_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+            ret = LC3PLUSN_Tab_Common_Init(p_lc3i_tab_common);
+#else
             ret = LC3I_Tab_Common_Init(p_lc3i_tab_common);
+#endif
             if (ret != LC3_OK) {
                 DSP_MW_LOG_E("[lc3][fail] LC3I_Tab_Common_Init() %d", 1, ret);
                 return;
@@ -275,10 +283,18 @@ VOID LC3_Tab_Enc_MemInit (VOID* para,LC3I_Param *param){
         }
 
         /*Table Dec*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        lc3i_tab_enc_size = LC3PLUSN_Tab_Enc_Get_MemSize(param);
+#else
         lc3i_tab_enc_size = LC3I_Tab_Enc_Get_MemSize(param);
+#endif
         lc3i_tab_enc_size = (lc3i_tab_enc_size + 7) / 8 * 8;
         p_lc3i_tab_enc = (void*) preloader_pisplit_malloc_memory( PRELOADER_D_HIGH_PERFORMANCE , lc3i_tab_enc_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Tab_Enc_Init(p_lc3i_tab_common, p_lc3i_tab_enc, param);
+#else
         ret = LC3I_Tab_Enc_Init(p_lc3i_tab_common, p_lc3i_tab_enc, param);
+#endif
         if (ret != LC3_OK) {
             DSP_MW_LOG_E("[lc3][fail] LC3I_Tab_Enc_Init() %d", 1, ret);
             return;
@@ -286,10 +302,18 @@ VOID LC3_Tab_Enc_MemInit (VOID* para,LC3I_Param *param){
         DSP_MW_LOG_I("[lc3][dec] LC3I_Tab_Enc_Init() Done",1, p_lc3i_tab_enc);
 
         /*Decoder Working Buffer*/
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        lc3i_enc_size = LC3PLUSN_Enc_Get_MemSize(lc3_param_encdec[1].ch, lc3_param_encdec[1].sr, lc3_param_encdec[1].frame_ms);
+#else
         lc3i_enc_size = LC3I_Enc_Get_MemSize(lc3_param_encdec[1].ch, lc3_param_encdec[1].sr, lc3_param_encdec[1].frame_ms);
+#endif
         lc3i_enc_size = (lc3i_enc_size + 7) / 8 * 8;
         p_lc3i_enc = (void*) preloader_pisplit_malloc_memory( PRELOADER_D_HIGH_PERFORMANCE , lc3i_enc_size);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Enc_Init(p_lc3i_enc, lc3_param_encdec[1].bps, lc3_param_encdec[1].sr, lc3_param_encdec[1].ch, lc3_param_encdec[1].bitrate, lc3_param_encdec[1].frame_ms, lc3_param_encdec[1].delay, lc3_param_encdec[1].lfe);
+#else
         ret = LC3I_Enc_Init(p_lc3i_enc, lc3_param_encdec[1].bps, lc3_param_encdec[1].sr, lc3_param_encdec[1].ch, lc3_param_encdec[1].bitrate, lc3_param_encdec[1].frame_ms, lc3_param_encdec[1].delay, lc3_param_encdec[1].lfe);
+#endif
         if (ret != LC3_OK) {
             DSP_MW_LOG_E("[lc3][fail] LC3I_Enc_Init() %d", 1, ret);
             return;
@@ -482,7 +506,11 @@ bool stream_codec_encoder_lc3_process(void *para)
 #ifdef AIR_AUDIO_DUMP_ENABLE
             LOG_AUDIO_DUMP(input_buffer, lc3_enc_sw_buf_consume_len, AUDIO_WOOFER_PLC_OUT);
 #endif
-            ret = LC3I_Enc_Prcs (p_lc3i_enc, p_lc3i_tab_common, out_buffer, input_buffer, &this_out_size, &lc3_FFTx);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+            ret = LC3PLUSN_Enc_Prcs(p_lc3i_enc, p_lc3i_tab_common, out_buffer, input_buffer, &this_out_size, &lc3_FFTx);
+#else
+            ret = LC3I_Enc_Prcs(p_lc3i_enc, p_lc3i_tab_common, out_buffer, input_buffer, &this_out_size, &lc3_FFTx);
+#endif
 #ifdef AIR_AUDIO_DUMP_ENABLE
             //LOG_AUDIO_DUMP((U8 *)&this_out_size, 2, AUDIO_WOOFER_UPSAMPLE_16K);
             LOG_AUDIO_DUMP(out_buffer, this_out_size, AUDIO_WOOFER_UPSAMPLE_16K);
@@ -503,7 +531,11 @@ bool stream_codec_encoder_lc3_process(void *para)
     } else {
         /* always encode an frame */
         //LOG_AUDIO_DUMP(input_buffer, in_frame_size, AUDIO_INS_OUT_L);
-        ret = LC3I_Enc_Prcs (p_lc3i_enc, p_lc3i_tab_common, out_buffer, input_buffer, &out_size, &lc3_FFTx);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Enc_Prcs(p_lc3i_enc, p_lc3i_tab_common, out_buffer, input_buffer, &out_size, &lc3_FFTx);
+#else
+        ret = LC3I_Enc_Prcs(p_lc3i_enc, p_lc3i_tab_common, out_buffer, input_buffer, &out_size, &lc3_FFTx);
+#endif
         lc3_enc_set_sink_process_num(para, 1);
     }
 
@@ -671,7 +703,11 @@ bool stream_codec_encoder_lc3_process_branch(void *para)
         //working_buffer = &lc3_memory->ScratchMemory[0];
         out_buffer = &lc3_memory->lc3_enc_memory.g_lc3_cache_buffer[0];
 //        LOG_AUDIO_DUMP(input_buffer, in_frame_size, AUDIO_INS_OUT_L);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Enc_Prcs(p_lc3i_enc, p_lc3i_tab_common, out_buffer, input_buffer, &out_size, &lc3_FFTx);;
+#else
         ret = LC3I_Enc_Prcs(p_lc3i_enc, p_lc3i_tab_common, out_buffer, input_buffer, &out_size, &lc3_FFTx);
+#endif
 #ifdef LC3_UL_DATA_PATH_DEBUG
         memset(out_buffer, test_index, out_size);
 #endif
@@ -689,7 +725,11 @@ bool stream_codec_encoder_lc3_process_branch(void *para)
         working_buffer = stream_codec_get_workingbuffer(para);
         out_buffer = working_buffer + (DSP_LC3_ENCODER_MEM_EACH_CH - 1000);
 //        LOG_AUDIO_DUMP(input_buffer, in_frame_size, AUDIO_INS_OUT_R);
+#if defined(AIR_BTA_IC_PREMIUM_G3) && defined(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE)
+        ret = LC3PLUSN_Enc_Prcs(p_lc3i_enc, p_lc3i_tab_common, out_buffer, input_buffer, &out_size, &lc3_FFTx);;
+#else
         ret = LC3I_Enc_Prcs(p_lc3i_enc, p_lc3i_tab_common, out_buffer, input_buffer, &out_size, &lc3_FFTx);
+#endif
 #ifdef LC3_UL_DATA_PATH_DEBUG
         memset(out_buffer, test_index, out_size);
 #endif

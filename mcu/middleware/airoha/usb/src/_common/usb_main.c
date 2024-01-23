@@ -52,7 +52,6 @@
 #include "usb.h"
 #include "usb_case.h"
 #include "usb_custom.h"
-#include "usb_host_detect.h"
 #include "usb_main.h"
 #include "usb_resource.h"
 #include "usbacm_adap.h"
@@ -69,6 +68,10 @@
 #ifdef AIR_USB_XBOX_ENABLE
 #include "usb_xbox.h"
 #endif /* AIR_USB_XBOX_ENABLE */
+
+#ifdef AIR_USB_MFI_ENABLE
+#include "usb_mfi.h"
+#endif
 
 /* Other Middleware includes */
 #ifdef MTK_BATTERY_MANAGEMENT_ENABLE
@@ -688,6 +691,13 @@ void usb_dev_app_init_audio()
     }
 #endif
 
+#ifdef AIR_USB_MFI_ENABLE
+    if(usb_mfi_get_dscr_enable() == true){
+        USB_Register_CreateFunc("MFI", USB_MFI_If_Create, USB_MFI_If_Reset,
+                                 USB_MFI_If_Enable, (usb_speed_if_func_ptr)USB_MFI_If_Speed_Reset, NULL);
+    }
+#endif
+
     USB_Init(USB_AUDIO);
 }
 
@@ -1085,10 +1095,15 @@ extern USB_HOST_TYPE Get_USB_Host_Type();
 static void usb_bm_callback(battery_management_event_t event, const void *data)
 {
     if (usb_drven == false) {
+        LOG_MSGID_I(USB_MAIN, "usb_bm_callback usb driver is disabled", 0);
         return;
     }
+
     if (event == BATTERY_MANAGEMENT_EVENT_CHARGER_EXIST_UPDATE) {
+        LOG_MSGID_I(USB_MAIN, "usb_bm_callback update charger event", 0);
         usb_detect_vbus_change();
+    } else {
+        LOG_MSGID_I(USB_MAIN, "usb_bm_callback no charger exist", 0);
     }
 }
 
@@ -1098,7 +1113,7 @@ void usb_register_bm_callback(void)
     battery_management_status_t status;
 
     if (registered == true) {
-        /* Battery management callback has been registered. */
+        LOG_MSGID_I(USB_MAIN, "usb_register_bm_callback callback has been registered", 0);
         return;
     }
 
@@ -1106,8 +1121,9 @@ void usb_register_bm_callback(void)
 
     if (status == BATTERY_MANAGEMENT_STATUS_OK) {
         registered = true;
+        LOG_MSGID_I(USB_MAIN, "usb_register_bm_callback success to register battery callback", 0);
     } else {
-        LOG_MSGID_I(USB_MAIN, "Cannot register battery callback", 0);
+        LOG_MSGID_I(USB_MAIN, "usb_register_bm_callback cannot register battery callback", 0);
     }
 }
 #endif /* MTK_BATTERY_MANAGEMENT_ENABLE */
@@ -1332,9 +1348,6 @@ static void usb_drv_init(void)
     hal_usb_phy_preinit();
     ret &= usb_common_get_bc12(&charger_type);
     LOG_MSGID_I(USB_MAIN, "charger_type [%d]", 1, charger_type);
-#ifdef USB_HOST_DETECT_ENABLE
-    USB_HostDetect_ResetRecorder();
-#endif /* USB_HOST_DETECT_ENABLE */
 
 #ifdef FREERTOS_ENABLE
     usb_task_init();
@@ -1453,3 +1466,4 @@ void usb_plug_out_routine(void)
 }
 
 #endif /* AIR_USB_ENABLE */
+

@@ -206,17 +206,17 @@ static bt_status_t airupdate_event_callback_int(bt_msg_type_t msg, bt_status_t s
     switch (msg) {
         case BT_AIRUPDATE_CONNECTED_IND: {/* transport connection is established. */
             bt_airupdate_connected_ind_t *conn_ind_p = (bt_airupdate_connected_ind_t *)buff;
-            #if 0
+#if 0
             if (true == airupdate_cntx.connected) {//Only support the first connection
-                LOG_MSGID_E(AIRUPDATE, "Airupdate can only support the 1st link, and the link has existed!\r\n", 0); 
+                LOG_MSGID_E(AIRUPDATE, "Airupdate can only support the 1st link, and the link has existed!\r\n", 0);
                 return BT_STATUS_FAIL;
             }
-            #endif
+#endif
             LOG_MSGID_I(AIRUPDATE, "BT_AIRUPDATE_CONNECTED_IND, handle: 0x%4x, status 0x%4x\r\n", 2, conn_ind_p->handle, status);
             /* Only support the Last connection. for BTA-13768*/
             airupdate_clear_node_list();
             memset(&airupdate_cntx, 0, sizeof(airupdate_cntx_t));
-            
+
             airupdate_cntx.connected = true;
             airupdate_cntx.conn_handle = conn_ind_p->handle;
             airupdate_cntx.max_packet_size = conn_ind_p->max_packet_length - AIRUPDATE_HEADER_LEN;
@@ -265,7 +265,7 @@ static bt_status_t airupdate_event_callback_int(bt_msg_type_t msg, bt_status_t s
                     airupdate_event_callback(AIRUPDATE_RECIEVED_DATA_IND, (void *)&recieve_param);
                 }
             } else {
-                LOG_MSGID_I(AIRUPDATE, "BT_AIRUPDATE_DATA_RECIEVED_IND, Fail, rx_conn_handle is 0x%4x, curr_conn_handle is 0x%4x!\r\n", 2, data_ind_p->handle, airupdate_cntx.conn_handle); 
+                LOG_MSGID_I(AIRUPDATE, "BT_AIRUPDATE_DATA_RECIEVED_IND, Fail, rx_conn_handle is 0x%4x, curr_conn_handle is 0x%4x!\r\n", 2, data_ind_p->handle, airupdate_cntx.conn_handle);
             }
         }
         break;

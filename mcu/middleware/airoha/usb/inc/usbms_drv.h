@@ -32,30 +32,10 @@
  * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
  */
 
-
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    usbms_drv.h
- *
- * Project:
- * --------
- *   Maui_Software
- *
- * Description:
- * ------------
- *   This file intends for usb MASS STORAGE class driver definitions
- *
- * Author:
- * -------
- *   Jensen Hu
- *   CJung Chen
- *
- *****************************************************************************/
-
 #ifndef USBMS_DRV_H
 #define USBMS_DRV_H
+
+#ifdef AIR_USB_MSC_ENABLE
 
 /* C library */
 #include <stdbool.h>
@@ -257,6 +237,8 @@ extern void USB_Ms_If_Speed_Reset(bool b_other_speed);
 
 extern void USB_Init_Ms_Status(void);
 extern void USB_Release_Ms_Status(void);
+
+#endif /* AIR_USB_MSC_ENABLE */
 
 #endif /* USBMS_DRV_H */
 

@@ -88,6 +88,9 @@
 #include "hal_keypad_table.h"
 static const uint8_t captouch_keys[] = APPS_CAPTOUCH_KEY_IDS;
 #endif
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
+#include "app_dongle_service.h"
+#endif
 
 static bool _proc_ui_shell_group(ui_shell_activity_t *self,
                                  uint32_t event_id,
@@ -241,7 +244,7 @@ static bool pre_proc_rotary_event_proc(ui_shell_activity_t *self, uint32_t event
                 *p_key_action = KEY_VOICE_DN;
             }
         } else if (BSP_ROTARY_ENCODER_1 == port && (s_rotary_1_control_mix
-#ifdef AIR_BT_ULTRA_LOW_LATENCY_ENABLE
+#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
                                                     || app_dongle_service_get_dongle_mode() == APP_DONGLE_SERVICE_DONGLE_MODE_XBOX
 #endif
                                                    )) {
@@ -329,7 +332,7 @@ static bool pre_proc_app_interaction_event_proc(ui_shell_activity_t *self, uint3
 #if (defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DCHS_MODE_SLAVE_ENABLE)) && defined(AIR_SILENCE_DETECTION_ENABLE)
         case APPS_EVENTS_INTERACTION_SILENCE_DETECT_CHANGE: {
             bool is_silence = app_events_audio_event_get_silence_detect_flag();
-            app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_DUAL_CHIP_CMD, APPS_RECE_CMD_CO_SYS_DUAL_CHIP_EVENT_SILENCE_DETECT, &is_silence, sizeof(is_silence), false);
+            app_race_cmd_co_sys_send_event(EVENT_GROUP_UI_SHELL_DUAL_CHIP_CMD, APPS_RACE_CMD_CO_SYS_DUAL_CHIP_EVENT_SILENCE_DETECT, &is_silence, sizeof(is_silence), false);
             break;
         }
 #endif

@@ -35,41 +35,6 @@
 #define _DSP_PARA_PLC_NVSTRUC_H_
 #include "types.h"
 
-/*typedef signed char         S8;
-typedef unsigned char       U8;
-typedef signed short        S16;
-typedef unsigned short      U16;
-typedef signed long         S32;
-typedef unsigned long       U32;
-                                               */
-/**
- * @brief Parameter for audio plc algorithms
- */
-#if 0
-typedef struct stru_dsp_mdsp_audio_plc_para_s
-{
-U8  ENABLE     ;            /**<  Enable. */
-U8  REVISION   ;            /**< @Value 0x01 */
-
-U16 option     ;            /**<
-                                        b[1] = 1(2-channel     ), 0(1-channel      )
-                                        b[0] = 1(Enable PRE_EMP), 0(Disable PRE_EMP)
-                                        */
-S16 framesize   ;           /**< frame size in samples */
-S16 loss_count  ;           /**< If the lost frame exceeds the loss_count will be muted*/
-S16 pitch_lag_max;          /**< high-bound pitch search, range from 720 to 965 */
-S16 pitch_lag_min;          /**< low-bound pitch search, range from 100 to 500 */
-S16 fade        ;           /**< Fade in/out speed */
-
-U16 reserve_1 ;             /**< reserve */
-U16 reserve_2 ;             /**< reserve */
-U16 reserve_3 ;             /**< reserve */
-U16 reserve_4 ;             /**< reserve */
-U16 reserve_5 ;             /**< reserve */
-U16 reserve_6 ;             /**< reserve */
-U16 reserve_7 ;             /**< reserve */
-} DSP_PARA_AUDIO_PLC_STRU;
-#else
 typedef struct stru_dsp_mdsp_plc_para_s
 {
 U8  ENABLE     ;            /**< @Value 0x01 @Desc 1 */
@@ -80,18 +45,18 @@ U16 option     ;            /**< @Value 0x0000 @Desc
                                         b[0] = 1(Enable PRE_EMP), 0(Disable PRE_EMP)
                                         */
 S16 framesize   ;           /**< @Value 0x0000 @Desc 1 */
-S16 loss_count  ;           /**< @Value 0x0000 @Desc 1 */
+U16 reserve_1  ;            /**< @Value 0x0000 @Desc 1 */
 S16 pitch_lag_max;          /**< @Value 0x0000 @Desc 1 */
 S16 pitch_lag_min;          /**< @Value 0x0000 @Desc 1 */
-S16 fade        ;           /**< @Value 0x0000 @Desc 1 */
+S16 decay_level;           /**< @Value 0x0000 @Desc 1 */
 
 U16 max_period;				/**< @Value 0x0000 @Desc 1 */
-U16 reserve_2 ;				/**< @Value 0x0000 @Desc 1 */
+U16 debounce_frame_num ;	/*0(disable debounce_frame), max number is up to 16 */
 U16 reserve_3 ;				/**< @Value 0x0000 @Desc 1 */
 U16 reserve_4 ;				/**< @Value 0x0000 @Desc 1 */
 U16 reserve_5 ;				/**< @Value 0x0000 @Desc 1 */
 U16 reserve_6 ;				/**< @Value 0x0000 @Desc 1 */
 U16 reserve_7 ;				/**< @Value 0x0000 @Desc 1 */
 } DSP_PARA_AUDIO_PLC_STRU;
-#endif
+
 #endif /* _DSP_PARA_PLC_NVSTRUC_H_ */

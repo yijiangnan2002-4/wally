@@ -398,18 +398,15 @@ static uint32_t ble_pacs_supported_audio_contexts_client_config_callback(const u
 /************************************************
 *   Public functions
 *************************************************/
-/* BLE_PACS_SINK_PAC_1 */
 #ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
 /* BLE_PACS_SINK_PAC_1 */
-#define PACS_SINK_PAC_1_RECORD_NUM      0x05
-/* BLE_PACS_SOURCE_PAC_1 */
-#define PACS_SOURCE_PAC_1_RECORD_NUM    0x05
+#define PACS_SINK_PAC_1_RECORD_NUM      0x06
 #else
 /* BLE_PACS_SINK_PAC_1 */
 #define PACS_SINK_PAC_1_RECORD_NUM      0x04
+#endif
 /* BLE_PACS_SOURCE_PAC_1 */
 #define PACS_SOURCE_PAC_1_RECORD_NUM    0x04
-#endif
 #define PACS_CODEC_CAPABLITIES_LEN      0x13
 #define PACS_METADATA_LEN               0x04
 
@@ -538,15 +535,47 @@ static uint8_t g_pacs_codec_capabilities_48k[] = {
 };
 
 #ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
-static uint8_t g_pacs_codec_capabilities_96k[] =
+static uint8_t g_pacs_codec_capabilities_lc3plushr_48k[] =
+{
+    CODEC_CAPABILITY_LEN_SUPPORTED_SAMPLING_FREQUENCY,
+    CODEC_CAPABILITY_TYPE_SUPPORTED_SAMPLING_FREQUENCY,
+    (uint8_t)SUPPORTED_SAMPLING_FREQ_48KHZ, (uint8_t)(SUPPORTED_SAMPLING_FREQ_48KHZ >> 8),
+
+    CODEC_CAPABILITY_LEN_SUPPORTED_FRAME_DURATIONS,
+    CODEC_CAPABILITY_TYPE_LC3PLUS_SUPPORTED_FRAME_DURATIONS,
+    SUPPORTED_FRAME_DURATIONS_LC3PLUS_10_MS,
+
+    CODEC_CAPABILITY_LEN_AUDIO_CHANNEL_COUNTS,
+    CODEC_CAPABILITY_TYPE_AUDIO_CHANNEL_COUNTS,
+#ifdef AIR_LE_AUDIO_HEADSET_ENABLE
+    AUDIO_CHANNEL_COUNTS_1 ,//| AUDIO_CHANNEL_COUNTS_2,
+#else
+    AUDIO_CHANNEL_COUNTS_1,
+#endif
+
+    CODEC_CAPABILITY_LEN_SUPPORTED_OCTETS_PER_CODEC_FRAME,
+    CODEC_CAPABILITY_TYPE_LC3PLUS_SUPPORTED_OCTETS_PER_CODEC_FRAME_10MS,
+    (uint8_t)SUPPORTED_OCTETS_PER_CODEC_FRAME_LC3PLUS_160_310, (uint8_t)(SUPPORTED_OCTETS_PER_CODEC_FRAME_LC3PLUS_160_310 >> 8),
+    (uint8_t)(SUPPORTED_OCTETS_PER_CODEC_FRAME_LC3PLUS_160_310 >> 16), (uint8_t)(SUPPORTED_OCTETS_PER_CODEC_FRAME_LC3PLUS_160_310 >> 24),
+
+    CODEC_CAPABILITY_LEN_SUPPORTED_MAX_CODEC_FRAMES_PER_SDU,
+    CODEC_CAPABILITY_TYPE_SUPPORTED_MAX_CODEC_FRAMES_PER_SDU,
+#ifdef AIR_LE_AUDIO_HEADSET_ENABLE
+    MAX_SUPPORTED_LC3_FRAMES_PER_SDU_1,
+#else
+    MAX_SUPPORTED_LC3_FRAMES_PER_SDU_1,
+#endif
+};
+
+static uint8_t g_pacs_codec_capabilities_lc3plushr_96k[] =
 {
     CODEC_CAPABILITY_LEN_SUPPORTED_SAMPLING_FREQUENCY,
     CODEC_CAPABILITY_TYPE_SUPPORTED_SAMPLING_FREQUENCY,
     (uint8_t)SUPPORTED_SAMPLING_FREQ_96KHZ, (uint8_t)(SUPPORTED_SAMPLING_FREQ_96KHZ >> 8),
 
     CODEC_CAPABILITY_LEN_SUPPORTED_FRAME_DURATIONS,
-    CODEC_CAPABILITY_TYPE_SUPPORTED_FRAME_DURATIONS,
-    SUPPORTED_FRAME_DURATIONS_10_MS,
+    CODEC_CAPABILITY_TYPE_LC3PLUS_SUPPORTED_FRAME_DURATIONS,
+    SUPPORTED_FRAME_DURATIONS_LC3PLUS_10_MS,
 
     CODEC_CAPABILITY_LEN_AUDIO_CHANNEL_COUNTS,
     CODEC_CAPABILITY_TYPE_AUDIO_CHANNEL_COUNTS,
@@ -557,9 +586,9 @@ static uint8_t g_pacs_codec_capabilities_96k[] =
 #endif
 
     CODEC_CAPABILITY_LEN_SUPPORTED_OCTETS_PER_CODEC_FRAME,
-    CODEC_CAPABILITY_TYPE_SUPPORTED_OCTETS_PER_CODEC_FRAME,
-    (uint8_t)SUPPORTED_OCTETS_PER_CODEC_FRAME_190_190, (uint8_t)(SUPPORTED_OCTETS_PER_CODEC_FRAME_190_190 >> 8),
-    (uint8_t)(SUPPORTED_OCTETS_PER_CODEC_FRAME_190_190 >> 16), (uint8_t)(SUPPORTED_OCTETS_PER_CODEC_FRAME_190_190 >> 24),
+    CODEC_CAPABILITY_TYPE_LC3PLUS_SUPPORTED_OCTETS_PER_CODEC_FRAME_10MS,
+    (uint8_t)SUPPORTED_OCTETS_PER_CODEC_FRAME_LC3PLUS_190_310, (uint8_t)(SUPPORTED_OCTETS_PER_CODEC_FRAME_LC3PLUS_190_310 >> 8),
+    (uint8_t)(SUPPORTED_OCTETS_PER_CODEC_FRAME_LC3PLUS_190_310 >> 16), (uint8_t)(SUPPORTED_OCTETS_PER_CODEC_FRAME_LC3PLUS_190_310 >> 24),
 
     CODEC_CAPABILITY_LEN_SUPPORTED_MAX_CODEC_FRAMES_PER_SDU,
     CODEC_CAPABILITY_TYPE_SUPPORTED_MAX_CODEC_FRAMES_PER_SDU,
@@ -602,16 +631,54 @@ static ble_pacs_pac_record_t g_pacs_pac_1[] = {
         PACS_METADATA_LEN,
         &g_pacs_metadata[0],
     },
+};
+
 #ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+static ble_pacs_pac_record_t g_pacs_pac_lc3plus[] = {
     {
-        CODEC_ID_LC3PLUS_CBR,
+        CODEC_ID_LC3,
         PACS_CODEC_CAPABLITIES_LEN,
-        &g_pacs_codec_capabilities_96k[0],
+        &g_pacs_codec_capabilities_16k[0],
         PACS_METADATA_LEN,
         &g_pacs_metadata[0],
     },
-#endif
+    {
+        CODEC_ID_LC3,
+        PACS_CODEC_CAPABLITIES_LEN,
+        &g_pacs_codec_capabilities_32k[0],
+        PACS_METADATA_LEN,
+        &g_pacs_metadata[0],
+    },
+    {
+        CODEC_ID_LC3,
+        PACS_CODEC_CAPABLITIES_LEN,
+        &g_pacs_codec_capabilities_24k[0],
+        PACS_METADATA_LEN,
+        &g_pacs_metadata[0],
+    },
+    {
+        CODEC_ID_LC3,
+        PACS_CODEC_CAPABLITIES_LEN,
+        &g_pacs_codec_capabilities_48k[0],
+        PACS_METADATA_LEN,
+        &g_pacs_metadata[0],
+    },
+    {
+        CODEC_ID_LC3PLUS_CBR,
+        PACS_CODEC_CAPABLITIES_LEN,
+        &g_pacs_codec_capabilities_lc3plushr_48k[0],
+        PACS_METADATA_LEN,
+        &g_pacs_metadata[0],
+    },
+    {
+        CODEC_ID_LC3PLUS_CBR,
+        PACS_CODEC_CAPABLITIES_LEN,
+        &g_pacs_codec_capabilities_lc3plushr_96k[0],
+        PACS_METADATA_LEN,
+        &g_pacs_metadata[0],
+    },
 };
+#endif
 
 /* BLE_PACS_PAC_1 */
 ble_pacs_pac_t g_pacs_pac_empty = {
@@ -622,7 +689,11 @@ ble_pacs_pac_t g_pacs_pac_empty = {
 /* BLE_PACS_SINK_PAC_1 */
 ble_pacs_pac_t g_pacs_sink_pac_1 = {
     PACS_SINK_PAC_1_RECORD_NUM,
+#ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+    &g_pacs_pac_lc3plus[0],
+#else
     &g_pacs_pac_1[0],
+#endif
 };
 
 ble_pacs_pac_t g_pacs_source_pac_1 = {
@@ -757,8 +828,7 @@ void ble_pacs_init_parameter(void)
 #endif
 
     ble_pacs_set_available_audio_contexts(AUDIO_CONTENT_TYPE_ALL,
-                                          AUDIO_CONTENT_TYPE_CONVERSATIONAL | AUDIO_CONTENT_TYPE_UNSPECIFIED | AUDIO_CONTENT_TYPE_RINGTONE);
-
+                                          AUDIO_CONTENT_TYPE_ALL);
     ble_pacs_set_supported_audio_contexts(AUDIO_CONTENT_TYPE_ALL,
                                           AUDIO_CONTENT_TYPE_ALL);
 

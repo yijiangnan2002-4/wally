@@ -111,6 +111,102 @@ static const ble_ascs_attribute_handle_t g_ascs_att_handle_tbl[] = {
 /************************************************
 *   QOS PREFERENCE
 *************************************************/
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+/* 7.5ms */
+const static ble_ascs_default_qos_parameters_t g_gaming_default_qos_parameter[][GMAP_QOS_SETTING_MAX] = {
+    {{
+        /*32k 64kbps*/
+        .preferred_retranmission_num = 1,
+        .max_transport_latency = 15,
+        .supported_presentation_delay_min = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_max = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_max = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*48k 80kbps*/
+        .preferred_retranmission_num = 1,
+        .max_transport_latency = 15,
+        .supported_presentation_delay_min = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_max = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_max = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*48k 96kbps */
+        .preferred_retranmission_num = 1,
+        .max_transport_latency = 15,
+        .supported_presentation_delay_min = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_max = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_max = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*32k 64kbps*/
+        .preferred_retranmission_num = 1,
+        .max_transport_latency = 15,
+        .supported_presentation_delay_min = GAMING_UPLINK_SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_max = GAMING_UPLINK_SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = GAMING_UPLINK_PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_max = GAMING_UPLINK_PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*48k 80kbps*/
+        .preferred_retranmission_num = 1,
+        .max_transport_latency = 15,
+        .supported_presentation_delay_min = GAMING_UPLINK_SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_max = GAMING_UPLINK_SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = GAMING_UPLINK_PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_max = GAMING_UPLINK_PREFERRED_PRESENTATION_DELAY_MAX,
+    }},
+    {{
+        /*32k 64kbps*/
+        .preferred_retranmission_num = 1,
+        .max_transport_latency = 20,
+        .supported_presentation_delay_min = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_max = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_max = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*48k 80kbps*/
+        .preferred_retranmission_num = 1,
+        .max_transport_latency = 20,
+        .supported_presentation_delay_min = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_max = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_max = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*48k 96kbps*/
+        .preferred_retranmission_num = 1,
+        .max_transport_latency = 20,
+        .supported_presentation_delay_min = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_max = GAMING_DOWNLINK_SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_max = GAMING_DOWNLINK_PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*32k 64kbps*/
+        .preferred_retranmission_num = 1,
+        .max_transport_latency = 20,
+        .supported_presentation_delay_min = GAMING_UPLINK_SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_max = GAMING_UPLINK_SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = GAMING_UPLINK_PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_max = GAMING_UPLINK_PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*48k 80kbps*/
+        .preferred_retranmission_num = 1,
+        .max_transport_latency = 20,
+        .supported_presentation_delay_min = GAMING_UPLINK_SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_max = GAMING_UPLINK_SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = GAMING_UPLINK_PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_max = GAMING_UPLINK_PREFERRED_PRESENTATION_DELAY_MAX,
+    }},
+};
+#endif
+
 ble_ascs_default_qos_parameters_t g_default_qos_low_latency_7p5ms[] = {
     {
         /*24k 48kbps*/
@@ -282,12 +378,30 @@ ble_ascs_default_qos_parameters_t g_default_qos_low_latency_10ms[] = {
     },
 #ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
     {
-        /*96k 152kbps*/
-        .preferred_retranmission_num = 2,
-        .max_transport_latency = 40,
-        .supported_presentation_delay_min = SUPPORTED_PRESENTATION_DELAY_MIN,
+        /*48k 128kbps*/
+        .preferred_retranmission_num = 13,
+        .max_transport_latency = 100,
+        .supported_presentation_delay_min = SUPPORTED_PRESENTATION_DELAY_MAX,
         .supported_presentation_delay_max = SUPPORTED_PRESENTATION_DELAY_MAX,
-        .preferred_presentation_delay_min = PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_min = PREFERRED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_max = PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*96k 152kbps*/
+        .preferred_retranmission_num = 13,
+        .max_transport_latency = 100,
+        .supported_presentation_delay_min = SUPPORTED_PRESENTATION_DELAY_MAX,
+        .supported_presentation_delay_max = SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = PREFERRED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_max = PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*48k/96k 248kbps*/
+        .preferred_retranmission_num = 13,
+        .max_transport_latency = 100,
+        .supported_presentation_delay_min = SUPPORTED_PRESENTATION_DELAY_MAX,
+        .supported_presentation_delay_max = SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = PREFERRED_PRESENTATION_DELAY_MAX,
         .preferred_presentation_delay_max = PREFERRED_PRESENTATION_DELAY_MAX,
     },
 #endif
@@ -350,12 +464,30 @@ ble_ascs_default_qos_parameters_t g_default_qos_high_reliability_10ms[] = {
     },
 #ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
     {
-        /*96k 152kbps*/
-        .preferred_retranmission_num = 2,
+        /*48k 128kbps*/
+        .preferred_retranmission_num = 13,
         .max_transport_latency = 100,
-        .supported_presentation_delay_min = SUPPORTED_PRESENTATION_DELAY_MIN,
+        .supported_presentation_delay_min = SUPPORTED_PRESENTATION_DELAY_MAX,
         .supported_presentation_delay_max = SUPPORTED_PRESENTATION_DELAY_MAX,
-        .preferred_presentation_delay_min = PREFERRED_PRESENTATION_DELAY_MIN,
+        .preferred_presentation_delay_min = PREFERRED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_max = PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*96k 152kbps*/
+        .preferred_retranmission_num = 13,
+        .max_transport_latency = 100,
+        .supported_presentation_delay_min = SUPPORTED_PRESENTATION_DELAY_MAX,
+        .supported_presentation_delay_max = SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = PREFERRED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_max = PREFERRED_PRESENTATION_DELAY_MAX,
+    },
+    {
+        /*48k/96k 248kbps*/
+        .preferred_retranmission_num = 13,
+        .max_transport_latency = 100,
+        .supported_presentation_delay_min = SUPPORTED_PRESENTATION_DELAY_MAX,
+        .supported_presentation_delay_max = SUPPORTED_PRESENTATION_DELAY_MAX,
+        .preferred_presentation_delay_min = PREFERRED_PRESENTATION_DELAY_MAX,
         .preferred_presentation_delay_max = PREFERRED_PRESENTATION_DELAY_MAX,
     },
 #endif
@@ -701,6 +833,95 @@ bt_le_audio_cccd_record_t* ble_ascs_get_cccd_handler(bt_handle_t conn_handle, ui
     return ble_ascs_get_cccd(conn_handle, num);
 }
 
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+bool ble_ascs_support_gmap(void)
+{
+    return true;
+}
+#endif
+
+ble_ascs_default_qos_parameters_t *ble_gaming_ascs_get_qos_preference(uint8_t target_latency, uint8_t frame_duration, uint16_t configed_octets_per_codec_frame, uint8_t direction)
+{
+#ifdef AIR_LE_AUDIO_GMAP_ENABLE
+    ble_ascs_default_qos_parameters_t *para = (ble_ascs_default_qos_parameters_t *)g_gaming_default_qos_parameter;
+    uint8_t preference_idx = 0;
+    uint8_t group = 0;
+
+    if (frame_duration != FRAME_DURATIONS_10_MS && frame_duration != FRAME_DURATIONS_7P5_MS) {
+        return NULL;
+    }
+
+    if (target_latency != TARGET_LOWER_LATENCY) {
+        return NULL;
+    }
+
+    if (frame_duration == FRAME_DURATIONS_10_MS) {
+        group = 1;
+    }
+
+    if (frame_duration == FRAME_DURATIONS_10_MS) {
+        switch (configed_octets_per_codec_frame) {
+            case ASCS_OCTETS_PER_CODEC_FRAME_80:
+                if (direction == AUDIO_DIRECTION_SOURCE)
+                    preference_idx = UPLINK_QOS_64KBPS_SETTING;
+                else
+                    preference_idx = DOWNLINK_QOS_64KBPS_SETTING;
+                break;
+
+            case ASCS_OCTETS_PER_CODEC_FRAME_100:
+                if (direction == AUDIO_DIRECTION_SOURCE)
+                    preference_idx = UPLINK_QOS_80KBPS_SETTING;
+                else
+                    preference_idx = DOWNLINK_QOS_80KBPS_SETTING;
+                break;
+
+            case ASCS_OCTETS_PER_CODEC_FRAME_120: {
+
+                if (direction == AUDIO_DIRECTION_SOURCE) return NULL;
+
+                preference_idx = DOWNLINK_QOS_96KBPS_SETTING;
+                break;
+            }
+
+            default:
+                return NULL;
+        }
+    } else {
+
+        switch (configed_octets_per_codec_frame) {
+            case ASCS_OCTETS_PER_CODEC_FRAME_60:
+                if (direction == AUDIO_DIRECTION_SOURCE)
+                    preference_idx = UPLINK_QOS_64KBPS_SETTING;
+                else
+                    preference_idx = DOWNLINK_QOS_64KBPS_SETTING;
+                break;
+
+            case ASCS_OCTETS_PER_CODEC_FRAME_75:
+                if (direction == AUDIO_DIRECTION_SOURCE)
+                    preference_idx = UPLINK_QOS_80KBPS_SETTING;
+                else
+                    preference_idx = DOWNLINK_QOS_80KBPS_SETTING;
+                break;
+
+            case ASCS_OCTETS_PER_CODEC_FRAME_90: {
+
+                if (direction == AUDIO_DIRECTION_SOURCE) return NULL;
+
+                preference_idx = DOWNLINK_QOS_96KBPS_SETTING;
+                break;
+            }
+
+            default:
+                return NULL;
+        }
+    }
+
+    return &para[group * GMAP_QOS_SETTING_MAX + preference_idx];
+#else
+    return NULL;
+#endif
+}
+
 ble_ascs_default_qos_parameters_t *ble_ascs_get_qos_preference(uint8_t target_latency, uint8_t frame_duration, uint16_t configed_octets_per_codec_frame)
 {
     uint8_t preference_idx = 0;
@@ -731,8 +952,14 @@ ble_ascs_default_qos_parameters_t *ble_ascs_get_qos_preference(uint8_t target_la
                 preference_idx = QOS_124KBPS_SETTING;
                 break;
 #ifdef AIR_LE_AUDIO_LC3PLUS_ENABLE
+            case ASCS_OCTETS_PER_CODEC_FRAME_160:
+                preference_idx = QOS_128KBPS_SETTING;
+                break;
             case ASCS_OCTETS_PER_CODEC_FRAME_190:
                 preference_idx = QOS_152KBPS_SETTING;
+                break;
+            case ASCS_OCTETS_PER_CODEC_FRAME_310:
+                preference_idx = QOS_248KBPS_SETTING;
                 break;
 #endif
             default:

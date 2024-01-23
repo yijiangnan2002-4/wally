@@ -36,11 +36,13 @@
 #include "audio_anc_llf_control.h"
 
 #include "syslog.h"
-#include "bt_sink_srv_ami.h"
 #include "FreeRTOS.h"
 #include "audio_nvdm_common.h"
 #include "hal_audio_cm4_dsp_message.h"
-//#include "anc_control.h"
+#ifdef MTK_AWS_MCE_ENABLE
+#include "bt_aws_mce_srv.h"
+#endif
+
 
 
 /* Private define ------------------------------------------------------------*/
@@ -58,7 +60,7 @@
 
 #define LLF_DELAY_LATENCY    (500) //uniti: ms
 #define LLF_CTRL_QUEUE_SIZE  (5)
-
+#define LLF_SYNC_TIME        (100000)//uniti: us
 /* Private typedef -----------------------------------------------------------*/
 typedef enum {
     LLF_OP_ANC_NONE       = 0,
@@ -203,12 +205,35 @@ static void llf_dsp_callback(hal_audio_event_t event, void *user_data)
     }
 }
 
+#ifdef AIR_BT_AUDIO_SYNC_ENABLE
+static void llf_sync_control_aws_data(llf_sync_aws_capability_t *sync_cap)
+{
+    U32 local_gpt, cur_gpt;
+    //LOGMSGIDI("[LLF SYNC] partner get data: action_type:%u, target_bt_clk[%u %u]", 3, sync_cap->sync_cap.sync_action_type, sync_cap->target_bt_clk.nclk, sync_cap->target_bt_clk.nclk_intra);
+    hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &cur_gpt);
+    if (bt_sink_srv_convert_bt_clock_2_gpt_count((const bt_clock_t *) & (sync_cap->target_bt_clk), (uint32_t *)&local_gpt) == BT_STATUS_SUCCESS) {
+        if (cur_gpt > local_gpt) {
+            local_gpt = cur_gpt;
+            LOGMSGIDE("[LLF SYNC] PARTNER: over target time", 0);
+        }
+    } else {
+        local_gpt = cur_gpt;
+    }
+    sync_cap->sync_cap.target_gpt_cnt = local_gpt;
+    LOGMSGIDI("[LLF SYNC] PARTNER: sync_action_type:%u, from_agent:%d, target_time:%d, cur_gpt:%u, target_gpt:%u, bt_clk[%u %u], vol:%u", 8, sync_cap->sync_cap.sync_action_type, 1, local_gpt-cur_gpt, cur_gpt, local_gpt, sync_cap->target_bt_clk.nclk, sync_cap->target_bt_clk.nclk_intra, sync_cap->sync_cap.vol_out.vol_level);
+    bt_sink_srv_ami_audio_request_sync(FEATURE_NO_NEED_ID, &(sync_cap->sync_cap));
+}
+#endif
+
 static void bt_aws_mce_report_llf_callback(bt_aws_mce_report_info_t *para)
 {
     aws_mce_report_llf_param_t *param = (aws_mce_report_llf_param_t*)para->param;
-    LOGMSGIDI("AWS MCE Report: event(%d) data_len(%d), current_type(%d)", 3, param->event_id, param->param_len, g_llf_control.type);
-
-    if (g_llf_type_entry[g_llf_control.type].bt_aws_mce_report_callback_entry) {
+    LOGMSGIDI("AWS MCE Report: event(%u) data_len(%d), current_type(%d)", 3, param->event_id, param->param_len, g_llf_control.type);
+    if (LLF_AWS_MCE_EVENT_SYNC_CTRL & param->event_id) {
+#ifdef AIR_BT_AUDIO_SYNC_ENABLE
+        llf_sync_control_aws_data((llf_sync_aws_capability_t*)&(param->param));
+#endif
+    } else if (g_llf_type_entry[g_llf_control.type].bt_aws_mce_report_callback_entry) {
         g_llf_type_entry[g_llf_control.type].bt_aws_mce_report_callback_entry(para);
     }
 }
@@ -563,6 +588,10 @@ void llf_control_set_status(llf_running_status_t running, llf_type_t type, U8 su
     g_llf_control.type = type;
     g_llf_control.sub_mode = sub_mode;
     llf_mutex_give();
+    if ((running == LLF_RUNNING_STATUS_CLOSE) && (g_llf_delay_ctrl.timer_available == 0)) {
+        xTimerStop(g_llf_delay_timer, 0);
+        g_llf_delay_ctrl.timer_available = 1;
+    }
 }
 
 void llf_control_get_status(llf_running_status_t *running, llf_type_t *type, U8 *sub_mode, void *misc)
@@ -723,3 +752,72 @@ llf_status_t llf_control_query_data_ready(void)
     }
     return LLF_STATUS_SUCCESS;
 }
+
+#ifdef AIR_BT_AUDIO_SYNC_ENABLE
+void llf_control_sync_control(llf_sync_capability_t *llf_sync_cap)
+{
+    bt_sink_srv_am_audio_sync_capability_t srv_sync_cap = {0};
+    srv_sync_cap.sync_scenario_type = MCU2DSP_SYNC_REQUEST_LLF;
+    bt_clock_t bt_clk = {0};
+    uint32_t local_gpt = 0, cur_gpt = 0;
+    uint32_t target_time = LLF_SYNC_TIME;
+
+    if (llf_sync_cap->action == LLF_SYNC_ACTION_DL_MUTE) {
+        srv_sync_cap.sync_action_type = MCU2DSP_SYNC_REQUEST_SET_MUTE;
+        srv_sync_cap.vol_out.vol_level = 0;
+    } else if (llf_sync_cap->action == LLF_SYNC_ACTION_DL_UNMUTE) {
+        srv_sync_cap.sync_action_type = MCU2DSP_SYNC_REQUEST_SET_MUTE;
+        srv_sync_cap.vol_out.vol_level = 1;
+    } else {
+        LOGMSGIDE("[LLF SYNC] not supported sync action:%d", 1, llf_sync_cap->action);
+    }
+
+    hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &cur_gpt);
+    target_time = llf_sync_cap->sync_time;
+
+    if (llf_sync_cap->is_sync) {
+
+        //if ((bt_connection_manager_device_local_info_get_aws_role() == BT_AWS_MCE_ROLE_AGENT) && (bt_sink_srv_cm_get_aws_link_state() == BT_AWS_MCE_AGENT_STATE_ATTACHED))
+        if (bt_sink_srv_cm_get_aws_link_state() == BT_AWS_MCE_AGENT_STATE_ATTACHED) {
+            if (bt_connection_manager_device_local_info_get_aws_role() == BT_AWS_MCE_ROLE_AGENT) {
+
+                if (bt_sink_srv_bt_clock_addition(&bt_clk, 0, target_time) != BT_STATUS_SUCCESS) {
+                    LOGMSGIDE("[LLF SYNC] get bt_clk fail", 0);
+                    return;
+                }
+                if (bt_sink_srv_convert_bt_clock_2_gpt_count((const bt_clock_t *) & (bt_clk), (uint32_t *)&local_gpt) == BT_STATUS_SUCCESS) {
+                    srv_sync_cap.target_gpt_cnt = local_gpt;
+                } else {
+                    LOGMSGIDE("[LLF SYNC] get gpt count fail", 0);
+                    return;
+                }
+                llf_sync_aws_capability_t sync_aws_cap = {0};
+                memcpy((U8*)&sync_aws_cap, (U8*)&srv_sync_cap, sizeof(bt_sink_srv_am_audio_sync_capability_t));
+                memcpy(&(sync_aws_cap.target_bt_clk), &bt_clk, sizeof(bt_clock_t));
+                llf_control_send_aws_mce_param(LLF_AWS_MCE_EVENT_SYNC_CTRL, sizeof(llf_sync_aws_capability_t), (U8*)&sync_aws_cap);
+                bt_sink_srv_ami_audio_request_sync(FEATURE_NO_NEED_ID, &srv_sync_cap);
+                LOGMSGIDI("[LLF SYNC] AGENT: sync_action_type:%u, target_time:%u, cur_gpt:%u, target_gpt:%u, bt_clk[%u %u], vol:%u", 7, srv_sync_cap.sync_action_type, target_time, cur_gpt, local_gpt, bt_clk.nclk, bt_clk.nclk_intra, srv_sync_cap.vol_out.vol_level);
+            } else if (llf_sync_cap->action == LLF_SYNC_ACTION_DL_UNMUTE) { // Partner unmute DL when later join
+                srv_sync_cap.target_gpt_cnt = local_gpt = cur_gpt + target_time + 100000;
+                bt_sink_srv_ami_audio_request_sync(FEATURE_NO_NEED_ID, &srv_sync_cap);
+                LOGMSGIDI("[LLF SYNC] PARTNER: sync_action_type:%u, from_agent:%d, target_time:%u, cur_gpt:%u, target_gpt:%u, vol:%u", 6, srv_sync_cap.sync_action_type, 0, target_time, cur_gpt, local_gpt, srv_sync_cap.vol_out.vol_level);
+            } else {
+                LOGMSGIDI("[LLF SYNC] DO NOTHING: sync_action_type:%u, target_time:%u, cur_gpt:%u, target_gpt:%u, vol:%u", 5, srv_sync_cap.sync_action_type, target_time, cur_gpt, local_gpt, srv_sync_cap.vol_out.vol_level);
+            }
+        } else {
+            srv_sync_cap.target_gpt_cnt = local_gpt = cur_gpt + target_time;
+            bt_sink_srv_ami_audio_request_sync(FEATURE_NO_NEED_ID, &srv_sync_cap);
+            LOGMSGIDI("[LLF SYNC] NOT attached: sync_action_type:%u, target_time:%u, cur_gpt:%u, target_gpt:%u, vol:%u", 5, srv_sync_cap.sync_action_type, target_time, cur_gpt, local_gpt, srv_sync_cap.vol_out.vol_level);
+        }
+
+    } else {
+        srv_sync_cap.target_gpt_cnt = local_gpt = cur_gpt + target_time;
+        bt_sink_srv_ami_audio_request_sync(FEATURE_NO_NEED_ID, &srv_sync_cap);
+        LOGMSGIDI("[LLF SYNC] NOT SYNC: sync_action_type:%u, target_time:%u, cur_gpt:%u, target_gpt:%u, vol:%u", 5, srv_sync_cap.sync_action_type, target_time, cur_gpt, local_gpt, srv_sync_cap.vol_out.vol_level);
+    }
+
+    //LOGMSGIDI("[LLF SYNC] sync_action_type:%u, target_time:%u, cur_gpt:%u, target_gpt:%u", 4, srv_sync_cap.sync_action_type, target_time, cur_gpt, local_gpt);
+
+}
+#endif
+

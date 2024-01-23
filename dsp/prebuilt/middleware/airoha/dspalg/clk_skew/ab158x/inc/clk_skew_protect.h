@@ -42,6 +42,7 @@ void clk_skew_compensate_by_hwsrc_init(void);
 void clk_skew_check_isr_status(DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam, BTCLK bt_clk, BTPHASE bt_phase);
 void clk_skew_get_accumulated_bytes(DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam, CLK_SKEW_FS_t fs, S16 FrameSize, U32 fs_in, U32 fs_out);
 void clk_skew_pcdc_asi_th_counter(DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam, U32 sample_size, int fs);
+S32 Cal_SamplingRate_Convert(S32 input, S32 fs_x, S32 fs_y, S32 *remainder_acc);
 #ifdef ENABLE_HWSRC_CLKSKEW
 afe_asrc_compensating_t pcdc_drift_select_hwscr_step(void);
 #endif

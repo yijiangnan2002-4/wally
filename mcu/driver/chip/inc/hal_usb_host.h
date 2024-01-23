@@ -37,6 +37,9 @@
 #define __HAL_USB_HOST_H__
 
 #include "hal_platform.h"
+
+#ifdef HAL_USB_HOST_MODULE_ENABLED
+
 #include "usb_host_def.h"
 
 
@@ -227,9 +230,9 @@ void hal_usb_host_set_ep0_rx_request(void);
 void hal_usb_host_set_rx_pkt_count(uint16_t pkt_num);
 
 
-
+#endif /* HAL_USB_HOST_MODULE_ENABLED */
 
 #ifdef __cplusplus
 }
 #endif
-#endif
+#endif /* __HAL_USB_HOST_H__ */

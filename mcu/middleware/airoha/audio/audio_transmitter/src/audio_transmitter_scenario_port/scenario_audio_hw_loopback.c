@@ -43,6 +43,7 @@
 #include "audio_transmitter_control_port.h"
 #include "hal_platform.h"
 #include "audio_transmitter_playback_port.h"
+#include "fixrate_control.h"
 
 extern void bt_sink_srv_am_set_volume(bt_sink_srv_am_stream_type_t in_out, bt_sink_srv_audio_setting_vol_info_t *vol_info);
 /* Public functions ----------------------------------------------------------*/
@@ -105,13 +106,10 @@ void audio_hw_loopback_open_playback(audio_transmitter_config_t *config, mcu2dsp
     open_param->stream_out_param.afe.stream_out_sampling_rate = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
     open_param->stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
 
-#if defined (FIXED_SAMPLING_RATE_TO_48KHZ)
-    open_param->stream_out_param.afe.stream_out_sampling_rate = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
-    open_param->stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_48K_SAMPLE_RATE;
-#elif defined (AIR_FIXED_DL_SAMPLING_RATE_TO_96KHZ)
-    open_param->stream_out_param.afe.stream_out_sampling_rate = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
-    open_param->stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
-#endif
+    if (aud_fixrate_get_downlink_rate(open_param->audio_scenario_type) == FIXRATE_AFE_96K_SAMPLE_RATE){
+        open_param->stream_out_param.afe.stream_out_sampling_rate = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
+        open_param->stream_out_param.afe.sampling_rate   = HAL_AUDIO_FIXED_AFE_96K_SAMPLE_RATE;
+    }
 
     if (config->scenario_sub_id == AUDIO_TRANSMITTER_AUDIO_HW_LOOPBACK_I2S0_TO_DAC) {
         open_param->stream_in_param.afe.stream_out_sampling_rate = open_param->stream_out_param.afe.stream_out_sampling_rate;

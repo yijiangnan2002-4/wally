@@ -72,6 +72,7 @@ typedef uint16_t bt_ull_le_transmitter_flag_t;
 #define BT_ULL_LE_STREAMING_WAIT_START_NORMAL_MODE  ((BT_ULL_LE_STREAMING_FLAG) << 8)//0x100    /* transmitter need start special mode*/
 #define BT_ULL_LE_STREAMING_WAIT_STOP_NORMAL_MODE   ((BT_ULL_LE_STREAMING_FLAG) << 9)//0x200
 #define BT_ULL_LE_STREAMING_START_BLOCKED           ((BT_ULL_LE_STREAMING_FLAG) << 10)//0x400
+#define BT_ULL_LE_STREAMING_REINIT_IN_SPECIAL_MODE  ((BT_ULL_LE_STREAMING_FLAG) << 11)//0x800
 
 /**
 * @brief Defines the silence detection flag for dongle
@@ -146,6 +147,7 @@ typedef struct {
     bool                            is_silence_detection_special_mode;
 #endif
 } bt_ull_le_at_info_t;
+
 
 /**
  * @brief Defines the information of stream info
@@ -255,6 +257,7 @@ static void bt_ull_le_at_remove_silence_flag(bt_ull_transmitter_t transmitter_ty
 static bt_ull_transmitter_t bt_ull_le_at_get_type_by_audio_scenario_type(audio_scenario_type_t scenario_type);
 static audio_scenario_type_t bt_ull_le_at_get_audio_scenario_by_at_type(bt_ull_transmitter_t transmitter_type);
 //static bt_ull_le_at_silence_detection_mode_t bt_ull_le_at_get_silence_detection_mode(void);
+bt_ull_le_at_silence_detection_mode_t bt_ull_le_at_get_silence_detection_mode(void);
 static void bt_ull_le_at_set_silence_detection_mode(bt_ull_le_at_silence_detection_mode_t mode);
 static bool bt_ull_le_at_type_is_downlink(bt_ull_transmitter_t transmitter_type);
 static bool bt_ull_le_at_silence_detection_is_uplink_streaming(void);
@@ -710,7 +713,11 @@ static void bt_ull_le_at_set_bt_out_param(bt_ull_transmitter_t transmitter_type,
             p_codec_param->channel_mode = bt_ull_le_at_switch_channel_mode(channel_mode);
             p_codec_param->frame_interval = bt_ull_le_srv_get_sdu_interval(false, BT_ULL_ROLE_SERVER);//5000
             p_codec_param->frame_size = frame_size/2;//54
-        } else if (BT_ULL_LE_CODEC_DL_ULD_UL_LC3PLUS == codec_type) {
+        } else if ((BT_ULL_LE_CODEC_DL_ULD_UL_LC3PLUS == codec_type)
+#ifdef AIR_AUDIO_VEND_CODEC_ENABLE
+                 ||(BT_ULL_LE_CODEC_DL_ULD_UL_OPUS == codec_type)
+#endif
+        ) {
             audio_codec_uld_t *p_codec_param = (audio_codec_uld_t*)&bt_out_param->link_param[i].codec_param.uld;
             bt_out_param->link_param[i].codec_type = AUDIO_DSP_CODEC_TYPE_ULD;
             p_codec_param->sample_rate= bt_ull_le_srv_get_codec_sample_rate(transmitter_type, false, BT_ULL_ROLE_SERVER);//48000
@@ -739,9 +746,15 @@ static void bt_ull_le_at_set_bt_in_param(bt_ull_transmitter_t transmitter_type, 
         bt_in_param->link_param[i].enable = true;
         bt_in_param->link_param[i].share_info = (void *)bt_ull_le_srv_get_avm_share_buffer_address(client_type, out_type, transmitter_type, i);
         if(BT_ULL_LE_CODEC_LC3PLUS == codec_type || BT_ULL_LE_CODEC_DL_ULD_UL_LC3PLUS == codec_type) {
-          bt_in_param->link_param[i].codec_type = AUDIO_DSP_CODEC_TYPE_LC3PLUS;   //default lc3plus codec
-        } else {
-          bt_in_param->link_param[i].codec_type = AUDIO_DSP_CODEC_TYPE_OPUS;
+            bt_in_param->link_param[i].codec_type = AUDIO_DSP_CODEC_TYPE_LC3PLUS;   //default lc3plus codec
+        }
+#ifdef AIR_AUDIO_VEND_CODEC_ENABLE
+        else if (BT_ULL_LE_CODEC_DL_ULD_UL_OPUS == codec_type) {
+            bt_in_param->link_param[i].codec_type = AUDIO_DSP_CODEC_TYPE_OPUS;
+        }
+#endif
+        else {
+            bt_in_param->link_param[i].codec_type = AUDIO_DSP_CODEC_TYPE_OPUS;
         }
         bt_in_param->link_param[i].codec_param.lc3plus.sample_rate = bt_ull_le_srv_get_codec_sample_rate(transmitter_type, true, BT_ULL_ROLE_SERVER);//32000;
         if (BT_ULL_MIC_TRANSMITTER == transmitter_type) {
@@ -844,8 +857,8 @@ static void bt_ull_le_at_mic_callback(audio_transmitter_event_t event, void *dat
         }
         case AUDIO_TRANSMITTER_EVENT_STOP_SUCCESS:{
             result_notify.result = BT_STATUS_SUCCESS;
-            bt_ull_le_at_event_callback(BT_ULL_LE_AT_EVENT_STOP_IND, &result_notify, sizeof(result_notify));
             bt_ull_le_at_handle_mic_stop_success_or_start_fail_cnf(trans_type);
+            bt_ull_le_at_event_callback(BT_ULL_LE_AT_EVENT_STOP_IND, &result_notify, sizeof(result_notify));
             break;
         }
         default:
@@ -1133,13 +1146,19 @@ static void bt_ull_le_at_handle_spk_stop_success_or_start_fail_cnf(bt_ull_transm
                     bt_ull_le_at_start(trans_type_other, false);
                 }
             }
+            if (p_stream_info->streaming_flag & BT_ULL_LE_STREAMING_START_BLOCKED) {
+                bt_ull_le_at_remove_flag(trans_type, BT_ULL_LE_STREAMING_START_BLOCKED);
+            }			
             if (p_stream_info->is_request_transmitter_start && bt_ull_le_service_is_connected()) {
                 bt_ull_le_at_set_flag(transmitter_type, BT_ULL_LE_STREAMING_WAIT_START_NORMAL_MODE);
                 bt_ull_le_at_silence_detection_start_normal_mode(transmitter_type);
                 bt_ull_le_srv_silence_detection_notify_client_status(false, transmitter_type);//notify client to open am
             }
-        } else if (!p_stream_info->is_request_transmitter_start && (BT_ULL_LE_AT_SILENCE_DETECTION_MODE_SPECIAL == silence_detection_mode)) {
-            bt_ull_le_at_set_silence_detection_mode(BT_ULL_LE_AT_SILENCE_DETECTION_MODE_NORMAL);
+        } else if ((!bt_ull_le_service_is_connected() || ((false == p_stream_info->is_request_transmitter_start) && (false == p_stream_info_other->is_silence_detection_special_mode)))
+                && (BT_ULL_LE_AT_SILENCE_DETECTION_MODE_SPECIAL == silence_detection_mode)) {
+            if (!p_stream_info_other->is_silence_detection_special_mode) {
+                bt_ull_le_at_set_silence_detection_mode(BT_ULL_LE_AT_SILENCE_DETECTION_MODE_NORMAL);
+            }
             if(p_stream_info->is_silence_detection_special_mode) {
                 p_stream_info->is_silence_detection_special_mode = false;
             }
@@ -1266,7 +1285,8 @@ static void bt_ull_le_at_config_spk_transmitter_param(bt_ull_transmitter_t trans
         return;
     }
     ull_report("[ULL][LE][SD_DEBUG][6] bt_ull_le_at_config_spk_transmitter_param, streaming_flag: 0x%x, silence_detection_mode: %d", 2, p_stream_info->streaming_flag, silence_detection_mode);
-    if ((BT_ULL_LE_AT_SILENCE_DETECTION_MODE_SPECIAL == silence_detection_mode) && (p_stream_info->streaming_flag & BT_ULL_LE_STREAMING_WAIT_START_SPECIAL_MODE)) {
+    if ((BT_ULL_LE_AT_SILENCE_DETECTION_MODE_SPECIAL == silence_detection_mode) && ((p_stream_info->streaming_flag & BT_ULL_LE_STREAMING_WAIT_START_SPECIAL_MODE) 
+        || (p_stream_info->streaming_flag & BT_ULL_LE_STREAMING_REINIT_IN_SPECIAL_MODE))) {
         //config->scenario_config.ull_audio_v2_dongle_config.without_bt_link_mode_enable = true;
         config->scenario_config.ull_audio_v2_dongle_config.dl_config.sink_param.bt_out_param.without_bt_link_mode_enable = true;
         is_without_bt_link = true;
@@ -1395,6 +1415,7 @@ static void bt_ull_le_at_config_mic_transmitter_param(bt_ull_transmitter_t trans
             #if (defined AIR_DONGLE_I2S_SLV_OUT_ENABLE) || (defined AIR_DONGLE_I2S_MST_OUT_ENABLE)
                 if (BT_ULL_LE_TRANSMITTER_AUDIO_OUT_I2S == out_type) {
                     at_uplink_type = BT_ULL_LE_AT_UPLINK_I2SOUT;
+#if defined(AIR_DONGLE_I2S_SLV_OUT_ENABLE)
                     config->scenario_sub_id = AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_SLV_OUT_0;
                     ull_audio_v2_dongle_i2s_slv_out_param_t *i2s_out_param;
                     i2s_out_param = &(config->scenario_config.ull_audio_v2_dongle_config.ul_config.sink_param.i2s_slv_out_param);
@@ -1405,6 +1426,18 @@ static void bt_ull_le_at_config_mic_transmitter_param(bt_ull_transmitter_t trans
                     i2s_out_param->codec_param.pcm.format = HAL_AUDIO_PCM_FORMAT_S16_LE;
                     i2s_out_param->codec_param.pcm.channel_mode = 0x01;
                     i2s_out_param->codec_param.pcm.frame_interval = 1000;
+#elif defined(AIR_DONGLE_I2S_MST_OUT_ENABLE)
+                    config->scenario_sub_id = AUDIO_TRANSMITTER_ULL_AUDIO_V2_DONGLE_UL_I2S_MST_OUT_0;
+                    ull_audio_v2_dongle_i2s_mst_out_param_t *i2s_out_param;
+                    i2s_out_param = &(config->scenario_config.ull_audio_v2_dongle_config.ul_config.sink_param.i2s_mst_out_param);
+                    bt_in_param->link_num = 2;
+                    /*config line out parameter*/
+                    i2s_out_param->codec_type = AUDIO_DSP_CODEC_TYPE_PCM;
+                    i2s_out_param->codec_param.pcm.sample_rate = 48000;//bt_ull_le_srv_get_usb_sample_rate(transmitter_type);
+                    i2s_out_param->codec_param.pcm.format = HAL_AUDIO_PCM_FORMAT_S16_LE;
+                    i2s_out_param->codec_param.pcm.channel_mode = 0x01;
+                    i2s_out_param->codec_param.pcm.frame_interval = 1000;
+#endif
                 }
             #endif
                 break;
@@ -2776,6 +2809,11 @@ bt_status_t bt_ull_le_at_restart(bt_ull_transmitter_t transmitter_type)
                 bt_ull_le_at_set_flag(transmitter_type, BT_ULL_LE_STREAMING_RECONFIG);
             } else {
                 /*transmitter is in streaming, should set reconfig flag and stop transmitter directly*/
+            #ifdef AIR_SILENCE_DETECTION_ENABLE
+                if (p_stream_info->is_silence_detection_special_mode) {
+                    bt_ull_le_at_set_flag(transmitter_type, BT_ULL_LE_STREAMING_REINIT_IN_SPECIAL_MODE);
+                }
+            #endif
                 bt_ull_le_at_set_flag(transmitter_type, BT_ULL_LE_STREAMING_RECONFIG);
                 bt_ull_le_at_stop(transmitter_type, false);
             }
@@ -2887,6 +2925,7 @@ void bt_ull_le_at_set_latency(uint16_t ul_latency, uint16_t dl_latency)
 {
     bt_ull_le_at_context_t* trans_ctx = bt_ull_le_at_get_context();
     bt_ull_le_at_info_t *p_stream_info = NULL;
+    ull_report("[ULL][LE][AUDIO_TRANS] dl_spk: %d, dl_chat: %d, ul_mic: %d.", 3, trans_ctx->dl_spk.is_transmitter_start, trans_ctx->dl_chat.is_transmitter_start, trans_ctx->ul_mic.is_transmitter_start);
 
     /*restart gaming transmitter*/
     if (trans_ctx->dl_spk.is_transmitter_start) {
@@ -3488,6 +3527,18 @@ static bool bt_ull_le_at_silence_detection_is_uplink_streaming(void)
     ull_report("[ULL][LE][AUDIO_TRANS] bt_ull_le_at_silence_detection_is_uplink_streaming. is_uplink_streaming: %d", 1, is_uplink_streaming);
     return is_uplink_streaming;
 }
+
+void bt_ull_le_at_stop_silence_detection(void)
+{
+    uint32_t type = 0;
+    for (type = BT_ULL_GAMING_TRANSMITTER; type < BT_ULL_MIC_TRANSMITTER; type++) {
+       bt_ull_le_at_info_t *p_stream_info = bt_ull_le_at_get_stream_info_by_transmitter_type(type);
+       if(BT_ULL_LE_AT_SILENCE_DETECTION_MODE_NORMAL == bt_ull_le_at_get_silence_detection_mode() && p_stream_info->is_silence_detection_on) {
+          bt_ull_le_at_silence_detection_stop_by_transmitter_type(type);
+       }
+    }
+}
+
 #if 0
 static bool bt_ull_le_at_silence_detection_is_spk_in_silence(void)
 {

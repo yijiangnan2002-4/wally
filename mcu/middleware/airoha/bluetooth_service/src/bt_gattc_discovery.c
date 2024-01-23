@@ -1605,12 +1605,16 @@ bt_gattc_discovery_status_t bt_gattc_discovery_start(bt_gattc_discovery_user_t u
     bt_gattc_discovery_context_t *cntx;
 
     LOG_MSGID_I(BT_GATTC, "bt_gattc_discovery_start: user: 0x%x, conn_handle: 0x%04x", 2, user, conn_handle);
+    bt_utils_mutex_lock();
+
     if (!g_initialized) {
         /* Please call bt_gattc_discovery_init first. */
+        bt_utils_mutex_unlock();
         return BT_GATTC_DISCOVERY_STATUS_INVALID_STATE;
     }
     if (g_num_of_handlers_reg == 0) {
         /* No user modules were registered. There are no services to discover. */
+        bt_utils_mutex_unlock();
         return BT_GATTC_DISCOVERY_STATUS_INVALID_STATE;
     }
 
@@ -1620,6 +1624,7 @@ bt_gattc_discovery_status_t bt_gattc_discovery_start(bt_gattc_discovery_user_t u
         if(bt_gap_le_srv_get_link_attribute_by_handle(conn_handle) == BT_GAP_LE_SRV_LINK_ATTRIBUTE_NOT_NEED_RHO) {
             LOG_MSGID_I(BT_APP, "[BT][GATT] conenction handle = %02x is le audio, no need rho, continue discovery", 1, conn_handle);
         } else {
+            bt_utils_mutex_unlock();
             return BT_GATTC_DISCOVERY_STATUS_FAIL;
         }
     }
@@ -1628,20 +1633,24 @@ bt_gattc_discovery_status_t bt_gattc_discovery_start(bt_gattc_discovery_user_t u
     cntx = bt_gattc_discovery_get_cntx_by_handle(conn_handle);
     if (cntx == NULL) {
         /* not connection established */
+        bt_utils_mutex_unlock();
         return BT_GATTC_DISCOVERY_STATUS_INVALID_STATE;
     }
 
     if (cntx->conn_discovery_state > BT_GATTC_CONN_DISCOVERY_STATE_IDLE) {
         LOG_MSGID_I(BT_GATTC, "bt_gattc_discovery_start in progress, state: %d, conn: 0x%x", 2, cntx->conn_discovery_state, cntx->conn_handle);
         if (BT_STATUS_SUCCESS != bt_gattc_discovery_add_user_triggered(conn_handle, user)) {
+            bt_utils_mutex_unlock();
             return BT_GATTC_DISCOVERY_STATUS_INVALID_STATE;
         }
+        bt_utils_mutex_unlock();
         return BT_GATTC_DISCOVERY_STATUS_BUSY;
     }
 
     uint8_t serv_index = bt_gattc_discovery_find_next_resigtered_serv_index_by_user(0x00, user);
     if (serv_index == 0xff) {
         LOG_MSGID_I(BT_GATTC, "bt_gattc_discovery_start, not found registered serv service by user:%d", 1, user);   
+        bt_utils_mutex_unlock();
         return BT_GATTC_DISCOVERY_STATUS_INVALID_STATE;
     } else {
         cntx->discovering_serv_index = serv_index;
@@ -1649,7 +1658,7 @@ bt_gattc_discovery_status_t bt_gattc_discovery_start(bt_gattc_discovery_user_t u
 
     /* TODO:
     if (refresh) {
-        get discovery cache
+        discovery again, not use discovery cache
         ...
     }
     */
@@ -1657,9 +1666,12 @@ bt_gattc_discovery_status_t bt_gattc_discovery_start(bt_gattc_discovery_user_t u
     err_code = bt_gattc_discovery_start_internal(cntx);
     if (err_code != BT_STATUS_SUCCESS) {
         LOG_MSGID_I(BT_GATTC, "bt_gattc_discovery_start_interval: err_code = 0x%04x", 1, err_code);
+        bt_gattc_discovery_change_discovery_state(cntx, BT_GATTC_CONN_DISCOVERY_STATE_IDLE);
+        bt_utils_mutex_unlock();
         return BT_GATTC_DISCOVERY_STATUS_FAIL;
     }
 
+    bt_utils_mutex_unlock();
     return BT_GATTC_DISCOVERY_STATUS_SUCCESS;
 }
 

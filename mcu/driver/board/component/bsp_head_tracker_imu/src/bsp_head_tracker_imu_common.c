@@ -100,7 +100,7 @@ static int headtrack_q_control(QueueHandle_t handle, int cmd, int option)
                 xStatus = xQueueReceiveFromISR(handle, &option, NULL);
             }
             if (xStatus != pdPASS) {
-                bsp_head_tracker_log_e("[bsp][headtracker][comm] recv Q timeout, status %d", 1, xStatus);
+                bsp_head_tracker_log_i("[bsp][headtracker][comm] recv Q timeout, status %d", 1, xStatus);
                 return -1;
             }
             bsp_head_tracker_log_d("[bsp][headtracker][comm] headtrack_q_control: recv %d from Q", 1, option);

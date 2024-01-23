@@ -36,6 +36,8 @@
 #ifndef __USB_HOST_UTILITY_H__
 #define __USB_HOST_UTILITY_H__
 
+#ifdef AIR_USB_HOST_ENABLE
+
 /* C library */
 #include <stdbool.h>
 
@@ -46,8 +48,7 @@ void USB_Host_Send_Message_ISR(usb_host_msg_type_t msg, void *data);
 bool Usb_Host_Receieve_Message(usb_host_msg_t *msgs);
 bool Usb_Host_Message_Queue_Init(void);
 
+#endif /* AIR_USB_HOST_ENABLE */
 
+#endif /* __USB_HOST_UTILITY_H__ */
 
-
-
-#endif

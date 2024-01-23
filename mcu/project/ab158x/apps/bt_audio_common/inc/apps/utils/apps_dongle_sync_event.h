@@ -133,7 +133,7 @@ bt_status_t apps_dongle_sync_event_send(uint32_t event_group, uint32_t event_id)
 */
 void apps_dongle_sync_init(void);
 
-#if defined(AIR_DONGLE_ENABLE)
+#if 1
 /**
 * @brief      get the channel id where the sync data come from.
 * @return     None

@@ -1,9 +1,10 @@
 Software name:                           FreeRTOS
 Brief:                                   FreeRTOS is a market-leading real-time operating system (RTOS) for microcontrollers and small microprocessors
-Path:                                    mcu/kernel/rtos/FreeRTOS, dsp/kernel/rtos
+Path:                                    mcu/kernel/rtos/<IC_CONFIG>/FreeRTOS, dsp/kernel/rtos/<IC_CONFIG>/FreeRTOS
 Category:                                Open source software(OSS)
 Software maker:                          Amazon
 OSS download link:                       https://github.com/FreeRTOS/FreeRTOS/releases
 License:                                 MIT
 Evidence of license agreement:           https://www.freertos.org/a00114.html
+                                         For Cadence FreeRTOS porting layer, please refer to license disclaimer in dsp/kernel/service/context_switch/<IC_CONFIG>/inc/xtensa_context.h
 Version:                                 10.4.5

@@ -161,7 +161,7 @@ static void debug_show_usage(uint8_t *buf)
                     "(AT+DEBUG=<op>)\r\n");
     pos += snprintf((char *)(buf + pos),
                     ATCI_UART_TX_FIFO_BUFFER_SIZE - pos,
-                    "(<op>=[enable|disable|decouple_test_mcu|decouple_test_dsp|decouple_test_mcu|decouple_test_dsp])\r\n");
+                    "(<op>=[enable|disable|decouple_test_mcu|decouple_test_dsp|stop_sync_test_mcu|stop_sync_test_mcu])\r\n");
 }
 
 
@@ -203,28 +203,34 @@ atci_status_t atci_cmd_hdlr_debug(atci_parse_cmd_param_t *parse_cmd)
                 hal_wdt_config_t wdt_config;
                 msg.ccni_message[1] = 3;
 
+                LOGMSGIDW("ice debug mode enabled.\r\n", 0);
+
+                if (strncmp(param, "enable_decouple_mode", strlen("enable_decouple_mode")) == 0) {
+                    ice_debug_para->ice_debug_mode = 0xAAff;
+                } else if (strncmp(param, "enable_auto_hold_mode", strlen("enable_auto_hold_mode")) == 0) {
+                    ice_debug_para->ice_debug_mode = 0xBBff;
+                } else {
+                    ice_debug_para->ice_debug_mode = 0xff;
+                }
+
                 wdt_config.mode = HAL_WDT_MODE_INTERRUPT;
                 wdt_config.seconds = 30;
                 hal_wdt_init_ext(&wdt_config);  /*WDT1 is default Reset mode, change to NMI mode*/
-                hal_time_check_assert_disable();  /* MCU Turn off the assert caused by 70us/5ms mask interrupt timeout*/
-                ice_debug_para->ice_debug_mode = 0xff;
 
                 ret = hal_ccni_set_event(CCNI_CM4_TO_DSP0_ICE_DEBUG, &msg);
                 assert(HAL_CCNI_STATUS_OK == ret);
 
                 hal_wdt_disable(HAL_WDT_DISABLE_MAGIC);           /* Turn off NMI caused by 60S without context switch  */
-                hal_sleep_manager_lock_sleep(SLEEP_LOCK_ICE_DEBUG);    /* CM4 lock sleep */
-                LOGMSGIDW("ice debug mode enabled.\r\n", 0);
-                log_set_all_module_filter_off(DEBUG_LOG_OFF);  /* disable syslog  */
 
+                snprintf((char *)presponse->response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "JTAG: %s\r\n", param);
+                presponse->response_len = strlen((char *)presponse->response_buf);
+                presponse->response_flag = ATCI_RESPONSE_FLAG_URC_FORMAT;
+                atci_send_response(presponse);
                 presponse->response_len = 0;
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
             } else if (strncmp(param, "disable", strlen("disable")) == 0) {
-                hal_time_check_assert_enable();
                 ice_debug_para->ice_debug_mode = 0x0;
-                hal_wdt_enable(HAL_WDT_ENABLE_MAGIC);           /* enable wdt  */
-                hal_sleep_manager_unlock_sleep(SLEEP_LOCK_ICE_DEBUG);    /* CM4 unlock sleep */
-                log_set_all_module_filter_off(DEBUG_LOG_ON);  /* enable syslog  */
+                hal_wdt_enable(HAL_WDT_ENABLE_MAGIC);  /* enable wdt, wdt count will be reset*/
                 LOGMSGIDW("ice debug mode disabled.\r\n", 0);
 
                 presponse->response_len = 0;
@@ -274,7 +280,7 @@ atci_status_t atci_cmd_hdlr_debug(atci_parse_cmd_param_t *parse_cmd)
 
                 presponse->response_len = 0;
                 presponse->response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
-            } else if (strncmp(param, "stop_sync_test_dsp", strlen("decouple_test_dsp")) == 0) {
+            } else if (strncmp(param, "stop_sync_test_dsp", strlen("stop_sync_test_dsp")) == 0) {
                 char *param1 = NULL;
                 uint32_t stop_time;
 

@@ -129,6 +129,7 @@ static bool g_xiaoai_mma_notify_pre_aws_state = FALSE;
 
 extern void xiaoai_app_send_conn_state_to_peer();
 extern void app_va_xiaoai_notify_leakage_detectable(bool detectable);
+void app_va_xiaoai_anti_lost_delay_notify(void);
 
 bool xiaoai_app_aws_is_connected()
 {
@@ -177,7 +178,36 @@ static bool xiaoai_wwe_recorder_stop();
 
 #endif
 
+typedef enum {
+    XIAOAI_SEND_BASIC_BATTERY_AT_CMD_BOTH,
+    XIAOAI_SEND_BASIC_BATTERY_AT_CMD_ONLY_MMA,
+    XIAOAI_SEND_BASIC_BATTERY_AT_CMD_ONLY_HFP_AT_CMD
+} xiaoai_send_basic_battery_at_cmd_type;
 
+#define XIAOAI_SEND_BASIC_BATTERY_AT_CMD_TIMER              200
+
+static void app_va_xiaoai_send_basic_battery_at_cmd(uint32_t type)
+{
+    if (type == XIAOAI_SEND_BASIC_BATTERY_AT_CMD_ONLY_MMA) {
+        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_DEVICE_BASIC_SEND_MMA_ACTION);
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
+                            EVENT_GROUP_UI_SHELL_XIAOAI,
+                            XIAOAI_EVENT_DEVICE_BASIC_SEND_MMA_ACTION,
+                            NULL, 0, NULL, XIAOAI_SEND_BASIC_BATTERY_AT_CMD_TIMER);
+    } else if (type == XIAOAI_SEND_BASIC_BATTERY_AT_CMD_ONLY_HFP_AT_CMD) {
+        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_DEVICE_BASIC_SEND_AT_CMD_ACTION);
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
+                            EVENT_GROUP_UI_SHELL_XIAOAI,
+                            XIAOAI_EVENT_DEVICE_BASIC_SEND_AT_CMD_ACTION,
+                            NULL, 0, NULL, XIAOAI_SEND_BASIC_BATTERY_AT_CMD_TIMER);
+    } else {
+        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_DEVICE_BASIC_SEND_ACTION);
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
+                            EVENT_GROUP_UI_SHELL_XIAOAI,
+                            XIAOAI_EVENT_DEVICE_BASIC_SEND_ACTION,
+                            NULL, 0, NULL, XIAOAI_SEND_BASIC_BATTERY_AT_CMD_TIMER);
+    }
+}
 
 /**
  *  @brief This enum defines the start reason of XiaoAI BLE ADV.
@@ -191,12 +221,10 @@ typedef enum {
     XIAOAI_BLE_ADV_REASON_MIUI_FAST_CONNECT
 } xiaoai_start_ble_adv_reason;
 
-/**
- * @brief      This function is used to check and send event to start XiaoAI BLE ADV.
- * @param[in]  reason, the start reason of XiaoAI BLE ADV.
- * @return     TRUE, send XiaoAI event to start BLE ADV.
- */
 static bool app_va_xiaoai_check_and_send_ble_adv_event(xiaoai_start_ble_adv_reason reason);
+#ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
+extern void app_va_xiaoai_miui_fc_start_adv();
+#endif
 
 static bool app_va_xiaoai_is_call_ongoing(void)
 {
@@ -224,7 +252,7 @@ bool app_xiaoai_emp_switch_allow_callback(bool need_enable, bt_bd_addr_t *keep_p
     bool is_ble = conn_info.is_ble;
     if (!need_enable) {
         if (conn_num > 1 && is_ble && !is_le_audio_mma && xiaoai_state == XIAOAI_STATE_CONNECTED) {
-            allow = FALSE;
+            allow = TRUE; //FALSE;
         }
     }
     APPS_LOG_MSGID_I(LOG_TAG"[EMP] emp_switch_allow, need_enable=%d allow=%d conn_num=%d is_ble=%d is_le_audio_mma=%d",
@@ -345,7 +373,7 @@ static void app_va_xiaoai_handle_battery_charger_change(xiaoai_bat_charger_state
     APPS_LOG_MSGID_I(LOG_TAG" handle_battery_charger_change [%02X] lea_mma=%d BAT_changed charger_state=%d conn_state=%d aws_connected=%d",
                      5, role, lea_mma, charger_state, conn_state, aws_connected);
 
-    /* For slience OTA. */
+    /* For silence OTA. */
     if (charger_state >= XIAOAI_BOTH_CHARGER_IN) {
         app_va_xiaoai_ota_check_both_close(charger_state == XIAOAI_BOTH_LID_CLOSE);
     }
@@ -357,19 +385,12 @@ static void app_va_xiaoai_handle_battery_charger_change(xiaoai_bat_charger_state
 
     /* Only one headset charger in or out. */
     if (charger_state == XIAOAI_CHARGER_STATE_CHANGED) {
-        bool miui_ret = app_va_xiaoai_hfp_miui_basic_atcmd();
-        bool mma_ret = xiaoai_notify_sp_status(XIAOAI_APP_NOTIFY_BATTERY_STATUS, 0);
-        if (miui_ret || mma_ret) {
-            g_xiaoai_mma_notify_pre_aws_state = aws_connected;
-        }
+        app_va_xiaoai_send_basic_battery_at_cmd(XIAOAI_SEND_BASIC_BATTERY_AT_CMD_BOTH);
+
         /* Update BLE ADV due to SmartCharger reason. */
         app_va_xiaoai_check_and_send_ble_adv_event(XIAOAI_BLE_ADV_REASON_CHARGER_IN_OUT);
     } else if (charger_state == XIAOAI_BATTERY_CHANGED) {
-        bool miui_ret = app_va_xiaoai_hfp_miui_basic_atcmd();
-        bool mma_ret = xiaoai_notify_sp_status(XIAOAI_APP_NOTIFY_BATTERY_STATUS, 0);
-        if (miui_ret || mma_ret) {
-            g_xiaoai_mma_notify_pre_aws_state = aws_connected;
-        }
+        app_va_xiaoai_send_basic_battery_at_cmd(XIAOAI_SEND_BASIC_BATTERY_AT_CMD_BOTH);
     } else {
         xiaoai_start_ble_adv_reason reason = 0;
         if (charger_state == XIAOAI_BOTH_CHARGER_IN) {
@@ -381,10 +402,7 @@ static void app_va_xiaoai_handle_battery_charger_change(xiaoai_bat_charger_state
         } else if (charger_state == XIAOAI_BOTH_LID_CLOSE) {
             reason = XIAOAI_BLE_ADV_REASON_LID_CLOSE;
             //xiaoai_update_ble_adv_broadcast_count();
-            bool miui_ret = app_va_xiaoai_hfp_miui_basic_atcmd();
-            if (miui_ret) {
-                g_xiaoai_mma_notify_pre_aws_state = aws_connected;
-            }
+            app_va_xiaoai_send_basic_battery_at_cmd(XIAOAI_SEND_BASIC_BATTERY_AT_CMD_ONLY_HFP_AT_CMD);
         } else if (charger_state == XIAOAI_OWN_LID_OPEN) {
 
         } else if (charger_state == XIAOAI_OWN_LID_CLOSE) {
@@ -395,10 +413,7 @@ static void app_va_xiaoai_handle_battery_charger_change(xiaoai_bat_charger_state
         } else if (charger_state == XIAOAI_PEER_LID_CLOSE) {
             reason = XIAOAI_BLE_ADV_REASON_LID_CLOSE;
             //xiaoai_update_ble_adv_broadcast_count();
-            bool miui_ret = app_va_xiaoai_hfp_miui_basic_atcmd();
-            if (miui_ret) {
-                g_xiaoai_mma_notify_pre_aws_state = aws_connected;
-            }
+            app_va_xiaoai_send_basic_battery_at_cmd(XIAOAI_SEND_BASIC_BATTERY_AT_CMD_ONLY_HFP_AT_CMD);
         }
         /* Update BLE ADV due to SmartCharger reason. */
         app_va_xiaoai_check_and_send_ble_adv_event(reason);
@@ -565,7 +580,7 @@ static void app_va_xiaoai_action_fun(xiaoai_app_action action, void *param)
     switch (action) {
         case XIAOAI_ACTION_POWER_OFF: {
             APPS_LOG_MSGID_I(LOG_TAG" app_va_xiaoai action - power_off", 0);
-            ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                       EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                       APPS_EVENTS_INTERACTION_REQUEST_POWER_OFF,
                                       NULL, 0, NULL, 0);
@@ -574,7 +589,7 @@ static void app_va_xiaoai_action_fun(xiaoai_app_action action, void *param)
         case XIAOAI_ACTION_REBOOT: {
             uint32_t delay = (uint32_t)param;
             APPS_LOG_MSGID_I(LOG_TAG" app_va_xiaoai action - reboot", 0);
-            ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                       EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                       APPS_EVENTS_INTERACTION_REQUEST_REBOOT,
                                       NULL, 0, NULL, (delay + 300));
@@ -592,7 +607,7 @@ static void app_va_xiaoai_action_fun(xiaoai_app_action action, void *param)
             }
             if (role == BT_AWS_MCE_ROLE_AGENT
                 && power_state == BT_CM_POWER_STATE_ON) {
-                ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                           EVENT_GROUP_UI_SHELL_XIAOAI,
                                           XIAOAI_EVENT_RECONNECT_EDR_ACTION,
                                           NULL, 0, NULL, 0);
@@ -612,7 +627,7 @@ static void app_va_xiaoai_action_fun(xiaoai_app_action action, void *param)
             if (role == BT_AWS_MCE_ROLE_AGENT
                 && power_state == BT_CM_POWER_STATE_ON
                 && !g_xiaoai_unbind_flow_starting) {
-                ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                           EVENT_GROUP_UI_SHELL_XIAOAI,
                                           XIAOAI_EVENT_DISCONNECT_EDR_ACTION,
                                           NULL, 0, NULL, 0);
@@ -632,7 +647,7 @@ static void app_va_xiaoai_action_fun(xiaoai_app_action action, void *param)
             }
             if (role == BT_AWS_MCE_ROLE_AGENT
                 && power_state == BT_CM_POWER_STATE_ON) {
-                ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                ret = ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                           EVENT_GROUP_UI_SHELL_XIAOAI,
                                           XIAOAI_EVENT_UNBIND_ACTION,
                                           param, 0, NULL, (is_ble ? 500 : 0));
@@ -667,7 +682,7 @@ void app_va_xiaoai_stop_wwe()
     bool is_enable_wwe = app_va_xiaoai_is_enable_wwe();
     APPS_LOG_MSGID_I(LOG_TAG"[WWE], [%02X] stop_wwe %d", 2, role, is_enable_wwe);
     if (is_enable_wwe) {
-        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                             EVENT_GROUP_UI_SHELL_XIAOAI,
                             XIAOAI_EVENT_STOP_WWE_ACTION,
                             NULL, 0, NULL, 0);
@@ -705,28 +720,23 @@ static void app_va_xiaoai_conn_state_change(xiaoai_connection_state state)
     }
 
     if (state == XIAOAI_STATE_CONNECTED && lea_mma) {
-        app_va_xiaoai_hfp_miui_more_atcmd_report_feature();
-        uint8_t anti_lost_state = app_va_xiaoai_get_anti_lost_state();
-        app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(anti_lost_state);
-        bool aws_connected = (bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS), NULL, 0) > 0);
-        bool miui_ret = app_va_xiaoai_hfp_miui_basic_atcmd();
-        if (miui_ret) {
-            g_xiaoai_mma_notify_pre_aws_state = aws_connected;
-        }
+        app_va_xiaoai_hfp_miui_more_atcmd_report_feature(NULL);
+        app_va_xiaoai_send_basic_battery_at_cmd(XIAOAI_SEND_BASIC_BATTERY_AT_CMD_ONLY_HFP_AT_CMD);
     }
 
     if (state == XIAOAI_STATE_CONNECTED) {
 #ifdef AIR_SMART_CHARGER_ENABLE
         app_smcharger_update_bat();
-        uint8_t anti_lost = app_va_xiaoai_get_anti_lost_state();
-        app_va_xiaoai_notify_device_config(XIAOAI_DEVICE_CONFIG_ANTI_LOST, &anti_lost, 1);
+
+        app_va_xiaoai_anti_lost_delay_notify();
 #endif
 
         /* Restart XiaoAI BLE ADV to update scan-response Byte13-bit7 when XiaoAI Connected. */
+        // Update V2 ADV for SASS "MMA on which"
         app_va_xiaoai_check_and_send_ble_adv_event(XIAOAI_BLE_ADV_REASON_XIAOAI_CONN);
 #ifdef AIR_XIAOAI_WWE_ENABLE
         if (wwe_feature) {
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_START_WWE_ACTION,
                                 NULL, 0, NULL, 0);
@@ -738,7 +748,7 @@ static void app_va_xiaoai_conn_state_change(xiaoai_connection_state state)
         app_va_xiaoai_check_and_send_ble_adv_event(XIAOAI_BLE_ADV_REASON_XIAOAI_CONN);
 #if 0
         if (wwe_feature) {
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_STOP_WWE_ACTION,
                                 NULL, 0, NULL, 0);
@@ -772,7 +782,7 @@ static void app_va_xiaoai_speech_state_change(xiaoai_speech_state speech_state)
         APPS_LOG_MSGID_I(LOG_TAG"[PTT] PTT_STARTED ret=%d", 1, ret);
     } else if (speech_state == XIAOAI_SPEECH_STATE_PTT_HOLD) {
         // Start D3 CMD and recv R3 RSP
-        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                             EVENT_GROUP_UI_SHELL_XIAOAI,
                             XIAOAI_EVENT_START_PTT_ACTIVITY,
                             NULL, 0, NULL, 0);
@@ -781,7 +791,7 @@ static void app_va_xiaoai_speech_state_change(xiaoai_speech_state speech_state)
                && (speech_state == XIAOAI_SPEECH_STATE_STOPPING
                    || speech_state == XIAOAI_SPEECH_STATE_STOPPED)) {
         // PPT stop (after send D1 CMD)
-        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                             EVENT_GROUP_UI_SHELL_XIAOAI,
                             XIAOAI_EVENT_FINISH_PTT_ACTIVITY,
                             NULL, 0, NULL, 0);
@@ -835,28 +845,28 @@ static void app_va_xiaoai_ota_state_change(uint8_t ota_state)
                      4, role, g_xiaoai_ota_state, ota_state, conn_state);
 
     if (g_xiaoai_ota_state != ota_state) {
-        if (xiaoai_is_slience_ota()) {
-            if (ota_state == XIAOAI_OTA_STATE_SLIENCE_OTA_DOWNLOAD_DONE) {
-                APPS_LOG_MSGID_I(LOG_TAG" [%02X] SLIENCE_OTA_DOWNLOAD_DONE", 1, role);
+        if (xiaoai_is_silence_ota()) {
+            if (ota_state == XIAOAI_OTA_STATE_SILENCE_OTA_DOWNLOAD_DONE) {
+                APPS_LOG_MSGID_I(LOG_TAG" [%02X] SILENCE_OTA_DOWNLOAD_DONE", 1, role);
                 return;
-            } else if (ota_state == XIAOAI_OTA_STATE_SLIENCE_OTA_DOWNLOAD_ERROR) {
-                APPS_LOG_MSGID_I(LOG_TAG" [%02X] SLIENCE_OTA_DOWNLOAD_ERROR", 1, role);
+            } else if (ota_state == XIAOAI_OTA_STATE_SILENCE_OTA_DOWNLOAD_ERROR) {
+                APPS_LOG_MSGID_I(LOG_TAG" [%02X] SILENCE_OTA_DOWNLOAD_ERROR", 1, role);
                 return;
-            } else if (ota_state == XIAOAI_OTA_STATE_SLIENCE_OTA_ABORT_BY_FOREGROUND_OTA) {
-                APPS_LOG_MSGID_I(LOG_TAG" [%02X] SLIENCE_OTA_ABORT_BY_FOREGROUND_OTA", 1, role);
-                app_va_xiaoai_ota_slience_enable(FALSE, TRUE);
+            } else if (ota_state == XIAOAI_OTA_STATE_SILENCE_OTA_ABORT_BY_FOREGROUND_OTA) {
+                APPS_LOG_MSGID_I(LOG_TAG" [%02X] SILENCE_OTA_ABORT_BY_FOREGROUND_OTA", 1, role);
+                app_va_xiaoai_ota_silence_enable(FALSE, TRUE);
                 return;
             }
         }
 
         if (ota_state == XIAOAI_OTA_STATE_ONGOING) {
-            if (!xiaoai_is_slience_ota()) {
+            if (!xiaoai_is_silence_ota()) {
                 app_va_xiaoai_send_ble_adv_event(FALSE, 0, 0);
             }
 
 #ifdef AIR_XIAOAI_WWE_ENABLE
             if (conn_state == XIAOAI_STATE_CONNECTED && app_va_xiaoai_is_enable_wwe()) {
-                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                     EVENT_GROUP_UI_SHELL_XIAOAI,
                                     XIAOAI_EVENT_STOP_WWE_ACTION,
                                     NULL, 0, NULL, 0);
@@ -872,7 +882,7 @@ static void app_va_xiaoai_ota_state_change(uint8_t ota_state)
         } else if (ota_state == XIAOAI_OTA_STATE_STOP) {
 #ifdef AIR_XIAOAI_WWE_ENABLE
             if (conn_state == XIAOAI_STATE_CONNECTED && app_va_xiaoai_is_enable_wwe()) {
-                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                     EVENT_GROUP_UI_SHELL_XIAOAI,
                                     XIAOAI_EVENT_START_WWE_ACTION,
                                     NULL, 0, NULL, 0);
@@ -1051,13 +1061,15 @@ static bool app_va_xiaoai_interaction_event_group(ui_shell_activity_t *self, uin
             app_rho_result_t rho_result = (app_rho_result_t)extra_data;
             APPS_LOG_MSGID_I(LOG_TAG" [new Partner] RHO done - %d", 1, rho_result);
             if (APP_RHO_RESULT_SUCCESS == rho_result) {
+                app_va_xiaoai_clear_hfp_atcmd(NULL);
+
                 g_xiaoai_acl_connected = FALSE;
                 /* Stop XiaoAI BLE ADV when RHO switch to Partner. */
                 app_va_xiaoai_send_ble_adv_event(FALSE, 0, 0);
                 xiaoai_app_send_conn_state_to_peer();
 #ifdef AIR_XIAOAI_WWE_ENABLE
                 if (app_va_xiaoai_is_enable_wwe()) {
-                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                         EVENT_GROUP_UI_SHELL_XIAOAI,
                                         XIAOAI_EVENT_STOP_WWE_ACTION,
                                         NULL, 0, NULL, 0);
@@ -1072,6 +1084,8 @@ static bool app_va_xiaoai_interaction_event_group(ui_shell_activity_t *self, uin
             app_rho_result_t rho_result = (app_rho_result_t)extra_data;
             APPS_LOG_MSGID_I(LOG_TAG" [new Agent] RHO done - %d", 1, rho_result);
             if (APP_RHO_RESULT_SUCCESS == rho_result) {
+                app_va_xiaoai_clear_hfp_atcmd(NULL);
+
                 xiaoai_app_send_conn_state_to_peer();
 #ifdef AIR_SMART_CHARGER_ENABLE
                 app_smcharger_update_bat();
@@ -1080,7 +1094,7 @@ static bool app_va_xiaoai_interaction_event_group(ui_shell_activity_t *self, uin
                 app_va_xiaoai_check_and_send_ble_adv_event(XIAOAI_BLE_ADV_REASON_XIAOAI_CONN);
 #ifdef AIR_XIAOAI_WWE_ENABLE
                 if (app_va_xiaoai_is_enable_wwe()) {
-                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                         EVENT_GROUP_UI_SHELL_XIAOAI,
                                         XIAOAI_EVENT_START_WWE_ACTION,
                                         NULL, 0, NULL, 0);
@@ -1096,15 +1110,25 @@ static bool app_va_xiaoai_interaction_event_group(ui_shell_activity_t *self, uin
         case APPS_EVENTS_INTERACTION_IN_EAR_UPDATE_STA: {
             bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
             app_in_ear_sta_info_t *in_ear_event = (app_in_ear_sta_info_t *)extra_data;
-            APPS_LOG_MSGID_I(LOG_TAG" [IN_EAR][%02X] in_ear=%d->%d", 3, role,
-                             in_ear_event->previous, in_ear_event->current);
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+            bool audio_switch = app_va_xiaoai_is_support_auto_audio_switch();
+#else
+            bool audio_switch = FALSE;
+#endif
+            APPS_LOG_MSGID_I(LOG_TAG" [IN_EAR][%02X] in_ear=%d->%d audio_switch=%d", 4, role,
+                             in_ear_event->previous, in_ear_event->current, audio_switch);
+
             // only agent need to handle the in_ear event for Anti-Lost feature
             if (role == BT_AWS_MCE_ROLE_AGENT && in_ear_event->previous != in_ear_event->current) {
-                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_DEVICE_ANTI_LOST_ACTION);
-                ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
-                                    EVENT_GROUP_UI_SHELL_XIAOAI,
-                                    XIAOAI_EVENT_DEVICE_ANTI_LOST_ACTION,
-                                    NULL, 0, NULL, 500);
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+                // Update V2 ADV for SASS "in ear"
+                if (in_ear_event->current == APP_IN_EAR_STA_BOTH_IN) {
+                    app_va_xiaoai_miui_fc_start_adv();
+                } else if (audio_switch) {
+                    app_va_xiaoai_miui_fc_start_adv();
+                }
+#endif
+                app_va_xiaoai_anti_lost_delay_notify();
             }
             break;
         }
@@ -1219,11 +1243,21 @@ bool app_va_xiaoai_activity_proc_key_event(ui_shell_activity_t *self, uint32_t e
 
 bool app_va_xiaoai_bt_sink_event_proc(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
 {
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+    bool audio_switch = app_va_xiaoai_is_support_auto_audio_switch();
+#else
+    bool audio_switch = FALSE;
+#endif
     if (BT_SINK_SRV_EVENT_HF_SCO_STATE_UPDATE == event_id) {
         bt_sink_srv_sco_state_update_t *sco_state_update_ind = (bt_sink_srv_sco_state_update_t *) extra_data;
         bt_sink_srv_sco_connection_state_t state = sco_state_update_ind->state;
-        APPS_LOG_MSGID_I(LOG_TAG" eSCO Connection state=%d", 1, state);
-
+        APPS_LOG_MSGID_I(LOG_TAG" eSCO Connection state=%d audio_switch=%d", 2, state, audio_switch);
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+        // Update V2 ADV for SASS "streaming state" (BT Sink call but esco disconnect, call voice from earbuds to phone speaker)
+        if (audio_switch) {
+            app_va_xiaoai_miui_fc_start_adv();
+        }
+#endif
 #ifdef AIR_XIAOAI_WWE_ENABLE
         bool enable_wwe = app_va_xiaoai_is_enable_wwe();
         APPS_LOG_MSGID_I(LOG_TAG" [WWE] eSCO wwe_state=%d enable_wwe=%d",
@@ -1231,7 +1265,7 @@ bool app_va_xiaoai_bt_sink_event_proc(ui_shell_activity_t *self, uint32_t event_
         if (state == BT_SINK_SRV_SCO_CONNECTION_STATE_DISCONNECTED
             && g_xiaoai_wwe_state == XIAOAI_WWE_STATE_STOPPED
             && enable_wwe) {
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_START_WWE_ACTION,
                                 NULL, 0, NULL, 0);
@@ -1240,15 +1274,22 @@ bool app_va_xiaoai_bt_sink_event_proc(ui_shell_activity_t *self, uint32_t event_
 #endif
     } else if (BT_SINK_SRV_EVENT_STATE_CHANGE == event_id) {
         bt_sink_srv_state_change_t *param = (bt_sink_srv_state_change_t *)extra_data;
-        APPS_LOG_MSGID_I(LOG_TAG" bt_sink state %04X->%04X", 2, param->previous, param->current);
+        APPS_LOG_MSGID_I(LOG_TAG" bt_sink state %04X->%04X audio_switch=%d",
+                         3, param->previous, param->current, audio_switch);
 
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+        // Update V2 ADV for SASS "streaming state"
+        if (audio_switch) {
+            app_va_xiaoai_miui_fc_start_adv();
+        }
+#endif
 #ifdef AIR_XIAOAI_WWE_ENABLE
         bool enable_wwe = app_va_xiaoai_is_enable_wwe();
         if (param->previous >= BT_SINK_SRV_STATE_INCOMING
             && param->current < BT_SINK_SRV_STATE_INCOMING
             && g_xiaoai_wwe_state == XIAOAI_WWE_STATE_STOPPED
             && enable_wwe) {
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_START_WWE_ACTION,
                                 NULL, 0, NULL, 0);
@@ -1264,7 +1305,7 @@ bool app_va_xiaoai_bt_sink_event_proc(ui_shell_activity_t *self, uint32_t event_
         if (param->state == BT_SINK_SRV_BIDIRECTION_LEA_STATE_DISABLE
             && g_xiaoai_wwe_state == XIAOAI_WWE_STATE_STOPPED
             && enable_wwe) {
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_START_WWE_ACTION,
                                 NULL, 0, NULL, 0);
@@ -1305,7 +1346,7 @@ bool app_va_xiaoai_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t event_id
                     APPS_LOG_MSGID_I(LOG_TAG" [LEA_MMA_LINK][%02X] AWS Attached, lea_mma=%d peer_lea_mma=%d",
                                      3, role, lea_mma, peer_lea_mma);
                     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_AWS_ACTION);
-                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                         EVENT_GROUP_UI_SHELL_XIAOAI,
                                         XIAOAI_EVENT_AWS_ACTION,
                                         (void *)TRUE, 0, NULL, 1000);
@@ -1317,7 +1358,7 @@ bool app_va_xiaoai_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t event_id
                     APPS_LOG_MSGID_I(LOG_TAG" [LEA_MMA_LINK][%02X] AWS Detached, lea_mma=%d peer_lea_mma=%d",
                                      3, role, lea_mma, peer_lea_mma);
                     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_AWS_ACTION);
-                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                         EVENT_GROUP_UI_SHELL_XIAOAI,
                                         XIAOAI_EVENT_AWS_ACTION,
                                         FALSE, 0, NULL, 1000);
@@ -1333,19 +1374,24 @@ bool app_va_xiaoai_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t event_id
                         bool hfp_connected = FALSE;
                         if (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP) & remote_update->connected_service) {
                             hfp_connected = TRUE;
-                            app_va_xiaoai_hfp_miui_more_atcmd_report_feature();
-                            uint8_t anti_lost_state = app_va_xiaoai_get_anti_lost_state();
-                            app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(anti_lost_state);
-                            bool aws_connected = (bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS),
-                                                                              NULL, 0) > 0);
-                            bool miui_ret = app_va_xiaoai_hfp_miui_basic_atcmd();
-                            if (miui_ret) {
-                                g_xiaoai_mma_notify_pre_aws_state = aws_connected;
-                            }
+                            app_va_xiaoai_hfp_miui_more_atcmd_report_feature(NULL);
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+                            //app_va_xiaoai_hfp_miui_more_atcmd_report_audio_switch_feature(NULL);
+#endif
+                            app_va_xiaoai_anti_lost_delay_notify();
 
-                            app_va_xiaoai_report_miui_fast_connect_at_cmd();
+                            app_va_xiaoai_send_basic_battery_at_cmd(XIAOAI_SEND_BASIC_BATTERY_AT_CMD_ONLY_HFP_AT_CMD);
+
+                            app_va_xiaoai_resend_hfp_atcmd(addr);
                         } else {
                             hfp_connected = FALSE;
+
+                            uint32_t hfp_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP), NULL, 0);
+                            if (hfp_num == 0) {
+                                app_va_xiaoai_clear_hfp_atcmd(NULL);
+                            } else {
+                                app_va_xiaoai_clear_hfp_atcmd(addr);
+                            }
                         }
                         APPS_LOG_MSGID_I(LOG_TAG" [Agent] HFP Connection State %d", 1, hfp_connected);
                     }
@@ -1362,7 +1408,7 @@ bool app_va_xiaoai_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t event_id
 #ifdef AIR_XIAOAI_WWE_ENABLE
                             APPS_LOG_MSGID_I(LOG_TAG"[WWE] [Agent] start WWE when A2DP ready", 0);
                             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_START_WWE_ACTION);
-                            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                                 XIAOAI_EVENT_START_WWE_ACTION,
                                                 NULL, 0, NULL, 0);
@@ -1576,7 +1622,7 @@ bool app_va_xiaoai_activity_proc_aws_data(ui_shell_activity_t *self, uint32_t ev
 
         if (event_group == EVENT_GROUP_UI_SHELL_XIAOAI
             && action == XIAOAI_EVENT_LEA_SYNC_DEVICE_CONFIG_NOTIFY_TO_PEER) {
-            xiaoai_device_config_notfiy_t *param = (xiaoai_device_config_notfiy_t *)p_extra_data;
+            xiaoai_device_config_notify_t *param = (xiaoai_device_config_notify_t *)p_extra_data;
             uint8_t type = param->type;
             uint8_t *data = param->data;
             uint8_t len = param->len;
@@ -1596,7 +1642,7 @@ bool app_va_xiaoai_activity_proc_aws_data(ui_shell_activity_t *self, uint32_t ev
             APPS_LOG_MSGID_I(LOG_TAG" [LEA_MMA_LINK][%02X] AWS handle DEVICE_CONFIG_NOTIFY, lea_mma=%d mma_type=0x%04X atcmd=0x%08X atcmd_len=%d",
                              5, role, lea_mma, mma_type, atcmd, atcmd_len);
             if (lea_mma) {
-                app_va_xiaoai_send_atcmd(mma_type, (const char *)atcmd, atcmd_len);
+                app_va_xiaoai_send_atcmd(NULL, mma_type, (const char *)atcmd, atcmd_len);
             }
         }
 
@@ -1619,11 +1665,11 @@ bool app_va_xiaoai_activity_proc_aws_data(ui_shell_activity_t *self, uint32_t ev
         }
 
         if (event_group == EVENT_GROUP_UI_SHELL_XIAOAI
-            && action == XIAOAI_EVENT_OTA_SLIENCE_OTA_SYNC) {
+            && action == XIAOAI_EVENT_OTA_SILENCE_OTA_SYNC) {
             uint8_t *enable = (uint8_t *)p_extra_data;
-            APPS_LOG_MSGID_I(LOG_TAG" [%02X] AWS handle SLIENCE_OTA_SYNC enable=%d",
+            APPS_LOG_MSGID_I(LOG_TAG" [%02X] AWS handle SILENCE_OTA_SYNC enable=%d",
                              2, role, *enable);
-            app_va_xiaoai_ota_slience_enable(*enable, FALSE);
+            app_va_xiaoai_ota_silence_enable(*enable, FALSE);
         }
 #ifdef AIR_XIAOAI_WWE_ENABLE
         if (event_group == EVENT_GROUP_UI_SHELL_XIAOAI
@@ -1674,6 +1720,7 @@ static bool app_va_xiaoai_check_and_send_ble_adv_event(xiaoai_start_ble_adv_reas
 
         /* For adv_time_ms, Customer configure option: BLE_ADV duration time depend on MIUI_QUICK_CONNECT or XIAOAI Connection. */
         uint32_t adv_time_ms = 0;
+#ifndef AIR_XIAOAI_AUDIO_SWITCH_ENABLE
         if (xiaoai_state == XIAOAI_STATE_CONNECTED) {
             adv_time_ms = MIUI_QUICK_CONNECT_BLE_ADV_TIME;
         } else {
@@ -1685,7 +1732,11 @@ static bool app_va_xiaoai_check_and_send_ble_adv_event(xiaoai_start_ble_adv_reas
             adv_time_ms = (3 * 60 * 1000);
         }
 #endif
-        app_va_xiaoai_report_miui_fast_connect_at_cmd();
+#else
+        // Always advertising for SASS
+        adv_time_ms = XIAOAI_BLE_ADV_TIME;
+#endif
+
         app_va_xiaoai_send_ble_adv_event(TRUE, adv_interval_ms, adv_time_ms);
     } else if (reason == XIAOAI_BLE_ADV_REASON_XIAOAI_CONN) {
         app_va_xiaoai_send_ble_adv_event(FALSE, 0, 0);
@@ -1724,11 +1775,7 @@ bool app_va_xiaoai_smcharger_event_proc(ui_shell_activity_t *self, uint32_t even
         case SMCHARGER_EVENT_NOTIFY_BOTH_IN_OUT: {
             APPS_LOG_MSGID_I(LOG_TAG" SMCharger group, [%02X] NOTIFY_IN_OUT_EVENT", 1, role);
             if (role == BT_AWS_MCE_ROLE_AGENT) {
-                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_DEVICE_ANTI_LOST_ACTION);
-                ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
-                                    EVENT_GROUP_UI_SHELL_XIAOAI,
-                                    XIAOAI_EVENT_DEVICE_ANTI_LOST_ACTION,
-                                    NULL, 0, NULL, 500);
+                app_va_xiaoai_anti_lost_delay_notify();
             }
             app_va_xiaoai_ota_check_both_close(FALSE);
             break;
@@ -1738,7 +1785,7 @@ bool app_va_xiaoai_smcharger_event_proc(ui_shell_activity_t *self, uint32_t even
     return ret;
 }
 
-void app_va_xiaoai_anti_lost_notify(void)
+void app_va_xiaoai_anti_lost_delay_notify(void)
 {
     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_DEVICE_ANTI_LOST_ACTION);
     ui_shell_send_event(FALSE, EVENT_PRIORITY_MIDDLE,
@@ -1788,6 +1835,9 @@ bool app_va_xiaoai_event_proc(ui_shell_activity_t *self, uint32_t event_id, void
             /* Start XiaoAI BLE ADV: add XiaoAI from multi BLE ADV manager and notify. */
             uint16_t advertising_interval = (uint32_t)extra_data;
             app_va_xiaoai_start_ble_adv(TRUE, advertising_interval);
+
+            // Update MIUI_V2 ADV Data via HFP AT CMD, need ???
+            app_va_xiaoai_report_miui_fast_connect_at_cmd();
             break;
         }
         case XIAOAI_EVENT_STOP_BLE_ADV_ACTION: {
@@ -1850,13 +1900,39 @@ bool app_va_xiaoai_event_proc(ui_shell_activity_t *self, uint32_t event_id, void
         case XIAOAI_EVENT_DEVICE_ANTI_LOST_ACTION: {
             uint8_t data = app_va_xiaoai_get_anti_lost_state();
             app_va_xiaoai_notify_device_config(XIAOAI_DEVICE_CONFIG_ANTI_LOST, &data, 1);
-            app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(data);
+            app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(NULL, data);
+            break;
+        }
+
+        case XIAOAI_EVENT_DEVICE_BASIC_SEND_MMA_ACTION:
+        case XIAOAI_EVENT_DEVICE_BASIC_SEND_AT_CMD_ACTION:
+        case XIAOAI_EVENT_DEVICE_BASIC_SEND_ACTION: {
+            bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+            bool aws_connected = (bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS),
+                                                              NULL, 0) > 0);
+            bool success = FALSE;
+
+            if (event_id == XIAOAI_EVENT_DEVICE_BASIC_SEND_MMA_ACTION) {
+                success = xiaoai_notify_sp_status(XIAOAI_APP_NOTIFY_BATTERY_STATUS, 0);
+            } else if (event_id == XIAOAI_EVENT_DEVICE_BASIC_SEND_AT_CMD_ACTION) {
+                success = app_va_xiaoai_hfp_miui_basic_atcmd();
+            } else {
+                bool miui_ret = app_va_xiaoai_hfp_miui_basic_atcmd();
+                bool mma_ret = xiaoai_notify_sp_status(XIAOAI_APP_NOTIFY_BATTERY_STATUS, 0);
+                success = (miui_ret || mma_ret);
+            }
+
+            if (success) {
+                g_xiaoai_mma_notify_pre_aws_state = aws_connected;
+            }
+            APPS_LOG_MSGID_I(LOG_TAG" XIAOAI group, BASIC_SEND_ACTION [%02X] event_id=0x%04X success=%d aws_conn=%d",
+                             4, role, event_id, success, aws_connected);
             break;
         }
 #ifdef AIR_XIAOAI_PTT_ENABLE
         case XIAOAI_EVENT_START_PTT_ACTIVITY: {
             APPS_LOG_MSGID_I(LOG_TAG" XIAOAI group, START_PTT_ACTIVITY", 0);
-            ui_shell_start_activity(self, app_va_xiaoai_ptt_sppech_activity_proc,
+            ui_shell_start_activity(self, app_va_xiaoai_ptt_speech_activity_proc,
                                     ACTIVITY_PRIORITY_HIGH, NULL, 0);
             break;
         }
@@ -1940,7 +2016,7 @@ bool app_va_xiaoai_event_proc(ui_shell_activity_t *self, uint32_t event_id, void
             break;
         }
 #endif
-        case XIAOAI_EVENT_OTA_SLIENCE_OTA_TIMEROUT: {
+        case XIAOAI_EVENT_OTA_SILENCE_OTA_TIMEOUT: {
             app_va_xiaoai_ota_commit_reboot();
             break;
         }
@@ -2004,6 +2080,7 @@ bool app_va_xiaoai_activity_proc(struct _ui_shell_activity *self,
 #ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
     miui_fast_connect_proc_ui_shell_event(event_group, event_id, extra_data, data_len);
 #endif
+    app_va_xiaoai_hfp_at_cmd_proc_ui_shell_event(event_group, event_id, extra_data, data_len);
     return ret;
 }
 
@@ -2046,18 +2123,18 @@ static atci_status_t app_xiaoai_atci_handler(atci_parse_cmd_param_t *parse_cmd)
 //                ind.result = "+XIAOMI: FF01020101020000FF"; // all
 //                ind.result = "+XIAOMI: FF01020101020500FF"; // key
 //                app_va_xiaoai_hfp_callback(BT_HFP_CUSTOM_COMMAND_RESULT_IND, BT_STATUS_SUCCESS, &ind);
-            } else if (strstr(cmd, "slience_ota") > 0) {
+            } else if (strstr(cmd, "silence_ota") > 0) {
                 int x = 0;
-                sscanf(cmd, "slience_ota,%d", &x);
-                bool slience_ota = (x == 1);
-                app_va_xiaoai_ota_slience_enable(slience_ota, TRUE);
+                sscanf(cmd, "silence_ota,%d", &x);
+                bool silence_ota = (x == 1);
+                app_va_xiaoai_ota_silence_enable(silence_ota, TRUE);
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
             } else if (strstr(cmd, "in_ear") > 0) {
                 int x = 0;
                 sscanf(cmd, "in_ear,%d", &x);
                 bool in_ear_flag = (x == 1);
                 ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT);
-                ui_shell_send_event(false, EVENT_PRIORITY_HIGNEST,
+                ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST,
                                     EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                     APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT,
                                     (void *)&in_ear_flag, 0,
@@ -2066,7 +2143,7 @@ static atci_status_t app_xiaoai_atci_handler(atci_parse_cmd_param_t *parse_cmd)
 #if defined(AIR_XIAOAI_WWE_ENABLE) && defined(XIAOAI_USE_ATCMD_TEST_WWE)
             } else if (strstr(cmd, "wwd") > 0) {
                 if (g_xiaoai_wwe_state == XIAOAI_WWE_STATE_STARTED) {
-                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                    ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                         EVENT_GROUP_UI_SHELL_XIAOAI,
                                         XIAOAI_EVENT_WWE_DETECTED_ACTION,
                                         NULL, 0, NULL, 0);
@@ -2102,7 +2179,7 @@ static void app_va_xiaoai_recorder_event_notify(xiaoai_va_recorder_event recorde
     } else if (recorder_event == XIAOAI_VA_RECORDER_STOPPED_EVENT) {
         // Need to start WWE when VA Normal recorder stopped
         if (enable_wwe) {
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_START_WWE_ACTION,
                                 NULL, 0, NULL, 0);
@@ -2110,7 +2187,7 @@ static void app_va_xiaoai_recorder_event_notify(xiaoai_va_recorder_event recorde
     } else if (recorder_event == XIAOAI_VA_NEED_STOP_WWE_EVENT) {
         // Must stop WWE for multi-turn (recv D0 CMD from phone)
         if (enable_wwe) {
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_STOP_WWE_ACTION,
                                 NULL, 0, NULL, 0);
@@ -2118,7 +2195,7 @@ static void app_va_xiaoai_recorder_event_notify(xiaoai_va_recorder_event recorde
     } else if (recorder_event == XIAOAI_VA_VENDOR_SE_LD_STOP_EVENT) {
         // LD Stop from audio vendor_se callback
         if (g_xiaoai_wwe_need_restart && enable_wwe) {
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_START_WWE_ACTION,
                                 NULL, 0, NULL, 0);
@@ -2129,7 +2206,7 @@ static void app_va_xiaoai_recorder_event_notify(xiaoai_va_recorder_event recorde
     } else if (recorder_event == XIAOAI_VA_NEED_RESTART_WWE_EVENT) {
         // WWE: stop WWE and restart when WWE sending state + recv D1 CMD
         if (enable_wwe) {
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_RESTART_WWE_ACTION,
                                 NULL, 0, NULL, 0);
@@ -2141,7 +2218,7 @@ static void app_va_xiaoai_recorder_event_notify(xiaoai_va_recorder_event recorde
                                  1, bt_status);
             }
         } else {
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_STOP_WWE_ACTION,
                                 NULL, 0, NULL, 0);
@@ -2166,7 +2243,7 @@ static void app_va_xiaoai_wwe_update_state(xiaoai_wwe_state new_state)
         } else if (old_state == XIAOAI_WWE_STATE_STARTING
                    && new_state == XIAOAI_WWE_STATE_STARTED) {
             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_XIAOAI, XIAOAI_EVENT_WWE_AUDIO_DVFS_UNLOCK);
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_WWE_AUDIO_DVFS_UNLOCK,
                                 NULL, 0, NULL, 3000);
@@ -2191,7 +2268,7 @@ void xiaoai_wwe_control_event_callback(hal_audio_event_t event, void *user_data)
                              3, role, conn_state, peer_lea_mma);
             // Only For XIAOAI Hotword
             if (conn_state == XIAOAI_STATE_CONNECTED || (!peer_lea_mma && role == BT_AWS_MCE_ROLE_AGENT)) {
-                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                     EVENT_GROUP_UI_SHELL_XIAOAI,
                                     XIAOAI_EVENT_WWE_DETECTED_ACTION,
                                     NULL, 0, NULL, 0);
@@ -2205,7 +2282,7 @@ void xiaoai_wwe_control_event_callback(hal_audio_event_t event, void *user_data)
 #define XIAOAI_PCM_LEN_IN_ONE_OPUS_FRAME    640
             uint32_t opus_frame_num = len / XIAOAI_PCM_LEN_IN_ONE_OPUS_FRAME;
             if (opus_frame_num >= 1) {
-                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                     EVENT_GROUP_UI_SHELL_XIAOAI,
                                     XIAOAI_EVENT_WWE_DATA_ACTION,
                                     (void *)len, 0, NULL, 0);
@@ -2249,20 +2326,20 @@ static void xiaoai_wwe_am_callback(bt_sink_srv_am_id_t aud_id,
     if (msg_id == AUD_SUSPEND_BY_IND) {
         if (sub_msg == AUD_SUSPEND_BY_HFP) {
             APPS_LOG_MSGID_I(LOG_TAG"[WWE] AM SUSPEND_BY_HFP", 0);
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_WWE_HFP_SUSPEND,
                                 NULL, 0, NULL, 0);
         } else if (sub_msg == AUD_SUSPEND_BY_LE_CALL) {
             APPS_LOG_MSGID_I(LOG_TAG"[WWE] AM AUD_SUSPEND_BY_LE_CALL", 0);
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_WWE_LE_CALL_SUSPEND,
                                 NULL, 0, NULL, 0);
         } else if (sub_msg == AUD_SUSPEND_BY_LC) {
             APPS_LOG_MSGID_I(LOG_TAG"[WWE] AM SUSPEND_BY_LC", 0);
             xiaoai_set_leakage_detection_suspend(TRUE);
-            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGNEST,
+            ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_XIAOAI,
                                 XIAOAI_EVENT_WWE_LD_SUSPEND,
                                 NULL, 0, NULL, 0);

@@ -128,6 +128,11 @@ typedef struct {
     mux_ll_user_timestamp_t callback_timestamp[MUX_LL_TIMESTAMP_BUFFER_MAX];
     hal_core_id_t tx_scid;
     hal_core_id_t rx_dcid;
+    uint32_t tx_silence_timeout;
+    uint32_t rx_silence_enable;
+    uint32_t tx_silence_enable;
+    uint32_t rx_silence_drop_max;
+    uint32_t msg_status;
 } mux_ll_user_config_t;
 
 typedef struct {
@@ -135,16 +140,21 @@ typedef struct {
     uint32_t user_count;
     uint16_t uart_tx_threshold;
     uint16_t uart_rx_threshold;
-    uint32_t tx_pkt_head_tail_len;
     dchs_mode_t device_mode;
     uint32_t notify_counter;
     mux_ll_user_totify_t dsp_notify[MUX_LL_NOTIFY_BUFFER_MAX];
     mux_ll_user_config_t user_config[0];//user count is maintained by mcu.
 } mux_ll_config_t;
 
+typedef enum {
+    MUX_LL_MSG_READY_TO_WRITE,
+    MUX_LL_MSG_CLEAR_USER_BUFFER,
+} mux_ll_message_t;
+
 extern mux_status_t mux_rx_ll(mux_handle_t handle, mux_buffer_t *buffer, uint32_t *receive_done_data_len);
 extern mux_status_t mux_peek_ll(mux_handle_t handle, mux_buffer_t *buffer, uint32_t *receive_done_data_len);
 extern mux_status_t mux_tx_ll(mux_handle_t handle, const mux_buffer_t buffers[], uint32_t buffers_counter, uint32_t *send_done_data_len);
+extern mux_status_t mux_tx_ll_with_silence(mux_handle_t handle, const mux_buffer_t buffers[], uint32_t buffers_counter, uint32_t *send_done_data_len);
 extern mux_status_t mux_open_ll(mux_port_t port, const char *user_name, mux_handle_t *p_handle, mux_callback_t callback, void *user_data);
 extern mux_status_t mux_close_ll(mux_handle_t handle);
 extern mux_status_t mux_control_ll(mux_handle_t handle, mux_ctrl_cmd_t command, mux_ctrl_para_t *para);

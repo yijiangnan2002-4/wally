@@ -851,6 +851,18 @@ typedef struct {
 }) bt_hci_le_remove_cig_t;
 
 /**
+ *  @brief      LE subrate parameters.
+ */
+BT_PACKED(
+typedef struct {
+    uint16_t        subrate_min;                /**< The minimum subrate factor. */
+    uint16_t        subrate_max;                /**< The maximum subrate factor. */
+    uint16_t        max_latency;                /**< The maximum peripheral latency for the connection in units of subrated connection intervals. */
+    uint16_t        continuation_number;        /**< The minimum number of underlying connection events to remain active after a packet containing a Link Layer PDU with a non-zero Length field is sent or received. */
+    uint16_t        supervision_timeout;        /**< The supervision timeout for the BLE connection. */
+}) bt_hci_le_subrate_t;
+
+/**
  * @}
  */
 

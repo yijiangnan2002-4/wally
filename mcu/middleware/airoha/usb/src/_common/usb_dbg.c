@@ -32,6 +32,8 @@
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
 
+#ifdef AIR_USB_ENABLE
+
 #include "usb_dbg.h"
 
 #ifdef USB_DBG
@@ -54,3 +56,6 @@ uint8_t usb_dbg_is_opt_enable(uint8_t opt)
 }
 
 #endif /* USB_DBG */
+
+#endif /* AIR_USB_ENABLE */
+

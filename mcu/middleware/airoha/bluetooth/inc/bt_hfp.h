@@ -931,7 +931,7 @@ bt_status_t bt_hfp_connect_response(uint32_t handle, bool accept);
 
 /**
  * @brief                                         This function sends a HFP disconnect request to AG.
- *                                                The event #BT_HFP_DISCONNECT_IND returns the current request’s result.
+ *                                                The event #BT_HFP_DISCONNECT_IND returns the current request's result.
  * @param[in] handle                              is the handle of the current connection.
  * @return                                        #BT_STATUS_SUCCESS, the operation completed successfully.
  *                                                #BT_STATUS_FAIL, the operation has failed.

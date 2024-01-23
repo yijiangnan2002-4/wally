@@ -94,10 +94,10 @@ EXTERN void Ch_Select_Set_Param (hal_ccni_message_t msg, hal_ccni_message_t *ack
 EXTERN CH_SEL_MODE Ch_Select_Get_Param (CH_SEL_SCENARIO_TYPE scenario);
 
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-EXTERN bool stream_function_channel_selector_2ch_to_4ch_process (void *para);
-EXTERN bool stream_function_channel_selector_2ch_to_4ch_initialize (void *para);
-EXTERN bool stream_function_channel_selector_2ch_to_4ch_add_latency_process (void *para);
-EXTERN bool stream_function_channel_selector_2ch_to_4ch_add_latency_initialize (void *para);
+EXTERN bool stream_function_channel_selector_multistream_memcpy_initialize (void *para);
+EXTERN bool stream_function_channel_selector_multistream_memcpy_process (void *para);
+EXTERN bool stream_function_channel_selector_multistream_add_latency_process (void *para);
+EXTERN bool stream_function_channel_selector_multistream_add_latency_initialize (void *para);
 #endif
 
 #endif /* _CH_SEL_INTERFACE_H_ */

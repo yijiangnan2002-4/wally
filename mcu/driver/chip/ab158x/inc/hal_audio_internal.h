@@ -176,6 +176,9 @@ typedef struct {
     /* refer to hal_audio_dmic_selection_t */
     uint8_t dmic_selection[8];
 
+    /**afe_dmic_clock_rate_t*/
+    uint8_t dmic_clock_rate[3];
+
     /* refer to hal_audio_ul_iir_t */
     uint8_t iir_filter[3];
 
@@ -536,7 +539,10 @@ typedef struct HAL_DSP_PARA_AU_AFE_ADC_DAC_CONFIG_s {
     */
     uint8_t ADDA_Voice_Bias_Mode;
 
-    uint8_t ADDA_Reserved[5];
+    /* For run time change CLD and OLCD */
+    uint8_t ADDA_DAC_CLD_Gain_Compensation;
+
+    uint8_t ADDA_Reserved[4];
 }PACKED HAL_DSP_PARA_AU_AFE_ADC_DAC_CONFIG_t;
 
 /*#########################################Digital Mic config part####################################*/
@@ -735,6 +741,23 @@ typedef enum {
 } linein_playback_state_hqa_t;
 #endif
 
+//== DAC related ==
+typedef enum {
+    HAL_AUDIO_DAC_MODE_CLASSG2  = 0,            /**<   for dac mode*/
+    HAL_AUDIO_DAC_MODE_CLASSAB  = 1,            /**<   for dac mode*/
+    HAL_AUDIO_DAC_MODE_CLASSD   = 2,            /**<   for dac mode*/
+    HAL_AUDIO_DAC_MODE_CLASSG3  = 3,            /**<   for dac mode*/
+    HAL_AUDIO_DAC_MODE_OLCLASSD = 4,            /**<   for dac mode*/
+    HAL_AUDIO_DAC_MODE_DUMMY     = 0x7FFFFFFF,   /**<  Dummy for DSP structure alignment */
+} hal_audio_dac_mdoe_t;
+
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+typedef enum {
+    HAL_AUDIO_HA_DAC_FLAG_HEARING_TEST  =   1<<0,
+    HAL_AUDIO_HA_DAC_FLAG_A2DP_MIX_MODE =   1<<1,
+    HAL_AUDIO_HA_DAC_FLAG_SCO_MIX_MODE  =   1<<2,
+} hal_audio_ha_dac_flag_t;
+#endif
 
 //==== API ====
 void hal_audio_dsp_controller_init(void);
@@ -886,6 +909,7 @@ linein_result_hqa_t audio_pure_linein_playback_close_HQA();
 #endif
 #if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
 bool hal_audio_status_change_dac_mode(uint32_t dac_mode);
+uint8_t hal_audio_status_get_dac_mode(void);
 void hal_audio_status_change_dac_mode_handler(void);
 #endif
 
@@ -895,8 +919,6 @@ audio_dsp_a2dp_dl_time_param_t *hal_audio_a2dp_dl_get_time_report(void);
 
 hal_audio_interface_t hal_audio_convert_linein_interface(uint8_t Mic_NVkey, bool is_input_device);
 
-#ifdef AIR_AUDIO_DETACHABLE_MIC_ENABLE
-
 typedef enum {
     VOICE_MIC_TYPE_FIXED = 0,
     VOICE_MIC_TYPE_DETACHABLE = 1,
@@ -904,8 +926,6 @@ typedef enum {
 } voice_mic_type_t;
 
 voice_mic_type_t hal_audio_query_voice_mic_type(void);
-
-#endif
 
 #ifdef __cplusplus
 }

@@ -8,6 +8,7 @@ var group___bluetooth___services___group =
     [ "BT GATT service client", "group___bluetooth_services.html", "group___bluetooth_services" ],
     [ "BT Role Handover", "group___bluetooth_services___r_h_o.html", "group___bluetooth_services___r_h_o" ],
     [ "BT Sink", "group___bluetooth_services___sink.html", "group___bluetooth_services___sink" ],
+    [ "BT Source", "group___bluetooth_services___source.html", "group___bluetooth_services___source" ],
     [ "BT_AWS_MCE_REPORT", "group___bluetooth_services___report___service.html", "group___bluetooth_services___report___service" ],
     [ "Device Manager", "group___bluetooth_service___e_d_r___d_m.html", "group___bluetooth_service___e_d_r___d_m" ],
     [ "GATTS Service", "group___bluetooth_services___g_a_t_t.html", "group___bluetooth_services___g_a_t_t" ]

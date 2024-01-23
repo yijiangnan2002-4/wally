@@ -73,7 +73,7 @@
  *                  break;
  *              case BT_ULL_EVENT_PAIRING_COMPLETE_IND:
  *                  bt_ull_pairing_complete_ind_t *ind = (bt_ull_pairing_complete_ind_t*)param;
- *                  printf("ULL pairing complete, resulte:0x%x", ind->result);
+ *                  printf("ULL pairing complete, result:0x%x", ind->result);
  *                  break;
  *              default:
  *                  break;
@@ -179,12 +179,12 @@ typedef uint32_t bt_ull_action_t;
 #define BT_ULL_ACTION_FIND_CS_INFO                            0x0F     /**< Start ULL LE pairing, Find CS. */
 #define BT_ULL_ACTION_SET_VERSION                             0x10     /**< Set SDK version*/
 #define BT_ULL_ACTION_SET_STREAMING_SAMPLE_SIZE               0x11     /**< Set streaming sample size , for parameter please refer to structure #bt_ull_streaming_sample_size_t. */
-#define BT_ULL_ACTION_SET_STREAMING_SAMPLE_CHANNEL            0x12     /**< Set streaming sample size , for parameter please refer to structure #bt_ull_streaming_sample_channel_t. */
+#define BT_ULL_ACTION_SET_STREAMING_SAMPLE_CHANNEL            0x12     /**< Set streaming sample channel, for parameter please refer to structure #bt_ull_streaming_sample_channel_t. */
 #define BT_ULL_ACTION_SET_CLIENT_SIDETONE_SWITCH              0x13     /**< Set client uplink sidetone on or off, for parameter please refer to structure #bt_ull_client_sidetone_switch_t*/
 #define BT_ULL_ACTION_SET_AUDIO_QUALITY                       0x14     /**< Set audio quality, for parameter please refer to structure #bt_ull_le_srv_audio_quality_t. */
 #define BT_ULL_ACTION_SWITCH_UPLINK                           0x15     /**< Switch uplink */
 #define BT_ULL_ACTION_SET_ULL_SCENARIO                        0x16     /**< Set ULL scenario, for parameter please refer to structure #bt_ull_le_scenario_t. */
-
+#define BT_ULL_ACTION_SWITCH_AIRCIS_INACTIVE_MODE             0x17     /**< Switch Aircis inactive mode, ON or OFF */
 /**
  *  @brief Define the streaming interface type.
  */
@@ -219,6 +219,7 @@ typedef uint8_t bt_ull_audio_channel_t;
  */
 typedef uint8_t bt_ull_volume_channel_t;
 #define BT_ULL_VOLUME_CHANNEL_DUEL                            0x00     /**< Dual channel. */
+#define BT_ULL_VOLUME_CHANNEL_DUAL                            0x00     /**< Dual channel. */
 #define BT_ULL_VOLUME_CHANNEL_LEFT                            0x01     /**< Left channel. */
 #define BT_ULL_VOLUME_CHANNEL_RIGHT                           0x02     /**< Right channel. */
 

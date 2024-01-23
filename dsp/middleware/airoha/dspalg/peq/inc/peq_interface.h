@@ -85,6 +85,7 @@ typedef struct dsp_peq_ctrl_s {
     S32             *p_overlap_buffer;
     S32             peq_mode;   //0: with DRC, 1: without DRC
     U8              audio_path;
+    U8              gpt_time_sync;
 } DSP_PEQ_CTRL_t;
 
 typedef struct dsp_peq_ctrl_adaptive_s {

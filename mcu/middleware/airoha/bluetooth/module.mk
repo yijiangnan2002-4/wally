@@ -4,6 +4,25 @@ ifeq ($(MTK_BT_ENABLE), y)
 ###################################################
 
 #bt stack libs release version
+ifeq ($(AIR_BT_AUDIO_DONGLE_ENABLE), y)
+MTK_BT_AVRCP_ENABLE         = y
+MTK_BT_AVRCP_ENH_ENABLE     = y
+MTK_BT_A2DP_ENABLE          = y
+MTK_BT_PBAP_ENABLE          = y
+MTK_BT_AVRCP_BROWSE_ENABLE  = y
+MTK_BT_A2DP_AAC_ENABLE      = y
+MTK_BT_HFP_ENABLE           = y
+MTK_BT_HSP_ENABLE           = y
+else ifeq ($(AIR_LE_AUDIO_DONGLE_ENABLE), y)
+MTK_BT_AVRCP_ENABLE         = n
+MTK_BT_AVRCP_ENH_ENABLE     = n
+MTK_BT_A2DP_ENABLE          = n
+MTK_BT_PBAP_ENABLE          = n
+MTK_BT_AVRCP_BROWSE_ENABLE  = n
+MTK_BT_A2DP_AAC_ENABLE      = n
+MTK_BT_HFP_ENABLE           = n
+MTK_BT_HSP_ENABLE           = n
+endif
 
 ifeq ($(MTK_BT_LIB_RELEASE_ENABLE), y)
 ifeq ($(MTK_BLE_ONLY_ENABLE), y)
@@ -25,13 +44,20 @@ LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/l
 else
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_release.a
 endif
+#ifeq ($(MTK_BT_HFP_ENABLE), y)
+CFLAGS += -DMTK_BT_HFP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_hfp_release.a
+#endif
+#ifeq ($(MTK_BT_HSP_ENABLE), y)
 CFLAGS += -DMTK_BT_HSP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_hsp_release.a
+#endif
 ifeq ($(MTK_BT_A2DP_ENABLE), y)
+CFLAGS += -DAIR_BT_A2DP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_a2dp_release.a
 endif
 ifeq ($(MTK_BT_AVRCP_ENABLE), y)
+CFLAGS += -DAIR_BT_AVRCP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_avrcp_release.a
 endif
 ifeq ($(MTK_BT_AVRCP_ENH_ENABLE), y)
@@ -121,13 +147,20 @@ LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/l
 else
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt.a
 endif
+#ifeq ($(MTK_BT_HFP_ENABLE), y)
+CFLAGS += -DMTK_BT_HFP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_hfp.a
+#endif
+#ifeq ($(MTK_BT_HSP_ENABLE), y)
 CFLAGS += -DMTK_BT_HSP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_hsp.a
+#endif
 ifeq ($(MTK_BT_A2DP_ENABLE), y)
+CFLAGS += -DAIR_BT_A2DP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_a2dp.a
 endif
 ifeq ($(MTK_BT_AVRCP_ENABLE), y)
+CFLAGS += -DAIR_BT_AVRCP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_avrcp.a
 endif
 ifeq ($(MTK_BT_AVRCP_ENH_ENABLE), y)
@@ -301,6 +334,8 @@ LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/
 else
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_3in1_universal_headset.a
 endif
+else ifeq ($(AIR_HID_BT_HOGP_ENABLE), y)
+LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_3in1_universal_dongle.a
 else ifeq ($(MTK_BT_SPEAKER_ENABLE), y)
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_spk.a
 else ifeq ($(MTK_AWS_MCE_ENABLE), y)
@@ -366,7 +401,11 @@ else ifeq ($(MTK_BT_SPEAKER_ENABLE), y)
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_spk.a
 else ifeq ($(MTK_AWS_MCE_ENABLE), y)
 ifeq ($(AIR_LE_AUDIO_ENABLE), y)
+ifeq ($(AIR_LE_AUDIO_LC3PLUS_ENABLE),y)
+LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/lib/libpka_leaudio_emp_lc3plus.a
+else
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/lib/libpka_leaudio_emp.a
+endif
 else ifeq ($(AIR_BT_ULTRA_LOW_LATENCY_ENABLE),y)
 ifeq ($(AIR_USB_DONGLE_PROJECT_ENABLE), y)
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_ull_dongle.a
@@ -381,7 +420,11 @@ endif
 else ifeq ($(AIR_LE_AUDIO_DONGLE_ENABLE), y)
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/lib/libpka_leaudio.a
 else ifeq ($(AIR_LE_AUDIO_ENABLE), y)
+ifeq ($(AIR_LE_AUDIO_LC3PLUS_ENABLE),y)
+LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/lib/libpka_leaudio_emp_lc3plus.a
+else
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/lib/libpka_leaudio_emp.a
+endif
 else ifeq ($(AIR_BT_ULTRA_LOW_LATENCY_ENABLE),y)
 ifeq ($(AIR_USB_DONGLE_PROJECT_ENABLE), y)
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_ull_dongle.a
@@ -405,7 +448,11 @@ ifeq ($(AIR_BT_AUDIO_DONGLE_ENABLE), y)
 ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE), y)
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_bt_audio_ull_g2_dongle.a
 else
+ifeq ($(AIR_LE_AUDIO_LC3PLUS_ENABLE),y)
+LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_bt_audio_dongle_lc3plus.a
+else
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_bt_audio_dongle.a
+endif
 endif
 else
 ifeq ($(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE), y)
@@ -436,11 +483,17 @@ LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/
 else
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_3in1_universal_headset.a
 endif
+else ifeq ($(AIR_HID_BT_HOGP_ENABLE), y)
+LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_3in1_universal_dongle.a
 else ifeq ($(MTK_BT_SPEAKER_ENABLE), y)
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_spk.a
 else ifeq ($(MTK_AWS_MCE_ENABLE), y)
 ifeq ($(AIR_LE_AUDIO_ENABLE), y)
+ifeq ($(AIR_LE_AUDIO_LC3PLUS_ENABLE),y)
+LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/lib/libpka_leaudio_emp_lc3plus.a
+else
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/lib/libpka_leaudio_emp.a
+endif
 else ifeq ($(AIR_BT_ULTRA_LOW_LATENCY_ENABLE),y)
 ifeq ($(AIR_USB_DONGLE_PROJECT_ENABLE), y)
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_ull_dongle.a
@@ -455,7 +508,11 @@ endif
 else ifeq ($(AIR_LE_AUDIO_DONGLE_ENABLE), y)
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/lib/libpka_leaudio.a
 else ifeq ($(AIR_LE_AUDIO_ENABLE), y)
+ifeq ($(AIR_LE_AUDIO_LC3PLUS_ENABLE),y)
+LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/lib/libpka_leaudio_emp_lc3plus.a
+else
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/le_audio/$(IC_CONFIG)/lib/libpka_leaudio_emp.a
+endif
 else ifeq ($(AIR_BT_ULTRA_LOW_LATENCY_ENABLE),y)
 ifeq ($(AIR_USB_DONGLE_PROJECT_ENABLE), y)
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libpka_ull_dongle.a

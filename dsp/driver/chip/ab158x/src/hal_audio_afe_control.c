@@ -1354,7 +1354,6 @@ void afe_set_sidetone_enable(bool enable, afe_sidetone_param_t *param, afe_sidet
     uint32_t mask;
     hal_nvic_save_and_set_interrupt_mask(&mask);
     if (enable) {
-        hal_audio_afe_clock_on();
         afe_audio_device_enable(enable, param.in_device, param.in_interface, AFE_PCM_FORMAT_S16_LE, param.sample_rate, param.in_misc_parms);
         afe_audio_device_enable(enable, param.out_device, param.out_interface, AFE_PCM_FORMAT_S16_LE, param.sample_rate, param.out_misc_parms);
         afe_set_sidetone_input_channel(param.in_device);
@@ -1392,7 +1391,7 @@ void afe_set_sidetone_enable(bool enable, afe_sidetone_param_t *param, afe_sidet
 #ifdef AIR_SIDETONE_CUSTOMIZE_ENABLE
         device_handle_in->common.rate = param->in_device_sample_rate;
 #else
-        if((!device_handle_in->common.rate)){
+        if ((!device_handle_in->common.rate)) {
             device_handle_in->common.rate = 16000;//param->sample_rate;
         }
 #endif
@@ -1405,7 +1404,7 @@ void afe_set_sidetone_enable(bool enable, afe_sidetone_param_t *param, afe_sidet
         sidetone_in_device_para(device_handle_in, param);
         //MIC
         hal_audio_set_device(device_handle_in, device_handle_in->common.audio_device, HAL_AUDIO_CONTROL_ON);
-        DSP_MW_LOG_I("[SIDETONE] MIC set done %d, rate %d \r\n", 2, device_handle_in->common.audio_device,device_handle_in->common.rate);
+        DSP_MW_LOG_I("[SIDETONE] MIC set done %d, rate %d \r\n", 2, device_handle_in->common.audio_device, device_handle_in->common.rate);
         //Sidetone
         device_handle_in_side_tone->common.is_tx = true;
         device_handle_in_side_tone->sidetone.rate = param->sample_rate;
@@ -1453,7 +1452,7 @@ void afe_set_sidetone_enable(bool enable, afe_sidetone_param_t *param, afe_sidet
         if (sidetone_rampdown_done_flag == true) {
             hal_audio_set_device(device_handle_in, device_handle_in->common.audio_device, HAL_AUDIO_CONTROL_OFF);
             hal_audio_set_device(device_handle_out, device_handle_out->common.audio_device, HAL_AUDIO_CONTROL_OFF);
-        }else{
+        } else {
             hal_audio_set_device(device_handle_in_side_tone, device_handle_in_side_tone->sidetone.audio_device, HAL_AUDIO_CONTROL_OFF);
         }
     }
@@ -1674,7 +1673,6 @@ void afe_set_loopback_enable(bool enable, afe_loopback_param_p param)
                 path_handle->output.interconn_sequence[i] = stream_audio_convert_control_to_interconn(HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER, output_port_parameters, i, false);
             }
             path_handle->with_hw_gain = false;
-            path_handle->with_upwdown_sampler = false;
             hal_audio_set_path(path_handle, HAL_AUDIO_CONTROL_ON);
         }
 #endif
@@ -1705,7 +1703,6 @@ void afe_set_loopback_enable(bool enable, afe_loopback_param_p param)
         audio_afe_io_block_t output_io = afe_get_io_block_by_audio_device(param->out_device, param->out_interface, false);
         hal_nvic_save_and_set_interrupt_mask(&mask);
         if (enable) {
-            hal_audio_afe_clock_on();
             afe_audio_device_enable(enable, param->in_device, param->in_interface, param->format, param->sample_rate, param->in_misc_parms);
             afe_audio_device_enable(enable, param->out_device, param->out_interface, param->format, param->sample_rate, param->out_misc_parms);
 
@@ -1747,7 +1744,6 @@ void afe_set_loopback_enable(bool enable, afe_loopback_param_p param)
 
             afe_audio_device_enable(enable, param->in_device, param->in_interface, param->format, param->sample_rate, param->in_misc_parms);
             afe_audio_device_enable(enable, param->out_device, param->out_interface, param->format, param->sample_rate, param->out_misc_parms);
-            hal_audio_afe_clock_off();
         }
         hal_nvic_restore_interrupt_mask(mask);
 #endif
@@ -1789,7 +1785,7 @@ hal_audio_src_tracking_clock_t afe_set_asrc_tracking_clock(hal_audio_interface_t
     return tracking_clock;
 }
 
-void afe_set_asrc_enable(bool enable, afe_mem_asrc_id_t asrc_id, afe_asrc_config_p asrc_config)
+void afe_set_asrc_enable(bool enable, afe_mem_asrc_id_t asrc_id, afe_src_configuration_p asrc_config)
 {
     //uint32_t mask;
     //hal_nvic_save_and_set_interrupt_mask(&mask);

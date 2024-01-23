@@ -44,15 +44,17 @@ extern "C"
 {
 #endif
 
-#define AIR_AUDIO_DONGLE_DEBUG_LANTENCY                                  (1)
+#define AIR_AUDIO_DONGLE_DEBUG_LANTENCY                              (1)
 
 #if defined(AIR_BT_AUDIO_DONGLE_ENABLE)
-#define AUDIO_DONGLE_USB_RX_PORT_TOTAL                               2
-#define AUDIO_DONGLE_USB_TX_PORT_TOTAL                               2
+#define AUDIO_DONGLE_USB_RX_PORT_TOTAL                               (2)
+#define AUDIO_DONGLE_USB_TX_PORT_TOTAL                               (2)
 #else
-#define AUDIO_DONGLE_USB_RX_PORT_TOTAL                               2
-#define AUDIO_DONGLE_USB_TX_PORT_TOTAL                               1
+#define AUDIO_DONGLE_USB_RX_PORT_TOTAL                               (2)
+#define AUDIO_DONGLE_USB_TX_PORT_TOTAL                               (1)
 #endif
+
+#define AUDIO_DONGLE_GAIN_COMPENSATION_STEP_MAX                      (10)
 
 /* LHDC V5 */
 #define AUDIO_DONGLE_VENDOR_CODEC_LHDC_V5_VENDOR_ID                  (0x053A)
@@ -70,13 +72,6 @@ typedef struct
     audio_codec_param_t                 usb_param;
     n9_dsp_share_info_t                 *p_dsp_info;
     uint8_t                             dongle_stream_status; // bit mask for sub id
-#if AIR_AUDIO_DONGLE_DEBUG_LANTENCY
-    hal_gpio_pin_t latency_debug_gpio_pin;
-    uint16_t latency_debug_enable;
-    int16_t latency_debug_last_sample;
-    uint16_t latency_debug_last_level;
-    uint32_t detect_threshold;
-#endif /* AIR_AUDIO_DONGLE_DEBUG_LANTENCY */
 } audio_dongle_usb_handle_t;
 
 #if defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
@@ -123,6 +118,13 @@ uint8_t audio_dongle_get_usb_format_bytes(hal_audio_format_t pcm_format);
 #ifdef AIR_BT_AUDIO_DONGLE_LHDC_ENABLE
 bool audio_dongle_vendor_parameter_parse(audio_codec_vendor_config_t *vendor, void *param);
 #endif /* AIR_BT_AUDIO_DONGLE_LHDC_ENABLE */
+
+void audio_usb_rx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num);
+void audio_usb_rx_scenario_latency_debug_init(uint32_t usb_port, uint32_t frame_size, uint32_t channels, hal_audio_format_t format);
+void audio_usb_rx_scenario_latency_debug(uint32_t usb_port, uint8_t *source_buf);
+void audio_usb_tx_scenario_latency_debug_control(uint32_t usb_port, bool enable, uint32_t gpio_num, int32_t current_threshold);
+void audio_usb_tx_scenario_latency_debug_init(uint32_t usb_port, uint32_t frame_size, uint32_t channels, hal_audio_format_t format, int32_t current_threshold);
+void audio_usb_tx_scenario_latency_debug(uint32_t usb_port, uint8_t *source_buf);
 
 #ifdef __cplusplus
 }

@@ -376,7 +376,7 @@ void bt_sink_srv_aws_mce_a2dp_ami_hdr(bt_sink_srv_am_id_t aud_id, bt_sink_srv_am
                 uint32_t gap_hd = bt_sink_srv_cm_get_gap_handle(&(run_dev->dev_addr));
                 bt_sink_srv_music_update_audio_buffer(SHARE_BUFFER_BT_AUDIO_DL_SIZE);
                 bt_sink_srv_music_set_music_enable(run_dev->aws_hd, BT_AVM_ROLE_AWS_MCE_PARTNER, true);
-                uint16_t n_value = BT_SINK_SRV_MCE_A2DP_N_PACKET_NOTIFY;
+                uint32_t n_value = BT_SINK_SRV_MCE_A2DP_N_PACKET_NOTIFY;
                 if (run_dev->codec.type == BT_A2DP_CODEC_VENDOR || ctx->a2dp_eir.special_device_flag == BT_SINK_SRV_MUSIC_NOTIFY_N9_NO_SLEEP) {
                     n_value = BT_SINK_SRV_MCE_A2DP_N_PACKET_NOTIFY_VENDOR_CODEC;
                 }
@@ -609,6 +609,7 @@ static int32_t bt_sink_srv_aws_mce_a2dp_handle_disconnect_ind(uint32_t handle, b
             dev->handle = NULL;
             if (!(dev->conn_bit)) {
                 bt_sink_srv_music_reset_device(dev);
+                bt_sink_srv_memset(&ctx->a2dp_eir, 0, sizeof(bt_sink_srv_aws_mce_a2dp_base_eir_t));
             }
         } else if (free_handle && dev->handle
                    && (dev->handle->substate == BT_SINK_SRV_MUSIC_TRANSIENT_STATE_CLEAR_CODEC)
@@ -636,7 +637,7 @@ static void bt_sink_srv_aws_mce_a2dp_handle_a2dp_start_ind(uint32_t handle, bt_s
     ctx->ratio = BT_SINK_SRV_MUSIC_RATIO_MAGIC_CODE;
 
     if (dev) {
-        bt_sink_srv_report_id("[sink][music][mce_a2dp] strat_ind-hd: 0x%08x, flag: 0x%08x, op: 0x%08x, substate:0x%x",
+        bt_sink_srv_report_id("[sink][music][mce_a2dp] start_ind-hd: 0x%08x, flag: 0x%08x, op: 0x%08x, substate:0x%x",
             4, handle, dev->flag, dev->op, dev->handle->substate);
         if ((BT_SINK_SRV_MUSIC_MODE_BROADCAST != bt_sink_srv_music_get_spk_mode())) {
             ctx->vol_lev = a2dp_eir->vol_lev;
@@ -674,6 +675,11 @@ static void bt_sink_srv_aws_mce_a2dp_handle_a2dp_suspend_ind(uint32_t handle, bt
         bt_sink_srv_report_id("[sink][music][mce_a2dp] suspend_ind-hd(s)-flag:0x%08x, run_dev:0x%x", 2, dev->flag, ctx->run_dev);
         if (dev->flag & BT_SINK_SRV_MUSIC_FLAG_WAIT_LIST_SINK_PLAY) {
         audio_src_srv_del_waiting_list(dev->handle);
+        if (ctx->a2dp_eir.flag & BT_SINK_SRV_AWS_MCE_A2DP_REINIT_FLAG) {
+            BT_SINK_SRV_SET_FLAG(dev->flag, BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC);
+        } else {
+            BT_SINK_SRV_REMOVE_FLAG(dev->flag, BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC);
+        }
         BT_SINK_SRV_REMOVE_FLAG(dev->flag, BT_SINK_SRV_MUSIC_FLAG_WAIT_LIST_SINK_PLAY);
         BT_SINK_SRV_REMOVE_FLAG(dev->op, BT_SINK_SRV_MUSIC_OP_PLAY_IND);
         } else if ((ctx->run_dev) && (dev == ctx->run_dev)) {
@@ -1264,9 +1270,14 @@ void bt_sink_srv_aws_mce_a2dp_play(audio_src_srv_handle_t *handle)
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
 
     bt_utils_assert(aws_a2dp_dev);
-    bt_sink_srv_report_id("[sink][music][mce_a2dp] play(s)--hd: 0x%x, type: %d, flag: 0x%x, op: 0x%x, role:0x%x, aws_aid:0x%x", 5,
+
+    if (aws_a2dp_dev->handle->substate != BT_SINK_SRV_MUSIC_TRANSIENT_STATE_PREPARE_CODEC) {
+        bt_sink_srv_music_state_machine_handle(aws_a2dp_dev, BT_SINK_SRV_MUSIC_EVT_PREPARE_CODEC, NULL);
+    }
+    bt_sink_srv_report_id("[sink][music][mce_a2dp] play(s)--hd: 0x%x, type: %d, flag: 0x%x, op: 0x%x, role:0x%x, aws_aid:0x%x", 6,
                           handle, handle->type, aws_a2dp_dev->flag, aws_a2dp_dev->op, role, ctx->aws_aid);
-    if (ctx->a2dp_eir.flag & BT_SINK_SRV_AWS_MCE_A2DP_REINIT_FLAG) {
+#ifndef BT_SINK_SRV_IMPROVE_RESYNC
+    if (aws_a2dp_dev->flag&BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC) {
 #ifdef AIR_LE_AUDIO_ENABLE
         bt_sink_srv_cap_am_enable_waiting_list();
 #endif
@@ -1274,6 +1285,7 @@ void bt_sink_srv_aws_mce_a2dp_play(audio_src_srv_handle_t *handle)
         bt_ull_le_am_operate_waiting_list_for_a2dp_resync(true);
 #endif
     }
+#endif
     /* add for partner BLe advertising feature, to disconnect BLE on partner */
     if (role == BT_AWS_MCE_ROLE_PARTNER) {
         /* disconnect BLE */
@@ -1319,7 +1331,8 @@ void bt_sink_srv_aws_mce_a2dp_stop(audio_src_srv_handle_t *handle)
     bt_sink_srv_report_id("[sink][music][mce_a2dp] stop(s)--hd: 0x%x, type: %d, flag: 0x%x, op: 0x%x, role:0x%x", 5,
                           handle, handle->type, aws_a2dp_dev->flag, aws_a2dp_dev->op, role);
     BT_SINK_SRV_SET_FLAG(aws_a2dp_dev->flag, BT_SINK_SRV_MUSIC_NORMAL_STOP_FLAG);
-    if (ctx->a2dp_eir.flag & BT_SINK_SRV_AWS_MCE_A2DP_REINIT_FLAG) {
+#ifndef BT_SINK_SRV_IMPROVE_RESYNC
+    if (aws_a2dp_dev->flag&BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC) {
 #ifdef AIR_LE_AUDIO_ENABLE
         bt_sink_srv_cap_am_disable_waiting_list();
 #endif
@@ -1327,6 +1340,7 @@ void bt_sink_srv_aws_mce_a2dp_stop(audio_src_srv_handle_t *handle)
         bt_ull_le_am_operate_waiting_list_for_a2dp_resync(false);
 #endif
     }
+#endif
 #ifdef AIR_A2DP_SYNC_STOP_ENABLE
     if ((aws_a2dp_dev->state != AUDIO_SRC_SRV_STATE_PLAYING) || (!(aws_a2dp_dev->conn_bit & BT_SINK_SRV_MUSIC_AWS_CONN_BIT))
         || (bt_sink_srv_music_get_force_stop())) {
@@ -1354,6 +1368,7 @@ void bt_sink_srv_aws_mce_a2dp_suspend(audio_src_srv_handle_t *handle, audio_src_
     bt_utils_assert(aws_a2dp_dev && "aws_a2dp_dev NULL");
     bt_sink_srv_report_id("[sink][music][mce_a2dp] suspend(s)--hd:0x%x, type:%d, int:0x%x, type:%d, aws_a2dp_dev:0x%x, flag: 0x%x, op: 0x%x, substate:0x%x, role:0x%x",
         8, handle, handle->type, int_hd, int_hd->type, aws_a2dp_dev, aws_a2dp_dev->flag, aws_a2dp_dev->op, aws_a2dp_dev->handle->substate, role);
+    BT_SINK_SRV_REMOVE_FLAG(aws_a2dp_dev->flag, BT_SINK_SRV_MUSIC_FLAG_REINITIAL_SYNC);
     if (BT_SINK_SRV_MUSIC_TRANSIENT_STATE_CLEAR_CODEC == aws_a2dp_dev->handle->substate) {
         return;
     }
@@ -1609,9 +1624,11 @@ static void bt_sink_srv_aws_mce_a2dp_send_eir_play_ind(uint32_t a2dp_hd)
     if (music_mode == BT_SINK_SRV_MUSIC_GAME_MODE) {
         a2dp_base_eir.flag |= BT_SINK_SRV_AWS_MCE_A2DP_ALC_FLAG;
     }
+#ifdef AIR_BT_A2DP_VENDOR_2_ENABLE
     if(bt_sink_srv_music_is_lhdc_ll_mode(&(a2dp_dev->codec))){
         a2dp_base_eir.flag |= BT_SINK_SRV_AWS_MCE_A2DP_LHDC_LL_MODE_FLAG;
     }
+#endif
     if (bt_iot_device_white_list_check_iot_case((bt_bd_addr_t *)&a2dp_dev->dev_addr, BT_IOT_MUSIC_NOTIFY_N9_NO_SLEEP)) {
         a2dp_base_eir.special_device_flag = BT_SINK_SRV_MUSIC_NOTIFY_N9_NO_SLEEP;
     } else {

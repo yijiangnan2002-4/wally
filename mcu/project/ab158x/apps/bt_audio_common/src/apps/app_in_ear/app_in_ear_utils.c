@@ -53,6 +53,7 @@
 #include "bt_sink_srv.h"
 #ifdef MTK_AWS_MCE_ENABLE
 #include "bt_aws_mce_report.h"
+#include "bt_aws_mce_srv.h"
 #endif
 #include "apps_config_key_remapper.h"
 #ifdef MTK_EINT_KEY_ENABLE
@@ -132,7 +133,7 @@ void app_in_ear_update_status(apps_in_ear_local_context_t *ctx)
         } else {
             ctx->eventDone = true;
             if (ctx->rhoEnable && ctx->curState == APP_IN_EAR_STA_AOUT_PIN) {
-                if (curr_state->aws_connected) {
+                if (bt_aws_mce_srv_get_link_type() == BT_AWS_MCE_SRV_LINK_NORMAL) {
                     ctx->isInRho = true;
                     /* Notify the new agent to handle this event. */
                     ctx->eventDone = false;
@@ -143,7 +144,7 @@ void app_in_ear_update_status(apps_in_ear_local_context_t *ctx)
                                         APPS_EVENTS_INTERACTION_TRIGGER_RHO, NULL, 0,
                                         NULL, 0);
                 } else {
-                    /* Can not trigger RHO when aws has disconnected, So need notify current status to other apps.*/
+                    /* Can not trigger RHO when aws is not normal link, So need notify current status to other apps.*/
                     app_in_ear_send_status(ctx);
                 }
             } else {

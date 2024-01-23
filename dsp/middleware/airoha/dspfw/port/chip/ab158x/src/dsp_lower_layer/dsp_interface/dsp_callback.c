@@ -123,6 +123,10 @@
 #include "hw_vivid_passthru_api.h"
 #endif
 
+#ifdef AIR_MIXER_STREAM_ENABLE
+#include "stream_mixer.h"
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // Constant Definitions ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -159,6 +163,9 @@ VOID DSP_Callback_StreamingRateConfig(SOURCE source, SINK sink);
 ////////////////////////////////////////////////////////////////////////////////
 // Global Variables ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+#ifdef MTK_BT_A2DP_ENABLE
+volatile bool g_a2dp_hwsrc_ng_flag = false;
+#endif
 
 const CALLBACK_STATE_ENTRY DSP_CallbackEntryTable[] = {
     DSP_Callback_Undo,              /*CALLBACK_DISABLE*/
@@ -248,6 +255,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_1 void DSP_CallbackCodecRecord(DSP_ENTRY_PARA_PTR entry_
     if (entry_para->number.field.process_sequence == CODEC_ALLOW_SEQUENCE) {
         entry_para->pre_codec_out_sampling_rate = entry_para->codec_out_sampling_rate;
         entry_para->pre_codec_out_size = entry_para->codec_out_size;
+        entry_para->pre_out_channel_num = entry_para->out_channel_num;
     }
 }
 
@@ -317,6 +325,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_1 BOOL DSP_Callback_Handler(DSP_ENTRY_PARA_PTR entry_par
     entry_para->codec_out_sampling_rate = entry_para->pre_codec_out_sampling_rate;
     entry_para->codec_out_size = entry_para->pre_codec_out_size;
     entry_para->resolution.process_res = entry_para->resolution.source_in_res;
+    entry_para->out_channel_num = entry_para->pre_out_channel_num;
 
     if (entry_para->ch_swapped) {
         S32 *BufL = (S32 *)stream_function_get_1st_inout_buffer(entry_para);
@@ -427,6 +436,7 @@ BOOL DSP_Callback_ZeroPadding(DSP_ENTRY_PARA_PTR entry_para, DSP_FEATURE_TABLE_P
     entry_para->codec_out_sampling_rate = entry_para->pre_codec_out_sampling_rate;
     entry_para->codec_out_size = entry_para->pre_codec_out_size;
     entry_para->resolution.process_res = entry_para->resolution.feature_res;
+    entry_para->out_channel_num = entry_para->pre_out_channel_num;
 
     DSP_CleanUpCallbackOutBuf(entry_para);
 
@@ -590,7 +600,7 @@ TaskHandle_t  DSP_Callback_Config(SOURCE source, SINK sink, VOID *feature_list_p
         && (source->taskId != DLL_TASK_ID)
         && (sink->taskid   != DLL_TASK_ID)
 #endif
-#ifdef AIR_DCHS_MODE_ENABLE
+#ifdef AIR_MIXER_STREAM_ENABLE
             && (source->taskId != DDCHS_TASK_ID)
             && (sink->taskid   != DDCHS_TASK_ID)
 #endif
@@ -625,7 +635,7 @@ TaskHandle_t  DSP_Callback_Config(SOURCE source, SINK sink, VOID *feature_list_p
         source->taskId = DTDM_TASK_ID;
         sink->taskid = DTDM_TASK_ID;
 #endif
-#ifdef AIR_DCHS_MODE_ENABLE
+#ifdef AIR_MIXER_STREAM_ENABLE
         } else if ((source->taskId == DDCHS_TASK_ID) || (sink->taskid == DDCHS_TASK_ID)) {
             /* other case, this stream should be run on DCHS Task */
             source->taskId = DDCHS_TASK_ID;
@@ -688,10 +698,10 @@ TaskHandle_t  DSP_Callback_Config(SOURCE source, SINK sink, VOID *feature_list_p
     }else
 #endif
     {
-        dsp_task_id=dsp_stream_configure_streaming(&stream_config,source->taskId);        
+        dsp_task_id=dsp_stream_configure_streaming(&stream_config,source->taskId);
     }
-        
-    
+
+
     return dsp_task_id;
 }
 
@@ -820,6 +830,29 @@ TaskHandle_t  DSP_Callback_StreamConfig(DSP_CALLBACK_STREAM_CONFIG_PTR stream_co
                 DSP_Callback_StreamingInit((DSP_STREAMING_PARA_PTR)&stream_config_ptr->stream_ptr[i],
                                            1,
                                            stream_config_ptr->stream_ptr[i].callback.EntryPara.DSPTask);
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+                #include "dsp_audio_process.h"
+                extern sw_gain_port_t *g_DL_SW_gain_port, *g_DL_SW_gain_port_2, *g_DL_SW_gain_port_3;
+                if(stream_config_ptr->sink->type == SINK_TYPE_AUDIO){
+                    if (g_DL_SW_gain_port != NULL) {
+                        stream_function_sw_gain_deinit(g_DL_SW_gain_port);
+                        g_DL_SW_gain_port = NULL;
+                        DSP_MW_LOG_I("[DL_SW_GAIN] Port is deinit, for type %d", 1, stream_config_ptr->sink->type);
+                    }
+                } else if (stream_config_ptr->sink->type == SINK_TYPE_VP_AUDIO){
+                    if (g_DL_SW_gain_port_2 != NULL) {
+                        stream_function_sw_gain_deinit(g_DL_SW_gain_port_2);
+                        g_DL_SW_gain_port_2 = NULL;
+                        DSP_MW_LOG_I("[DL_SW_GAIN] Port2 is deinit, for type %d", 1, stream_config_ptr->sink->type);
+                    }
+                } else if (stream_config_ptr->sink->type == SINK_TYPE_AUDIO_DL3){
+                    if (g_DL_SW_gain_port_3 != NULL) {
+                        stream_function_sw_gain_deinit(g_DL_SW_gain_port_3);
+                        g_DL_SW_gain_port_3 = NULL;
+                        DSP_MW_LOG_I("[DL_SW_GAIN] Port3 is deinit, for type %d", 1, stream_config_ptr->sink->type);
+                    }
+                }
+#endif
                 return stream_config_ptr->task;
             }
         }
@@ -977,9 +1010,9 @@ VOID DSP_Callback_FeatureConfig(DSP_STREAMING_PARA_PTR stream, stream_feature_li
             (stream->callback.FeatureTablePtr + (U32)(stream->callback.EntryPara.with_src - 1))->MemSize +=
                 2 * (stream->callback.EntryPara.out_malloc_size * (DSP_CALLBACK_SRC_BUF_FRAME + DSP_CALLBACK_SRC_IN_FRAME) +
                      stream->callback.Src.out_frame_size * (DSP_CALLBACK_SRC_OUT_FRAME));
-#ifdef MTK_HWSRC_IN_STREAM
-            (stream->callback.FeatureTablePtr + (U32)(stream->callback.EntryPara.with_src - 1))->MemSize += 64;//modify for asrc, for src_ptr+16, inSRC_mem_ptr+16, outSRC_mem_ptr+16, buf_mem_ptr+16;
-#endif
+            if(stream->sink->param.audio.hwsrc_type == HAL_AUDIO_HWSRC_IN_STREAM){
+                (stream->callback.FeatureTablePtr + (U32)(stream->callback.EntryPara.with_src - 1))->MemSize += 64;//modify for asrc, for src_ptr+16, inSRC_mem_ptr+16, outSRC_mem_ptr+16, buf_mem_ptr+16;
+            }
 
         }
 
@@ -1240,8 +1273,8 @@ VOID DSP_Callback_ResolutionConfig(DSP_STREAMING_PARA_PTR stream)
         }
     }
 #endif
-#ifdef AIR_DCHS_MODE_ENABLE
-    else if (stream->source->type == SOURCE_TYPE_UART) {
+#ifdef AIR_MIXER_STREAM_ENABLE
+    else if (stream->source->type == SOURCE_TYPE_MIXER) {
         stream->callback.EntryPara.resolution.source_in_res = RESOLUTION_32BIT;
         stream->callback.EntryPara.resolution.feature_res = stream->callback.EntryPara.resolution.source_in_res;
     }
@@ -1475,7 +1508,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_1 DSP_CALLBACK_PTR DSP_Callback_Get(SOURCE source, SINK 
     {
         callback_ptr = DLLT_Callback_Get(source, sink);
     }
-#endif    
+#endif
     if (callback_ptr == NULL) {
         callback_ptr =dsp_stream_get_callback(source,sink);
     }
@@ -1685,6 +1718,15 @@ VOID DSP_Callback_ParaSetup(DSP_STREAMING_PARA_PTR stream)
 #if defined(AIR_BLE_FIXED_RATIO_SRC_ENABLE) && defined(AIR_FIXED_RATIO_SRC)
         N9Ble_DL_SWB_Sample_Rate_Init();
 #endif
+#if AIR_AUDIO_ULD_DECODE_ENABLE
+        if ((stream->source->param.n9ble.context_type == BLE_CONTENT_TYPE_ULL_BLE) && (stream->source->param.n9ble.codec_type == BT_BLE_CODEC_ULD)) {
+           stream->callback.EntryPara.resolution.sink_out_res = RESOLUTION_32BIT;
+           stream->callback.EntryPara.resolution.process_res = RESOLUTION_32BIT;
+           stream->callback.EntryPara.resolution.source_in_res = RESOLUTION_32BIT;
+           stream->callback.EntryPara.resolution.feature_res = RESOLUTION_32BIT;
+        }
+#endif
+
     }
 #endif
     else if ((source->type == SOURCE_TYPE_FILE) || (source->type == SOURCE_TYPE_USBCDCCLASS) || (source->type == SOURCE_TYPE_MEMORY)) {
@@ -1692,7 +1734,7 @@ VOID DSP_Callback_ParaSetup(DSP_STREAMING_PARA_PTR stream)
         stream->callback.EntryPara.in_channel_num = 1;
         stream->callback.EntryPara.in_sampling_rate = FS_RATE_16K;
     } else if (source->type == SOURCE_TYPE_A2DP) {
-#if defined(MTK_BT_A2DP_VENDOR_2_ENABLE)        
+#if defined(MTK_BT_A2DP_VENDOR_2_ENABLE)
         stream->callback.EntryPara.in_size          = 1314;
 #else
         stream->callback.EntryPara.in_size          = 1024;
@@ -1833,20 +1875,12 @@ VOID DSP_Callback_ParaSetup(DSP_STREAMING_PARA_PTR stream)
         stream->callback.EntryPara.in_sampling_rate = 50; //50K
     }
 #endif /* AIR_HEARING_AID_ENABLE */
-#ifdef AIR_DCHS_MODE_ENABLE
-    else if (source->scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL) {
+#ifdef AIR_MIXER_STREAM_ENABLE
+    else if (source->scenario_type == AUDIO_SCENARIO_TYPE_MIXER_STREAM) {
         stream->callback.EntryPara.in_size          = source->param.audio.frame_size * source->param.audio.format_bytes;
-        if(dchs_get_device_mode() == DCHS_MODE_RIGHT){
-            if(source->param.audio.channel_num == USB_IN_8_CHANNEL){
-                stream->callback.EntryPara.in_channel_num = 10; // usb 8ch,vp 2ch
-            }else{
-                stream->callback.EntryPara.in_channel_num = 6;  // uart 2ch,local 2ch, vp 2ch
-            }
-        }else {
-            stream->callback.EntryPara.in_channel_num = 2;
-        }
+        stream->callback.EntryPara.in_channel_num   = 2 * MAX_MIXER_NUM;
         stream->callback.EntryPara.in_sampling_rate = source->param.audio.rate / 1000;
-        DSP_MW_LOG_I("[DCHS DL][dsp callback] in_size=%d, in_channel_num=%d, in_sampling_rate=%d", 3, stream->callback.EntryPara.in_size, stream->callback.EntryPara.in_channel_num, stream->callback.EntryPara.in_sampling_rate);
+        DSP_MW_LOG_I("[Mixer Stream][dsp callback] in_size=%d, in_channel_num=%d, in_sampling_rate=%d", 3, stream->callback.EntryPara.in_size, stream->callback.EntryPara.in_channel_num, stream->callback.EntryPara.in_sampling_rate);
     }
 #endif
 #ifdef AIR_AUDIO_HARDWARE_ENABLE
@@ -1976,6 +2010,9 @@ VOID DSP_Callback_ParaSetup(DSP_STREAMING_PARA_PTR stream)
 #if defined(AIR_FIXED_RATIO_SRC)
         Sco_UL_Fix_Sample_Rate_Init();
 #endif
+#if defined(AIR_MUTE_MIC_DETECTION_ENABLE)
+        Sco_UL_Volume_Estimator_Init(sink);
+#endif
 #endif
     }
 #ifdef AIR_BT_CODEC_BLE_ENABLED
@@ -2021,9 +2058,28 @@ VOID DSP_Callback_ParaSetup(DSP_STREAMING_PARA_PTR stream)
         N9Ble_UL_SWB_Sample_Rate_Init();
 #endif
 
-#if defined(AIR_MUTE_MIC_DETECTION_ENABLE) && defined(AIR_LE_AUDIO_ENABLE)
         if ((sink->param.n9ble.context_type != BLE_CONTENT_TYPE_ULL_BLE) && (sink->param.n9ble.context_type != BLE_CONTENT_TYPE_WIRELESS_MIC)) {
+#if defined(AIR_MUTE_MIC_DETECTION_ENABLE) && defined(AIR_LE_AUDIO_ENABLE)
             N9Ble_UL_Volume_Estimator_Init(sink);
+#endif
+#if defined(AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE) && defined(AIR_SOFTWARE_GAIN_ENABLE)
+            N9Ble_UL_SW_Gain_Init();
+#endif
+        }
+#if AIR_BT_ULL_FB_ENABLE
+        /*Add for ULL_BLE 24bit*/
+        if (stream->sink->param.n9ble.context_type == BLE_CONTENT_TYPE_ULL_BLE) {
+            if (stream->sink->param.n9ble.sampling_rate == 48000) {
+                stream->callback.EntryPara.resolution.sink_out_res = RESOLUTION_32BIT;
+                stream->callback.EntryPara.resolution.process_res = RESOLUTION_32BIT;
+                stream->callback.EntryPara.resolution.source_in_res = RESOLUTION_32BIT;
+                stream->callback.EntryPara.resolution.feature_res = RESOLUTION_32BIT;
+            } else {
+                stream->callback.EntryPara.resolution.sink_out_res = RESOLUTION_16BIT;
+                stream->callback.EntryPara.resolution.process_res = RESOLUTION_16BIT;
+                stream->callback.EntryPara.resolution.source_in_res = RESOLUTION_16BIT;
+                stream->callback.EntryPara.resolution.feature_res = RESOLUTION_16BIT;
+            }
         }
 #endif
     }
@@ -2202,9 +2258,9 @@ VOID DSP_Callback_ParaSetup(DSP_STREAMING_PARA_PTR stream)
         }
     }
 #endif /* AIR_AUDIO_BT_COMMON_ENABLE */
-#ifdef AIR_DCHS_MODE_ENABLE
-    else if (source->type == SOURCE_TYPE_UART) {
-        stream->callback.EntryPara.out_channel_num            = 2;
+#if defined(AIR_MIXER_STREAM_ENABLE)
+    else if (source->type == SOURCE_TYPE_MIXER) {
+        stream->callback.EntryPara.out_channel_num            = MIXER_STREAM_OUT_CHANNEL;
         stream->callback.EntryPara.codec_out_size             = source->param.audio.frame_size * source->param.audio.format_bytes;
         stream->callback.EntryPara.codec_out_sampling_rate    = source->param.audio.rate / 1000;
     }
@@ -2248,6 +2304,16 @@ VOID DSP_Callback_ParaSetup(DSP_STREAMING_PARA_PTR stream)
             stream->callback.EntryPara.out_channel_num = sink->param.audio.channel_sel;
             frameSize = sink->param.audio.frame_size;
 #endif
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ) || defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+            if(source->type == SOURCE_TYPE_N9SCO) {
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_48KHZ)
+                stream->callback.EntryPara.codec_out_size = (stream->callback.EntryPara.codec_out_size - DSP_SIZE_FOR_CLK_SKEW) * 3 + DSP_SIZE_FOR_CLK_SKEW;
+#endif
+#if defined(AIR_HFP_DL_STREAM_RATE_FIX_TO_96KHZ)
+                stream->callback.EntryPara.codec_out_size = (stream->callback.EntryPara.codec_out_size - DSP_SIZE_FOR_CLK_SKEW) * 6 + DSP_SIZE_FOR_CLK_SKEW;
+#endif
+            }
+#endif
         } else {
             stream->callback.EntryPara.out_channel_num = 2;
 
@@ -2257,7 +2323,6 @@ VOID DSP_Callback_ParaSetup(DSP_STREAMING_PARA_PTR stream)
     else if (sink->param.audio.channel_num > 0) {
 
         stream->callback.EntryPara.out_channel_num            = sink->param.audio.channel_num;
-
         //setting by codec and application
         stream->callback.EntryPara.codec_out_size             = sink->param.audio.frame_size;//////
         stream->callback.EntryPara.codec_out_sampling_rate    = stream->callback.EntryPara.in_sampling_rate; /////
@@ -2340,6 +2405,15 @@ VOID DSP_Callback_ParaSetup(DSP_STREAMING_PARA_PTR stream)
 
         stream->callback.EntryPara.encoder_out_size = stream_feature_table[encoder_type].codec_output_size;
     }
+#ifdef AIR_BT_CODEC_BLE_ENABLED
+    if ((source->type == SOURCE_TYPE_N9BLE)&&(source->param.n9ble.context_type != BLE_CONTENT_TYPE_ULL_BLE)&&(source->param.n9ble.context_type != BLE_CONTENT_TYPE_WIRELESS_MIC)
+
+        &&(stream->callback.EntryPara.in_sampling_rate == FS_RATE_96K))
+    {
+        stream->callback.EntryPara.codec_out_size = 1920*4;
+        DSP_MW_LOG_I("[LC3PLUS_DEC] LE with 96K force codec out size  %d",1,stream->callback.EntryPara.codec_out_size);
+    }
+#endif
 
     if ((source->type >= SOURCE_TYPE_DSP_VIRTUAL_MIN)&&(source->type <= SOURCE_TYPE_DSP_VIRTUAL_MAX)) {
         if(source->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_OUT_IEM){
@@ -2356,6 +2430,7 @@ VOID DSP_Callback_ParaSetup(DSP_STREAMING_PARA_PTR stream)
                                            : stream->callback.Src.out_frame_size;
 
     /*///////////////////////////////////////////*/
+
     stream->callback.EntryPara.out_malloc_size = MAX(MAX(MAX(stream->callback.EntryPara.codec_out_size,
                                                              stream->callback.EntryPara.encoder_out_size),
                                                          stream->callback.Src.out_frame_size),
@@ -2446,7 +2521,9 @@ MAX(MAX(stream->callback.EntryPara.out_channel_num, 1), stream->callback.EntryPa
         AUDIO_ASSERT(chNum <= MIN(CALLBACK_INPUT_PORT_MAX_NUM, CALLBACK_OUTPUT_PORT_MAX_NUM));
         frameSize = MAX(stream->callback.EntryPara.in_malloc_size, stream->callback.EntryPara.out_malloc_size);
         stream->callback.EntryPara.in_malloc_size = stream->callback.EntryPara.out_malloc_size = frameSize;
-        stream->callback.EntryPara.out_channel_num = chNum;
+        if (sink->type != SINK_TYPE_VP_AUDIO) {
+            stream->callback.EntryPara.out_channel_num = chNum;
+        }
         mallocSize = frameSize * chNum;
         if ((frameSize & 3) && (chNum > 1)) {
             DSP_MW_LOG_I("[DSP] Unaligned Callback Frame Size:%d!!", 1, frameSize);
@@ -2711,6 +2788,12 @@ ATTR_TEXT_IN_IRAM_LEVEL_1 VOID DSP_Callback_DropFlushData(DSP_STREAMING_PARA_PTR
                    ) {
                     return;
                 }
+#ifdef MTK_BT_A2DP_ENABLE
+                if ((stream->sink->scenario_type == AUDIO_SCENARIO_TYPE_A2DP) && g_a2dp_hwsrc_ng_flag) {
+                    DSP_MW_LOG_I("[DSP CB][Debug] a2dp hwsrc ng, exit dav task.", 0);
+                    return;
+                }
+#endif
 #if AUDIO_DSP_STREAM_CALLBACK_PROCESS_DEBUG_ENABLE
                 DSP_MW_LOG_I("[DSP CB][Debug] scenario %d source data is enough %d, continue to process with while loop in task %d, then suspend!", 3,
                     stream->sink->scenario_type,
@@ -2895,7 +2978,7 @@ VOID DSP_Callback_StatusUpdate(DSP_STREAMING_PARA_PTR stream_ptr) {
 #endif /* AIR_AUDIO_HARDWARE_ENABLE */
                 DSP_MW_LOG_E("AFE wait play en trigger re-sync, scenario_type:%d", 1, stream_ptr->sink->scenario_type);
 #ifdef MTK_BT_A2DP_ENABLE
-                Au_DL_send_reinit_request(MSG2_DSP2CN4_REINIT_AFE_ABNORMAL);
+                Au_DL_send_reinit_request(MSG2_DSP2CN4_REINIT_AFE_ABNORMAL, FALSE);
 #endif /* MTK_BT_A2DP_ENABLE */
             }
             if ((stream_ptr->callback.Status == CALLBACK_SUSPEND) || (stream_ptr->callback.Status == CALLBACK_WAITEND)) {
@@ -3041,7 +3124,7 @@ ATTR_TEXT_IN_IRAM VOID DSP_Callback_Processing(DSP_STREAMING_PARA_PTR stream) {
                 }
 #endif
                 }
-                #if defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_WIRELESS_MIC_RX_ENABLE) || defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
+                #if defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_WIRELESS_MIC_RX_ENABLE) || defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_ENABLE)
                 stream->streamingStatus = STREAMING_ACTIVE;
                 #else
                 stream->streamingStatus = STREAMING_ACTIVE;
@@ -3072,6 +3155,16 @@ ATTR_TEXT_IN_IRAM VOID DSP_Callback_Processing(DSP_STREAMING_PARA_PTR stream) {
             (stream->sink->type != SINK_TYPE_AUDIO)) {
             handler.handlingStatus = CALLBACK_INIT;
         }
+
+#if defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
+        if (((stream->source->scenario_type == AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_USB_IN_0) ||
+                (stream->source->scenario_type == AUDIO_SCENARIO_TYPE_ULL_AUDIO_V2_DONGLE_DL_USB_IN_1)) &&
+                (stream->callback.EntryPara.in_size == 0)) {
+            /* Do hook process in SourceSize() and return 0, then bypass following stream process */
+            handler.handlingStatus = CALLBACK_SUSPEND;
+            stream->callback.Status = CALLBACK_SUSPEND;
+        }
+#endif
     } else if (handler.handlingStatus == CALLBACK_INIT) {
         stream->callback.EntryPara.in_size = 0;
     } else if (handler.handlingStatus == CALLBACK_ZEROPADDING) {
@@ -3097,9 +3190,9 @@ ATTR_TEXT_IN_IRAM VOID DSP_Callback_Processing(DSP_STREAMING_PARA_PTR stream) {
         case CALLBACK_MALLOC:
             handler.nextStatus = CALLBACK_INIT;
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-            if (stream->callback.EntryPara.out_channel_num == 4)
+            if (stream->callback.EntryPara.out_channel_num >= 4)
             {
-                DSP_MW_LOG_I("[MULTI] 4 channels case modify to 2", 0);
+                DSP_MW_LOG_I("[MULTI_STREAM] multi-channels case modify to 2", 0);
                 stream->callback.EntryPara.out_channel_num = 2;
             }
 #endif
@@ -3243,7 +3336,11 @@ ATTR_TEXT_IN_IRAM VOID DSP_Callback_Processing(DSP_STREAMING_PARA_PTR stream) {
                     // BLE Dongle line_in/i2s_in bypass
                     #if (defined AIR_BLE_AUDIO_DONGLE_LINE_IN_ENABLE) || (defined AIR_BLE_AUDIO_DONGLE_I2S_IN_ENABLE)
                         (stream->sink->scenario_type != AUDIO_SCENARIO_TYPE_BLE_AUDIO_DONGLE_MUSIC_LINE_IN) &&
-                        (stream->sink->scenario_type != AUDIO_SCENARIO_TYPE_BLE_AUDIO_DONGLE_MUSIC_I2S_IN)      &&
+                        (stream->sink->scenario_type != AUDIO_SCENARIO_TYPE_BLE_AUDIO_DONGLE_MUSIC_I2S_IN)  &&
+                    #endif
+                    // BLE Dongle USB Out
+                    #if (defined AIR_BLE_AUDIO_DONGLE_ENABLE)
+                        (stream->sink->scenario_type != AUDIO_SCENARIO_TYPE_BLE_AUDIO_DONGLE_VOICE_USB_OUT) &&
                     #endif
                     // Audio transmitter Case
                     #ifdef MTK_GAMING_MODE_HEADSET

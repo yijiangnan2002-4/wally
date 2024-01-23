@@ -68,7 +68,10 @@
 #include "app_rho_idle_activity.h"
 #include "bt_aws_mce_srv.h"
 #endif
-
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+#include "app_va_xiaoai_miui_fast_connect.h"
+#include "app_va_xiaoai_hfp_at_cmd.h"
+#endif
 #include "FreeRTOS.h"
 #include "ui_shell_manager.h"
 
@@ -85,6 +88,7 @@
 
 typedef enum {
     APP_BT_TAKEOVER_PRIORITY_NONE       = 0,
+    APP_BT_TAKEOVER_PRIORITY_LOWEST,
     APP_BT_TAKEOVER_PRIORITY_LOW,
     APP_BT_TAKEOVER_PRIORITY_MID,                       // Last played device
     APP_BT_TAKEOVER_PRIORITY_HIGH,                      // Music/Call streaming, VA or OTA ongoing
@@ -109,13 +113,20 @@ static bt_device_manager_link_record_item_t app_bt_takeover_disconnect_item = {0
 
 static app_bt_takeover_device_t             app_bt_takeover_last_device = {0};
 
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+#define APP_BT_TAKEOVER_RETRIGGER_TIME1                 (3 * 1000)
+#define APP_BT_TAKEOVER_RETRIGGER_TIME2                 (12 * 1000)
+
+static uint8_t                              app_bt_takeover_miui_sass_addr[BT_BD_ADDR_LEN] = {0};
+#endif
+
 
 
 /**================================================================================*/
 /**                                 Internal Function                              */
 /**================================================================================*/
 #ifdef AIR_BT_TAKEOVER_ENABLE
-static void app_bt_takeover_service_disconnect_edr(const uint8_t *addr)
+void app_bt_takeover_service_disconnect_edr(const uint8_t *addr)
 {
     bt_cm_connect_t disconn_param = {0};
     disconn_param.profile = BT_CM_PROFILE_SERVICE_MASK_ALL;
@@ -132,7 +143,7 @@ static void app_bt_takeover_service_set_last_device(const uint8_t *addr, uint8_t
     memcpy(app_bt_takeover_last_device.addr, addr, BT_BD_ADDR_LEN);
     app_bt_takeover_last_device.addr_type = addr_type;
     app_bt_takeover_last_device.is_edr = is_edr;
-#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
+#if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
     if (!is_edr) {
         bool is_ull2 = app_lea_conn_mgr_is_ull_link(addr);
         if (is_ull2) {
@@ -168,7 +179,6 @@ static void app_bt_takeover_service_print(app_bt_takeover_item_t *list, uint8_t 
                          list[i].priority, list[i].addr_type, list[i].is_dongle, list[i].is_ull2);
     }
 }
-
 #endif
 
 static bool app_bt_takeover_service_bt_sink_allow_cb(const bt_bd_addr_t remote_addr)
@@ -199,6 +209,54 @@ static bool app_bt_takeover_service_bt_sink_allow_cb(const bt_bd_addr_t remote_a
 
     return ret;
 }
+
+#ifdef AIR_3_LINK_MULTI_POINT_ENABLE
+static void app_bt_takeover_service_check_3edr_lea(void)
+{
+    const bt_device_manager_link_record_t *link_record = bt_device_manager_link_record_get_connected_link();
+    uint8_t conn_num = link_record->connected_num;
+    if (conn_num == 3) {
+        return;
+    }
+
+    bt_device_manager_link_record_item_t *link_record_list = (bt_device_manager_link_record_item_t *)&link_record->connected_device[0];
+    for (int i = 0; i < conn_num; i++) {
+        uint8_t link_type = link_record_list[i].link_type;
+        uint8_t addr_type = link_record_list[i].remote_bd_type;
+        uint8_t *addr = (uint8_t *)link_record_list[i].remote_addr;
+
+        if (link_type == BT_DEVICE_MANAGER_LINK_TYPE_LE) {
+            app_bt_takeover_service_set_last_device(addr, addr_type, FALSE);
+            app_bt_takeover_service_disconnect_edr(addr);
+
+            APPS_LOG_MSGID_I(LOG_TAG"[3_LINK] check_3edr_lea, [%d] LE addr=%08X%04X",
+                             3, i, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+            if (i == 0) {
+                app_bt_takeover_disconnect_item.remote_bd_type = addr_type;
+                memcpy(app_bt_takeover_disconnect_item.remote_addr, addr, BT_BD_ADDR_LEN);
+                app_bt_takeover_disconnect_item.link_type = link_type;
+
+                bt_device_manager_link_record_item_t *data = (bt_device_manager_link_record_item_t *)pvPortMalloc(sizeof(bt_device_manager_link_record_item_t));
+                if (data == NULL) {
+                    return;
+                }
+                memcpy(data, &app_bt_takeover_disconnect_item, sizeof(bt_device_manager_link_record_item_t));
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH,
+                                    EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_LE_TAKEOVER_ADDR,
+                                    data, sizeof(bt_device_manager_link_record_item_t), NULL, 0);
+#ifdef MTK_AWS_MCE_ENABLE
+                apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_LE_TAKEOVER_ADDR,
+                                               &link_record_list[i], sizeof(bt_device_manager_link_record_item_t));
+#endif
+            } else {
+                app_lea_service_disconnect(TRUE, APP_LE_AUDIO_DISCONNECT_MODE_DISCONNECT, addr,
+                                           BT_HCI_STATUS_REMOTE_TERMINATED_CONNECTION_DUE_TO_LOW_RESOURCES);
+            }
+            break;
+        }
+    }
+}
+#endif
 
 #ifdef MTK_AWS_MCE_ENABLE
 static bool app_bt_takeover_service_proc_aws_data(void *extra_data, size_t data_len)
@@ -244,7 +302,7 @@ static bool app_bt_takeover_service_proc_aws_data(void *extra_data, size_t data_
 /**================================================================================*/
 /**                                BT Callback Function                            */
 /**================================================================================*/
-void app_bt_takeover_service_run_takeover(void)
+void app_bt_takeover_service_run_takeover(bool force_for_sass, bool force_for_3_link)
 {
 #ifdef AIR_BT_TAKEOVER_ENABLE
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
@@ -297,6 +355,7 @@ void app_bt_takeover_service_run_takeover(void)
     app_bt_takeover_item_t link_list[APP_BT_TAKEOVER_MAX_ITEM_SIZE] = {0};
     app_bt_takeover_item_t *link_select = NULL;
     int disconnect_index = APP_BT_TAKEOVER_INVALID_INDEX;
+    uint8_t edr_link_num = 0;
 #if defined(AIR_BT_TAKEOVER_DONGLE_MUST_TAKEOVER) || defined(AIR_BT_TAKEOVER_EMP_OFF_ALWAYS_TAKEOVER)
     int first_index = conn_num - 1;
 #endif
@@ -311,11 +370,27 @@ void app_bt_takeover_service_run_takeover(void)
         link_list[i].addr_type = addr_type;
         memcpy(link_list[i].addr, addr, BT_BD_ADDR_LEN);
         link_list[i].is_dongle = is_dongle;
-#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
         link_list[i].is_ull2 = app_lea_conn_mgr_is_ull_link(addr);
 #endif
         link_list[i].priority = APP_BT_TAKEOVER_PRIORITY_LOW;
+
+        if (link_type == BT_DEVICE_MANAGER_LINK_TYPE_EDR) {
+            edr_link_num++;
+        }
     }
+
+#ifdef AIR_3_LINK_MULTI_POINT_ENABLE
+    if (!force_for_3_link && edr_link_num == APP_BT_CONN_MAX_CONN_NUM + 1) {
+        APPS_LOG_MSGID_E(LOG_TAG"[3_LINK] run_takeover, [%02X] ignore 3 LINK EDR case", 1, role);
+        app_bt_takeover_service_check_3edr_lea();
+        return;
+    }
+
+    if (edr_link_num == APP_BT_CONN_MAX_CONN_NUM + 1 + 1) {
+        APPS_LOG_MSGID_W(LOG_TAG"[3_LINK] run_takeover, [%02X] 3 LINK EDR takeover %d", 2, role, edr_link_num);
+    }
+#endif
 
     // Set new addr and priority
     uint8_t *new_addr = link_list[0].addr;
@@ -348,6 +423,31 @@ void app_bt_takeover_service_run_takeover(void)
             link_list[2].priority = APP_BT_TAKEOVER_PRIORITY_MID;
 #endif
         }
+    }
+#endif
+
+#ifdef AIR_3_LINK_MULTI_POINT_ENABLE
+    if (edr_link_num == APP_BT_CONN_MAX_CONN_NUM + 1 + 1) {
+        // 3 EDR + 1 takeover
+#ifdef AIR_BT_TAKEOVER_FIRST_DEVICE
+        link_list[1].priority = APP_BT_TAKEOVER_PRIORITY_MID;
+        link_list[2].priority = APP_BT_TAKEOVER_PRIORITY_LOW;
+        link_list[3].priority = APP_BT_TAKEOVER_PRIORITY_LOWEST;
+#else
+        link_list[1].priority = APP_BT_TAKEOVER_PRIORITY_LOWEST;
+        link_list[2].priority = APP_BT_TAKEOVER_PRIORITY_LOW;
+        link_list[3].priority = APP_BT_TAKEOVER_PRIORITY_MID;
+#endif
+    } else if (edr_link_num == APP_BT_CONN_MAX_CONN_NUM + 1 && force_for_3_link) {
+#ifdef AIR_BT_TAKEOVER_FIRST_DEVICE
+        link_list[0].priority = APP_BT_TAKEOVER_PRIORITY_MID;
+        link_list[1].priority = APP_BT_TAKEOVER_PRIORITY_LOW;
+        link_list[2].priority = APP_BT_TAKEOVER_PRIORITY_LOWEST;
+#else
+        link_list[0].priority = APP_BT_TAKEOVER_PRIORITY_LOWEST;
+        link_list[1].priority = APP_BT_TAKEOVER_PRIORITY_LOW;
+        link_list[2].priority = APP_BT_TAKEOVER_PRIORITY_MID;
+#endif
     }
 #endif
 
@@ -385,6 +485,26 @@ void app_bt_takeover_service_run_takeover(void)
     }
 
     app_bt_takeover_service_print(link_list, conn_num);
+
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+    // Note: check new addr whether MI phone to distinguish normal takeover or MIUI_SASS takeover (EMP OFF)
+    // If it is not MIUI Audio Switch case, continue to run normal takeover flow
+    // Audio Switch takeover must be two EDR
+    if (app_va_xiaoai_is_support_auto_audio_switch() && miui_fc_is_account_key_pairing()
+        && conn_num == APP_BT_CONN_MAX_CONN_NUM
+        && link_list[0].link_type == BT_DEVICE_MANAGER_LINK_TYPE_EDR
+        && link_list[1].link_type == BT_DEVICE_MANAGER_LINK_TYPE_EDR
+        && !force_for_sass) {
+        APPS_LOG_MSGID_E(LOG_TAG"[MIUI_SASS] takeover_callback, disallow takeover addr=%08X%04X",
+                         2, *((uint32_t *)(new_addr + 2)), *((uint16_t *)new_addr));
+        memcpy(app_bt_takeover_miui_sass_addr, new_addr, BT_BD_ADDR_LEN);
+        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_TRIGGER_TAKEOVER);
+        ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                            APPS_EVENTS_INTERACTION_TRIGGER_TAKEOVER, NULL, 0, NULL,
+                            APP_BT_TAKEOVER_RETRIGGER_TIME2);
+        return;
+    }
+#endif
 
 #ifdef AIR_BT_TAKEOVER_DONGLE_MUST_TAKEOVER
     if (link_list[0].is_dongle) {
@@ -427,8 +547,8 @@ void app_bt_takeover_service_run_takeover(void)
             disconnect_index = i;
             lowest_priority = link_list[i].priority;
         } else if (link_list[0].priority == APP_BT_TAKEOVER_PRIORITY_MID
-                && lowest_priority == APP_BT_TAKEOVER_PRIORITY_MID
-                && link_list[0].priority == link_list[i].priority) {
+                   && lowest_priority == APP_BT_TAKEOVER_PRIORITY_MID
+                   && link_list[0].priority == link_list[i].priority) {
             // New link and old link are MID priority, disconnect old
             disconnect_index = i;
             lowest_priority = link_list[i].priority;
@@ -452,6 +572,12 @@ exit:
 
     if (link_select->link_type == BT_DEVICE_MANAGER_LINK_TYPE_EDR) {
         app_bt_takeover_service_set_last_device(disc_addr, disc_addr_type, TRUE);
+#ifdef AIR_3_LINK_MULTI_POINT_ENABLE
+        if (force_for_3_link) {
+            APPS_LOG_MSGID_E(LOG_TAG" run_takeover, no disconnect EDR when force_for_3_link", 0);
+            return;
+        }
+#endif
         app_bt_takeover_service_disconnect_edr(disc_addr);
     } else if (link_select->link_type == BT_DEVICE_MANAGER_LINK_TYPE_LE) {
         app_bt_takeover_service_set_last_device(disc_addr, disc_addr_type, FALSE);
@@ -490,8 +616,33 @@ exit:
 
 void bt_device_manager_link_record_takeover_callback(const bt_device_manager_link_record_item_t *item)
 {
-    app_bt_takeover_service_run_takeover();
+    app_bt_takeover_service_run_takeover(FALSE, FALSE);
 }
+
+bt_bd_addr_t *bt_cm_get_disconnect_addr_before_rho(void)
+{
+    bool is_support_emp = app_bt_conn_mgr_is_support_emp();
+    uint8_t edr_num = app_bt_conn_mgr_get_edr_num();
+    if (is_support_emp && edr_num == APP_BT_CONN_MAX_CONN_NUM + 1) {
+        app_bt_takeover_service_run_takeover(FALSE, TRUE);
+        return (bt_bd_addr_t *)app_bt_takeover_last_device.addr;
+    }
+    return NULL;
+}
+
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+static void app_bt_takeover_sass_force_trigger(void)
+{
+    const bt_device_manager_link_record_t *link_record = bt_device_manager_link_record_get_connected_link();
+    uint8_t conn_num = link_record->connected_num;
+    bool is_support_emp = app_bt_conn_mgr_is_support_emp();
+
+    if (!is_support_emp && conn_num >= APP_BT_CONN_MAX_CONN_NUM) {
+        APPS_LOG_MSGID_W(LOG_TAG"[MIUI_SASS] sass_force_trigger, emp=%d conn_num=%d", 2, is_support_emp, conn_num);
+        app_bt_takeover_service_run_takeover(TRUE, FALSE);
+    }
+}
+#endif
 
 
 
@@ -539,8 +690,21 @@ bool app_bt_takeover_service_get_last_takeover_device(app_bt_takeover_device_t *
 
 void app_bt_takeover_service_disconnect_one(void)
 {
-    APPS_LOG_MSGID_W(LOG_TAG" disconnect_one", 0);
-    app_bt_takeover_service_run_takeover();
+    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    bool is_support_emp = app_bt_conn_mgr_is_support_emp();
+    uint8_t edr_num = app_bt_conn_mgr_get_edr_num();
+    APPS_LOG_MSGID_W(LOG_TAG" disconnect_one, [%02X] is_support_emp=%d edr_num=%d",
+                     3, role, is_support_emp, edr_num);
+
+#ifdef AIR_3_LINK_MULTI_POINT_ENABLE
+    if (is_support_emp && edr_num == APP_BT_CONN_MAX_CONN_NUM + 1) {
+        app_bt_takeover_service_run_takeover(FALSE, TRUE);
+    } else {
+        app_bt_takeover_service_run_takeover(FALSE, FALSE);
+    }
+#else
+    app_bt_takeover_service_run_takeover(FALSE, FALSE);
+#endif
 }
 
 uint8_t *app_bt_takeover_get_disconnect_le_addr()
@@ -562,6 +726,34 @@ void app_bt_takeover_clear_disconnect_le_addr()
     memset(&app_bt_takeover_disconnect_item, 0, sizeof(bt_device_manager_link_record_item_t));
 }
 
+void app_bt_takeover_clear_miui_sass_ctx(void)
+{
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+    APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] clear_miui_sass_ctx", 0);
+    memset(app_bt_takeover_miui_sass_addr, 0, BT_BD_ADDR_LEN);
+    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_TRIGGER_TAKEOVER);
+#endif
+}
+
+void app_bt_takeover_handle_pc_edr(void)
+{
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+    bt_device_manager_link_record_t *link_record = (bt_device_manager_link_record_t *)bt_device_manager_link_record_get_connected_link();
+    uint8_t conn_num = link_record->connected_num;
+    bool is_account_key_pairing = miui_fc_is_account_key_pairing();
+
+    if (app_va_xiaoai_is_support_auto_audio_switch() && is_account_key_pairing
+        && conn_num == 2 && link_record->connected_device[1].link_type == BT_DEVICE_MANAGER_LINK_TYPE_EDR) {
+        uint8_t *addr = link_record->connected_device[1].remote_addr;
+        APPS_LOG_MSGID_E(LOG_TAG"[MIUI_SASS] takeover_callback, PC disconnect addr=%08X%04X",
+                         2, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+
+        app_bt_takeover_clear_miui_sass_ctx();
+        app_bt_takeover_service_disconnect_edr((const uint8_t *)addr);
+    }
+#endif
+}
+
 void app_bt_takeover_proc_ui_shell_event(uint32_t event_group, uint32_t event_id, void *extra_data, size_t data_len)
 {
 #ifdef MTK_AWS_MCE_ENABLE
@@ -574,9 +766,38 @@ void app_bt_takeover_proc_ui_shell_event(uint32_t event_group, uint32_t event_id
         app_rho_result_t rho_result = (app_rho_result_t)extra_data;
         //APPS_LOG_MSGID_I(LOG_TAG" [new Agent] RHO done - %d", 1, rho_result);
         if (APP_RHO_RESULT_SUCCESS == rho_result) {
-            app_bt_takeover_service_run_takeover();
+            app_bt_takeover_service_run_takeover(FALSE, FALSE);
         }
     }
 #endif
+#endif
+
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+    if (event_group == EVENT_GROUP_UI_SHELL_APP_INTERACTION
+        && event_id == APPS_EVENTS_INTERACTION_TRIGGER_TAKEOVER) {
+        APPS_LOG_MSGID_W(LOG_TAG"[MIUI_SASS] trigger takeover", 0);
+        memset(app_bt_takeover_miui_sass_addr, 0, BT_BD_ADDR_LEN);
+        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_TRIGGER_TAKEOVER);
+        app_bt_takeover_sass_force_trigger();
+    }
+
+    if (event_group == EVENT_GROUP_UI_SHELL_BT_CONN_MANAGER
+        && event_id == BT_CM_EVENT_REMOTE_INFO_UPDATE) {
+        bt_cm_remote_info_update_ind_t *remote_update = (bt_cm_remote_info_update_ind_t *)extra_data;
+        if (remote_update != NULL) {
+            uint8_t *addr = (uint8_t *)remote_update->address;
+            bool hfp_connected = (!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP) & remote_update->pre_connected_service)
+                                  && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP) & remote_update->connected_service));
+            if (hfp_connected && memcmp(app_bt_takeover_miui_sass_addr, addr, BT_BD_ADDR_LEN) == 0) {
+                APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] new addr connected HFP addr=%08X%04X",
+                                 2, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+                memset(app_bt_takeover_miui_sass_addr, 0, BT_BD_ADDR_LEN);
+                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_TRIGGER_TAKEOVER);
+                ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                                    APPS_EVENTS_INTERACTION_TRIGGER_TAKEOVER, NULL, 0, NULL,
+                                    APP_BT_TAKEOVER_RETRIGGER_TIME1);
+            }
+        }
+    }
 #endif
 }

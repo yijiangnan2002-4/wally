@@ -1,7 +1,7 @@
 var searchData=
 [
   ['fast_5fspeed_5fkhz',['fast_speed_khz',['../structhal__i3c__master__config__t.html#ae6db45f29353cfee0b2dd9ee378546a7',1,'hal_i3c_master_config_t']]],
-  ['feature',['feature',['../structbt__hfp__hold__feature__ind__t.html#abed94910d03bc54ee63fc2a8cb10cd21',1,'bt_hfp_hold_feature_ind_t']]],
+  ['feature',['feature',['../structbt__hfp__hold__feature__ind__t.html#abed94910d03bc54ee63fc2a8cb10cd21',1,'bt_hfp_hold_feature_ind_t::feature()'],['../structbt__source__srv__hfp__feature__config__t.html#ad4e880c5288f3b95a048971a6540c293',1,'bt_source_srv_hfp_feature_config_t::feature()']]],
   ['feature_5fbit_5fmask',['feature_bit_mask',['../structbt__avrcp__media__player__item__t.html#ae125fdb477c437cdc692915995eeeddf',1,'bt_avrcp_media_player_item_t']]],
   ['features',['features',['../structbt__sink__srv__hf__custom__command__xapl__params__t.html#ac0d91742246851a46e460ba4b0c5e87d',1,'bt_sink_srv_hf_custom_command_xapl_params_t::features()'],['../structbt__sink__feature__config__t.html#a10f5b221ff58b4f2b91b0144edb7d6d6',1,'bt_sink_feature_config_t::features()']]],
   ['fill_5fsilence_5fframe',['fill_silence_frame',['../structmp3__media__handle__s.html#aed7702d9eead5d0abb5c85dd2c4e8617',1,'mp3_media_handle_s']]],

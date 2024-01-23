@@ -572,7 +572,7 @@ void DSP_Set_ASRC_Configuration_Parameters(VOID *para)
 
 
     memset(&src_configuration, 0, sizeof(src_configuration));
-
+    src_configuration.hwsrc_type = stream_ptr->sink->param.audio.hwsrc_type;
     src_configuration.id = AFE_MEM_ASRC_1;
     src_configuration.input_buffer.addr = hal_memview_dsp0_to_infrasys((uint32_t)src_feature_ptr->inSRC_mem_ptr);
     src_configuration.input_buffer.offset = 0;
@@ -622,6 +622,10 @@ BOOL DSP_Callback_ASRC_Handle(VOID *para, VOID *buf_ptr1, VOID *buf_ptr2, U32 in
     U32 input_rate = DSP_FsChange2SRCInRate((stream_samplerate_t)(U8)stream_function_get_samplingrate(para));
     U32 output_rate = DSP_FsChange2SRCOutRate((stream_samplerate_t)(U8)stream_ptr->callback.Src.out_sampling_rate);
     U32 irq_count = hwsrc_port_get_semphr_count();
+    afe_src_configuration_t src_configuration;
+    memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
+    src_configuration.id = AFE_MEM_ASRC_1;
+    src_configuration.hwsrc_type = stream_ptr->sink->param.audio.hwsrc_type;
     if(input_rate == output_rate){
         input_expect_data = stream_ptr->callback.Src.out_frame_size * nch;
     }else{
@@ -825,7 +829,7 @@ BOOL DSP_Callback_ASRC_Handle(VOID *para, VOID *buf_ptr1, VOID *buf_ptr2, U32 in
         irq_status = AFE_GET_REG(ASM_IFR)&ASM_IFR_MASK;
         irq_en_mask = (AFE_GET_REG(ASM_IER))&ASM_IFR_MASK;
         AFE_SET_REG(ASM_IFR, irq_status, irq_en_mask);
-        hal_src_set_irq_enable(0, true);
+        hal_src_set_irq_enable(&src_configuration, true);
 
     }
     else
@@ -965,9 +969,6 @@ bool stream_function_src_initialize(void *para)
     U32 ch_num;
     U8 *mem_ptr;
     U16 srcInFrameSize;
-#ifdef MTK_HWSRC_IN_STREAM
-    gHwsrc_port_semphr = NULL;
-#endif
     src_feature_ptr = stream_function_get_working_buffer(para);
     stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
     ch_num = HWSRC_DEFAULT_CHANNEL;
@@ -1021,6 +1022,7 @@ bool stream_function_src_initialize(void *para)
     if ((AFE_GET_REG(ASM_GEN_CONF + AFE_MEM_ASRC_1)&ASM_GEN_CONF_ASRC_EN_MASK)) {
 
         afe_src_configuration_t src_configuration;
+        memset(&src_configuration, 0, sizeof(afe_src_configuration_t));
         src_configuration.id = AFE_MEM_ASRC_1;
         hal_audio_src_set_start(&src_configuration, HAL_AUDIO_MEMORY_SYNC_NONE, HAL_AUDIO_CONTROL_OFF);
         hal_audio_src_configuration(&src_configuration, HAL_AUDIO_CONTROL_OFF);
@@ -1766,7 +1768,11 @@ bool stream_function_gain_initialize(void *para)
     sw_gain_config_t default_config;
 
 #ifdef AIR_BT_CODEC_BLE_ENABLED
+#ifdef AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE
+    if((stream_ptr->sink->type == SINK_TYPE_N9SCO) || ((stream_ptr->sink->type == SINK_TYPE_N9BLE) && (stream_ptr->sink->param.n9ble.codec_type != BT_BLE_CODEC_LC3)))
+#else
     if((stream_ptr->sink->type == SINK_TYPE_N9SCO) || (stream_ptr->sink->type == SINK_TYPE_N9BLE))
+#endif
 #else
     if (stream_ptr->sink->type == SINK_TYPE_N9SCO)
 #endif
@@ -1838,10 +1844,14 @@ bool stream_function_gain_process(void *para)
     }
 
 #ifdef AIR_SOFTWARE_GAIN_ENABLE
-    bool is_mute;
+    bool is_mute = 0;
 
 #ifdef AIR_BT_CODEC_BLE_ENABLED
+#ifdef AIR_BLE_UL_SW_GAIN_CONTROL_ENABLE
+    if((stream_ptr->sink->type == SINK_TYPE_N9SCO) || ((stream_ptr->sink->type == SINK_TYPE_N9BLE) && (stream_ptr->sink->param.n9ble.codec_type != BT_BLE_CODEC_LC3)))
+#else
     if((stream_ptr->sink->type == SINK_TYPE_N9SCO) || (stream_ptr->sink->type == SINK_TYPE_N9BLE))
+#endif
 #else
     if (stream_ptr->sink->type == SINK_TYPE_N9SCO)
 #endif
@@ -1881,9 +1891,24 @@ bool stream_function_gain_process(void *para)
     }
 #endif
 
+#ifdef AIR_DCHS_MODE_ENABLE
+#ifdef AIR_SOFTWARE_GAIN_ENABLE
+    if (stream_ptr->sink->type == SINK_TYPE_DSP_VIRTUAL){
+        is_mute = g_call_mute_flag;
+    }
+#endif
+#endif
     for (i = 1 ; i <= channel_number ; i++) {
-
-        digital_gain_times_of_db = (int32_t)((S16)afe_audio_get_input_digital_gain(mic_map_table[i - 1]) / 100);
+#ifdef AIR_DCHS_MODE_ENABLE
+#ifdef AIR_SOFTWARE_GAIN_ENABLE
+        if (is_mute == true) {
+            digital_gain_times_of_db = (SW_GAIN_MUTE_VALUE / 100);
+        }else
+#endif
+#endif
+        {
+            digital_gain_times_of_db = (int32_t)((S16)afe_audio_get_input_digital_gain(mic_map_table[i - 1]) / 100);
+        }
 #ifdef AIR_HFP_DNN_PATH_ENABLE
         if (i == 1) {
             gain_change_detect(mic_map_table[i - 1]);
@@ -2214,3 +2239,249 @@ bool stream_copy_to_virtual_sourc_process(void *para)
     return 0;
 }
 
+#ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+
+sw_gain_port_t *g_DL_SW_gain_port = NULL;
+sw_gain_port_t *g_DL_SW_gain_port_2 = NULL;
+sw_gain_port_t *g_DL_SW_gain_port_3 = NULL;
+static uint32_t g_DL_SW_main_gain = 0;
+static uint32_t g_DL_SW_main_gain_2 = 0;
+static uint32_t g_DL_SW_main_gain_3 = 0;
+uint32_t g_DL_SW_main_gain_temp = 0;
+uint32_t g_DL_SW_main_gain_temp_2 = 0;
+uint32_t g_DL_SW_main_gain_temp_3 = 0;
+static uint32_t g_LR_balance_gain_l = 0;
+static uint32_t g_LR_balance_gain_r = 0;
+uint32_t g_DL_SW_gain_l_temp = 0;
+uint32_t g_DL_SW_gain_r_temp = 0;
+
+dl_sw_gain_default_para_t g_DL_SW_gain_default_para;
+
+static void DL_SW_update_gain(void)
+{
+    if(g_LR_balance_gain_l != g_DL_SW_gain_l_temp){
+        if ((g_DL_SW_gain_port != NULL) && (Sink_blks[SINK_TYPE_AUDIO]!= NULL)) {
+            DSP_MW_LOG_I("[DL_SW_GAIN] L channel, change from %d to %d, gain1 L %ddB", 3, g_LR_balance_gain_l, g_DL_SW_gain_l_temp,(int32_t)g_DL_SW_main_gain + (int32_t)g_DL_SW_gain_l_temp);
+            stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port, 1, (int32_t)g_DL_SW_main_gain + (int32_t)g_DL_SW_gain_l_temp);
+        }
+        if ((g_DL_SW_gain_port_2 != NULL) && (Sink_blks[SINK_TYPE_VP_AUDIO]!= NULL)) {
+            DSP_MW_LOG_I("[DL_SW_GAIN] L channel, change from %d to %d, gain2 L %ddB", 3, g_LR_balance_gain_l, g_DL_SW_gain_l_temp,(int32_t)g_DL_SW_main_gain_2 + (int32_t)g_DL_SW_gain_l_temp);
+            stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port_2, 1, (int32_t)g_DL_SW_main_gain_2 + (int32_t)g_DL_SW_gain_l_temp);
+        }
+        if ((g_DL_SW_gain_port_3 != NULL) && (Sink_blks[SINK_TYPE_AUDIO_DL3]!= NULL)) {
+            DSP_MW_LOG_I("[DL_SW_GAIN] L channel, change from %d to %d, gain3 L %ddB", 3, g_LR_balance_gain_l, g_DL_SW_gain_l_temp,(int32_t)g_DL_SW_main_gain_3 + (int32_t)g_DL_SW_gain_l_temp);
+            stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port_3, 1, (int32_t)g_DL_SW_main_gain_3 + (int32_t)g_DL_SW_gain_l_temp);
+        }
+        g_LR_balance_gain_l = g_DL_SW_gain_l_temp;
+    }
+    if(g_LR_balance_gain_r != g_DL_SW_gain_r_temp){
+        if ((g_DL_SW_gain_port != NULL) && (Sink_blks[SINK_TYPE_AUDIO]!= NULL)) {
+            DSP_MW_LOG_I("[DL_SW_GAIN] R channel, change from %d to %d, gain1 R %ddB", 3, g_LR_balance_gain_r, g_DL_SW_gain_r_temp,(int32_t)g_DL_SW_main_gain + (int32_t)g_DL_SW_gain_r_temp);
+            stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port, 2, (int32_t)g_DL_SW_main_gain + (int32_t)g_DL_SW_gain_r_temp);
+        }
+        if ((g_DL_SW_gain_port_2 != NULL) && (Sink_blks[SINK_TYPE_VP_AUDIO]!= NULL)) {
+            DSP_MW_LOG_I("[DL_SW_GAIN] R channel, change from %d to %d, gain2 R %ddB", 3, g_LR_balance_gain_r, g_DL_SW_gain_r_temp,(int32_t)g_DL_SW_main_gain_2 + (int32_t)g_DL_SW_gain_r_temp);
+            stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port_2, 2, (int32_t)g_DL_SW_main_gain_2 + (int32_t)g_DL_SW_gain_r_temp);
+        }
+        if ((g_DL_SW_gain_port_3 != NULL) && (Sink_blks[SINK_TYPE_AUDIO_DL3]!= NULL)) {
+            DSP_MW_LOG_I("[DL_SW_GAIN] R channel, change from %d to %d, gain3 R %ddB", 3, g_LR_balance_gain_r, g_DL_SW_gain_r_temp,(int32_t)g_DL_SW_main_gain_3 + (int32_t)g_DL_SW_gain_r_temp);
+            stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port_3, 2, (int32_t)g_DL_SW_main_gain_3 + (int32_t)g_DL_SW_gain_r_temp);
+        }
+        g_LR_balance_gain_r = g_DL_SW_gain_r_temp;
+    }
+
+    if((g_DL_SW_main_gain != g_DL_SW_main_gain_temp) && (g_DL_SW_gain_port != NULL)){
+        DSP_MW_LOG_I("[DL_SW_GAIN] main gain, change from %d to %d, L %ddB, R %ddB", 4, g_DL_SW_main_gain, g_DL_SW_main_gain_temp, (int32_t)g_DL_SW_main_gain_temp + (int32_t)g_LR_balance_gain_l, (int32_t)g_DL_SW_main_gain_temp + (int32_t)g_LR_balance_gain_r);
+        g_DL_SW_main_gain = g_DL_SW_main_gain_temp;
+        stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port, 1, (int32_t)g_DL_SW_main_gain + (int32_t)g_LR_balance_gain_l);
+        stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port, 2, (int32_t)g_DL_SW_main_gain + (int32_t)g_LR_balance_gain_r);
+    }
+    if((g_DL_SW_main_gain_2 != g_DL_SW_main_gain_temp_2) && (g_DL_SW_gain_port_2 != NULL)){
+        DSP_MW_LOG_I("[DL_SW_GAIN] main gain 2, change from %d to %d, L %ddB, R %ddB", 4, g_DL_SW_main_gain_2, g_DL_SW_main_gain_temp_2, (int32_t)g_DL_SW_main_gain_temp_2 + (int32_t)g_LR_balance_gain_l, (int32_t)g_DL_SW_main_gain_temp_2 + (int32_t)g_LR_balance_gain_r);
+        g_DL_SW_main_gain_2 = g_DL_SW_main_gain_temp_2;
+        stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port_2, 1, (int32_t)g_DL_SW_main_gain_2 + (int32_t)g_LR_balance_gain_l);
+        if(g_DL_SW_gain_port_2->total_channels > 1){
+            stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port_2, 2, (int32_t)g_DL_SW_main_gain_2 + (int32_t)g_LR_balance_gain_r);
+        }
+    }
+    if((g_DL_SW_main_gain_3 != g_DL_SW_main_gain_temp_3) && (g_DL_SW_gain_port_3 != NULL)){
+        DSP_MW_LOG_I("[DL_SW_GAIN] main gain 3, change from %d to %d, L %ddB, R %ddB", 4, g_DL_SW_main_gain, g_DL_SW_main_gain_temp_3, (int32_t)g_DL_SW_main_gain_temp_3 + (int32_t)g_LR_balance_gain_l, (int32_t)g_DL_SW_main_gain_temp_3 + (int32_t)g_LR_balance_gain_r);
+        g_DL_SW_main_gain_3 = g_DL_SW_main_gain_temp_3;
+        stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port_3, 1, (int32_t)g_DL_SW_main_gain_3 + (int32_t)g_LR_balance_gain_l);
+        stream_function_sw_gain_configure_gain_target(g_DL_SW_gain_port_3, 2, (int32_t)g_DL_SW_main_gain_3 + (int32_t)g_LR_balance_gain_r);
+    }
+}
+
+bool stream_function_DL_SW_initialize(void *para)
+{
+#ifdef AIR_AUDIO_HARDWARE_ENABLE
+    DSP_STREAMING_PARA_PTR stream_ptr;
+    U8* mic_map_table;
+    uint32_t channel_number;
+    U8 mic_mapping_table_base;
+    mic_mapping_table_base = 0;
+    stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
+    mic_map_table = stream_function_get_working_buffer(para);
+    channel_number = stream_function_get_channel_number(para);
+
+    if(((g_DL_SW_gain_default_para.enable_vp == false) && ((stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_VP) || (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_VP_PRE) || (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_VP_DUMMY_PRE) || (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_VP_DUMMY)))
+        || ((g_DL_SW_gain_default_para.enable_a2dp == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_A2DP))
+        || ((g_DL_SW_gain_default_para.enable_hfp == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_HFP_DL))
+        || ((g_DL_SW_gain_default_para.enable_ble_music == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_MUSIC_DL))
+        || ((g_DL_SW_gain_default_para.enable_ble_call == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_DL))
+        || ((g_DL_SW_gain_default_para.enable_ull_music == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_MUSIC_DL))
+        || ((g_DL_SW_gain_default_para.enable_ull_call == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_MUSIC_DL))
+        || ((g_DL_SW_gain_default_para.enable_line_in == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_IN))
+        || ((g_DL_SW_gain_default_para.enable_usb_in == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_0))
+        || ((g_DL_SW_gain_default_para.enable_usb_in == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_1))
+    ){
+        return 0;
+    }
+#ifdef AIR_SOFTWARE_GAIN_ENABLE
+    // for HW gain 1
+    int32_t init_digital_gain;
+    sw_gain_config_t default_config;
+
+    sw_gain_port_t **sw_gain_port = NULL;
+    uint32_t *main_gain = 0;
+
+    if(stream_ptr->sink->type == SINK_TYPE_VP_AUDIO){
+        // for HW gain 2, vp, no need reinit port
+        sw_gain_port = &g_DL_SW_gain_port_2;
+        main_gain = &g_DL_SW_main_gain_2;
+    } else if(stream_ptr->sink->type >= SINK_TYPE_AUDIO_DL3){
+        // for HW gain 3, line in
+        sw_gain_port = &g_DL_SW_gain_port_3;
+        main_gain = &g_DL_SW_main_gain_3;
+        channel_number = 2;//stream_function_get_channel_number(para);
+    } else if(stream_ptr->sink->type >= SINK_TYPE_AUDIO) {
+        // for HW gain 1
+        sw_gain_port = &g_DL_SW_gain_port;
+        main_gain = &g_DL_SW_main_gain;
+        channel_number = 2;//stream_function_get_channel_number(para);
+    }
+
+    // if ((*sw_gain_port != NULL) && ((*sw_gain_port)->owner != stream_ptr->sink)) {
+    //     DSP_MW_LOG_I("[DL_SW_GAIN] Port 0x%x is occupied, deinit first", 1, *sw_gain_port);
+    //     stream_function_sw_gain_deinit(*sw_gain_port);
+    // }
+
+    init_digital_gain = -9600;
+    default_config.resolution = stream_function_get_output_resolution(para);//RESOLUTION_16BIT;
+    default_config.current_gain = init_digital_gain;
+    default_config.target_gain = init_digital_gain;
+    default_config.up_step = 25;
+    default_config.up_samples_per_step = 4;
+    default_config.down_step = -25;
+    default_config.down_samples_per_step = 4;
+    if((*sw_gain_port == NULL)||((*sw_gain_port != NULL) && ((SINK)((*sw_gain_port)->owner))->type != stream_ptr->sink->type)){
+        *sw_gain_port = stream_function_sw_gain_get_port(stream_ptr->sink);
+    }
+    stream_function_sw_gain_init(*sw_gain_port, channel_number, &default_config);
+    stream_function_sw_gain_initialize(para);
+    DL_SW_update_gain();
+    stream_function_sw_gain_configure_gain_target(*sw_gain_port, 1, (int32_t)*main_gain + (int32_t)g_LR_balance_gain_l);
+    stream_function_sw_gain_configure_gain_target(*sw_gain_port, 2, (int32_t)*main_gain + (int32_t)g_LR_balance_gain_r);
+    DSP_MW_LOG_I("[DL_SW_GAIN] g_port, 0x%x, 0x%x, 0x%x, ", 3, (uint32_t)g_DL_SW_gain_port,  (uint32_t)g_DL_SW_gain_port_2,  (uint32_t)g_DL_SW_gain_port_3);
+    DSP_MW_LOG_I("[DL_SW_GAIN] Port 0x%x init done for type %d, gain_l = %d, gain_r = %d", 4, *sw_gain_port, stream_ptr->sink->type, (int32_t)*main_gain + (int32_t)g_LR_balance_gain_l, (int32_t)*main_gain + (int32_t)g_LR_balance_gain_r);
+
+#endif
+
+#else
+    UNUSED(para);
+#endif /* AIR_AUDIO_HARDWARE_ENABLE */
+    return 0;
+}
+
+
+bool stream_function_DL_SW_process(void *para)
+{
+    DSP_STREAMING_PARA_PTR stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
+    if(((g_DL_SW_gain_default_para.enable_vp == false) && ((stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_VP) || (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_VP_PRE) || (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_VP_DUMMY_PRE) || (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_VP_DUMMY)))
+        || ((g_DL_SW_gain_default_para.enable_a2dp == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_A2DP))
+        || ((g_DL_SW_gain_default_para.enable_hfp == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_HFP_DL))
+        || ((g_DL_SW_gain_default_para.enable_ble_music == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_MUSIC_DL))
+        || ((g_DL_SW_gain_default_para.enable_ble_call == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_DL))
+        || ((g_DL_SW_gain_default_para.enable_ull_music == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_MUSIC_DL))
+        || ((g_DL_SW_gain_default_para.enable_ull_call == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_BLE_MUSIC_DL))
+        || ((g_DL_SW_gain_default_para.enable_line_in == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_IN))
+        || ((g_DL_SW_gain_default_para.enable_usb_in == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_0))
+        || ((g_DL_SW_gain_default_para.enable_usb_in == false) && (stream_ptr->sink->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_1))
+    ){
+        return 0;
+    }
+    DL_SW_update_gain();
+    sw_gain_port_t *sw_gain_port = stream_function_sw_gain_get_port(stream_ptr->sink);
+    if(sw_gain_port->config->resolution != stream_function_get_output_resolution(para)) {
+        stream_function_sw_gain_configure_resolution(sw_gain_port, 1, stream_function_get_output_resolution(para));
+        stream_function_sw_gain_configure_resolution(sw_gain_port, 2, stream_function_get_output_resolution(para));
+    }
+
+    return stream_function_sw_gain_process(para);
+}
+
+void DL_SW_gain_setting(hal_ccni_message_t msg, hal_ccni_message_t *ack)
+{
+    UNUSED(ack);
+
+    if((int16_t)msg.ccni_message[0] == DL_SW_GAIN_SET_LR_BALANCE_OFFSET){
+        g_DL_SW_gain_r_temp = (int16_t)msg.ccni_message[1];
+        g_DL_SW_gain_l_temp = (int16_t)(msg.ccni_message[1] >> 16);
+        DSP_MW_LOG_I("[DL_SW_GAIN] new setting L = %d R = %d", 2, g_DL_SW_gain_l_temp, g_DL_SW_gain_r_temp);
+    } else if((int16_t)msg.ccni_message[0] == DL_SW_GAIN_SET_MAINGAIN_1){
+        g_DL_SW_main_gain_temp = (int32_t)msg.ccni_message[1];
+        DSP_MW_LOG_I("[DL_SW_GAIN] new setting main gain = %d", 1, g_DL_SW_main_gain_temp);
+    } else if((int16_t)msg.ccni_message[0] == DL_SW_GAIN_SET_MAINGAIN_2){
+        g_DL_SW_main_gain_temp_2 = (int32_t)msg.ccni_message[1];
+        DSP_MW_LOG_I("[DL_SW_GAIN] new setting main 2 gain = %d", 1, g_DL_SW_main_gain_temp_2);
+    } else if((int16_t)msg.ccni_message[0] == DL_SW_GAIN_SET_MAINGAIN_3){
+        g_DL_SW_main_gain_temp_3 = (int32_t)msg.ccni_message[1];
+        DSP_MW_LOG_I("[DL_SW_GAIN] new setting main 3 gain = %d", 1, g_DL_SW_main_gain_temp_3);
+    } else if(((int16_t)msg.ccni_message[0] >= DL_SW_GAIN_SET_MAINGAIN_1_FADE_IN_PARAM) && ((int16_t)msg.ccni_message[0] <= DL_SW_GAIN_SET_MAINGAIN_3_FADE_OUT_PARAM)) {
+        int32_t new_step, new_samples_per_step;
+        new_step = (int16_t)(msg.ccni_message[1] >> 16);
+        new_samples_per_step = (int16_t)msg.ccni_message[1];
+        sw_gain_port_t *port;
+        uint8_t in_out = 0;
+        if((int16_t)msg.ccni_message[0] == DL_SW_GAIN_SET_MAINGAIN_1_FADE_IN_PARAM){
+            in_out = 0;
+            port = g_DL_SW_gain_port;
+        } else if((int16_t)msg.ccni_message[0] == DL_SW_GAIN_SET_MAINGAIN_1_FADE_OUT_PARAM){
+            in_out = 1;
+            port = g_DL_SW_gain_port;
+        } else if((int16_t)msg.ccni_message[0] == DL_SW_GAIN_SET_MAINGAIN_2_FADE_IN_PARAM){
+            in_out = 0;
+            port = g_DL_SW_gain_port_2;
+        } else if((int16_t)msg.ccni_message[0] == DL_SW_GAIN_SET_MAINGAIN_2_FADE_OUT_PARAM){
+            in_out = 1;
+            port = g_DL_SW_gain_port_2;
+        } else if((int16_t)msg.ccni_message[0] == DL_SW_GAIN_SET_MAINGAIN_3_FADE_IN_PARAM){
+            in_out = 0;
+            port = g_DL_SW_gain_port_3;
+        } else if((int16_t)msg.ccni_message[0] == DL_SW_GAIN_SET_MAINGAIN_3_FADE_OUT_PARAM){
+            in_out = 1;
+            port = g_DL_SW_gain_port_3;
+        } else {
+            AUDIO_ASSERT(0);
+        }
+        if(in_out == 0){
+            for(uint8_t i=0; i<port->total_channels; i++){
+                stream_function_sw_gain_configure_gain_up(port, i, new_step, new_samples_per_step);
+            }
+        } else {
+            new_step = 0 - new_step;
+            for(uint8_t i=0; i<port->total_channels; i++){
+                stream_function_sw_gain_configure_gain_down(port, i, new_step, new_samples_per_step);
+            }
+        }
+    }
+}
+
+void DL_SW_get_default_para(hal_ccni_message_t msg, hal_ccni_message_t *ack)
+{
+    UNUSED(ack);
+    if (msg.ccni_message[1] != 0 ){
+        memcpy(&g_DL_SW_gain_default_para, (void *)hal_memview_cm4_to_dsp0(msg.ccni_message[1]),sizeof(dl_sw_gain_default_para_t));
+    }
+}
+#endif /*AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE*/

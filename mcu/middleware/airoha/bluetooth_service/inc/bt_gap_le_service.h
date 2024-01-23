@@ -161,15 +161,20 @@ extern "C" {
 #define BT_GAP_LE_SRV_ERROR_UNSUPPORTED                (BT_GAP_LE_SRV_ERROR_BASE + 0x3)        /**< Not Support. */
 #define BT_GAP_LE_SRV_ERROR_INVALID_INSTANCE           (BT_GAP_LE_SRV_ERROR_BASE + 0x4)        /**< The input instance is invalid. */
 #define BT_GAP_LE_SRV_ERROR_INVALID_PARAM              (BT_GAP_LE_SRV_ERROR_BASE + 0x5)        /**< Some input parameter is invalid. */
-#define BT_GAP_LE_SRV_ERROR_INVALID_LENTH              (BT_GAP_LE_SRV_ERROR_BASE + 0x6)        /**< Data length is invalid. */
+#define BT_GAP_LE_SRV_ERROR_INVALID_LENGTH             (BT_GAP_LE_SRV_ERROR_BASE + 0x6)        /**< Data length is invalid. */
 #define BT_GAP_LE_SRV_ERROR_INVALID_STATE              (BT_GAP_LE_SRV_ERROR_BASE + 0x7)        /**< State is invalid. */
 #define BT_GAP_LE_SRV_ERROR_NOT_FOUND                  (BT_GAP_LE_SRV_ERROR_BASE + 0x8)        /**< General not found. */
 #define BT_GAP_LE_SRV_ERROR_NO_MEMORY                  (BT_GAP_LE_SRV_ERROR_BASE + 0x9)        /**< General out-of-memory. */
 #define BT_GAP_LE_SRV_ERROR_INSTANCE_USED              (BT_GAP_LE_SRV_ERROR_BASE + 0xA)        /**< ADV instance has been used. */
 #define BT_GAP_LE_SRV_ERROR_PENDING                    (BT_GAP_LE_SRV_ERROR_BASE + 0xB)        /**< General Pending. */
 #define BT_GAP_LE_SRV_ERROR_CONN_LIMIT_EXCEEDED        (BT_GAP_LE_SRV_ERROR_BASE + 0xC)        /**< The connection limit exceeded,cannot enable connectable ADV. */
-
 typedef int32_t bt_gap_le_srv_error_t;
+
+/**
+ * @deprecated Use #BT_GAP_LE_SRV_ERROR_INVALID_LENGTH instead.
+ */
+#define BT_GAP_LE_SRV_ERROR_INVALID_LENTH              (BT_GAP_LE_SRV_ERROR_INVALID_LENGTH)    /**< This event will be phased out and removed in the next SDK major version. Do not use. */
+
 /**
  * @brief Bluetooth GAP LE service advertising interval value.
  */
@@ -712,7 +717,7 @@ bt_gap_le_srv_error_t bt_gap_le_srv_get_link_attribute_register(bt_gap_le_srv_ge
 /**
  * @brief   This function is used to get new connection handle by old conenction handle.
  * @param[in] old_handle      the handle of the LE connection.
- * @return    conenction handle.
+ * @return    connection handle.
  */
 bt_handle_t bt_gap_le_srv_get_handle_by_old_handle(bt_handle_t old_handle);
 

@@ -140,6 +140,8 @@ typedef struct {
     uint32_t dl_src_clock_offset;
     uint32_t dl_src_phase_offset;
     uint32_t valid;
+    uint16_t init_capid;
+    uint16_t curr_capid;
 } dchs_pka_latch_info_t;
 
 enum dchs_role_t {
@@ -147,6 +149,8 @@ enum dchs_role_t {
     DCHS_ROLE_MASTER,
     DCHS_ROLE_SLAVE,
 };
+
+typedef int (*capid_calc_callback_t)(uint32_t *capid_addr, uint32_t init_capid, int32_t curent_clk_offset_us, int32_t target_clk_offset_us);
 
 //<<<=====================================================================>>>//
 //<<                            Data Type                                 >>//

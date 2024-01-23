@@ -40,6 +40,7 @@
 #include "audio_log.h"
 #include "audio_anc_llf_control_internal.h"
 #include "bt_aws_mce_report.h"
+#include "bt_sink_srv_ami.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,11 +80,30 @@ typedef enum {
     LLF_DATA_TYPE_NUM,
 } llf_data_type_t;
 
+typedef enum {
+    LLF_AWS_MCE_EVENT_SYNC_CTRL = (0x1 << 31),
+} llf_aws_mce_event_t;
+
+#ifdef AIR_BT_AUDIO_SYNC_ENABLE
+typedef enum {
+    LLF_SYNC_ACTION_DL_MUTE             = 0,
+    LLF_SYNC_ACTION_DL_UNMUTE,
+    LLF_SYNC_ACTION_NUM,
+    LLF_SYNC_ACTION_MAX                 = 0xFFFFFFFF,
+} llf_sync_action_type_t;
 
 
+typedef struct {
+    llf_sync_action_type_t action;
+    U32 sync_time;
+    bool is_sync;
+} llf_sync_capability_t;
 
-
-
+typedef struct {
+    bt_sink_srv_am_audio_sync_capability_t sync_cap;
+    bt_clock_t target_bt_clk;
+} llf_sync_aws_capability_t;
+#endif
 
 
 typedef llf_status_t (*llf_control_open_entry)(void);
@@ -118,7 +138,9 @@ llf_status_t llf_control_register_entry(llf_type_t type, llf_control_entry_t *en
 U32 llf_control_get_device_msk_by_data_list(U32 data_list[]);
 void llf_control_query_data_wait(void);
 llf_status_t llf_control_query_data_ready(void);
-
+#ifdef AIR_BT_AUDIO_SYNC_ENABLE
+void llf_control_sync_control(llf_sync_capability_t *llf_sync_cap);
+#endif
 
 #ifdef __cplusplus
 }

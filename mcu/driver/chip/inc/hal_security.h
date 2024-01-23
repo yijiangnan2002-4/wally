@@ -134,7 +134,25 @@ hal_sbc_algo_t  hal_security_sbc_algo(void);
  */
 void hal_security_anti_rollback_is_enable(uint32_t *enable);
 
+/**
+ * @brief     This function gets the anti_rollback version in efuse
+ * @param[out]  pointer to store version
+ * @param[in]  the index of binary
+ * @return  void
+ * @sa     #hal_security_anti_rollback_get_ver
+ *
+ */
+void hal_security_anti_rollback_get_ver(uint32_t *pdata, uint32_t bin_index);
 
+/**
+ * @brief     This function writes the anti_rollback version into efuse
+ * @param[in]  pointer of the version
+ * @param[in]  the index of binary
+ * @return  void
+ * @sa     #hal_security_anti_rollback_write_ver
+ *
+ */
+void hal_security_anti_rollback_write_ver(uint32_t *pdata, uint32_t bin_index);
 
 #ifdef __cplusplus
 }

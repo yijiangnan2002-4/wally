@@ -43,6 +43,10 @@
 #include "bt_gap_le_service.h"
 #include "FreeRTOS.h"
 
+#ifdef AIR_LE_AUDIO_BIS_ENABLE
+#include "app_le_audio_bis.h"
+#endif
+
 #define LOG_TAG     "[LEA][ADV]"
 
 uint8_t      app_lea_adv_target_addr_num = 0;
@@ -187,6 +191,13 @@ void app_lea_clear_target_addr(bool clear_whitelist)
     memset(app_lea_adv_target_addr, 0, sizeof(bt_addr_t) * APP_LEA_MAX_TARGET_NUM);
     if (clear_whitelist) {
         app_lea_target_update_white_list(BT_GAP_LE_CLEAR_WHITE_LIST, 0, NULL);
+
+#ifdef AIR_LE_AUDIO_BIS_ENABLE
+        bt_addr_t *bis_addr = app_le_audio_bis_get_scanning_address();
+        if (bis_addr != NULL) {
+            app_lea_target_update_white_list(BT_GAP_LE_ADD_TO_WHITE_LIST, bis_addr->type, bis_addr->addr);
+        }
+#endif
     }
 }
 
@@ -194,13 +205,18 @@ void app_lea_update_target_add_white_list(bool need_targeted_flag)
 {
     app_lea_clear_target_addr(TRUE);
 
+#ifdef AIR_LE_AUDIO_BIS_ENABLE
+    bt_addr_t *bis_addr = app_le_audio_bis_get_scanning_address();
+    bool need_add_bis = (bis_addr != NULL);
+#endif
+
     uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
     bt_addr_t addr_list[APP_LEA_MAX_TARGET_NUM] = {0};
     uint8_t list_num = APP_LEA_MAX_TARGET_NUM;
     if (need_targeted_flag) {
         app_lea_conn_mgr_get_reconnect_addr(APP_LEA_ADV_SUB_MODE_ACTIVE_RECONNECT, addr_list, &list_num);
     } else {
-        app_lea_conn_mgr_get_reconnect_addr(APP_LEA_ADV_SUB_MODE_UNACTIVE, addr_list, &list_num);
+        app_lea_conn_mgr_get_reconnect_addr(APP_LEA_ADV_SUB_MODE_INACTIVE, addr_list, &list_num);
     }
 
     for (int i = 0; i < list_num; i++) {
@@ -209,31 +225,25 @@ void app_lea_update_target_add_white_list(bool need_targeted_flag)
         if (memcmp(target_addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
             continue;
         }
+
+#ifdef AIR_LE_AUDIO_BIS_ENABLE
+        if (need_add_bis && bis_addr != NULL && memcmp(target_addr, bis_addr->addr, BT_BD_ADDR_LEN) == 0) {
+            need_add_bis = FALSE;
+        }
+#endif
+
         app_lea_update_target_addr_imp(APP_LEA_TARGET_ADD_ADDR, target_addr_type, target_addr);
         app_lea_target_update_white_list(BT_GAP_LE_ADD_TO_WHITE_LIST, target_addr_type, target_addr);
     }
-}
 
-void app_lea_add_white_list(void)
-{
-    app_lea_target_update_white_list(BT_GAP_LE_CLEAR_WHITE_LIST, 0, NULL);
-
-    uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
-    for (int i = 0; i < app_lea_adv_target_addr_num; i++) {
-        uint8_t *target_addr = (uint8_t *)app_lea_adv_target_addr[i].addr;
-        uint8_t target_addr_type = (uint8_t)app_lea_adv_target_addr[i].type;
-        if (memcmp(target_addr, empty_addr, BT_BD_ADDR_LEN) == 0) {
-            continue;
+#ifdef AIR_LE_AUDIO_BIS_ENABLE
+    if (need_add_bis) {
+        if (list_num == APP_LEA_MAX_TARGET_NUM) {
+            APPS_LOG_MSGID_E(LOG_TAG"[BIS] add_white_list, error MAX whitelist but BIS scan whitelist", 0);
         }
-        app_lea_target_update_white_list(BT_GAP_LE_ADD_TO_WHITE_LIST, target_addr_type, target_addr);
+        app_lea_target_update_white_list(BT_GAP_LE_ADD_TO_WHITE_LIST, bis_addr->type, bis_addr->addr);
     }
-}
-
-bool app_lea_update_target_addr(app_le_audio_update_target_mode_t mode,
-                                bt_addr_type_t addr_type,
-                                const uint8_t *addr)
-{
-    return app_lea_update_target_addr_imp(mode, addr_type, addr);
+#endif
 }
 
 #endif

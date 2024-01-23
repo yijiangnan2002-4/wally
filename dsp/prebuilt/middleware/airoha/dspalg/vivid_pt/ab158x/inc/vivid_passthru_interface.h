@@ -51,7 +51,7 @@
 #define VIVID_PASSTHRU_AFC_SIZE       2080
 #define VIVID_PASSTHRU_SCRATCH_SIZE   48
 #endif
-#define VIVID_PASSTHRU_LDNR_SIZE      34896
+#define VIVID_PASSTHRU_LDNR_SIZE      38288
 
 #define VIVID_PASSTHRU_GET_ALIGN_SIZE(SIZE)            ((SIZE + 15) & 0x7FFFFFF0)
 
@@ -76,10 +76,12 @@ typedef struct {
 
 typedef struct {
     U8  mute_state;
-    U8  Reserved[3];
+    U8  acs_target;
+    U8  Reserved[2];
     S32 input_energy_sum;
     S32 feedback_energy_sum;
     S32 detect_times;
+    S32 smooth_times;
 } PACKED vivid_pt_vptafc_hs_t;
 
 typedef struct {
@@ -111,13 +113,15 @@ typedef struct {
     U8                      vpt_afc_hs_debug;
     U8                      vpt_afc_acs_debug;
     U8                      bypass_enable;
-    U8                      reversed[3];
+    U8                      ldnr_iswindly;
+    U8                      inti_print_flag;
+    U8                      reversed;
     vivid_pt_vptafc_state_t *vpt_afc_state;
     vivid_pt_vptafc_hs_t    vpt_afc_hs_state;
     vivid_pt_vptafc_acs_t   vpt_afc_acs_state;
     vivid_pt_mic_smooth_t   mic_out_smooth_ctl;
     U32                     ldnr_block_count;
-    U32                     ldnr_background_process_ready;
+    U32                     ldnr_background_process_state;
     U32                     delay_block_count;
     S32                     inbuf_backup[VIVID_PASSTHRU_BLOCK_SIZE];
     vivid_pt_nvkey_t        nvkey;

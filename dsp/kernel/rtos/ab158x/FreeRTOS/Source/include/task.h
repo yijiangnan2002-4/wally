@@ -3064,6 +3064,11 @@ void vTaskUpdateCurrentTaskRunTimeCounter( void ) PRIVILEGED_FUNCTION;
 #endif /* configGENERATE_RUN_TIME_STATS */
 
 /*
+ * Get the PxTopOfStack of xTaskHandle
+ */
+UBaseType_t uxTaskGetPxTopOfStack(TaskHandle_t xTaskHandle);
+
+/*
  * Get the stack bottom of xTaskHandle
  */
 UBaseType_t uxTaskGetBottomOfStack(TaskHandle_t xTaskHandle) PRIVILEGED_FUNCTION;

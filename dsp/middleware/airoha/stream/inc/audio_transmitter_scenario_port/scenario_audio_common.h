@@ -34,13 +34,14 @@
 
 #ifndef _SCENARIO_DONGLE_COMMON_H_
 #define _SCENARIO_DONGLE_COMMON_H_
-#if defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_BLE_HEADSET_ENABLE)
 
 /* Includes ------------------------------------------------------------------*/
 #include "hal_audio.h"
 #include "sink_inter.h"
-
 #include "common.h"
+
+#if defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_GAMING_MODE_DONGLE_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_ENABLE) || defined (AIR_ULL_BLE_HEADSET_ENABLE)
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -146,6 +147,22 @@ typedef struct {
     void *src2_port;
 } audio_dl_unified_fs_convertor_param_t;
 
+typedef struct {
+    uint32_t iso_interval; /* Unit with BT clock (312.5us) */
+    uint32_t dl_timestamp_clk; /* Unit with BT clock (312.5us), indicate the first anchor of DL */
+    uint32_t dl_retransmission_window_clk; /* Unit with BT clock (312.5us), valid bit[27:2] */
+    uint16_t dl_timestamp_phase; /* Unit with 0.5us, valid value: 0~2499 */
+    uint16_t dl_retransmission_window_phase; /* Unit with 0.5us, valid value: 0~2499 */
+    uint8_t  dl_ft;
+    uint8_t  dl_packet_counter; /* ISO DL packet counter & 0xFF */
+    uint8_t  ul_ft;
+    uint8_t  ul_packet_counter; /* ISO UL packet counter & 0xFF */
+    uint32_t ul_timestamp; /* Unit with BT clock (312.5us), indicate the first anchor of UL */
+    uint32_t iso_anchor_clock;
+    uint16_t iso_anchor_phase;
+    uint32_t ul_avm_info_addr;
+    uint32_t dl_avm_info_addr;
+} audio_dongle_init_le_play_info_t;
 
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
@@ -170,6 +187,24 @@ void audio_dongle_dl_usb_data_copy(
 int32_t audio_dongle_ul_usb_clock_skew_check(void *dongle_handle, audio_dongle_type_t dongle_type);
 #endif
 
+/* Misc function for common flow */
+uint8_t audio_dongle_get_usb_format_bytes(hal_audio_format_t pcm_format);
+uint8_t audio_dongle_get_format_bytes(hal_audio_format_t pcm_format);
+void audio_dongle_sink_get_share_buffer_avail_size(SINK sink, uint32_t *avail_size);
+uint32_t audio_dongle_get_n9_share_buffer_data_size(n9_dsp_share_info_t *share_info);
+bool audio_dl_unified_fs_convertor_init(audio_dl_unified_fs_convertor_param_t *param);
+bool audio_dl_unified_fs_convertor_deinit(audio_dl_unified_fs_convertor_param_t *param);
+#ifdef AIR_AUDIO_TRANSMITTER_ENABLE
+uint32_t audio_dongle_get_n9_share_buffer_data_size_without_header(n9_dsp_share_info_t *share_info);
+#endif /* AIR_AUDIO_TRANSMITTER_ENABLE */
+
+#if defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_BLE_AUDIO_DONGLE_ENABLE)
+void audio_dongle_init_le_play_info(hal_ccni_message_t msg, hal_ccni_message_t *ack);
+#endif
+
+#endif /* dongle type:ble/v1.0/v2.0/bt */
+
+void ShareBufferCopy_I_24bit_to_D_32bit_1ch(uint8_t* src_buf, uint32_t* dest_buf, uint32_t samples);
 void ShareBufferCopy_I_16bit_to_D_16bit_2ch(uint32_t *src_buf, uint16_t *dest_buf1, uint16_t *dest_buf2, uint32_t samples);
 void ShareBufferCopy_I_16bit_to_D_32bit_2ch(uint32_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t samples);
 void ShareBufferCopy_I_24bit_to_D_16bit_2ch(uint8_t* src_buf, uint16_t* dest_buf1, uint16_t* dest_buf2, uint32_t samples);
@@ -188,20 +223,9 @@ void ShareBufferCopy_D_32bit_to_I_16bit_2ch(uint32_t* src_buf1, uint32_t* src_bu
 void ShareBufferCopy_D_16bit_to_I_24bit_2ch(uint16_t* src_buf1, uint16_t* src_buf2, uint8_t* dest_buf1, uint32_t samples);
 void ShareBufferCopy_D_16bit_to_D_24bit_1ch(uint16_t* src_buf1, uint8_t* dest_buf1, uint32_t samples);
 void ShareBufferCopy_D_16bit_to_D_32bit_1ch(uint16_t* src_buf, uint32_t* dest_buf, uint32_t samples);
+void ShareBufferCopy_D_16bit_to_I_24bit_1ch(uint16_t* src_buf1, uint8_t* dest_buf1, uint32_t samples);
 
-/* Misc function for common flow */
-uint8_t audio_dongle_get_usb_format_bytes(hal_audio_format_t pcm_format);
-uint8_t audio_dongle_get_format_bytes(hal_audio_format_t pcm_format);
-void audio_dongle_sink_get_share_buffer_avail_size(SINK sink, uint32_t *avail_size);
-uint32_t audio_dongle_get_n9_share_buffer_data_size(n9_dsp_share_info_t *share_info);
-bool audio_dl_unified_fs_convertor_init(audio_dl_unified_fs_convertor_param_t *param);
-bool audio_dl_unified_fs_convertor_deinit(audio_dl_unified_fs_convertor_param_t *param);
-#ifdef AIR_AUDIO_TRANSMITTER_ENABLE
-uint32_t audio_dongle_get_n9_share_buffer_data_size_without_header(n9_dsp_share_info_t *share_info);
-#endif /* AIR_AUDIO_TRANSMITTER_ENABLE */
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* dongle type:ble/v1.0/v2.0/bt */
 #endif /* _SCENARIO_DONGLE_COMMON_H_ */

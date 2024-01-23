@@ -188,7 +188,7 @@ static int16_t bt_cm_atci_convert_bt_data(const char *index, uint8_t *bt_data, u
     return result;
 }
 
-static atci_status_t bt_cm_atci_addr_internal_handler(atci_parse_cmd_param_t *parse_cmd, uint8_t type)
+static atci_status_t bt_cm_atci_addr_internal_handler(atci_parse_cmd_param_t *parse_cmd, uint32_t type)
 {
     atci_response_t *response =pvPortMalloc(sizeof(atci_response_t));
     if (response == NULL) {

@@ -85,7 +85,7 @@ typedef enum {
 #define AUDIO_SRC_SRV_FLAG_USED                     (1 << 0)    /* Pseudo device handle used */
 #define AUDIO_SRC_SRV_FLAG_WAITING                  (1 << 1)    /* Pseudo device in waiting list */
 
-#define AUDIO_SRC_SRV_PSEUDO_DEVICE_NUM             (3 /* Sink A2DP */ + 2 /* Sink HFP */ + 3 /* A2DP_AWS */ + 1 /* HFP_AWS */ + 1 /* Sink ULL A2DP */ + 3 /* BLE Music*/ + 3 /* BLE Call*/ + 1 /* BLE Broadcast*/  + 1 /* line-in */ + 1 /* USB audio */ + 4 /* Reserve */)
+#define AUDIO_SRC_SRV_PSEUDO_DEVICE_NUM             (4 /* Sink A2DP */ + 2 /* Sink HFP */ + 4 /* A2DP_AWS */ + 1 /* HFP_AWS */ + 1 /* Sink ULL A2DP */ + 3 /* BLE Music*/ + 3 /* BLE Call*/ + 1 /* BLE Broadcast*/  + 1 /* line-in */ + 1 /* USB audio */ + 4 /* Reserve */)
 
 
 /**
@@ -109,6 +109,7 @@ typedef enum {
     AUDIO_SRC_SRV_EVT_PREPARE_PLAY,
     AUDIO_SRC_SRV_EVT_PREPARE_STOP,
     AUDIO_SRC_SRV_EVT_PLAYING,
+    AUDIO_SRC_SRV_EVT_RESUME,
 } audio_src_srv_event_t;
 
 

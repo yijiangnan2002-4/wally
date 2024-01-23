@@ -31,7 +31,7 @@
  * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
  * AIROHA FOR SUCH AIROHA SOFTWARE AT ISSUE.
  */
-
+#include"preloader_pisplit.h"
 #include "dsp_feature_interface.h"
 #include "dsp_audio_process.h"
 #include "dsp_share_memory.h"
@@ -103,31 +103,19 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 CLK_SKEW_FS_t clk_skew_fs_converter(stream_samplerate_
 
     switch (fs_in) {
         case FS_RATE_8K:
-            fs_out = CLK_SKEW_FS_8K;
-            break;
         case FS_RATE_16K:
-            fs_out = CLK_SKEW_FS_16K;
-            break;
         case FS_RATE_24K:
-            fs_out = CLK_SKEW_FS_24K;
-            break;
         case FS_RATE_32K:
-            fs_out = CLK_SKEW_FS_32K;
+        case FS_RATE_48K:
+        case FS_RATE_96K:
+        case FS_RATE_192K:
+            fs_out = fs_in * 1000;
             break;
         case FS_RATE_44_1K:
             fs_out = CLK_SKEW_FS_44_1K;
             break;
-        case FS_RATE_48K:
-            fs_out = CLK_SKEW_FS_48K;
-            break;
         case FS_RATE_88_2K:
             fs_out = CLK_SKEW_FS_88_2K;
-            break;
-        case FS_RATE_96K:
-            fs_out = CLK_SKEW_FS_96K;
-            break;
-        case FS_RATE_192K:
-            fs_out = CLK_SKEW_FS_192K;
             break;
         default:
             fs_out = 0;
@@ -369,19 +357,15 @@ S16 clk_skew_get_comp_bytes_pcdc(DSP_CLOCK_SKEW_CTRL_t* ClkSkewCtrl, DSP_CLOCK_S
     return CompensatedSamples * ClkSkewCtrl->BytesPerSample;
 }
 
-clkskew_mode_t Clock_Skew_Get_Mode(void *para, DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam)
+clkskew_mode_t Clock_Skew_Get_Mode(SOURCE source, SINK sink)
 {
-    UNUSED(para);
-#ifdef ENABLE_HWSRC_CLKSKEW
-    if(ClkSkewParam->ClkSkewSetup.clk_skew_dir == CLK_SKEW_DL){
-        return ClkSkewMode_g;
-    }else{
-        return CLK_SKEW_V1;
+    clkskew_mode_t clk_skew_mode = CLK_SKEW_DISSABLE;
+    if(sink->type == SINK_TYPE_AUDIO){
+        clk_skew_mode = sink->param.audio.clk_skew_mode;
+    }else if(source->type == SOURCE_TYPE_AUDIO){
+        clk_skew_mode = source->param.audio.clk_skew_mode;
     }
-#else
-    UNUSED(ClkSkewParam);
-    return CLK_SKEW_V1;
-#endif
+    return clk_skew_mode;
 }
 
 /*
@@ -394,12 +378,10 @@ VOID Clock_Skew_Para_Init(void *para, DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam)
 {
     DSP_CLOCK_SKEW_CTRL_t* ClkSkewCtrl = &(ClkSkewParam->ClkSkewCtrl);
     DSP_CLOCK_SKEW_RCDC_CTRL_t* ClkSkewRCDCCtrl = &(ClkSkewParam->ClkSkewRCDCCtrl);
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-    DSP_CLOCK_SKEW_ECDC_CTRL_t* ClkSkewECDCCtrl = &(ClkSkewParam->ClkSkewECDCCtrl);
-#endif
+    DSP_STREAMING_PARA_PTR stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
 
     ClkSkewCtrl->Initialized = TRUE;
-    ClkSkewCtrl->ClkSkewMode = Clock_Skew_Get_Mode(para, ClkSkewParam);
+    ClkSkewCtrl->ClkSkewMode = Clock_Skew_Get_Mode(stream_ptr->source, stream_ptr->sink);
 
     ClkSkewRCDCCtrl->first_offset_flag = TRUE;
     ClkSkewRCDCCtrl->initial_offset_flag = TRUE;
@@ -408,12 +390,6 @@ VOID Clock_Skew_Para_Init(void *para, DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam)
     ClkSkewRCDCCtrl->bt_clk_offset_next = BTCLK_INVALID_CLK;
     ClkSkewRCDCCtrl->bt_intra_slot_offset_prev = BTINTRA_INVALID_CLK;
     ClkSkewRCDCCtrl->bt_intra_slot_offset_next = BTINTRA_INVALID_CLK;
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-    ClkSkewECDCCtrl->isr_bt_clk_next = BTCLK_INVALID_CLK;
-    ClkSkewECDCCtrl->isr_bt_phase_next = BTINTRA_INVALID_CLK;
-    ClkSkewECDCCtrl->isr_bt_clk_prev = BTCLK_INVALID_CLK;
-    ClkSkewECDCCtrl->isr_bt_phase_prev = BTINTRA_INVALID_CLK;
-#endif
 }
 
 ATTR_TEXT_IN_IRAM_LEVEL_2 DSP_CLOCK_SKEW_PARAM_t* Clock_Skew_Get_Param_Ptr(void *para)
@@ -421,17 +397,19 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 DSP_CLOCK_SKEW_PARAM_t* Clock_Skew_Get_Param_Ptr(void 
     return (DSP_CLOCK_SKEW_PARAM_t*)stream_function_get_working_buffer(para);
 }
 
-ATTR_TEXT_IN_IRAM_LEVEL_2 U8* Clock_Skew_Get_TempBuffer_Ptr(void *MemPtr)
+/*ATTR_TEXT_IN_IRAM_LEVEL_2 U8* Clock_Skew_Get_TempBuffer_Ptr(void *MemPtr)
 {
     return (U8*)MemPtr + sizeof(DSP_CLOCK_SKEW_PARAM_t);
+}*/
+
+ATTR_TEXT_IN_IRAM_LEVEL_2 U8* Clock_Skew_Get_TempBuffer_Ptr(DSP_CLOCK_SKEW_CTRL_t* ClkSkewCtrl)
+{
+    return ClkSkewCtrl->temp_buffer;
 }
 
-ATTR_TEXT_IN_IRAM_LEVEL_2 skew_ctrl_t_ptr Clock_Skew_Get_WorkingBuffer_Ptr(void *para, void *MemPtr, U8 Num)
+ATTR_TEXT_IN_IRAM_LEVEL_2 skew_ctrl_t_ptr Clock_Skew_Get_WorkingBuffer_Ptr(DSP_CLOCK_SKEW_CTRL_t* ClkSkewCtrl, U8 Num)
 {
-    DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam = Clock_Skew_Get_Param_Ptr(para);
-    DSP_CLOCK_SKEW_CTRL_t* ClkSkewCtrl = &(ClkSkewParam->ClkSkewCtrl);
-    S16 FrameSize = ClkSkewCtrl->FrameSize;
-    return (skew_ctrl_t_ptr)((MemPtr + ((sizeof(DSP_CLOCK_SKEW_PARAM_t) + FrameSize + DSP_RCDC_MAX_SAMPLE_DEVIATION * 4 + 15)&0xFFFFFFF0)) + (sizeof(skew_ctrl_t)*(Num -1)));
+    return (skew_ctrl_t_ptr)((U32)(ClkSkewCtrl->working_buffer) + (sizeof(skew_ctrl_t) * (Num -1)));
 }
 
 ATTR_TEXT_IN_IRAM_LEVEL_2 VOID *Clock_Skew_Get_Mem_From_SrcSnk(SOURCE source, SINK sink)
@@ -440,7 +418,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 VOID *Clock_Skew_Get_Mem_From_SrcSnk(SOURCE source, SI
     DSP_FEATURE_TABLE_PTR feature_table_ptr = pStream->callback.FeatureTablePtr;
     VOID *MemPtr = NULL;
     
-    if (feature_table_ptr != NULL){
+    if (feature_table_ptr != NULL && Clock_Skew_Get_Mode(source, sink)){
         while (feature_table_ptr->ProcessEntry != NULL){
 
             if(feature_table_ptr->ProcessEntry ==stream_function_clock_skew_process){
@@ -458,16 +436,22 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 VOID *Clock_Skew_Get_Mem_From_SrcSnk(SOURCE source, SI
 
 void Clock_Skew_Mem_Check(void *para)
 {
+    DSP_STREAMING_PARA_PTR stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
+    DSP_ENTRY_PARA_PTR entry_para = (DSP_ENTRY_PARA_PTR)para;
     DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam = Clock_Skew_Get_Param_Ptr(para);
     DSP_CLOCK_SKEW_SETUP_t* ClkSkewSetup = &(ClkSkewParam->ClkSkewSetup);
+    DSP_CLOCK_SKEW_CTRL_t* ClkSkewCtrl = &(ClkSkewParam->ClkSkewCtrl);
 
-    U32 buffer_lenth = stream_function_get_working_buffer_length(para);
     S16 FrameSize = (S16)stream_function_get_output_size(para);
     S16 Channels = (S16)stream_function_get_channel_number(para);
 
-    if((DSP_CLK_SKEW_MEMSIZE(Channels,FrameSize,ClkSkewSetup->pcdc_en)) > buffer_lenth){
-        assert(0 && "[CLK_SKEW][%d]Mem size isn't enough !!!");
-    }
+    U32 working_buffer_size = (sizeof(skew_ctrl_t) * Channels * ((ClkSkewSetup->pcdc_en) + 1));
+    U32 temp_buffer_size = (FrameSize + DSP_RCDC_MAX_SAMPLE_DEVIATION * 4);
+
+    ClkSkewCtrl->temp_buffer = DSPMEM_tmalloc(entry_para->DSPTask, temp_buffer_size, stream_ptr);
+    ClkSkewCtrl->working_buffer = DSPMEM_tmalloc(entry_para->DSPTask, working_buffer_size, stream_ptr);
+
+    DSP_MW_LOG_I("[CLK_SKEW][%d] Channels:%d, FrameSize:%d, working_buffer_size:%d, temp_buffer_size:%d", 5, ClkSkewSetup->clk_skew_dir, Channels, FrameSize, working_buffer_size, temp_buffer_size);
 }
 
 void Clock_Skew_Get_Isr_Interval(void *para,DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam)
@@ -475,10 +459,6 @@ void Clock_Skew_Get_Isr_Interval(void *para,DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam
     DSP_STREAMING_PARA_PTR stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
     DSP_CLOCK_SKEW_SETUP_t* ClkSkewSetup = &(ClkSkewParam->ClkSkewSetup);
     DSP_CLOCK_SKEW_CTRL_t* ClkSkewCtrl = &(ClkSkewParam->ClkSkewCtrl);
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-    DSP_CLOCK_SKEW_ECDC_CTRL_t* ClkSkewECDCCtrl = &(ClkSkewParam->ClkSkewECDCCtrl);
-#endif
-    stream_ptr->source->param.audio.enable_clk_skew = true;
     U16 irq_counter;
     U32 fs;
 
@@ -490,10 +470,6 @@ void Clock_Skew_Get_Isr_Interval(void *para,DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam
         fs = stream_ptr->source->param.audio.rate;
     }
     ClkSkewCtrl->isr_interval = (S32)((((S64)irq_counter)*10000000)/(S64)fs);
-
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-    ClkSkewECDCCtrl->afe_interval_cnt = (ClkSkewCtrl->isr_interval / 3125) * 8125;
-#endif
 
     DSP_MW_LOG_I("[ISR_CLK_SKEW][%d] irq_cnt:%d, fs:%d, interval:%d us",4,ClkSkewSetup->clk_skew_dir,irq_counter,fs,(ClkSkewCtrl->isr_interval)/10);
 }
@@ -606,23 +582,6 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 VOID Clock_Skew_Offset_Update(BT_CLOCK_OFFSET_SCENARIO
     }
 }
 
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-ATTR_TEXT_IN_IRAM_LEVEL_2 void Clock_Skew_Isr_Time_Update(SOURCE source, SINK sink, U32 bt_clk_next,U16 bt_phase_next)
-{
-    DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam = (DSP_CLOCK_SKEW_PARAM_t*)Clock_Skew_Get_Mem_From_SrcSnk(source, sink);
-    uint32_t mask;
-
-    if(ClkSkewParam == NULL){
-        return;
-    }
-
-    DSP_CLOCK_SKEW_ECDC_CTRL_t* ClkSkewECDCCtrl = &(ClkSkewParam->ClkSkewECDCCtrl);
-    hal_nvic_save_and_set_interrupt_mask(&mask);
-    ClkSkewECDCCtrl->isr_bt_clk_next = bt_clk_next;
-    ClkSkewECDCCtrl->isr_bt_phase_next = bt_phase_next;
-    hal_nvic_restore_interrupt_mask(mask);
-}
-#else
 ATTR_TEXT_IN_IRAM_LEVEL_2 void Clock_Skew_Isr_Time_Update(SOURCE source, SINK sink, U32 clk_next, U32 default_samples_cnt)
 {
     DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam = (DSP_CLOCK_SKEW_PARAM_t*)Clock_Skew_Get_Mem_From_SrcSnk(source, sink);
@@ -648,7 +607,6 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 void Clock_Skew_Isr_Time_Update(SOURCE source, SINK si
 	ClkSkewECDCCtrl->isr_clk_next = clk_next;
     hal_nvic_restore_interrupt_mask(mask);
 }
-#endif
 
 ATTR_TEXT_IN_IRAM_LEVEL_2 void Clock_Skew_Samples_Cnt_Update(SOURCE source, SINK sink, U16 samples_cnt)
 {
@@ -733,10 +691,11 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 S16 Clock_Skew_Check_Status_From_SrcSnk(SOURCE source,
     DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam = (DSP_CLOCK_SKEW_PARAM_t*)Clock_Skew_Get_Mem_From_SrcSnk(source, sink);
     S16 cp_samples = 0,cp_samples_pcdc = 0,cp_samples_ecdc = 0;
     CLK_SKEW_DIRECTION_TYPE_t dir;
+    AUDIO_PARAMETER *audio;
     S32 cp_samples_temp = 0;
-    S32 remainder = 0;
-    S32 input_rate = (S32)(sink->param.audio.src_rate);
-    S32 output_rate = (S32)(sink->param.audio.rate);
+    S32 src_rate;
+    S32 afe_rate;
+
     if(ClkSkewParam == NULL){
         return 0;
     }
@@ -745,7 +704,17 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 S16 Clock_Skew_Check_Status_From_SrcSnk(SOURCE source,
     DSP_CLOCK_SKEW_SETUP_t* ClkSkewSetup = &(ClkSkewParam->ClkSkewSetup);
     DSP_CLOCK_SKEW_PCDC_CTRL_t* ClkSkewPCDCCtrl = &(ClkSkewParam->ClkSkewPCDCCtrl);
     DSP_CLOCK_SKEW_ECDC_CTRL_t* ClkSkewECDCCtrl = &(ClkSkewParam->ClkSkewECDCCtrl);
+
     dir = ClkSkewSetup->clk_skew_dir;
+
+    if(dir == CLK_SKEW_UL) {
+        audio = &(source->param.audio);
+    } else {
+        audio = &(sink->param.audio);
+    }
+
+    src_rate = (S32)(audio->src_rate);
+    afe_rate = (S32)(audio->rate);
 
     cp_samples = clk_skew_check_status(ClkSkewCtrl, ClkSkewSetup);
 
@@ -755,21 +724,12 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 S16 Clock_Skew_Check_Status_From_SrcSnk(SOURCE source,
 
     if(ClkSkewSetup->ecdc_en){
         cp_samples_ecdc = clk_skew_check_status_ecdc(ClkSkewECDCCtrl, ClkSkewSetup);
-#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) && defined(AIR_DUAL_CHIP_I2S_ENABLE)
-        return cp_samples_ecdc;
-#endif
     }
 
-    if((dir == CLK_SKEW_DL) && (ClkSkewCtrl->ClkSkewMode == CLK_SKEW_V1) && (sink->type == SINK_TYPE_AUDIO) && (sink->param.audio.rate != sink->param.audio.src_rate)){
+    if((ClkSkewCtrl->ClkSkewMode == CLK_SKEW_V1) && (ClkSkewSetup->with_src) && (afe_rate != src_rate)) {
         cp_samples_temp = (S32)(cp_samples + cp_samples_pcdc);
-        cp_samples_temp *= output_rate;
-        remainder = cp_samples_temp % input_rate;
-        cp_samples_temp = cp_samples_temp / input_rate;
-        ClkSkewCtrl->IsrCpSamples_Remainder += remainder;
-        if(ClkSkewCtrl->IsrCpSamples_Remainder >= input_rate){
-            cp_samples_temp += ((ClkSkewCtrl->IsrCpSamples_Remainder) / input_rate);
-            ClkSkewCtrl->IsrCpSamples_Remainder = (ClkSkewCtrl->IsrCpSamples_Remainder) % input_rate;
-        }
+        cp_samples_temp = Cal_SamplingRate_Convert(cp_samples_temp, src_rate, afe_rate, &(ClkSkewCtrl->IsrCpSamples_Remainder));
+
         return (S16)cp_samples_temp + cp_samples_ecdc;
     }else{
         return cp_samples + cp_samples_pcdc + cp_samples_ecdc;
@@ -801,6 +761,7 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 U32 Clock_Skew_Asrc_Get_Input_SampleSize(SOURCE source
 
 VOID Clock_Skew_Alg_Init(void* para, DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam, U16 bits, U16 skew_io_mode, S16 Channels)
 {
+    UNUSED(para);
     DSP_CLOCK_SKEW_SETUP_t* ClkSkewSetup    = &(ClkSkewParam->ClkSkewSetup);
     skew_ctrl_t_ptr  skew_ctrl_ptr;
     U16 order = ClkSkewSetup->clk_skew_order;
@@ -812,7 +773,7 @@ VOID Clock_Skew_Alg_Init(void* para, DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam, U16 b
     }
 
     for(i = 0; i < lib_num; i++){
-        skew_ctrl_ptr = Clock_Skew_Get_WorkingBuffer_Ptr(para, (void*)ClkSkewParam, i+1);
+        skew_ctrl_ptr = Clock_Skew_Get_WorkingBuffer_Ptr(&(ClkSkewParam->ClkSkewCtrl), i+1);
         skew_ctrl_init(skew_ctrl_ptr, bits, skew_io_mode, order);
     }
     DSP_MW_LOG_I("[CLK_SKEW] SW Lib. Ver:0x%x, Lib. Num:%d", 2, get_skewctrl_version(), lib_num);
@@ -842,44 +803,14 @@ ATTR_TEXT_IN_IRAM S16 clk_skew_process(skew_ctrl_t_ptr  skew_ctrl_ptr, U8 *inbuf
 {
     U16  in_len_in_byte, ou_len_in_byte;
     S16  process_complete;
-    U16  skew_comp_inc, skew_comp_dec, skew_comp_pass;
-
-    switch (skew_points) {
-        case C_1_mode:
-            skew_comp_inc = C_Skew_Inc_1;
-            skew_comp_dec = C_Skew_Dec_1;
-            skew_comp_pass = C_Skew_Pass;
-            break;
-        case C_div8_mode:
-            skew_comp_inc = C_Skew_Inc_div8;
-            skew_comp_dec = C_Skew_Dec_div8;
-            skew_comp_pass = C_Skew_Pass;
-            break;
-        case C_div64_mode:
-            skew_comp_inc = C_Skew_Inc_div64;
-            skew_comp_dec = C_Skew_Dec_div64;
-            skew_comp_pass = C_Skew_Pass;
-            break;
-        case C_div256_mode:
-            skew_comp_inc = C_Skew_Inc_div256;
-            skew_comp_dec = C_Skew_Dec_div256;
-            skew_comp_pass = C_Skew_Pass;
-            break;
-        case C_div512_mode:
-            skew_comp_inc = C_Skew_Inc_div512;
-            skew_comp_dec = C_Skew_Dec_div512;
-            skew_comp_pass = C_Skew_Pass;
-            break;
-    }
-
-    if (compensate_bytes > 0) {
-        process_complete = skew_ctrl_process(skew_ctrl_ptr, (U8 *)inbuf, &in_len_in_byte, (U8 *)outbuf, &ou_len_in_byte, skew_comp_inc);
-    } else if (compensate_bytes < 0) {
-        process_complete = skew_ctrl_process(skew_ctrl_ptr, (U8 *)inbuf, &in_len_in_byte, (U8 *)outbuf, &ou_len_in_byte, skew_comp_dec);
-    } else {
-        process_complete = skew_ctrl_process(skew_ctrl_ptr, (U8 *)inbuf, &in_len_in_byte, (U8 *)outbuf, &ou_len_in_byte, skew_comp_pass);
-    }
-
+    //U16  skew_comp_inc, skew_comp_dec, skew_comp_pass;
+    const U8 skew_mode_arrary[5][2] = {{C_Skew_Inc_1,      C_Skew_Dec_1},
+                                       {C_Skew_Inc_div8,   C_Skew_Dec_div8},
+                                       {C_Skew_Inc_div64,  C_Skew_Dec_div64},
+                                       {C_Skew_Inc_div256, C_Skew_Dec_div256},
+                                       {C_Skew_Inc_div512, C_Skew_Dec_div512}};
+    U16 skew_comp = (compensate_bytes == 0) ? C_Skew_Pass : (compensate_bytes > 0) ? skew_mode_arrary[skew_points][0] : skew_mode_arrary[skew_points][1];
+    process_complete = skew_ctrl_process(skew_ctrl_ptr, (U8 *)inbuf, &in_len_in_byte, (U8 *)outbuf, &ou_len_in_byte, skew_comp);
 #ifdef DSP_CLK_SKEW_DEBUG_LOG
     if (compensate_bytes) {
         DSP_MW_LOG_I("[CLK_SKEW]compensate_bytes:%d,process_complete:%d", 2, compensate_bytes, process_complete);
@@ -900,7 +831,7 @@ ATTR_TEXT_IN_IRAM U16 SW_Clock_Skew_Process(void *para ,DSP_CLOCK_SKEW_PARAM_t* 
     DSP_CLOCK_SKEW_SETUP_t* ClkSkewSetup = &(ClkSkewParam->ClkSkewSetup);
     DSP_CLOCK_SKEW_PCDC_CTRL_t* ClkSkewPCDCCtrl = &(ClkSkewParam->ClkSkewPCDCCtrl);
 
-    U8 *ClkSkewInBuf  = Clock_Skew_Get_TempBuffer_Ptr((void*)ClkSkewParam);
+    U8 *ClkSkewInBuf  = Clock_Skew_Get_TempBuffer_Ptr(&(ClkSkewParam->ClkSkewCtrl));
     skew_ctrl_t_ptr  skew_ctrl_ptr;
     U16 skew_mode = ClkSkewSetup->clk_skew_div_mode;
     U16 BytesPerSample = ClkSkewCtrl->BytesPerSample;
@@ -918,7 +849,7 @@ ATTR_TEXT_IN_IRAM U16 SW_Clock_Skew_Process(void *para ,DSP_CLOCK_SKEW_PARAM_t* 
 
     for(i = 0; i < Channels; i++){//processing for rcdc
         Buf = (S8 *)stream_function_get_inout_buffer(para,i + 1);
-        skew_ctrl_ptr = Clock_Skew_Get_WorkingBuffer_Ptr(para, (void*)ClkSkewParam, i+1);
+        skew_ctrl_ptr = Clock_Skew_Get_WorkingBuffer_Ptr(&(ClkSkewParam->ClkSkewCtrl), i+1);
 
         if(skew_mode == C_1_mode){
             memcpy(ClkSkewInBuf, Buf, FrameSize);
@@ -943,7 +874,7 @@ ATTR_TEXT_IN_IRAM U16 SW_Clock_Skew_Process(void *para ,DSP_CLOCK_SKEW_PARAM_t* 
 
         for(i = 0; i < Channels; i++){//processing for rcdc
             Buf = (S8 *)stream_function_get_inout_buffer(para,i + 1);
-            skew_ctrl_ptr = Clock_Skew_Get_WorkingBuffer_Ptr(para, (void*)ClkSkewParam, i+1+Channels);
+            skew_ctrl_ptr = Clock_Skew_Get_WorkingBuffer_Ptr(&(ClkSkewParam->ClkSkewCtrl), i+1+Channels);
 
             memcpy(ClkSkewInBuf, Buf, FrameSize + CompensateBytes);
 
@@ -996,6 +927,9 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 bool stream_function_clock_skew_process(void *para)
         return FALSE;
     }
 
+    S8 *Buf = (S8 *)stream_function_get_inout_buffer(para,1);
+    LOG_AUDIO_DUMP((U8 *)Buf, (FrameSize), SOURCE_IN1);
+    
     if(ClkSkewSetup->clk_skew_dir == CLK_SKEW_DL){
         stream_function_end_process(para);//Check the resolution and align it to output
         FrameSize = (S16)stream_function_get_output_size(para);
@@ -1015,13 +949,13 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 bool stream_function_clock_skew_process(void *para)
             clk_skew_compensate_by_hwsrc_init();
         }
 #endif
-        DSP_MW_LOG_I("[CLK_SKEW][%d]Init,Mode_V%d, FrameSize:%d, BytesPerSample:%d, Channel:%d",5,ClkSkewSetup->clk_skew_dir,ClkSkewCtrl->ClkSkewMode + 1, ClkSkewCtrl->FrameSize, ClkSkewCtrl->BytesPerSample, Channels);
+        DSP_MW_LOG_I("[CLK_SKEW][%d]Init,Mode_V%d, FrameSize:%d, BytesPerSample:%d, Channel:%d",5,ClkSkewSetup->clk_skew_dir,ClkSkewCtrl->ClkSkewMode, ClkSkewCtrl->FrameSize, ClkSkewCtrl->BytesPerSample, Channels);
     }
 
-    if(ClkSkewSetup->clk_skew_dir == CLK_SKEW_DL){
+    if(ClkSkewSetup->clk_skew_dir == CLK_SKEW_DL) {
         fs_in = stream_ptr->sink->param.audio.src_rate;
         fs_out = stream_ptr->sink->param.audio.rate;
-    }else{
+    }else {
         fs_in = stream_ptr->source->param.audio.rate;
         fs_out = stream_ptr->source->param.audio.src_rate;
     }
@@ -1039,6 +973,9 @@ ATTR_TEXT_IN_IRAM_LEVEL_2 bool stream_function_clock_skew_process(void *para)
 
     stream_function_modify_output_size(para,FrameSize);
 
+    Buf = (S8 *)stream_function_get_inout_buffer(para,1);
+    LOG_AUDIO_DUMP((U8 *)Buf, (FrameSize), SOURCE_IN2);
+
     return FALSE;
 }
 
@@ -1047,11 +984,17 @@ void Clock_Skew_Initialize(void *para, DSP_CLOCK_SKEW_SETUP_t* ClkSkewSetup, S32
     DSP_CLOCK_SKEW_PARAM_t* ClkSkewParam = Clock_Skew_Get_Param_Ptr(para);
     DSP_STREAMING_PARA_PTR stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
     S32 fs = (S32)clk_skew_fs_converter((stream_samplerate_t)(U8)stream_function_get_samplingrate(para));
+    AUDIO_PARAMETER *audio_parameter;
 #ifdef ENABLE_HWSRC_CLKSKEW
         DSP_CLOCK_SKEW_CTRL_t *ClkSkewCtrl = &(ClkSkewParam->ClkSkewCtrl);
         HWSRC_UNDERRUN_MONITOR_MODE_t hwsrc_underrun_monitor_mode;
 #endif
-
+    if(ClkSkewSetup->clk_skew_dir == CLK_SKEW_UL) {
+        audio_parameter = &(stream_ptr->source->param.audio);
+    } else {
+        audio_parameter = &(stream_ptr->sink->param.audio);
+    }
+    ClkSkewSetup->with_src = audio_parameter->mem_handle.pure_agent_with_src;
     memcpy(&(ClkSkewParam->ClkSkewSetup), ClkSkewSetup, sizeof(DSP_CLOCK_SKEW_SETUP_t));
     Clock_Skew_Para_Init(para, ClkSkewParam);
 
@@ -1082,6 +1025,7 @@ BOOL Clock_Skew_ECDC_Initialize(void *para, CLK_SKEW_DIRECTION_TYPE_t clk_skew_d
 
     if((clk_skew_dir == CLK_SKEW_DL && stream_ptr->sink->param.audio.audio_device == HAL_AUDIO_DEVICE_I2S_SLAVE) || (clk_skew_dir == CLK_SKEW_UL && stream_ptr->source->param.audio.audio_device == HAL_AUDIO_DEVICE_I2S_SLAVE)){
         ecdc_en = true;
+        DSP_MW_LOG_I("[CLK_SKEW][%d] audio_device:%d, ecdc_en:%d", 3, clk_skew_dir, stream_ptr->sink->param.audio.audio_device, ecdc_en);
     }
     return ecdc_en;
 }

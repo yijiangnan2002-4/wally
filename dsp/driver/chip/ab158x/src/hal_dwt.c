@@ -73,7 +73,7 @@ void hal_dwt_init(void)
     hal_nvic_restore_interrupt_mask(mask);
 }
 
-int32_t hal_dwt_request_watchpoint(hal_dwt_channel_t index, uint32_t addr_base, uint32_t addr_mask, hal_dwt_function_t func)
+int32_t hal_dwt_request_watchpoint(uint32_t index, uint32_t addr_base, uint32_t addr_mask, hal_dwt_function_t func)
 {
     uint32_t mask;
     if ((index >= HAL_DWT_MAX) ||

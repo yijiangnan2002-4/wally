@@ -71,6 +71,8 @@ static uint32_t sw_src_fs_converter(stream_samplerate_t fs)
         case FS_RATE_24K:
         case FS_RATE_32K:
         case FS_RATE_48K:
+        case FS_RATE_96K:
+        case FS_RATE_192K:
             return fs * 1000;
 
         default:
@@ -106,6 +108,43 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ sw_src_port_t *stream_function_sw_src_get_port(voi
 
         /* Check if this owner has already owned a sw src */
         if (sw_src_port[i].owner == owner) {
+            port = &sw_src_port[i];
+            break;
+        }
+    }
+    hal_nvic_restore_interrupt_mask(saved_mask);
+
+    if (port == NULL) {
+        DSP_MW_LOG_E("[SW_SRC] Port not enough!", 0);
+        AUDIO_ASSERT(0);
+        return port;
+    }
+
+    port->owner = owner;
+
+    return port;
+}
+
+/**
+ * @brief This function is used to get the sw_src port one by one for one user.
+ *        If the owner does not have a sw_src port, it will malloc a port for this owner.
+ *        If the owner have a sw_src port, it will return the port directly.
+ *        If the owner is NULL, it will return the first unused port.
+ *
+ * @param owner is who want to get or query a sw_src port or NULL.
+ * @return sw_src_port_t* is the result.
+ */
+ATTR_TEXT_IN_RAM_FOR_MASK_IRQ sw_src_port_t *stream_function_sw_src_get_multi_port(void *owner)
+{
+    int32_t i;
+    uint32_t saved_mask;
+    sw_src_port_t *port = NULL;
+
+    /* Find out a port for this owner */
+    hal_nvic_save_and_set_interrupt_mask(&saved_mask);
+    for (i = 0; i < SW_SRC_PORT_MAX; i++) {
+        /* Check if there is unused port */
+        if (sw_src_port[i].owner == NULL) {
             port = &sw_src_port[i];
             break;
         }
@@ -234,12 +273,14 @@ bool stream_function_sw_src_initialize(void *para)
     void *current_internal_buf;
 
     /* Find out the sw src port of this stream */
-    for (i = SW_SRC_PORT_MAX - 1; i >= 0; i--) {
+    for (i = 0; i < SW_SRC_PORT_MAX; i++) {
         /* Check if this source or sink has already owned a sw src */
         if ((sw_src_port[i].owner == stream_ptr->source) ||
             (sw_src_port[i].owner == stream_ptr->sink)) {
             port = &sw_src_port[i];
-            break;
+            if (port->status != SW_SRC_PORT_STATUS_RUNNING) {
+                break;
+            }
         }
     }
     if (port == NULL) {
@@ -253,6 +294,7 @@ bool stream_function_sw_src_initialize(void *para)
     }
 
     /* Config SW SRC */
+    port->port_index = stream_ptr->callback.EntryPara.number.field.process_sequence;
     port->stream = stream_ptr;
     port->first_time_flag = true;
     port->blisrc_param.in_sampling_rate = port->in_sampling_rate;
@@ -327,7 +369,8 @@ bool stream_function_sw_src_initialize(void *para)
         }
     }
 
-    DSP_MW_LOG_I("[SW_SRC] SRC open successfully!, %u, %u, %u, %u, %u, %u, %u, %u, %u, 0x%x, %u, 0x%x, %u, 0x%x", 14,
+    DSP_MW_LOG_I("[SW_SRC] SRC open successfully!, 0x%x, %u, %u, %u, %u, %u, %u, %u, %u, %u, 0x%x, %u, 0x%x, %u, 0x%x", 15,
+                 get_Blisrc_version(),
                  port->mode,
                  port->channel_num,
                  port->in_res,
@@ -386,8 +429,10 @@ ATTR_TEXT_IN_IRAM bool stream_function_sw_src_process(void *para)
         /* Check if this source or sink has already owned a sw src */
         if ((sw_src_port[i].owner == stream_ptr->source) ||
             (sw_src_port[i].owner == stream_ptr->sink)) {
-            port = &sw_src_port[i];
-            break;
+            if (sw_src_port[i].port_index == stream_ptr->callback.EntryPara.number.field.process_sequence) {
+                port = &sw_src_port[i];
+                break;
+            }
         }
     }
     if (port == NULL) {

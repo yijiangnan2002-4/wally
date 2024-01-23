@@ -344,6 +344,9 @@ void *race_le_audio_play_bis_handler(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
                     if (race_le_audio_play_bis(pCmd->subgroup_idx)) {
                         status = BT_STATUS_SUCCESS;
                     }
+                } else {
+                    g_leaudio_flag_retry_bis_subgroup_idx = pCmd->subgroup_idx;
+                    status = BT_STATUS_SUCCESS;
                 }
             }
         }
@@ -621,16 +624,14 @@ bt_status_t race_le_audio_notify_pa(uint8_t status, bt_sink_srv_cap_event_base_b
 
 bt_status_t race_le_audio_notify_big_info(bt_sink_srv_cap_event_base_biginfo_adv_report_t *msg)
 {
-    if (le_audio_get_device_type() == LE_AUDIO_DEVICE_TYPE_HEADSET) {
-        race_le_audio_play_bis_retry();
-    }
+    race_le_audio_play_bis_retry();
 
     if (g_leaudio_flag_sned_big_info) {
         g_leaudio_flag_sned_big_info = false;
     } else {
         RACE_LOG_MSGID_I("[RACE_LEA] notify_big_info, no need to send big info", 0);
         return BT_STATUS_SUCCESS;
-     }
+    }
 
     race_status_t ret = RACE_STATUS_OK;
     typedef struct {

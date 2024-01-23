@@ -48,16 +48,20 @@
 #include "apps_config_key_remapper.h"
 #include "apps_debug.h"
 #include "apps_events_event_group.h"
+#include "apps_events_interaction_event.h"
 #include "bt_app_common.h"
 #include "bt_callback_manager.h"
 #include "bt_device_manager.h"
+#include "bt_device_manager_link_record.h"
 #include "bt_sink_srv.h"
 #include "bt_sink_srv_hf.h"
 #ifdef MTK_AWS_MCE_ENABLE
 #include "bt_aws_mce_srv.h"
+#include "app_rho_idle_activity.h"
 #endif
 #include "FreeRTOS.h"
 #include "multi_va_manager.h"
+#include "ui_shell_manager.h"
 
 #include "xiaoai.h"
 #include "app_va_xiaoai_ble_adv.h"
@@ -66,7 +70,6 @@
 #ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
 #include "app_va_xiaoai_miui_fast_connect.h"
 #endif
-
 #ifdef AIR_LE_AUDIO_ENABLE
 #include "app_le_audio.h"
 #endif
@@ -91,11 +94,9 @@ extern bool app_xiaoai_is_lea_mma_link(void);
 #define XIAOAI_MMA_NOTIFY_DEVICE_INFO_OPCODE        0xF4
 
 #define XIAOAI_MMA_MAX_PACKAGE_NAME                 253
-// ZMI Customer
+
 #define APP_XIAOMI_HFP_YS_PKG_NAME                  "com.android.yuanshen1"
 #define APP_XIAOMI_HFP_YUANSHEN_PKG_NAME            "com.android.yuanshen2"
-
-static uint32_t                                     g_xiaoai_hfp_handle = 0;
 
 static char                                         g_xiaoai_pkg_name[XIAOAI_MMA_MAX_PACKAGE_NAME] = {0};
 
@@ -124,7 +125,12 @@ typedef enum {
     XIAOAI_HFP_ATCMD_TYPE_CONFIG_ACCOUNT_KEY = 0x03,
     XIAOAI_HFP_ATCMD_TYPE_CONFIG_LEAUDIO = 0x04,
 
-    XIAOAI_HFP_ATCMD_TYPE_CONFIG_PACKAGE_NAME = 0x08
+    XIAOAI_HFP_ATCMD_TYPE_CONFIG_PACKAGE_NAME = 0x08,
+    XIAOAI_HFP_ATCMD_TYPE_CONFIG_EMP_STATUS = 0x0B,
+    XIAOAI_HFP_ATCMD_TYPE_CONFIG_SASS_AUTO = 0x0E,
+//    XIAOAI_HFP_ATCMD_TYPE_CONFIG_AUDIO_FOCUS = 0x0F,
+//    XIAOAI_HFP_ATCMD_TYPE_CONFIG_RECONN_FOR_SASS = 0x10,
+    XIAOAI_HFP_ATCMD_TYPE_CONFIG_NOTIFY_AUDIO_SWITCH = 0x11,
 } xiaoai_hfp_atcmd_config_type;
 
 typedef enum {
@@ -137,6 +143,196 @@ typedef enum {
     XIAOAI_KEY_VOL_DOWN,
     XIAOAI_KEY_PALY_PAUSE
 } xiaoai_key_function;
+
+#define MIUI_FAST_CONNECT_BLE_ADV_LEN           31
+#define MIUI_FAST_CONNECT_REQUEST_ADV_DATA      1
+#define MIUI_FAST_CONNECT_REQUEST_SCAN_RSP      2
+
+typedef struct {
+    bool                                                used;
+    uint8_t                                             addr[BT_BD_ADDR_LEN];
+    uint16_t                                            mma_type;
+    uint8_t                                            *atcmd;
+    uint32_t                                            atcmd_len;
+} PACKED app_xiaoai_hfp_atcmd_list_t;
+
+#define APP_XIAOAI_HFP_ATCMD_MAX_LIST_NUM               5
+
+static app_xiaoai_hfp_atcmd_list_t                      app_xiaoai_hfp_atcmd_list[APP_XIAOAI_HFP_ATCMD_MAX_LIST_NUM];
+
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+extern void app_va_xiaoai_miui_fc_start_adv();
+extern void app_bt_takeover_service_disconnect_edr(const uint8_t *addr);
+
+typedef struct {
+    bool auto_feature;
+    uint8_t cur_device[BT_BD_ADDR_LEN];
+} PACKED app_xiaoai_sass_aws_data_t;
+
+static bool g_xiaoai_sass_auto_feaure                       = FALSE;
+static uint8_t g_xiaoai_sass_cur_device[BT_BD_ADDR_LEN]     = {0};
+
+static void app_va_xiaoai_sass_init(void)
+{
+    APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] sass_init, audio_switch=0", 0);
+    g_xiaoai_sass_auto_feaure = FALSE;
+}
+
+static void app_va_xiaoai_sass_sync(void)
+{
+    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    app_xiaoai_sass_aws_data_t aws_data = {0};
+    aws_data.auto_feature = g_xiaoai_sass_auto_feaure;
+    uint8_t *addr = g_xiaoai_sass_cur_device;
+    memcpy(aws_data.cur_device, g_xiaoai_sass_cur_device, BT_BD_ADDR_LEN);
+    bt_status_t bt_status = apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_XIAOAI,
+                                                           XIAOAI_EVENT_MIUI_FC_SASS_INFO_SYNC,
+                                                           &aws_data, sizeof(aws_data));
+    APPS_LOG_MSGID_W(LOG_TAG"[MIUI_SASS] sync, [%02X] auto_feature=%d addr=%08X%04X bt_status=0x%08X",
+                     5, role, g_xiaoai_sass_auto_feaure, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), bt_status);
+}
+
+static void app_va_xiaoai_sass_handle_aws_data(void *extra_data, size_t data_len)
+{
+    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    bt_aws_mce_report_info_t *aws_data_ind = (bt_aws_mce_report_info_t *)extra_data;
+    if (aws_data_ind->module_id == BT_AWS_MCE_REPORT_MODULE_APP_ACTION) {
+        uint32_t event_group;
+        uint32_t event_id;
+        void *p_extra_data = NULL;
+        uint32_t extra_data_len = 0;
+        apps_aws_sync_event_decode_extra(aws_data_ind, &event_group, &event_id, &p_extra_data, &extra_data_len);
+
+        if (event_group == EVENT_GROUP_UI_SHELL_XIAOAI && event_id == XIAOAI_EVENT_MIUI_FC_SASS_INFO_SYNC) {
+            app_xiaoai_sass_aws_data_t aws_data = {0};
+            memcpy(&aws_data, (uint8_t *)p_extra_data, sizeof(app_xiaoai_sass_aws_data_t));
+            g_xiaoai_sass_auto_feaure = aws_data.auto_feature;
+            uint8_t *addr = aws_data.cur_device;
+            memcpy(g_xiaoai_sass_cur_device, addr, BT_BD_ADDR_LEN);
+            APPS_LOG_MSGID_W(LOG_TAG"[MIUI_SASS] handle_aws_data, [%02X] auto_feature=%d addr=%08X%04X",
+                             4, role, g_xiaoai_sass_auto_feaure, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+            if (role == BT_AWS_MCE_ROLE_AGENT) {
+                // Update V2 ADV for SASS "auto feature & audio_switch_connected"
+                app_va_xiaoai_miui_fc_start_adv();
+            }
+        }
+    }
+}
+
+static void app_va_xiaoai_sass_takeover(void)
+{
+    bt_device_manager_link_record_t *link_record = (bt_device_manager_link_record_t *)bt_device_manager_link_record_get_connected_link();
+    uint8_t connected_num = link_record->connected_num;
+    bt_device_manager_link_record_item_t *link_list = link_record->connected_device;
+    for (int i = 0; i < connected_num; i++) {
+        uint8_t *addr = (uint8_t *)&(link_list[i].remote_addr);
+        if (memcmp(addr, g_xiaoai_sass_cur_device, sizeof(bt_bd_addr_t)) != 0) {
+            app_bt_takeover_service_disconnect_edr(addr);
+            APPS_LOG_MSGID_W(LOG_TAG"[MIUI_SASS] takeover, addr=%02X:%02X:%02X:%02X:%02X:%02X",
+                             6, addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
+            break;
+        }
+    }
+}
+
+#endif
+
+static void app_va_xiaoai_print_hfp_atcmd()
+{
+    for (int i = 0; i < APP_XIAOAI_HFP_ATCMD_MAX_LIST_NUM; i++) {
+        bool used = app_xiaoai_hfp_atcmd_list[i].used;
+        uint8_t *addr = app_xiaoai_hfp_atcmd_list[i].addr;
+        uint16_t mma_type = app_xiaoai_hfp_atcmd_list[i].mma_type;
+        uint16_t atcmd_len = app_xiaoai_hfp_atcmd_list[i].atcmd_len;
+        APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] print_hfp_atcmd, [%d] used=%d addr=%08X%04X mma_type=%d atcmd_len=%d",
+                         6, i, used, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), mma_type, atcmd_len);
+    }
+}
+
+static void app_va_xiaoai_save_hfp_atcmd(uint8_t *addr, uint16_t mma_type, uint8_t *atcmd, uint16_t atcmd_len)
+{
+    bool saved = FALSE;
+    for (int i = 0; i < APP_XIAOAI_HFP_ATCMD_MAX_LIST_NUM; i++) {
+        if (!app_xiaoai_hfp_atcmd_list[i].used) {
+            uint8_t *save_atcmd = (uint8_t *)pvPortMalloc(atcmd_len);
+            if (save_atcmd == NULL) {
+                APPS_LOG_MSGID_E(LOG_TAG"[MIUI_SASS] save_hfp_atcmd, malloc fail", 0);
+                break;
+            }
+            memcpy(save_atcmd, atcmd, atcmd_len);
+
+            saved = TRUE;
+            app_xiaoai_hfp_atcmd_list[i].used = TRUE;
+            memcpy(app_xiaoai_hfp_atcmd_list[i].addr, addr, BT_BD_ADDR_LEN);
+            app_xiaoai_hfp_atcmd_list[i].mma_type = mma_type;
+            app_xiaoai_hfp_atcmd_list[i].atcmd = save_atcmd;
+            app_xiaoai_hfp_atcmd_list[i].atcmd_len = atcmd_len;
+            break;
+        }
+    }
+    if (!saved) {
+        APPS_LOG_MSGID_E(LOG_TAG"[MIUI_SASS] save_hfp_atcmd, error", 0);
+    }
+    app_va_xiaoai_print_hfp_atcmd();
+}
+
+void app_va_xiaoai_resend_hfp_atcmd(uint8_t *addr)
+{
+    APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] resend_hfp_atcmd, addr=%08X%04X", 2, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+    uint8_t send_count = 0;
+    for (int i = 0; i < APP_XIAOAI_HFP_ATCMD_MAX_LIST_NUM; i++) {
+        if (app_xiaoai_hfp_atcmd_list[i].used
+            && memcmp(addr, app_xiaoai_hfp_atcmd_list[i].addr, BT_BD_ADDR_LEN) == 0) {
+            // ToDo, need bt_sink_srv_hf_xiaomi_custom_ext with addr
+#if 0
+            bt_status_t bt_status = bt_sink_srv_hf_xiaomi_custom_ext((bt_bd_addr_t *)addr,
+                                                                     (const char *)app_xiaoai_hfp_atcmd_list[i].atcmd,
+                                                                     app_xiaoai_hfp_atcmd_list[i].atcmd_len);
+#else
+            bt_status_t bt_status = bt_sink_srv_hf_xiaomi_custom((const char *)app_xiaoai_hfp_atcmd_list[i].atcmd,
+                                                                 app_xiaoai_hfp_atcmd_list[i].atcmd_len);
+#endif
+            if (app_xiaoai_hfp_atcmd_list[i].atcmd != NULL) {
+                vPortFree(app_xiaoai_hfp_atcmd_list[i].atcmd);
+            }
+            memset(&app_xiaoai_hfp_atcmd_list[i], 0, sizeof(app_xiaoai_hfp_atcmd_list_t));
+            send_count++;
+
+            APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] resend_hfp_atcmd, addr=%08X%04X mma_type=%d atcmd_len=%d bt_status=0x%08X",
+                             5, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), app_xiaoai_hfp_atcmd_list[i].mma_type,
+                             app_xiaoai_hfp_atcmd_list[i].atcmd_len, bt_status);
+        }
+    }
+
+    if (send_count > 0) {
+        app_va_xiaoai_print_hfp_atcmd();
+    }
+}
+
+void app_va_xiaoai_clear_hfp_atcmd(uint8_t *addr)
+{
+    if (addr == NULL) {
+        APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] clear_hfp_atcmd, all", 0);
+    } else {
+        APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] clear_hfp_atcmd, addr=%08X%04X", 2, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+    }
+
+    uint8_t clear_count = 0;
+    for (int i = 0; i < APP_XIAOAI_HFP_ATCMD_MAX_LIST_NUM; i++) {
+        if (app_xiaoai_hfp_atcmd_list[i].used
+            && (addr == NULL || memcmp(addr, app_xiaoai_hfp_atcmd_list[i].addr, BT_BD_ADDR_LEN) == 0)) {
+            if (app_xiaoai_hfp_atcmd_list[i].atcmd != NULL) {
+                vPortFree(app_xiaoai_hfp_atcmd_list[i].atcmd);
+            }
+            memset(&app_xiaoai_hfp_atcmd_list[i], 0, sizeof(app_xiaoai_hfp_atcmd_list_t));
+            clear_count++;
+        }
+    }
+
+    if (clear_count > 0) {
+        app_va_xiaoai_print_hfp_atcmd();
+    }
+}
 
 static xiaoai_key_function app_va_xiaoai_key_click_function(bool left_earbud, airo_key_event_t key_event)
 {
@@ -184,7 +380,8 @@ static xiaoai_key_anc_function app_va_xiaoai_key_anc_function(bool left_earbud)
     return key_anc_function;
 }
 
-static bool app_va_xiaoai_send_hfp_atcmd(uint16_t mma_type, uint8_t miui_attribute, uint8_t *data, uint8_t data_len)
+static bool app_va_xiaoai_send_hfp_atcmd(uint8_t *addr, uint16_t mma_type, uint8_t miui_attribute,
+                                         uint8_t *data, uint8_t data_len)
 {
     bool ret = FALSE;
     char *atcmd = NULL;
@@ -251,7 +448,7 @@ static bool app_va_xiaoai_send_hfp_atcmd(uint16_t mma_type, uint8_t miui_attribu
     }
 
     if (atcmd != NULL && atcmd_len > 0) {
-        ret = app_va_xiaoai_send_atcmd(mma_type, atcmd, atcmd_len);
+        ret = app_va_xiaoai_send_atcmd(addr, mma_type, atcmd, atcmd_len);
     }
 
 exit:
@@ -264,7 +461,7 @@ exit:
     return ret;
 }
 
-static void app_va_xiaoai_handle_get_status(const char *cmd)
+static void app_va_xiaoai_handle_get_status(uint8_t *addr, const char *cmd)
 {
     int len = 0;
     int type = 0;
@@ -276,36 +473,36 @@ static void app_va_xiaoai_handle_get_status(const char *cmd)
         switch (type) {
             case 0: {
                 // all
-                app_va_xiaoai_hfp_miui_more_atcmd_report_all_status();
+                app_va_xiaoai_hfp_miui_more_atcmd_report_all_status(addr);
                 break;
             }
             case XIAOAI_HFP_ATCMD_TYPE_FLAG: {
-                app_va_xiaoai_hfp_miui_more_atcmd_report_feature();
+                app_va_xiaoai_hfp_miui_more_atcmd_report_feature(addr);
                 break;
             }
             case XIAOAI_HFP_ATCMD_TYPE_ANC: {
-                app_va_xiaoai_hfp_miui_more_atcmd_report_anc();
+                app_va_xiaoai_hfp_miui_more_atcmd_report_anc(addr);
                 break;
             }
             case XIAOAI_HFP_ATCMD_TYPE_KEY: {
-                app_va_xiaoai_hfp_miui_more_atcmd_report_key();
+                app_va_xiaoai_hfp_miui_more_atcmd_report_key(addr);
                 break;
             }
             case XIAOAI_HFP_ATCMD_TYPE_VOICE: {
-                app_va_xiaoai_hfp_miui_more_atcmd_report_voice();
+                app_va_xiaoai_hfp_miui_more_atcmd_report_voice(addr);
                 break;
             }
             case XIAOAI_HFP_ATCMD_TYPE_EQ: {
-                app_va_xiaoai_hfp_miui_more_atcmd_report_eq();
+                app_va_xiaoai_hfp_miui_more_atcmd_report_eq(addr);
                 break;
             }
             case XIAOAI_HFP_ATCMD_TYPE_GAME_MODE: {
-                app_va_xiaoai_hfp_miui_more_atcmd_report_game_mode();
+                app_va_xiaoai_hfp_miui_more_atcmd_report_game_mode(addr);
                 break;
             }
             case XIAOAI_HFP_ATCMD_TYPE_ANTI_LOST: {
                 uint8_t anti_lost_state = app_va_xiaoai_get_anti_lost_state();
-                app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(anti_lost_state);
+                app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(addr, anti_lost_state);
                 break;
             }
             default: {
@@ -316,13 +513,18 @@ static void app_va_xiaoai_handle_get_status(const char *cmd)
     }
 }
 
-static void app_va_xiaoai_handle_config_request(const char *cmd)
+static void app_va_xiaoai_handle_config_request(uint8_t *addr, const char *cmd)
 {
     int len = 0;
     int type = 0;
     int n = sscanf(cmd, "%02x%02x", &len, &type);
-    APPS_LOG_MSGID_I(LOG_TAG" handle_config_request len=%d type=%d",
-                     2, len, type);
+    if (addr != NULL) {
+        APPS_LOG_MSGID_I(LOG_TAG" handle_config_request, addr=%08X%04X len=%d type=%d",
+                         4, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), len, type);
+    } else {
+        APPS_LOG_MSGID_I(LOG_TAG" handle_config_request, len=%d type=%d",
+                         2, len, type);
+    }
 
     if (n == 2 && len >= 2) {
         if (type == XIAOAI_HFP_ATCMD_TYPE_CONFIG_NAME) {
@@ -339,15 +541,9 @@ static void app_va_xiaoai_handle_config_request(const char *cmd)
 
 #if 1
                 bool ret = app_va_xiaoai_own_set_device_name(report_data + 2, copy_len);
-#else
-                // ZMI Customer
-                // we shall write nvram both agent and partner, AT command is processed by agent
-                //2021.4.1 use interfice provided by Airoha
-                const char *device_name = report_data + 2;
-                app_set_user_defined_edr_name(device_name);
 #endif
                 if (ret) {
-                    ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_HEADSET_NAME_MODIFY_RESULT,
+                    ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_HEADSET_NAME_MODIFY_RESULT,
                                                        XIAOAI_HFP_ATCMD_ATT_CONFIG,
                                                        report_data, copy_len + 2);
                     APPS_LOG_MSGID_I(LOG_TAG" handle_set_name, send rsp ret=%d", 1, ret);
@@ -371,7 +567,7 @@ static void app_va_xiaoai_handle_config_request(const char *cmd)
 //            }
 
             uint8_t report_data[3] = {0x02, XIAOAI_HFP_ATCMD_TYPE_CONFIG_LEAUDIO, le_audio_switch};
-            bool ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_HEADSET_LE_AUDIO_STATUS,
+            bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_HEADSET_LE_AUDIO_STATUS,
                                                     XIAOAI_HFP_ATCMD_ATT_CONFIG,
                                                     report_data, 3);
             APPS_LOG_MSGID_I(LOG_TAG" handle_enable_leaudio, send rsp ret=%d", 1, ret);
@@ -391,7 +587,7 @@ static void app_va_xiaoai_handle_config_request(const char *cmd)
                     report_data[0] = MIUI_FC_ACCOUNT_KEY_LEN + 1;
                     report_data[1] = XIAOAI_HFP_ATCMD_TYPE_CONFIG_ACCOUNT_KEY;
                     memcpy(&report_data[2], key, MIUI_FC_ACCOUNT_KEY_LEN);
-                    bool ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_HEADSET_ACCOUNT_KEY_MODIFY_RESULT,
+                    bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_HEADSET_ACCOUNT_KEY_MODIFY_RESULT,
                                                             XIAOAI_HFP_ATCMD_ATT_CONFIG,
                                                             report_data,
                                                             MIUI_FC_ACCOUNT_KEY_LEN + 2);
@@ -406,26 +602,75 @@ static void app_va_xiaoai_handle_config_request(const char *cmd)
         }
 #endif
         else if (type == XIAOAI_HFP_ATCMD_TYPE_CONFIG_PACKAGE_NAME) {
-            // ZMI Customer
             len = len - 1;
             const char *name = cmd + 4;
             memset(g_xiaoai_pkg_name, 0, XIAOAI_MMA_MAX_PACKAGE_NAME);
             uint8_t copy_len = (len >= XIAOAI_MMA_MAX_PACKAGE_NAME ? (XIAOAI_MMA_MAX_PACKAGE_NAME - 1) : len);
             memcpy(g_xiaoai_pkg_name, name, copy_len);
-            APPS_LOG_I(LOG_TAG" handle_config_package_name, name=%d len=%d",
-                       g_xiaoai_pkg_name, len);
+            APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] handle_config_package_name, name=%d len=%d", 2, g_xiaoai_pkg_name, len);
         }
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+        else if (type == XIAOAI_HFP_ATCMD_TYPE_CONFIG_SASS_AUTO) {
+            int auto_switch = 0;
+            sscanf(cmd + 4, "%02x", &auto_switch);
+            g_xiaoai_sass_auto_feaure = (bool)(auto_switch == 1);
+            app_va_xiaoai_hfp_miui_more_atcmd_report_audio_switch_feature(addr);
+            APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] handle_config_audio_switch, auto_switch=%d", 1, g_xiaoai_sass_auto_feaure);
+            // Update V2 ADV for SASS "auto feature"
+            app_va_xiaoai_miui_fc_start_adv();
+            // Auto_switch ON -> EMP OFF
+            app_bt_emp_enable(!g_xiaoai_sass_auto_feaure, FALSE);
+        } else if (type == XIAOAI_HFP_ATCMD_TYPE_CONFIG_NOTIFY_AUDIO_SWITCH) {
+            const char *name = cmd + 4;
+            len = len - 1;  // <len><type><name_string>, <type> only 1 bytes
+            // <len><type>=2 + 1 '\0'
+            uint8_t *report_data = (uint8_t *)pvPortMalloc(2 + XIAOAI_BT_NAME_LEN + 1);
+            if (report_data != NULL) {
+                memset(report_data, 0, 2 + XIAOAI_BT_NAME_LEN + 1);
+                uint8_t copy_len = (len >= XIAOAI_BT_NAME_LEN ? XIAOAI_BT_NAME_LEN : len);
+                report_data[0] = copy_len + 1;
+                report_data[1] = XIAOAI_HFP_ATCMD_TYPE_CONFIG_NOTIFY_AUDIO_SWITCH;
+                memcpy(report_data + 2, name, copy_len);
 
+                bool send_hfp_atcmd_rsp = FALSE;
+                bt_bd_addr_t bd_addr_list[3] = {0};
+                uint32_t hfp_count = 3;
+                hfp_count = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP),
+                                                        bd_addr_list, hfp_count);
+                for (int i = 0; i < hfp_count; i++) {
+                    uint8_t *hfp_addr = (uint8_t *)bd_addr_list[i];
+                    if (memcmp(hfp_addr, addr, BT_BD_ADDR_LEN) != 0) {
+                        bool ret = app_va_xiaoai_send_hfp_atcmd(hfp_addr, XIAOAI_MMA_TYPE_UNKNOWN,
+                                                                XIAOAI_HFP_ATCMD_ATT_CONFIG,
+                                                                report_data, copy_len + 2);
+                        APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] handle_config_notify_audio_switch, i=%d count=%d hfp_addr=%08X%04X cur_addr=%08X%04X name_len=%d ret=%d",
+                                         8, i, hfp_count, *((uint32_t *)(hfp_addr + 2)), *((uint16_t *)hfp_addr),
+                                         *((uint32_t *)(addr + 2)), *((uint16_t *)addr), strlen(name), ret);
+                        if (ret) {
+                            send_hfp_atcmd_rsp = TRUE;
+                        }
+                    }
+                }
+                if (!send_hfp_atcmd_rsp) {
+                    APPS_LOG_MSGID_E(LOG_TAG"[MIUI_SASS] handle_config_notify_audio_switch, error RSP", 0);
+                }
+
+                vPortFree(report_data);
+            }
+            // Clear takeover module -> event and app_bt_takeover_miui_sass_addr
+            extern void app_bt_takeover_clear_miui_sass_ctx(void);
+            app_bt_takeover_clear_miui_sass_ctx();
+
+            memcpy(g_xiaoai_sass_cur_device, addr, BT_BD_ADDR_LEN);
+            app_va_xiaoai_sass_takeover();
+            // Update V2 ADV for SASS "audio_switch_connected"
+            app_va_xiaoai_miui_fc_start_adv();
+        }
+#endif
     }
 }
 
-#if 1
-
-#define MIUI_FAST_CONNECT_BLE_ADV_LEN           31
-#define MIUI_FAST_CONNECT_REQUEST_ADV_DATA      1
-#define MIUI_FAST_CONNECT_REQUEST_SCAN_RSP      2
-
-static void app_va_xiaoai_reply_ble_adv_cmd(bool is_adv_data, uint8_t *buf, uint32_t buf_len)
+static void app_va_xiaoai_reply_ble_adv_cmd(uint8_t *addr, bool is_adv_data, uint8_t *buf, uint32_t buf_len)
 {
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
     bool lea_mma = app_xiaoai_is_lea_mma_link();
@@ -442,7 +687,7 @@ static void app_va_xiaoai_reply_ble_adv_cmd(bool is_adv_data, uint8_t *buf, uint
         report_data[0] = buf_len + 1;
         report_data[1] = (is_adv_data ? MIUI_FAST_CONNECT_REQUEST_ADV_DATA : MIUI_FAST_CONNECT_REQUEST_SCAN_RSP);
         memcpy(&report_data[2], buf, buf_len);
-        bool ret = app_va_xiaoai_send_hfp_atcmd((is_adv_data ? XIAOAI_MMA_TYPE_BLE_ADV_DATA : XIAOAI_MMA_TYPE_BLE_ADV_SCAN_RSP),
+        bool ret = app_va_xiaoai_send_hfp_atcmd(addr, (is_adv_data ? XIAOAI_MMA_TYPE_BLE_ADV_DATA : XIAOAI_MMA_TYPE_BLE_ADV_SCAN_RSP),
                                                 XIAOAI_HFP_ATCMD_ATT_MIUI_FAST_CONNECT,
                                                 report_data,
                                                 buf_len + 2);
@@ -454,7 +699,7 @@ static void app_va_xiaoai_reply_ble_adv_cmd(bool is_adv_data, uint8_t *buf, uint
     }
 }
 
-static void app_va_xiaoai_reply_ble_adv_data_cmd()
+static void app_va_xiaoai_reply_ble_adv_data_cmd(uint8_t *addr)
 {
     uint8_t adv_data[MIUI_FAST_CONNECT_BLE_ADV_LEN] = {0};
 #ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
@@ -466,10 +711,10 @@ static void app_va_xiaoai_reply_ble_adv_data_cmd()
     xiaoai_set_ble_adv_info(62, &le_adv_param, &le_adv_data, &le_scan_rsp);
     memcpy(adv_data, le_adv_data.advertising_data, le_adv_data.advertising_data_length);
 #endif
-    app_va_xiaoai_reply_ble_adv_cmd(TRUE, adv_data, MIUI_FAST_CONNECT_BLE_ADV_LEN);
+    app_va_xiaoai_reply_ble_adv_cmd(addr, TRUE, adv_data, MIUI_FAST_CONNECT_BLE_ADV_LEN);
 }
 
-static void app_va_xiaoai_reply_ble_scan_rsp_cmd()
+static void app_va_xiaoai_reply_ble_scan_rsp_cmd(uint8_t *addr)
 {
     uint8_t scan_rsp[MIUI_FAST_CONNECT_BLE_ADV_LEN] = {0};
 #ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
@@ -481,10 +726,10 @@ static void app_va_xiaoai_reply_ble_scan_rsp_cmd()
     xiaoai_set_ble_adv_info(62, &le_adv_param, &le_adv_data, &le_scan_rsp);
     memcpy(scan_rsp, le_scan_rsp.scan_response_data, le_scan_rsp.scan_response_data_length);
 #endif
-    app_va_xiaoai_reply_ble_adv_cmd(FALSE, scan_rsp, MIUI_FAST_CONNECT_BLE_ADV_LEN);
+    app_va_xiaoai_reply_ble_adv_cmd(addr, FALSE, scan_rsp, MIUI_FAST_CONNECT_BLE_ADV_LEN);
 }
 
-static void app_va_xiaoai_handle_miui_fast_connect_request(const char *cmd)
+static void app_va_xiaoai_handle_miui_fast_connect_request(uint8_t *addr, const char *cmd)
 {
     int len = 0;
     int type = 0;
@@ -493,16 +738,14 @@ static void app_va_xiaoai_handle_miui_fast_connect_request(const char *cmd)
                      2, len, type);
     if (n == 2 && len == 1) {
         if (type == MIUI_FAST_CONNECT_REQUEST_ADV_DATA) {
-            app_va_xiaoai_reply_ble_adv_data_cmd();
+            app_va_xiaoai_reply_ble_adv_data_cmd(addr);
         } else if (type == MIUI_FAST_CONNECT_REQUEST_SCAN_RSP) {
-            app_va_xiaoai_reply_ble_scan_rsp_cmd();
+            app_va_xiaoai_reply_ble_scan_rsp_cmd(addr);
         }
     }
 }
 
-#endif
-
-static void app_va_xiaoai_atcmd_parse(const char *atcmd)
+static void app_va_xiaoai_atcmd_parse(uint8_t *addr, const char *atcmd)
 {
     int atcmd_len = strlen(atcmd) - APP_XIAOMI_HFP_ATCMD_LEN - APP_XIAOMI_HFP_HEADER_LEN;
     if (atcmd_len > 0
@@ -510,13 +753,14 @@ static void app_va_xiaoai_atcmd_parse(const char *atcmd)
         atcmd += APP_XIAOMI_HFP_ATCMD_LEN + APP_XIAOMI_HFP_HEADER_LEN - 2;
         int type = 0;
         sscanf(atcmd, "%02x", &type);
-        APPS_LOG_MSGID_I(LOG_TAG" atcmd_parse type=%d", 1, type);
+        APPS_LOG_MSGID_I(LOG_TAG" HFP atcmd_parse, addr=%08X%04X type=%d",
+                         3, *((uint32_t *)(addr + 2)), *((uint16_t *)addr), type);
         if (type == XIAOAI_HFP_ATCMD_ATT_STATUS) {
-            app_va_xiaoai_handle_get_status(atcmd + 2);
+            app_va_xiaoai_handle_get_status(addr, atcmd + 2);
         } else if (type == XIAOAI_HFP_ATCMD_ATT_CONFIG) {
-            app_va_xiaoai_handle_config_request(atcmd + 2);
+            app_va_xiaoai_handle_config_request(addr, atcmd + 2);
         } else if (type == XIAOAI_HFP_ATCMD_ATT_MIUI_FAST_CONNECT) {
-            app_va_xiaoai_handle_miui_fast_connect_request(atcmd + 2);
+            app_va_xiaoai_handle_miui_fast_connect_request(addr, atcmd + 2);
         }
     }
 }
@@ -529,8 +773,8 @@ bt_status_t app_va_xiaoai_hfp_callback(bt_msg_type_t event, bt_status_t status, 
             const char *atcmd = ind->result;
             // +XIAOMI: <FF><01><02><01><01/03>"data"<FF>
             if (status == BT_STATUS_SUCCESS && atcmd != NULL) {
-                g_xiaoai_hfp_handle = ind->handle;
-                app_va_xiaoai_atcmd_parse(atcmd);
+                uint8_t *addr = (uint8_t *)bt_hfp_get_bd_addr_by_handle(ind->handle);
+                app_va_xiaoai_atcmd_parse(addr, atcmd);
             } else {
                 APPS_LOG_MSGID_I(LOG_TAG" hfp_callback error, status=0x%08X atcmd=%d",
                                  2, status, atcmd);
@@ -541,7 +785,7 @@ bt_status_t app_va_xiaoai_hfp_callback(bt_msg_type_t event, bt_status_t status, 
     return BT_STATUS_SUCCESS;
 }
 
-bool app_va_xiaoai_send_atcmd(uint16_t mma_type, const char *atcmd, uint32_t atcmd_len)
+bool app_va_xiaoai_send_atcmd(uint8_t *addr, uint16_t mma_type, const char *atcmd, uint32_t atcmd_len)
 {
     bool success = FALSE;
     bool lea_aws_success = FALSE;
@@ -554,6 +798,11 @@ bool app_va_xiaoai_send_atcmd(uint16_t mma_type, const char *atcmd, uint32_t atc
     uint32_t hfp_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP), NULL, 0);
 
     if (conn_info.conn_state != XIAOAI_STATE_CONNECTED && peer_lea_mma) {
+        if (mma_type == XIAOAI_MMA_TYPE_UNKNOWN) {
+            APPS_LOG_MSGID_E(LOG_TAG" [LEA_MMA_LINK] send_atcmd, unknown MMA type", 0);
+            return FALSE;
+        }
+
         int total_len = sizeof(xiaoai_at_cmd_param_t) - 1 + atcmd_len;
         uint8_t *data = (uint8_t *)pvPortMalloc(total_len);
         if (data == NULL) {
@@ -581,9 +830,13 @@ bool app_va_xiaoai_send_atcmd(uint16_t mma_type, const char *atcmd, uint32_t atc
         goto exit;
     }
 
-    // ZMI Customer, mark for MMA run on LE Audio Link
     if (conn_info.conn_state == XIAOAI_STATE_CONNECTED
         && conn_info.is_le_audio_mma) {
+        if (mma_type == XIAOAI_MMA_TYPE_UNKNOWN) {
+            APPS_LOG_MSGID_E(LOG_TAG" [LEA_MMA_LINK] send_atcmd, unknown MMA type", 0);
+            return FALSE;
+        }
+
         uint32_t mma_data_len = sizeof(uint8_t) + sizeof(uint16_t) + atcmd_len;
         uint8_t *buf = (uint8_t *)pvPortMalloc(mma_data_len);
         if (buf != NULL) {
@@ -601,7 +854,7 @@ bool app_va_xiaoai_send_atcmd(uint16_t mma_type, const char *atcmd, uint32_t atc
         }
     }
 
-    if (role == BT_AWS_MCE_ROLE_AGENT && hfp_num > 0) {
+    if (role == BT_AWS_MCE_ROLE_AGENT) {
         // for MMA_LEA, HFP AT CMD will use HEX not string, covert to original HFP AT CMD
         bt_status_t bt_status = BT_STATUS_SUCCESS;
         if (lea_aws_success || lea_success) {
@@ -628,17 +881,35 @@ bool app_va_xiaoai_send_atcmd(uint16_t mma_type, const char *atcmd, uint32_t atc
                 atcmd_str_len = strlen(atcmd_str);
                 APPS_LOG_I("[XIAOAI_HF] handle_mma_atcmd, ATCMD=%s atcmd_str_len=%d\r\n", (char *)atcmd_str, atcmd_str_len);
             }
+
+            // ToDo, need bt_sink_srv_hf_xiaomi_custom_ext with addr
+#if 0
+            bt_status = bt_sink_srv_hf_xiaomi_custom_ext((bt_bd_addr_t *)addr, atcmd_str, atcmd_str_len);
+#else
             bt_status = bt_sink_srv_hf_xiaomi_custom(atcmd_str, atcmd_str_len);
+#endif
         } else {
+            if (addr != NULL && !bt_sink_srv_hf_check_is_connected((bt_bd_addr_t *)addr)) {
+                APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] send_atcmd, [%02X] addr=%08X%04X no HFP",
+                                 3, role, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+                app_va_xiaoai_save_hfp_atcmd(addr, mma_type, (uint8_t *)atcmd, atcmd_len);
+                goto exit;
+            }
+
+            // ToDo, need bt_sink_srv_hf_xiaomi_custom_ext with addr
+#if 0
+            bt_status = bt_sink_srv_hf_xiaomi_custom_ext((bt_bd_addr_t *)addr, atcmd, atcmd_len);
+#else
             bt_status = bt_sink_srv_hf_xiaomi_custom(atcmd, atcmd_len);
+#endif
         }
         hfp_success = (bt_status == BT_STATUS_SUCCESS);
     }
 
 exit:
     success = (lea_aws_success || lea_success || hfp_success);
-    APPS_LOG_MSGID_I(LOG_TAG" send_atcmd, [%02X] mma_type=0x%04X conn_state=%d is_le_audio_mma=%d lea_aws_success=%d lea_success=%d hfp_success=%d",
-                     7, role, mma_type, conn_info.conn_state, conn_info.is_le_audio_mma, lea_aws_success, lea_success, hfp_success);
+    APPS_LOG_MSGID_I(LOG_TAG" send_atcmd, [%02X] addr=0x%08X mma_type=0x%04X conn_state=%d is_le_audio_mma=%d lea_aws_success=%d lea_success=%d hfp_success=%d",
+                     8, role, addr, mma_type, conn_info.conn_state, conn_info.is_le_audio_mma, lea_aws_success, lea_success, hfp_success);
     return success;
 }
 
@@ -655,13 +926,14 @@ bool app_va_xiaoai_hfp_miui_basic_atcmd()
 
     char *atcmd = xiaoai_get_miui_at_cmd();
     if (atcmd != NULL) {
-        ret = app_va_xiaoai_send_atcmd(XIAOAI_MMA_TYPE_HEADSET_NOTIFY_BASIC_INFO,
+        ret = app_va_xiaoai_send_atcmd(NULL, XIAOAI_MMA_TYPE_HEADSET_NOTIFY_BASIC_INFO,
                                        atcmd, strlen(atcmd));
         vPortFree(atcmd);
         APPS_LOG_MSGID_I(LOG_TAG" hfp_miui_basic_atcmd", 0);
 
-#ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
-        // send MIUI FAST_CONNECT (BLE ADV DATA) again
+#if 0 // def AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
+        // ToDo, send MIUI FAST_CONNECT (BLE ADV DATA) again, need ???
+        // Update ADV to reply V2 ADV Data HFP AT CMD?
         if (ret) {
             app_va_xiaoai_report_miui_fast_connect_at_cmd();
         }
@@ -670,7 +942,7 @@ bool app_va_xiaoai_hfp_miui_basic_atcmd()
     return ret;
 }
 
-void app_va_xiaoai_hfp_miui_more_atcmd_report_feature()
+void app_va_xiaoai_hfp_miui_more_atcmd_report_feature(uint8_t *addr)
 {
 #define XIAOMI_HFP_MORE_ATCMD_REPORT_FEATURE_LEN             19
     uint8_t report_data[XIAOMI_HFP_MORE_ATCMD_REPORT_FEATURE_LEN] = {0};
@@ -729,14 +1001,14 @@ void app_va_xiaoai_hfp_miui_more_atcmd_report_feature()
     report_data[17] = ((APP_VA_XIAOAI_VERSION >> 8) & 0x0F);
     report_data[18] = ((APP_VA_XIAOAI_VERSION >> 12) & 0x0F);
 
-    bool ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_HEADSET_NOTIFY_BASIC_INFO,
+    bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_HEADSET_NOTIFY_BASIC_INFO,
                                             XIAOAI_HFP_ATCMD_ATT_STATUS,
                                             report_data,
                                             XIAOMI_HFP_MORE_ATCMD_REPORT_FEATURE_LEN);
     APPS_LOG_MSGID_I(LOG_TAG" miui_more_atcmd_report_feature ret=%d", 1, ret);
 }
 
-void app_va_xiaoai_hfp_miui_more_atcmd_report_all_status()
+void app_va_xiaoai_hfp_miui_more_atcmd_report_all_status(uint8_t *addr)
 {
 #define XIAOAI_HFP_REPORT_ALL_STATUS_LEN      (0x1B + 1)
     uint8_t report_data[XIAOAI_HFP_REPORT_ALL_STATUS_LEN] = {0};
@@ -773,14 +1045,14 @@ void app_va_xiaoai_hfp_miui_more_atcmd_report_all_status()
     report_data[26] = XIAOAI_HFP_ATCMD_TYPE_ANTI_LOST;
     report_data[27] = anti_lost_state;
 
-    bool ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_HEADSET_NOTIFY_BASIC_INFO,
+    bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_HEADSET_NOTIFY_BASIC_INFO,
                                             XIAOAI_HFP_ATCMD_ATT_STATUS,
                                             report_data,
                                             XIAOAI_HFP_REPORT_ALL_STATUS_LEN);
     APPS_LOG_MSGID_I(LOG_TAG" more_atcmd_report_all_status ret=%d", 1, ret);
 }
 
-void app_va_xiaoai_hfp_miui_more_atcmd_report_anc()
+void app_va_xiaoai_hfp_miui_more_atcmd_report_anc(uint8_t *addr)
 {
 #define XIAOAI_HFP_REPORT_ANC_LEN      5
     uint8_t report_data[XIAOAI_HFP_REPORT_ANC_LEN] = {0};
@@ -791,14 +1063,14 @@ void app_va_xiaoai_hfp_miui_more_atcmd_report_anc()
     report_data[3] = XIAOAI_HFP_ATCMD_TYPE_ANC;
     report_data[4] = anc_state;
 
-    bool ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_SWICH_ANC_MODE,
+    bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_SWITCH_ANC_MODE,
                                             XIAOAI_HFP_ATCMD_ATT_STATUS,
                                             report_data,
                                             XIAOAI_HFP_REPORT_ANC_LEN);
     APPS_LOG_MSGID_I(LOG_TAG" more_atcmd_report_anc ret=%d", 1, ret);
 }
 
-void app_va_xiaoai_hfp_miui_more_atcmd_report_key()
+void app_va_xiaoai_hfp_miui_more_atcmd_report_key(uint8_t *addr)
 {
 #define XIAOAI_HFP_REPORT_KEY_LEN      10
     uint8_t report_data[XIAOAI_HFP_REPORT_KEY_LEN] = {0};
@@ -813,14 +1085,14 @@ void app_va_xiaoai_hfp_miui_more_atcmd_report_key()
     report_data[8] = app_va_xiaoai_key_anc_function(TRUE);
     report_data[9] = app_va_xiaoai_key_anc_function(FALSE);
 
-    bool ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_CUSTOM_KEY,
+    bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_CUSTOM_KEY,
                                             XIAOAI_HFP_ATCMD_ATT_STATUS,
                                             report_data,
                                             XIAOAI_HFP_REPORT_KEY_LEN);
     APPS_LOG_MSGID_I(LOG_TAG" more_atcmd_report_key ret=%d", 1, ret);
 }
 
-void app_va_xiaoai_hfp_miui_more_atcmd_report_voice()
+void app_va_xiaoai_hfp_miui_more_atcmd_report_voice(uint8_t *addr)
 {
 #define XIAOAI_HFP_REPORT_VOICE_LEN      8
     uint8_t report_data[XIAOAI_HFP_REPORT_VOICE_LEN] = {0};
@@ -841,14 +1113,14 @@ void app_va_xiaoai_hfp_miui_more_atcmd_report_voice()
     report_data[6] = 0x1F;
     report_data[7] = 0;
 
-    bool ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_HEADSET_NOTIFY_BASIC_INFO,
+    bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_HEADSET_NOTIFY_BASIC_INFO,
                                             XIAOAI_HFP_ATCMD_ATT_STATUS,
                                             report_data,
                                             XIAOAI_HFP_REPORT_VOICE_LEN);
     APPS_LOG_MSGID_I(LOG_TAG" more_atcmd_report_voice ret=%d", 1, ret);
 }
 
-void app_va_xiaoai_hfp_miui_more_atcmd_report_eq()
+void app_va_xiaoai_hfp_miui_more_atcmd_report_eq(uint8_t *addr)
 {
 #define XIAOAI_HFP_REPORT_EQ_LEN      5
     uint8_t report_data[XIAOAI_HFP_REPORT_EQ_LEN] = {0};
@@ -859,14 +1131,14 @@ void app_va_xiaoai_hfp_miui_more_atcmd_report_eq()
     report_data[3] = XIAOAI_HFP_ATCMD_TYPE_EQ;
     report_data[4] = eq_state;
 
-    bool ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_EQ_MODE,
+    bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_EQ_MODE,
                                             XIAOAI_HFP_ATCMD_ATT_STATUS,
                                             report_data,
                                             XIAOAI_HFP_REPORT_EQ_LEN);
     APPS_LOG_MSGID_I(LOG_TAG" more_atcmd_report_eq ret=%d", 1, ret);
 }
 
-void app_va_xiaoai_hfp_miui_more_atcmd_report_game_mode()
+void app_va_xiaoai_hfp_miui_more_atcmd_report_game_mode(uint8_t *addr)
 {
 #define XIAOAI_HFP_REPORT_GAME_MODE_LEN      5
     uint8_t report_data[XIAOAI_HFP_REPORT_GAME_MODE_LEN] = {0};
@@ -877,14 +1149,14 @@ void app_va_xiaoai_hfp_miui_more_atcmd_report_game_mode()
     report_data[3] = XIAOAI_HFP_ATCMD_TYPE_GAME_MODE;
     report_data[4] = game_mode_state;
 
-    bool ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_HEADSET_NOTIFY_BASIC_INFO,
+    bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_HEADSET_NOTIFY_BASIC_INFO,
                                             XIAOAI_HFP_ATCMD_ATT_STATUS,
                                             report_data,
                                             XIAOAI_HFP_REPORT_GAME_MODE_LEN);
     APPS_LOG_MSGID_I(LOG_TAG" more_atcmd_report_game_mode ret=%d", 1, ret);
 }
 
-void app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(uint8_t data)
+void app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(uint8_t *addr, uint8_t data)
 {
 #define XIAOAI_HFP_REPORT_ANTI_LOST_LEN      5
     uint8_t report_data[XIAOAI_HFP_REPORT_ANTI_LOST_LEN] = {0};
@@ -894,13 +1166,53 @@ void app_va_xiaoai_hfp_miui_more_atcmd_report_anti_lost(uint8_t data)
     report_data[3] = XIAOAI_HFP_ATCMD_TYPE_ANTI_LOST;
     report_data[4] = data;
 
-    bool ret = app_va_xiaoai_send_hfp_atcmd(XIAOAI_MMA_TYPE_ANTI_LOST,
+    bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_ANTI_LOST,
                                             XIAOAI_HFP_ATCMD_ATT_STATUS,
                                             report_data,
                                             XIAOAI_HFP_REPORT_ANTI_LOST_LEN);
     APPS_LOG_MSGID_I(LOG_TAG" more_atcmd_report_anti_lost, anti_lost=0x%02X ret=%d",
                      2, data, ret);
 }
+
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+void app_va_xiaoai_hfp_miui_more_atcmd_report_audio_switch_feature(uint8_t *addr)
+{
+#define XIAOAI_HFP_REPORT_AUDIO_SWITCH_AUTO_FEATURE_LEN      (3)
+    uint8_t report_data[XIAOAI_HFP_REPORT_AUDIO_SWITCH_AUTO_FEATURE_LEN] = {0};
+    report_data[0] = 2;
+    report_data[1] = XIAOAI_HFP_ATCMD_TYPE_CONFIG_SASS_AUTO;
+    report_data[2] = g_xiaoai_sass_auto_feaure;
+    bool ret = app_va_xiaoai_send_hfp_atcmd(addr, XIAOAI_MMA_TYPE_UNKNOWN,
+                                            XIAOAI_HFP_ATCMD_ATT_CONFIG,
+                                            report_data,
+                                            XIAOAI_HFP_REPORT_AUDIO_SWITCH_AUTO_FEATURE_LEN);
+    APPS_LOG_MSGID_I(LOG_TAG"[MIUI_SASS] more_atcmd_report_audio_switch_feature, sass_auto_feaure=%d ret=%d",
+                     2, g_xiaoai_sass_auto_feaure, ret);
+}
+
+bool app_va_xiaoai_is_support_auto_audio_switch()
+{
+    return g_xiaoai_sass_auto_feaure;
+}
+
+bool app_va_xiaoai_is_exist_audio_switch_connected()
+{
+    uint8_t empty_addr[BT_BD_ADDR_LEN] = {0};
+    return (memcmp(g_xiaoai_sass_cur_device, empty_addr, BT_BD_ADDR_LEN) != 0);
+}
+
+void app_va_xiaoai_disable_audio_switch()
+{
+    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    APPS_LOG_MSGID_W(LOG_TAG"[MIUI_SASS] [%02X] disable_audio_switch %d", 2, role, g_xiaoai_sass_auto_feaure);
+    if (g_xiaoai_sass_auto_feaure) {
+        g_xiaoai_sass_auto_feaure = FALSE;
+        memset(g_xiaoai_sass_cur_device, 0, BT_BD_ADDR_LEN);
+        //app_va_xiaoai_hfp_miui_more_atcmd_report_audio_switch_feature(NULL);
+        app_va_xiaoai_miui_fc_start_adv();
+    }
+}
+#endif
 
 void app_va_xiaoai_hfp_handle_mma_atcmd(uint16_t type, uint8_t *atcmd_data, uint16_t atcmd_data_len)
 {
@@ -934,17 +1246,16 @@ void app_va_xiaoai_hfp_handle_mma_atcmd(uint16_t type, uint8_t *atcmd_data, uint
         int type = 0;
         sscanf(atcmd, "%02x", &type);
         if (type == XIAOAI_HFP_ATCMD_ATT_STATUS) {
-            app_va_xiaoai_handle_get_status(atcmd + 2);
+            app_va_xiaoai_handle_get_status(NULL, atcmd + 2);
         } else if (type == XIAOAI_HFP_ATCMD_ATT_CONFIG) {
-            app_va_xiaoai_handle_config_request(atcmd + 2);
+            app_va_xiaoai_handle_config_request(NULL, atcmd + 2);
         }
 #ifdef AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE
         else if (type == XIAOAI_HFP_ATCMD_ATT_MIUI_FAST_CONNECT) {
-            app_va_xiaoai_handle_miui_fast_connect_request(atcmd + 2);
+            app_va_xiaoai_handle_miui_fast_connect_request(NULL, atcmd + 2);
         }
 #endif
     }
-
 }
 
 void app_va_xiaoai_hfp_at_cmd_register(bool enable)
@@ -953,6 +1264,10 @@ void app_va_xiaoai_hfp_at_cmd_register(bool enable)
     if (enable) {
         status = bt_callback_manager_register_callback(bt_callback_type_app_event,
                                                        MODULE_MASK_HFP, (void *)app_va_xiaoai_hfp_callback);
+
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+        app_va_xiaoai_sass_init();
+#endif
     } else {
         status = bt_callback_manager_deregister_callback(bt_callback_type_app_event,
                                                          (void *)app_va_xiaoai_hfp_callback);
@@ -961,13 +1276,54 @@ void app_va_xiaoai_hfp_at_cmd_register(bool enable)
                      2, enable, status);
 }
 
+void app_va_xiaoai_hfp_at_cmd_proc_ui_shell_event(uint32_t event_group,
+                                                  uint32_t event_id,
+                                                  void *extra_data,
+                                                  uint32_t data_len)
+{
+#if defined(AIR_XIAOAI_MIUI_FAST_CONNECT_ENABLE) && defined(AIR_XIAOAI_AUDIO_SWITCH_ENABLE)
+    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    if (event_group == EVENT_GROUP_UI_SHELL_BT_CONN_MANAGER && event_id == BT_CM_EVENT_REMOTE_INFO_UPDATE) {
+        bt_cm_remote_info_update_ind_t *remote_update = (bt_cm_remote_info_update_ind_t *)extra_data;
+        if (remote_update != NULL) {
+            bool aws_conntected = (!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->pre_connected_service)
+                                   && (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service));
+            uint8_t *addr = (uint8_t *)remote_update->address;
+            if (remote_update->pre_acl_state != BT_CM_ACL_LINK_DISCONNECTED
+                && remote_update->acl_state == BT_CM_ACL_LINK_DISCONNECTED
+                && memcmp(g_xiaoai_sass_cur_device, addr, BT_BD_ADDR_LEN) == 0) {
+                APPS_LOG_MSGID_W(LOG_TAG"[MIUI_SASS] Current Device Disconnect, addr=%08X%04X",
+                                 2, *((uint32_t *)(addr + 2)), *((uint16_t *)addr));
+
+                // Update V2 ADV for SASS "audio_switch_connected"
+                memset(g_xiaoai_sass_cur_device, 0, BT_BD_ADDR_LEN);
+                app_va_xiaoai_miui_fc_start_adv();
+            }
+            if (aws_conntected && role == BT_AWS_MCE_ROLE_AGENT) {
+                app_va_xiaoai_sass_sync();
+            }
+        }
+    }
+#if defined(MTK_AWS_MCE_ENABLE) && defined(SUPPORT_ROLE_HANDOVER_SERVICE)
+    if (event_group == EVENT_GROUP_UI_SHELL_APP_INTERACTION && event_id == APPS_EVENTS_INTERACTION_RHO_END) {
+        app_rho_result_t rho_result = (app_rho_result_t)extra_data;
+        if (APP_RHO_RESULT_SUCCESS == rho_result) {
+            app_va_xiaoai_sass_sync();
+        }
+    } else if (event_group == EVENT_GROUP_UI_SHELL_AWS_DATA) {
+        app_va_xiaoai_sass_handle_aws_data(extra_data, data_len);
+    }
+
+#endif
+#endif
+}
+
 void app_va_xiaoai_report_miui_fast_connect_at_cmd()
 {
     //APPS_LOG_MSGID_I(LOG_TAG" report_miui_fast_connect_at_cmd", 0);
-    app_va_xiaoai_reply_ble_adv_data_cmd();
+    app_va_xiaoai_reply_ble_adv_data_cmd(NULL);
 }
 
-// ZMI Customer
 bool xiaoai_va_xiaoai_hfp_pkg_is_ys(void)
 {
     bool ret = FALSE;

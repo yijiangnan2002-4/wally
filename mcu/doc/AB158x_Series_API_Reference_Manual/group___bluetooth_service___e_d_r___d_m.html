@@ -174,9 +174,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ga54f11d4c1477cbcdab0b856e6fc9538e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group___bluetoothbt__primary__type__define.html#ga6bf23e2845d8aec21a15506e256eff4e">bt_status_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group___bluetooth_service___e_d_r___d_m.html#ga54f11d4c1477cbcdab0b856e6fc9538e">bt_device_manager_remote_set_seq_num</a> (<a class="el" href="group___bluetoothbt__primary__type__define.html#gaf4054e1ff6f411ab8da99307809c4fde">bt_bd_addr_t</a> addr, uint8_t sequence)</td></tr>
 <tr class="memdesc:ga54f11d4c1477cbcdab0b856e6fc9538e"><td class="mdescLeft">&#160;</td><td class="mdescRight">This function used to set the indicate device's sequence in the paired list.  <a href="#ga54f11d4c1477cbcdab0b856e6fc9538e">More...</a><br /></td></tr>
 <tr class="separator:ga54f11d4c1477cbcdab0b856e6fc9538e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gac9e889fe90051b82654412f01203e8c4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group___bluetoothbt__primary__type__define.html#gaf4054e1ff6f411ab8da99307809c4fde">bt_bd_addr_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group___bluetooth_service___e_d_r___d_m.html#gac9e889fe90051b82654412f01203e8c4">bt_device_manager_remote_get_dev_by_seq_num</a> (uint8_t sequence)</td></tr>
-<tr class="memdesc:gac9e889fe90051b82654412f01203e8c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">This function used to get the remote device's address by sequence number in paired list.  <a href="#gac9e889fe90051b82654412f01203e8c4">More...</a><br /></td></tr>
-<tr class="separator:gac9e889fe90051b82654412f01203e8c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga49f2aa21b9a8345fb76ed01c7922a784"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group___bluetoothbt__primary__type__define.html#gaf4054e1ff6f411ab8da99307809c4fde">bt_bd_addr_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group___bluetooth_service___e_d_r___d_m.html#ga49f2aa21b9a8345fb76ed01c7922a784">bt_device_manager_remote_get_dev_by_seq_num</a> (uint32_t sequence)</td></tr>
+<tr class="memdesc:ga49f2aa21b9a8345fb76ed01c7922a784"><td class="mdescLeft">&#160;</td><td class="mdescRight">This function used to get the remote device's address by sequence number in paired list.  <a href="#ga49f2aa21b9a8345fb76ed01c7922a784">More...</a><br /></td></tr>
+<tr class="separator:ga49f2aa21b9a8345fb76ed01c7922a784"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga24a9dffe885ef302bf8f2b2f82d64f8b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group___bluetoothbt__primary__type__define.html#gaf4054e1ff6f411ab8da99307809c4fde">bt_bd_addr_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group___bluetooth_service___e_d_r___d_m.html#ga24a9dffe885ef302bf8f2b2f82d64f8b">bt_device_manager_aws_local_info_get_fixed_address</a> (void)</td></tr>
 <tr class="memdesc:ga24a9dffe885ef302bf8f2b2f82d64f8b"><td class="mdescLeft">&#160;</td><td class="mdescRight">This function used to get the aws mce fixed address.  <a href="#ga24a9dffe885ef302bf8f2b2f82d64f8b">More...</a><br /></td></tr>
 <tr class="separator:ga24a9dffe885ef302bf8f2b2f82d64f8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -600,14 +600,14 @@ Modules</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="gac9e889fe90051b82654412f01203e8c4"></a>
+<a class="anchor" id="ga49f2aa21b9a8345fb76ed01c7922a784"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname"><a class="el" href="group___bluetoothbt__primary__type__define.html#gaf4054e1ff6f411ab8da99307809c4fde">bt_bd_addr_t</a>* bt_device_manager_remote_get_dev_by_seq_num </td>
           <td>(</td>
-          <td class="paramtype">uint8_t&#160;</td>
+          <td class="paramtype">uint32_t&#160;</td>
           <td class="paramname"><em>sequence</em></td><td>)</td>
           <td></td>
         </tr>
@@ -621,7 +621,7 @@ Modules</h2></td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>The remote device's address. </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>The remote device's address. Return NULL if there is no history in the paired list. </dd></dl>
 
 </div>
 </div>
@@ -790,7 +790,7 @@ Modules</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Thu Sep 28 2023 17:13:34 for AB158x Series MCU API Reference by
+    <li class="footer">Generated on Fri Dec 29 2023 02:13:07 for AB158x Series MCU API Reference by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.11 </li>
   </ul>

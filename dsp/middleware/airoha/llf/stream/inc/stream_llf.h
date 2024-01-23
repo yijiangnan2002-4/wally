@@ -118,6 +118,10 @@ typedef enum {
    LLF_DL_MIX_TYPE_NUM,
 } audio_llf_dl_mix_type_t;
 
+typedef enum {
+    LLF_RUNTIME_CONFIG_EVENT_DL_SWAP_DONE = 100,
+} audio_llf_runtime_config_event_t;
+
 typedef stream_feature_list_t* (*dsp_llf_feature_get_list_entry)(llf_type_t scenario_id, U32 sub_id);
 typedef void (*dsp_llf_feature_ctrl_entry)(audio_llf_stream_ctrl_t *ctrl);
 typedef void (*dsp_llf_feature_common_entry)(SOURCE source, SINK sink);
@@ -134,6 +138,11 @@ typedef struct {
     dsp_llf_set_dl_state           set_dl_state_entry;
 } dsp_llf_feature_entry_t;
 
+typedef struct {
+    U32  sample_per_step_ori[AFE_HW_DIGITAL_GAIN_NUM];
+    bool llf_mute_dl_flag;
+} llf_dl_mute_ctrl_t;
+
 /* Public macro --------------------------------------------------------------*/
 /* Public variables ----------------------------------------------------------*/
 /* Public functions ----------------------------------------------------------*/
@@ -143,6 +152,7 @@ void llf_sharebuf_semaphore_give(void);
 SOURCE dsp_open_stream_in_LLF(mcu2dsp_open_param_p open_param);
 SINK dsp_open_stream_out_LLF(mcu2dsp_open_param_p open_param);
 VOID dsp_llf_callback_processing(DSP_STREAMING_PARA_PTR stream);
+void dsp_llf_init(void);
 void dsp_llf_open(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 void dsp_llf_start(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 void dsp_llf_stop(hal_ccni_message_t msg, hal_ccni_message_t *ack);
@@ -158,7 +168,9 @@ void dsp_llf_get_audio_dl_status(bool dl_state[LLF_DL_MIX_TYPE_NUM]);
 void dsp_llf_set_input_channel_num(U8 num);
 U8 dsp_llf_get_input_channel_num(void);
 void dsp_llf_mute(bool is_mute);
+void dsp_llf_mute_dl(bool is_mute);
 U32 dsp_llf_get_data_buf_idx(llf_data_type_t type);
+void dsp_llf_wait_dl_swap_ready(void);
 
 
 /* sub senario API*/

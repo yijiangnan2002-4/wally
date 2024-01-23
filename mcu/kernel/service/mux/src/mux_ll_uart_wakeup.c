@@ -55,7 +55,7 @@ uint8_t mux_uart_tx_sleep_handle = 0xFF;
 static bool mux_sleep_lock_timer_alive = false;
 static bool mux_sleep_monitor_timer_alive = false;
 
-volatile bool other_side_has_lock_sleep = false; /*record the other side sleep status.*/
+volatile bool other_side_has_lock_sleep = true; /*record the other side sleep status.*/
 volatile bool has_send_wakeup_cmd = false; /*record has sent wakeup cmd, but not received response.*/
 volatile bool is_recieved_wakeup_cmd = false; /*record has  received wakeup cmd, set to true after received wakeup cmd, and clear after send wakeup response..*/
 volatile bool mux_sleep_lock_timer_need_restart = false;  /*record if need restart 10s timer, if any cmd received before lock sleep timer timeout, it will be set to 1.*/
@@ -110,8 +110,7 @@ ATTR_TEXT_IN_FAST_MEM static void mux_uart_sleep_monitor_timer_callback(TimerHan
 
         ret = xTimerChangePeriodFromISR(mux_uart_sleep_monitor_timer, (10 / portTICK_PERIOD_MS), &xHigherPriorityTaskWoken);
         ret = xTimerStopFromISR(mux_uart_sleep_monitor_timer, &xHigherPriorityTaskWoken);
-        LOG_MSGID_I(common, "[uart wakeup] sleep_monitor_timer_callback, change timer period to 500ms,ret %d", 1, ret);
-        //LOG_MSGID_I(common, "[uart wakeup] sleep_monitor_timer_callback, change timer period to 500ms,, unlock", 0);
+        LOG_MSGID_I(common, "[uart wakeup] sleep_monitor_timer_callback, change timer period to 10ms, stop timer. ret %d", 1, ret);
     }
 
     if (xHigherPriorityTaskWoken == pdTRUE) {
@@ -144,7 +143,7 @@ void mux_uart_wakeup_timer_init(void)
     }
 
     if (mux_uart_sleep_monitor_timer == NULL) {
-        mux_uart_sleep_monitor_timer = xTimerCreate("mux_ll_monitor_timer", (10 / portTICK_PERIOD_MS), pdFALSE, NULL, mux_uart_sleep_monitor_timer_callback);
+        mux_uart_sleep_monitor_timer = xTimerCreate("mux_ll_monitor_timer", (9 * 500 / portTICK_PERIOD_MS), pdFALSE, NULL, mux_uart_sleep_monitor_timer_callback);
         if (mux_uart_sleep_monitor_timer == NULL) {
             LOG_MSGID_I(common, "[uart wakeup] sleep_monitor_timer_init fail", 0);
             return;
@@ -222,16 +221,29 @@ ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_parse_wakeup_cmd(void)
 {
     uint32_t uid = 0xF1;
 
-    LOG_MSGID_I(common, "[uart wakeup] recv wakeup cmd", 0);
-
-    is_recieved_wakeup_cmd = true;
-    mux_uart_start_sleep_lock_timer(); /*received cmd then start timer and lock sleep 10s.*/
-
-    MUX_SET_TX_FLAGS(uid, MUX_TX_TRIGGER_OWNER_WAKEUP);
-    hal_nvic_set_pending_irq(SW_IRQn);
+    if (is_recieved_wakeup_cmd == false) {
+        LOG_MSGID_I(common, "[uart wakeup] recv wakeup cmd, lock sleep", 0);
+        is_recieved_wakeup_cmd = true;
+        mux_uart_start_sleep_lock_timer(); /*received cmd then start timer and lock sleep 10s.*/
+        MUX_SET_TX_FLAGS(uid, MUX_TX_TRIGGER_OWNER_WAKEUP);
+        hal_nvic_set_pending_irq(SW_IRQn);
+    } else {
+        LOG_MSGID_I(common, "[uart wakeup] wakeup cmd have already received.", 0);
+    }
 }
 
-ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_parse_wakeup_cmd_response(void)
+ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_wakeup_restore(void)
+{
+    if (g_wakeup_uid == 0xFF) {
+        assert(0 && "wakeup uid not init!!");
+    }
+    // if (g_mux_ll_config->device_mode != DCHS_MODE_SINGLE) {
+    g_mux_ll_user_context[g_wakeup_uid].rx_pkt_seq++;
+    mux_ll_uart_parse_wakeup_cmd();
+    // }
+}
+
+static ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_parse_wakeup_cmd_response(void)
 {
     uint32_t uid = 0xF2;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
@@ -251,8 +263,8 @@ ATTR_TEXT_IN_FAST_MEM void mux_ll_uart_parse_wakeup_cmd_response(void)
             hal_sleep_manager_unlock_sleep(mux_uart_tx_sleep_handle);
         }
 
-        ret = xTimerChangePeriodFromISR(mux_uart_sleep_monitor_timer, (9 * 1000 / portTICK_PERIOD_MS), &xHigherPriorityTaskWoken);
-        LOG_MSGID_I(common, "[uart wakeup] parse_wakeup_cmd_response, change timer period to 9s, ret %d, unlock", 1, ret);
+        ret = xTimerChangePeriodFromISR(mux_uart_sleep_monitor_timer, (9 * 500 / portTICK_PERIOD_MS), &xHigherPriorityTaskWoken);
+        LOG_MSGID_I(common, "[uart wakeup] parse_wakeup_cmd_response, change timer period to 4.5s, ret %d, unlock", 1, ret);
         if (xHigherPriorityTaskWoken == pdTRUE) {
             portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         }
@@ -409,5 +421,8 @@ void mux_ll_uart_wakeup_init(void)
         assert(0 && "[uart wakeup] can not find wakeup uid!!");
     }
     mux_uart_wakeup_timer_init();
+
+    mux_uart_start_sleep_lock_timer();
+    mux_uart_start_sleep_monitor_timer();
 }
 #endif

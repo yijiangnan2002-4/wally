@@ -35,6 +35,8 @@
 #ifndef __USBMS_MSDC_H__
 #define __USBMS_MSDC_H__
 
+#ifdef AIR_USB_MSC_ENABLE
+
 /* C library */
 #include <stdbool.h>
 #include <stdint.h>
@@ -58,6 +60,7 @@ typedef struct {
     usbms_dev_type_t (* usbms_dev_type)(void);
 } usbms_msdc_driver_t;
 
+#endif /* AIR_USB_MSC_ENABLE */
 
-#endif
+#endif /* __USBMS_MSDC_H__ */
 

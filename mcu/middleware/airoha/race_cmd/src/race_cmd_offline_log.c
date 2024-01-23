@@ -422,6 +422,39 @@ void *RACE_OFFLINE_SET_LOG_TO_FLASH_SWITCH_HDR(PTR_RACE_COMMON_HDR_STRU pCmdMsg,
     return (void *)pEvt;
 }
 
+void *RACE_OFFLINE_SET_UNIX_TIME_HDR(PTR_RACE_COMMON_HDR_STRU pCmdMsg, uint16_t length, uint8_t channel_id)
+{
+    typedef struct {
+        RACE_COMMON_HDR_STRU Hdr;
+        uint32_t  set_unix_time;
+    } PACKED THIS_RACE_CMD_STRU;
+
+    typedef struct {
+        uint8_t  status;
+        uint32_t read_unix_time;
+    } PACKED RSP;
+
+    THIS_RACE_CMD_STRU *pThisCmd = (THIS_RACE_CMD_STRU *)pCmdMsg;
+    RSP *pEvt = RACE_ClaimPacketAppID(pCmdMsg->pktId.field.app_id,
+                                        RACE_TYPE_RESPONSE,
+                                        RACE_OFFLINE_SET_UNIX_TIME,
+                                        sizeof(RSP),
+                                        channel_id);
+
+    if (pEvt) {
+        RACE_LOG_MSGID_I("RACE_OFFLINE_SET_UNIX_TIME_HDR Epoch Time[%d] !!! ", 1, pThisCmd->set_unix_time);
+        if (offline_dump_set_rtc_time_unix(pThisCmd->set_unix_time) == true) {
+            pEvt->status = RACE_ERRCODE_SUCCESS;
+            pEvt->read_unix_time = pThisCmd->set_unix_time;
+        } else {
+            pEvt->status = RACE_ERRCODE_FAIL;
+            pEvt->read_unix_time = 0;
+        }
+    }
+
+    return (void *)pEvt;
+}
+
 void *RACE_CmdHandler_offline_log(ptr_race_pkt_t pCmdMsg, uint16_t length, uint8_t channel_id)
 {
     RACE_LOG_MSGID_D("RACE_CmdHandler_offline_log, pCmdMsg->hdr.id[0x%X]", 1, (int)pCmdMsg->hdr.id);
@@ -469,6 +502,11 @@ void *RACE_CmdHandler_offline_log(ptr_race_pkt_t pCmdMsg, uint16_t length, uint8
 
         case RACE_OFFLINE_SET_LOG_TO_FLASH_SWITCH: { //0x1E15
             return RACE_OFFLINE_SET_LOG_TO_FLASH_SWITCH_HDR((PTR_RACE_COMMON_HDR_STRU) & (pCmdMsg->hdr), length, channel_id);
+        }
+        break;
+
+        case RACE_OFFLINE_SET_UNIX_TIME: { //0x1E16
+            return RACE_OFFLINE_SET_UNIX_TIME_HDR((PTR_RACE_COMMON_HDR_STRU) & (pCmdMsg->hdr), length, channel_id);
         }
         break;
 

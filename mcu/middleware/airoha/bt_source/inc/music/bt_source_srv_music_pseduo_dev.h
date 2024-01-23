@@ -58,6 +58,9 @@ typedef uint8_t bt_source_srv_music_psd_event_t;
 #define BT_SOURCE_SRV_MUSIC_PSD_USER_EVENT_MEDIA_DETECT         0x05
 #define BT_SOURCE_SRV_MUSIC_PSD_USER_EVENT_SUSPEND_BY_PRIORITY 0x06
 #define BT_SOURCE_SRV_MUSIC_PSD_USER_EVENT_AUDIO_START_SUCCESS 0x07
+#define BT_SOURCE_SRV_MUSIC_PSD_USER_EVENT_AUDIO_START_FAIL 0x08
+#define BT_SOURCE_SRV_MUSIC_PSD_USER_EVENT_SUSPEND_BY_PORT_INVAILD 0x09
+
 
 
 #define BT_SOURCE_SRV_MUSIC_PORT_ACTION_NONE      BT_SOURCE_SRV_COMMON_PORT_ACTION_NONE
@@ -99,7 +102,7 @@ void bt_source_srv_music_psd_update_port(void *device, bt_source_srv_port_t port
 
 bt_status_t bt_source_srv_music_audio_port_update(bt_source_srv_port_t audio_port, bt_source_srv_music_port_action_t action);
 
-uint8_t bt_source_srv_music_get_audio_number(void *device);
+uint32_t bt_source_srv_music_get_audio_number(void *device);
 
 bool bt_source_srv_music_psd_is_idle(void *device);
 

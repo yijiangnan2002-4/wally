@@ -200,8 +200,12 @@ void HA_hearing_aid_runtime_config(audio_llf_runtime_config_t *param)
     switch (param->config_event) {
         case HA_RUNTIME_CONFIG_EVENT_HA_ENABLE: {
             //param->setting == 0 -->disable,  else enable
-            DSP_LLF_LOG_I("[HEARING_AID]set HA enabled(%d)", 1, param->setting);
-            stream_function_hearing_aid_set_ha_switch((U8)param->setting);
+            if (param->setting != 0) { // wait for enable
+                dsp_llf_wait_dl_swap_ready();
+            } else {
+                DSP_LLF_LOG_I("[HEARING_AID]set HA enabled(%d)", 1, param->setting);
+                stream_function_hearing_aid_set_ha_switch((U8)param->setting);
+            }
             break;
         }
         case HA_RUNTIME_CONFIG_EVENT_LEVEL_IND: {
@@ -362,6 +366,11 @@ void HA_hearing_aid_runtime_config(audio_llf_runtime_config_t *param)
             *data_len_p = stream_function_hearing_aid_get_mic_cal_data((void *)dst);
 //            DSP_LLF_LOG_I("[HEARING_AID] get data(len %d): %x%x%x%x%x%x%x%x%x%x", 11, *data_len_p,
 //                    *dst, *(dst+1), *(dst+2), *(dst+3), *(dst+4), *(dst+5), *(dst+6), *(dst+7), *(dst+8), *(dst+9));
+            break;
+        }
+        case LLF_RUNTIME_CONFIG_EVENT_DL_SWAP_DONE: {
+            DSP_LLF_LOG_I("[HEARING_AID]set HA enabled(1)", 0);
+            stream_function_hearing_aid_set_ha_switch(1);
             break;
         }
         default:

@@ -217,8 +217,9 @@ bt_status_t bt_ull_le_hid_dm_write_device_info(bt_ull_le_hid_dm_device_info_t *i
         return BT_STATUS_FAIL;
     }
     if (bt_ull_le_hid_dm_read_device_info(info->device_type, &info->addr)) {
-        ull_report_error(BT_ULL_HID_DM_LOG"dm_write_device_info, device has exist!!", 0);
-        return BT_STATUS_SUCCESS;
+        ull_report_error(BT_ULL_HID_DM_LOG"dm_write_device_info, device has exist, delete it first!!", 0);
+        bt_ull_le_hid_dm_delete_device_info(info->device_type, &info->addr);
+        // return BT_STATUS_SUCCESS;
     }
 
     bt_ull_le_hid_dm_device_nvkey_t *device = bt_ull_le_hid_dm_get_available_info(info->device_type);
@@ -232,32 +233,33 @@ bt_status_t bt_ull_le_hid_dm_write_device_info(bt_ull_le_hid_dm_device_info_t *i
     return bt_ull_le_hid_dm_write_nvdm(info->device_type);
 }
 
+bt_addr_t *bt_ull_le_hid_dm_addr_by_device_type(bt_ull_le_hid_srv_device_t cur_device_type)
+{
+    bt_ull_le_hid_dm_device_nvkey_t *device = bt_ull_le_hid_dm_get_available_info(cur_device_type);
+    if (NULL == device) {
+        ull_report_error(BT_ULL_HID_DM_LOG"bt_ull_le_hid_dm_clear_by_device_type, no source!!", 0);
+        return NULL;
+    }
+    return &device->device_info.addr;
+}
 
 #if defined (AIR_PURE_GAMING_ENABLE)
 #include "bt_avm.h"
 
 uint8_t bt_ull_le_hid_dm_get_default_tx_gc()
 {
-    #define TX_GC_SIZE (8)
-    #define DEFAULT_TX_GC_VALUE (0x3D)
+    #define DEFAULT_TX_GC_VALUE (0x3C)
 
-    uint8_t tx_gc_buf[TX_GC_SIZE] = {0};
+    uint8_t tx_gc_buf[11*4] = {0};
     uint32_t tx_gc_len = sizeof(tx_gc_buf);
     nvkey_status_t status = nvkey_read_data(NVID_CAL_PWR_CTL_MP_K, (uint8_t *)tx_gc_buf, &tx_gc_len);
     if (status != NVKEY_STATUS_OK && NVKEY_STATUS_ITEM_NOT_FOUND != status) {
-        ull_report_error(BT_ULL_HID_DM_LOG"bt_ull_le_hid_dm_get_default_tx_gc fail!", 0);
+        ull_report_error(BT_ULL_HID_DM_LOG"bt_ull_le_hid_dm_get_default_tx_gc fail(%d)!", 1, status);
         return DEFAULT_TX_GC_VALUE;
     }
-
-    ull_report(BT_ULL_HID_DM_LOG"bt_ull_le_hid_dm_get_default_tx_gc, tx gc(%02X %02X %02X %02X %02X %02X %02X %02X)", 8, \
-    tx_gc_buf[0], tx_gc_buf[1], tx_gc_buf[2], tx_gc_buf[3], tx_gc_buf[4], tx_gc_buf[5], tx_gc_buf[6], tx_gc_buf[7]);
-
-    if (tx_gc_buf[4] != tx_gc_buf[6]) {
-        ull_report_error(BT_ULL_HID_DM_LOG"bt_ull_le_hid_dm_get_default_tx_gc LE1M(0x%X) is not equal with LE2M(0x%X)!", 2, tx_gc_buf[4], tx_gc_buf[6]);
-        return DEFAULT_TX_GC_VALUE;
-    }
-
-    return tx_gc_buf[4] ;
+    ull_report(BT_ULL_HID_DM_LOG"bt_ull_le_hid_dm_get_default_tx_gc, tx gc(0x%02X)", 1, tx_gc_buf[0]);
+    
+    return tx_gc_buf[0];
 }
 
 uint8_t bt_ull_le_hid_dm_get_qc_tx_gc()
@@ -316,7 +318,11 @@ bt_status_t bt_ull_le_hid_dm_enter_test_mode(bt_ull_le_hid_srv_device_t device_t
             dv_info.used = true;
             dv_info.device_info.device_type = device_type;
             bt_addr_t test_addr = {0x01, {0x01, 0x02, 0x03, 0x04, 0x05, 0x08}};
+#if defined (AIR_QC_DONGLE_KB_ENABLE)
+            uint8_t kb_test_uni_aa[BT_ULL_LE_HID_DM_UNI_AA_LEN] = {0x60, 0x71, 0x82, 0x96};
+#else
             uint8_t kb_test_uni_aa[BT_ULL_LE_HID_DM_UNI_AA_LEN] = {0x61, 0x72, 0x83, 0x97};
+#endif
             bt_ull_le_srv_memcpy(&dv_info.device_info.addr, &test_addr, sizeof(bt_addr_t));
             bt_ull_le_srv_memcpy(&dv_info.device_info.uni_aa, &kb_test_uni_aa, BT_ULL_LE_HID_DM_UNI_AA_LEN);
             bt_ull_le_srv_memcpy(&dv_info.device_info.ltk, &uni_ltk, BT_ULL_LE_HID_DM_LTK_LEN);
@@ -332,8 +338,7 @@ bt_status_t bt_ull_le_hid_dm_enter_test_mode(bt_ull_le_hid_srv_device_t device_t
             dv_info.used = true;
             dv_info.device_info.device_type = device_type;
             bt_addr_t test_addr = {0x01, {0x01, 0x02, 0x03, 0x04, 0x05, 0x06}};
-
-#ifdef AIR_QC_DONGLE_ENABLE
+#if defined (AIR_QC_DONGLE_MS_ENABLE)
             uint8_t mouse_test_uni_aa[BT_ULL_LE_HID_DM_UNI_AA_LEN] = {0x61, 0x72, 0x83, 0xEF};
 #else
             uint8_t mouse_test_uni_aa[BT_ULL_LE_HID_DM_UNI_AA_LEN] = {0x62, 0x73, 0x84, 0xF0};

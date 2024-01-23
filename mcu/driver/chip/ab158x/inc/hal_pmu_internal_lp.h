@@ -109,5 +109,7 @@ void pmu_switch_performance_level(pmu_slt_mode_t mode);
 void pmu_set_dummy_load_lp(pmu_power_domain_t domain, uint32_t loading_value);
 void pmu_vrf_keep_nm_lp(void);
 void pmu_check_rg_timer_lp(uint16_t start, uint16_t end, uint16_t timer);
+void hal_pmu_buck_thd_test_lp(void);
+void hal_pmu_buck_thd_test_wo_pg_lp(void);
 #endif /* End of HAL_PMU_MODULE_ENABLED */
 #endif /* End of __HAL_PMU_INTERNAL_H__*/

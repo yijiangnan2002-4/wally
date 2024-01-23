@@ -108,7 +108,7 @@ bool app_ms_teams_set_endpoint_fw_version(uint8_t *ver, uint32_t len);
 bool app_ms_teams_set_dongle_fw_version(uint8_t *ver, uint32_t len);
 
 /**
-* @brief      Set the don to answer setting, ture means auto accept the incoming call.
+* @brief      Set the don to answer setting, true means auto accept the incoming call.
 * @param[in]  en default is false
 * @return     Success or Failed, true means Success.
 */
@@ -130,7 +130,7 @@ bool app_ms_teams_set_endpoint_device_model_id(uint8_t *model_id, uint32_t len);
 /**
 * @brief      Set the dongle serial number.
 *             You could use it set a default value in function app_ms_teams_load_default_telemetry_setting.
-*             And this fw version is storaged in NVKEY NVID_TEAMS_DEVICE_SN. It could be changed by
+*             And this fw version is stored in NVKEY NVID_TEAMS_DEVICE_SN. It could be changed by
 *             Airoha config tool.
 * @param[in]  sn is the serial number string, this string should only be composed of letters
 *             and numbers and "_" and ".", such as "SN00001". The version max length is 32bytes.
@@ -144,7 +144,7 @@ bool app_ms_teams_set_dongle_device_SN(uint8_t *sn, uint32_t len);
 * @brief      Set the endpoint device serial number, it's the headset/earbuds serial number.
 *             This function will be called while headset/earbuds and dongle handshake done.
 *             You could use it set a default value in function app_ms_teams_load_default_telemetry_setting.
-*             And this fw version is storaged in NVKEY NVID_TEAMS_DEVICE_SN on the headset/earbuds side.
+*             And this fw version is stored in NVKEY NVID_TEAMS_DEVICE_SN on the headset/earbuds side.
 *             It could be changed by Airoha config tool.
 * @param[in]  sn is the serial number string, this string should only be composed of letters
 *             and numbers and "_" and ".", such as "SN00001". The version max length is 32bytes.
@@ -154,7 +154,7 @@ bool app_ms_teams_set_dongle_device_SN(uint8_t *sn, uint32_t len);
 bool app_ms_teams_set_endpoint_device_SN(uint8_t *sn, uint32_t len);
 
 /**
-* @brief      This function should be called when the sidetone level changed.
+* @brief      This function should be called when the side tone level changed.
 *             Now SDK always is "0.0".
 * @param[in]  db_diff is the side tone level diff value when the level changed.
 * @return     Success or Failed, true means Success.
@@ -189,7 +189,7 @@ bool app_ms_teams_set_audio_codec_used(app_ms_teams_telemetry_audio_codec_type_t
 #define APP_MS_TEAMS_TELEMETRY_MASK_BASS_MANAGEMENT 0X00002000                  /* BassManagement */
 #define APP_MS_TEAMS_TELEMETRY_MASK_ENVIRONMENTAL_EFFECTS 0X00004000            /* EnvironmentalEffects */
 #define APP_MS_TEAMS_TELEMETRY_MASK_SPEAKER_COMPENSATION 0X00008000             /* SpeakerCompensation */
-#define APP_MS_TEAMS_TELEMETRY_MASK_DYNAMI_CRANGE_COMPRESSION 0X00010000        /* DynamicRangeCompression */
+#define APP_MS_TEAMS_TELEMETRY_MASK_DYNAMIC_RANGE_COMPRESSION 0X00010000        /* DynamicRangeCompression */
 #define APP_MS_TEAMS_TELEMETRY_MASK_OTHER 0X00020000                            /* Other */
 /**
 * @brief      This function will be called when the DSP effects changed by headset/earbuds.
@@ -212,7 +212,7 @@ bool app_ms_teams_set_hardmute_lock(bool on_off);
 
 /**
 * @brief      If your device support wear detection, call this function when the wear status changed. 
-* @param[in]  on_off ture means the wearing on, false means wearing off.
+* @param[in]  on_off true means the wearing on, false means wearing off.
 * @return     Success or Failed, true means Success.
 */
 bool app_ms_teams_set_headset_worn(bool on_off);
@@ -283,7 +283,7 @@ bool app_ms_teams_set_button_press_info_flash(bool on_off);
 
 /**
 * @brief      This function will be called when the connected device changed which connected with dongle.
-*             Such as, A connected firstly and then B connected with dongle, set param "yes_no" to be ture.
+*             Such as, A connected firstly and then B connected with dongle, set param "yes_no" to be true.
 *             Then B disconnected and reconnect again, set param "yes_no" to be false.
 *             This function only be called on dongle side.
 * @param[in]  yes_no true means new device connected or active device changed and false means the no changes.

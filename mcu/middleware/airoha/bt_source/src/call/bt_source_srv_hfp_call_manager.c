@@ -322,6 +322,19 @@ uint32_t bt_source_srv_hfp_call_get_call_list(bt_source_srv_hfp_call_context_t *
     return real_count;
 }
 
+uint32_t bt_source_srv_hfp_call_get_call_count(void)
+{
+    uint32_t real_count = 0;
+    for (uint32_t i = 0; i < BT_SOURCE_SRV_HFP_CALL_MAX; i++) {
+        bt_source_srv_hfp_call_context_t *context = &g_source_srv_hfp_call_context[i];
+        if (context->index != BT_SOURCE_SRV_CALL_INVALID_INDEX) {
+            real_count++;
+        }
+    }
+    LOG_MSGID_I(source_srv, "[HFP][AG][CALL] get call count = %02x", 1, real_count);
+    return real_count;
+}
+
 uint32_t bt_source_srv_hfp_call_get_context_by_state(bt_source_srv_call_state_t call_state,
         bt_source_srv_hfp_call_context_t *call_list, uint32_t list_count)
 {

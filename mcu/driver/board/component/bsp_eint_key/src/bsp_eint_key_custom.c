@@ -218,7 +218,6 @@ void bsp_eint_key_custom_init(void)
     BSP_EINTKEY_DRIVER_INIT_8_EINTKEY(available_key_nums);
 #endif
     if (0 == available_key_nums) {
-        // LOG_MSGID_E(eint_key, "[eint_key]eint key pin has not been configured by ept tool on GPIO page, please check BSP_EINTKEYx_PIN\r\n", 0);
-        assert(0);
+        assert(0 && "[eint_key]eint key pin has not been configured by ept tool on GPIO page, please check BSP_EINTKEYx_PIN\r\n");
     }
 }

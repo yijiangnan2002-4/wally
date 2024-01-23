@@ -70,6 +70,8 @@ bool app_hearing_aid_storage_set_sco_mix_switch(bool sco_mix);
 
 bool app_hearing_aid_storage_set_vp_mix_switch(bool vp_mix);
 
+void app_hearing_aid_storage_get_music_operate_ha_configuration(bool *music_operate_ha_switch, uint8_t *delay_time);
+
 bool app_hearing_aid_storage_save_configuration();
 
 bool app_hearing_aid_storage_restore(bool *need_update);

@@ -667,9 +667,9 @@ static speaker_fec_gen_fec_group_t *speaker_fec_fill_received_fec_gen_data(speak
         speaker_fec_free_fec_gen_data_group(des_fec_group);
     }
     bt_utils_assert(des_fec_group && "No free fec group");
-    uint16_t fec_count = des_fec_group->gen_fec_count;
+    uint32_t fec_count = des_fec_group->gen_fec_count;
     /* filter duplicate FEC data according to poly_num */
-    uint16_t idx = 0;
+    uint32_t idx = 0;
     speaker_fec_group_info_t exist_group_info;
     for (idx = 0; idx < fec_count; idx++) {
         speaker_fec_get_group_info(&exist_group_info, &(des_fec_group->fec_gen_data[idx]));

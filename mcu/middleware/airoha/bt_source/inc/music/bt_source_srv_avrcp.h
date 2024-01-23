@@ -58,7 +58,7 @@ typedef struct {
 
 void bt_source_srv_avrcp_init(void *param);
 
-bt_status_t bt_source_srv_notify_avrcp_event_change(const bt_bd_addr_t *address, bt_avrcp_event_t event, void* data);
+bt_status_t bt_source_srv_notify_avrcp_event_change(const bt_bd_addr_t *address, bt_avrcp_event_t event, uint32_t data);
 
 bt_status_t bt_source_srv_avrcp_action_handler(uint32_t action, void* param, uint32_t length);
 

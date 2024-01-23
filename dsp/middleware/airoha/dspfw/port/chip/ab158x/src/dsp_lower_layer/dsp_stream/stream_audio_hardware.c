@@ -82,7 +82,7 @@ void afe_dl1_interrupt_handler(void);
 #if defined (AIR_WIRED_AUDIO_ENABLE) || defined (AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined (AIR_DCHS_MODE_ENABLE) || defined(AIR_WIRELESS_MIC_RX_ENABLE) || defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE)
 void afe_dl3_interrupt_handler(void);
 #endif
-#if defined (AIR_WIRED_AUDIO_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_DCHS_MODE_ENABLE)
+#if defined (AIR_WIRED_AUDIO_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_MIXER_STREAM_ENABLE)
 void afe_dl12_interrupt_handler(void);
 #endif
 void afe_vul1_interrupt_handler(void);
@@ -101,12 +101,17 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
     AUDIO_PARAMETER *pAudPara = &sink->param.audio;
     hal_audio_format_t format;
     uint32_t media_frame_samples;
-    //modify for ab1568
+
     hal_audio_path_parameter_t *path_handle = &sink->param.audio.path_handle;
     hal_audio_memory_parameter_t *mem_handle = &sink->param.audio.mem_handle;
     hal_audio_device_parameter_t *device_handle = &sink->param.audio.device_handle;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
     hal_audio_device_parameter_t *device_handle1 = &sink->param.audio.device_handle1;
+    hal_audio_device_parameter_t *device_handle2 = &sink->param.audio.device_handle2;
+#endif
     memset(&sink->param.audio.AfeBlkControl, 0, sizeof(afe_block_t));
+
+    pAudPara->clk_skew_mode = Audio_setting->Audio_sink.clkskew_mode;
 
     format = gAudioCtrl.Afe.AfeDLSetting.format ;
     /* calculate memory size for delay */
@@ -128,12 +133,16 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
     if (sink->param.audio.channel_sel == AUDIO_CHANNEL_4ch) {
         pAudPara->channel_num = 4;
+    } else if (sink->param.audio.channel_sel == AUDIO_CHANNEL_6ch) {
+        pAudPara->channel_num = 6;
     }
 #endif
     pAudPara->rate          = gAudioCtrl.Afe.AfeDLSetting.rate;
     pAudPara->src_rate      = gAudioCtrl.Afe.AfeDLSetting.src_rate;
     pAudPara->period        = gAudioCtrl.Afe.AfeDLSetting.period;           /* ms, how many period to trigger */
-
+#if defined(ENABLE_HWSRC_ON_MAIN_STREAM) || defined(MTK_HWSRC_IN_STREAM)
+    pAudPara->hwsrc_type    = gAudioCtrl.Afe.AfeDLSetting.hwsrc_type; 
+#endif
 #if 1   // for FPGA early porting
     if (sink->type == SINK_TYPE_VP_AUDIO) {
         pAudPara->sw_channels = pAudPara->channel_num;
@@ -167,8 +176,17 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
 #if defined (AIR_WIRED_AUDIO_ENABLE)
     if ((gAudioCtrl.Afe.AfeDLSetting.scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_0) || (gAudioCtrl.Afe.AfeDLSetting.scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_IN))
     {
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+        if (pAudPara->channel_num >= 2) {
+            DSP_MW_LOG_I("[MULTI_STREAM] channel_num acutual: %d, force to 2\r\n", 1, pAudPara->channel_num);
+            pAudPara->buffer_size = Audio_setting->Audio_sink.Buffer_Frame_Num * media_frame_samples * 2 * pAudPara->format_bytes;
+        } else {
+            pAudPara->buffer_size = Audio_setting->Audio_sink.Buffer_Frame_Num * media_frame_samples * pAudPara->channel_num * pAudPara->format_bytes;
+        }
+#else
         pAudPara->buffer_size   = Audio_setting->Audio_sink.Buffer_Frame_Num * media_frame_samples *
                             pAudPara->channel_num * pAudPara->format_bytes;
+#endif
     }
     else
 #endif
@@ -191,16 +209,19 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
             pAudPara->buffer_size = Audio_setting->Audio_VP.Buffer_Frame_Num * media_frame_samples * pAudPara->channel_num * pAudPara->format_bytes;
             DSP_MW_LOG_I("audio sink default buffer size:%d = frame num:%d * frame sample:%d * channel num:%d * format_bytes: %d \r\n",5,pAudPara->buffer_size, Audio_setting->Audio_VP.Buffer_Frame_Num, media_frame_samples, pAudPara->channel_num, pAudPara->format_bytes);
         } else {
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+            if (pAudPara->channel_num >= 2) {
+                DSP_MW_LOG_I("[MULTI_STREAM] channel_num acutual: %d, force to 2\r\n", 1, pAudPara->channel_num);
+                pAudPara->buffer_size = Audio_setting->Audio_sink.Buffer_Frame_Num * media_frame_samples * 2 * pAudPara->format_bytes;
+            } else {
+                pAudPara->buffer_size = Audio_setting->Audio_sink.Buffer_Frame_Num * media_frame_samples * pAudPara->channel_num * pAudPara->format_bytes;
+            }
+#else
             pAudPara->buffer_size = Audio_setting->Audio_sink.Buffer_Frame_Num * media_frame_samples * pAudPara->channel_num * pAudPara->format_bytes;
-            DSP_MW_LOG_I("audio sink default buffer size:%d = frame num:%d * frame sample:%d * channel num:%d * format_bytes: %d \r\n",5,pAudPara->buffer_size, Audio_setting->Audio_sink.Buffer_Frame_Num, media_frame_samples, pAudPara->channel_num, pAudPara->format_bytes);
+#endif
         }
     }
-    #ifdef AIR_DCHS_MODE_ENABLE
-    if(gAudioCtrl.Afe.AfeDLSetting.scenario_type == AUDIO_SCENARIO_TYPE_DCHS_UART_DL){
-        pAudPara->buffer_size   = MUX_UART_BUF_SLICE * Audio_setting->Audio_sink.Buffer_Frame_Num * media_frame_samples * pAudPara->channel_num * pAudPara->format_bytes;
-        DSP_MW_LOG_I("[DCHS DL]audio sink adjust buffer_size:%d,frame num:%d,sampes:%d,ch num:%d,format bytes:%d,buf slice:%d", 6, pAudPara->buffer_size,Audio_setting->Audio_sink.Buffer_Frame_Num,media_frame_samples,pAudPara->channel_num,pAudPara->format_bytes,MUX_UART_BUF_SLICE);
-    }
-    #endif
+    DSP_MW_LOG_I("audio sink default buffer size:%d = frame num:%d * frame sample:%d * channel num:%d * format_bytes: %d \r\n",5,pAudPara->buffer_size, Audio_setting->Audio_sink.Buffer_Frame_Num, media_frame_samples, pAudPara->channel_num, pAudPara->format_bytes);
     pAudPara->AfeBlkControl.u4asrc_buffer_size = pAudPara->buffer_size;
 
     if (pAudPara->period == 1) {
@@ -225,7 +246,10 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
         }
     }
     pAudPara->audio_device                   = gAudioCtrl.Afe.AfeDLSetting.audio_device;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
     pAudPara->audio_device1                  = gAudioCtrl.Afe.AfeDLSetting.audio_device1;
+    pAudPara->audio_device2                  = gAudioCtrl.Afe.AfeDLSetting.audio_device2;
+#endif
 // #ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
 //     pAudPara->audio_device1                  = HAL_AUDIO_CONTROL_NONE;
 //     pAudPara->audio_device2                  = HAL_AUDIO_CONTROL_NONE;
@@ -238,7 +262,10 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
     pAudPara->stream_channel                 = gAudioCtrl.Afe.AfeDLSetting.stream_channel;
     pAudPara->memory                         = gAudioCtrl.Afe.AfeDLSetting.memory;
     pAudPara->audio_interface                = gAudioCtrl.Afe.AfeDLSetting.audio_interface;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
     pAudPara->audio_interface1               = gAudioCtrl.Afe.AfeDLSetting.audio_interface1;
+    pAudPara->audio_interface2               = gAudioCtrl.Afe.AfeDLSetting.audio_interface2;
+#endif
 // #ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
 //     pAudPara->audio_interface1               = HAL_AUDIO_INTERFACE_NONE;
 //     pAudPara->audio_interface2               = HAL_AUDIO_INTERFACE_NONE;
@@ -258,11 +285,13 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
     pAudPara->enable_ul_dnn                  = gAudioCtrl.Afe.AfeDLSetting.enable_ul_dnn;
 #endif
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-    DSP_MW_LOG_I("[Sink Common] audio sink default device:0x%x 0x%x interface:0x%x 0x%x in rate:%d out rate:%d buffer_size:%d, count:%d memory:0x%x channel:%d hw_gain:%d", 11,
+    DSP_MW_LOG_I("[Sink Common] audio sink default device:0x%x 0x%x 0x%x interface:0x%x 0x%x 0x%x in rate:%d out rate:%d buffer_size:%d, count:%d memory:0x%x channel:%d hw_gain:%d", 13,
                 pAudPara->audio_device,
                 pAudPara->audio_device1,
+                pAudPara->audio_device2,
                 pAudPara->audio_interface,
                 pAudPara->audio_interface1,
+                pAudPara->audio_interface2,
                 pAudPara->src_rate,
                 pAudPara->rate,
                 pAudPara->buffer_size,
@@ -284,28 +313,44 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
                 pAudPara->hw_gain
                 );
 #endif
-    //modfiy for ab1568
     pAudPara->with_sink_src = false;//HWSRC Continuous mode
     //for hal_audio_set_memory
     mem_handle->scenario_type = gAudioCtrl.Afe.AfeDLSetting.scenario_type;
     mem_handle->buffer_length = pAudPara->buffer_size;
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
         hal_audio_memory_parameter_t *mem_handle1 = &sink->param.audio.mem_handle1;
+        hal_audio_memory_parameter_t *mem_handle2 = &sink->param.audio.mem_handle2;
         if (pAudPara->channel_num == 4) {
-            mem_handle->memory_select = hal_memory_convert_dl(pAudPara->memory & HAL_AUDIO_MEM1);
-            DSP_MW_LOG_I("[MULTI] mem_handle->memory_select %d ", 1, mem_handle->memory_select);
-            mem_handle1->memory_select = hal_memory_convert_dl(pAudPara->memory & (~HAL_AUDIO_MEM1));
-            DSP_MW_LOG_I("[MULTI] mem_handle1->memory_select %d ", 1, mem_handle1->memory_select);
+            if (mem_handle->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_MAINSTREAM) {
+                mem_handle->memory_select = hal_memory_convert_dl(pAudPara->memory & HAL_AUDIO_MEM3);
+                mem_handle1->memory_select = hal_memory_convert_dl(pAudPara->memory & HAL_AUDIO_MEM1);
+            } else {
+                mem_handle->memory_select = hal_memory_convert_dl(pAudPara->memory & HAL_AUDIO_MEM1);
+                mem_handle1->memory_select = hal_memory_convert_dl(pAudPara->memory & HAL_AUDIO_MEM3);
+            }
+            DSP_MW_LOG_I("[MULTI_STREAM] pAudPara->memory 0x%x, 0x%x, 0x%x ", 3, pAudPara->memory, mem_handle->memory_select, mem_handle1->memory_select);
+        } else if (pAudPara->channel_num == 6){
+            if (mem_handle->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_MAINSTREAM) {
+                mem_handle->memory_select = hal_memory_convert_dl(pAudPara->memory & HAL_AUDIO_MEM3);
+                mem_handle1->memory_select = hal_memory_convert_dl(pAudPara->memory & HAL_AUDIO_MEM1);
+            } else {
+                mem_handle->memory_select = hal_memory_convert_dl(pAudPara->memory & HAL_AUDIO_MEM1);
+                mem_handle1->memory_select = hal_memory_convert_dl(pAudPara->memory & HAL_AUDIO_MEM3);
+            }
+            mem_handle2->memory_select = hal_memory_convert_dl(pAudPara->memory & HAL_AUDIO_MEM4);
+            DSP_MW_LOG_I("[MULTI_STREAM] pAudPara->memory 0x%x ", 1, pAudPara->memory);
         } else {
-            mem_handle->memory_select = hal_memory_convert_dl(pAudPara->memory);//modify for ab1568
+            mem_handle->memory_select = hal_memory_convert_dl(pAudPara->memory);
         }
 #else
-    mem_handle->memory_select = hal_memory_convert_dl(pAudPara->memory);//modify for ab1568
+    mem_handle->memory_select = hal_memory_convert_dl(pAudPara->memory);
 #endif
     mem_handle->irq_counter = pAudPara->count;
     mem_handle->pcm_format = (hal_audio_format_t)pAudPara->format;
 #ifdef ENABLE_HWSRC_CLKSKEW
-    mem_handle->asrc_clkskew_mode = (hal_audio_src_clk_skew_mode_t)(Audio_setting->Audio_sink.clkskew_mode);
+    if(Audio_setting->Audio_sink.clkskew_mode == CLK_SKEW_V2) {
+        mem_handle->asrc_clkskew_mode = HAL_AUDIO_SRC_CLK_SKEW_V2;
+    }
 #endif
 #if 1
     if (mem_handle->memory_select == HAL_AUDIO_MEMORY_DL_DL1) {
@@ -331,7 +376,7 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
         hal_audio_set_value(&handle, HAL_AUDIO_SET_IRQ_HANDLER);
 #endif
     } else if (mem_handle->memory_select == HAL_AUDIO_MEMORY_DL_DL12) {
-#if defined (AIR_WIRED_AUDIO_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_DCHS_MODE_ENABLE)
+#if defined (AIR_WIRED_AUDIO_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_MIXER_STREAM_ENABLE)
         hal_audio_set_value_parameter_t handle;
         handle.register_irq_handler.audio_irq = HAL_AUDIO_IRQ_AUDIOSYS;
         handle.register_irq_handler.memory_select = HAL_AUDIO_MEMORY_DL_DL12;
@@ -366,13 +411,21 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
     }
 
     uint32_t i;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+	hal_audio_path_port_parameter_t input_port_parameters[3], output_port_parameters[3];
+#else
     hal_audio_path_port_parameter_t input_port_parameters[2], output_port_parameters[2];
+#endif
     input_port_parameters[0].memory_select = mem_handle->memory_select;
     output_port_parameters[0].device_interface = (hal_audio_interface_t)pAudPara->audio_interface;
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-    if (pAudPara->channel_num == 4) {
+    if (pAudPara->channel_num >= 4) {
         input_port_parameters[1].memory_select = mem_handle1->memory_select;
         output_port_parameters[1].device_interface = pAudPara->audio_interface1;
+        if (pAudPara->channel_num >= 6) {
+            input_port_parameters[2].memory_select = mem_handle2->memory_select;
+            output_port_parameters[2].device_interface = pAudPara->audio_interface2;
+        }
     }
 #endif
 #ifdef AIR_HFP_DNN_PATH_ENABLE
@@ -390,21 +443,17 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
             if(i < 2) {
                 path_handle->output.interconn_sequence[i] = stream_audio_convert_control_to_interconn(pAudPara->audio_device, output_port_parameters[i/2], i, false);
-            } else {
+            } else if (i < 4) {
                 path_handle->output.interconn_sequence[i] = stream_audio_convert_control_to_interconn(pAudPara->audio_device1, output_port_parameters[i/2], i, false);
+            } else if (i < 6) {
+                path_handle->output.interconn_sequence[i] = stream_audio_convert_control_to_interconn(pAudPara->audio_device2, output_port_parameters[i/2], i, false);
             }
 #else
             path_handle->output.interconn_sequence[i] = stream_audio_convert_control_to_interconn(pAudPara->audio_device, output_port_parameters[i/2], i, false);
 #endif
-            if (gAudioCtrl.Afe.AfeDLSetting.with_upwdown_sampler) {
-                path_handle->audio_input_rate[i] = gAudioCtrl.Afe.AfeDLSetting.audio_path_input_rate;//afe_get_audio_device_samplerate(pAudPara->audio_device , pAudPara->audio_interface);
-                path_handle->audio_output_rate[i] = gAudioCtrl.Afe.AfeDLSetting.audio_path_output_rate;//afe_get_audio_device_samplerate(pAudPara->audio_device , pAudPara->audio_interface);
-                path_handle->with_updown_sampler[i] = true;
-            } else {
-                path_handle->audio_input_rate[i] = pAudPara->rate;//afe_get_audio_device_samplerate(pAudPara->audio_device , pAudPara->audio_interface);
-                path_handle->audio_output_rate[i] = pAudPara->rate;//afe_get_audio_device_samplerate(pAudPara->audio_device , pAudPara->audio_interface);
-                path_handle->with_updown_sampler[i] = false;
-            }
+            path_handle->audio_input_rate[i] = pAudPara->rate;//afe_get_audio_device_samplerate(pAudPara->audio_device , pAudPara->audio_interface);
+            path_handle->audio_output_rate[i] = pAudPara->rate;//afe_get_audio_device_samplerate(pAudPara->audio_device , pAudPara->audio_interface);
+            path_handle->with_updown_sampler[i] = false;
         }
     }
     path_handle->with_hw_gain = pAudPara->hw_gain;
@@ -426,50 +475,46 @@ VOID Sink_Audio_Get_Default_Parameters(SINK sink)
     }
     //for hal_audio_set_device
     device_handle->common.audio_device = pAudPara->audio_device;
-    device_handle1->common.audio_device = pAudPara->audio_device1;
     device_handle->common.device_interface = pAudPara->audio_interface;
-    device_handle1->common.device_interface = pAudPara->audio_interface1;
+
     extern void set_device_handle_param(hal_audio_device_parameter_t *device_handle, AUDIO_PARAMETER *pAudPara, hal_audio_memory_parameter_t *mem_handle);
     if(pAudPara->audio_device != HAL_AUDIO_CONTROL_NONE) {
         set_device_handle_param(device_handle, pAudPara, mem_handle);
     }
-    if(pAudPara->audio_device1 != HAL_AUDIO_CONTROL_NONE) {
-        set_device_handle_param(device_handle1, pAudPara, mem_handle);
+
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-        hal_audio_device_parameter_t *device_handle1 = &sink->param.audio.device_handle1;
-        if (pAudPara->channel_num == 4) {
-            // device_handle->common.device_interface = pAudPara->audio_interface;
-            // memcpy(device_handle1, device_handle, sizeof(hal_audio_device_parameter_t));
-            // device_handle1->common.audio_device = pAudPara->audio_device1;
-            // device_handle1->common.device_interface = pAudPara->audio_interface1;
-            if (pAudPara->audio_device1 & (HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R))
-            {
-                device_handle->common.device_interface = pAudPara->audio_interface;
-                memcpy(device_handle1, device_handle, sizeof(hal_audio_device_parameter_t));
-                device_handle1->common.audio_device = pAudPara->audio_device1;
-                device_handle1->common.device_interface = pAudPara->audio_interface1;
-            }
-            else if (pAudPara->audio_device1 & HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL)
-            {
-                device_handle->common.device_interface = pAudPara->audio_interface;
-                device_handle1->dac.rate = pAudPara->rate;
-                device_handle1->dac.dac_mode = gAudioCtrl.Afe.AfeDLSetting.adc_mode;//HAL_AUDIO_ANALOG_OUTPUT_CLASSAB;
-                device_handle1->dac.dc_compensation_value = afe.stream_out.dc_compensation_value;
-                device_handle1->dac.with_high_performance = gAudioCtrl.Afe.AfeDLSetting.performance;
-                device_handle1->dac.with_phase_inverse = false;
-                device_handle1->dac.with_force_change_rate = true;
-                device_handle1->common.audio_device = pAudPara->audio_device1;
-                device_handle1->common.device_interface = pAudPara->audio_interface1;
-            }
-        }
-#endif
+    device_handle1->common.audio_device = pAudPara->audio_device1;
+    device_handle2->common.audio_device = pAudPara->audio_device2;
+    device_handle1->common.device_interface = pAudPara->audio_interface1;
+    device_handle2->common.device_interface = pAudPara->audio_interface2;
+
+    if(pAudPara->audio_device1 != HAL_AUDIO_CONTROL_NONE) {
+        set_device_handle_param(device_handle1, pAudPara, mem_handle1);
     }
-    device_handle->common.scenario_type = gAudioCtrl.Afe.AfeDLSetting.scenario_type;
-    device_handle->common.is_tx = true;
+    if(pAudPara->audio_device2 != HAL_AUDIO_CONTROL_NONE) {
+        set_device_handle_param(device_handle2, pAudPara, mem_handle2);
+    }
+#endif
 }
 
 void set_device_handle_param(hal_audio_device_parameter_t *device_handle, AUDIO_PARAMETER *pAudPara, hal_audio_memory_parameter_t *mem_handle)
 {
+    device_handle->common.scenario_type = gAudioCtrl.Afe.AfeDLSetting.scenario_type;
+    device_handle->common.is_tx = true;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    gAudioCtrl.Afe.AfeDLSetting.i2s_master_format[0] = HAL_AUDIO_I2S_I2S;
+    gAudioCtrl.Afe.AfeDLSetting.i2s_master_word_length[0] = HAL_AUDIO_I2S_WORD_LENGTH_32BIT;
+
+    gAudioCtrl.Afe.AfeDLSetting.i2s_master_format[1] = HAL_AUDIO_I2S_I2S;
+    gAudioCtrl.Afe.AfeDLSetting.i2s_master_word_length[1] = HAL_AUDIO_I2S_WORD_LENGTH_32BIT;
+
+    gAudioCtrl.Afe.AfeDLSetting.i2s_master_format[2] = HAL_AUDIO_I2S_I2S;
+    gAudioCtrl.Afe.AfeDLSetting.i2s_master_word_length[2] = HAL_AUDIO_I2S_WORD_LENGTH_32BIT;
+
+    gAudioCtrl.Afe.AfeDLSetting.i2s_master_format[3] = HAL_AUDIO_I2S_I2S;
+    gAudioCtrl.Afe.AfeDLSetting.i2s_master_word_length[3] = HAL_AUDIO_I2S_WORD_LENGTH_32BIT;
+
+#endif
     if (device_handle->common.audio_device & HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL) {
         device_handle->dac.rate = pAudPara->rate;
         device_handle->dac.dac_mode = gAudioCtrl.Afe.AfeDLSetting.adc_mode;//HAL_AUDIO_ANALOG_OUTPUT_CLASSAB;
@@ -482,7 +527,6 @@ void set_device_handle_param(hal_audio_device_parameter_t *device_handle, AUDIO_
         device_handle->dac.with_phase_inverse = false;
         device_handle->dac.with_force_change_rate = true;
     } else if (device_handle->common.audio_device & (HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R)) {
-        device_handle->i2s_master.i2s_interface = (hal_audio_interface_t)gAudioCtrl.Afe.AfeDLSetting.audio_interface;
         if (device_handle->i2s_master.i2s_interface & HAL_AUDIO_INTERFACE_1) {
             device_handle->i2s_master.rate = (gAudioCtrl.Afe.AfeDLSetting.i2s_master_sampling_rate[0]>0)?gAudioCtrl.Afe.AfeDLSetting.i2s_master_sampling_rate[0]:pAudPara->rate;
             device_handle->i2s_master.i2s_format = gAudioCtrl.Afe.AfeDLSetting.i2s_master_format[0];
@@ -513,7 +557,6 @@ void set_device_handle_param(hal_audio_device_parameter_t *device_handle, AUDIO_
         pAudPara->rate = device_handle->i2s_master.rate;
     } else if (device_handle->common.audio_device & HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE) {
         device_handle->i2s_slave.rate = pAudPara->rate;
-        device_handle->i2s_slave.i2s_interface = (hal_audio_interface_t)gAudioCtrl.Afe.AfeDLSetting.audio_interface;
         device_handle->i2s_slave.i2s_format = gAudioCtrl.Afe.AfeDLSetting.i2s_format;
         device_handle->i2s_slave.word_length = gAudioCtrl.Afe.AfeDLSetting.i2s_word_length;
 #ifdef AIR_AUDIO_I2S_SLAVE_TDM_ENABLE
@@ -537,20 +580,21 @@ void set_device_handle_param(hal_audio_device_parameter_t *device_handle, AUDIO_
         }
 #endif
 #ifdef AIR_HWSRC_TX_TRACKING_ENABLE
-        if (pAudPara->audio_interface == HAL_AUDIO_INTERFACE_1) {
-            mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S1;
-        } else if (pAudPara->audio_interface == HAL_AUDIO_INTERFACE_2) {
-            mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S2;
-        } else if (pAudPara->audio_interface == HAL_AUDIO_INTERFACE_3) {
-            mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S3;
-        } else if (pAudPara->audio_interface == HAL_AUDIO_INTERFACE_4) {
-            mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S4;
+        if(pAudPara->clk_skew_mode == CLK_SKEW_DISSABLE) {
+            if (pAudPara->audio_interface == HAL_AUDIO_INTERFACE_1) {
+                mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S1;
+            } else if (pAudPara->audio_interface == HAL_AUDIO_INTERFACE_2) {
+                mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S2;
+            } else if (pAudPara->audio_interface == HAL_AUDIO_INTERFACE_3) {
+                mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S3;
+            } else if (pAudPara->audio_interface == HAL_AUDIO_INTERFACE_4) {
+                mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S4;
+            }
+            DSP_MW_LOG_I("[Sink Common] audio sink default i2s slave tracking source = %d", 1, mem_handle->src_tracking_clock_source);
         }
-        DSP_MW_LOG_I("[Sink Common] audio sink default i2s slave tracking source = %d", 1, mem_handle->src_tracking_clock_source);
 #endif
     } else if (device_handle->common.audio_device & HAL_AUDIO_CONTROL_DEVICE_SPDIF) {
         device_handle->spdif.i2s_setting.rate = pAudPara->rate;
-        device_handle->spdif.i2s_setting.i2s_interface = HAL_AUDIO_INTERFACE_1;
         device_handle->spdif.i2s_setting.i2s_format = HAL_AUDIO_I2S_I2S;
         device_handle->spdif.i2s_setting.word_length = HAL_AUDIO_I2S_WORD_LENGTH_32BIT;
         device_handle->spdif.i2s_setting.mclk_divider = 2;
@@ -573,19 +617,21 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
     AUDIO_PARAMETER *pAudPara = &source->param.audio;
     hal_audio_format_t format;
     uint32_t media_frame_samples;
-    hal_audio_path_parameter_t *path_handle = &source->param.audio.path_handle;//modify for ab1568
-    hal_audio_memory_parameter_t *mem_handle = &source->param.audio.mem_handle;//modify for ab1568
-    hal_audio_device_parameter_t *device_handle = &source->param.audio.device_handle;//modify for ab1568
+    hal_audio_path_parameter_t *path_handle = &source->param.audio.path_handle;
+    hal_audio_memory_parameter_t *mem_handle = &source->param.audio.mem_handle;
+    hal_audio_device_parameter_t *device_handle = &source->param.audio.device_handle;
 #ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
-    hal_audio_device_parameter_t *device_handle1 = &source->param.audio.device_handle1;//modify for ab1568
-    hal_audio_device_parameter_t *device_handle2 = &source->param.audio.device_handle2;//modify for ab1568
-    hal_audio_device_parameter_t *device_handle3 = &source->param.audio.device_handle3;//modify for ab1568
-    hal_audio_device_parameter_t *device_handle4 = &source->param.audio.device_handle4;//modify for ab1568
-    hal_audio_device_parameter_t *device_handle5 = &source->param.audio.device_handle5;//modify for ab1568
-    hal_audio_device_parameter_t *device_handle6 = &source->param.audio.device_handle6;//modify for ab1568
-    hal_audio_device_parameter_t *device_handle7 = &source->param.audio.device_handle7;//modify for ab1568
+    hal_audio_device_parameter_t *device_handle1 = &source->param.audio.device_handle1;
+    hal_audio_device_parameter_t *device_handle2 = &source->param.audio.device_handle2;
+    hal_audio_device_parameter_t *device_handle3 = &source->param.audio.device_handle3;
+    hal_audio_device_parameter_t *device_handle4 = &source->param.audio.device_handle4;
+    hal_audio_device_parameter_t *device_handle5 = &source->param.audio.device_handle5;
+    hal_audio_device_parameter_t *device_handle6 = &source->param.audio.device_handle6;
+    hal_audio_device_parameter_t *device_handle7 = &source->param.audio.device_handle7;
 #endif
     memset(&source->param.audio.AfeBlkControl, 0, sizeof(afe_block_t));
+
+    pAudPara->clk_skew_mode = Audio_setting->Audio_source.clkskew_mode;
 
     format = gAudioCtrl.Afe.AfeULSetting.format;
     /*if (pAudPara->audio_device & (HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R)) {
@@ -654,14 +700,23 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
         pAudPara->channel_num = gAudioCtrl.Afe.AfeULSetting.max_channel_num;
 #ifdef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
         if (pAudPara->echo_reference) {
+#ifdef AIR_ECHO_PATH_STEREO_ENABLE
+            pAudPara->channel_num += 2;
+#else
             pAudPara->channel_num++;
+#endif
         }
 #endif
     }
 #endif
+    if((pAudPara->src_rate != 0) && (pAudPara->rate != pAudPara->src_rate)) {
+        pAudPara->AfeBlkControl.u4asrcflag = true;
+        pAudPara->mem_handle.pure_agent_with_src = true;
+    }
 
     uint8_t channel_num     = (pAudPara->channel_num >= 2) ? 2 : 1;
     pAudPara->buffer_size   = media_frame_samples * Audio_setting->Audio_source.Buffer_Frame_Num * channel_num * pAudPara->format_bytes;
+    DSP_MW_LOG_I("audio source default buffer size:%d = frame num:%d * frame sample:%d * channel num:%d * format_bytes: %d \r\n", 5, pAudPara->buffer_size, Audio_setting->Audio_source.Buffer_Frame_Num, media_frame_samples, channel_num, pAudPara->format_bytes);
 
     pAudPara->AfeBlkControl.u4asrc_buffer_size = AUDIO_AFE_SOURCE_ASRC_BUFFER_SIZE;//AUDIO_AFE_BUFFER_SIZE;//pAudPara->buffer_size;
 #ifdef AIR_I2S_SLAVE_ENABLE
@@ -707,26 +762,11 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
     pAudPara->audio_interface6               = gAudioCtrl.Afe.AfeULSetting.audio_interface6;
     pAudPara->audio_interface7               = gAudioCtrl.Afe.AfeULSetting.audio_interface7;
 #endif
-#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
-    pAudPara->audio_device_rate              = pAudPara->rate;
-    pAudPara->audio_device_rate1             = pAudPara->rate;
-    pAudPara->audio_device_rate2             = pAudPara->rate;
-    pAudPara->audio_device_rate3             = pAudPara->rate;
-    pAudPara->audio_device_rate4             = pAudPara->rate;
-    pAudPara->audio_device_rate5             = pAudPara->rate;
-    pAudPara->audio_device_rate6             = pAudPara->rate;
-    pAudPara->audio_device_rate7             = pAudPara->rate;
-#endif
-#ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
-    pAudPara->audio_memory_rate              = pAudPara->rate;
-    pAudPara->audio_memory_rate1             = pAudPara->rate;
-    pAudPara->audio_memory_rate2             = pAudPara->rate;
-    pAudPara->audio_memory_rate3             = pAudPara->rate;
-    pAudPara->audio_memory_rate4             = pAudPara->rate;
-    pAudPara->audio_memory_rate5             = pAudPara->rate;
-    pAudPara->audio_memory_rate6             = pAudPara->rate;
-    pAudPara->audio_memory_rate7             = pAudPara->rate;
-#endif
+    for (uint32_t i = 0; i < 8; i++) {
+        pAudPara->audio_device_rate[i]       = (gAudioCtrl.Afe.AfeULSetting.audio_device_rate[i] == 0) ? pAudPara->rate : gAudioCtrl.Afe.AfeULSetting.audio_device_rate[i];
+        pAudPara->audio_memory_rate[i]       = (gAudioCtrl.Afe.AfeULSetting.audio_memory_rate[i] == 0) ? pAudPara->rate : gAudioCtrl.Afe.AfeULSetting.audio_memory_rate[i];
+        DSP_MW_LOG_I("audio_device_rate[%d] = %d\r\n", 2, i, pAudPara->audio_device_rate[i]);
+    }
 
     pAudPara->hw_gain                        = gAudioCtrl.Afe.AfeULSetting.hw_gain;
 #ifdef AUTO_ERROR_SUPPRESSION
@@ -737,41 +777,33 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
     pAudPara->enable_ul_dnn                  = gAudioCtrl.Afe.AfeULSetting.enable_ul_dnn;
 #endif
 
-    pAudPara->with_upwdown_sampler           = gAudioCtrl.Afe.AfeULSetting.with_upwdown_sampler;
-    pAudPara->audio_path_input_rate          = gAudioCtrl.Afe.AfeULSetting.audio_path_input_rate;
-    pAudPara->audio_path_output_rate         = pAudPara->rate;
-    DSP_MW_LOG_I("[Source Common] audio source default device:0x%x interface:0x%x in_rate:%d out_rate:%d buffer_size:%d count:%d memory:%d channel:%d channel_sel:%d", 9,
-                pAudPara->audio_device,
-                pAudPara->audio_interface,
-                pAudPara->audio_path_input_rate,
-                pAudPara->audio_path_output_rate,
-                pAudPara->buffer_size,
-                pAudPara->count,
-                pAudPara->memory,
-                pAudPara->channel_num,
-                pAudPara->channel_sel
-                );
-    //modify for ab1568
+    DSP_MW_LOG_I("audio source default buffer_size:%d, count:%d\r\n", 2, pAudPara->buffer_size, pAudPara->count);
+    DSP_MW_LOG_I("audio source default device:%d, channel:%d, memory:%d, interface:%d rate %d\r\n", 5, pAudPara->audio_device,
+                 pAudPara->stream_channel,
+                 pAudPara->memory,
+                 pAudPara->audio_interface,
+                 pAudPara->rate);
+
     //for hal_audio_set_memory
     mem_handle->scenario_type = gAudioCtrl.Afe.AfeULSetting.scenario_type;
     mem_handle->buffer_length = pAudPara->buffer_size;
-    mem_handle->memory_select = hal_memory_convert_ul(pAudPara->memory);//modify for ab1568
+    mem_handle->memory_select = hal_memory_convert_ul(pAudPara->memory);
 
     if (!(mem_handle->memory_select & (HAL_AUDIO_MEMORY_UL_SLAVE_TDM | HAL_AUDIO_MEMORY_UL_SLAVE_DMA))) {
-        if (pAudPara->channel_num>= 3) {
+        if ((pAudPara->channel_num) >= 3) {
             mem_handle->memory_select |= HAL_AUDIO_MEMORY_UL_VUL2;
         }
-        if (pAudPara->channel_num>= 5) {
+        if ((pAudPara->channel_num) >= 5) {
             mem_handle->memory_select |= HAL_AUDIO_MEMORY_UL_VUL3;
         }
-        if (pAudPara->channel_num>= 7) {
+        if ((pAudPara->channel_num) >= 7) {
             mem_handle->memory_select |= HAL_AUDIO_MEMORY_UL_AWB;
         }
-        if (pAudPara->channel_num>= 9) {
+        if ((pAudPara->channel_num) >= 9) {
 #ifdef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
             mem_handle->memory_select |= HAL_AUDIO_MEMORY_UL_AWB2;
         }
-        if (pAudPara->channel_num>= 11) {
+        if ((pAudPara->channel_num) >= 11) {
 #endif
             DSP_MW_LOG_W("DSP STREAM: no memory agent for more channels.", 0);
         }
@@ -837,9 +869,7 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
 
     //path
     path_handle->scenario_type = gAudioCtrl.Afe.AfeULSetting.scenario_type;
-//    path_handle->audio_path_input_rate = pAudPara->rate;//afe_get_audio_device_samplerate(pAudPara->audio_device, pAudPara->audio_interface);
-//    path_handle->audio_path_output_rate = pAudPara->rate;//afe_get_audio_device_samplerate(pAudPara->audio_device, pAudPara->audio_interface);
-    //path_handle->connection_selection = pAudPara->channel_num;//pAudPara->stream_channel;
+
     switch (pAudPara->stream_channel) {
         case     HAL_AUDIO_DIRECT:
             path_handle->connection_selection = HAL_AUDIO_INTERCONN_CH01CH02_to_CH01CH02;
@@ -854,14 +884,6 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
             path_handle->connection_selection = HAL_AUDIO_INTERCONN_CH01CH02_to_CH01CH02;
             break;
     }
-
-    //handle.input.parameters.audio_interface;
-
-    //path_handle->input.parameters.audio_interface = pAudPara->memory;//modify for ab1568
-    //path_handle->input.port = pAudPara->audio_device;//modify for ab1568
-    //path_handle->input.parameters.audio_interface = pAudPara->audio_interface;//modify for ab1568
-    //path_handle->output.port = HAL_AUDIO_CONTROL_MEMORY_INTERFACE;//modify for ab1568
-    //path_handle->output.parameters.memory_select = HAL_AUDIO_MEMORY_UL_VUL1;//modify for ab1568
     path_handle->connection_number = connection_number;
 
     uint32_t i;
@@ -891,18 +913,6 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
         , HAL_AUDIO_MEMORY_UL_VUL3, HAL_AUDIO_MEMORY_UL_VUL3, HAL_AUDIO_MEMORY_UL_AWB, HAL_AUDIO_MEMORY_UL_AWB
         #endif /* MTK_AUDIO_HW_IO_CONFIG_ENHANCE */
     };
-    uint32_t path_audio_device_rate[HAL_AUDIO_PATH_SUPPORT_SEQUENCE] = {
-        pAudPara->audio_device_rate, pAudPara->audio_device_rate1, pAudPara->audio_device_rate2, pAudPara->audio_device_rate3
-        #ifdef MTK_AUDIO_HW_IO_CONFIG_ENHANCE
-        , pAudPara->audio_device_rate4, pAudPara->audio_device_rate5, pAudPara->audio_device_rate6, pAudPara->audio_device_rate7
-        #endif /* MTK_AUDIO_HW_IO_CONFIG_ENHANCE */
-    };
-    uint32_t path_audio_memory_rate[HAL_AUDIO_PATH_SUPPORT_SEQUENCE] = {
-        pAudPara->audio_memory_rate, pAudPara->audio_memory_rate1, pAudPara->audio_memory_rate2, pAudPara->audio_memory_rate3
-        #ifdef MTK_AUDIO_HW_IO_CONFIG_ENHANCE
-        , pAudPara->audio_memory_rate4, pAudPara->audio_memory_rate5, pAudPara->audio_memory_rate6, pAudPara->audio_memory_rate7
-        #endif /* MTK_AUDIO_HW_IO_CONFIG_ENHANCE */
-    };
 #else
     hal_audio_device_t path_audio_device[HAL_AUDIO_PATH_SUPPORT_SEQUENCE] = {
         pAudPara->audio_device, pAudPara->audio_device
@@ -912,12 +922,6 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
     };
     hal_audio_memory_selection_t memory_select[HAL_AUDIO_PATH_SUPPORT_SEQUENCE] = {
         output_port_parameters.memory_select, output_port_parameters.memory_select
-    };
-    uint32_t path_audio_device_rate[HAL_AUDIO_PATH_SUPPORT_SEQUENCE] = {
-        pAudPara->audio_device_rate, pAudPara->audio_device_rate
-    };
-    uint32_t path_audio_memory_rate[HAL_AUDIO_PATH_SUPPORT_SEQUENCE] = {
-        pAudPara->audio_memory_rate, pAudPara->audio_memory_rate
     };
 #endif
 
@@ -937,41 +941,55 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
     for (i=0 ; i<path_handle->connection_number ; i++) {
         if (path_audio_device[i] & (HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R)) {
             if (device_interface[i] == HAL_AUDIO_INTERFACE_1) {
-                path_audio_device_rate[i] = (gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[0]>0)?gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[0]:pAudPara->rate;;
+                pAudPara->audio_device_rate[i] = (gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[0]>0)?gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[0]:pAudPara->rate;;
             } else if (device_interface[i] == HAL_AUDIO_INTERFACE_2) {
-                path_audio_device_rate[i] = (gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[1]>0)?gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[1]:pAudPara->rate;;
+                pAudPara->audio_device_rate[i] = (gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[1]>0)?gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[1]:pAudPara->rate;;
             } else if (device_interface[i] == HAL_AUDIO_INTERFACE_3) {
-                path_audio_device_rate[i] = (gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[2]>0)?gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[2]:pAudPara->rate;;
+                pAudPara->audio_device_rate[i] = (gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[2]>0)?gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[2]:pAudPara->rate;;
             } else if (device_interface[i] == HAL_AUDIO_INTERFACE_4) {
-                path_audio_device_rate[i] = (gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[3]>0)?gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[3]:pAudPara->rate;;
+                pAudPara->audio_device_rate[i] = (gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[3]>0)?gAudioCtrl.Afe.AfeULSetting.i2s_master_sampling_rate[3]:pAudPara->rate;;
             }
         }
         input_port_parameters.device_interface = device_interface[i];
         output_port_parameters.memory_select = memory_select[i];
         #ifdef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
-        if (pAudPara->echo_reference && (i == path_handle->connection_number-1)) {
-            #ifdef AIR_3RD_PARTY_AUDIO_PLATFORM_ENABLE
+#ifdef AIR_ECHO_PATH_STEREO_ENABLE
+            if (pAudPara->echo_reference && (i == path_handle->connection_number - 2)) {
+#else
+            if (pAudPara->echo_reference && (i == path_handle->connection_number - 1)) {
+#endif
+#ifdef AIR_3RD_PARTY_AUDIO_PLATFORM_ENABLE
                 if (path_handle->scenario_type == AUDIO_SCENARIO_TYPE_ANC_MONITOR_STREAM) {
                     path_handle->input.interconn_sequence[i]  =  HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER01_CH1;
                 } else {
                     path_handle->input.interconn_sequence[i]  =  HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER23_CH1;
                 }
-            #else
-            path_handle->input.interconn_sequence[i]  =  HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER23_CH1;
-            #endif
-            path_handle->output.interconn_sequence[i] =  HAL_AUDIO_INTERCONN_SELECT_OUTPUT_MEMORY_VUL1_CH1+i;
-        } else
-        #endif
+#else
+                path_handle->input.interconn_sequence[i]  =  HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER23_CH1;
+                path_handle->output.interconn_sequence[i] =  HAL_AUDIO_INTERCONN_SELECT_OUTPUT_MEMORY_VUL1_CH1 + i;
+#ifdef AIR_ECHO_PATH_STEREO_ENABLE
+            } else if (pAudPara->echo_reference && (i == path_handle->connection_number - 1)) {
+                path_handle->input.interconn_sequence[i]  =  HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER23_CH2;
+                path_handle->output.interconn_sequence[i] =  HAL_AUDIO_INTERCONN_SELECT_OUTPUT_MEMORY_VUL1_CH1 + i;
+#endif
+            } else
+#endif
+
+#endif
         {
             path_handle->input.interconn_sequence[i]  = stream_audio_convert_control_to_interconn(path_audio_device[i], input_port_parameters, i, true);
             path_handle->output.interconn_sequence[i] = stream_audio_convert_control_to_interconn(HAL_AUDIO_CONTROL_MEMORY_INTERFACE, output_port_parameters, i, true);
         }
         path_handle->with_updown_sampler[i] = false;
-        path_handle->audio_input_rate[i]  = path_audio_device_rate[i];
-        path_handle->audio_output_rate[i] = path_audio_memory_rate[i];
-        if(pAudPara->with_upwdown_sampler == true && path_handle->audio_input_rate[i] != 0 && path_handle->audio_output_rate[i] != 0
-                                              && path_handle->audio_input_rate[i] != path_handle->audio_output_rate[i])
-        {
+        path_handle->audio_input_rate[i]  = pAudPara->audio_device_rate[i];
+        path_handle->audio_output_rate[i] = pAudPara->audio_memory_rate[i];
+        const bool isEchoReferenceInput = ((path_handle->input.interconn_sequence[i] == HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER23_CH1)
+                                               || (path_handle->input.interconn_sequence[i] == HAL_AUDIO_INTERCONN_SELECT_INPUT_DOWN_SAMPLER23_CH2));
+
+        if (!isEchoReferenceInput
+            && path_handle->audio_input_rate[i] != 0 && path_handle->audio_output_rate[i] != 0
+            && path_handle->audio_input_rate[i] != path_handle->audio_output_rate[i]) {
+
             path_handle->with_updown_sampler[i]   = true;
         }
     }
@@ -979,16 +997,6 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
 }
 
     path_handle->with_hw_gain = pAudPara->hw_gain ;
-    /*
-    path_handle->with_upwdown_sampler = false;
-    if(pAudPara->with_upwdown_sampler == true && pAudPara->audio_path_input_rate != 0 && pAudPara->audio_path_output_rate != 0
-                                              && pAudPara->audio_path_input_rate != pAudPara->audio_path_output_rate)
-    {
-        path_handle->with_upwdown_sampler   = true;
-        path_handle->audio_path_input_rate  = pAudPara->audio_path_input_rate;
-        path_handle->audio_path_output_rate = pAudPara->audio_path_output_rate;
-    }
-    */
 
 #if defined(AIR_MULTI_MIC_STREAM_ENABLE) || defined(MTK_ANC_SURROUND_MONITOR_ENABLE) || defined(AIR_WIRED_AUDIO_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADAPTIVE_EQ_ENABLE) || defined (AIR_BT_AUDIO_DONGLE_ENABLE)
     //Update memory and path selection for Sub-source
@@ -1074,6 +1082,13 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
                 }
         }
         DSP_MW_LOG_I("[Source Common] DSP audio sub-source:%d, memory_agent:0x%x \n", 2, source->type, mem_handle->memory_select);
+        if (path_audio_device[i] & (HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_HW_GAIN_L|HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_HW_GAIN_R|HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_I2S_MASTER_L|HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_I2S_MASTER_R)) {
+            for (i=0 ; i<connection_number ; i++) {
+                path_handle->input.interconn_sequence[i]  = stream_audio_convert_control_to_interconn(path_audio_device[i], input_port_parameters, i, true);
+                output_port_parameters.memory_select = memory_assign;
+                path_handle->output.interconn_sequence[i] = stream_audio_convert_control_to_interconn(HAL_AUDIO_CONTROL_MEMORY_INTERFACE, output_port_parameters, i, true);
+            }
+        }
     }
 #endif
 
@@ -1089,37 +1104,42 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
 #endif
 
     //for hal_audio_set_device
-    if ((pAudPara->audio_device) & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LINE_IN_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_ANC | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R | HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE)) {
-        device_handle->common.rate = pAudPara->rate;
+    if ((pAudPara->audio_device) & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LINE_IN_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL| HAL_AUDIO_CONTROL_DEVICE_ANC | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R | HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE
+#if defined(AIR_BTA_IC_PREMIUM_G3)
+        | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL
+#endif
+        )
+    ) {
+        device_handle->common.rate = pAudPara->audio_device_rate[0];
         device_handle->common.device_interface = (hal_audio_interface_t)pAudPara->audio_interface;
         device_handle->common.scenario_type = gAudioCtrl.Afe.AfeULSetting.scenario_type;
         device_handle->common.is_tx = false;
 #ifdef AIR_AUDIO_SUPPORT_MULTIPLE_MICROPHONE
-        device_handle1->common.rate = pAudPara->rate;
+        device_handle1->common.rate = pAudPara->audio_device_rate[1];
         device_handle1->common.device_interface = (hal_audio_interface_t)pAudPara->audio_interface1;
         device_handle1->common.scenario_type = gAudioCtrl.Afe.AfeULSetting.scenario_type;
         device_handle1->common.is_tx = false;
-        device_handle2->common.rate = pAudPara->rate;
+        device_handle2->common.rate = pAudPara->audio_device_rate[2];
         device_handle2->common.device_interface = (hal_audio_interface_t)pAudPara->audio_interface2;
         device_handle2->common.scenario_type = gAudioCtrl.Afe.AfeULSetting.scenario_type;
         device_handle2->common.is_tx = false;
-        device_handle3->common.rate = pAudPara->rate;
+        device_handle3->common.rate = pAudPara->audio_device_rate[3];
         device_handle3->common.device_interface = (hal_audio_interface_t)pAudPara->audio_interface3;
         device_handle3->common.scenario_type = gAudioCtrl.Afe.AfeULSetting.scenario_type;
         device_handle3->common.is_tx = false;
-        device_handle4->common.rate = pAudPara->rate;
+        device_handle4->common.rate = pAudPara->audio_device_rate[4];
         device_handle4->common.device_interface = (hal_audio_interface_t)pAudPara->audio_interface4;
         device_handle4->common.scenario_type = gAudioCtrl.Afe.AfeULSetting.scenario_type;
         device_handle4->common.is_tx = false;
-        device_handle5->common.rate = pAudPara->rate;
+        device_handle5->common.rate = pAudPara->audio_device_rate[5];
         device_handle5->common.device_interface = (hal_audio_interface_t)pAudPara->audio_interface5;
         device_handle5->common.scenario_type = gAudioCtrl.Afe.AfeULSetting.scenario_type;
         device_handle5->common.is_tx = false;
-        device_handle6->common.rate = pAudPara->rate;
+        device_handle6->common.rate = pAudPara->audio_device_rate[6];
         device_handle6->common.device_interface = (hal_audio_interface_t)pAudPara->audio_interface6;
         device_handle6->common.scenario_type = gAudioCtrl.Afe.AfeULSetting.scenario_type;
         device_handle6->common.is_tx = false;
-        device_handle7->common.rate = pAudPara->rate;
+        device_handle7->common.rate = pAudPara->audio_device_rate[7];
         device_handle7->common.device_interface = (hal_audio_interface_t)pAudPara->audio_interface7;
         device_handle7->common.scenario_type = gAudioCtrl.Afe.AfeULSetting.scenario_type;
         device_handle7->common.is_tx = false;
@@ -1133,15 +1153,17 @@ VOID Source_Audio_Get_Default_Parameters(SOURCE source)
         mem_handle->src_rate = gAudioCtrl.Afe.AfeULSetting.src_rate;
         mem_handle->src_buffer_length = pAudPara->buffer_size;
         mem_handle->buffer_length = AUDIO_AFE_SOURCE_ASRC_BUFFER_SIZE;
-        if(pAudPara->audio_interface == HAL_AUDIO_INTERFACE_1)
-            mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S1;
-        else if(pAudPara->audio_interface == HAL_AUDIO_INTERFACE_2)
-            mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S2;
-        else if(pAudPara->audio_interface == HAL_AUDIO_INTERFACE_3)
-            mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S3;
-        else if(pAudPara->audio_interface == HAL_AUDIO_INTERFACE_4)
-            mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S4;
-        DSP_MW_LOG_I("[HWSRC]rx tracking clock_source =  %d\r\n",1,mem_handle->src_tracking_clock_source);
+        if(pAudPara->clk_skew_mode == CLK_SKEW_DISSABLE) {
+            if(pAudPara->audio_interface == HAL_AUDIO_INTERFACE_1)
+                mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S1;
+            else if(pAudPara->audio_interface == HAL_AUDIO_INTERFACE_2)
+                mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S2;
+            else if(pAudPara->audio_interface == HAL_AUDIO_INTERFACE_3)
+                mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S3;
+            else if(pAudPara->audio_interface == HAL_AUDIO_INTERFACE_4)
+                mem_handle->src_tracking_clock_source =  HAL_AUDIO_SRC_TRACKING_I2S4;
+            DSP_MW_LOG_I("[HWSRC]rx tracking clock_source =  %d\r\n",1,mem_handle->src_tracking_clock_source);
+        }
         #endif
     }
 

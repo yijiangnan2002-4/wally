@@ -73,10 +73,10 @@ typedef struct
 
 typedef struct
 {
-    audio_scenario_type_t data_scenario_type;
     U32 play_en_clk;
     U16 play_en_phase;
     U16 prefill_size;
+    U8  channel_num;
     //dl extend here
 } dchs_dl_cmd_param_t;
 

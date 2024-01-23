@@ -241,8 +241,8 @@ const static apps_config_key_event_map_list_t s_left_map_list[APPS_CONFIG_KEY_IN
 static void set_configurable_table_state_for_ptt(uint32_t i)
 {
     s_configurable_table[i].supported_states = (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING)
-                                               | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
-                                               | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
+                                               | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING)
+                                               | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
                                                | (1 << APP_STATE_FIND_ME) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
                                                | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA);
     APPS_LOG_MSGID_I(LOG_TAG"apps_config_key_remaper_init set status=0x%x for key event=0x%x", 2,

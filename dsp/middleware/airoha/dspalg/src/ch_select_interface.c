@@ -57,20 +57,17 @@ static CH_SEL_CTRL_t ch_sel_ctrl_usb_mic = {CH_SEL_STEREO};
 #endif
 
 #ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
-int32_t LATENCY_DRIFT_SAMPLE = 1032;
-int32_t latency_drift = 1032;
+#define CH_DUPLICATE_MAXIMUM_SET (4)
+uint32_t Delay_Sample_Count[CH_DUPLICATE_MAXIMUM_SET] = {0, 240, 240, 0}; //{ch01_delay_count, ch23_delay_count, ch45_delay_count, ch67_delay_count}
 #define ABS(x) ((x)<0 ? (-x) : (x))
-
 #define CH_DUPLICATE_BYTE_PER_SAMPLE (4)
-#define CH_DUPLICATE_HALF_BUFFER_SIZE (CH_DUPLICATE_BYTE_PER_SAMPLE * ABS(LATENCY_DRIFT_SAMPLE))
 #define CH_DUPLICATE_VALID_MEMORY_CHECK_VALUE   ((U32)0xA5A5AA55)
 
 typedef struct stru_ch_duplicate_para_u
 {
     U32 MemoryCheck;
-    U32 ReadOffset;
-    //DSP_ALIGN8 U8 ch_duplicate_temp_buff[CH_DUPLICATE_HALF_BUFFER_SIZE*2];
-    U8* ch_duplicate_temp_buff;
+    U32 ReadOffset[CH_DUPLICATE_MAXIMUM_SET];
+    DSP_ALIGN16 uint8_t ch_duplicate_temp_buff[1];
 } CH_DUPLICATE_INSTANCE, *CH_DUPLICATE_INSTANCE_PTR;
 CH_DUPLICATE_INSTANCE_PTR ch_duplicate_memory;
 #endif
@@ -870,141 +867,187 @@ BOOL Ch_Duplicate_MemCheck (VOID)
 
 
 /**
- * stream_function_channel_selector_initialize_2ch_to_4ch
+ * stream_function_channel_selector_multistream_memcpy_initialize
  *
- * Channel Select process to duplicate 2 channels data to 4 channels.
+ * Channel Select initialize to duplicate 2 channels data to n channels.
  *
  * @para : Default parameter of callback function
  *
  */
-bool stream_function_channel_selector_2ch_to_4ch_initialize (void *para)
+bool stream_function_channel_selector_multistream_memcpy_initialize (void *para)
 {
-    ((DSP_ENTRY_PARA_PTR)para)->with_2ch_to_4ch = ((DSP_ENTRY_PARA_PTR)para)->number.field.process_sequence;
+    UNUSED(para);
     return FALSE;
 }
 
-
 /**
- * stream_function_channel_selector_process_2ch_to_4ch
+ * stream_function_channel_selector_multistream_memcpy_process
  *
- * Channel Select process to duplicate 2 channels data to 4 channels.
+ * Channel Select process to duplicate 2 channels data to n channels.
  *
  * @para : Default parameter of callback function
  *
  */
-bool stream_function_channel_selector_2ch_to_4ch_process (void *para)
+bool stream_function_channel_selector_multistream_memcpy_process (void *para)
 {
-    U16 FrameSize = stream_function_get_output_size(para);
-    U8 *BufL = (U8*)stream_function_get_1st_inout_buffer(para);
-    U8 *BufR = (U8*)stream_function_get_2nd_inout_buffer(para);
-    U8 *DupBufL = (U8*)stream_function_get_3rd_inout_buffer(para);
-    U8 *DupBufR = (U8*)stream_function_get_4th_inout_buffer(para);
+    DSP_STREAMING_PARA_PTR stream_ptr;
+    stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
 
-    if ((DupBufL == NULL) || (DupBufR == NULL) || (BufL == NULL) || (BufR == NULL))
-    {
-        DSP_MW_LOG_E("[ch select] 2ch to 4ch not enough %d %d %d %d ", 4, BufL,BufR,DupBufL,DupBufR);
-        return FALSE;
+    U16 FrameSize = stream_function_get_output_size(para);
+
+    uint32_t actual_channel = stream_ptr->sink->param.audio.channel_num;
+    U8* Buf[actual_channel];
+
+    /* Get multiple channel inout buffer*/
+    for (uint32_t i = 0; i < actual_channel; i++) {
+        Buf[i] = stream_function_get_inout_buffer(para, i + 1);
+        if (Buf[i] == NULL) {
+            DSP_MW_LOG_E("[MULTI_STEAM][0] Buffer not enough Buf[%d], total: %d", 2, i, actual_channel);
+            return FALSE;
+        }
     }
 
-    /*copy 2ch to 4ch*/
-    memcpy(DupBufL, BufL , FrameSize);
-    memcpy(DupBufR, BufR , FrameSize);
+    /*Copy 2ch to nch*/
+    for (uint32_t i = 2; i < actual_channel; i+=2) {
+        memcpy(Buf[i], Buf[0] , FrameSize);
+        memcpy(Buf[i+1], Buf[1] , FrameSize);
+    }
 
-    ((DSP_ENTRY_PARA_PTR)para)->out_channel_num = 4;
+    /*If there is an odd number of channels, then duplicate the data of the left channel*/
+    if (actual_channel & 1) {
+        memcpy(Buf[actual_channel - 1], Buf[0] , FrameSize);
+    }
 
+    ((DSP_ENTRY_PARA_PTR)para)->out_channel_num = actual_channel;
     return FALSE;
 }
 
-
 /**
- * stream_function_channel_selector_initialize_2ch_to_4ch
+ * stream_function_channel_selector_multistream_add_latency_initialize
  *
- * Channel Select process to duplicate 2 channels data to 4 channels.
+ * Channel Select process to add latency.
  *
  * @para : Default parameter of callback function
  *
  */
-bool stream_function_channel_selector_2ch_to_4ch_add_latency_initialize (void *para)
+bool stream_function_channel_selector_multistream_add_latency_initialize (void *para)
 {
-    extern int32_t latency_drift;
-    LATENCY_DRIFT_SAMPLE = latency_drift;
-    DSP_MW_LOG_I("[ch select] Initial latency_drift = %d ", 1, latency_drift);
+    extern uint32_t Delay_Sample_Count[CH_DUPLICATE_MAXIMUM_SET]; //{ch01_delay_count, ch23_delay_count, ch45_delay_count, ch67_delay_count}
+    int32_t temp_buffer_size = 0;
+    SINK sink = Sink_blks[SINK_TYPE_AUDIO];
+    uint8_t actual_channel = sink->param.audio.channel_num;
+    for (uint32_t i = 0; i < sizeof(Delay_Sample_Count)/sizeof(uint32_t); i++) {
+        temp_buffer_size += (Delay_Sample_Count[i] * CH_DUPLICATE_BYTE_PER_SAMPLE * 2);
+    }
+
+    int32_t allocate_size = (sizeof(CH_DUPLICATE_INSTANCE) + temp_buffer_size + 7) / 8 * 8;
+    DSP_MW_LOG_I("[MULTI_STEAM] Initial DelaySampleCount = %d %d %d %d, actual_channel = %d, allocate_size = %d", 6,
+                                                Delay_Sample_Count[0], Delay_Sample_Count[1],
+                                                Delay_Sample_Count[2], Delay_Sample_Count[3],
+                                                actual_channel, allocate_size);
     if (!Ch_Duplicate_MemCheck())
     {
         DSP_STREAMING_PARA_PTR stream_ptr;
         stream_ptr = DSP_STREAMING_GET_FROM_PRAR(para);
-        ch_duplicate_memory = (CH_DUPLICATE_INSTANCE_PTR)DSPMEM_tmalloc(stream_function_get_task(para), sizeof(CH_DUPLICATE_INSTANCE), stream_ptr);
+        ch_duplicate_memory = (CH_DUPLICATE_INSTANCE_PTR)DSPMEM_tmalloc(stream_function_get_task(para), allocate_size, stream_ptr);
+        memset(ch_duplicate_memory, 0, allocate_size);
         ch_duplicate_memory->MemoryCheck = CH_DUPLICATE_VALID_MEMORY_CHECK_VALUE;
-        ch_duplicate_memory->ch_duplicate_temp_buff = (U8 *)DSPMEM_tmalloc(stream_function_get_task(para), CH_DUPLICATE_HALF_BUFFER_SIZE*2, stream_ptr);
     }
-    memset(ch_duplicate_memory->ch_duplicate_temp_buff,0,CH_DUPLICATE_HALF_BUFFER_SIZE*2);
-    ch_duplicate_memory->ReadOffset = 0;
     return FALSE;
 }
 
 
 /**
- * stream_function_channel_selector_process_2ch_to_4ch_add_latency
+ * stream_function_channel_selector_multistream_add_latency_process
  *
- * Channel Select process to add latency on 1/2ch or 3/4ch.
+ * Channel Select process to add latency.
  *
  * @para : Default parameter of callback function
  *
  */
-bool stream_function_channel_selector_2ch_to_4ch_add_latency_process (void *para)
+bool stream_function_channel_selector_multistream_add_latency_process (void *para)
 {
     U16 FrameSize = stream_function_get_output_size(para);
-    U8 *BufL = (U8*)stream_function_get_1st_inout_buffer(para);
-    U8 *BufR = (U8*)stream_function_get_2nd_inout_buffer(para);
-    U8 *DupBufL = (U8*)stream_function_get_3rd_inout_buffer(para);
-    U8 *DupBufR = (U8*)stream_function_get_4th_inout_buffer(para);
-    U8 *Buf_prt[4] = {BufL, BufR, DupBufL, DupBufR};
+    SINK sink = Sink_blks[SINK_TYPE_AUDIO];
+    uint8_t actual_channel = sink->param.audio.channel_num;
+    U8* Buf[actual_channel];
     U8 tempBuf[FrameSize];
+    int32_t ref_cheannel = -1;
 
-    if ((DupBufL == NULL) || (DupBufR == NULL) || (BufL == NULL) || (BufR == NULL))
-    {
-        DSP_MW_LOG_E("[ch select] 2ch to 4ch not enough %d %d %d %d ", 4, BufL,BufR,DupBufL,DupBufR);
+    /* Get multiple channel inout buffer*/
+    for (uint32_t i = 0; i < actual_channel; i++) {
+        Buf[i] = stream_function_get_inout_buffer(para, i + 1);
+        if (Buf[i] == NULL) {
+            DSP_MW_LOG_E("[MULTI_STEAM][1] Buffer not enough Buf[%d], total: %d", 2, i, actual_channel);
+            return FALSE;
+        }
+    }
+    /*Get reference channel*/
+    for (uint32_t i = 0; i < actual_channel; i+=2) {
+        if (Delay_Sample_Count[i/2] == 0) {
+            ref_cheannel = i;
+            break;
+        }
+    }
+    if (ref_cheannel == -1) {
+        DSP_MW_LOG_E("[MULTI_STEAM][1] Can't get ref_cheannel, one of Delay_Sample_Count should be zero", 0);
         return FALSE;
     }
-#ifdef AIR_AUDIO_DUMP_ENABLE
-    LOG_AUDIO_DUMP((U8*)DupBufL, (U32)FrameSize, VOICE_TX_MIC_1);/*3, 4 CHANNEL, data to Rx*//*IN_L*/
-#endif
-    /*add latency for main unit*/
-    int index = 0;
-    if (LATENCY_DRIFT_SAMPLE < 0 ){
-        index = 3;
-    }
-    if (FrameSize >=  CH_DUPLICATE_HALF_BUFFER_SIZE)
-    {
-        for (int times=0; times < 2; times++,index++) {
-            memcpy(tempBuf, Buf_prt[index], FrameSize);
 
-            memcpy(Buf_prt[index], ch_duplicate_memory->ch_duplicate_temp_buff + CH_DUPLICATE_HALF_BUFFER_SIZE*times, CH_DUPLICATE_HALF_BUFFER_SIZE);
-            memcpy(Buf_prt[index] + CH_DUPLICATE_HALF_BUFFER_SIZE, tempBuf, FrameSize - CH_DUPLICATE_HALF_BUFFER_SIZE);
-            memcpy(ch_duplicate_memory->ch_duplicate_temp_buff + CH_DUPLICATE_HALF_BUFFER_SIZE*times, (tempBuf + FrameSize - CH_DUPLICATE_HALF_BUFFER_SIZE), CH_DUPLICATE_HALF_BUFFER_SIZE);
-        }
-    }
-    else
-    {
-        for (int times=0; times < 2; times++,index++) {
-            memcpy(tempBuf, Buf_prt[index], FrameSize);
+    uint32_t DelayAccumulation = 0;
+    for (uint32_t i = 0; i < actual_channel; i+=2) {
+        uint32_t DelaySize = Delay_Sample_Count[i/2] * CH_DUPLICATE_BYTE_PER_SAMPLE;
 
-            DSP_C2D_BufferCopy((VOID*)  Buf_prt[index],
-                           (VOID*)  (ch_duplicate_memory->ch_duplicate_temp_buff + CH_DUPLICATE_HALF_BUFFER_SIZE*times + ch_duplicate_memory->ReadOffset),
-                           (U32)    FrameSize,
-                           (VOID*)  ch_duplicate_memory->ch_duplicate_temp_buff + CH_DUPLICATE_HALF_BUFFER_SIZE*times,
-                           (U32)    CH_DUPLICATE_HALF_BUFFER_SIZE);
-            DSP_D2C_BufferCopy((VOID*)  (ch_duplicate_memory->ch_duplicate_temp_buff + CH_DUPLICATE_HALF_BUFFER_SIZE*times + ch_duplicate_memory->ReadOffset),
-                           (VOID*)  (tempBuf),
-                           (U16)    FrameSize,
-                           (VOID*)  ch_duplicate_memory->ch_duplicate_temp_buff + CH_DUPLICATE_HALF_BUFFER_SIZE*times,
-                           (U16)    CH_DUPLICATE_HALF_BUFFER_SIZE);
+        if (DelaySize == 0) {
+            /*Do thing*/
+            continue;
+        } else {
+            uint32_t first_channel_index = 0;
+            uint32_t last_channel_index = 2;
+            if (FrameSize >=  DelaySize) {
+                if (last_channel_index > actual_channel - i) {
+                    last_channel_index = actual_channel;
+                }
+                for (uint32_t ChannelIndex = first_channel_index; ChannelIndex < last_channel_index; ChannelIndex++) {
+                    uint32_t WriteOffset = DelayAccumulation + DelaySize*ChannelIndex;
+                    /*Copy data from reference Buffer to tempBuf*/
+                    memcpy(tempBuf, Buf[ref_cheannel + ChannelIndex], FrameSize);
+
+                    /*Copy data to inout Buffer*/
+                    memcpy(Buf[i], ch_duplicate_memory->ch_duplicate_temp_buff + WriteOffset, DelaySize);
+                    memcpy(Buf[i] + DelaySize, tempBuf, FrameSize - DelaySize);
+
+                    /*Copy data to queue Buffer for the next processing*/
+                    memcpy(ch_duplicate_memory->ch_duplicate_temp_buff + WriteOffset, (tempBuf + (FrameSize - DelaySize)), DelaySize);
+                }
+            } else {
+                if (last_channel_index > actual_channel - i) {
+                    last_channel_index = actual_channel;
+                }
+                for (uint32_t ChannelIndex = first_channel_index; ChannelIndex < last_channel_index; ChannelIndex++) {
+                    uint32_t WriteOffset = DelayAccumulation + DelaySize*ChannelIndex;
+                    /*Copy data from reference Buffer to tempBuf*/
+                    memcpy(tempBuf, Buf[ref_cheannel + ChannelIndex], FrameSize);
+
+                    /*Copy data to inout Buffer*/
+                    DSP_C2D_BufferCopy((VOID*)  Buf[i],
+                                   (VOID*)  (ch_duplicate_memory->ch_duplicate_temp_buff + WriteOffset + ch_duplicate_memory->ReadOffset[i/2]),
+                                   (U32)    FrameSize,
+                                   (VOID*)  ch_duplicate_memory->ch_duplicate_temp_buff + WriteOffset,
+                                   (U32)    DelaySize);
+
+                    /*Copy data to queue Buffer*/
+                    DSP_D2C_BufferCopy((VOID*)  (ch_duplicate_memory->ch_duplicate_temp_buff + WriteOffset + ch_duplicate_memory->ReadOffset[i/2]),
+                                   (VOID*)  (tempBuf),
+                                   (U16)    FrameSize,
+                                   (VOID*)  ch_duplicate_memory->ch_duplicate_temp_buff + WriteOffset,
+                                   (U16)    DelaySize);
+                }
+                ch_duplicate_memory->ReadOffset[i/2] = (ch_duplicate_memory->ReadOffset[i/2] + FrameSize) % DelaySize;
+            }
         }
-        ch_duplicate_memory->ReadOffset = (ch_duplicate_memory->ReadOffset + FrameSize)%CH_DUPLICATE_HALF_BUFFER_SIZE;
+        DelayAccumulation += (DelaySize << 1);
     }
-#ifdef AIR_AUDIO_DUMP_ENABLE
-    LOG_AUDIO_DUMP((U8*)BufL, (U32)FrameSize, VOICE_TX_MIC_0);/*1, 2 CHANNEL*/
-#endif
     return FALSE;
 }
 

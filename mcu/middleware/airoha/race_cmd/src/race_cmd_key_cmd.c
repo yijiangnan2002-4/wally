@@ -45,7 +45,9 @@
 
 #include "bt_connection_manager_internal.h"
 #ifdef MTK_BT_DUO_ENABLE
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 #include "bt_sink_srv_music.h"
+#endif
 #endif
 
 /***************************************************************/
@@ -68,6 +70,7 @@ RACE_ERRCODE race_key_remote_device_addr(bt_bd_addr_t *addr)
     return ret;
 }
 
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 RACE_ERRCODE race_key_game_mode_set(bt_sink_srv_music_mode_t mode)
 {
     RACE_ERRCODE ret = RACE_ERRCODE_FAIL;
@@ -84,7 +87,9 @@ RACE_ERRCODE race_key_game_mode_set(bt_sink_srv_music_mode_t mode)
 
     return ret;
 }
+#endif
 
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
 RACE_ERRCODE race_key_game_mode_toggle()
 {
     RACE_ERRCODE ret = RACE_ERRCODE_FAIL;
@@ -105,6 +110,7 @@ RACE_ERRCODE race_key_game_mode_toggle()
     }
     return ret;
 }
+#endif
 #endif
 
 void *RACE_CmdHandler_KEY(ptr_race_pkt_t pCmdMsg, uint16_t Length, uint8_t channel_id)
@@ -142,6 +148,7 @@ void *RACE_CmdHandler_KEY(ptr_race_pkt_t pCmdMsg, uint16_t Length, uint8_t chann
             RACE_LOG_MSGID_I("key event race, reset_id=%d", 1, cmd->reset_id);
             switch (cmd->reset_id) {
 #ifdef MTK_BT_DUO_ENABLE
+#ifdef AIR_BT_SINK_MUSIC_ENABLE
                 case RACE_KEY_ID_GAMEMODE_ON:
                     //RACE_LOG_MSGID_I("race cmd gamemode on[0x%X]", 1, cmd->reset_id);
                     err = race_key_game_mode_set(BT_SINK_SRV_MUSIC_GAME_MODE);
@@ -163,6 +170,7 @@ void *RACE_CmdHandler_KEY(ptr_race_pkt_t pCmdMsg, uint16_t Length, uint8_t chann
                         pEvt->status = 0x00;
                     }
                     break;
+#endif
 #endif
                 default: {
                     uint16_t *msg_data = pvPortMalloc(sizeof(uint16_t));

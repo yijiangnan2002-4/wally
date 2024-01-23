@@ -210,8 +210,8 @@ typedef uint8_t bt_ull_mute_state_t;
 
 #define BT_ULL_TX_MAX_CACHE                 (6)  /**< According to RFCOMM credit */
 
-#define BT_ULL_DOWNLINK_LIMIATTION           (25)    /* extremity 25ms latency */
-#define BT_ULL_DOWNLINK_LIMIATTION_MULTILINK (25)    /* dongle + sp */
+#define BT_ULL_DOWNLINK_LIMITATION           (25)    /* extremity 25ms latency */
+#define BT_ULL_DOWNLINK_LIMITATION_MULTILINK (25)    /* dongle + sp */
 #define BT_ULL_DOWNLINK_SINGLE_LIMITATION    (30)
 #define BT_ULL_DOWNLINK_MULITILINK           (60)    /* multi-link temp state, 60ms latency */
 
@@ -223,7 +223,7 @@ typedef uint8_t bt_ull_mute_state_t;
 #endif
 #define BT_ULL_UPLINK_MAX                   (60)
 
-#define BT_ULL_UPLINK_LEGENCY_DEFAULT       (40)
+#define BT_ULL_UPLINK_LATENCY_DEFAULT       (40)
 
 /* define 2-rx mixing ratio */
 #define BT_ULL_MIX_RATIO_MAX                (100)

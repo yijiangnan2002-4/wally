@@ -208,7 +208,9 @@ extern "C" {
 /**
  *  @brief Define for A2DP codec id.
  */
-#define BT_A2DP_CODEC_VENDOR_2_CODEC_ID (0x4C35)
+#define BT_A2DP_CODEC_VENDOR_CODEC_ID     (0xAA)    /**< The vendor codec ID. */
+#define BT_A2DP_CODEC_LHDC_CODEC_ID     (0x4C35)    /**< The LHDC-V codec ID. */
+#define BT_A2DP_CODEC_LC3PLUS_CODEC_ID  (0x0001)    /**< The LC3PLUS codec ID. */
 
 /** @brief Bluetooth codec state. */
 typedef enum {
@@ -394,7 +396,7 @@ typedef struct {
     uint8_t channels;           /**< b0: 2(stereo), b1: (dual_channel), b0: 1(mono). */
     uint8_t sample_rate;        /**< b0~b5: 192000,176400,96000,882000,48000,44100. */
     uint32_t vendor_id;         /**< Indicate codec id, from audio source. */
-    uint8_t resolution;         /**< bits per sample b0: 32bit, b1: 24bit, b2: 16bit.*/
+    uint8_t duration_resolution;/**< b4~b6: 2.5ms, 5ms, 10ms, bits per sample b0: 32bit, b1: 24bit, b2: 16bit.*/
     bool is_raw_mode;           /**< Indicate raw mode. 1: enable, 0:disable. */
     bool is_low_latency;        /**< 1: low latency 0: normal latency. */
     bool is_lossless_mode;      /**< 1: lossless mode 0: lossy mode. */

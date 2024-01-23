@@ -42,7 +42,12 @@ extern "C" {
 #ifdef MTK_IAP2_VIA_MUX_ENABLE
 #include "bt_type.h"
 
+#ifdef AIR_IAP2_MULTI_POINT_ENABLE
+#define MAX_MUX_IAP2_LINK_NUM           2
+#else
 #define MAX_MUX_IAP2_LINK_NUM           1
+#endif
+
 #define MAX_MUX_IAP2_NUM                6
 #define MAX_MUX_IAP2_PACKET_NUM         (MAX_MUX_IAP2_NUM * MAX_MUX_IAP2_LINK_NUM * 3)
 

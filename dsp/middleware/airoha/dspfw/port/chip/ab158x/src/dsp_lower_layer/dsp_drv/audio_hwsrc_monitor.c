@@ -152,7 +152,8 @@ void hwsrc_detect_timer_setup(SINK sink, U32 WO, U32 RO, U32 input_size)
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &gpt_time_1);
         hal_gpt_sw_get_remaining_time_us(recover_para.src_detect_handler, &remaing_time);
 
-        if ((WO == RO) && (((1000000 / 100) / output_rate) < remaing_time)) { //Troubleshoot buffer full
+        //if ((WO == RO) && (((1000000 / 100) / output_rate) < remaing_time)) { //Troubleshoot buffer full
+        if (WO == RO) {
             src_out_size = output_buffer_size;
         } else {
             src_out_size = (output_buffer_size + WO - RO) % output_buffer_size;
@@ -314,7 +315,7 @@ U32 hal_audio_get_irq_compen_samples(void* ptr)
     hal_nvic_save_and_set_interrupt_mask(&mask);
     samples = compen_para.irq_compensated_samples / (BytesPerSample * channel_num);
     compen_para.irq_compensated_samples = compen_para.irq_compensated_samples % (BytesPerSample * channel_num);
-    hal_nvic_restore_interrupt_mask(mask);   
+    hal_nvic_restore_interrupt_mask(mask);
 
     return samples;
 }

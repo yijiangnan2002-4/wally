@@ -171,6 +171,9 @@ extern void Sco_UL_Fix_Sample_Rate_Deinit(void);
 extern void Sco_DL_Fix_Sample_Rate_Init(void);
 extern void Sco_DL_Fix_Sample_Rate_Deinit(void);
 #endif
-
+#if defined(AIR_MUTE_MIC_DETECTION_ENABLE)
+EXTERN void Sco_UL_Volume_Estimator_Init(SINK sink);
+EXTERN void Sco_UL_Volume_Estimator_Deinit(void);
+#endif
 #endif /* _STREAM_N9SCO_H_ */
 

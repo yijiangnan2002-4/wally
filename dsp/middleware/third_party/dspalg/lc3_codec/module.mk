@@ -1,3 +1,4 @@
+
 # Copyright Statement:
 #
 # (C) 2017  Airoha Technology Corp. All rights reserved.
@@ -37,17 +38,23 @@ LC3_CODEC_PATH = middleware/third_party/dspalg/lc3_codec
 ifeq ($(AIR_BT_LE_LC3_ENABLE), y)
     C_SRC += $(LC3_CODEC_PATH)/src/lc3_enc_interface.c
     C_SRC += $(LC3_CODEC_PATH)/src/lc3_dec_interface.c
+    ifeq ($(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE), y)
+    LIBS += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/liblc3i_init_APLC.a
+    else
     LIBS += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/liblc3i_init.a
+    endif
 ifneq ($(MTK_BT_A2DP_LC3_USE_PIC), y)
     LIBS += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/liblc3_codec.a
 else
-    ifeq ($(AIR_BT_BLE_FIX_ADV_PLC), y)
-        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/codec_APLC/pisplit_lc3i_codec_APLC.o
+    ifeq ($(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE), y)
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/lc3plusn/codec_APLC/pisplit_lc3i_codec_APLC.o
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/lc3plusn/fft7p5ms/pisplit_lc3i_fft7p5ms.o
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/lc3plusn/fft10ms/pisplit_lc3i_fft10ms.o
         else
         PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/codec_lib/pisplit_lc3i_codec.o
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/fft7p5ms/pisplit_lc3i_fft7p5ms.o
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/fft10ms/pisplit_lc3i_fft10ms.o
     endif
-    PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/fft7p5ms/pisplit_lc3i_fft7p5ms.o
-    PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/fft10ms/pisplit_lc3i_fft10ms.o
     C_SRC += $(LC3_CODEC_PATH)/portable/lc3_codec_portable.c
 endif
 endif
@@ -60,14 +67,24 @@ endif
 ifeq ($(AIR_BT_CODEC_BLE_V2_ENABLED), y)
     C_SRC += $(LC3_CODEC_PATH)/src/lc3_enc_branch_interface.c
     C_SRC += $(LC3_CODEC_PATH)/src/lc3_dec_interface_v2.c
+    ifeq ($(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE), y)
+    LIBS += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/liblc3i_init_APLC.a
+    else
     LIBS += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/liblc3i_init.a
+    endif
 ifneq ($(MTK_BT_A2DP_LC3_USE_PIC), y)
     LIBS += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/liblc3_codec.a
 else
     PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/codec_all/pisplit_lc3_codec.o
-    PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/codec_lib/pisplit_lc3i_codec.o
-    PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/fft7p5ms/pisplit_lc3i_fft7p5ms.o
-    PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/fft10ms/pisplit_lc3i_fft10ms.o
+    ifeq ($(AIR_LC3_USE_LC3PLUS_PLC_CUSTOMIZE), y)
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/lc3plusn/codec_APLC/pisplit_lc3i_codec_APLC.o
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/lc3plusn/fft7p5ms/pisplit_lc3i_fft7p5ms.o
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/lc3plusn/fft10ms/pisplit_lc3i_fft10ms.o
+        else
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/codec_lib/pisplit_lc3i_codec.o
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/fft7p5ms/pisplit_lc3i_fft7p5ms.o
+        PIC   += $(strip $(LIBDIR3))/lc3_codec/$(IC_CONFIG)/pisplit/fft10ms/pisplit_lc3i_fft10ms.o
+    endif
     C_SRC += $(LC3_CODEC_PATH)/portable/lc3_codec_portable.c
 endif
 endif

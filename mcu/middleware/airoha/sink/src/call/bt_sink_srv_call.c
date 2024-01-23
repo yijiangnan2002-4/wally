@@ -92,6 +92,11 @@ bt_status_t default_bt_sink_srv_hsp_common_callback(bt_msg_type_t msg, bt_status
     return BT_STATUS_SUCCESS;
 }
 
+bool default_bt_sink_srv_call_get_sidetone_enable_config(void)
+{
+    return true;
+}
+
 #if _MSC_VER >= 1500
 #pragma comment(linker, "/alternatename:_bt_sink_srv_hf_action_handler=_default_bt_sink_srv_hf_action_handler")
 #pragma comment(linker, "/alternatename:_bt_sink_srv_hsp_action_handler=_default_bt_sink_srv_hsp_action_handler")
@@ -99,6 +104,7 @@ bt_status_t default_bt_sink_srv_hsp_common_callback(bt_msg_type_t msg, bt_status
 #pragma comment(linker, "/alternatename:_bt_sink_srv_hf_common_callback=_default_bt_sink_srv_hf_common_callback")
 #pragma comment(linker, "/alternatename:_bt_sink_srv_hf_gap_callback=_default_bt_sink_srv_hf_gap_callback")
 #pragma comment(linker, "/alternatename:_bt_sink_srv_hsp_common_callback=_default_bt_sink_srv_hsp_common_callback")
+#pragma comment(linker, "/alternatename:_bt_sink_srv_call_get_sidetone_enable_config=_default_bt_sink_srv_call_get_sidetone_enable_config")
 #elif defined(__GNUC__) || defined(__ICCARM__) || defined(__CC_ARM)
 #pragma weak bt_sink_srv_hf_action_handler = default_bt_sink_srv_hf_action_handler
 #pragma weak bt_sink_srv_hsp_action_handler = default_bt_sink_srv_hsp_action_handler
@@ -106,6 +112,7 @@ bt_status_t default_bt_sink_srv_hsp_common_callback(bt_msg_type_t msg, bt_status
 #pragma weak bt_sink_srv_hf_common_callback = default_bt_sink_srv_hf_common_callback
 #pragma weak bt_sink_srv_hf_gap_callback = default_bt_sink_srv_hf_gap_callback
 #pragma weak bt_sink_srv_hsp_common_callback = default_bt_sink_srv_hsp_common_callback
+#pragma weak bt_sink_srv_call_get_sidetone_enable_config = default_bt_sink_srv_call_get_sidetone_enable_config
 #else
 #error "Unsupported Platform"
 #endif
@@ -342,6 +349,20 @@ bt_status_t bt_sink_srv_state_manager_call_callback(bt_sink_srv_state_manager_ev
             break;
         }
 
+        case BT_SINK_SRV_STATE_MANAGER_EVENT_GET_PLAY_COUNT: {
+#ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
+            bt_sink_srv_state_manager_play_count_t *play_count = (bt_sink_srv_state_manager_play_count_t *)parameter;
+            if (BT_AWS_MCE_ROLE_NONE == role || BT_AWS_MCE_ROLE_AGENT == role) {
+                bt_sink_srv_hf_context_t *context = bt_sink_srv_hf_get_context_by_address(address);
+                if (NULL != context) {
+                    status = BT_STATUS_SUCCESS;
+                    *play_count = context->play_count;
+                }
+            }
+#endif
+            break;
+        }
+
         default: {
             break;
         }
@@ -426,3 +447,35 @@ bt_status_t bt_sink_srv_call_audio_switch_handle(bool value, void *playing_dev, 
     return BT_STATUS_SUCCESS;
 }
 #endif
+
+void bt_sink_srv_call_sidetone_config_change_notify(bool enable)
+{
+    bt_sink_srv_call_pseudo_dev_t *device = NULL;
+    bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();
+    bt_sink_srv_report_id("[CALL]sidetone config change notify, enable:%d", 1, enable);
+
+    if ((role == BT_AWS_MCE_ROLE_NONE) || (role == BT_AWS_MCE_ROLE_AGENT)) {
+        bt_sink_srv_hf_context_t *hf_context
+            = bt_sink_srv_hf_get_context_by_flag(BT_SINK_SRV_HF_FLAG_SCO_ACTIVE);
+        if (hf_context != NULL) {
+            device = hf_context->device;
+        }
+    } else {
+    #ifdef MTK_AWS_MCE_ENABLE
+        bt_sink_srv_aws_mce_call_context_t * aws_context
+            = bt_sink_srv_aws_mce_call_get_context_by_sco_state(BT_SINK_SRV_SCO_CONNECTION_STATE_CONNECTED);
+        if (aws_context != NULL) {
+            device = aws_context->device;
+        }
+    #endif
+    }
+
+    if (device != NULL) {
+        if (enable) {
+            bt_sink_srv_call_psd_enable_sidetone(device);
+        } else {
+            bt_sink_srv_call_psd_disable_sidetone(device);
+        }
+    }
+}
+

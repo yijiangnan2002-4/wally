@@ -67,7 +67,8 @@
 #define APP_DEFAULT_FS                      _T("SD:")
 #define APP_DEFAULT_DIR                     _T("SD:/recorder")
 #define APP_DEFAULT_DIR_SEP                 _T("SD:/recorder/")
-#define APP_WAV_DATA_CHACHE_MAX_LENGTH      (4*1024) //4k
+#define APP_WAV_DATA_CACHE_MAX_LENGTH      (4*1024) //4k
+#define APP_FS_WAV_FILE_MAX_SIZES             (0xFFFFFFFF) //4G-1byte
 
 #define APP_FS_CLUST_SIZE                     (64)
 #define FS_FAT_TABLE_NUM                      (1)
@@ -75,6 +76,7 @@
 #define APP_FS_RECORD_STOP                    (5)
 #define APP_FS_WRITE_START                    (1)
 #define APP_FS_WRITE_FINISH                   (0)
+#define  WAV_HEADER_LENGTH   sizeof(app_wm_wav_header_t)
 
 //format FS with cluster size 0x8000 if cluster size is not 0x8000
 static const MKFS_PARM default_fs_config = {FM_ANY, 
@@ -108,7 +110,6 @@ typedef struct {
 ATTR_ZIDATA_IN_NONCACHED_RAM static app_wireless_mic_fatfs_t s_app_wm_fs_context;
 bool g_wireless_mic_fs_init_done = FALSE;
 
-#define  WAV_HEADER_LENGTH   sizeof(app_wm_wav_header_t)
 ATTR_ZIDATA_IN_NONCACHED_RAM_4BYTE_ALIGN uint8_t s_wav_header[WAV_HEADER_LENGTH] = {0};
 
 void app_wireless_mic_fatfs_save_file_num(void)
@@ -247,6 +248,10 @@ FRESULT app_wireless_mic_fatfs_creat_wav_file(void)
         APPS_LOG_MSGID_I(LOG_TAG" creat_file: write wav header fail-ret=%d", 1, ret);
         ret = f_close(&s_app_wm_fs_context.file);
         return ret;
+    } else if ((FR_OK == ret) && (length_written == 0)) {
+        APPS_LOG_MSGID_W(LOG_TAG" creat_file: full", 0);
+        ret = FR_NO_FILESYSTEM;
+        return ret;
     } else {
         s_app_wm_fs_context.is_create_file = TRUE;
         s_app_wm_fs_context.wav_size       = 0;
@@ -303,11 +308,20 @@ FRESULT app_wireless_mic_fatfs_write_wav_data(uint8_t *data, uint32_t len)
         return FR_INT_ERR;
     }
 
+    if (APP_FS_WAV_FILE_MAX_SIZES - WAV_HEADER_LENGTH - s_app_wm_fs_context.wav_size <= len) {
+        APPS_LOG_MSGID_W(LOG_TAG" write_data: file larger than 4G! ", 0);
+        return FR_NOT_ENABLED;
+    }
+
+#ifdef APP_WIRELESS_MIC_DEBUG
+    APPS_LOG_MSGID_I(LOG_TAG" write_data: free_clst=%d, reserve_clst=%d",
+                    2, s_app_wm_fs_context.fatfs->free_clst,
+                    s_app_wm_fs_context.reserved_clst);
+#endif
     if (!app_wireless_mic_fatfs_free_size_is_enough()) {
         APPS_LOG_MSGID_I(LOG_TAG" write_data: free size is not enough", 0);
         return FR_NOT_ENABLED;
     }
-    //APPS_LOG_MSGID_I(LOG_TAG" write_data: free_size=0x%x-byte", 1, fre_size);
 
 #ifdef APP_WIRELESS_MIC_DEBUG
         uint32_t start_count = 0;
@@ -329,6 +343,11 @@ FRESULT app_wireless_mic_fatfs_write_wav_data(uint8_t *data, uint32_t len)
         }
         APPS_LOG_MSGID_I(LOG_TAG" write_data: speed = %dKBs, count = %d, len = %d", 3,
                          (length_written * 1000) / count, count, len);
+        if ((FR_OK == ret) && (length_written == 0)) {
+            APPS_LOG_MSGID_W(LOG_TAG" write_data: full", 0);
+            ret = FR_NO_FILESYSTEM;
+            return ret;
+        }
 #endif
     if (FR_OK != ret) {
         APPS_LOG_MSGID_I(LOG_TAG" write_data: write file fail-ret=%d", 1, ret);

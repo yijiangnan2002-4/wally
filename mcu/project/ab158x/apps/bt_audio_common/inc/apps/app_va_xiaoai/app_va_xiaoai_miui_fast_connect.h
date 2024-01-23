@@ -55,6 +55,8 @@ extern "C" {
 
 #define MIUI_FC_ACCOUNT_KEY_LEN                 16
 
+bool miui_fc_is_account_key_pairing();
+
 void miui_fast_connect_init();
 
 void miui_fast_connect_ble_enable(bool enable);

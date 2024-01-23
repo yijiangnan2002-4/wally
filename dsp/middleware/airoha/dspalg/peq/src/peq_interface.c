@@ -75,7 +75,9 @@ uint32_t peq_control_off = 0;
 uint32_t aeq_control_off = 0;
 extern ltcs_header_type_t ltcs_receive;
 extern ltcs_ctrl_type_t ltcs_ctrl;
+#ifdef AIR_ADAPTIVE_EQ_ENABLE
 extern AU_CPD_CTRL_t aud_adaptive_eq_drc_ctrl;
+#endif
 #ifdef AIR_ADAPTIVE_EQ_ENABLE
 extern DSP_AEQ_CTRL_g aeq_ctrl_g;
 aeq_share_info_t *share_addr;
@@ -110,6 +112,18 @@ static DSP_PEQ_CTRL_t peq_ctrl_3 = {
     .peq_mode = 0,
     .audio_path = 1,
 };
+
+static DSP_PEQ_CTRL_t peq_ctrl_linein_post_eq = {
+    .p_peq_inter_param = 0,
+    .peq_nvkey_id = 0,
+    .sample_rate = 0,
+    .enable = false,
+    .proc_ch_mask = CH_MASK_STEREO,
+    .p_overlap_buffer = NULL,
+    .peq_mode = 0,
+    .audio_path = 1,
+};
+
 static DSP_PEQ_CTRL_t peq_ctrl_4 = {
     .p_peq_inter_param = 0,
     .peq_nvkey_id = 0,
@@ -435,6 +449,7 @@ void peq_get_defalut_param(DSP_PEQ_CTRL_t *p_peq_ctrl, uint8_t rate)
         p_peq_ctrl->p_peq_inter_param = (S16 *)peq_allpass_coef_192kHz;
     }else{
         DSP_MW_LOG_E("[%d] peq_get_defalut_param fail, rate:%d \n", 2, p_peq_ctrl->phase_id, rate);
+        p_peq_ctrl->p_peq_inter_param = (S16 *)peq_allpass_coef_441kHz;
     }
 }
 #ifdef DSP_PEQ_SYNC_WITH_BT_CLOCK_PTS
@@ -580,10 +595,13 @@ U8 peq_get_trigger_drc(U8 phase_id, U8 type)
             return peq_ctrl_adaptive_eq.trigger_drc;
         }
     } else if (phase_id == 1) {
-        return peq_ctrl_2.trigger_drc;
-    } else {
-        return 0;
+        if(type == 0){
+            return peq_ctrl_2.trigger_drc;
+        } else if(type == 1){
+            return peq_ctrl_linein_post_eq.trigger_drc;
+        }
     }
+    return 0;
 }
 
 /**
@@ -715,12 +733,15 @@ void PEQ_Set_Param(hal_ccni_message_t msg, hal_ccni_message_t *ack, BOOL BypassT
             p_peq_ctrl = &peq_ctrl_5;
         }
     } else if (peq_param->phase_id == 1) {
-        p_peq_ctrl = &peq_ctrl_2;
+        if((msg.ccni_message[0] & 0xFFFF) == PEQ_AUDIO_PATH_A2DP){
+            p_peq_ctrl = &peq_ctrl_2;
 #ifdef AIR_VP_PEQ_ENABLE
-        if ((msg.ccni_message[0] & 0xFFFF) == PEQ_AUDIO_PATH_VP) {
+        }else if((msg.ccni_message[0] & 0xFFFF) == PEQ_AUDIO_PATH_VP){
             p_peq_ctrl = &peq_ctrl_vp_2;
-        }
 #endif
+        }else if((msg.ccni_message[0] & 0xFFFF) == PEQ_AUDIO_PATH_LINEIN){
+            p_peq_ctrl = &peq_ctrl_linein_post_eq;
+        }
 #ifdef MTK_DEQ_ENABLE
     } else if (peq_param->phase_id == 2) {
         p_peq_ctrl = &deq_ctrl;
@@ -770,6 +791,7 @@ void PEQ_Set_Param(hal_ccni_message_t msg, hal_ccni_message_t *ack, BOOL BypassT
             p_peq_ctrl->need_update = NEED_UPDATE_NOW;
             p_peq_ctrl->enable = (p_peq_ctrl->peq_nvkey_id == 0) ? false : true;
         } else if (peq_param->setting_mode == PEQ_SYNC) {
+            p_peq_ctrl->gpt_time_sync = peq_param->gpt_time_sync;
 #ifdef DSP_PEQ_SYNC_WITH_BT_CLOCK_PTS
             if (!BypassTimestamp) {
                 p_peq_ctrl->target_timestamp = peq_calculate_target_timestamp(peq_param->target_bt_clk, peq_sync_ctrl.anchor_bt_clk, peq_sync_ctrl.anchor_timestamp);
@@ -1000,6 +1022,12 @@ bool stream_function_peq3_initialize(void *para)
     return peq_interface_init(para, &peq_ctrl_3);
 }
 
+bool stream_function_line_in_post_eq_initialize(void *para)
+{
+    peq_ctrl_linein_post_eq.phase_id = 1;
+    return peq_interface_init(para, &peq_ctrl_linein_post_eq);
+}
+
 bool stream_function_peq4_initialize(void *para)
 {
     peq_ctrl_5.phase_id = 0;
@@ -1119,19 +1147,30 @@ static bool peq_inferace_process(void *para, DSP_PEQ_CTRL_t *p_peq_ctrl)
     S32 FrameSamples;
 
 #ifdef DSP_PEQ_SYNC_WITH_BT_CLOCK_PTS
-    if (((p_peq_ctrl->need_update == NEED_UPDATE_LATER) && ((S32)((p_peq_ctrl->target_timestamp << 15) - (peq_sync_ctrl.current_timestamp << 15)) <= 0))
-        || (p_peq_ctrl->sample_rate != rate)) {
-        if (p_peq_ctrl->sample_rate == rate) {
-            if (peq_sync_ctrl.use_seqno == 1) {
-                DSP_MW_LOG_I("[%d] update PEQ at ts: =============== %c 0x%x 0x%x %d ============== \n", 5, p_peq_ctrl->phase_id, ((peq_sync_ctrl.current_timestamp - p_peq_ctrl->target_timestamp) > 1) ? 'N' : 'Y', p_peq_ctrl->target_timestamp, peq_sync_ctrl.current_timestamp, (peq_sync_ctrl.current_timestamp - p_peq_ctrl->target_timestamp));
-            } else {
-                DSP_MW_LOG_I("[%d] update PEQ at ts: =============== %c 0x%x 0x%x %d ============== \n", 5, p_peq_ctrl->phase_id, ((peq_sync_ctrl.current_timestamp - p_peq_ctrl->target_timestamp) > 1024) ? 'N' : 'Y', p_peq_ctrl->target_timestamp, peq_sync_ctrl.current_timestamp, (peq_sync_ctrl.current_timestamp - p_peq_ctrl->target_timestamp));
-            }
+    U32 curr_tick = 0;
+    if(p_peq_ctrl->gpt_time_sync){
+        hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M,&curr_tick);
+        if(curr_tick > p_peq_ctrl->target_timestamp){
+            p_peq_ctrl->need_update = NEED_UPDATE_NOW;
+            p_peq_ctrl->enable = (p_peq_ctrl->peq_nvkey_id == 0) ? false : true;
+            DSP_MW_LOG_I("BLE REALTIME PEQ curr_tick:%d",1,curr_tick);
+            p_peq_ctrl->gpt_time_sync = 0;
         }
-        p_peq_ctrl->sample_rate = rate;
-        p_peq_ctrl->need_update = NEED_UPDATE_NOW;
-        p_peq_ctrl->enable = (p_peq_ctrl->peq_nvkey_id == 0) ? false : true;
-    } else
+    }else{
+        if (((p_peq_ctrl->need_update == NEED_UPDATE_LATER) && ((S32)((p_peq_ctrl->target_timestamp << 15) - (peq_sync_ctrl.current_timestamp << 15)) <= 0))
+            || (p_peq_ctrl->sample_rate != rate)) {
+            if (p_peq_ctrl->sample_rate == rate) {
+                if (peq_sync_ctrl.use_seqno == 1) {
+                    DSP_MW_LOG_I("[%d] update PEQ at ts: =============== %c 0x%x 0x%x %d ============== \n", 5, p_peq_ctrl->phase_id, ((peq_sync_ctrl.current_timestamp - p_peq_ctrl->target_timestamp) > 1) ? 'N' : 'Y', p_peq_ctrl->target_timestamp, peq_sync_ctrl.current_timestamp, (peq_sync_ctrl.current_timestamp - p_peq_ctrl->target_timestamp));
+                } else {
+                    DSP_MW_LOG_I("[%d] update PEQ at ts: =============== %c 0x%x 0x%x %d ============== \n", 5, p_peq_ctrl->phase_id, ((peq_sync_ctrl.current_timestamp - p_peq_ctrl->target_timestamp) > 1024) ? 'N' : 'Y', p_peq_ctrl->target_timestamp, peq_sync_ctrl.current_timestamp, (peq_sync_ctrl.current_timestamp - p_peq_ctrl->target_timestamp));
+                }
+            }
+            p_peq_ctrl->sample_rate = rate;
+            p_peq_ctrl->need_update = NEED_UPDATE_NOW;
+            p_peq_ctrl->enable = (p_peq_ctrl->peq_nvkey_id == 0) ? false : true;
+        }
+    }
 #endif
     if ((p_peq_ctrl->trigger_drc == 1) && (p_peq_ctrl->need_update == NEED_UPDATE_NO)) {
         p_peq_ctrl->trigger_drc = 0;
@@ -1270,7 +1309,9 @@ static bool peq_inferace_process(void *para, DSP_PEQ_CTRL_t *p_peq_ctrl)
                 peq_overlap(Buf2, p_peq_ctrl->p_overlap_buffer, &overlap_progress, FrameSamples);
             }
             if(p_peq_ctrl == &peq_ctrl_adaptive_eq){
+#ifdef AIR_ADAPTIVE_EQ_ENABLE
                 aud_adaptive_eq_drc_ctrl.enable = 1;
+#endif
             }
             //DSP_MW_LOG_I("PEQ mixing progress: %d (in/out:%d/%d)\n",3,overlap_progress,fade_in,fade_out);
             p_peq_ctrl->sub_ctrl[fade_in].overlap_progress = (S16)overlap_progress;
@@ -1348,6 +1389,12 @@ bool stream_function_peq3_process(void *para)
 {
     return peq_inferace_process(para, &peq_ctrl_3);
 }
+
+bool stream_function_line_in_post_eq_process(void *para)
+{
+    return peq_inferace_process(para, &peq_ctrl_linein_post_eq);
+}
+
 bool stream_function_peq4_process(void *para)
 {
     peq_inferace_process(para, &peq_ctrl_5);

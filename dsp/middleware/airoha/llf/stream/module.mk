@@ -8,7 +8,15 @@ INC += $(LLF_PATH)/stream/inc
 ifneq ($(wildcard $(strip $(ROOTDIR))/middleware/airoha/dspfw/psap_protected/$(IC_CONFIG)/),)
 C_SRC += middleware/airoha/dspfw/psap_protected/$(IC_CONFIG)/src/hal_LLF_driver.c
 else
-LIBS += $(ROOTDIR)/prebuilt/middleware/airoha/dspfw/psap/$(IC_CONFIG)/libllf_driver.a
+	ifneq ($(AIR_HEARING_AID_ENABLE)_$(AIR_HEARTHROUGH_PSAP_ENABLE), n_n)
+		LIBS += $(ROOTDIR)/prebuilt/middleware/airoha/dspfw/psap/$(IC_CONFIG)/libllf_driver.a
+	else
+		ifeq ($(AIR_HEARTHROUGH_VIVID_PT_ENABLE),y)
+			LIBS += $(ROOTDIR)/prebuilt/middleware/airoha/dspfw/vivid_pt/$(IC_CONFIG)/libllf_driver.a
+		else
+			LIBS += $(ROOTDIR)/prebuilt/middleware/airoha/dspfw/low_latency_framework/$(IC_CONFIG)/libllf_driver.a
+		endif
+	endif
 endif
 
 ifneq ($(AIR_HEARING_AID_ENABLE)_$(AIR_HEARTHROUGH_PSAP_ENABLE), n_n)

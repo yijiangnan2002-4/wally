@@ -57,20 +57,16 @@ extern "C" {
 #define APP_LEA_IS_EMPTY_ADDR(X, EMPTY)        (memcmp((X), (EMPTY), BT_BD_ADDR_LEN) == 0)
 
 typedef enum {
-    APP_LEA_TARGET_ADD_ADDR = 0,        /**<  Add one target addr, may fail when targer_addr_list full or null addr. */
+    APP_LEA_TARGET_ADD_ADDR = 0,        /**<  Add one target addr, may fail when target_addr_list full or null addr. */
     APP_LEA_TARGET_SET_UNIQUE_ADDR,     /**<  Add unique target addr and clear other target addr. */
-    APP_LEA_TARGET_REMOVE_ADDR,         /**<  Remove the target addr, may fail when the input addr not match targer_addr_list item. */
+    APP_LEA_TARGET_REMOVE_ADDR,         /**<  Remove the target addr, may fail when the input addr not match target_addr_list item. */
 } app_le_audio_update_target_mode_t;
 
 void app_lea_clear_target_addr(bool clear_whitelist);
 
 void app_lea_update_target_add_white_list(bool need_targeted_flag);
 
-void app_lea_add_white_list(void);
 
-bool app_lea_update_target_addr(app_le_audio_update_target_mode_t mode,
-                                bt_addr_type_t addr_type,
-                                const uint8_t *addr);
 
 #ifdef __cplusplus
 }

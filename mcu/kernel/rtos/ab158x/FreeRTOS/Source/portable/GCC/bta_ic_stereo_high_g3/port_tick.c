@@ -55,6 +55,10 @@
 #include "assert.h"
 #endif
 
+#ifdef AIR_ICE_DEBUG_ENABLE
+#include "hal_ice_debug.h"
+#endif
+
 #define MaximumIdleTime 20  //ms
 #define DEEP_SLEEP_HW_WAKEUP_TIME 2
 #define DEEP_SLEEP_SW_BACKUP_RESTORE_TIME 2
@@ -282,8 +286,11 @@ ATTR_TEXT_IN_TCM void tickless_handler(uint32_t xExpectedIdleTime)
         __asm volatile("cpsie i");
         return;
     } else {
-
+#ifdef AIR_ICE_DEBUG_ENABLE
+        if ((xExpectedIdleTime > (MaximumIdleTime / (1000 / configTICK_RATE_HZ))) && (hal_sleep_manager_is_sleep_locked() == 0) && (hal_ice_debug_is_enabled() == false)) {
+#else
         if ((xExpectedIdleTime > (MaximumIdleTime / (1000 / configTICK_RATE_HZ))) && (hal_sleep_manager_is_sleep_locked() == 0)) {
+#endif
 
 #ifdef MTK_SYSTEM_HANG_TRACER_ENABLE
             /* make sure the sleep time does not overflow the wdt limitation. */

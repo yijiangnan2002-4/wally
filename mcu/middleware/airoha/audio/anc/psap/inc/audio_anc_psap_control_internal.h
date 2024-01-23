@@ -44,6 +44,7 @@
 //#include "hal_audio.h"
 #include "bt_aws_mce_report.h"
 #include "audio_anc_llf_control.h"
+#include "hal_audio_message_struct_common.h"
 
 /* Public define -------------------------------------------------------------*/
 #ifndef PACKED
@@ -74,6 +75,9 @@ typedef enum {
 /* Public variables ----------------------------------------------------------*/
 /* Public functions ----------------------------------------------------------*/
 void bt_aws_mce_report_ha_callback(bt_aws_mce_report_info_t *para);
+#if defined(AIR_BTA_IC_STEREO_HIGH_G3)
+void audio_anc_psap_control_check_audio_running_flag(audio_scenario_type_t type, bool is_running);
+#endif
 void audio_ha_switch_mode_callback(void);
 void audio_anc_psap_control_set_parameter(U32 is_runtime);
 audio_psap_status_t audio_anc_psap_control_runtime_config_handler(U8 event, S32 param, void* misc);
@@ -83,6 +87,9 @@ llf_status_t audio_anc_psap_control_set_mpo_adjustment(ha_mpo_adjust_t *mpo_adj)
 llf_status_t audio_anc_psap_control_get_mpo_adjustment(ha_mpo_adjust_t *mpo_adj);
 void audio_anc_psap_control_senario_notification(llf_scenario_change_event_t scenario, bool is_on);
 
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+audio_psap_status_t audio_anc_psap_control_get_switch_status(bool *enable);
+#endif
 
 #endif /* AIR_HEARING_AID_ENABLE */
 

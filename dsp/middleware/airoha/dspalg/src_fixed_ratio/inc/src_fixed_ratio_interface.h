@@ -44,6 +44,7 @@
 /* Public define -------------------------------------------------------------*/
 #define DSP_SMP_SIZE    (0)
 #define SMP_MAX_CH_NUM  (8)
+#define SRC_FIXED_RATIO_MEM_SIZE sizeof(src_fixed_ratio_processing_num_config_t)
 /* Public typedef ------------------------------------------------------------*/
 typedef enum {
     SRC_FIXED_RATIO_PORT_STAT_DEINIT,
@@ -56,6 +57,7 @@ typedef enum {
     SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE,
     SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE,
     SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_ALTERNATE,
+    SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE_AND_ALTERNATE,
     SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_MAX,
     SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_DUMMY = 0xFFFF,
 } src_fixed_ratio_port_multi_cvt_mode_e;
@@ -76,6 +78,8 @@ typedef struct {
     int32_t factor;
     void *smp_instance_ptr[SMP_MAX_CH_NUM];
     uint16_t cvt_num;
+    uint16_t cvt_processing_num_in_list;
+    uint16_t init_cnt;
     src_fixed_ratio_port_multi_cvt_mode_e multi_cvt_mode;
     bool with_codec;
     uint32_t tmp_buff_size;
@@ -89,11 +93,17 @@ typedef struct {
     uint32_t out_sampling_rate;                           /*only support 2x or 3x up/dn sampling*/
     stream_resolution_t resolution;
     uint16_t cvt_num;
+    uint16_t cvt_processing_num_in_list;
     src_fixed_ratio_port_multi_cvt_mode_e multi_cvt_mode;
     bool with_codec;
     uint32_t max_frame_buff_size;
     int32_t  quality_mode;                                //src_fixed_ratio_port_quality_mode_e
 } src_fixed_ratio_config_t;
+
+typedef struct {
+    uint16_t processing_num;
+} src_fixed_ratio_processing_num_config_t;
+
 
 typedef struct {
 	S16 LP2O_COFEB16_00; /**< @Value 0x0 @Desc 1 */
@@ -213,6 +223,8 @@ extern int  updn_samp_prcs_32b(void *updn_st, int is_upsample, int factor, S32 *
 src_fixed_ratio_port_t *stream_function_src_fixed_ratio_get_port(void *owner);
 src_fixed_ratio_port_t *stream_function_src_fixed_ratio_get_2nd_port(void *owner);
 src_fixed_ratio_port_t *stream_function_src_fixed_ratio_get_3rd_port(void *owner);
+src_fixed_ratio_port_t *stream_function_src_fixed_ratio_get_number_port(void *owner, int32_t port_number);
+
 void stream_function_src_fixed_ratio_init(src_fixed_ratio_port_t *port, src_fixed_ratio_config_t *config);
 void stream_function_src_fixed_ratio_deinit(src_fixed_ratio_port_t *port);
 void stream_function_src_fixed_ratio_configure_channel_number(src_fixed_ratio_port_t *port, U32 channel_num);

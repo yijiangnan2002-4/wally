@@ -39,6 +39,7 @@
 #include "string.h"
 #include "dsp_temp.h"
 #include "hal_nvic.h"
+#include "hal_gpt.h"
 
 //#define AIR_AUDIO_DUMP_BY_SPDIF_ENABLE
 //#define MTK_AUDIO_DUMP_BY_SPDIF_DEBUG_ENABLE
@@ -74,6 +75,7 @@ DumpIDs_AccumBytes DumpIDsAccumBytes[AUDIO_DUMP_CONFIG_MAX_NUM] = {0};
 U16  AudioDumpCfgIDs[AUDIO_DUMP_CONFIG_MAX_NUM] = {0};
 U32  AudioDumpDevice; /**< @Value 0x00000002 @Desc 0:Disable, 1:LOGGING, 2:MUX, 3:SPDIF, 4:I2S_MASTER, 5:I2S_SLAVE, */
 U32  DumpIdCfgVersion = 0;
+static bool block_dump_flag = false;
 
 /******************************************************************************
  * Function Declaration
@@ -569,76 +571,100 @@ void audio_dump_init(void)
 
 #endif
 
-ATTR_TEXT_IN_IRAM void LOG_AUDIO_DUMP(U8 *audio, U32 audio_size, U32 dumpID)
+void audio_dump_set_block(bool is_block_dump)
+{
+    block_dump_flag = is_block_dump;
+    DSP_MW_LOG_I("[Audio Dump] set block dump enable:%d", 1, block_dump_flag);
+}
+
+ATTR_TEXT_IN_IRAM void audio_dump_normal(U8 *audio, U32 audio_size, U32 dumpID)
 {
     U32 left_size, curr_size, left_send_size, curr_send_size = 0;
     U8 *p_curr_audio;
     U16 dump_id = dumpID;
-    DumpIdCfgVersion = 1;
-#ifdef AIR_AUDIO_DUMP_ENABLE
-    if (check_cfg_dump_id(dump_id) || (dump_id > DSP_DATADUMP_TEST_ID_MIN)){
-#endif
-        if(!DumpIdCfgVersion || DumpIdCfgVersion != DUMP_ID_VERSION){
-            DSP_MW_LOG_I("[Audio Dump] ID version don't match! FW ID version = %d",DUMP_ID_VERSION);
-            return;
-        }
-        if (AudioDumpDevice == AUDIO_DUMP_DEVICE_LOGGING) {
-            left_size    = audio_size;
-            p_curr_audio = audio;
-            while(left_size) {
-                if (left_size <= (MAX_DUMP_SIZE - DUMP_ID_SIZE - ACCUM_BYTES_SIZE)) {
-                    curr_size = left_size;
-                } else {
-                    curr_size = MAX_DUMP_SIZE - DUMP_ID_SIZE - ACCUM_BYTES_SIZE;
-                }
-                increase_accum_bytes(dump_id,curr_size);
-                U32 accum_bytes = get_accum_bytes(dump_id);
-                #ifdef LOG_TLVDUMP_I //fix auto switch option build err
-                uint8_t *audio_buffer_array[] = {(uint8_t *)&dump_id, (uint8_t *)&accum_bytes, p_curr_audio, NULL};
-                uint32_t audio_buffer_length_array[] = {DUMP_ID_SIZE, ACCUM_BYTES_SIZE, curr_size};
-                UNUSED(audio_buffer_array);
-                UNUSED(audio_buffer_length_array);
-                left_send_size = curr_size + DUMP_ID_SIZE + ACCUM_BYTES_SIZE;
-                LOG_TLVDUMP_I(audio_module, LOG_TYPE_AUDIO_V2_DATA, audio_buffer_array, audio_buffer_length_array, curr_send_size);
-                #else
-                AUDIO_ASSERT(0 && "[Audio Dump] LOG_TLVDUMP_I not define");
-                #endif
-                if (curr_send_size != left_send_size) {
-                    DSP_MW_LOG_E("[Audio Dump] drop happen, id:%d, sent %d, cur packet total %d, total size:%d", 4, dump_id, curr_send_size, left_send_size, audio_size);
-                    increase_accum_bytes(dump_id, left_size - curr_size);
-                    return;
-                }
-                p_curr_audio += curr_size;
-                left_size -= curr_size;
+    if (AudioDumpDevice == AUDIO_DUMP_DEVICE_LOGGING) {
+        left_size    = audio_size;
+        p_curr_audio = audio;
+        while(left_size) {
+            if (left_size <= (MAX_DUMP_SIZE - DUMP_ID_SIZE - ACCUM_BYTES_SIZE)) {
+                curr_size = left_size;
+            } else {
+                curr_size = MAX_DUMP_SIZE - DUMP_ID_SIZE - ACCUM_BYTES_SIZE;
             }
+            increase_accum_bytes(dump_id,curr_size);
+            U32 accum_bytes = get_accum_bytes(dump_id);
+            uint8_t *audio_buffer_array[] = {(uint8_t *)&dump_id, (uint8_t *)&accum_bytes, p_curr_audio, NULL};
+            uint32_t audio_buffer_length_array[] = {DUMP_ID_SIZE, ACCUM_BYTES_SIZE, curr_size};
+            left_send_size = curr_size + DUMP_ID_SIZE + ACCUM_BYTES_SIZE;
+            LOG_TLVDUMP_I(audio_module, LOG_TYPE_AUDIO_V2_DATA, audio_buffer_array, audio_buffer_length_array, curr_send_size);
+            if (curr_send_size != left_send_size) {
+                DSP_MW_LOG_E("[Audio Dump] drop happen, id:%d, sent %d, cur packet total %d, total size:%d", 4, dump_id, curr_send_size, left_send_size, audio_size);
+                increase_accum_bytes(dump_id, left_size - curr_size);
+                return;
+            }
+            p_curr_audio += curr_size;
+            left_size -= curr_size;
         }
+    }
 #ifdef AIR_AUDIO_DUMP_BY_SPDIF_ENABLE
-        else if (AudioDumpDevice == AUDIO_DUMP_DEVICE_SPDIF) {
-            U32 miss_cnt = 0;
+    else if (AudioDumpDevice == AUDIO_DUMP_DEVICE_SPDIF) {
+        U32 miss_cnt = 0;
 #ifdef MTK_AUDIO_DUMP_BY_SPDIF_DEBUG_ENABLE
-            left_size = sizeof(g_test_buffer);
-            p_curr_audio = g_test_buffer;
+        left_size = sizeof(g_test_buffer);
+        p_curr_audio = g_test_buffer;
 #else
-            left_size = audio_size;
-            p_curr_audio = audio;
+        left_size = audio_size;
+        p_curr_audio = audio;
 #endif
-            do {
-                curr_size = DSP_DataDump_DataIn(p_curr_audio, left_size, dumpID);
-                if ((curr_size == 0) && (miss_cnt++ >= 3)) {
-                    miss_cnt--;
-                    DSP_MW_LOG_E("audio dump drop happen, miss_cnt:%d", 1, miss_cnt);
-                    break;
-                }
-                left_size -= curr_size;
-                p_curr_audio += curr_size;
-            } while (left_size);
-        }
-#endif
-        else {
-            DSP_MW_LOG_E("audio dump, device %d not support", 1, AudioDumpDevice);
-        }
-#ifdef AIR_AUDIO_DUMP_ENABLE
+        do {
+            curr_size = DSP_DataDump_DataIn(p_curr_audio, left_size, dumpID);
+            if ((curr_size == 0) && (miss_cnt++ >= 3)) {
+                miss_cnt--;
+                DSP_MW_LOG_E("audio dump drop happen, miss_cnt:%d", 1, miss_cnt);
+                break;
+            }
+            left_size -= curr_size;
+            p_curr_audio += curr_size;
+        } while (left_size);
     }
 #endif
+    else {
+        DSP_MW_LOG_E("audio dump, device %d not support", 1, AudioDumpDevice);
+    }
+}
+
+/******************************************************
+ *                                                    *
+ * This API will Block your task untill dump finish.  *
+ * If set 6M, the dump data rate is 500k/s.           *
+ *                                                    *
+*******************************************************/
+void audio_dump_block(U8 *buffer, U32 length, U32 dump_id)
+{
+    U32 one_time_len = 512;
+    U32 dump_times   = length / one_time_len;
+    U32 left_size    = length % one_time_len;
+    for (U32 i = 0; i < dump_times; i++) {
+        audio_dump_normal((U8 *)(buffer + i * one_time_len), one_time_len, dump_id);
+        hal_gpt_delay_ms(1); //512 bytes need 1ms
+    }
+    if (left_size) {
+        audio_dump_normal((U8 *)(buffer + dump_times * one_time_len), left_size, dump_id);
+    }
+}
+
+ATTR_TEXT_IN_IRAM void LOG_AUDIO_DUMP(U8 *audio, U32 audio_size, U32 dump_id)
+{
+    if (check_cfg_dump_id(dump_id) || (dump_id > DSP_DATADUMP_TEST_ID_MIN)){
+        if(audio == NULL){
+            DSP_MW_LOG_E("[Audio Dump] get NULL buffer,dump id: %d", 1, dump_id);
+            return;
+        }
+        if(block_dump_flag){
+            audio_dump_block(audio, audio_size, dump_id);
+        } else {
+            audio_dump_normal(audio, audio_size, dump_id);
+        }
+    }
 }
 

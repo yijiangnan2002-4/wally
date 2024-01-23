@@ -70,7 +70,7 @@ static uint32_t g_adc23_R_counter = 0;
 extern hal_audio_performance_mode_t afe_adc_performance_mode[AFE_ANALOG_NUMBER];
 bool static g_ADC01_LP_HA_mode = false;
 bool static g_ADC23_LP_HA_mode = false;
-
+bool g_dl_fix_dl_sdm_status = false;
 
 
 uint32_t g_adc_dac_state;
@@ -78,28 +78,25 @@ uint32_t g_adc_dac_state;
 
 static const afe_register_operate_table_t dac_open_classd_enable_tbl[] = {
     /* Here Set Digital (Audiosys Internal Debug Mux Setting) */
-//    {AFE_RG_TABLE_OPERATE_WRITE, AUDIO_TOP_CON0, 0xA0CCC000},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLASSG_LPSLCH_CFG0, 0x0E021188},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLASSOP_CFG0, 0x00000063},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLASSG_CFG5, 0x00000080},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CFG_EFUSE_CLASSD0, 0x64310007},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CFG_EFUSE_CLASSD1, 0x00009000},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_DA_GEN, 0x00000001},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_DA_GEN_SEL, 0x00000001},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_CL_MISC_SET, 0x020071B0},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_CL_DA_812P5K_SET, 0x00000001},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_CL_CON0, 0x00000001},
-    {AFE_RG_TABLE_OPERATE_WRITE, 0xC0001900, 0x00840001},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_DAC_CON0, 0x00000001},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_UL_DL_CON0, 0x40606001},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_SINEGEN_CON0, 0x00AE2AE2},
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLASSG_LPSLCH_CFG0, 0x0E021188},     //default 0x3A1188   */
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLASSOP_CFG0, 0x00000063},               // default 0x00000003*/
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLASSG_CFG5, 0x00000080},                 // default 0x00000080*/
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CFG_EFUSE_CLASSD0, 0x64310007},      // default 0x64780007 */
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CFG_EFUSE_CLASSD1, 0x00009000},            // default 0x0*/
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_DA_GEN, 0x00000001},                   //default 0x0*/
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_DA_GEN_SEL, 0x00000001},               //defualt 0x0 */
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_CL_MISC_SET, 0x020071B0},*/
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_CL_DA_812P5K_SET, 0x00000001},         //default 0x0*/
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_CL_CON0, 0x00000001},*/
+/*    {AFE_RG_TABLE_OPERATE_WRITE, 0xC0001900, 0x00840001},                           //default 0x0*/
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_UL_DL_CON0, 0x40606001},              // default 0x60606000*/
     {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_PREDIS_CON0, 0x00000000},
     {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_PREDIS_CON1, 0x00000000},
     {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_PREDIS_CON2, 0x80000000},
     {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_PREDIS_CON3, 0x00000000},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SDM_DCCOMP_CON, 0x0700701E},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SRC2_CON1, 0xFFFF0000},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SRC2_CON0, 0x8F000003},
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SDM_DCCOMP_CON, 0x0700701E},     //default 0x0700701E */
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SRC2_CON1, 0xFFFF0000},               //default 0x0*/
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SRC2_CON0, 0x8F000003},*/
     /* Here Set Analog - OLD Preset */
     {AFE_RG_TABLE_OPERATE_WRITE, AUDDEC_ANA_CON29, 0x00000002},
     {AFE_RG_TABLE_OPERATE_WRITE, AUDDEC_ANA_CON29, 0x00000006},
@@ -181,21 +178,18 @@ static const afe_register_operate_table_t dac_open_classd_enable_tbl[] = {
     {AFE_RG_TABLE_OPERATE_WRITE, AUDDEC_ANA_CON43, 0x00001008},
     /* Here Set Analog - Adie Ramp Up - Load Adie_OLD_RampUp */
     {AFE_RG_TABLE_OPERATE_DELAY, AFE_RG_TABLE_DELAY_MS, 1},
-    {AFE_RG_TABLE_OPERATE_WRITE, 0xC0001900, 0x00800001},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_SINEGEN_CON0, 0x00AE2AE2},
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_CL_CON0, 0x00800001}, */
 };
 
 
 static const afe_register_operate_table_t dac_open_classd_disable_tbl[] = {
     /* Here Set Analog - OLD Maximum Slew Rate */
-    {AFE_RG_TABLE_OPERATE_WRITE, AUDDEC_ANA_CON22, 0x00000700},
-    {AFE_RG_TABLE_OPERATE_DELAY, AFE_RG_TABLE_DELAY_MS, 300},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SRC2_CON1, 0x00010000},
-//    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SRC2_CON0, 0x8F000003},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SRC2_CON0, 0x8F000001},
-    {AFE_RG_TABLE_OPERATE_WRITE, AFE_SINEGEN_CON0, 0x04AE2AE2},
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AUDDEC_ANA_CON22, 0x00000700},*/
+/*    {AFE_RG_TABLE_OPERATE_DELAY, AFE_RG_TABLE_DELAY_MS, 300}, */
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SRC2_CON1, 0x00010000},*/
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_ADDA_DL_SRC2_CON0, 0x8F000001}, */
     /* Here Set Analog - Digital Find 0000 */
-    {AFE_RG_TABLE_OPERATE_WRITE, 0xC0001900, 0x00820001},
+/*    {AFE_RG_TABLE_OPERATE_WRITE, AFE_CLD_CL_CON0, 0x00820001},*/
     /* Here Set Analog - Adie Ramp Down - Load Adie_OLD_RampDown */
     /* Here Set Analog - OLD Dmacro Ramp Down */
     {AFE_RG_TABLE_OPERATE_WRITE, AUDDEC_ANA_CON43, 0x00001008},
@@ -258,13 +252,14 @@ static const afe_register_operate_table_t dac_open_classd_disable_tbl[] = {
     {AFE_RG_TABLE_OPERATE_WRITE, AUDDEC_ANA_CON40, 0x00000000},
 };
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Functiion Declaration //////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 uint32_t afe_samplerate_get_ul_device_register(hal_audio_device_agent_t device_agent);
 extern void hal_save_adc_performance_mode(afe_analog_select_t analog_select, uint8_t adc_mode);
-void hal_audio_process_rg_table(const afe_register_operate_table_t* Ope_tbl, uint32_t tbl_size, uint32_t condi_max, uint32_t condi_idx);
+void hal_audio_process_rg_table(const afe_register_operate_table_t *Ope_tbl, uint32_t tbl_size, uint32_t condi_max, uint32_t condi_idx);
 
 
 /*******************************************************************************************
@@ -316,6 +311,8 @@ static afe_samplerate_adda_dl_t afe_samplerate_adda_dl_convert_samplerate_to_reg
         case 192000:
             return AFE_ADDA_DL_SAMPLERATE_192K;
         default:
+            HAL_AUDIO_LOG_ERROR("afe_samplerate_adda_dl_convert_samplerate_to_register_value() invalid samplerate:%d", 1, samplerate);
+            AUDIO_ASSERT(false);
             return AFE_ADDA_DL_SAMPLERATE_44K;
     }
 }
@@ -336,6 +333,8 @@ static afe_samplerate_adda_ul_t afe_samplerate_adda_ul_convert_samplerate_to_reg
         case 192000:
             return AFE_ADDA_UL_SAMPLERATE_192K;
         default:
+            HAL_AUDIO_LOG_ERROR("afe_samplerate_adda_ul_convert_samplerate_to_register_value() invalid samplerate:%d", 1, samplerate);
+            AUDIO_ASSERT(false);
             return AFE_ADDA_UL_SAMPLERATE_16K;
     }
 }
@@ -370,6 +369,8 @@ afe_samplerate_general_t afe_samplerate_convert_samplerate_to_register_value(uin
         case 192000:
             return AFE_GENERAL_SAMPLERATE_192K;
         default:
+            HAL_AUDIO_LOG_ERROR("afe_samplerate_convert_samplerate_to_register_value() invalid samplerate:%d", 1, samplerate);
+            AUDIO_ASSERT(false);
             return AFE_GENERAL_SAMPLERATE_44K;
     }
 }
@@ -401,6 +402,8 @@ static uint32_t afe_samplerate_adda_dl_convert_register_value_to_samplerate(afe_
         case AFE_ADDA_DL_SAMPLERATE_192K:
             return 192000;
         default:
+            HAL_AUDIO_LOG_ERROR("afe_samplerate_adda_dl_convert_register_value_to_samplerate() invalid register_value:%d", 1, register_value);
+            AUDIO_ASSERT(false);
             return 44100;
     }
 }
@@ -421,6 +424,8 @@ static uint32_t afe_samplerate_adda_ul_convert_register_value_to_samplerate(afe_
         case AFE_ADDA_UL_SAMPLERATE_192K:
             return 192000;
         default:
+            HAL_AUDIO_LOG_ERROR("afe_samplerate_adda_ul_convert_register_value_to_samplerate() invalid register_value:%d", 1, register_value);
+            AUDIO_ASSERT(false);
             return 16000;
     }
 }
@@ -455,6 +460,8 @@ uint32_t afe_samplerate_convert_register_value_to_samplerate(afe_samplerate_gene
         case AFE_GENERAL_SAMPLERATE_192K:
             return 192000;
         default:
+            HAL_AUDIO_LOG_ERROR("afe_samplerate_convert_register_value_to_samplerate() invalid register_value:%d", 1, register_value);
+            AUDIO_ASSERT(false);
             return 44100;
     }
 }
@@ -614,8 +621,14 @@ hal_audio_agent_t hal_device_convert_agent(hal_audio_control_t device, hal_audio
         case HAL_AUDIO_CONTROL_DEVICE_ANC:
             agent = HAL_AUDIO_AGENT_DEVICE_ANC;
             break;
-        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK:
-            agent = HAL_AUDIO_AGENT_DEVICE_ADDA_UL2_DUAL;
+        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_L:
+            agent = HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_L;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_R:
+            agent = HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_R;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL:
+            agent = HAL_AUDIO_AGENT_DEVICE_ADDA_UL1_DUAL;
             break;
         case HAL_AUDIO_CONTROL_DEVICE_VAD:
             agent = HAL_AUDIO_AGENT_DEVICE_VAD;
@@ -631,21 +644,21 @@ hal_audio_agent_t hal_device_convert_agent(hal_audio_control_t device, hal_audio
     }
 
 
-    if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R | HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE | HAL_AUDIO_CONTROL_DEVICE_SPDIF)) {
+    if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R | HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE | HAL_AUDIO_CONTROL_DEVICE_SPDIF)) {
         if (device_interface == HAL_AUDIO_INTERFACE_2) {
-            if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK)) {
+            if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL)) {
                 agent -= 1;
             } else {
                 agent += 1;
             }
         } else if (device_interface == HAL_AUDIO_INTERFACE_3) {
-            if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK)) {
+            if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL)) {
                 agent += 1;
             } else {
                 agent += 2;
             }
         } else if (device_interface == HAL_AUDIO_INTERFACE_4) {
-            if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK)) {
+            if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL)) {
                 agent += 2;
             } else {
                 agent += 3;
@@ -664,86 +677,88 @@ hal_audio_agent_t hal_device_convert_agent(hal_audio_control_t device, hal_audio
 hal_audio_device_agent_t hal_device_convert_device_agent(hal_audio_control_t device, hal_audio_interface_t device_interface)
 {
     hal_audio_device_agent_t device_agent = HAL_AUDIO_DEVICE_AGENT_ERROR;
-        HAL_AUDIO_LOG_INFO("hal_device_convert_device_agent %d if %d", 2, device, device_interface);
-        switch (device) {
-            case HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L:
-            case HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_R:
-            case HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2;
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_LINE_IN_L:
-            case HAL_AUDIO_CONTROL_DEVICE_LINE_IN_R:
-            case HAL_AUDIO_CONTROL_DEVICE_LINE_IN_DUAL:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1; //FORCE LINE-IN USE UL1
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_L:
-            case HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_R:
-            case HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2;
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_L:
-            case HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_R:
-            case HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_DL1;
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER:
-            case HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L:
-            case HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER;
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_SLAVE;
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_SPDIF:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER;
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_ANC:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ANC;
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2;
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_VAD:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_VAD;
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_SIDETONE:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_SIDETONE;
-                break;
-            case HAL_AUDIO_CONTROL_DEVICE_VOW:
-                device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_VOW;
-                break;
-            default:
-                break;
-        }
+    HAL_AUDIO_LOG_INFO("hal_device_convert_device_agent %d if %d", 2, device, device_interface);
+    switch (device) {
+        case HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L:
+        case HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_R:
+        case HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_LINE_IN_L:
+        case HAL_AUDIO_CONTROL_DEVICE_LINE_IN_R:
+        case HAL_AUDIO_CONTROL_DEVICE_LINE_IN_DUAL:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL1; //FORCE LINE-IN USE UL1
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_L:
+        case HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_R:
+        case HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_L:
+        case HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_R:
+        case HAL_AUDIO_CONTROL_DEVICE_INTERNAL_DAC_DUAL:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_DL1;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER:
+        case HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L:
+        case HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_SLAVE;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_SPDIF:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_I2S0_MASTER;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_ANC:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ANC;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_L:
+        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_R:
+        case HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_ADDA_UL2;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_VAD:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_VAD;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_SIDETONE:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_SIDETONE;
+            break;
+        case HAL_AUDIO_CONTROL_DEVICE_VOW:
+            device_agent = HAL_AUDIO_DEVICE_AGENT_DEVICE_VOW;
+            break;
+        default:
+            break;
+    }
 
-        if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R | HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE | HAL_AUDIO_CONTROL_DEVICE_SPDIF)) {
-            if (device_interface == HAL_AUDIO_INTERFACE_2) {
-                if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK)) {
-                    device_agent -= 1;
-                } else {
-                    device_agent += 1;
-                }
-            } else if (device_interface == HAL_AUDIO_INTERFACE_3) {
-                if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK)) {
-                    device_agent += 1;
-                } else {
-                    device_agent += 2;
-                }
-            } else if (device_interface == HAL_AUDIO_INTERFACE_4) {
-                if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK)) {
-                    device_agent += 2;
-                } else {
-                    device_agent += 3;
-                }
+    if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_L | HAL_AUDIO_CONTROL_DEVICE_I2S_MASTER_R | HAL_AUDIO_CONTROL_DEVICE_I2S_SLAVE | HAL_AUDIO_CONTROL_DEVICE_SPDIF)) {
+        if (device_interface == HAL_AUDIO_INTERFACE_2) {
+            if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL)) {
+                device_agent -= 1;
+            } else {
+                device_agent += 1;
+            }
+        } else if (device_interface == HAL_AUDIO_INTERFACE_3) {
+            if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL)) {
+                device_agent += 1;
+            } else {
+                device_agent += 2;
+            }
+        } else if (device_interface == HAL_AUDIO_INTERFACE_4) {
+            if (device & (HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_DIGITAL_MIC_DUAL | HAL_AUDIO_CONTROL_DEVICE_LOOPBACK_DUAL)) {
+                device_agent += 2;
+            } else {
+                device_agent += 3;
             }
         }
+    }
 
-        if (device_agent == HAL_AUDIO_DEVICE_AGENT_ERROR) {
-            HAL_AUDIO_LOG_ERROR("DSP - Error Hal Audio Device Wrong Agent :%d !", 1, device);
-            assert(false);
-        }
+    if (device_agent == HAL_AUDIO_DEVICE_AGENT_ERROR) {
+        HAL_AUDIO_LOG_ERROR("DSP - Error Hal Audio Device Wrong Agent :%d !", 1, device);
+        assert(false);
+    }
 
-        return device_agent;
+    return device_agent;
 
 }
 
@@ -2248,19 +2263,21 @@ void hal_src_clear_irq(afe_mem_asrc_id_t asrc_id, uint32_t status)
     AFE_WRITE(addr, status);
 }
 
-ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void hal_src_set_irq_enable(afe_mem_asrc_id_t asrc_id, bool enable)
+ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void hal_src_set_irq_enable(afe_src_configuration_t *config, bool enable)
 {
-    uint32_t mask;
+    uint32_t mask, val;
+    afe_mem_asrc_id_t asrc_id = config->id;
     uint32_t addr = ASM_IER + asrc_id * 0x100;
-#ifndef MTK_HWSRC_IN_STREAM
-    uint32_t val = (enable)
-                   ? (1 << ASM_IER_IBUF_EMPTY_INTEN_POS) | (0 << ASM_IER_IBUF_AMOUNT_INTEN_POS) | (0 << ASM_IER_OBUF_OV_INTEN_POS) | (0 << ASM_IER_OBUF_AMOUNT_INTEN_POS)
-                   : (0 << ASM_IER_IBUF_EMPTY_INTEN_POS) | (0 << ASM_IER_IBUF_AMOUNT_INTEN_POS) | (0 << ASM_IER_OBUF_OV_INTEN_POS) | (0 << ASM_IER_OBUF_AMOUNT_INTEN_POS);
-#else
-    uint32_t val = (enable)
-                   ? (0 << ASM_IER_IBUF_EMPTY_INTEN_POS) | (0 << ASM_IER_IBUF_AMOUNT_INTEN_POS) | (0 << ASM_IER_OBUF_OV_INTEN_POS) | (1 << ASM_IER_OBUF_AMOUNT_INTEN_POS)
-                   : (0 << ASM_IER_IBUF_EMPTY_INTEN_POS) | (0 << ASM_IER_IBUF_AMOUNT_INTEN_POS) | (0 << ASM_IER_OBUF_OV_INTEN_POS) | (0 << ASM_IER_OBUF_AMOUNT_INTEN_POS);
-#endif
+
+    if (config->hwsrc_type == HAL_AUDIO_HWSRC_IN_STREAM) {
+        val = (enable)
+              ? (0 << ASM_IER_IBUF_EMPTY_INTEN_POS) | (0 << ASM_IER_IBUF_AMOUNT_INTEN_POS) | (0 << ASM_IER_OBUF_OV_INTEN_POS) | (1 << ASM_IER_OBUF_AMOUNT_INTEN_POS)
+              : (0 << ASM_IER_IBUF_EMPTY_INTEN_POS) | (0 << ASM_IER_IBUF_AMOUNT_INTEN_POS) | (0 << ASM_IER_OBUF_OV_INTEN_POS) | (0 << ASM_IER_OBUF_AMOUNT_INTEN_POS);
+    } else {
+        val = (enable)
+              ? (1 << ASM_IER_IBUF_EMPTY_INTEN_POS) | (0 << ASM_IER_IBUF_AMOUNT_INTEN_POS) | (0 << ASM_IER_OBUF_OV_INTEN_POS) | (0 << ASM_IER_OBUF_AMOUNT_INTEN_POS)
+              : (0 << ASM_IER_IBUF_EMPTY_INTEN_POS) | (0 << ASM_IER_IBUF_AMOUNT_INTEN_POS) | (0 << ASM_IER_OBUF_OV_INTEN_POS) | (0 << ASM_IER_OBUF_AMOUNT_INTEN_POS);
+    }
     hal_nvic_save_and_set_interrupt_mask(&mask);
     AFE_WRITE(addr, val);
     hal_src_clear_irq(asrc_id, ASM_IFR_IBUF_EMPTY_INT_MASK | ASM_IFR_IBUF_AMOUNT_INT_MASK | ASM_IFR_OBUF_OV_INT_MASK | ASM_IFR_OBUF_AMOUNT_INT_MASK);
@@ -2289,11 +2306,11 @@ bool hal_src_set_configuration(afe_src_configuration_t *config, bool enable)
         AFE_SET_REG(ASM_IBUF_INTR_CNT0 + addr_offset, (config->input_buffer.size >> 2) << ASM_IBUF_INTR_CNT0_POS, ASM_IBUF_INTR_CNT0_MASK);
         /* when there is only 1 block space in the output buffer, issue interrupt */
         /* times of 512bit. 0xFF means if more than 16kB, send interrupt */
-#ifdef MTK_HWSRC_IN_STREAM
-        AFE_SET_REG(ASM_OBUF_INTR_CNT0 + addr_offset, (config->out_frame_size*8/512)<<ASM_OBUF_INTR_CNT0_POS, ASM_OBUF_INTR_CNT0_MASK);
-#else
-        AFE_SET_REG(ASM_OBUF_INTR_CNT0 + addr_offset, (config->output_buffer.size>>2)<<ASM_OBUF_INTR_CNT0_POS, ASM_OBUF_INTR_CNT0_MASK);
-#endif
+        if (config->hwsrc_type == HAL_AUDIO_HWSRC_IN_STREAM) {
+            AFE_SET_REG(ASM_OBUF_INTR_CNT0 + addr_offset, (config->out_frame_size * 8 / 512) << ASM_OBUF_INTR_CNT0_POS, ASM_OBUF_INTR_CNT0_MASK);
+        } else {
+            AFE_SET_REG(ASM_OBUF_INTR_CNT0 + addr_offset, (config->output_buffer.size >> 2) << ASM_OBUF_INTR_CNT0_POS, ASM_OBUF_INTR_CNT0_MASK);
+        }
         /* clear all interrupt flag */
         hal_src_clear_irq(config->id, ASM_IFR_IBUF_EMPTY_INT_MASK | ASM_IFR_IBUF_AMOUNT_INT_MASK | ASM_IFR_OBUF_OV_INT_MASK | ASM_IFR_OBUF_AMOUNT_INT_MASK);
 
@@ -2301,19 +2318,17 @@ bool hal_src_set_configuration(afe_src_configuration_t *config, bool enable)
         if (config->id == AFE_MEM_ASRC_1) {
             HAL_AUDIO_LOG_INFO("[HWSRC Debug] ASM_IER:0x%x, ASM2_IFR:0x%x", 2, AFE_GET_REG(ASM_IER), AFE_GET_REG(ASM_IFR));
 #ifdef ENABLE_HWSRC_CLKSKEW
-            if (config->clkskew_mode == HAL_AUDIO_SRC_CLK_SKEW_V1) {
-                hal_src_set_irq_enable(config->id, false);
-            } else if (config->clkskew_mode == HAL_AUDIO_SRC_CLK_SKEW_V2) {
-                hal_src_set_irq_enable(config->id, true);
+            if (config->clkskew_mode == HAL_AUDIO_SRC_CLK_SKEW_V2) {
+                hal_src_set_irq_enable(config, true);
             } else {
-                HAL_AUDIO_LOG_WARNING("No this type of SRC CLKSKEW MODE:%d", 1, config->clkskew_mode);
+                hal_src_set_irq_enable(config, false);
             }
 #else
-            hal_src_set_irq_enable(config->id, false);
+            hal_src_set_irq_enable(config, false);
 #endif
         } else {
             HAL_AUDIO_LOG_INFO("[HWSRC Debug] ASM2_IER:0x%x, ASM2_IFR:0x%x", 2, AFE_GET_REG(ASM2_IER), AFE_GET_REG(ASM2_IFR));
-            hal_src_set_irq_enable(config->id, false);
+            hal_src_set_irq_enable(config, false);
         }
 
         /* set input buffer's base and size */
@@ -2346,18 +2361,9 @@ bool hal_src_set_configuration(afe_src_configuration_t *config, bool enable)
 
         /* set channel number*/
         AFE_SET_REG(ASM_CH01_CNFG + addr_offset, (config->is_mono) << ASM_CH01_CNFG_MONO_POS, ASM_CH01_CNFG_MONO_MASK);
+        AFE_SET_REG(ASM_CH01_CNFG + addr_offset, 1 << ASM_CH01_CNFG_CLAC_AMOUNT_POS, ASM_CH01_CNFG_CLAC_AMOUNT_MASK);
 
-
-#ifdef ENABLE_HWSRC_CLKSKEW
-        if (config->clkskew_mode == HAL_AUDIO_SRC_CLK_SKEW_V2) {
-            AFE_SET_REG(ASM_CH01_CNFG + addr_offset, 0x80 << ASM_CH01_CNFG_CLAC_AMOUNT_POS, ASM_CH01_CNFG_CLAC_AMOUNT_MASK);
-        } else
-#endif
-        {
-            AFE_SET_REG(ASM_CH01_CNFG + addr_offset, 1 << ASM_CH01_CNFG_CLAC_AMOUNT_POS, ASM_CH01_CNFG_CLAC_AMOUNT_MASK);
-        }
         AFE_SET_REG(ASM_MAX_OUT_PER_IN0 + addr_offset, 0 << ASM_MAX_OUT_PER_IN0_POS, ASM_MAX_OUT_PER_IN0_MASK);
-
 
         if ((config->mode == AFE_SRC_TRACKING_MODE_RX) || (config->mode == AFE_SRC_TRACKING_MODE_TX)) {
             /* check freq cali status */
@@ -2416,14 +2422,30 @@ bool hal_src_set_configuration(afe_src_configuration_t *config, bool enable)
         } else {
             U64 input_rate = config->input_buffer.rate;
             U64 output_rate = config->output_buffer.rate;
-            input_rate = (input_rate * 96000) / output_rate;
-            output_rate = 96000;
+            if (!config->ul_mode) {
+                input_rate = (input_rate * 96000) / output_rate;
+                output_rate = 96000;
+            }
             AFE_SET_REG(ASM_FREQUENCY_0 + addr_offset, hal_src_get_samplingrate_to_palette((U32)input_rate),  0xFFFFFF);
             AFE_SET_REG(ASM_FREQUENCY_1 + addr_offset, hal_src_get_samplingrate_to_palette((U32)output_rate), 0xFFFFFF);
             AFE_SET_REG(ASM_CH01_CNFG + addr_offset, 0 << ASM_CH01_CNFG_IFS_POS, ASM_CH01_CNFG_IFS_MASK);
             AFE_SET_REG(ASM_CH01_CNFG + addr_offset, 1 << ASM_CH01_CNFG_OFS_POS, ASM_CH01_CNFG_OFS_MASK);
         }
-
+        HAL_AUDIO_LOG_INFO("DSP - Hal Audio SRC_%d tracking: ul mode:%d tracking mode:%d clock source:%d, irp 0x%x iwp 0x%x orp 0x%x owp 0x%x ibase 0x%x obase 0x%x isize 0x%x osize 0x%x", 12,
+                           config->id,
+                           config->ul_mode,
+                           config->mode,
+                           config->tracking_clock,
+                           AFE_GET_REG(ASM_CH01_IBUF_RDPNT + addr_offset),
+                           AFE_GET_REG(ASM_CH01_IBUF_WRPNT + addr_offset),
+                           AFE_GET_REG(ASM_CH01_OBUF_RDPNT + addr_offset),
+                           AFE_GET_REG(ASM_CH01_OBUF_WRPNT + addr_offset),
+                           AFE_GET_REG(ASM_IBUF_SADR + addr_offset),
+                           AFE_GET_REG(ASM_OBUF_SADR + addr_offset),
+                           AFE_GET_REG(ASM_IBUF_SIZE + addr_offset),
+                           AFE_GET_REG(ASM_OBUF_SIZE + addr_offset)
+                          );
+        HAL_AUDIO_LOG_INFO("DSP - Hal Audio SRC_%d, ASM_FREQUENCY_0:0x%x rate:%d, ASM_FREQUENCY_1:0x%x rate:%d", 5, config->id, AFE_GET_REG(ASM_FREQUENCY_0 + addr_offset), (AFE_GET_REG(ASM_FREQUENCY_0 + addr_offset) * 100) / 4096, AFE_GET_REG(ASM_FREQUENCY_1 + addr_offset), (AFE_GET_REG(ASM_FREQUENCY_1 + addr_offset) * 100) / 4096);
     } else {
         //hal_src_set_irq_enable(config->id, false);
     }
@@ -2466,7 +2488,7 @@ bool hal_src_set_continuous(afe_src_configuration_t *config, bool enable)
 
 bool hal_src_set_start(afe_mem_asrc_id_t src_id, bool enable)
 {
-    uint32_t reg_value1,reg_value2,reg_value3;
+    uint32_t reg_value1, reg_value2, reg_value3;
     if (enable) {
         AFE_SET_REG(ASM_GEN_CONF + src_id * 0x100,
                     (1 << ASM_GEN_CONF_CH_CLEAR_POS) | (1 << ASM_GEN_CONF_CH_EN_POS) | (1 << ASM_GEN_CONF_ASRC_EN_POS),
@@ -2898,6 +2920,31 @@ bool hal_hw_gain_set_sample_per_step(afe_hardware_digital_gain_t gain_select, ui
     return false;
 }
 
+uint32_t hal_hw_gain_get_sample_per_step(afe_hardware_digital_gain_t gain_select)
+{
+    uint32_t gain_register = 0, sample_per_step = 0;
+    switch (gain_select) {
+        case AFE_HW_DIGITAL_GAIN1 :
+            gain_register = AFE_GAIN1_CON0;
+            break;
+        case AFE_HW_DIGITAL_GAIN2 :
+            gain_register = AFE_GAIN2_CON0;
+            break;
+        case AFE_HW_DIGITAL_GAIN3 :
+            gain_register = AFE_GAIN3_CON0;
+            break;
+        case AFE_HW_DIGITAL_GAIN4 :
+            gain_register = AFE_GAIN4_CON0;
+            break;
+        default:
+            return true;
+            break;
+    }
+    sample_per_step = (AFE_GET_REG(gain_register) & AFE_GAIN1_CON0_PER_STEP_MASK) >> AFE_GAIN1_CON0_PER_STEP_POS;
+    HAL_AUDIO_LOG_INFO("DSP - Hal Audio Gain Output Get HW gain:%d, sample_per_step:0x%x", 2, gain_select, sample_per_step);
+    return sample_per_step;
+}
+
 uint32_t hal_hw_gain_get_sample_rate(afe_hardware_digital_gain_t gain_select)
 {
     uint32_t gain_register = 0, register_value;
@@ -3090,13 +3137,16 @@ bool hal_sine_generator_set_enable(hal_audio_agent_t agent, bool is_input, bool 
         case HAL_AUDIO_AGENT_BLOCK_HWGAIN3:
             value = (is_input) ? 3 : 35;
             break;
-        case HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01:
+        case HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_L:
+        case HAL_AUDIO_AGENT_BLOCK_UP_SAMPLE01_R:
             value = (is_input) ? 21 : 50;
             break;
-        case HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01:
+        case HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_L:
+        case HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE01_R:
             value = (is_input) ? 19 : 48;
             break;
-        case HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23:
+        case HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_L:
+        case HAL_AUDIO_AGENT_BLOCK_DOWN_SAMPLE23_R:
             value = (is_input) ? 20 : 49;
             break;
         case HAL_AUDIO_AGENT_DEVICE_I2S0_SLAVE_TX:
@@ -3651,16 +3701,16 @@ bool hal_updown_set_ratio(afe_updown_sampler_id_t updown_id, uint32_t input_rate
 {
     uint32_t register_offset;
     afe_updown_ratio_t ratio;
-    if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01) {
+    if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_R)) {
         ratio = afe_convert_ratio_to_up_filter_value(output_rate / input_rate);
         register_offset = AFE_DEC_INT_CON2_UP_CH01_RATIO_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_R)) {
         ratio = afe_convert_ratio_to_up_filter_value(output_rate / input_rate);
         register_offset = AFE_DEC_INT_CON2_UP_CH23_RATIO_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_R)) {
         ratio = afe_convert_ratio_to_up_filter_value(input_rate / output_rate);
         register_offset = AFE_DEC_INT_CON2_DOWN_CH01_RATIO_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_R)) {
         ratio = afe_convert_ratio_to_up_filter_value(input_rate / output_rate);
         register_offset = AFE_DEC_INT_CON2_DOWN_CH23_RATIO_POS;
     } else {
@@ -3677,13 +3727,13 @@ bool hal_updown_set_input_rate(afe_updown_sampler_id_t updown_id, uint32_t input
     uint32_t register_offset;
     uint32_t register_value;
     register_value = afe_samplerate_convert_samplerate_to_register_value(input_rate);
-    if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01) {
+    if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_R)) {
         register_offset = AFE_DEC_INT_CON1_UP_CH01_INPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_R)) {
         register_offset = AFE_DEC_INT_CON1_UP_CH23_INPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_R)) {
         register_offset = AFE_DEC_INT_CON1_DOWN_CH01_INPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_R)) {
         register_offset = AFE_DEC_INT_CON1_DOWN_CH23_INPUT_RATE_POS;
     } else {
         HAL_AUDIO_LOG_WARNING("DSP - Warning invalid ID:%d, in rate:%d @@", 1, updown_id, input_rate);
@@ -3699,19 +3749,20 @@ uint32_t hal_updown_get_input_rate(afe_updown_sampler_id_t updown_id)
     uint32_t register_offset;
     uint32_t register_value;
 
-    if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01) {
+    if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_R)) {
         register_offset = AFE_DEC_INT_CON1_UP_CH01_INPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_R)) {
         register_offset = AFE_DEC_INT_CON1_UP_CH23_INPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_R)) {
         register_offset = AFE_DEC_INT_CON1_DOWN_CH01_INPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_R)) {
         register_offset = AFE_DEC_INT_CON1_DOWN_CH23_INPUT_RATE_POS;
     } else {
         HAL_AUDIO_LOG_WARNING("DSP - Warning invalid ID:%d @@", 1, updown_id);
         return 0;
     }
     register_value = (AFE_GET_REG(AFE_DEC_INT_CON1) >> register_offset) & 0xF;
+    HAL_AUDIO_LOG_INFO("upwdown get input rate, input_rate:%d\r\n", 1, afe_samplerate_convert_register_value_to_samplerate(register_value));
     return afe_samplerate_convert_register_value_to_samplerate(register_value);
 }
 
@@ -3721,13 +3772,13 @@ bool hal_updown_set_output_rate(afe_updown_sampler_id_t updown_id, uint32_t outp
     uint32_t register_offset;
     uint32_t register_value;
     register_value = afe_samplerate_convert_samplerate_to_register_value(output_rate);
-    if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01) {
+    if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_R)) {
         register_offset = AFE_DEC_INT_CON1_UP_CH01_OUTPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_R)) {
         register_offset = AFE_DEC_INT_CON1_UP_CH23_OUTPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_R)) {
         register_offset = AFE_DEC_INT_CON1_DOWN_CH01_OUTPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_R)) {
         register_offset = AFE_DEC_INT_CON1_DOWN_CH23_OUTPUT_RATE_POS;
     } else {
         HAL_AUDIO_LOG_WARNING("DSP - Warning invalid ID:%d, out rate:%d @@", 1, updown_id, output_rate);
@@ -3743,19 +3794,20 @@ uint32_t hal_updown_get_output_rate(afe_updown_sampler_id_t updown_id)
     uint32_t register_offset;
     uint32_t register_value;
 
-    if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01) {
+    if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_R)) {
         register_offset = AFE_DEC_INT_CON1_UP_CH01_OUTPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_R)) {
         register_offset = AFE_DEC_INT_CON1_UP_CH23_OUTPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_R)) {
         register_offset = AFE_DEC_INT_CON1_DOWN_CH01_OUTPUT_RATE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_R)) {
         register_offset = AFE_DEC_INT_CON1_DOWN_CH23_OUTPUT_RATE_POS;
     } else {
         HAL_AUDIO_LOG_WARNING("DSP - Warning invalid ID:%d @@", 1, updown_id);
         return 0;
     }
     register_value = (AFE_GET_REG(AFE_DEC_INT_CON1) >> register_offset) & 0xF;
+    HAL_AUDIO_LOG_INFO("upwdown get output rate, output_rate:%d\r\n", 1, afe_samplerate_convert_register_value_to_samplerate(register_value));
     return afe_samplerate_convert_register_value_to_samplerate(register_value);
 }
 
@@ -3763,13 +3815,13 @@ bool hal_updown_set_enable(afe_updown_sampler_id_t updown_id, bool enable)
 {
     uint32_t register_offset;
 
-    if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01) {
+    if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_R)) {
         register_offset = AFE_DEC_INT_CON0_UP_CH01_ENABLE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH23_R)) {
         register_offset = AFE_DEC_INT_CON0_UP_CH23_ENABLE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_R)) {
         register_offset = AFE_DEC_INT_CON0_DOWN_CH01_ENABLE_POS;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_R)) {
         register_offset = AFE_DEC_INT_CON0_DOWN_CH23_ENABLE_POS;
     } else {
         HAL_AUDIO_LOG_WARNING("DSP - Warning invalid ID:%d  @@", 1, updown_id);
@@ -3812,17 +3864,17 @@ bool hal_tick_align_set_updown(afe_updown_sampler_id_t updown_id, hal_audio_path
             break;
     }
 
-    if (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01) {
+    if ((updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_UP_CH01_R)) {
         offset_in = AFE_I2S_SLV_ENGEN_CON3_UP_IN_MODE_POS;
         offset_out = AFE_I2S_SLV_ENGEN_CON3_UP_OUT_MODE_POS;
         tick_in = tick_select;
         tick_out = tick_in;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH01_R)) {
         offset_in = AFE_I2S_SLV_ENGEN_CON3_DOWN01_IN_MODE_POS;
         offset_out = AFE_I2S_SLV_ENGEN_CON3_DOWN01_OUT_MODE_POS;
         tick_in = tick_select;
         tick_out = AFE_TICK_ALIGN_DOWNSAMPLER_OUTPUT_CH0;
-    } else if (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23) {
+    } else if ((updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_L) || (updown_id == AFE_UPDOWN_SAMPLER_DOWN_CH23_R)) {
         offset_in = AFE_I2S_SLV_ENGEN_CON3_DOWN23_IN_MODE_POS;
         offset_out = AFE_I2S_SLV_ENGEN_CON3_DOWN23_OUT_MODE_POS;
         tick_in = tick_select;
@@ -3878,7 +3930,7 @@ bool hal_tick_align_set_hw_gain(afe_hardware_digital_gain_t gain_select, hal_aud
 bool hal_tick_align_set_memory_agent(hal_audio_memory_selection_t memory_select, hal_audio_path_interconnection_tick_source_t tick_source, bool enable)
 {
     uint32_t register_offset;
-    HAL_AUDIO_LOG_INFO("#hal_tick_align_set_memory_agent# memory_select:0x%x, tick_source:%d, enable:%d",memory_select,tick_source,enable);
+    HAL_AUDIO_LOG_INFO("#hal_tick_align_set_memory_agent# memory_select:0x%x, tick_source:%d, enable:%d", memory_select, tick_source, enable);
     switch (memory_select) {
         case HAL_AUDIO_MEMORY_DL_DL1:
             register_offset = AFE_I2S_SLV_ENGEN_CON1_DL1_MODE_POS;
@@ -4341,13 +4393,31 @@ bool hal_audio_ul4_set_loopback(hal_audio_ul_loopback_setting_t loopback_setting
     return false;
 }
 
-bool hal_audio_dl_set_fifo_swap(bool no_swap)
+bool hal_audio_dl_set_mono(bool is_mono)
 {
-#ifdef AIR_NLE_ENABLE
-    AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, (!no_swap << AFE_ADDA_DL_SDM_MONO_POS) | (no_swap << AFE_ADDA_DL_SDM_DCCOMP_CON_FIFO_SWAP_POS), AFE_ADDA_DL_SDM_MONO_MASK|AFE_ADDA_DL_SDM_DCCOMP_CON_FIFO_SWAP_MASK);
-#else
-    AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, no_swap << AFE_ADDA_DL_SDM_DCCOMP_CON_FIFO_SWAP_POS, AFE_ADDA_DL_SDM_DCCOMP_CON_FIFO_SWAP_MASK);
-#endif
+    /*
+       0: stereo
+       1: mono (all output left channel)
+    */
+    if (!g_dl_fix_dl_sdm_status) {
+        AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, (is_mono << AFE_ADDA_DL_SDM_MONO_POS), AFE_ADDA_DL_SDM_MONO_MASK);
+    }
+    return false;
+}
+
+bool hal_audio_dl_set_fifo_swap(bool is_swap)
+{
+    /*
+       0: swap left and right channels
+       1: no swap
+    */
+    if (!g_dl_fix_dl_sdm_status) {
+        if (hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT) == HAL_AUDIO_ANALOG_OUTPUT_OLCLASSD) {
+            AFE_SET_REG(AFE_CLD_CL_MISC_SET, is_swap << AFE_CLD_CL_MISC_SET_OL_CLD_LR_SWAP_POS, AFE_CLD_CL_MISC_SET_OL_CLD_LR_SWAP_POS);
+        } else {
+            AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, !is_swap << AFE_ADDA_DL_SDM_DCCOMP_CON_FIFO_SWAP_POS, AFE_ADDA_DL_SDM_DCCOMP_CON_FIFO_SWAP_MASK);
+        }
+    }
     return false;
 }
 
@@ -4379,14 +4449,19 @@ hal_audio_dl_sdm_setting_t hal_audio_dl_get_sdm(void)
 VOID hal_audio_dl_reset_sdm_enable(bool enable)
 {
     if (enable) {
-        //hal_gpio_init(HAL_GPIO_0);
-        //hal_pinmux_set_function(HAL_GPIO_0, 0);/* Set pin as GPIO mode.*/
-        //hal_gpio_set_direction(HAL_GPIO_0, HAL_GPIO_DIRECTION_OUTPUT); /* Set GPIO as output.*/
-        AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, true << AFE_ADDA_DL_SDM_RST_EN_POS, AFE_ADDA_DL_SDM_RST_EN_MASK);
-        //hal_gpio_set_output(HAL_GPIO_0, HAL_GPIO_DATA_HIGH); /*set gpio output high*/
-        HAL_AUDIO_DELAY_US(100); /*delay 100us*/
-        AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, false << AFE_ADDA_DL_SDM_RST_EN_POS, AFE_ADDA_DL_SDM_RST_EN_MASK);
-        //hal_gpio_set_output(HAL_GPIO_0, HAL_GPIO_DATA_LOW); /*set gpio output low*/
+        if (hal_volume_get_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT) == HAL_AUDIO_ANALOG_OUTPUT_OLCLASSD) {
+            AFE_SET_REG(AFE_CLD_CL_CON0, true << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_POS, AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_MASK);
+            AFE_SET_REG(AFE_CLD_CL_CON0, false << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_POS, AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_MASK);
+        } else {
+            //hal_gpio_init(HAL_GPIO_0);
+            //hal_pinmux_set_function(HAL_GPIO_0, 0);/* Set pin as GPIO mode.*/
+            //hal_gpio_set_direction(HAL_GPIO_0, HAL_GPIO_DIRECTION_OUTPUT); /* Set GPIO as output.*/
+            AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, true << AFE_ADDA_DL_SDM_RST_EN_POS, AFE_ADDA_DL_SDM_RST_EN_MASK);
+            //hal_gpio_set_output(HAL_GPIO_0, HAL_GPIO_DATA_HIGH); /*set gpio output high*/
+            HAL_AUDIO_DELAY_US(100); /*delay 100us*/
+            AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, false << AFE_ADDA_DL_SDM_RST_EN_POS, AFE_ADDA_DL_SDM_RST_EN_MASK);
+            //hal_gpio_set_output(HAL_GPIO_0, HAL_GPIO_DATA_LOW); /*set gpio output low*/
+        }
         DSP_MW_LOG_I("[RESET SDM] enable\r\n", 0);
     }
 }
@@ -4495,18 +4570,13 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_dl_set_nle_enable(bool enable)
     uint32_t mask;
     hal_nvic_save_and_set_interrupt_mask(&mask);
     if (enable) {
-        #if 0
+#if 0
         AFE_WRITE(AFE_DL_NLE_L_CFG1, 0x00006880);                           // turn on L-ch nle module
         AFE_WRITE(AFE_DL_NLE_R_CFG1, 0x00006880);                           // turn on R-ch nle module
-        #else
+#else
         AFE_SET_REG(AFE_DL_NLE_L_CFG1, (6 << 12) | (1 << 11) | (1 << 7), (7 << 12) | (1 << 11) | (1 << 7));                           // turn on L-ch nle module
         AFE_SET_REG(AFE_DL_NLE_R_CFG1, (6 << 12) | (1 << 11) | (1 << 7), (7 << 12) | (1 << 11) | (1 << 7));                           // turn on R-ch nle module
-        #endif
-        if (afe_adc_performance_mode[AFE_ANALOG_DAC] == AFE_PEROFRMANCE_HIGH_MODE) {
-            AFE_WRITE(AFE_CLASSG_CFG2, 0x417);
-        } else {
-            AFE_WRITE(AFE_CLASSG_CFG2, 0x82A);
-        }
+#endif
         AFE_SET_REG(AFE_ANA_GAIN_MUX, (0 << 4) | (0 << 6), (1 << 4) | (1 << 6)); // open zcd_gain_mux
         AFE_SET_REG(AFE_ANA_GAIN_MUX, (1 << 0) | (1 << 2), (3 << 0) | (3 << 2)); // open classg_gain_mux
         hal_nvic_restore_interrupt_mask(mask);
@@ -4518,7 +4588,6 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_dl_set_nle_enable(bool enable)
         AFE_SET_REG(AFE_DL_NLE_R_CFG1, (0 << 7), (1 << 7));                   // turn off R-ch nle module
         AFE_SET_REG(AFE_ANA_GAIN_MUX, (1 << 4) | (1 << 6), (1 << 4) | (1 << 6)); // close zcd_gain_mux
         AFE_SET_REG(AFE_ANA_GAIN_MUX, (2 << 0) | (2 << 2), (3 << 0) | (3 << 2)); // close classg_gain_mux
-        AFE_WRITE(AFE_CLASSG_CFG2, 0x104b);
         hal_nvic_restore_interrupt_mask(mask);
         HAL_AUDIO_LOG_INFO("[NLE OFF] turn off nle\r\n", 0);
         //HAL_AUDIO_LOG_INFO("[NLE OFF] AFE_BASE:0x%x, 0xc0000e6c:0x%x, AFE_DL_NLE_L_CFG1:0x%x", 3, AFE_READ(AFE_BASE), AFE_READ(0xc0000e6c), AFE_READ(AFE_DL_NLE_L_CFG1));
@@ -4564,13 +4633,13 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ VOID hal_audio_dl_set_nle_gain(bool enable)
         if ((AFE_GET_REG(AFE_DL_NLE_L_CFG1) & 0x80) && (AFE_GET_REG(AFE_DL_NLE_R_CFG1) & 0x80)) {
             AFE_SET_REG(AFE_DL_NLE_L_CFG0, ((1 << 0) | (1 << 15) | (12 - A_GAIN_L_DB) << 16) | (D_GAIN_L_DB << 24), (1 << 0) | (1 << 15) | (0x3f << 16) | (0x3f << 24)); //set L-ch digital and analog target gain (d_gain+threshold_db,a_gain-threshold_db)
             AFE_SET_REG(AFE_DL_NLE_R_CFG0, ((1 << 0) | (1 << 15) | (12 - A_GAIN_R_DB) << 16) | (D_GAIN_R_DB << 24), (1 << 0) | (1 << 15) | (0x3f << 16) | (0x3f << 24)); //set R-ch digital and analog target gain (d_gain+threshold_db,a_gain-threshold_db)
-            #if 0
+#if 0
             AFE_WRITE(AFE_DL_NLE_L_CFG1, 0x01016880);                          // toggle ready flag to update rg into nle module
             AFE_WRITE(AFE_DL_NLE_R_CFG1, 0x01016880);                          // toggle ready flag to update rg into nle module
-            #else
+#else
             AFE_SET_REG(AFE_DL_NLE_L_CFG1, (1 << 16) | (1 << 24), (1 << 16) | (1 << 24));                          // toggle ready flag to update rg into nle module
             AFE_SET_REG(AFE_DL_NLE_R_CFG1, (1 << 16) | (1 << 24), (1 << 16) | (1 << 24));                          // toggle ready flag to update rg into nle module
-            #endif
+#endif
         }
         hal_nvic_restore_interrupt_mask(mask);
         HAL_AUDIO_LOG_INFO("[NLE GAIN ON] apply nle gain on\r\n", 0);
@@ -4580,13 +4649,13 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ VOID hal_audio_dl_set_nle_gain(bool enable)
         hal_nvic_save_and_set_interrupt_mask(&mask);
         AFE_SET_REG(AFE_DL_NLE_L_CFG0, ((1 << 0) | (0 << 15) | (12 - A_GAIN_L_DB) << 16) | (0 << 24), (1 << 0) | (1 << 15) | (0x3f << 16) | (0x3f << 24)); // set L-ch analog initial gain
         AFE_SET_REG(AFE_DL_NLE_R_CFG0, ((1 << 0) | (0 << 15) | (12 - A_GAIN_R_DB) << 16) | (0 << 24), (1 << 0) | (1 << 15) | (0x3f << 16) | (0x3f << 24)); // set R-ch analog initial gain
-        #if 0
+#if 0
         AFE_WRITE(AFE_DL_NLE_L_CFG1, 0x01006880);                          // initiate L-ch analog gain
         AFE_WRITE(AFE_DL_NLE_R_CFG1, 0x01006880);                          // initiate R-ch analog gain
-        #else
+#else
         AFE_SET_REG(AFE_DL_NLE_L_CFG1, (0 << 16) | (1 << 24), (1 << 16) | (1 << 24));                          // initiate L-ch analog gain
         AFE_SET_REG(AFE_DL_NLE_R_CFG1, (0 << 16) | (1 << 24), (1 << 16) | (1 << 24));                          // initiate R-ch analog gain
-        #endif
+#endif
         hal_nvic_restore_interrupt_mask(mask);
         HAL_AUDIO_LOG_INFO("[NLE GAIN OFF] apply nle gain off \r\n", 0);
         //HAL_AUDIO_LOG_INFO("[NLE GAIN OFF] A_GAIN_L_DB=%d,D_GAIN_L_DB=%d", 2, A_GAIN_L_DB, D_GAIN_L_DB);
@@ -5169,42 +5238,42 @@ bool hal_wow_set_amic(hal_audio_vow_mode_t vow_mode, hal_audio_performance_mode_
         AFE_SET_REG(AFE_VOW_TOP_CON4, ((performance >= AFE_PEROFRMANCE_LOW_POWER_MODE) << 8), 1 << 8);
         /*VOW CH1*/
         if (analog_select == AFE_ANALOG_ADC0) {
-            if(mic_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (0 << 4), 7<<4);
-            }else {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (1 << 4), 7<<4);
+            if (mic_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (0 << 4), 7 << 4);
+            } else {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (1 << 4), 7 << 4);
             }
         } else if (analog_select == AFE_ANALOG_ADC1) {
-            if(mic_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (2 << 4), 7<<4);
-            }else {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (3 << 4), 7<<4);
+            if (mic_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (2 << 4), 7 << 4);
+            } else {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (3 << 4), 7 << 4);
             }
         } else if (analog_select == AFE_ANALOG_ADC2) {
-            if(mic_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (4 << 4), 7<<4);
-            }else {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (5 << 4), 7<<4);
+            if (mic_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (4 << 4), 7 << 4);
+            } else {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (5 << 4), 7 << 4);
             }
         }
         /*VOW CH2*/
         if (analog_select1 == AFE_ANALOG_ADC0) {
-            if(mic1_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (0 << 0), 7<<0);
-            }else {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (1 << 0), 7<<0);
+            if (mic1_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (0 << 0), 7 << 0);
+            } else {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (1 << 0), 7 << 0);
             }
         } else if (analog_select1 == AFE_ANALOG_ADC1) {
-            if(mic1_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (2 << 0), 7<<0);
-            }else {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (3 << 0), 7<<0);
+            if (mic1_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (2 << 0), 7 << 0);
+            } else {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (3 << 0), 7 << 0);
             }
         } else if (analog_select1 == AFE_ANALOG_ADC2) {
-            if(mic1_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (4 << 0), 7<<0);
-            }else {
-                AFE_SET_REG(AFE_VOW_TOP_CON4, (5 << 0), 7<<0);
+            if (mic1_selection == HAL_AUDIO_CONTROL_DEVICE_ANALOG_MIC_L) {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (4 << 0), 7 << 0);
+            } else {
+                AFE_SET_REG(AFE_VOW_TOP_CON4, (5 << 0), 7 << 0);
             }
         }
         AFE_WRITE(AFE_VOW_TOP_CON1, 0x4008 | vow_enable_mic_ch0);
@@ -5522,7 +5591,7 @@ void hal_audio_afe_enable_common_global(afe_analog_select_t analog_select, bool 
             //ANA_WRITE(AUDDEC_ANA_CON31, 0x1400);
             if (!ana_init_status) {
                 HAL_AUDIO_LOG_INFO("[Audio Driver]AFE COMMON GLOBAL ANALOG INITIAL ON", 0);
-                if(DAC_class_mode == HAL_AUDIO_ANALOG_OUTPUT_OLCLASSD) {
+                if (DAC_class_mode == HAL_AUDIO_ANALOG_OUTPUT_OLCLASSD) {
                     AFE_WRITE(AUDENC_ANA_CON33, 0x00000001);
                     AFE_WRITE(AUDDEC_ANA_CON31, 0x00001060);
                     AFE_WRITE(AUDDEC_ANA_CON9, 0x00000002);
@@ -5542,7 +5611,7 @@ void hal_audio_afe_enable_common_global(afe_analog_select_t analog_select, bool 
                     HAL_AUDIO_DELAY_US(100);
                 }
             }
-            ana_init_status |= (1<<analog_select);
+            ana_init_status |= (1 << analog_select);
             HAL_AUDIO_LOG_INFO("[Audio Driver]AFE COMMON GLOBAL ANALOG INITIAL STATUS = 0x%02x", 1, ana_init_status);
         }
     } else { //Global Off
@@ -5551,7 +5620,7 @@ void hal_audio_afe_enable_common_global(afe_analog_select_t analog_select, bool 
             //ANA_WRITE(AUDDEC_ANA_CON9, 0x0000);
             //Only last audio device can clear it!!!
 
-            ana_init_status &= ~(1<<analog_select);
+            ana_init_status &= ~(1 << analog_select);
             HAL_AUDIO_LOG_INFO("[Audio Driver]AFE COMMON GLOBAL ANALOG INITIAL STATUS = 0x%02x", 1, ana_init_status);
             if (!ana_init_status) {
                 HAL_AUDIO_LOG_INFO("[Audio Driver]AFE COMMON GLOBAL ANALOG INITIAL OFF", 0);
@@ -5625,12 +5694,12 @@ void hal_audio_ana_set_ADC_global(afe_analog_select_t analog_select, afe_analog_
             if ((analog_control & AFE_ANALOG_COMMON)) {
                 if ((analog_control & AFE_ANALOG_R_CH) && (!(analog_control & AFE_ANALOG_L_CH))) { //0x2030, 1<<4, 0<<12
                     ANA_SET_REG((AUDENC_ANA_CON34),
-                                ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS)|(0 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)),
-                                (AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK));
+                                ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS) | (0 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)),
+                                (AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK));
                 } else if ((analog_control & AFE_ANALOG_L_CH) && (!(analog_control & AFE_ANALOG_R_CH))) { //0x3020, 1<<12, 0<<4
                     ANA_SET_REG((AUDENC_ANA_CON34),
-                                ((1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)|(0 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS)),
-                                (AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK));
+                                ((1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS) | (0 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS)),
+                                (AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK));
                 }
             } else {
                 ANA_SET_REG((AUDENC_ANA_CON34),
@@ -5708,25 +5777,25 @@ void hal_audio_ana_set_ADC_global(afe_analog_select_t analog_select, afe_analog_
                 ANA_SET_REG((AUDENC_ANA_CON40), (1 << AUDENC_ANA_CON40_PREAMP_L_REV_POS), AUDENC_ANA_CON40_PREAMP_L_REV_MASK); //0x0004
                 ANA_SET_REG((AUDENC_ANA_CON41), (1 << AUDENC_ANA_CON41_PREAMP_R_REV_POS), AUDENC_ANA_CON41_PREAMP_R_REV_MASK); //0x0400
             }
-            if(g_adc01_counter == 0){ //set when only ADC23 exist
+            if (g_adc01_counter == 0) { //set when only ADC23 exist
                 //ANA_WRITE(AUDENC_ANA_CON34, 0x3030); //bit4,5,12,13, 0330update
                 ANA_SET_REG((AUDENC_ANA_CON34),
-                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS)|(1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
-                            (AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
+                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
+                            (AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
             }
 
             ANA_WRITE(AUDENC_ANA_CON3, 0x0010);//CLK to ADC01, enable adc23 also need to enable 01CLK  0x20C
-            #if 1 //0330update
+#if 1 //0330update
             if (performance == AFE_PEROFRMANCE_ULTRA_LOW_POWER_MODE) {
                 ANA_WRITE(AUDENC_ANA_CON12, 0x00C0);
             } else {
                 ANA_WRITE(AUDENC_ANA_CON12, 0x0010);
             }
-            #else
+#else
             ANA_SET_REG((AUDENC_ANA_CON12),
                         ((1 << AUDENC_ANA_CON12_PGAL_ACCFS_POS) | (1 << AUDENC_ANA_CON12_PGAR_ACCFS_POS)),
                         (AUDENC_ANA_CON12_PGAL_ACCFS_MASK | AUDENC_ANA_CON12_PGAR_ACCFS_MASK));
-            #endif
+#endif
 
         }
 
@@ -6419,7 +6488,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc0_enable(hal_audio_devic
                 if (adc_parameter->adc_type == HAL_AUDIO_ANALOG_TYPE_SINGLE) { //0x2004
                     ANA_SET_REG((AUDENC_ANA_CON37), (1 << AUDENC_ANA_CON37_R_ACC_SE_EN_POS), AUDENC_ANA_CON37_R_ACC_SE_EN_MASK);
                     if (adc_parameter->adc_mode == HAL_AUDIO_ANALOG_INPUT_ACC20K) { //20K:0x04 40, 10K:0x04 02   //E3 update SE20K: 0x0440->0x0420
-                        if ((ANA_GET_REG(0x420C0208)&(0xE0)) == 0x40) { //Get IC version: 0x420C0208 bit[7:5]: 0x1=E1 0x2=E2 0x3=E3
+                        if ((ANA_GET_REG(0x420C0208) & (0xE0)) == 0x40) { //Get IC version: 0x420C0208 bit[7:5]: 0x1=E1 0x2=E2 0x3=E3
                             ANA_SET_REG((AUDENC_ANA_CON38),
                                         ((4 << AUDENC_ANA_CON38_R_GAIN_COMP_20K_POS) | (0 << AUDENC_ANA_CON38_R_GAIN_COMP_10K_POS)),
                                         (AUDENC_ANA_CON38_R_GAIN_COMP_20K_MASK | AUDENC_ANA_CON38_R_GAIN_COMP_10K_MASK));
@@ -6478,7 +6547,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc0_enable(hal_audio_devic
             ANA_SET_REG((AUDENC_ANA_CON4), (0 << AUDENC_ANA_CON4_ADCFS_RESET_POS), AUDENC_ANA_CON4_ADCFS_RESET_MASK);
         }
 
-        #if 1
+#if 1
         //0x2828 -> 0x2020, bit3,11
         if ((analog_control & AFE_ANALOG_R_CH) && (analog_control & AFE_ANALOG_L_CH)) {
             ANA_SET_REG((AUDENC_ANA_CON34),
@@ -6502,7 +6571,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc0_enable(hal_audio_devic
                         (0 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS),
                         (AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK));
         }
-        #else
+#else
         //0x2828 -> 0x2020, bit3,11
         if ((analog_control & AFE_ANALOG_R_CH) && (analog_control & AFE_ANALOG_L_CH)) {
             ANA_SET_REG((AUDENC_ANA_CON34),
@@ -6518,7 +6587,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc0_enable(hal_audio_devic
                         (0 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS),
                         (AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK));
         }
-        #endif
+#endif
     } else { //wanna disable ADC01
 
         //Workaround: UL FIFO clock soure switch
@@ -6554,23 +6623,23 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc0_enable(hal_audio_devic
         if (g_adc01_L_counter == 0) { //last L user
             if (g_adc01_counter != 0) { //R user exsist
                 ANA_SET_REG((AUDENC_ANA_CON0),
-                            ((0 << AUDENC_ANA_CON0_L_POWER_UP_POS)|(0 << AUDENC_ANA_CON0_L_PREAMP_POWER_POS)),
+                            ((0 << AUDENC_ANA_CON0_L_POWER_UP_POS) | (0 << AUDENC_ANA_CON0_L_PREAMP_POWER_POS)),
                             (AUDENC_ANA_CON0_L_POWER_UP_MASK | AUDENC_ANA_CON0_L_PREAMP_POWER_MASK));
                 ANA_SET_REG((AUDENC_ANA_CON32), (1 << AUDENC_ANA_CON32_AUDUL_ADC_REV0_POS), AUDENC_ANA_CON32_AUDUL_ADC_REV0_MASK);
 
-                #if 0
+#if 0
                 //0x3838
                 ANA_SET_REG((AUDENC_ANA_CON34),
-                            ((1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS)),
-                            (AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK|AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK));
+                            ((1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS)),
+                            (AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK | AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK));
                 //0x3038
                 ANA_SET_REG((AUDENC_ANA_CON34), (0 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS), AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK);
-                #else //don't touch R
+#else //don't touch R
                 //Set 0x0018
                 ANA_SET_REG((AUDENC_ANA_CON34),
-                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS)),
-                            (AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK));
-                #endif
+                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS)),
+                            (AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK));
+#endif
                 if (g_adc23_counter == 0) {
                     //0x3030
                     ANA_SET_REG((AUDENC_ANA_CON35),
@@ -6587,23 +6656,23 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc0_enable(hal_audio_devic
         if (g_adc01_R_counter == 0) {
             if (g_adc01_counter != 0) { //L user exsist
                 ANA_SET_REG((AUDENC_ANA_CON1),
-                            ((0 << AUDENC_ANA_CON0_L_POWER_UP_POS)|(0 << AUDENC_ANA_CON0_L_PREAMP_POWER_POS)),
+                            ((0 << AUDENC_ANA_CON0_L_POWER_UP_POS) | (0 << AUDENC_ANA_CON0_L_PREAMP_POWER_POS)),
                             (AUDENC_ANA_CON0_L_POWER_UP_MASK | AUDENC_ANA_CON0_L_PREAMP_POWER_MASK));
                 ANA_SET_REG((AUDENC_ANA_CON32), (1 << AUDENC_ANA_CON32_AUDUL_ADC_REV0_POS), AUDENC_ANA_CON32_AUDUL_ADC_REV0_MASK);
-                #if 0
+#if 0
                 //0x3838
                 ANA_SET_REG((AUDENC_ANA_CON34),
-                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS)|(1 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
-                            (AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK|AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
+                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
+                            (AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK | AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
                 //0x3830
                 ANA_SET_REG((AUDENC_ANA_CON34), (0 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS), AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK);
-                #else //don't touch L
+#else //don't touch L
                 //Set 0x1800
                 ANA_SET_REG((AUDENC_ANA_CON34),
-                            ((1 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)),
-                            (AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK));
+                            ((1 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)),
+                            (AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK));
 
-                #endif
+#endif
                 if (g_adc23_counter == 0) {
                     //0x3030
                     ANA_SET_REG((AUDENC_ANA_CON35),
@@ -6620,32 +6689,32 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc0_enable(hal_audio_devic
         }
         if (g_adc01_counter == 0) { //last ADC01 user, close all ADC01
             ANA_SET_REG((AUDENC_ANA_CON0),
-                        ((0 << AUDENC_ANA_CON0_L_POWER_UP_POS)|(0 << AUDENC_ANA_CON0_L_PREAMP_POWER_POS)),
+                        ((0 << AUDENC_ANA_CON0_L_POWER_UP_POS) | (0 << AUDENC_ANA_CON0_L_PREAMP_POWER_POS)),
                         (AUDENC_ANA_CON0_L_POWER_UP_MASK | AUDENC_ANA_CON0_L_PREAMP_POWER_MASK));
             ANA_SET_REG((AUDENC_ANA_CON1),
-                        ((0 << AUDENC_ANA_CON0_L_POWER_UP_POS)|(0 << AUDENC_ANA_CON0_L_PREAMP_POWER_POS)),
+                        ((0 << AUDENC_ANA_CON0_L_POWER_UP_POS) | (0 << AUDENC_ANA_CON0_L_PREAMP_POWER_POS)),
                         (AUDENC_ANA_CON0_L_POWER_UP_MASK | AUDENC_ANA_CON0_L_PREAMP_POWER_MASK));
 
-            if(g_adc23_counter == 0) { //adc0123 all off
+            if (g_adc23_counter == 0) { //adc0123 all off
                 //0x3838
                 ANA_SET_REG((AUDENC_ANA_CON34),
-                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS)|(1 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
-                            (AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK|AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
+                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
+                            (AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK | AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
                 //0x3838
                 ANA_SET_REG((AUDENC_ANA_CON35),
-                            ((1 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS)|(1 << AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS)),
-                            (AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK|AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK|AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK|AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK));
+                            ((1 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS)),
+                            (AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK | AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK | AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK | AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK));
             } else {
 
                 //adc23 exist
                 //0x3838
                 ANA_SET_REG((AUDENC_ANA_CON34),
-                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS)|(1 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
-                            (AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK|AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
+                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
+                            (AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK | AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
                 //0x2020
                 ANA_SET_REG((AUDENC_ANA_CON35),
-                            ((1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS)|(1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS)),
-                            (AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK|AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK));
+                            ((1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS)),
+                            (AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK | AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK));
             }
 
             //Global off
@@ -6855,12 +6924,12 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc23_enable(hal_audio_devi
                     if (adc_parameter->adc_mode == HAL_AUDIO_ANALOG_INPUT_ACC20K) { //20K: 04 40, 10K: 04 02 //E3 update SE20K: 0x04 40->0x04 20
                         if ((ANA_GET_REG(0x420C0208) & (0xE0)) == 0x40) { //Get IC version: 0x420C0208 bit[7:5]: 0x1=E1 0x2=E2 0x3=E3
                             ANA_SET_REG((AUDENC_ANA_CON41),
-                                    ((4 << AUDENC_ANA_CON41_R_GAIN_COMP_20K_POS) | (0 << AUDENC_ANA_CON41_R_GAIN_COMP_10K_POS)),
-                                    (AUDENC_ANA_CON41_R_GAIN_COMP_20K_MASK) | AUDENC_ANA_CON41_R_GAIN_COMP_10K_MASK);
+                                        ((4 << AUDENC_ANA_CON41_R_GAIN_COMP_20K_POS) | (0 << AUDENC_ANA_CON41_R_GAIN_COMP_10K_POS)),
+                                        (AUDENC_ANA_CON41_R_GAIN_COMP_20K_MASK) | AUDENC_ANA_CON41_R_GAIN_COMP_10K_MASK);
                         } else { //E1&E3
                             ANA_SET_REG((AUDENC_ANA_CON41),
-                                    ((2 << AUDENC_ANA_CON41_R_GAIN_COMP_20K_POS) | (0 << AUDENC_ANA_CON41_R_GAIN_COMP_10K_POS)),
-                                    (AUDENC_ANA_CON41_R_GAIN_COMP_20K_MASK) | AUDENC_ANA_CON41_R_GAIN_COMP_10K_MASK);
+                                        ((2 << AUDENC_ANA_CON41_R_GAIN_COMP_20K_POS) | (0 << AUDENC_ANA_CON41_R_GAIN_COMP_10K_POS)),
+                                        (AUDENC_ANA_CON41_R_GAIN_COMP_20K_MASK) | AUDENC_ANA_CON41_R_GAIN_COMP_10K_MASK);
                         }
                     } else { //10K
                         ANA_SET_REG((AUDENC_ANA_CON41),
@@ -6901,7 +6970,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc23_enable(hal_audio_devi
         if (adc_parameter->performance == AFE_PEROFRMANCE_ULTRA_LOW_POWER_MODE) { //update ULP sequence on Nov.11
             ANA_WRITE(AUDENC_ANA_CON12, 0x0230); //ULP
         }
-        #if 0 //0330update
+#if 0 //0330update
         if (adc_parameter->performance != AFE_PEROFRMANCE_ULTRA_LOW_POWER_MODE) {
             ANA_SET_REG((AUDENC_ANA_CON4), (1 << AUDENC_ANA_CON4_ADCFS_RESET_POS), AUDENC_ANA_CON4_ADCFS_RESET_MASK); //reset
             ANA_SET_REG((AUDENC_ANA_CON4), (0 << AUDENC_ANA_CON4_ADCFS_RESET_POS), AUDENC_ANA_CON4_ADCFS_RESET_MASK);
@@ -6916,9 +6985,9 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc23_enable(hal_audio_devi
                         ((0 << AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_POS) | (0 << AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_POS)),
                         (AUDENC_ANA_CON34_ADC01_L_CLK_HALF_RST_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_HALF_RST_MASK));
         }
-        #endif
+#endif
 
-        #if 1
+#if 1
         //0x2828 -> 0x2020, bit3,11
         if ((analog_control & AFE_ANALOG_R_CH) && (analog_control & AFE_ANALOG_L_CH)) {
             ANA_SET_REG((AUDENC_ANA_CON35),
@@ -6942,7 +7011,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc23_enable(hal_audio_devi
                         (0 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS),
                         (AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK));
         }
-        #endif
+#endif
 
     } else { //disable ADC23
 
@@ -6980,7 +7049,7 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc23_enable(hal_audio_devi
             //ANA_WRITE(AUDENC_ANA_CON9, 0x0);
             if (g_adc23_counter != 0) { //R user exsist
                 ANA_SET_REG((AUDENC_ANA_CON9),
-                            ((0 << AUDENC_ANA_CON9_L_POWER_UP_POS)|(0 << AUDENC_ANA_CON9_L_PREAMP_POWER_POS)),
+                            ((0 << AUDENC_ANA_CON9_L_POWER_UP_POS) | (0 << AUDENC_ANA_CON9_L_PREAMP_POWER_POS)),
                             (AUDENC_ANA_CON9_L_POWER_UP_MASK | AUDENC_ANA_CON9_L_PREAMP_POWER_MASK));
                 ANA_SET_REG((AUDENC_ANA_CON32), (1 << 9), (1 << 9));
 
@@ -6995,24 +7064,24 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc23_enable(hal_audio_devi
                                 ((1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
                                 (AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK | AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
                 }
-                #if 0
+#if 0
                 //0x3838
                 ANA_SET_REG((AUDENC_ANA_CON35),
-                            ((1 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS)|(1 << AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS)),
-                            (AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK|AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK|AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_MASK|AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK));
-                #else //don't touch R
+                            ((1 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS)),
+                            (AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK | AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK | AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_MASK | AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK));
+#else //don't touch R
                 //Set 0x0018
                 ANA_SET_REG((AUDENC_ANA_CON35),
-                            ((1 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS)),
-                            (AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK|AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK));
-                #endif
+                            ((1 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS)),
+                            (AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK | AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK));
+#endif
             }
         }
         if (g_adc23_R_counter == 0) {
             //ANA_WRITE(AUDENC_ANA_CON10, 0x0);
             if (g_adc23_counter != 0) { //L user exsist
                 ANA_SET_REG((AUDENC_ANA_CON10),
-                            ((0 << AUDENC_ANA_CON10_R_POWER_UP_POS)|(0 << AUDENC_ANA_CON10_R_PREAMP_POWER_POS)),
+                            ((0 << AUDENC_ANA_CON10_R_POWER_UP_POS) | (0 << AUDENC_ANA_CON10_R_PREAMP_POWER_POS)),
                             (AUDENC_ANA_CON10_R_POWER_UP_MASK | AUDENC_ANA_CON10_R_PREAMP_POWER_MASK));
                 ANA_SET_REG((AUDENC_ANA_CON32), (1 << 9), (1 << 9));
 
@@ -7028,36 +7097,36 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc23_enable(hal_audio_devi
                                 (AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK | AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
                 }
 
-                #if 0
+#if 0
                 //0x3838
                 ANA_SET_REG((AUDENC_ANA_CON35),
-                            ((1 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS)|(1 << AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS)),
-                            (AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK|AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK|AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_MASK|AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK));
-                #else //don't touch L
+                            ((1 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS)),
+                            (AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK | AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK | AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_MASK | AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK));
+#else //don't touch L
                 //Set 0x1800
                 ANA_SET_REG((AUDENC_ANA_CON35),
-                            ((1 << AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS)),
-                            (AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_MASK|AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK));
-                #endif
+                            ((1 << AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS)),
+                            (AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_MASK | AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK));
+#endif
             }
         }
         if (g_adc23_counter == 0) { //last ADC23 user, close all ADC23
             ANA_SET_REG((AUDENC_ANA_CON9),
-                        ((0 << AUDENC_ANA_CON9_L_POWER_UP_POS)|(0 << AUDENC_ANA_CON9_L_PREAMP_POWER_POS)),
+                        ((0 << AUDENC_ANA_CON9_L_POWER_UP_POS) | (0 << AUDENC_ANA_CON9_L_PREAMP_POWER_POS)),
                         (AUDENC_ANA_CON9_L_POWER_UP_MASK | AUDENC_ANA_CON9_L_PREAMP_POWER_MASK));
             ANA_SET_REG((AUDENC_ANA_CON10),
-                        ((0 << AUDENC_ANA_CON10_R_POWER_UP_POS)|(0 << AUDENC_ANA_CON10_R_PREAMP_POWER_POS)),
+                        ((0 << AUDENC_ANA_CON10_R_POWER_UP_POS) | (0 << AUDENC_ANA_CON10_R_PREAMP_POWER_POS)),
                         (AUDENC_ANA_CON10_R_POWER_UP_MASK | AUDENC_ANA_CON10_R_PREAMP_POWER_MASK));
 
             if (g_adc01_counter == 0) { //adc0123 all off
                 //0x3030
                 ANA_SET_REG((AUDENC_ANA_CON34),
-                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS)|(1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
-                            (AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK|AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
+                            ((1 << AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_POS)),
+                            (AUDENC_ANA_CON34_ADC01_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK | AUDENC_ANA_CON34_ADC01_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
                 //0x3838
                 ANA_SET_REG((AUDENC_ANA_CON35),
-                            ((1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS)|(1<<AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS)|(1<<AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS)|(1<<AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS)),
-                            (AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK|AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK|AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK|AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_MASK));
+                            ((1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS)),
+                            (AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK | AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK | AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK | AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_MASK));
             } else {
                 // Modify flow to power off last ADC23 channel, adc01 exist
                 ANA_SET_REG((AUDENC_ANA_CON32), (1 << 9), (1 << 9));
@@ -7067,8 +7136,8 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool hal_audio_ana_set_adc23_enable(hal_audio_devi
                             (AUDENC_ANA_CON34_ADC01LDO_L_SW_EN_MASK | AUDENC_ANA_CON34_ADC01LDO_R_SW_EN_MASK));
                 //0x3838
                 ANA_SET_REG((AUDENC_ANA_CON35),
-                            ((1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS)|(1<<AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS)|(1<<AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS)|(1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS)|(1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS)|(1<<AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS)),
-                            (AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK|AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK|AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK|AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK|AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK|AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_MASK));
+                            ((1 << AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_POS) | (1 << AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_POS) | (1 << AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_POS) | (1 << AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_POS)),
+                            (AUDENC_ANA_CON35_ADC23LDO_L_SW_EN_MASK | AUDENC_ANA_CON35_ADC23_L_CLK_FROM_DL_MASK | AUDENC_ANA_CON35_ADC23_L_CLK_HALF_RST_MASK | AUDENC_ANA_CON35_ADC23_R_CLK_FROM_DL_MASK | AUDENC_ANA_CON35_ADC23LDO_R_SW_EN_MASK | AUDENC_ANA_CON35_ADC23_R_CLK_HALF_RST_MASK));
             }
 
             //Global off
@@ -7133,14 +7202,15 @@ void hal_audio_ana_set_dac_reset(void)
     AFE_WRITE(ZCD_CON2, 0xFFF);
 }
 
-uint32_t hal_audio_gain_mapping_enable(uint32_t gain_value, hal_audio_performance_mode_t dac_performance) {
+uint32_t hal_audio_gain_mapping_enable(uint32_t gain_value, hal_audio_performance_mode_t dac_performance)
+{
     uint32_t mapping_value;
     if ((dac_performance == AFE_PEROFRMANCE_NORMAL_MODE) || (dac_performance == AFE_PEROFRMANCE_LOW_POWER_MODE)) {
-        mapping_value = ((((gain_value & ZCD_CON2_L_GAIN_MASK)-6) << ZCD_CON2_R_GAIN_POS) | ((gain_value & ZCD_CON2_L_GAIN_MASK)-6));
+        mapping_value = ((((gain_value & ZCD_CON2_L_GAIN_MASK) - 6) << ZCD_CON2_R_GAIN_POS) | ((gain_value & ZCD_CON2_L_GAIN_MASK) - 6));
     } else {
-        mapping_value= gain_value;
+        mapping_value = gain_value;
     }
-    HAL_AUDIO_LOG_INFO("[DEBUG] gain value:0x%x, mapping_value:0x%x",2,gain_value, mapping_value);
+    HAL_AUDIO_LOG_INFO("[DEBUG] gain value:0x%x, mapping_value:0x%x", 2, gain_value, mapping_value);
     return mapping_value;
 }
 
@@ -7171,13 +7241,11 @@ bool hal_audio_ana_set_dac_classg_enable(hal_audio_device_parameter_dac_t *dac_p
         if ((dac_parameter->dc_compensation_value) || (!first_boot)) {
             if (dac_parameter->dac_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSAB) {
                 AFE_WRITE(AFE_CLASSOP_CFG0, 0x00000040);
-                AFE_WRITE(AFE_CLASSG_CFG2, 0x0000104B);
                 AFE_WRITE(AFE_CLASSG_CFG3, 0x104B0000);              //classg threshold initial setting, allen cmm no this line
                 AFE_WRITE(AFE_CLASSG_CFG4, 0x0);                     //classg level up & level down transition time selection
                 AFE_WRITE(AFE_CLASSG_CFG1, 0x00181831);              //set classg preview window to 500us
             } else if (dac_parameter->performance == AFE_PEROFRMANCE_LOW_POWER_MODE) {
                 AFE_WRITE(AFE_CLASSOP_CFG0, 0x00000042);
-                AFE_WRITE(AFE_CLASSG_CFG2, 0x00000818);
                 AFE_WRITE(AFE_CLASSG_CFG3, 0x1D640000);              //classg threshold initial setting, allen cmm no this line
                 AFE_WRITE(AFE_CLASSG_CFG4, 0xFEDFED80);              //classg level up & level down transition time selection
                 AFE_WRITE(AFE_CLASSG_CFG1, 0x00181831);              //set classg preview window to 500us
@@ -7224,9 +7292,9 @@ bool hal_audio_ana_set_dac_classg_enable(hal_audio_device_parameter_dac_t *dac_p
         AFE_WRITE(AFE_GAIN_REMAP, 0x00000000);
 
         //if (dac_parameter->performance == AFE_PEROFRMANCE_HIGH_MODE) {
-            //AFE_WRITE(AFE_GAIN_REMAP, 0x00000000);
+        //AFE_WRITE(AFE_GAIN_REMAP, 0x00000000);
         //} else if ((dac_parameter->performance == AFE_PEROFRMANCE_NORMAL_MODE) || (dac_parameter->performance == AFE_PEROFRMANCE_LOW_POWER_MODE)) {
-            //AFE_WRITE(AFE_GAIN_REMAP, 0x00000001);
+        //AFE_WRITE(AFE_GAIN_REMAP, 0x00000001);
         //}
 
         hal_audio_afe_enable_common_global(AFE_ANALOG_DAC, true);
@@ -7315,9 +7383,9 @@ bool hal_audio_ana_set_dac_classg_enable(hal_audio_device_parameter_dac_t *dac_p
         ANA_WRITE(AUDDEC_ANA_CON3, 0x00008200);
         //ANA_WRITE(AUDDEC_ANA_CON4, dac_parameter->dc_compensation_value);
         ANA_SET_REG((AUDDEC_ANA_CON4),
-            (dac_parameter->dc_compensation_value),
-            (((AUDDEC_ANA_CON4_HPL_TRIM_MASK | AUDDEC_ANA_CON4_HPL_FINE_MASK)*l_on) |
-            ((AUDDEC_ANA_CON4_HPR_TRIM_MASK | AUDDEC_ANA_CON4_HPR_FINE_MASK)*r_on)));
+                    (dac_parameter->dc_compensation_value),
+                    (((AUDDEC_ANA_CON4_HPL_TRIM_MASK | AUDDEC_ANA_CON4_HPL_FINE_MASK)*l_on) |
+                     ((AUDDEC_ANA_CON4_HPR_TRIM_MASK | AUDDEC_ANA_CON4_HPR_FINE_MASK)*r_on)));
         //printf("[DEBUG] dc_compensation_value: 0x%x, AUDDEC_ANA_CON4: 0x%x",dac_parameter->dc_compensation_value,ANA_GET_REG(AUDDEC_ANA_CON4));
         ANA_SET_REG(AUDDEC_ANA_CON10, (l_on << AUDDEC_ANA_CON10_HPL_TBENHVCM_BUF_EN_EN_POS) | (r_on << AUDDEC_ANA_CON10_HPR_TBENHVCM_BUF_EN_EN_POS)
                     , (AUDDEC_ANA_CON10_HPL_TBENHVCM_BUF_EN_EN_MASK) | (AUDDEC_ANA_CON10_HPR_TBENHVCM_BUF_EN_EN_MASK)); //STEREO: 0x00009173
@@ -7909,27 +7977,27 @@ bool hal_audio_ana_set_dac_classd_enable(hal_audio_device_parameter_dac_t *dac_p
     return false;
 }
 
-void hal_audio_process_rg_table(const afe_register_operate_table_t* Ope_tbl, uint32_t tbl_size, uint32_t condi_max, uint32_t condi_idx)
+void hal_audio_process_rg_table(const afe_register_operate_table_t *Ope_tbl, uint32_t tbl_size, uint32_t condi_max, uint32_t condi_idx)
 {
 
-    if ((condi_idx < 1) ||(condi_max < condi_idx)) {
-        HAL_AUDIO_LOG_WARNING("DSP - Warning hal_audio_process_rg_table fail condi_max:%d, condi_idx:%d",2,condi_max,condi_idx);
+    if ((condi_idx < 1) || (condi_max < condi_idx)) {
+        HAL_AUDIO_LOG_WARNING("DSP - Warning hal_audio_process_rg_table fail condi_max:%d, condi_idx:%d", 2, condi_max, condi_idx);
         return;
     }
 
     uint32_t i = 0;
 
-    while (i<tbl_size) {
+    while (i < tbl_size) {
         if (Ope_tbl[i].operate == AFE_RG_TABLE_OPERATE_WRITE) {
-            AFE_WRITE(Ope_tbl[i].addr,Ope_tbl[i].val);
-        } else if (Ope_tbl[i].operate == AFE_RG_TABLE_OPERATE_DELAY){
+            AFE_WRITE(Ope_tbl[i].addr, Ope_tbl[i].val);
+        } else if (Ope_tbl[i].operate == AFE_RG_TABLE_OPERATE_DELAY) {
             if (Ope_tbl[i].addr == AFE_RG_TABLE_DELAY_US) {
                 HAL_AUDIO_DELAY_US(Ope_tbl[i].val);
-            } else if (Ope_tbl[i].addr == AFE_RG_TABLE_DELAY_MS){
+            } else if (Ope_tbl[i].addr == AFE_RG_TABLE_DELAY_MS) {
                 HAL_AUDIO_DELAY_MS(Ope_tbl[i].val);
             }
-        } else if (Ope_tbl[i].operate == AFE_RG_TABLE_OPERATE_JUMP){
-            AFE_WRITE(Ope_tbl[i+condi_idx].addr,Ope_tbl[i+condi_idx].val);
+        } else if (Ope_tbl[i].operate == AFE_RG_TABLE_OPERATE_JUMP) {
+            AFE_WRITE(Ope_tbl[i + condi_idx].addr, Ope_tbl[i + condi_idx].val);
             i += condi_max;
         }
         i++;
@@ -7946,21 +8014,58 @@ bool hal_audio_ana_set_dac_open_loop_classd_enable(hal_audio_device_parameter_da
 
     if(enable){
         AFE_SET_REG(AUDIO_TOP_CON0, 0 << AUDIO_TOP_CON0_PDN_OL_CLD_POS, AUDIO_TOP_CON0_PDN_OL_CLD_MASK);
+        AFE_SET_REG(AFE_CLASSG_LPSLCH_CFG0, 0x0 <<  AFE_CLASSG_LPSLCH_CFG0_STG_CTRL_POS, AFE_CLASSG_LPSLCH_CFG0_STG_CTRL_MASK);
+        AFE_SET_REG(AFE_CLASSOP_CFG0, 0x3 <<  AFE_CLASSOP_CFG0_CLASSOP_MODE_POS, AFE_CLASSOP_CFG0_CLASSOP_MODE_MASK);
+        AFE_SET_REG(AFE_CLASSG_CFG5, (0x0 << AFE_CLASSG_CFG5_CLASSG_AD_VCMT_FASTVCM_POS) | (0x1 << AFE_CLASSG_CFG5_CLASSG_AD_VCMT_FASTVCM_SW_MODE_POS) , (AFE_CLASSG_CFG5_CLASSG_AD_VCMT_FASTVCM_MASK | AFE_CLASSG_CFG5_CLASSG_AD_VCMT_FASTVCM_SW_MODE_MASK));
+        AFE_SET_REG(AFE_CFG_EFUSE_CLASSD0,
+                    (0x1 << AFE_CFG_EFUSE_CLASSD0_AUDOLD_GAIN_COMP_LCH_EN_POS) | (0x1 << AFE_CFG_EFUSE_CLASSD0_AUDOLD_DC_COMP_LCH_EN_POS) |  (0x31 << AFE_CFG_EFUSE_CLASSD0_AUDOLD_GAIN_COMP_LCH_POS) | (0x64 << AFE_CFG_EFUSE_CLASSD0_AUDOLD_DC_COMP_LCH_POS),
+                    (AFE_CFG_EFUSE_CLASSD0_AUDOLD_GAIN_COMP_LCH_EN_MASK | AFE_CFG_EFUSE_CLASSD0_AUDOLD_DC_COMP_LCH_EN_MASK | AFE_CFG_EFUSE_CLASSD0_AUDOLD_GAIN_COMP_LCH_MASK | AFE_CFG_EFUSE_CLASSD0_AUDOLD_DC_COMP_LCH_MASK));
+        AFE_SET_REG(AFE_CFG_EFUSE_CLASSD1, (0x9 << AFE_CFG_EFUSE_CLASSD1_AUDOLD_CLKDLY26M_COMP_LCH_POS) | (0x0 << AFE_CFG_EFUSE_CLASSD1_AUDOLD_PNDLY26M_COMP_LCH_POS) , (AFE_CFG_EFUSE_CLASSD1_AUDOLD_CLKDLY26M_COMP_LCH_MASK | AFE_CFG_EFUSE_CLASSD1_AUDOLD_PNDLY26M_COMP_LCH_MASK));
+        AFE_SET_REG(AFE_CLD_DA_GEN, 0x1 << AFE_CLD_DA_GEN_RG_ENABLE_POS, AFE_CLD_DA_GEN_RG_ENABLE_MASK);
+        AFE_SET_REG(AFE_CLD_DA_GEN_SEL,
+                    (0x1 << AFE_CLD_DA_GEN_SEL_EN_H_HOLD_SW_MODE_POS) | (0x0 << AFE_CLD_DA_GEN_SEL_EN_H_HOLD_SW_POS) | (0x0 << AFE_CLD_DA_GEN_SEL_SET_ZCD_OL_6P5M_DLY_POS) | (0x0 << AFE_CLD_DA_GEN_SEL_SET_ZCD_OL_26M_DLY_POS) | (0x0 << AFE_CLD_DA_GEN_SEL_SET_ZCD_CL_6P5M_DLY_POS) | (0x0 << AFE_CLD_DA_GEN_SEL_SET_ZCD_CL_26M_DLY_POS),
+                    (AFE_CLD_DA_GEN_SEL_EN_H_HOLD_SW_MODE_MASK | AFE_CLD_DA_GEN_SEL_EN_H_HOLD_SW_MASK | AFE_CLD_DA_GEN_SEL_SET_ZCD_OL_6P5M_DLY_MAKS | AFE_CLD_DA_GEN_SEL_SET_ZCD_OL_26M_DLY_MASK | AFE_CLD_DA_GEN_SEL_SET_ZCD_CL_6P5M_DLY_MAKS | AFE_CLD_DA_GEN_SEL_SET_ZCD_CL_26M_DLY_MASK));
+        AFE_SET_REG(AFE_CLD_CL_MISC_SET, 0x020071B0 , 0xFFFFFFFE);
+        AFE_SET_REG(AFE_CLD_CL_DA_812P5K_SET, 0x1 << AFE_CLD_CL_DA_812P5K_SET_AD_812P5K_POS_NEG_INV_POS, AFE_CLD_CL_DA_812P5K_SET_AD_812P5K_POS_NEG_INV_MASK);
+        AFE_SET_REG(AFE_CLD_CL_CON0, 0x1 << AFE_CLD_CL_CON0_AUD_CLD_ENABLE_POS , AFE_CLD_CL_CON0_AUD_CLD_ENABLE_MASK);
+        AFE_SET_REG(AFE_CLD_CL_CON0,
+                    (0x0 << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_POS) | (0x1 << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_POS) | (0x0 << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_POS) | (0x8 <<AFE_CLD_CL_CON0_SDM_ZERO_CNT_POS),
+                    (AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_MASK | AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_MASK | AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_MODE_SEL_MASK | AFE_CLD_CL_CON0_SDM_ZERO_CNT_MASK));
+
+        AFE_SET_REG(AFE_ADDA_UL_DL_CON0, 0x1 << AFE_ADDA_UL_DL_CON0_ADDA_AFE_ON_POS , AFE_ADDA_UL_DL_CON0_ADDA_AFE_ON_MASK);
+
+        AFE_SET_REG(AFE_ADDA_DL_SRC2_CON1, 0xFFFF << AFE_ADDA_DL_SRC2_CON1_DL_2_GAIN_CTL_PRE_POS , AFE_ADDA_DL_SRC2_CON1_DL_2_GAIN_CTL_PRE_MASK);
+        AFE_SET_REG(AFE_ADDA_DL_SRC2_CON0,
+                    (0x1 << AFE_ADDA_DL_SRC2_CON0_DL_2_SRC_ON_TMP_CTL_PRE_POS) | (0x1 << AFE_ADDA_DL_SRC2_CON0_DL_2_GAIN_ON_CTL_PRE_POS) | (0x3 << AFE_ADDA_DL_SRC2_CON0_DL_2_OUTPUT_SEL_CTL_POS) | (0x8 << AFE_ADDA_DL_SRC2_CON0_DL_2_INPUT_MODE_CTL_POS),
+                    (AFE_ADDA_DL_SRC2_CON0_DL_2_SRC_ON_TMP_CTL_PRE_MASK | AFE_ADDA_DL_SRC2_CON0_DL_2_GAIN_ON_CTL_PRE_MASK | AFE_ADDA_DL_SRC2_CON0_DL_2_OUTPUT_SEL_CTL_MASK | AFE_ADDA_DL_SRC2_CON0_DL_2_INPUT_MODE_CTL_MASK));
+
         hal_save_adc_performance_mode(AFE_ANALOG_DAC, dac_parameter->performance);
         hal_volume_set_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT, dac_parameter->dac_mode);
-
         hal_audio_dl_set_sdm_enable(enable);
         hal_audio_afe_enable_common_global(AFE_ANALOG_DAC, enable);
         hal_audio_process_rg_table(dac_open_classd_enable_tbl,sizeof(dac_open_classd_enable_tbl)/sizeof(afe_register_operate_table_t),1,1);
+        AFE_SET_REG(AFE_CLD_CL_CON0,
+                    (0x0 << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_POS) | (0x0 << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_POS) | (0x0 << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_MODE_SEL_POS) | (0x8 << AFE_CLD_CL_CON0_SDM_ZERO_CNT_POS),
+                    (AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_MASK | AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_MASK | AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_MODE_SEL_MASK | AFE_CLD_CL_CON0_SDM_ZERO_CNT_MASK));
+
     } else {
+        AFE_WRITE(AUDDEC_ANA_CON22,0x00000700);
+        HAL_AUDIO_DELAY_US(250);
+        AFE_SET_REG(AFE_ADDA_DL_SRC2_CON1, 0x1 << AFE_ADDA_DL_SRC2_CON1_DL_2_GAIN_CTL_PRE_POS, AFE_ADDA_DL_SRC2_CON1_DL_2_GAIN_CTL_PRE_MASK);
+        AFE_SET_REG(AFE_ADDA_DL_SRC2_CON0,
+                    (0x1 << AFE_ADDA_DL_SRC2_CON0_DL_2_SRC_ON_TMP_CTL_PRE_POS) | (0x0 << AFE_ADDA_DL_SRC2_CON0_DL_2_GAIN_ON_CTL_PRE_POS) | (0x3 << AFE_ADDA_DL_SRC2_CON0_DL_2_OUTPUT_SEL_CTL_POS) | (0x8 << AFE_ADDA_DL_SRC2_CON0_DL_2_INPUT_MODE_CTL_POS),
+                    (AFE_ADDA_DL_SRC2_CON0_DL_2_SRC_ON_TMP_CTL_PRE_MASK | AFE_ADDA_DL_SRC2_CON0_DL_2_GAIN_ON_CTL_PRE_MASK | AFE_ADDA_DL_SRC2_CON0_DL_2_OUTPUT_SEL_CTL_MASK | AFE_ADDA_DL_SRC2_CON0_DL_2_INPUT_MODE_CTL_MASK));
+        AFE_SET_REG(AFE_CLD_CL_CON0,
+                    (0x1 << AFE_CLD_CL_CON0_AUD_CLD_ENABLE_POS) | (0x1 << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_POS) | (0x0 << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_POS) | (0x0 << AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_MODE_SEL_POS) | (0x8 << AFE_CLD_CL_CON0_SDM_ZERO_CNT_POS),
+                    (AFE_CLD_CL_CON0_AUD_CLD_ENABLE_MASK | AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_MASK | AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_FORCE_RST_MASK | AFE_CLD_CL_CON0_AUD_CLD_SDM_SW_RST_MODE_SEL_MASK | AFE_CLD_CL_CON0_SDM_ZERO_CNT_MASK));
         hal_audio_process_rg_table(dac_open_classd_disable_tbl,sizeof(dac_open_classd_disable_tbl)/sizeof(afe_register_operate_table_t),1,1);
         AFE_SET_REG(AUDIO_TOP_CON0, 1 << AUDIO_TOP_CON0_PDN_OL_CLD_POS, AUDIO_TOP_CON0_PDN_OL_CLD_MASK);
         hal_audio_afe_enable_common_global(AFE_ANALOG_DAC, enable);
         hal_audio_dl_set_sdm_enable(enable);
     }
-
     return false;
 }
+
 
 
 #endif /*HAL_AUDIO_MODULE_ENABLED*/

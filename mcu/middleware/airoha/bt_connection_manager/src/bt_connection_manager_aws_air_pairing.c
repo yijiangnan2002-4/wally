@@ -220,7 +220,7 @@ static void         bt_aws_mce_srv_air_pairing_inq_ind_handle(bt_gap_inquiry_ind
         bt_os_layer_aes_buffer_t decrypted_data;
         bt_os_layer_aes_buffer_t plain_text;
         bt_os_layer_aes_buffer_t aes_key;
-        uint8_t air_pairing_length = sizeof(g_aws_mce_air_pairing_cnt.cnt.air_pairing_info) + sizeof(bt_key_t);
+        uint32_t air_pairing_length = sizeof(g_aws_mce_air_pairing_cnt.cnt.air_pairing_info) + sizeof(bt_key_t);
         uint8_t air_pairing_rsp[air_pairing_length];
 
         decrypted_data.buffer = (uint8_t *)&air_pairing_rsp;
@@ -289,7 +289,7 @@ static void         bt_aws_mce_srv_air_pairing_write_iac_cnf(void)
     bt_os_layer_aes_buffer_t encryped_key;
     bt_os_layer_aes_buffer_t plain_text;
     bt_os_layer_aes_buffer_t aes_key;
-    uint8_t air_info_length = sizeof(g_aws_mce_air_pairing_cnt.cnt.air_pairing_info) + sizeof(bt_key_t);
+    uint32_t air_info_length = sizeof(g_aws_mce_air_pairing_cnt.cnt.air_pairing_info) + sizeof(bt_key_t);
     uint8_t air_info[air_info_length];
     uint8_t eir_data[air_info_length + 4];
     memset(air_info, 0, sizeof(air_info));

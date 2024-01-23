@@ -63,6 +63,10 @@ typedef struct {
 #ifdef  AIR_MULTI_POINT_ENABLE
     bt_a2dp_codec_capability_t codec_cap;
 #endif
+#if (BT_A2DP_TOTAL_LINK_NUM>3)
+    bt_sink_srv_state_manager_play_count_t avrcp_play_count; //to recorder AVRCP Playing order
+    bt_sink_srv_state_manager_play_count_t a2dp_start_count;  //to recorder A2DP start order
+#endif
 } bt_sink_srv_music_change_context_t;
 
 #ifdef  AIR_MULTI_POINT_ENABLE

@@ -92,6 +92,7 @@ typedef uint8_t bt_cm_common_type_t;
 #define BT_CM_RHO_PREPARE_WAIT_FLAG_LINK_POLICY         (0x02)
 #define BT_CM_RHO_PREPARE_WAIT_FLAG_EXIT_SNIFF          (0x04)
 #define BT_CM_RHO_PREPARE_WAIT_FLAG_CANCEL_CONNECTION   (0x08)
+#define BT_CM_RHO_PREPARE_WAIT_FLAG_DISCONNECT_DEVICE   (0x10)
 typedef uint8_t bt_cm_rho_prepare_wait_flag_t;
 
 extern bt_cm_rho_prepare_wait_flag_t g_bt_cm_rho_flags_t;
@@ -183,14 +184,16 @@ bt_status_t bt_cm_reset_sniff_parameters();
 uint32_t    bt_cm_get_connecting_devices(bt_cm_profile_service_mask_t profiles, bt_bd_addr_t *addr_list, uint32_t list_num);
 
 
-bt_status_t bt_cm_set_max_connection_number(uint8_t number, bt_bd_addr_t *keep_list, uint8_t list_size, bool if_recon);
+bt_status_t bt_cm_set_max_connection_number(uint32_t number, bt_bd_addr_t *keep_list, uint32_t list_size, bool if_recon);
 
 bool bt_cm_is_disconnecting_aws_device(bt_bd_addr_t device_addr);
 
 void bt_cm_cancel_connect_timeout_callback(void *param);
 
-void bt_cm_power_on_reconnect(uint8_t reconnect_num);
+void bt_cm_power_on_reconnect(uint32_t reconnect_num);
 uint32_t bt_cm_get_acl_connected_device(bt_bd_addr_t *addr_list, uint32_t list_num);
+void bt_cm_reply_prepare_rho_request(void *param);
+
 
 /* End */
 

@@ -87,6 +87,7 @@
 typedef enum {
     SBC_ENCODER_ONE_SHOT_MODE = 0,
     SBC_ENCODER_BUFFER_MODE,
+    SBC_ENCODER_BUFFER_MODE_MAX = 0xFFFFFFFF
 } sbc_enc_mode;
 typedef struct {
     void *handle;

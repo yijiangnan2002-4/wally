@@ -129,9 +129,9 @@ Data Fields</h2></td></tr>
 <tr class="memitem:a3590925789f63df8258823a2d62649b0"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structbt__codec__vendor__t.html#a3590925789f63df8258823a2d62649b0">vendor_id</a></td></tr>
 <tr class="memdesc:a3590925789f63df8258823a2d62649b0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Indicate codec id, from audio source.  <a href="#a3590925789f63df8258823a2d62649b0">More...</a><br /></td></tr>
 <tr class="separator:a3590925789f63df8258823a2d62649b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2b8bdf2ccdee1cc9e95e8ec7714b68d2"><td class="memItemLeft" align="right" valign="top">uint8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structbt__codec__vendor__t.html#a2b8bdf2ccdee1cc9e95e8ec7714b68d2">resolution</a></td></tr>
-<tr class="memdesc:a2b8bdf2ccdee1cc9e95e8ec7714b68d2"><td class="mdescLeft">&#160;</td><td class="mdescRight">bits per sample b0: 32bit, b1: 24bit, b2: 16bit.  <a href="#a2b8bdf2ccdee1cc9e95e8ec7714b68d2">More...</a><br /></td></tr>
-<tr class="separator:a2b8bdf2ccdee1cc9e95e8ec7714b68d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f72c53330d3ac8b996f9cbe38dfd16f"><td class="memItemLeft" align="right" valign="top">uint8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structbt__codec__vendor__t.html#a9f72c53330d3ac8b996f9cbe38dfd16f">duration_resolution</a></td></tr>
+<tr class="memdesc:a9f72c53330d3ac8b996f9cbe38dfd16f"><td class="mdescLeft">&#160;</td><td class="mdescRight">b4~b6: 2.5ms, 5ms, 10ms, bits per sample b0: 32bit, b1: 24bit, b2: 16bit.  <a href="#a9f72c53330d3ac8b996f9cbe38dfd16f">More...</a><br /></td></tr>
+<tr class="separator:a9f72c53330d3ac8b996f9cbe38dfd16f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a220e48a0b96c3b78ccc36ee4eadcf761"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structbt__codec__vendor__t.html#a220e48a0b96c3b78ccc36ee4eadcf761">is_raw_mode</a></td></tr>
 <tr class="memdesc:a220e48a0b96c3b78ccc36ee4eadcf761"><td class="mdescLeft">&#160;</td><td class="mdescRight">Indicate raw mode.  <a href="#a220e48a0b96c3b78ccc36ee4eadcf761">More...</a><br /></td></tr>
 <tr class="separator:a220e48a0b96c3b78ccc36ee4eadcf761"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -170,6 +170,20 @@ Data Fields</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Indicate codec id, default setting is 0xFF. </p>
+
+</div>
+</div>
+<a class="anchor" id="a9f72c53330d3ac8b996f9cbe38dfd16f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint8_t duration_resolution</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>b4~b6: 2.5ms, 5ms, 10ms, bits per sample b0: 32bit, b1: 24bit, b2: 16bit. </p>
 
 </div>
 </div>
@@ -216,20 +230,6 @@ Data Fields</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a2b8bdf2ccdee1cc9e95e8ec7714b68d2"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint8_t resolution</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>bits per sample b0: 32bit, b1: 24bit, b2: 16bit. </p>
-
-</div>
-</div>
 <a class="anchor" id="ac92ba115f08e98bf55e1e59b66e2f6d6"></a>
 <div class="memitem">
 <div class="memproto">
@@ -267,7 +267,7 @@ Data Fields</h2></td></tr>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="structbt__codec__vendor__t.html">bt_codec_vendor_t</a></li>
-    <li class="footer">Generated on Thu Sep 28 2023 17:13:34 for AB158x Series MCU API Reference by
+    <li class="footer">Generated on Fri Dec 29 2023 02:13:07 for AB158x Series MCU API Reference by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.11 </li>
   </ul>

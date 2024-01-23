@@ -397,7 +397,7 @@ uint32_t voice_prompt_get_current_index()
 
 uint8_t voice_prompt_get_current_language()
 {
-    uint8_t index = VOICE_PROMPT_VP_LEANGUAGE_INVALID;
+    uint8_t index = VOICE_PROMPT_VP_LANGUAGE_INVALID;
 
 #ifndef AIR_PROMPT_SOUND_ENABLE
     //VP_LOG_MSGID_E(LOG_TAG" feature option not enable", 0);
@@ -450,7 +450,7 @@ voice_prompt_status_t voice_prompt_set_language(uint8_t lang_idx, bool sync)
 
 voice_prompt_status_t voice_prompt_set_language_by_LCID(voice_prompt_lang_codec_t codec, bool sync)
 {
-    return voice_prompt_set_language_internal(VOICE_PROMPT_VP_LEANGUAGE_INVALID, codec, sync);
+    return voice_prompt_set_language_internal(VOICE_PROMPT_VP_LANGUAGE_INVALID, codec, sync);
 }
 
 uint16_t voice_prompt_get_support_language_count()
@@ -517,14 +517,14 @@ voice_prompt_status_t voice_prompt_play_sync_vp_press()
     return voice_prompt_play_sync_vp_x(VP_INDEX_PRESS);
 }
 
-voice_prompt_status_t voice_prompt_play_vp_successed()
+voice_prompt_status_t voice_prompt_play_vp_succeed()
 {
-    return voice_prompt_play_vp_x(VP_INDEX_SUCCESSED);
+    return voice_prompt_play_vp_x(VP_INDEX_SUCCEED);
 }
 
-voice_prompt_status_t voice_prompt_play_sync_vp_successed()
+voice_prompt_status_t voice_prompt_play_sync_vp_succeed()
 {
-    return voice_prompt_play_sync_vp_x(VP_INDEX_SUCCESSED);
+    return voice_prompt_play_sync_vp_x(VP_INDEX_SUCCEED);
 }
 
 voice_prompt_status_t voice_prompt_play_vp_failed()

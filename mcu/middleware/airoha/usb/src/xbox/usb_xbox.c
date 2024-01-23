@@ -349,23 +349,23 @@ void USB_XBOX_Audio_IsoIn_Hdr(void)
     }
 }
 
+/* EP Intr In reset handler */
+void USB_XBOX_Ctrl_IntrIn_Reset(void)
+{
+}
+
 /* EP Intr Out reset handler */
 void USB_XBOX_Ctrl_IntrOut_Reset(void)
 {
 }
 
+/* EP Iso In reset handler */
+void USB_XBOX_Audio_IsoIn_Reset(void)
+{
+}
+
 /* EP Iso Out reset handler */
 void USB_XBOX_Audio_IsoOut_Reset(void)
-{
-}
-
-/* EP Intr Out reset handler */
-void USB_XBOX_Ctrl_IntrIn_Reset(void)
-{
-}
-
-/* EP Iso Out reset handler */
-void USB_XBOX_Audio_IsoIn_Reset(void)
 {
 }
 
@@ -652,3 +652,4 @@ void USB_XBOX_AudioIf_Speed_Reset(bool b_other_speed)
 }
 
 #endif /* AIR_USB_XBOX_ENABLE */
+

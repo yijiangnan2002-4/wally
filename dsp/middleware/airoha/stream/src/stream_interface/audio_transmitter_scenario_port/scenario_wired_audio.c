@@ -34,6 +34,7 @@
 
 #if defined (AIR_WIRED_AUDIO_ENABLE)
 
+#include "scenario_audio_common.h"
 #include "scenario_wired_audio.h"
 #include "dsp_dump.h"
 #include "dsp_share_memory.h"
@@ -106,7 +107,8 @@ sw_mixer_member_t *g_main_stream_mixer_member = NULL;
 sw_mixer_member_t *g_sub_stream_mixer_member[SUB_STREAM_MIXER_MEMBER] = {NULL};
 
 sw_mixer_member_t *g_usb_in_out_mixer_member;
-src_fixed_ratio_port_t *g_usb_in_out_src_port;
+static sw_src_port_t *g_usb_in_out_src_port;
+static sw_src_config_t g_usb_in_out_sw_src_config;
 uint32_t g_usb_in_out_pre_sampling_rate = WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE;
 sw_gain_port_t *g_usb_in_out_sw_gain_port;
 copy_to_virtual_source_port_t *g_usb_in_out_copy_to_virtual_source_port;
@@ -129,10 +131,8 @@ int8_t usb_audio_start_number = 0;
 CONNECTION_IF *g_application_ptr_usb_in_0 = NULL;
 CONNECTION_IF *g_application_ptr_usb_in_1 = NULL;
 
-extern stream_feature_list_t stream_feature_list_wired_audio_usb_in_0_surround_audio[];
 extern stream_feature_list_t stream_feature_list_wired_audio_usb_in_0_seperate_peq[];
 extern stream_feature_list_t stream_feature_list_wired_audio_usb_in_0_passthrough[];
-extern stream_feature_list_t stream_feature_list_wired_audio_usb_in_1_no_peq[];
 extern stream_feature_list_t stream_feature_list_wired_audio_usb_in_1_seperate_peq[];
 extern stream_feature_list_t stream_feature_list_wired_audio_usb_out[];
 extern stream_feature_list_t stream_feature_list_wired_audio_usb_out_swb[];
@@ -201,190 +201,6 @@ static const int32_t g_wired_audio_sw_src_ratio[WIRED_AUDIO_MAX_SUPPORT_INPUT_SA
         {1, 0, 0}, /* 192K */
     },
 };
-
-WIRED_AUDIO_ATTR_TEXT_IN_IRAM static void ShareBufferCopy_I_16bit_to_D_16bit_8ch(uint32_t* src_buf, uint16_t* dest_buf1, uint16_t* dest_buf2, uint16_t* dest_buf3, uint16_t* dest_buf4, uint16_t* dest_buf5, uint16_t* dest_buf6, uint16_t* dest_buf7, uint16_t* dest_buf8, uint32_t samples)
-{
-    uint32_t data0;
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t data3;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data0 = src_buf[4*i + 0];
-        data1 = src_buf[4*i + 1];
-        data2 = src_buf[4*i + 2];
-        data3 = src_buf[4*i + 3];
-        dest_buf1[i] = ((uint16_t)(data0>> 0));
-        dest_buf2[i] = ((uint16_t)(data0>>16));
-        dest_buf3[i] = ((uint16_t)(data1>> 0));
-        dest_buf4[i] = ((uint16_t)(data1>>16));
-        dest_buf5[i] = ((uint16_t)(data2>> 0));
-        dest_buf6[i] = ((uint16_t)(data2>>16));
-        dest_buf7[i] = ((uint16_t)(data3>> 0));
-        dest_buf8[i] = ((uint16_t)(data3>>16));
-    }
-}
-
-WIRED_AUDIO_ATTR_TEXT_IN_IRAM static void ShareBufferCopy_I_24bit_to_D_32bit_1ch(uint8_t* src_buf, uint32_t* dest_buf, uint32_t samples)
-{
-    uint32_t i, left_sample, data0, data1, data2;
-
-    for (i = 0; i < samples / 4; i++) {
-        data0 = *((uint32_t *)src_buf+i*3+0);
-        data1 = *((uint32_t *)src_buf+i*3+1);
-        data2 = *((uint32_t *)src_buf+i*3+2);
-        dest_buf[i*4] = ((data0&0x00ffffff)<<8);
-        dest_buf[i*4+1] = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
-        dest_buf[i*4+2] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
-        dest_buf[i*4+3] = ((data2&0xffffff00));
-    }
-    left_sample = samples % 4;
-    if (left_sample == 1) {
-        data0 = *((uint32_t *)src_buf+i*3+0);
-        dest_buf[i*4] = ((data0&0x00ffffff)<<8);
-    } else if (left_sample == 2) {
-        data0 = *((uint32_t *)src_buf+i*3+0);
-        data1 = *((uint32_t *)src_buf+i*3+1);
-        dest_buf[i*4] = ((data0&0x00ffffff)<<8);
-        dest_buf[i*4+1] = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
-    } else if (left_sample == 3) {
-        data0 = *((uint32_t *)src_buf+i*3+0);
-        data1 = *((uint32_t *)src_buf+i*3+1);
-        data2 = *((uint32_t *)src_buf+i*3+2);
-        dest_buf[i*4] = ((data0&0x00ffffff)<<8);
-        dest_buf[i*4+1] = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
-        dest_buf[i*4+2] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
-    }
-}
-
-WIRED_AUDIO_ATTR_TEXT_IN_IRAM static void ShareBufferCopy_I_24bit_to_D_32bit_2ch(uint8_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t samples)
-{
-    uint32_t i, data0, data1, data2;
-
-    for (i = 0; i < (samples/2); i++) {
-        data0 = *((uint32_t *)src_buf+i*3+0);
-        data1 = *((uint32_t *)src_buf+i*3+1);
-        data2 = *((uint32_t *)src_buf+i*3+2);
-        dest_buf1[i*2]   = ((data0&0x00ffffff)<<8);
-        dest_buf2[i*2]   = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
-        dest_buf1[i*2+1] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
-        dest_buf2[i*2+1] = ((data2&0xffffff00));
-    }
-}
-
-WIRED_AUDIO_ATTR_TEXT_IN_IRAM static void ShareBufferCopy_I_24bit_to_D_32bit_8ch(uint32_t* src_buf, uint32_t* dest_buf1, uint32_t* dest_buf2, uint32_t* dest_buf3, uint32_t* dest_buf4, uint32_t* dest_buf5, uint32_t* dest_buf6, uint32_t* dest_buf7, uint32_t* dest_buf8, uint32_t samples)
-{
-    uint32_t data0;
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t data3;
-    uint32_t data4;
-    uint32_t data5;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data0 = src_buf[6*i + 0];
-        data1 = src_buf[6*i + 1];
-        data2 = src_buf[6*i + 2];
-        data3 = src_buf[6*i + 3];
-        data4 = src_buf[6*i + 4];
-        data5 = src_buf[6*i + 5];
-        dest_buf1[i] = (data0&0x00ffffff)<<8;
-        dest_buf2[i] = ((data1&0x0000ffff)<<16)|((data0&0xff000000)>>16);
-        dest_buf3[i] = ((data2&0x000000ff)<<24)|((data1&0xffff0000)>>8);
-        dest_buf4[i] = (data2&0xffffff00);
-        dest_buf5[i] = (data3&0x00ffffff)<<8;
-        dest_buf6[i] = ((data4&0x0000ffff)<<16)|((data3&0xff000000)>>16);
-        dest_buf7[i] = ((data5&0x000000ff)<<24)|((data4&0xffff0000)>>8);
-        dest_buf8[i] = (data5&0xffffff00);
-    }
-}
-
-WIRED_AUDIO_ATTR_TEXT_IN_IRAM static void ShareBufferCopy_D_16bit_to_I_24bit_2ch(uint16_t* src_buf1, uint16_t* src_buf2, uint8_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data32;
-    uint16_t data16;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        if ((i%2) == 0)
-        {
-            data32 = (src_buf1[i]<<8); // 0x00XXXX00
-            data16 = src_buf2[i]; //0xXXXX
-            *(uint32_t *)(dest_buf1 + i*6) = data32;
-            *(uint16_t *)(dest_buf1 + i*6 + 4) = data16;
-        }
-        else
-        {
-            data16 = (src_buf1[i]&0x00ff)<<8; //0xXX00
-            data32 = (src_buf2[i]<<16) | ((src_buf1[i]&0xff00)>>8); // 0xXXXX00XX
-            *(uint16_t *)(dest_buf1 + i*6) = data16;
-            *(uint32_t *)(dest_buf1 + i*6 + 2) = data32;
-        }
-    }
-}
-
-WIRED_AUDIO_ATTR_TEXT_IN_IRAM static void ShareBufferCopy_D_16bit_to_I_24bit_1ch(uint16_t* src_buf1, uint8_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data32;
-    uint32_t i, j;
-
-    j = 0;
-    for (i = 0; i < samples; i++) {
-        if ((i % 4) == 0) {
-            data32 = src_buf1[i] << 8; // 0x00XXXX00
-            *(uint32_t *)(dest_buf1 + j * 12) = data32;
-        } else if ((i % 4) == 1) {
-            data32 = src_buf1[i]; //0x0000XXXX
-            *(uint32_t *)(dest_buf1 + j * 12 + 4) = data32;
-        } else if ((i % 4) == 2) {
-            data32 = (src_buf1[i] & 0x00ff) << 24; // 0xXX000000
-            *(uint32_t *)(dest_buf1 + j * 12 + 4) |= data32;
-            data32 = (src_buf1[i] & 0xff00) >> 8;
-            *(uint32_t *)(dest_buf1 + j * 12 + 8) = data32;
-        } else {
-            data32 = src_buf1[i] << 16; // 0xXXXX0000
-            *(uint32_t *)(dest_buf1 + j * 12 + 8) |= data32;
-            j++;
-        }
-    }
-}
-
-ATTR_TEXT_IN_IRAM static void ShareBufferCopy_D_32bit_to_D_24bit_1ch(uint32_t* src_buf, uint8_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++)
-    {
-        data = src_buf[i];
-        *(dest_buf1+i*3+0) = (uint8_t)((data>> 8)&0xff);
-        *(dest_buf1+i*3+1) = (uint8_t)((data>>16)&0xff);
-        *(dest_buf1+i*3+2) = (uint8_t)((data>>24)&0xff);
-    }
-}
-
-ATTR_TEXT_IN_IRAM static void ShareBufferCopy_D_32bit_to_I_24bit_2ch(uint32_t* src_buf1, uint32_t* src_buf2, uint8_t* dest_buf1, uint32_t samples)
-{
-    uint32_t data1;
-    uint32_t data2;
-    uint32_t i;
-
-    for (i = 0; i < samples; i++) {
-        data1 = src_buf1[i];
-        data2 = src_buf2[i];
-        *(dest_buf1+i*6+0) = (uint8_t)((data1>> 8)&0xff);
-        *(dest_buf1+i*6+1) = (uint8_t)((data1>>16)&0xff);
-        *(dest_buf1+i*6+2) = (uint8_t)((data1>>24)&0xff);
-        *(dest_buf1+i*6+3) = (uint8_t)((data2>> 8)&0xff);
-        *(dest_buf1+i*6+4) = (uint8_t)((data2>>16)&0xff);
-        *(dest_buf1+i*6+5) = (uint8_t)((data2>>24)&0xff);
-    }
-}
 
 ATTR_TEXT_IN_RAM_FOR_MASK_IRQ static wired_audio_handle_t *wired_audio_alloc_handle(void *owner)
 {
@@ -1037,17 +853,17 @@ static void wired_audio_usb_in_start(mcu2dsp_start_param_p start_param, SOURCE s
         p_sink_buffer += dchs_buffer_size;
     }
     #ifdef AIR_DCHS_MODE_ENABLE
-    if(dchs_dl_ch_scenario_msg[LOCAL_SCENARIO_1].sink_buf_info == NULL){
-        dchs_dl_ch_scenario_msg[LOCAL_SCENARIO_1].sink_buf_info = &(sink->streamBuffer.BufferInfo);
+    #include "stream_mixer.h"
+    source_ch_type_t ch_type = mixer_stream_get_source_ch_by_scenario(AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_0);
+    AUDIO_ASSERT(ch_type != MIX_SCENARIO_MAX && "don't get USB IN ch");
+    if(mix_scenarios_msg[ch_type].sink_buf_info == NULL){
+        mix_scenarios_msg[ch_type].sink_buf_info = &(sink->streamBuffer.BufferInfo);
         WIRED_AUDIO_LOG_MSGID_I("[DCHS DL] get usb buf info", 0);
-        SOURCE dchs_dl_source = Source_blks[SOURCE_TYPE_UART];
-        if(dchs_dl_ch_scenario_msg[LOCAL_SCENARIO_1].sample_rate != dchs_dl_source->param.audio.rate){
-            if(!dchs_dl_check_hwsrc_enable(UART_SCENARIO)){
-                dchs_dl_source_ch_hwsrc_cfg(LOCAL_SCENARIO_1, HWSRC_1);
-                dchs_dl_source_ch_hwsrc_driver_control(LOCAL_SCENARIO_1, true);
-            }
+        SOURCE mixer_source = Source_blks[SOURCE_TYPE_MIXER];
+        if(mix_scenarios_msg[ch_type].sample_rate != mixer_source->param.audio.rate){
+            mixer_stream_source_ch_hwsrc_cfg(ch_type, AFE_MEM_ASRC_1);
+            mixer_stream_source_ch_hwsrc_driver_control(ch_type, true);
         }
-        dchs_dl_resume_dchs_task();
     }
     #endif
 #endif
@@ -1127,15 +943,9 @@ void wired_audio_usb_in_source_init(SOURCE source, audio_transmitter_open_param_
 
     dsp_frame_sample = (codec_pcm->sample_rate * codec_pcm->frame_interval) / (1000 * 1000);
     out_channel_num = codec_pcm->channel_mode;
-    if (codec_pcm->format == HAL_AUDIO_PCM_FORMAT_S24_LE) {
-        sample_bits = 32;
-        sample_byte = 4;
-        resolution = RESOLUTION_32BIT;
-    } else {
-        sample_bits = 16;
-        sample_byte = 2;
-        resolution = RESOLUTION_16BIT;
-    }
+    sample_bits = 32;
+    sample_byte = 4;
+    resolution = RESOLUTION_32BIT;
 
 #if defined(AIR_DCHS_MODE_ENABLE)
     if (open_param->scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_0) {
@@ -1223,22 +1033,28 @@ void wired_audio_usb_in_source_init(SOURCE source, audio_transmitter_open_param_
 
 #ifndef AIR_DCHS_MODE_ENABLE
     /* SW src config */
-    src_fixed_ratio_config_t smp_config = {0};
-
-    smp_config.channel_number = out_channel_num;
-    smp_config.in_sampling_rate = codec_pcm->sample_rate;
-    smp_config.out_sampling_rate = WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE;
-    smp_config.resolution = resolution;
-    smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE;
-    smp_config.cvt_num = 1;
-    smp_config.with_codec = false;
-    handle->src_fix_port = stream_function_src_fixed_ratio_get_port(source);
-    WIRED_AUDIO_LOG_MSGID_I("[USB_IN][start] src_fixed_ratio init: channel_number %d, in_sampling_rate %d, out_sampling_rate %d, resolution %d", 4,
-                                smp_config.channel_number,
-                                smp_config.in_sampling_rate,
-                                smp_config.out_sampling_rate,
-                                smp_config.resolution);
-    stream_function_src_fixed_ratio_init(handle->src_fix_port, &smp_config);
+    sw_src_config_t sw_src_config;
+    AUDIO_ASSERT(handle->src1_port == NULL);
+    sw_src_config.mode = SW_SRC_MODE_NORMAL;
+    sw_src_config.channel_num = out_channel_num;
+    sw_src_config.in_res = resolution;
+    sw_src_config.in_sampling_rate  = codec_pcm->sample_rate;
+    sw_src_config.in_frame_size_max = (sw_src_config.in_sampling_rate / 1000) * WIRED_AUDIO_USB_IN_PROCESS_PERIOD * sample_bits;
+    sw_src_config.out_res = resolution;
+    sw_src_config.out_sampling_rate = WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE;
+    sw_src_config.out_frame_size_max = (sw_src_config.out_sampling_rate / 1000) * WIRED_AUDIO_USB_IN_PROCESS_PERIOD * sample_bits;
+    handle->src1_port = stream_function_sw_src_get_port(source);
+    WIRED_AUDIO_LOG_MSGID_I("[USB_IN][start] sw src init: 0x%08x, %d, %d, %d, %d, %d, %d, %d, %d", 9,
+                                handle->src1_port,
+                                sw_src_config.mode,
+                                sw_src_config.channel_num,
+                                sw_src_config.in_res,
+                                sw_src_config.in_sampling_rate,
+                                sw_src_config.in_frame_size_max,
+                                sw_src_config.out_res,
+                                sw_src_config.out_sampling_rate,
+                                sw_src_config.out_frame_size_max);
+    stream_function_sw_src_init((sw_src_port_t *)handle->src1_port, &sw_src_config);
 
     /* SW mixer config, fix to 96K or 48K depend on WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE */
     sw_mixer_callback_config_t       callback_config;
@@ -1309,7 +1125,7 @@ void wired_audio_usb_in_out_source_init(SOURCE source)
 
     g_usb_in_out_source = source;
 
-    uint32_t src_dsp_frame_sample = (WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE * WIRED_AUDIO_DL_PROCESS_PERIOD) / (1000);
+    uint32_t src_dsp_frame_sample = (WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE * WIRED_AUDIO_USB_IN_PROCESS_PERIOD) / (1000);
     stream_function_sw_mixer_init(SW_MIXER_PORT_0);
 
     callback_config.preprocess_callback = NULL;
@@ -1348,23 +1164,28 @@ void wired_audio_usb_in_out_source_init(SOURCE source)
     WIRED_AUDIO_LOG_MSGID_I("[USB_IN_OUT][config][start] mix. \r\n", 0);
 
     /* SW src config */
-    src_fixed_ratio_config_t smp_config = {0};
-
-    smp_config.channel_number = 2;//out_channel_num;
-    smp_config.in_sampling_rate = g_usb_in_out_pre_sampling_rate;//WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE;//first open, use default rate.
-    smp_config.out_sampling_rate = WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE;
-    smp_config.resolution = RESOLUTION_32BIT;//resolution;
-    smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE;
-    smp_config.cvt_num = 1;
-    smp_config.with_codec = false;
-    g_usb_in_out_src_port = stream_function_src_fixed_ratio_get_port(source);
-    WIRED_AUDIO_LOG_MSGID_I("[USB_IN_OUT][config][start] src_fixed_ratio init: channel_number %d, in_sampling_rate %d, out_sampling_rate %d, resolution %d", 4,
-                                smp_config.channel_number,
-                                smp_config.in_sampling_rate,
-                                smp_config.out_sampling_rate,
-                                smp_config.resolution);
-    stream_function_src_fixed_ratio_init(g_usb_in_out_src_port, &smp_config);
-
+    sw_src_config_t sw_src_config;
+    sw_src_config.mode = SW_SRC_MODE_NORMAL;
+    sw_src_config.channel_num = 2;
+    sw_src_config.in_res = RESOLUTION_32BIT;
+    sw_src_config.in_sampling_rate  = g_usb_in_out_pre_sampling_rate;//WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE;//first open, use default rate.
+    sw_src_config.in_frame_size_max = (sw_src_config.in_sampling_rate / 1000) * WIRED_AUDIO_USB_IN_PROCESS_PERIOD * sizeof(int32_t);
+    sw_src_config.out_res = RESOLUTION_32BIT;
+    sw_src_config.out_sampling_rate = WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE;
+    sw_src_config.out_frame_size_max = (sw_src_config.out_sampling_rate / 1000) * WIRED_AUDIO_USB_IN_PROCESS_PERIOD * sizeof(int32_t);
+    g_usb_in_out_src_port = stream_function_sw_src_get_port(source);
+    WIRED_AUDIO_LOG_MSGID_I("[USB_IN_OUT][config][start] sw src init: 0x%08x, %d, %d, %d, %d, %d, %d, %d, %d", 9,
+                                g_usb_in_out_src_port,
+                                sw_src_config.mode,
+                                sw_src_config.channel_num,
+                                sw_src_config.in_res,
+                                sw_src_config.in_sampling_rate,
+                                sw_src_config.in_frame_size_max,
+                                sw_src_config.out_res,
+                                sw_src_config.out_sampling_rate,
+                                sw_src_config.out_frame_size_max);
+    stream_function_sw_src_init(g_usb_in_out_src_port, &sw_src_config);
+    memcpy(&g_usb_in_out_sw_src_config, &sw_src_config, sizeof(sw_src_config_t));
     //g_usb_in_out_pre_sampling_rate = smp_config.in_sampling_rate; //for run time update rate.
 
     /* SW gain init */
@@ -1402,7 +1223,7 @@ void wired_audio_usb_in_out_source_close(SOURCE source)
     }
     //stream_function_sw_mixer_deinit(SW_MIXER_PORT_0);
 
-    stream_function_src_fixed_ratio_deinit(g_usb_in_out_src_port);
+    stream_function_sw_src_deinit(g_usb_in_out_src_port);
 
     stream_function_sw_gain_deinit(g_usb_in_out_sw_gain_port);
 
@@ -1507,7 +1328,7 @@ WIRED_AUDIO_ATTR_TEXT_IN_IRAM bool wired_audio_usb_in_source_get_avail_size(SOUR
             handle->avm_write_offset = source->streamBuffer.ShareBufferInfo.write_offset;
         }
     } else {
-        cache_buffer_samples_by_channel = stream_function_sw_buffer_get_channel_used_size(handle->buffer_port, 1) / sample_bytes;
+        cache_buffer_samples_by_channel = stream_function_sw_buffer_get_channel_used_size(handle->buffer_port, 1) / sizeof(int32_t);
         if (cache_buffer_samples_by_channel < usb_frame_samples_by_channel) {
             /* Copy one more USB frame to avoid the process frame size error */
             check_data_sample_by_channel = usb_frame_samples_by_channel;
@@ -1571,7 +1392,7 @@ WIRED_AUDIO_ATTR_TEXT_IN_IRAM bool wired_audio_usb_in_source_get_avail_size(SOUR
                                 source->streamBuffer.ShareBufferInfo.read_offset,
                                 handle->avm_read_offset,
                                 source->streamBuffer.ShareBufferInfo.write_offset,
-                                stream_function_sw_buffer_get_channel_used_size(handle->buffer_port, 1) / sample_bytes);
+                                stream_function_sw_buffer_get_channel_used_size(handle->buffer_port, 1) / sizeof(int32_t));
 #endif
 
     return true;
@@ -1592,8 +1413,8 @@ static void wired_audio_usb_in_source_clock_skew_check(SOURCE source)
     } else {
         sample_bytes = 2;
     }
-    dsp_frame_size_by_channel = (codec_pcm->sample_rate * sample_bytes * codec_pcm->frame_interval) / (1000 * 1000);
-    dsp_frame_samples_by_channel = dsp_frame_size_by_channel / sample_bytes;
+    dsp_frame_size_by_channel = (codec_pcm->sample_rate * sizeof(int32_t) * codec_pcm->frame_interval) / (1000 * 1000);
+    dsp_frame_samples_by_channel = dsp_frame_size_by_channel / sizeof(int32_t);
     avm_avail_samples_by_channel = handle->process_frame_size / sample_bytes;
     usb_frame_samples_by_channel = codec_pcm->sample_rate / 1000;
     dsp_prefill_samples_by_channel = (WIRED_AUDIO_USB_IN_PREFILL_TIME / 1000) * codec_pcm->sample_rate / 1000;
@@ -1621,11 +1442,11 @@ static void wired_audio_usb_in_source_clock_skew_check(SOURCE source)
             stream_function_sw_clk_skew_get_frac_rpt(handle->clk_skew_port, 1, &frac_rpt);
             if (frac_rpt == (handle->clk_skew_compensation_mode - 1)) {
                 handle->total_compen_samples -= 1;
-                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 1, (dsp_frame_samples_by_channel - 1) * sample_bytes);
-                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 2, (dsp_frame_samples_by_channel - 1) * sample_bytes);
+                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 1, (dsp_frame_samples_by_channel - 1) * sizeof(int32_t));
+                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 2, (dsp_frame_samples_by_channel - 1) * sizeof(int32_t));
             } else {
-                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 1, dsp_frame_samples_by_channel * sample_bytes);
-                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 2, dsp_frame_samples_by_channel * sample_bytes);
+                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 1, dsp_frame_samples_by_channel * sizeof(int32_t));
+                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 2, dsp_frame_samples_by_channel * sizeof(int32_t));
             }
         } else if (handle->total_compen_samples < 0) {
             /* buffer output 481 samples, clk skew will change them to 480 samples */
@@ -1633,17 +1454,17 @@ static void wired_audio_usb_in_source_clock_skew_check(SOURCE source)
             stream_function_sw_clk_skew_get_frac_rpt(handle->clk_skew_port, 1, &frac_rpt);
             if (frac_rpt == -(handle->clk_skew_compensation_mode - 1)) {
                 handle->total_compen_samples += 1;
-                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 1, (dsp_frame_samples_by_channel + 1) * sample_bytes);
-                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 2, (dsp_frame_samples_by_channel + 1) * sample_bytes);
+                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 1, (dsp_frame_samples_by_channel + 1) * sizeof(int32_t));
+                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 2, (dsp_frame_samples_by_channel + 1) * sizeof(int32_t));
             } else {
-                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 1, dsp_frame_samples_by_channel * sample_bytes);
-                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 2, dsp_frame_samples_by_channel * sample_bytes);
+                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 1, dsp_frame_samples_by_channel * sizeof(int32_t));
+                stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 2, dsp_frame_samples_by_channel * sizeof(int32_t));
             }
         } else {
             /* buffer output 480 samples */
             compensatory_samples = 0;
-            stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 1, dsp_frame_samples_by_channel * sample_bytes);
-            stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 2, dsp_frame_samples_by_channel * sample_bytes);
+            stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 1, dsp_frame_samples_by_channel * sizeof(int32_t));
+            stream_function_sw_buffer_config_channel_output_size(handle->buffer_port, 2, dsp_frame_samples_by_channel * sizeof(int32_t));
         }
         stream_function_sw_clk_skew_configure_compensation_samples(handle->clk_skew_port, compensatory_samples);
 
@@ -1662,7 +1483,7 @@ static void wired_audio_usb_in_source_clock_skew_check(SOURCE source)
         if (handle->total_compen_samples != 0) {
             AUDIO_ASSERT(0);
         }
-        cache_buffer_samples_by_channel = stream_function_sw_buffer_get_channel_used_size(handle->buffer_port, 1) / sample_bytes;
+        cache_buffer_samples_by_channel = stream_function_sw_buffer_get_channel_used_size(handle->buffer_port, 1) / sizeof(int32_t);
         if ((cache_buffer_samples_by_channel + avm_avail_samples_by_channel) < dsp_frame_samples_by_channel) {
             AUDIO_ASSERT(0);
         }
@@ -1730,7 +1551,7 @@ WIRED_AUDIO_ATTR_TEXT_IN_IRAM uint32_t wired_audio_usb_in_source_copy_payload(SO
     wired_audio_handle_t *handle;
     DSP_STREAMING_PARA_PTR stream;
     audio_codec_pcm_t *codec_pcm;
-    uint32_t sample_bytes, dsp_frame_size_by_channel, read_offset;
+    uint32_t dsp_frame_size_by_channel, read_offset;
     uint32_t total_copied_samples, current_usb_frame_index, usb_frame_samples, usb_frame_count;
 
     UNUSED(src_buf);
@@ -1753,31 +1574,17 @@ WIRED_AUDIO_ATTR_TEXT_IN_IRAM uint32_t wired_audio_usb_in_source_copy_payload(SO
 #endif
 
     codec_pcm = &(source->param.data_dl.scenario_param.usb_in_local_param.usb_in_param.codec_param.pcm);
-    if (codec_pcm->format == HAL_AUDIO_PCM_FORMAT_S24_LE) {
-        sample_bytes = 4;
-    } else {
-        sample_bytes = 2;
-    }
-    dsp_frame_size_by_channel = (codec_pcm->sample_rate * sample_bytes * codec_pcm->frame_interval) / (1000 * 1000);
+    dsp_frame_size_by_channel = (codec_pcm->sample_rate * sizeof(int32_t) * codec_pcm->frame_interval) / (1000 * 1000);
 
     stream = DSP_Streaming_Get(source, source->transform->sink);
     handle = (wired_audio_handle_t *)(source->param.data_dl.scenario_param.usb_in_local_param.usb_in_param.handle);
 
     total_copied_samples = 0;
-    usb_frame_count = 0;
     if (source->param.data_dl.scenario_param.usb_in_local_param.is_dummy_data == true) {
-        memset((U8 *)(stream->callback.EntryPara.in_ptr[0]), 0, dsp_frame_size_by_channel);
-        if (codec_pcm->channel_mode == 2) {
-            memset((U8 *)(stream->callback.EntryPara.in_ptr[1]), 0, dsp_frame_size_by_channel);
-        } else if (codec_pcm->channel_mode == 8) {
-            memset((U8 *)(stream->callback.EntryPara.in_ptr[1]), 0, dsp_frame_size_by_channel);
-            memset((U8 *)(stream->callback.EntryPara.in_ptr[2]), 0, dsp_frame_size_by_channel);
-            memset((U8 *)(stream->callback.EntryPara.in_ptr[3]), 0, dsp_frame_size_by_channel);
-            memset((U8 *)(stream->callback.EntryPara.in_ptr[4]), 0, dsp_frame_size_by_channel);
-            memset((U8 *)(stream->callback.EntryPara.in_ptr[5]), 0, dsp_frame_size_by_channel);
-            memset((U8 *)(stream->callback.EntryPara.in_ptr[6]), 0, dsp_frame_size_by_channel);
-            memset((U8 *)(stream->callback.EntryPara.in_ptr[7]), 0, dsp_frame_size_by_channel);
+        for(uint32_t i = 0; i < codec_pcm->channel_mode; i++) {
+            memset((U8 *)(stream->callback.EntryPara.in_ptr[i]), 0, dsp_frame_size_by_channel);
         }
+        usb_frame_count = codec_pcm->frame_interval / 1000;
     } else {
         current_usb_frame_index = 0;
         usb_frame_count = handle->copy_block_size / ((uint32_t)source->streamBuffer.ShareBufferInfo.sub_info.block_info.block_size);
@@ -1791,7 +1598,7 @@ WIRED_AUDIO_ATTR_TEXT_IN_IRAM uint32_t wired_audio_usb_in_source_copy_payload(SO
                                                      (uint32_t *)(stream->callback.EntryPara.in_ptr[0]) + total_copied_samples,
                                                      usb_frame_samples);
                 } else {
-                    memcpy((U16 *)(stream->callback.EntryPara.in_ptr[0]) + total_copied_samples, src_buf + sizeof(audio_transmitter_frame_header_t), usb_frame_samples * sample_bytes);
+                    ShareBufferCopy_D_16bit_to_D_32bit_1ch((uint16_t *)(src_buf + sizeof(audio_transmitter_frame_header_t)), (uint32_t *)(stream->callback.EntryPara.in_ptr[0]) + total_copied_samples, usb_frame_samples);
                 }
             } else if (codec_pcm->channel_mode == 2) {
                 if (codec_pcm->format == HAL_AUDIO_PCM_FORMAT_S24_LE) {
@@ -1800,11 +1607,10 @@ WIRED_AUDIO_ATTR_TEXT_IN_IRAM uint32_t wired_audio_usb_in_source_copy_payload(SO
                                                      (uint32_t *)(stream->callback.EntryPara.in_ptr[1]) + total_copied_samples,
                                                      usb_frame_samples);
                 } else {
-                    DSP_I2D_BufferCopy_16bit_mute((uint16_t *)(src_buf + sizeof(audio_transmitter_frame_header_t)),
-                                                     (uint16_t *)(stream->callback.EntryPara.in_ptr[0]) + total_copied_samples,
-                                                     (uint16_t *)(stream->callback.EntryPara.in_ptr[1]) + total_copied_samples,
-                                                     (uint16_t)usb_frame_samples,
-                                                     false);
+                    ShareBufferCopy_I_16bit_to_D_32bit_2ch((uint32_t *)(src_buf + sizeof(audio_transmitter_frame_header_t)),
+                                                     (uint32_t *)(stream->callback.EntryPara.in_ptr[0]) + total_copied_samples,
+                                                     (uint32_t *)(stream->callback.EntryPara.in_ptr[1]) + total_copied_samples,
+                                                     (uint32_t)usb_frame_samples);
                 }
             } else if (codec_pcm->channel_mode == 8) {
                 if (codec_pcm->format == HAL_AUDIO_PCM_FORMAT_S24_LE) {
@@ -1819,16 +1625,16 @@ WIRED_AUDIO_ATTR_TEXT_IN_IRAM uint32_t wired_audio_usb_in_source_copy_payload(SO
                                                      (uint32_t *)(stream->callback.EntryPara.in_ptr[7]) + total_copied_samples,
                                                      usb_frame_samples);
                 } else {
-                    ShareBufferCopy_I_16bit_to_D_16bit_8ch((uint32_t *)(src_buf + sizeof(audio_transmitter_frame_header_t)),
-                                                     (uint16_t *)(stream->callback.EntryPara.in_ptr[0]) + total_copied_samples,
-                                                     (uint16_t *)(stream->callback.EntryPara.in_ptr[1]) + total_copied_samples,
-                                                     (uint16_t *)(stream->callback.EntryPara.in_ptr[2]) + total_copied_samples,
-                                                     (uint16_t *)(stream->callback.EntryPara.in_ptr[3]) + total_copied_samples,
-                                                     (uint16_t *)(stream->callback.EntryPara.in_ptr[4]) + total_copied_samples,
-                                                     (uint16_t *)(stream->callback.EntryPara.in_ptr[5]) + total_copied_samples,
-                                                     (uint16_t *)(stream->callback.EntryPara.in_ptr[6]) + total_copied_samples,
-                                                     (uint16_t *)(stream->callback.EntryPara.in_ptr[7]) + total_copied_samples,
-                                                     (uint16_t)usb_frame_samples);
+                    ShareBufferCopy_I_16bit_to_D_32bit_8ch((uint32_t *)(src_buf + sizeof(audio_transmitter_frame_header_t)),
+                                                     (uint32_t *)(stream->callback.EntryPara.in_ptr[0]) + total_copied_samples,
+                                                     (uint32_t *)(stream->callback.EntryPara.in_ptr[1]) + total_copied_samples,
+                                                     (uint32_t *)(stream->callback.EntryPara.in_ptr[2]) + total_copied_samples,
+                                                     (uint32_t *)(stream->callback.EntryPara.in_ptr[3]) + total_copied_samples,
+                                                     (uint32_t *)(stream->callback.EntryPara.in_ptr[4]) + total_copied_samples,
+                                                     (uint32_t *)(stream->callback.EntryPara.in_ptr[5]) + total_copied_samples,
+                                                     (uint32_t *)(stream->callback.EntryPara.in_ptr[6]) + total_copied_samples,
+                                                     (uint32_t *)(stream->callback.EntryPara.in_ptr[7]) + total_copied_samples,
+                                                     (uint32_t)usb_frame_samples);
                 }
             }
             total_copied_samples += usb_frame_samples;
@@ -1838,32 +1644,24 @@ WIRED_AUDIO_ATTR_TEXT_IN_IRAM uint32_t wired_audio_usb_in_source_copy_payload(SO
 
     wired_audio_usb_in_source_clock_skew_check(source);
 
+    /* Reset stream status */
+    stream->callback.EntryPara.in_size = usb_frame_count * (codec_pcm->sample_rate * sizeof(int32_t)) / 1000;
+
 #ifdef AIR_AUDIO_DUMP_ENABLE
     uint32_t audio_dump_size;
     if (source->param.data_dl.scenario_param.usb_in_local_param.is_dummy_data == true) {
         audio_dump_size = dsp_frame_size_by_channel;
     } else {
-        audio_dump_size = total_copied_samples * sample_bytes;
+        audio_dump_size = total_copied_samples * sizeof(int32_t);
     }
     if (source->param.data_dl.scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_0) {
-        LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[0], audio_dump_size, WIRED_AUDIO_USB_IN_I_1);
-    } else {
-        LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[0], audio_dump_size, WIRED_AUDIO_USB_IN_2_I_1);
-    }
-    if (codec_pcm->channel_mode == 2) {
-        if (source->param.data_dl.scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_1) {
-            LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[1], audio_dump_size, WIRED_AUDIO_USB_IN_I_2);
-        } else {
-            LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[1], audio_dump_size, WIRED_AUDIO_USB_IN_2_I_2);
+        for(uint32_t i = 0; i < codec_pcm->channel_mode; i++) {
+            LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[i], audio_dump_size, WIRED_AUDIO_USB_IN_I_1+i);
         }
-    } else if (codec_pcm->channel_mode == 8) {
-        LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[1], audio_dump_size, WIRED_AUDIO_USB_IN_I_2);
-        LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[2], audio_dump_size, WIRED_AUDIO_USB_IN_I_3);
-        LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[3], audio_dump_size, WIRED_AUDIO_USB_IN_I_4);
-        LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[4], audio_dump_size, WIRED_AUDIO_USB_IN_I_5);
-        LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[5], audio_dump_size, WIRED_AUDIO_USB_IN_I_6);
-        LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[6], audio_dump_size, WIRED_AUDIO_USB_IN_I_7);
-        LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[7], audio_dump_size, WIRED_AUDIO_USB_IN_I_8);
+    } else {
+        for(uint32_t i = 0; i < codec_pcm->channel_mode; i++) {
+            LOG_AUDIO_DUMP((uint8_t *)stream->callback.EntryPara.in_ptr[i], audio_dump_size, WIRED_AUDIO_USB_IN_2_I_1+i);
+        }
     }
 #endif
 
@@ -1976,7 +1774,7 @@ bool wired_audio_usb_in_source_close(SOURCE source)
     stream_function_sw_buffer_deinit(dongle_handle->buffer_port);
 
 #ifndef AIR_DCHS_MODE_ENABLE
-    stream_function_src_fixed_ratio_deinit(dongle_handle->src_fix_port);
+    stream_function_sw_src_deinit((sw_src_port_t *)dongle_handle->src1_port);
 
     uint8_t i;
     for (i = 0; i < SUB_STREAM_MIXER_MEMBER; i++) {
@@ -2053,7 +1851,6 @@ static void wired_audio_usb_out_open( mcu2dsp_open_param_p open_param, SOURCE so
     audio_codec_pcm_t *codec_pcm;
     stream_resolution_t resolution;
     uint32_t total_channels, sample_byte, sample_bits, out_frame_sample, process_frame_sample, process_sample_rate;
-    src_fixed_ratio_config_t smp_config = {0};
     sw_gain_config_t default_config;
     sw_src_config_t sw_src_config;
     sw_clk_skew_config_t sw_clk_skew_config;
@@ -2078,11 +1875,10 @@ static void wired_audio_usb_out_open( mcu2dsp_open_param_p open_param, SOURCE so
     }
     if (gDspAlgParameter.EscoMode.Tx == VOICE_SWB) {
         process_sample_rate = 32000;
-        process_frame_sample = 480;
     } else {
         process_sample_rate = 16000;
-        process_frame_sample = 240;
     }
+    process_frame_sample = (process_sample_rate / 1000) * WIRED_AUDIO_USB_OUT_PROCESS_PERIOD;
 #ifdef AIR_ECHO_MEMIF_IN_ORDER_ENABLE
     handle->out_channel_num = source->param.audio.channel_num;
 #else
@@ -2093,22 +1889,28 @@ static void wired_audio_usb_out_open( mcu2dsp_open_param_p open_param, SOURCE so
     }
 #endif
 
-    /* SW fix SRC init */
-    AUDIO_ASSERT(handle->src_fix_port == NULL);
-    smp_config.channel_number = handle->out_channel_num;
-    smp_config.in_sampling_rate = source->param.audio.rate;
-    smp_config.out_sampling_rate = process_sample_rate;
-    smp_config.resolution = RESOLUTION_16BIT;
-    smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE;
-    smp_config.cvt_num = 1;
-    smp_config.with_codec = false;
-    handle->src_fix_port = stream_function_src_fixed_ratio_get_port(sink);
-    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][start] src_fixed_ratio init: channel_number %d, in_sampling_rate %d, out_sampling_rate %d, resolution %d", 4,
-                                smp_config.channel_number,
-                                smp_config.in_sampling_rate,
-                                smp_config.out_sampling_rate,
-                                smp_config.resolution);
-    stream_function_src_fixed_ratio_init(handle->src_fix_port, &smp_config);
+    /* input SW SRC init */
+    AUDIO_ASSERT(handle->src1_port == NULL);
+    sw_src_config.mode = SW_SRC_MODE_NORMAL;
+    sw_src_config.channel_num = handle->out_channel_num;
+    sw_src_config.in_res = RESOLUTION_16BIT;
+    sw_src_config.in_sampling_rate  = source->param.audio.src_rate;
+    sw_src_config.in_frame_size_max = ((process_frame_sample * 1000) / process_sample_rate) * (sw_src_config.in_sampling_rate / 1000) * sizeof(int16_t);
+    sw_src_config.out_res = RESOLUTION_16BIT;
+    sw_src_config.out_sampling_rate = process_sample_rate;
+    sw_src_config.out_frame_size_max = process_frame_sample * sizeof(int16_t);
+    handle->src1_port = stream_function_sw_src_get_multi_port(sink);
+    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][init] input sw src init: 0x%08x, %d, %d, %d, %d, %d, %d, %d, %d", 9,
+                                handle->src1_port,
+                                sw_src_config.mode,
+                                sw_src_config.channel_num,
+                                sw_src_config.in_res,
+                                sw_src_config.in_sampling_rate,
+                                sw_src_config.in_frame_size_max,
+                                sw_src_config.out_res,
+                                sw_src_config.out_sampling_rate,
+                                sw_src_config.out_frame_size_max);
+    stream_function_sw_src_init((sw_src_port_t *)handle->src1_port, &sw_src_config);
 
     /* SW GAIN init */
     AUDIO_ASSERT(handle->gain_port == NULL);
@@ -2126,7 +1928,7 @@ static void wired_audio_usb_out_open( mcu2dsp_open_param_p open_param, SOURCE so
     total_channels = handle->out_channel_num;
 #endif
     handle->gain_port = stream_function_sw_gain_get_port(sink);
-    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][start] sw gain init: 0x%08x, %d, %d, %d, %d, %d, %d, %d", 8,
+    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][init] sw gain init: 0x%08x, %d, %d, %d, %d, %d, %d, %d", 8,
                                 handle->gain_port,
                                 total_channels,
                                 default_config.resolution,
@@ -2137,8 +1939,8 @@ static void wired_audio_usb_out_open( mcu2dsp_open_param_p open_param, SOURCE so
                                 default_config.down_samples_per_step);
     stream_function_sw_gain_init(handle->gain_port, total_channels, &default_config);
 
-    /* SW SRC init */
-    AUDIO_ASSERT(handle->src_port == NULL);
+    /* output SW SRC init */
+    AUDIO_ASSERT(handle->src2_port == NULL);
     sw_src_config.mode = SW_SRC_MODE_NORMAL;
 #ifdef AIR_VOICE_NR_ENABLE
     sw_src_config.channel_num = 1;
@@ -2151,9 +1953,9 @@ static void wired_audio_usb_out_open( mcu2dsp_open_param_p open_param, SOURCE so
     sw_src_config.out_res = RESOLUTION_16BIT;
     sw_src_config.out_sampling_rate = sink->param.data_ul.scenario_param.usb_out_local_param.codec_param.pcm.sample_rate;
     sw_src_config.out_frame_size_max = (sw_src_config.out_sampling_rate * process_frame_sample * sizeof(int16_t)) / sw_src_config.in_sampling_rate;
-    handle->src_port = stream_function_sw_src_get_port(sink);
-    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][start] sw src init: 0x%08x, %d, %d, %d, %d, %d, %d, %d, %d", 9,
-                                handle->src_port,
+    handle->src2_port = stream_function_sw_src_get_multi_port(sink);
+    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][init] output sw src init: 0x%08x, %d, %d, %d, %d, %d, %d, %d, %d", 9,
+                                handle->src2_port,
                                 sw_src_config.mode,
                                 sw_src_config.channel_num,
                                 sw_src_config.in_res,
@@ -2162,7 +1964,7 @@ static void wired_audio_usb_out_open( mcu2dsp_open_param_p open_param, SOURCE so
                                 sw_src_config.out_res,
                                 sw_src_config.out_sampling_rate,
                                 sw_src_config.out_frame_size_max);
-    stream_function_sw_src_init(handle->src_port, &sw_src_config);
+    stream_function_sw_src_init((sw_src_port_t *)handle->src2_port, &sw_src_config);
 
     /* VOLUME_MONITOR init */
 #ifdef AIR_MUTE_MIC_DETECTION_ENABLE
@@ -2189,7 +1991,7 @@ static void wired_audio_usb_out_open( mcu2dsp_open_param_p open_param, SOURCE so
     config.internal_buffer = NULL;
     config.internal_buffer_size = 0;
     volume_estimator_init(p_usb_out_meter_port, &config);
-    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][start] volume estimator 0x%x info, %d, %d, %d,internal_buffer 0x%x, 0x%x\r\n", 6,
+    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][init] volume estimator 0x%x info, %d, %d, %d,internal_buffer 0x%x, 0x%x\r\n", 6,
                 p_usb_out_meter_port,
                 config.frame_size,
                 config.channel_num,
@@ -2210,11 +2012,11 @@ static void wired_audio_usb_out_open( mcu2dsp_open_param_p open_param, SOURCE so
     sw_clk_skew_config.skew_io_mode = C_Skew_Oup;
     sw_clk_skew_config.skew_compensation_mode = SW_CLK_SKEW_COMPENSATION_1_SAMPLE_IN_8_FRAME;
     sw_clk_skew_config.skew_work_mode = SW_CLK_SKEW_CONTINUOUS;
-    sw_clk_skew_config.max_output_size = (sw_clk_skew_config.channel * codec_pcm->sample_rate * codec_pcm->frame_interval * sizeof(uint16_t)) / (1000 * 1000);
+    sw_clk_skew_config.max_output_size = (sw_clk_skew_config.channel * (codec_pcm->sample_rate / 1000) * codec_pcm->frame_interval * sizeof(uint16_t)) / 1000;
     sw_clk_skew_config.continuous_frame_size = sw_clk_skew_config.max_output_size / sw_clk_skew_config.channel;
     handle->clk_skew_port = stream_function_sw_clk_skew_get_port(sink);
     handle->clkskew_monitor_count = 0;
-    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][start] sw clkskew init: 0x%08x, %d, %d, %d, %d, %d, %d, %d, %d", 9,
+    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][init] sw clkskew init: 0x%08x, %d, %d, %d, %d, %d, %d, %d, %d", 9,
                                 handle->clk_skew_port,
                                 sw_clk_skew_config.channel,
                                 sw_clk_skew_config.bits,
@@ -2238,7 +2040,7 @@ static void wired_audio_usb_out_open( mcu2dsp_open_param_p open_param, SOURCE so
     buffer_config.watermark_min_size = 0;
     buffer_config.output_size = out_frame_sample * sizeof(uint16_t);
     handle->buffer_port = stream_function_sw_buffer_get_port(sink);
-    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][start] sw buffer init: 0x%08x, %d, %d, %d, %d, %d", 6,
+    WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][init] sw buffer init: 0x%08x, %d, %d, %d, %d, %d", 6,
                                 handle->buffer_port,
                                 buffer_config.mode,
                                 buffer_config.total_channels,
@@ -2268,7 +2070,10 @@ static void wired_audio_usb_out_iem_open( mcu2dsp_open_param_p open_param, SOURC
 
     if(g_usb_in_out_pre_sampling_rate != open_param->stream_in_param.afe.sampling_rate){
         if (g_usb_in_out_src_port != NULL) {
-            stream_function_src_fixed_ratio_change_in_sampling_rate(g_usb_in_out_src_port, open_param->stream_in_param.afe.sampling_rate);
+            stream_function_sw_src_deinit(g_usb_in_out_src_port);
+            g_usb_in_out_sw_src_config.in_sampling_rate = open_param->stream_in_param.afe.sampling_rate;
+            g_usb_in_out_sw_src_config.in_frame_size_max = (g_usb_in_out_sw_src_config.in_sampling_rate / 1000) * WIRED_AUDIO_USB_IN_PROCESS_PERIOD * sizeof(int32_t);
+            stream_function_sw_src_init(g_usb_in_out_src_port, &g_usb_in_out_sw_src_config);
         }
         g_usb_in_out_pre_sampling_rate = open_param->stream_in_param.afe.sampling_rate;
     }
@@ -2683,7 +2488,7 @@ bool wired_audio_usb_out_sink_get_avail_size(SINK sink, uint32_t *avail_size)
 
 bool wired_audio_usb_out_sink_query_notification(SINK sink, bool *notification_flag)
 {
-    uint32_t curr_gpt, during_gpt, delta_gpt;
+    uint32_t curr_gpt, during_gpt, delta_gpt, process_threshold;
     uint32_t avail_block_size, new_write_offset;
     wired_audio_handle_t *handle;
     DSP_STREAMING_PARA_PTR stream;
@@ -2738,8 +2543,9 @@ bool wired_audio_usb_out_sink_query_notification(SINK sink, bool *notification_f
     if (handle->first_process_flag == true) {
         hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &curr_gpt);
         hal_gpt_get_duration_count(handle->first_afe_irq_gpt, curr_gpt, &during_gpt);
-        if (during_gpt <= WIRED_AUDIO_USB_OUT_PROCESS_THRESHOLD) {
-            delta_gpt = WIRED_AUDIO_USB_OUT_PROCESS_THRESHOLD - during_gpt;
+        process_threshold = (WIRED_AUDIO_USB_OUT_PROCESS_PERIOD * 1000 * WIRED_AUDIO_USB_OUT_PREFILL_SIZE) / 100;
+        if (during_gpt <= process_threshold) {
+            delta_gpt = process_threshold - during_gpt;
             handle->share_buffer_info->asi_cur = delta_gpt / 1000;
             if (delta_gpt % 1000) {
                 handle->share_buffer_info->asi_cur++;
@@ -2771,10 +2577,10 @@ bool wired_audio_usb_out_sink_close(SINK sink)
 
     handle = (wired_audio_handle_t *)sink->param.data_ul.scenario_param.usb_out_local_param.handle;
 
-    if (handle->src_fix_port != NULL) {
-        WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][sink_close] [SW_FIX_RATIO] deinit", 0);
-        stream_function_src_fixed_ratio_deinit(handle->src_fix_port);
-        handle->src_fix_port = NULL;
+    if (handle->src1_port != NULL) {
+        WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][sink_close] [SW_SRC1] deinit", 0);
+        stream_function_sw_src_deinit(handle->src1_port);
+        handle->src1_port = NULL;
     }
 
     if (handle->gain_port != NULL) { //deinit SW gain port in transmitter close flow
@@ -2784,10 +2590,10 @@ bool wired_audio_usb_out_sink_close(SINK sink)
         afe_audio_deinit_input_channel(sink);
     }
 
-    if (handle->src_port != NULL) {
-        WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][sink_close] [SW_SRC] deinit", 0);
-        stream_function_sw_src_deinit(handle->src_port);
-        handle->src_port = NULL;
+    if (handle->src2_port != NULL) {
+        WIRED_AUDIO_LOG_MSGID_I("[USB_OUT][sink_close] [SW_SRC2] deinit", 0);
+        stream_function_sw_src_deinit(handle->src2_port);
+        handle->src2_port = NULL;
     }
 
 #ifdef AIR_MUTE_MIC_DETECTION_ENABLE
@@ -2968,12 +2774,12 @@ static void wired_audio_line_in_open(mcu2dsp_open_param_p open_param, SOURCE sou
             smp_config.out_sampling_rate = curr_rate;
             smp_config.cvt_num++;
             if (smp_config.cvt_num == 1) {
-                line_in_handle->src_fix_port = stream_function_src_fixed_ratio_get_port(source);
-                stream_function_src_fixed_ratio_init(line_in_handle->src_fix_port, &smp_config);
+                line_in_handle->src1_port = stream_function_src_fixed_ratio_get_port(source);
+                stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)line_in_handle->src1_port, &smp_config);
             } else if (smp_config.cvt_num == 2) {
                 smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
-                line_in_handle->src_fix_2nd_port = stream_function_src_fixed_ratio_get_2nd_port(source);
-                stream_function_src_fixed_ratio_init(line_in_handle->src_fix_2nd_port, &smp_config);
+                line_in_handle->src2_port = stream_function_src_fixed_ratio_get_2nd_port(source);
+                stream_function_src_fixed_ratio_init((src_fixed_ratio_port_t *)line_in_handle->src2_port, &smp_config);
             } else {
                 WIRED_AUDIO_LOG_MSGID_E("[LINE_IN][open] src_fixed_ratio init: not support SRC transfer, in rate: %d, out rate: %d", 2, codec_pcm->sample_rate, sink->param.audio.rate);
             }
@@ -3001,6 +2807,15 @@ static void wired_audio_line_in_start(mcu2dsp_start_param_p start_param, SOURCE 
         hal_audio_memory_irq_enable_parameter_t irq_enable;
 
         start_parameter.memory_select = sink->param.audio.mem_handle.memory_select | source->param.audio.mem_handle.memory_select;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+        start_parameter.memory_select |= sink->param.audio.mem_handle1.memory_select | sink->param.audio.mem_handle2.memory_select;
+        WIRED_AUDIO_LOG_MSGID_I("[LINE_IN][start] 0x%x,0x%x,0x%x,0x%x,", 4,
+                                            start_parameter.memory_select,
+                                            sink->param.audio.mem_handle.memory_select,
+                                            sink->param.audio.mem_handle1.memory_select,
+                                            sink->param.audio.mem_handle2.memory_select);
+#endif
+
         start_parameter.enable = true;
         hal_audio_set_value((hal_audio_set_value_parameter_t *)&start_parameter, HAL_AUDIO_SET_TRIGGER_MEMORY_START);
 
@@ -3036,12 +2851,12 @@ static void wired_audio_line_in_close(SOURCE source, SINK sink)
     line_in_handle = (wired_audio_handle_t *)line_in_param->handle;
 
 #if defined(AIR_FIXED_RATIO_SRC)
-    stream_function_src_fixed_ratio_deinit(line_in_handle->src_fix_port);
-    if (line_in_handle->src_fix_2nd_port) {
-        stream_function_src_fixed_ratio_deinit(line_in_handle->src_fix_2nd_port);
+    stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)line_in_handle->src1_port);
+    if (line_in_handle->src2_port) {
+        stream_function_src_fixed_ratio_deinit((src_fixed_ratio_port_t *)line_in_handle->src2_port);
     }
-    line_in_handle->src_fix_port = NULL;
-    line_in_handle->src_fix_2nd_port = NULL;
+    line_in_handle->src1_port = NULL;
+    line_in_handle->src2_port = NULL;
 #endif
 
     if (line_in_handle != NULL) {
@@ -3060,9 +2875,9 @@ static void wired_audio_line_out_open(mcu2dsp_open_param_p open_param, SOURCE so
 {
     uint32_t total_channels, process_frame_sample, process_sample_rate;
     line_out_local_param_t *line_out_param;
-    src_fixed_ratio_config_t smp_config = {0};
     sw_gain_config_t default_config;
     wired_audio_handle_t *handle;
+    sw_src_config_t sw_src_config;
 
     UNUSED(open_param);
     UNUSED(sink);
@@ -3077,7 +2892,7 @@ static void wired_audio_line_out_open(mcu2dsp_open_param_p open_param, SOURCE so
 
     g_wired_audio_line_out_param = line_out_param;
 
-    if (open_param->stream_in_param.afe.sampling_rate == 32000) {
+    if (open_param->stream_in_param.afe.stream_process_sampling_rate == 32000) {
         DSP_ALG_UpdateEscoTxMode(VOICE_SWB);
         DSP_ALG_UpdateEscoRxMode(VOICE_SWB);
         g_line_out_local_streams.pfeature_table = stream_feature_list_wired_audio_line_out_swb;
@@ -3100,91 +2915,70 @@ static void wired_audio_line_out_open(mcu2dsp_open_param_p open_param, SOURCE so
         handle->out_channel_num = source->param.audio.channel_num;
     }
 #endif
+#if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) && defined(AIR_DUAL_CHIP_NR_ON_MASTER_ENABLE) /* && defined(AIR_BTA_IC_PREMIUM_G2) */
+    process_sample_rate = source->param.audio.src_rate;
+#else
     if (gDspAlgParameter.EscoMode.Tx == VOICE_SWB) {
         process_sample_rate = 32000;
-        process_frame_sample = 480;
     } else {
         process_sample_rate = 16000;
-        process_frame_sample = 240;
     }
+#endif
+    process_frame_sample = (process_sample_rate / 1000) * WIRED_AUDIO_LINE_OUT_PROCESS_PERIOD;
 
-    /* SW fix SRC init */
-#if defined(AIR_FIXED_RATIO_SRC)
+    /* input SW SRC init */
+    AUDIO_ASSERT(handle->src1_port == NULL);
+    sw_src_config.mode = SW_SRC_MODE_NORMAL;
+    sw_src_config.channel_num = handle->out_channel_num;
+    sw_src_config.in_res = RESOLUTION_16BIT;
+    sw_src_config.in_sampling_rate  = source->param.audio.src_rate;
+    sw_src_config.in_frame_size_max = ((process_frame_sample * 1000) / process_sample_rate) * (sw_src_config.in_sampling_rate / 1000) * sizeof(int16_t);
+    sw_src_config.out_res = RESOLUTION_16BIT;
+    sw_src_config.out_sampling_rate = process_sample_rate;
+    sw_src_config.out_frame_size_max = process_frame_sample * sizeof(int16_t);
+    handle->src1_port = stream_function_sw_src_get_multi_port(sink);
+    WIRED_AUDIO_LOG_MSGID_I("[LINE_OUT][open] input sw src init: 0x%08x, %d, %d, %d, %d, %d, %d, %d, %d", 9,
+                                handle->src1_port,
+                                sw_src_config.mode,
+                                sw_src_config.channel_num,
+                                sw_src_config.in_res,
+                                sw_src_config.in_sampling_rate,
+                                sw_src_config.in_frame_size_max,
+                                sw_src_config.out_res,
+                                sw_src_config.out_sampling_rate,
+                                sw_src_config.out_frame_size_max);
+    stream_function_sw_src_init((sw_src_port_t *)handle->src1_port, &sw_src_config);
+
+    /* output SW SRC init */
+    AUDIO_ASSERT(handle->src2_port == NULL);
+    sw_src_config.mode = SW_SRC_MODE_NORMAL;
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_MASTER_ENABLE) && defined(AIR_DUAL_CHIP_NR_ON_MASTER_ENABLE) /* && defined(AIR_BTA_IC_PREMIUM_G2) */
-    int32_t i, j, curr_rate, cvt_num = 0;
-    int32_t *p_ratio_list;
-
-    p_ratio_list = NULL;
-    for (i = 0; i < WIRED_AUDIO_MAX_SUPPORT_INPUT_SAMPLE_RATE_CNT; i++) {
-        if (process_sample_rate == g_wired_audio_sw_src_in_sample_rate[i]) {
-            for (j = 0; j < WIRED_AUDIO_MAX_SUPPORT_OUTPUT_SAMPLE_RATE_CNT; j++) {
-                if (sink->param.audio.rate == g_wired_audio_sw_src_out_sample_rate[j]) {
-                    p_ratio_list = (int32_t *)&g_wired_audio_sw_src_ratio[i][j][0];
-                    break;
-                }
-            }
-        }
-    }
-    AUDIO_ASSERT(p_ratio_list != NULL);
-
-    for (i = 0; i < WIRED_AUDIO_MAX_SUPPORT_FIX_SRX_RATIO_CNT; i++) {
-        if (p_ratio_list[i] != 0) {
-            ++cvt_num;
-        }
-    }
-
-    curr_rate = process_sample_rate;
-    smp_config.cvt_num = cvt_num;
-    smp_config.channel_number = handle->out_channel_num;
-    smp_config.with_codec = false;
-    smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
-    smp_config.resolution = RESOLUTION_16BIT;
-    for (i = 0; i < WIRED_AUDIO_MAX_SUPPORT_FIX_SRX_RATIO_CNT; i++) {
-        if (p_ratio_list[i] != 0) {
-            AUDIO_ASSERT(i < 2); /* The fix src ratio only support 2 stage SW SRC */
-            smp_config.in_sampling_rate = curr_rate;
-            if (p_ratio_list[i] > 0) {
-                curr_rate *= p_ratio_list[i];
-            } else {
-                curr_rate /= -p_ratio_list[i];
-            }
-            smp_config.out_sampling_rate = curr_rate;
-            if (i == 0) {
-                handle->src_fix_port = stream_function_src_fixed_ratio_get_port(sink);
-                stream_function_src_fixed_ratio_init(handle->src_fix_port, &smp_config);
-            } else if (i == 1) {
-                smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_CONSECUTIVE;
-                handle->src_fix_2nd_port = stream_function_src_fixed_ratio_get_2nd_port(sink);
-                stream_function_src_fixed_ratio_init(handle->src_fix_2nd_port, &smp_config);
-            } else {
-                WIRED_AUDIO_LOG_MSGID_E("[LINE_OUT][open] src_fixed_ratio init: not support SRC transfer, in rate: %d, out rate: %d", 2, process_sample_rate, sink->param.audio.rate);
-            }
-            WIRED_AUDIO_LOG_MSGID_I("[LINE_OUT][open] src_fixed_ratio init: channel_number %d, in_sampling_rate %d, out_sampling_rate %d, resolution %d", 4,
-                                    smp_config.channel_number,
-                                    smp_config.in_sampling_rate,
-                                    smp_config.out_sampling_rate,
-                                    smp_config.resolution);
-        }
-    }
+    sw_src_config.channel_num = handle->out_channel_num;
 #else
-    AUDIO_ASSERT(handle->src_fix_port == NULL);
-    smp_config.channel_number = handle->out_channel_num;
-    smp_config.in_sampling_rate = source->param.audio.src_rate;
-    smp_config.out_sampling_rate = process_sample_rate;
-    smp_config.resolution = RESOLUTION_16BIT;
-    smp_config.multi_cvt_mode = SRC_FIXED_RATIO_PORT_MUTI_CVT_MODE_SINGLE;
-    smp_config.cvt_num = 1;
-    smp_config.with_codec = false;
-    handle->src_fix_port = stream_function_src_fixed_ratio_get_port(sink);
-    WIRED_AUDIO_LOG_MSGID_I("[LINE_OUT][open] src_fixed_ratio init: channel_number %d, in_sampling_rate %d, out_sampling_rate %d, resolution %d", 4,
-                                smp_config.channel_number,
-                                smp_config.in_sampling_rate,
-                                smp_config.out_sampling_rate,
-                                smp_config.resolution);
-    stream_function_src_fixed_ratio_init(handle->src_fix_port, &smp_config);
-
+#ifdef AIR_VOICE_NR_ENABLE
+    sw_src_config.channel_num = 1;
+#else
+    sw_src_config.channel_num = handle->out_channel_num;
 #endif
 #endif
+    sw_src_config.in_res = RESOLUTION_16BIT;
+    sw_src_config.in_sampling_rate  = process_sample_rate;
+    sw_src_config.in_frame_size_max = process_frame_sample * sizeof(int16_t);
+    sw_src_config.out_res = RESOLUTION_16BIT;
+    sw_src_config.out_sampling_rate = sink->param.audio.src_rate;
+    sw_src_config.out_frame_size_max = (sw_src_config.out_sampling_rate * process_frame_sample * sizeof(int16_t)) / sw_src_config.in_sampling_rate;
+    handle->src2_port = stream_function_sw_src_get_multi_port(sink);
+    WIRED_AUDIO_LOG_MSGID_I("[LINE_OUT][open] output sw src init: 0x%08x, %d, %d, %d, %d, %d, %d, %d, %d", 9,
+                                handle->src2_port,
+                                sw_src_config.mode,
+                                sw_src_config.channel_num,
+                                sw_src_config.in_res,
+                                sw_src_config.in_sampling_rate,
+                                sw_src_config.in_frame_size_max,
+                                sw_src_config.out_res,
+                                sw_src_config.out_sampling_rate,
+                                sw_src_config.out_frame_size_max);
+    stream_function_sw_src_init((sw_src_port_t *)handle->src2_port, &sw_src_config);
 
     /* SW GAIN init */
     AUDIO_ASSERT(handle->gain_port == NULL);
@@ -3219,7 +3013,36 @@ static void wired_audio_line_out_start(mcu2dsp_start_param_p start_param, SOURCE
     UNUSED(start_param);
     UNUSED(source);
     UNUSED(sink);
+
+#ifndef AIR_DCHS_MODE_ENABLE
+    if (source->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_LINE_OUT) {
+        uint32_t afe_start_time;
+        hal_audio_trigger_start_parameter_t start_parameter;
+        hal_audio_current_offset_parameter_t offset_parameter;
+        hal_audio_memory_irq_enable_parameter_t irq_enable;
+
+        start_parameter.memory_select = sink->param.audio.mem_handle.memory_select | source->param.audio.mem_handle.memory_select;
+        start_parameter.enable = true;
+        hal_audio_set_value((hal_audio_set_value_parameter_t *)&start_parameter, HAL_AUDIO_SET_TRIGGER_MEMORY_START);
+
+        irq_enable.memory_select    = sink->param.audio.mem_handle.memory_select;
+        irq_enable.irq_counter      = sink->param.audio.mem_handle.irq_counter;
+        irq_enable.rate             = sink->param.audio.mem_handle.audio_path_rate;
+        irq_enable.enable           = true;
+        hal_audio_set_value((hal_audio_set_value_parameter_t *)&irq_enable, HAL_AUDIO_SET_MEMORY_IRQ_ENABLE);
+
+        offset_parameter.memory_select = sink->param.audio.mem_handle.memory_select;
+        offset_parameter.pure_agent_with_src = false;
+        hal_audio_get_value((hal_audio_get_value_parameter_t *)&offset_parameter, HAL_AUDIO_GET_MEMORY_OUTPUT_CURRENT_OFFSET);
+        hal_gpt_get_free_run_count(HAL_GPT_CLOCK_SOURCE_1M, &afe_start_time);
+        WIRED_AUDIO_LOG_MSGID_I("[LINE_OUT][start] start AFE agent %d, sink rptr %d, start time %d", 3,
+                                    start_parameter.memory_select,
+                                    offset_parameter.offset - offset_parameter.base_address,
+                                    afe_start_time);
+    }
+#endif
 }
+
 
 /* Do some operations after the stream process done */
 void wired_audio_line_out_post_hook(SOURCE source, SINK sink)
@@ -3249,14 +3072,14 @@ static void wired_audio_line_out_close(SOURCE source, SINK sink)
         line_out_handle->gain_port = NULL;
     }
 
-    if (line_out_handle->src_fix_port != NULL) {
-        stream_function_src_fixed_ratio_deinit(line_out_handle->src_fix_port);
-        line_out_handle->src_fix_port = NULL;
+    if (line_out_handle->src1_port != NULL) {
+        stream_function_sw_src_deinit((sw_src_port_t *)line_out_handle->src1_port);
+        line_out_handle->src1_port = NULL;
     }
 
-    if (line_out_handle->src_fix_2nd_port != NULL) {
-        stream_function_src_fixed_ratio_deinit(line_out_handle->src_fix_2nd_port);
-        line_out_handle->src_fix_2nd_port = NULL;
+    if (line_out_handle->src2_port != NULL) {
+        stream_function_sw_src_deinit((sw_src_port_t *)line_out_handle->src2_port);
+        line_out_handle->src2_port = NULL;
     }
 
     if (line_out_handle != NULL) {
@@ -3473,11 +3296,11 @@ void wired_audio_configure_task(audio_transmitter_scenario_sub_id_t sub_id, SOUR
 void wired_audio_open(audio_transmitter_scenario_sub_id_t sub_id, mcu2dsp_open_param_p open_param, SOURCE source, SINK sink)
 {
     if ((sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN) ||
-        (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_MASTER) ||
-        (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_SLAVE)) {
+        (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_MASTER)) {
         wired_audio_line_in_open(open_param, source, sink);
     } else if ((sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_OUT) ||
-                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER)) {
+                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER) ||
+        (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_SLAVE)) {
         wired_audio_line_out_open(open_param, source, sink);
     } else if (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_OUT) {
         if (open_param->stream_out_param.data_ul.scenario_param.wired_audio_param.is_with_ecnr == true) {
@@ -3496,12 +3319,7 @@ void wired_audio_para_setup(audio_transmitter_scenario_sub_id_wiredaudio_t sub_i
     if ((sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_0) ||
         (sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_IN_1)) {
         pcm_para = &(source->param.data_dl.scenario_param.usb_in_local_param.usb_in_param.codec_param.pcm);
-        if (pcm_para->format == HAL_AUDIO_PCM_FORMAT_S24_LE) {
-            sample_bytes = 4;
-        } else {
-            sample_bytes = 2;
-        }
-        stream->callback.EntryPara.in_size = ((sample_bytes * pcm_para->sample_rate) / 1000) * ((pcm_para->frame_interval + WIRED_AUDIO_USB_IN_PREFILL_TIME) / 1000);
+        stream->callback.EntryPara.in_size = ((sizeof(int32_t) * pcm_para->sample_rate) / 1000) * ((pcm_para->frame_interval + WIRED_AUDIO_USB_IN_PREFILL_TIME) / 1000);
         stream->callback.EntryPara.in_channel_num = pcm_para->channel_mode;
         stream->callback.EntryPara.in_sampling_rate = pcm_para->sample_rate / 1000; /* 44.1/88.2 exclued */
         stream->callback.EntryPara.codec_out_sampling_rate  = stream->callback.EntryPara.in_sampling_rate;
@@ -3512,7 +3330,7 @@ void wired_audio_para_setup(audio_transmitter_scenario_sub_id_wiredaudio_t sub_i
             //stream->callback.EntryPara.codec_out_sampling_rate = FS_RATE_16K;
         }
         WIRED_AUDIO_LOG_MSGID_I("[USB_IN] wired_audio_para_setup: sub id %d, %d, %d, %d, %d, %d", 6,
-                                    sub_id, sample_bytes,
+                                    sub_id, pcm_para->format,
                                     stream->callback.EntryPara.in_size,
                                     stream->callback.EntryPara.in_channel_num,
                                     stream->callback.EntryPara.in_sampling_rate,
@@ -3529,7 +3347,7 @@ void wired_audio_para_setup(audio_transmitter_scenario_sub_id_wiredaudio_t sub_i
         } else {
             stream->callback.EntryPara.out_channel_num = stream->callback.EntryPara.in_channel_num - 1;// - echo channel;
         }
-        stream->callback.EntryPara.codec_out_size = (sample_bytes * pcm_para->sample_rate * pcm_para->frame_interval) / (1000 * 1000);
+        stream->callback.EntryPara.codec_out_size = (sample_bytes * (pcm_para->sample_rate / 1000) * pcm_para->frame_interval) / 1000;
         stream->callback.EntryPara.codec_out_sampling_rate = pcm_para->sample_rate;
         WIRED_AUDIO_LOG_MSGID_I("[USB_OUT] wired_audio_para_setup: sub id %d, %d, %d, %d, %d", 5,
                                     sub_id, sample_bytes,
@@ -3546,14 +3364,8 @@ void wired_audio_resolution_config(DSP_STREAMING_PARA_PTR stream)
     if ((stream->source->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_0) ||
                (stream->source->scenario_type == AUDIO_SCENARIO_TYPE_WIRED_AUDIO_USB_IN_1)) {
         pcm_para = &(stream->source->param.data_dl.scenario_param.usb_in_local_param.usb_in_param.codec_param.pcm);
-        if (pcm_para->format == HAL_AUDIO_PCM_FORMAT_S24_LE) {
-            stream->callback.EntryPara.resolution.source_in_res = RESOLUTION_32BIT;
-            stream->callback.EntryPara.resolution.feature_res = RESOLUTION_32BIT;
-        } else {
-            stream->callback.EntryPara.resolution.source_in_res = RESOLUTION_16BIT;
-            stream->callback.EntryPara.resolution.feature_res = RESOLUTION_16BIT;
-        }
-
+        stream->callback.EntryPara.resolution.source_in_res = RESOLUTION_32BIT;
+        stream->callback.EntryPara.resolution.feature_res = RESOLUTION_32BIT;
         WIRED_AUDIO_LOG_MSGID_I("[USB_IN] wired_audio_resolution_config: %d, %d, %d", 3, stream->source->scenario_type, pcm_para->format, stream->callback.EntryPara.resolution.source_in_res);
     } else if (stream->sink->param.data_ul.scenario_sub_id == AUDIO_TRANSMITTER_WIRED_AUDIO_USB_OUT) {
         if(stream->sink->param.data_ul.scenario_param.usb_out_local_param.is_with_ecnr == true){
@@ -3589,11 +3401,11 @@ void wired_audio_start(audio_transmitter_scenario_sub_id_t sub_id, mcu2dsp_start
             wired_audio_usb_out_iem_start(start_param, source, sink);
         }
     } else if ((sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN) ||
-                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_MASTER) ||
-                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_SLAVE)) {
+                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_MASTER)) {
         wired_audio_line_in_start(start_param, source, sink);
     } else if ((sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_OUT) ||
-                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER)) {
+                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER) ||
+                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_SLAVE)) {
         wired_audio_line_out_start(start_param, source, sink);
     }
 #if !defined (AIR_USB_AUDIO_IN_AND_OUT_MIX_ENABLE)
@@ -3620,11 +3432,11 @@ void wired_audio_close(audio_transmitter_scenario_sub_id_t sub_id, SOURCE source
             wired_audio_usb_out_iem_close(source, sink);
         }
     } else if ((sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_IN) ||
-                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_MASTER) ||
-                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_SLAVE)) {
+                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_MASTER)) {
         wired_audio_line_in_close(source, sink);
     } else if ((sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_LINE_OUT) ||
-                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER)) {
+                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_OUT_MASTER) ||
+                (sub_id.wiredaudio_id == AUDIO_TRANSMITTER_WIRED_AUDIO_DUAL_CHIP_LINE_IN_SLAVE)) {
         wired_audio_line_out_close(source, sink);
     }
 }
@@ -3637,6 +3449,14 @@ void wired_audio_main_stream_trigger_active(void)
 
     sink = g_wired_audio_main_stream_source->transform->sink;
     start_parameter.memory_select = sink->param.audio.mem_handle.memory_select;
+#ifdef AIR_AUDIO_MULTIPLE_STREAM_OUT_ENABLE
+    start_parameter.memory_select |= sink->param.audio.mem_handle1.memory_select | sink->param.audio.mem_handle2.memory_select;
+    WIRED_AUDIO_LOG_MSGID_I("[MAIN_STREAM][start] 0x%x,0x%x,0x%x,0x%x,", 4,
+                                        start_parameter.memory_select,
+                                        sink->param.audio.mem_handle.memory_select,
+                                        sink->param.audio.mem_handle1.memory_select,
+                                        sink->param.audio.mem_handle2.memory_select);
+#endif
     start_parameter.enable = true;
     hal_audio_set_value((hal_audio_set_value_parameter_t *)&start_parameter, HAL_AUDIO_SET_TRIGGER_MEMORY_START);
     offset_parameter.memory_select = sink->param.audio.mem_handle.memory_select;
@@ -3663,7 +3483,7 @@ void wired_audio_main_stream_source_init(SOURCE source)
 
     g_wired_audio_main_stream_source = source;
 
-    uint32_t src_dsp_frame_sample = (WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE * WIRED_AUDIO_DL_PROCESS_PERIOD) / (1000);
+    uint32_t src_dsp_frame_sample = (WIRED_AUDIO_MIXING_MODE_USB_DL_OUT_SAMPLE_RATE * WIRED_AUDIO_USB_IN_PROCESS_PERIOD) / (1000);
     stream_function_sw_mixer_init(SW_MIXER_PORT_0);
 
     callback_config.preprocess_callback = NULL;

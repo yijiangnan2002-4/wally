@@ -36,27 +36,27 @@
 #include "bt_sink_srv_state_manager_internal.h"
 
 static void bt_sink_srv_state_manager_suspend_callback(
-        audio_src_srv_handle_t *handle,
-        audio_src_srv_handle_t *interrupt);
+    audio_src_srv_handle_t *handle,
+    audio_src_srv_handle_t *interrupt);
 static void bt_sink_srv_state_manager_exception_callback(
-        audio_src_srv_handle_t *handle,
-        int32_t event,
-        void *parameter);
+    audio_src_srv_handle_t *handle,
+    int32_t event,
+    void *parameter);
 static void bt_sink_srv_state_manager_set_next_state(
-        bt_sink_srv_state_manager_context_t *context,
-        bt_sink_srv_state_manager_device_t *device,
-        bt_sink_srv_state_manager_next_state_t next_state);
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device,
+    bt_sink_srv_state_manager_next_state_t next_state);
 static void bt_sink_srv_state_manager_run_next_state(
-        bt_sink_srv_state_manager_context_t *context,
-        bt_sink_srv_state_manager_device_t *device);
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device);
 
 static void bt_sink_srv_state_manager_play_callback(audio_src_srv_handle_t *handle);
 static void bt_sink_srv_state_manager_stop_callback(audio_src_srv_handle_t *handle);
 static void bt_sink_srv_state_manager_reject_callback(audio_src_srv_handle_t *handle);
 
 void bt_sink_srv_state_manager_alloc_psedev(
-        bt_sink_srv_state_manager_context_t *context,
-        bt_sink_srv_state_manager_device_t *device)
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device)
 {
     device->dummy_device = audio_src_srv_construct_handle(AUDIO_SRC_SRV_PSEUDO_DEVICE_DUMMY);
     bt_utils_assert(device->dummy_device && "Cannot construct a psedev");
@@ -72,8 +72,8 @@ void bt_sink_srv_state_manager_alloc_psedev(
 }
 
 void bt_sink_srv_state_manager_free_psedev(
-        bt_sink_srv_state_manager_context_t *context,
-        bt_sink_srv_state_manager_device_t *device)
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device)
 {
     bt_sink_srv_report_id("[Sink][StaMgr][PseDev]free, next_state: 0x%x", 1, device->next_state);
 
@@ -86,8 +86,8 @@ void bt_sink_srv_state_manager_free_psedev(
 }
 
 void bt_sink_srv_state_manager_play_psedev(
-        bt_sink_srv_state_manager_context_t *context,
-        bt_sink_srv_state_manager_device_t *device)
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device)
 {
     audio_src_srv_state_t pre_state = device->dummy_device->state;
 
@@ -98,12 +98,12 @@ void bt_sink_srv_state_manager_play_psedev(
 
     (void)pre_state;
     bt_sink_srv_report_id("[Sink][StaMgr][PseDev]play psedev, OUT: 0x%x(0x%x -> 0x%x)", 3,
-            device->dummy_device, pre_state, device->dummy_device->state);
+                          device->dummy_device, pre_state, device->dummy_device->state);
 }
 
 void bt_sink_srv_state_manager_stop_psedev(
-        bt_sink_srv_state_manager_context_t *context,
-        bt_sink_srv_state_manager_device_t *device)
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device)
 {
     audio_src_srv_state_t pre_state = device->dummy_device->state;
 
@@ -119,7 +119,7 @@ void bt_sink_srv_state_manager_stop_psedev(
 
     (void)pre_state;
     bt_sink_srv_report_id("[Sink][StaMgr][PseDev]stop psedev, OUT: 0x%x(0x%x -> 0x%x)", 3,
-            device->dummy_device, pre_state, device->dummy_device->state);
+                          device->dummy_device, pre_state, device->dummy_device->state);
 }
 
 static void bt_sink_srv_state_manager_play_callback(audio_src_srv_handle_t *handle)
@@ -133,7 +133,7 @@ static void bt_sink_srv_state_manager_play_callback(audio_src_srv_handle_t *hand
 
     (void)pre_state;
     bt_sink_srv_report_id("[Sink][StaMgr][PseDev]play callback, OUT: 0x%x(0x%x -> 0x%x)", 3,
-            handle, pre_state, handle->state);
+                          handle, pre_state, handle->state);
 }
 
 static void bt_sink_srv_state_manager_stop_callback(audio_src_srv_handle_t *handle)
@@ -147,12 +147,12 @@ static void bt_sink_srv_state_manager_stop_callback(audio_src_srv_handle_t *hand
 
     (void)pre_state;
     bt_sink_srv_report_id("[Sink][StaMgr][PseDev]stop callback, OUT: 0x%x(0x%x -> 0x%x)", 3,
-            handle, pre_state, handle->state);
+                          handle, pre_state, handle->state);
 }
 
 static void bt_sink_srv_state_manager_suspend_callback(
-        audio_src_srv_handle_t *handle,
-        audio_src_srv_handle_t *interrupt)
+    audio_src_srv_handle_t *handle,
+    audio_src_srv_handle_t *interrupt)
 {
     bt_sink_srv_state_manager_context_t *context = bt_sink_srv_state_manager_get_context();
     bt_sink_srv_state_manager_device_t *device = bt_sink_srv_state_manager_get_device_by_psedev(context, handle);
@@ -166,7 +166,7 @@ static void bt_sink_srv_state_manager_suspend_callback(
 
     (void)pre_state;
     bt_sink_srv_report_id("[Sink][StaMgr][PseDev]suspend callback, OUT: 0x%x(0x%x -> 0x%x)", 3,
-            handle, pre_state, handle->state);
+                          handle, pre_state, handle->state);
 }
 
 static void bt_sink_srv_state_manager_reject_callback(audio_src_srv_handle_t *handle)
@@ -180,40 +180,40 @@ static void bt_sink_srv_state_manager_reject_callback(audio_src_srv_handle_t *ha
 
     (void)pre_state;
     bt_sink_srv_report_id("[Sink][StaMgr][PseDev]reject callback, OUT: 0x%x(0x%x -> 0x%x)", 3,
-            handle, pre_state, handle->state);
+                          handle, pre_state, handle->state);
 }
 
 static void bt_sink_srv_state_manager_exception_callback(
-        audio_src_srv_handle_t *handle,
-        int32_t event, void *parameter)
+    audio_src_srv_handle_t *handle,
+    int32_t event, void *parameter)
 {
     return;
 }
 
 static void bt_sink_srv_state_manager_set_next_state(
-        bt_sink_srv_state_manager_context_t *context,
-        bt_sink_srv_state_manager_device_t *device,
-        bt_sink_srv_state_manager_next_state_t next_state)
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device,
+    bt_sink_srv_state_manager_next_state_t next_state)
 {
     bt_sink_srv_report_id(
-            "[Sink][StaMgr][PseDev]set next state, 0x%x(0x%x -> 0x%x)",
-            3,
-            device->dummy_device,
-            device->next_state,
-            next_state);
+        "[Sink][StaMgr][PseDev]set next state, 0x%x(0x%x -> 0x%x)",
+        3,
+        device->dummy_device,
+        device->next_state,
+        next_state);
 
     device->next_state = next_state;
 }
 
 static void bt_sink_srv_state_manager_run_next_state(
-        bt_sink_srv_state_manager_context_t *context,
-        bt_sink_srv_state_manager_device_t *device)
+    bt_sink_srv_state_manager_context_t *context,
+    bt_sink_srv_state_manager_device_t *device)
 {
     bt_sink_srv_report_id(
-            "[Sink][StaMgr][PseDev]run next state, 0x%x(0x%x)",
-            2,
-            device->dummy_device,
-            device->next_state);
+        "[Sink][StaMgr][PseDev]run next state, 0x%x(0x%x)",
+        2,
+        device->dummy_device,
+        device->next_state);
 
     if (NULL == device->dummy_device) {
         return ;
@@ -223,9 +223,9 @@ static void bt_sink_srv_state_manager_run_next_state(
         case AUDIO_SRC_SRV_STATE_READY: {
             if (BT_SINK_SRV_STATE_MANAGER_NEXT_STATE_READY == device->next_state) {
                 bt_sink_srv_state_manager_set_next_state(
-                        context,
-                        device,
-                        BT_SINK_SRV_STATE_MANAGER_NEXT_STATE_INVALID);
+                    context,
+                    device,
+                    BT_SINK_SRV_STATE_MANAGER_NEXT_STATE_INVALID);
             }
             break;
         }
@@ -237,9 +237,9 @@ static void bt_sink_srv_state_manager_run_next_state(
         case AUDIO_SRC_SRV_STATE_PLAYING: {
             if (BT_SINK_SRV_STATE_MANAGER_NEXT_STATE_PLAYING == device->next_state) {
                 bt_sink_srv_state_manager_set_next_state(
-                        context,
-                        device,
-                        BT_SINK_SRV_STATE_MANAGER_NEXT_STATE_INVALID);
+                    context,
+                    device,
+                    BT_SINK_SRV_STATE_MANAGER_NEXT_STATE_INVALID);
             } else if (BT_SINK_SRV_STATE_MANAGER_NEXT_STATE_READY == device->next_state) {
                 audio_src_srv_update_state(device->dummy_device, AUDIO_SRC_SRV_EVT_PREPARE_STOP);
             }

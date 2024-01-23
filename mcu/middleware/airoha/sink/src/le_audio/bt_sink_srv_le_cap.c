@@ -302,6 +302,7 @@ bt_status_t bt_sink_srv_cap_set_link(bt_handle_t connect_handle)
                          address.addr[0], address.addr[1], address.addr[2],
                          address.addr[3], address.addr[4], address.addr[5]);
 
+            bt_sink_srv_le_volume_reset_mic_volume_state(link_index);
             bt_sink_srv_cap_stream_allocate_ase_link(connect_handle);
 
             bt_sink_srv_cap_set_state(connect_handle, BT_SINK_SRV_CAP_STATE_CONNECTED);
@@ -333,7 +334,7 @@ bt_status_t bt_sink_srv_cap_clear_link(bt_handle_t connect_handle)
             bt_sink_srv_cap_am_reset_suspending(CAP_AM_UNICAST_MUSIC_MODE_START + index);
             bt_sink_srv_cap_am_audio_stop(CAP_AM_UNICAST_CALL_MODE_START + index);
             bt_sink_srv_cap_am_audio_stop(CAP_AM_UNICAST_MUSIC_MODE_START + index);
-
+            bt_sink_srv_le_volume_reset_mic_volume_state(index);
 			g_sink_srv_cap_link[index].connect_handle = BT_HANDLE_INVALID;
             memset(&g_sink_srv_cap_link[index].peer_addr, 0, sizeof(bt_addr_t));
 
