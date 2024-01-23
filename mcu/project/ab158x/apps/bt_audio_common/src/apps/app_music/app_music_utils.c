@@ -344,22 +344,7 @@ static bool app_music_do_music_actions(bool from_aws_data, ui_shell_activity_t *
         }
     }
 
-<<<<<<< HEAD
-#if 0	// richard for bug64(from Airoha) defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
-    uint32_t a2dp_conn_num = 0;
-    uint32_t ull_conn_num = 0;
-    a2dp_conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK),
-                                                NULL, 0);
-    ull_conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_ULL),
-                                               NULL, 0);
-    APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_do_music_actions: a2dp_conn_num=%d, ull_conn_num=%d, mmi_state=%d",
-                     3, a2dp_conn_num, ull_conn_num, apps_config_key_get_mmi_state());
-
-#if defined(MTK_AWS_MCE_ENABLE) && !defined (AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
-    /* Partner can not send action to ull for control music, so relay to agent.*/
-=======
 #if defined(MTK_AWS_MCE_ENABLE)
->>>>>>> sdk3100base
     if ((BT_AWS_MCE_ROLE_PARTNER == bt_device_manager_aws_local_info_get_role())
         && (TRUE == app_home_screen_idle_activity_is_aws_connected())
 #ifdef AIR_LE_AUDIO_BIS_ENABLE
@@ -375,7 +360,7 @@ static bool app_music_do_music_actions(bool from_aws_data, ui_shell_activity_t *
     }
 #endif
 
-#if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
+#if 0	// richard for bug64(from Airoha) defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
     uint32_t a2dp_conn_num = 0;
     uint32_t ull_conn_num = 0;
     a2dp_conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_A2DP_SINK),

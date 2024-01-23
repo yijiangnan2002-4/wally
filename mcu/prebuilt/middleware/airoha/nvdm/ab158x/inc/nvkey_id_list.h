@@ -910,19 +910,6 @@ typedef enum
     NVID_APP_ULL2_VERSION                              = 0xF348,
     NVID_APP_DONGLE_ULL2_HID_SCENARIO                  = 0xF349,
     NVID_APP_DONGLE_ULL2_HID_IDLE_TIME                 = 0xF350,
-<<<<<<< HEAD
-    NVID_APP_DONGLE_KEY_REMAP_1                        = 0xF400,
-    NVID_APP_DONGLE_KEY_REMAP_2                        = 0xF401,
-    NVID_APP_DONGLE_KEY_REMAP_3                        = 0xF402,
-    NVID_APP_DONGLE_KEY_REMAP_4                        = 0xF403,
-    NVID_APP_DONGLE_KEY_REMAP_5                        = 0xF404,
-    NVID_APP_DONGLE_QC_TX_GC                           = 0xF410,
-    NVID_CUS_PRODUCT_INFO_PARA_03                      = 0xF503,
-
-	// richard for customer UI spec.============CUSTOMER DEFINITION ITEM================
-	NVID_CUSTOMER_DEFAULT_SETTING				   = 0xFE00,
-	
-=======
     NVID_APP_DONGLE_KEY_REMAP_1                        = 0xF351,
     NVID_APP_DONGLE_KEY_REMAP_2                        = 0xF352,
     NVID_APP_DONGLE_KEY_REMAP_3                        = 0xF353,
@@ -931,7 +918,10 @@ typedef enum
     NVID_APP_DONGLE_QC_TX_GC                           = 0xF356,
     NVID_APP_CUST_PAIR_KEY_INFO                        = 0xF357,
     NVID_CUS_CUST_RANGE_START                          = 0xF400,
+
+	// richard for customer UI spec.============CUSTOMER DEFINITION ITEM================
+	NVID_CUSTOMER_DEFAULT_SETTING				   = 0xFE00,
+	
     NVID_CUS_CUST_RANGE_END                            = 0xFFFF,
->>>>>>> sdk3100base
 }NVKey_ID_list;
 #endif /* __NVKEY_ID_LIST_H__ */ 

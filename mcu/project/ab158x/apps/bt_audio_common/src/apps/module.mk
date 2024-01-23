@@ -815,8 +815,5 @@ ifeq ($(AIR_BLE_HRS_ENABLE),y)
 C_FILES += $(APPS_SRC)/app_hrs/ble_app_hrs.c
 C_FILES += $(APPS_SRC)/app_hrs/ble_app_hrs_data.c
 endif
-<<<<<<< HEAD
-=======
 
 CFLAGS += -DAIR_BT_LINKRECORD_ENCRYPTED
->>>>>>> sdk3100base

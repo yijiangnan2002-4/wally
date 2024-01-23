@@ -1186,11 +1186,6 @@ void pmu_power_off_sequence_lp(pmu_power_stage_t stage)
         case PMU_RTC:
             pmu_set_register_value_lp(0x012, RG_UARTPSW_ENB_MASK, 0, 0x1);
             pmu_set_register_value_lp(0x328, RG_SW_OCP_ENB_MASK, 7, 0x1);
-<<<<<<< HEAD
-//            pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x1);		// richard for patch from Airoha
-//            pmu_set_register_value_lp(0x32C, RG_BAT_SYS_COMP_LPM_VCHGON_MASK, 1, 0x1);
-=======
->>>>>>> sdk3100base
             pmu_set_register_value_lp(0x00C, RG_BGHP_ENB_MASK, 0, 0x1);
             pmu_set_register_value_lp(0x00E, RG_FAST_BUFFER_ENB_MASK, 2, 0x1);
             pmu_set_register_value_lp(0x00E, RG_BGR_TRIM_ENB_MASK, 8, 0x1);
@@ -1199,22 +1194,14 @@ void pmu_power_off_sequence_lp(pmu_power_stage_t stage)
             pmu_enable_charger_lp(PMU_OFF);
             if (pmu_auxadc_get_channel_value_lp(PMU_AUX_VBAT) > 3200) {
                 pmu_eoc_ctrl(PMU_ON);
-<<<<<<< HEAD
-                pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x1);	// richard for patch from Airoha
-=======
                 pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x1);
->>>>>>> sdk3100base
                 pmu_set_register_value_lp(0x32C, RG_BAT_SYS_COMP_LPM_VCHGON_MASK, 1, 0x1);
                 pmu_uart_psw(PMU_OFF);
                 pmu_uart_psw_cl(PMU_OFF);
             }
             else {
                 pmu_eoc_ctrl(PMU_OFF);
-<<<<<<< HEAD
-                pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x0);	// richard for patch from Airoha
-=======
                 pmu_set_register_value_lp(0x32C, RG_CHG_SYS_COMP_LPM_MASK, 0, 0x0);
->>>>>>> sdk3100base
                 pmu_set_register_value_lp(0x32C, RG_BAT_SYS_COMP_LPM_VCHGON_MASK, 1, 0x0);
                 pmu_uart_psw(PMU_ON);
                 pmu_uart_psw_cl(PMU_ON);
