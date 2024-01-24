@@ -84,7 +84,7 @@
 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE
 #include "app_music_utils.h"
 #include "bt_ull_service.h"
-#Include "bt_ull_le_service.h"
+#include "bt_ull_le_service.h"
 #endif /* AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE */
 
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
