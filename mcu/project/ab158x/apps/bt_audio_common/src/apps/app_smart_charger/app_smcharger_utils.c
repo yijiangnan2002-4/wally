@@ -311,6 +311,13 @@ static app_smcharger_action_status_t app_smcharger_handle_system_boot()
     int32_t charger_exitst = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);
     uint8_t reason = pmu_get_power_on_reason();
     APPS_LOG_MSGID_I(LOG_TAG" handle_system_boot reason=0x%02X charger_exitst=%d", 2, reason, charger_exitst);
+
+	// richard for clean shipping mode
+	if(app_get_shipping_mode_state())
+	{
+		app_set_shipping_mode_state(false);
+	}	
+	
     if (charger_exitst) {
         /* Send CHARGER_IN_BOOT event if bit[2] is 1 (STS_CHRIN). */
         app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_CHARGER_IN_BOOT, NULL, 0);
@@ -721,6 +728,12 @@ app_smcharger_action_status_t app_smcharger_state_do_action(uint8_t state)
             break;
         }
         case STATE_SMCHARGER_OFF: {
+			// richard for need enter shipping mode
+			if(app_get_shipping_mode_state())
+			{
+				app_enter_shipping_mode_flag_set(true);
+			}
+			app_common_add_tracking_log(0x32);
             status += app_smcharger_power_off(FALSE);
             break;
         }
