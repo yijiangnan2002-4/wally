@@ -1254,7 +1254,7 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
 			{
 				raceEvt[DATA] = app_smcharger_get_state1();
 			}
-			else if (raceCmd[CMD_ID] == CASE_LID_CLOSE_DONE)
+			else if (raceCmd[CMD_ID] == CASE_LID_CLOSE)
 			{
 				raceEvt[DATA] = app_get_shipping_mode_state();
 			}
