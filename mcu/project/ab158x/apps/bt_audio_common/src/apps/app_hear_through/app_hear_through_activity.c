@@ -360,6 +360,12 @@ static bool app_hear_through_activity_handle_switch_set_cmd(void *extra_data, ui
 #endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
         ) {
         app_hearing_aid_activity_set_user_switch(false, parameter[0]);
+#ifdef AIR_TWS_ENABLE
+        if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER) {
+            app_hearing_aid_activity_set_need_play_locally(false);
+            app_hearing_aid_activity_set_mode_vp_played(true);
+        }
+#endif /* AIR_TWS_ENABLE */
     }
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
 
@@ -1544,6 +1550,7 @@ static bool app_hear_through_activity_handle_aws_config_sync(void *extra_data, u
     if (app_hear_through_ctx.is_anc_changed == true) {
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
         app_hearing_aid_activity_set_user_switch(false, false);
+        app_hearing_aid_activity_set_need_play_locally(false);
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
 
         app_hear_through_storage_set_hear_through_mode(configuration->hear_through_mode);
@@ -1754,20 +1761,20 @@ static bool app_hear_through_activity_proc_dm_event(uint32_t event_id,
                                 app_hear_through_ctx.is_power_on_vp_playing);
 
             app_hear_through_ctx.is_powering_off = false;
-#if 0
+
             app_anc_service_resume();
 
-            if (app_hear_through_ctx.is_power_on_vp_played == false) {
-                if (app_hear_through_ctx.is_power_on_vp_playing == false) {
-                    voice_prompt_play_vp_power_on();
-                }
-            } else {
-                if ((app_hear_through_ctx.is_charger_in == false)
-                        && (app_hear_through_ctx.is_hear_through_enabled == false)) {
-                    app_hear_through_activity_handle_ht_enable(true);
+            if (app_hear_through_ctx.is_charger_in == false) {
+                if (app_hear_through_ctx.is_power_on_vp_played == false) {
+                    if (app_hear_through_ctx.is_power_on_vp_playing == false) {
+                        voice_prompt_play_vp_power_on();
+                    }
+                } else {
+                    if (app_hear_through_ctx.is_hear_through_enabled == false) {
+                        app_hear_through_activity_handle_ht_enable(true);
+                    }
                 }
             }
-#endif
         } else if(evt == BT_DEVICE_MANAGER_POWER_EVT_STANDBY_COMPLETE) {
             APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_proc_dm_event] BT Powering off, hear_through_enabled : %d",
                                 1,
@@ -1789,8 +1796,8 @@ static bool app_hear_through_activity_proc_dm_event(uint32_t event_id,
             app_hear_through_ctx.is_powering_off = true;
 
             app_hear_through_ctx.is_hear_through_enabled = false;
-            app_hear_through_ctx.is_power_on_vp_played = false;
-            app_hear_through_ctx.is_power_on_ht_executed = false;
+            // app_hear_through_ctx.is_power_on_vp_played = false;
+            // app_hear_through_ctx.is_power_on_ht_executed = false;
 #if 0
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
             app_hearing_aid_activity_set_open_fwk_done(false);
@@ -1817,7 +1824,8 @@ bool app_hear_through_proc_hearing_aid_event(int32_t event_id, void *extra_data,
             bool anc_enabled = app_anc_service_is_anc_enabled();
             bool is_a2dp_drc_on = false;
             bool is_sco_drc_on = false;
-            bool is_drc_on = false;
+            bool is_drc_on = true;
+            bool is_mix_mode_on = false;
 
             bool a2dp_streaming = false;
 
@@ -1835,21 +1843,24 @@ bool app_hear_through_proc_hearing_aid_event(int32_t event_id, void *extra_data,
             if (a2dp_streaming == true) {
                 app_hearing_aid_utils_is_drc_on(APP_HEARING_AID_DRC_A2DP, &is_a2dp_drc_on);
                 is_drc_on = is_a2dp_drc_on;
+                is_mix_mode_on = app_hearing_aid_utils_is_music_mix_mode_on();
             }
 
             if (app_hearing_aid_activity_is_sco_ongoing() == true) {
                 app_hearing_aid_utils_is_drc_on(APP_HEARING_AID_DRC_SCO, &is_sco_drc_on);
                 is_drc_on = is_sco_drc_on;
+                is_mix_mode_on = app_hearing_aid_utils_is_sco_mix_mode_on();
             }
 
-            APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_proc_hearing_aid_event] HA/PSAP disabled, anc_enabled : %d, is_a2dp_drc_on : %d, is_sco_drc_on : %d, is_drc_on : %d",
-                                4,
+            APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_proc_hearing_aid_event] HA/PSAP disabled, anc_enabled : %d, is_a2dp_drc_on : %d, is_sco_drc_on : %d, is_drc_on : %d, is_mix_mode_on : %d",
+                                5,
                                 anc_enabled,
                                 is_a2dp_drc_on,
                                 is_sco_drc_on,
-                                is_drc_on);
+                                is_drc_on,
+                                is_mix_mode_on);
 
-            if ((anc_enabled == false) && (is_drc_on == false)) {
+            if ((anc_enabled == false) && (is_drc_on == false) && (is_mix_mode_on == true)) {
                 app_hearing_aid_activity_open_hearing_aid_fwk_with_zero_path();
             }
         }
@@ -2064,9 +2075,15 @@ static bool app_hear_through_proc_ota_event(uint32_t event_id,
                                             size_t data_len)
 {
     if (event_id == RACE_EVENT_TYPE_FOTA_START) {
-        APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_proc_ota_event] OTA beginning, hear_through_enabled : %d",
-                            1,
-                            app_hear_through_ctx.is_hear_through_enabled);
+
+        APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_proc_ota_event] OTA beginning, hear_through_enabled : %d, is_ota_ongoing : %d",
+                            2,
+                            app_hear_through_ctx.is_hear_through_enabled,
+                            app_hear_through_ctx.is_ota_ongoing);
+
+        if (app_hear_through_ctx.is_ota_ongoing == true) {
+            return false;
+        }
 
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
         app_hearing_aid_activity_set_user_switch(false, false);
@@ -2083,12 +2100,17 @@ static bool app_hear_through_proc_ota_event(uint32_t event_id,
 
         app_hear_through_mode_t hear_through_mode = app_hear_through_storage_get_hear_through_mode();
 
-        APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_proc_ota_event] OTA finished, hear_through_enabled_before_ota : %d, mode : %d, charger_in : %d, powering_off : %d",
-                            4,
+        APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_proc_ota_event] OTA finished, hear_through_enabled_before_ota : %d, mode : %d, charger_in : %d, powering_off : %d, is_ota_ongoing : %d",
+                            5,
                             app_hear_through_ctx.is_hear_through_enabled_before_ota,
                             hear_through_mode,
                             app_hear_through_ctx.is_charger_in,
-                            app_hear_through_ctx.is_powering_off);
+                            app_hear_through_ctx.is_powering_off,
+                            app_hear_through_ctx.is_ota_ongoing);
+
+        if (app_hear_through_ctx.is_ota_ongoing == false) {
+            return false;
+        }
 
         app_hear_through_ctx.is_ota_ongoing = false;
 
@@ -2315,7 +2337,7 @@ void app_hear_through_activity_handle_anc_switched(bool need_sync, bool anc_enab
                                                 true,
                                                 NULL,
                                                 0,
-                                                0);
+                                                APP_HEAR_THROUGH_SYNC_EVENT_DEFAULT_TIMEOUT);
     } else {
 #endif /* AIR_TWS_ENABLE */
         app_hear_through_activity_handle_anc_state_changed();

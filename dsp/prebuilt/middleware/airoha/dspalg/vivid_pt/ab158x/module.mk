@@ -36,7 +36,7 @@
 VIVID_PREBUILT_PATH = prebuilt/middleware/airoha/dspalg/vivid_pt/$(IC_CONFIG)
 
 ifeq ($(AIR_PASSTHRU_ENABLE_TYPE),PASSTHRU_VIVID)
-LIBS += $(strip $(LIBDIR2))/vivid_pt/$(IC_CONFIG)/pisplit/libawha_ha_biquad.a
+    LIBS += $(strip $(LIBDIR2))/vivid_pt/$(IC_CONFIG)/pisplit/libawha_ha_biquad.a
 endif
 
 LIBS += $(strip $(LIBDIR2))/vivid_pt/$(IC_CONFIG)/libLD_NR.a
@@ -44,7 +44,9 @@ LIBS += $(strip $(LIBDIR2))/vivid_pt/ab158x/libvivid_pt_if.a
 
 ifeq ($(AIR_HEARTHROUGH_VIVID_PT_USE_PIC), y)
     PIC  += $(strip $(LIBDIR2))/vivid_pt/$(IC_CONFIG)/pisplit/pisplit_awha_vpt_afc.o
+    PIC  += $(strip $(LIBDIR2))/vivid_pt/$(IC_CONFIG)/pisplit/pisplit_awha_vpt_limiter.o
     LIBS += $(strip $(LIBDIR2))/vivid_pt/$(IC_CONFIG)/pisplit/libawha_vpt_afc.a
+    LIBS += $(strip $(LIBDIR2))/vivid_pt/$(IC_CONFIG)/pisplit/libawha_vpt_limiter.a
 endif
 
 ###################################################

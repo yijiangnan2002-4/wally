@@ -44,9 +44,6 @@
 /* Public typedef ------------------------------------------------------------*/
 typedef void (*f_ha_afc_process)(void* afc, int* pIO, int blockSize);
 typedef void (*f_ha_afc_put_references)(void* afc, const int* pRef, const int blockSize);
-typedef int (*f_ha_afc_get_latest_ref_power)(void* afc_st);
-typedef int (*f_ha_afc_get_latest_feedback_power)(void* afc_st);
-typedef int (*f_ha_afc_get_latest_input_power)(void* afc_st);
 typedef void (*f_ha_afc_fs_process)(void* fs_st, int* io_data);
 typedef void (*f_ha_afc_fs_pic_set_extern_functions)(void* ha_biquad_pic, void* ha_ndm_pic);
 typedef int (*f_ha_inr_detect)(void* inr, int* iData, int length);
@@ -96,41 +93,38 @@ extern void *g_hearing_aid_biquad_export_parameters[];
 extern void *g_hearing_aid_biquad_export_pointer;
 
 /* Public functions ----------------------------------------------------------*/
-#define ha_afc_process                          ((f_ha_afc_process)g_hearing_aid_afc_export_parameters[0])
-#define ha_afc_put_references                   ((f_ha_afc_put_references)g_hearing_aid_afc_export_parameters[1])
-#define ha_afc_get_latest_ref_power             ((f_ha_afc_get_latest_ref_power)g_hearing_aid_afc_export_parameters[2])
-#define ha_afc_get_latest_feedback_power        ((f_ha_afc_get_latest_feedback_power)g_hearing_aid_afc_export_parameters[3])
-#define ha_afc_get_latest_input_power           ((f_ha_afc_get_latest_input_power)g_hearing_aid_afc_export_parameters[4])
-#define ha_afc_fs_process                       ((f_ha_afc_fs_process)g_hearing_aid_afc_fs_export_parameters[0])
-#define ha_afc_fs_pic_set_extern_functions      ((f_ha_afc_fs_pic_set_extern_functions)g_hearing_aid_afc_fs_export_parameters[1])
-#define ha_inr_detect                           ((f_ha_inr_detect)g_hearing_aid_inr_export_parameters[0])
-#define ha_inr_process                          ((f_ha_inr_process)g_hearing_aid_inr_export_parameters[1])
-#define ha_inr_pic_set_extern_functions         ((f_ha_inr_pic_set_extern_functions)g_hearing_aid_inr_export_parameters[2])
-#define ha_ola_analysis                         ((f_ha_ola_analysis)g_hearing_aid_ola_export_parameters[0])
-#define ha_ola_synthesis                        ((f_ha_ola_synthesis)g_hearing_aid_ola_export_parameters[1])
-#define ha_fft_fft                              ((f_ha_fft_fft)g_hearing_aid_fft_export_parameters[0])
-#define ha_fft_ifft                             ((f_ha_fft_ifft)g_hearing_aid_fft_export_parameters[1])
-#define ha_nr_process                           ((f_ha_nr_process)g_hearing_aid_nr_export_parameters[0])
-#define ha_beamforming_process                  ((f_ha_beamforming_process)g_hearing_aid_bfm_export_parameters[0])
-#define ha_drc_pic_set_extern_functions         ((f_ha_drc_pic_set_extern_functions)g_hearing_aid_drc_export_parameters[0])
-#define ha_drc_process                          ((f_ha_drc_process)g_hearing_aid_drc_export_parameters[1])
-#define ha_drc_analyse                          ((f_ha_drc_analyse)g_hearing_aid_drc_export_parameters[2])
-#define ha_drc_apply                            ((f_ha_drc_apply)g_hearing_aid_drc_export_parameters[3])
-#define ha_wnr_calculateGain                    ((f_ha_wnr_calculateGain)g_hearing_aid_wnr_export_parameters[0])
-#define ha_wnr_applyGain                        ((f_ha_wnr_applyGain)g_hearing_aid_wnr_export_parameters[1])
-#define ha_math_pic_p                           ((void*)g_hearing_aid_math_export_pointer)
-#define ha_math_db_to_amplitude                 ((f_ha_math_db_to_amplitude)g_hearing_aid_math_export_parameters[3])
-#define ha_calib_anc_ffmic_gain_decouple        ((f_ha_calib_anc_ffmic_gain_decouple)g_hearing_aid_calib_export_parameters[0])
-#define ha_calib_2mic_alignment_apply           ((f_ha_calib_2mic_alignment_apply)g_hearing_aid_calib_export_parameters[1])
-#define ha_calib_mic_frequency_domain_analyze   ((f_ha_calib_mic_frequency_domain_analyze)g_hearing_aid_calib_export_parameters[2])
-#define ha_calib_mic_timedomain_analyze         ((f_ha_calib_mic_timedomain_analyze)g_hearing_aid_calib_export_parameters[3])
-#define ha_ndm_pic_p                            ((void*)g_hearing_aid_ndm_export_pointer)
-#define scl_cosine32x32                         ((f_scl_cosine32x32)g_hearing_aid_ndm_export_parameters[0])
-#define scl_sine32x32                           ((f_scl_sine32x32)g_hearing_aid_ndm_export_parameters[1])
-#define scl_sqrt64x32                           ((f_scl_sqrt64x32)g_hearing_aid_ndm_export_parameters[2])
-#define ha_tln_process                          ((f_ha_tln_process)g_hearing_aid_tln_export_parameters[0])
-#define ha_biquad_pic_p                         ((void*)g_hearing_aid_biquad_export_pointer)
-#define ha_biquad_frame_process                 ((f_ha_biquad_frame_process)g_hearing_aid_biquad_export_parameters[0])
+#define ha_afc_process                              ((f_ha_afc_process)g_hearing_aid_afc_export_parameters[0])
+#define ha_afc_put_references                       ((f_ha_afc_put_references)g_hearing_aid_afc_export_parameters[1])
+#define ha_afc_fs_process                           ((f_ha_afc_fs_process)g_hearing_aid_afc_fs_export_parameters[0])
+#define ha_afc_fs_pic_set_extern_functions          ((f_ha_afc_fs_pic_set_extern_functions)g_hearing_aid_afc_fs_export_parameters[1])
+#define ha_inr_detect                               ((f_ha_inr_detect)g_hearing_aid_inr_export_parameters[0])
+#define ha_inr_process                              ((f_ha_inr_process)g_hearing_aid_inr_export_parameters[1])
+#define ha_inr_pic_set_extern_functions             ((f_ha_inr_pic_set_extern_functions)g_hearing_aid_inr_export_parameters[2])
+#define ha_ola_analysis                             ((f_ha_ola_analysis)g_hearing_aid_ola_export_parameters[0])
+#define ha_ola_synthesis                            ((f_ha_ola_synthesis)g_hearing_aid_ola_export_parameters[1])
+#define ha_fft_fft                                  ((f_ha_fft_fft)g_hearing_aid_fft_export_parameters[0])
+#define ha_fft_ifft                                 ((f_ha_fft_ifft)g_hearing_aid_fft_export_parameters[1])
+#define ha_nr_process                               ((f_ha_nr_process)g_hearing_aid_nr_export_parameters[0])
+#define ha_beamforming_process                      ((f_ha_beamforming_process)g_hearing_aid_bfm_export_parameters[0])
+#define ha_drc_pic_set_extern_functions             ((f_ha_drc_pic_set_extern_functions)g_hearing_aid_drc_export_parameters[0])
+#define ha_drc_process                              ((f_ha_drc_process)g_hearing_aid_drc_export_parameters[1])
+#define ha_drc_analyse                              ((f_ha_drc_analyse)g_hearing_aid_drc_export_parameters[2])
+#define ha_drc_apply                                ((f_ha_drc_apply)g_hearing_aid_drc_export_parameters[3])
+#define ha_wnr_calculateGain                        ((f_ha_wnr_calculateGain)g_hearing_aid_wnr_export_parameters[0])
+#define ha_wnr_applyGain                            ((f_ha_wnr_applyGain)g_hearing_aid_wnr_export_parameters[1])
+#define ha_math_pic_p                               ((void*)g_hearing_aid_math_export_pointer)
+#define ha_math_db_to_amplitude                     ((f_ha_math_db_to_amplitude)g_hearing_aid_math_export_parameters[3])
+#define ha_calib_anc_ffmic_gain_decouple            ((f_ha_calib_anc_ffmic_gain_decouple)g_hearing_aid_calib_export_parameters[0])
+#define ha_calib_2mic_alignment_apply               ((f_ha_calib_2mic_alignment_apply)g_hearing_aid_calib_export_parameters[1])
+#define ha_calib_mic_frequency_domain_analyze       ((f_ha_calib_mic_frequency_domain_analyze)g_hearing_aid_calib_export_parameters[2])
+#define ha_calib_mic_timedomain_analyze             ((f_ha_calib_mic_timedomain_analyze)g_hearing_aid_calib_export_parameters[3])
+#define ha_ndm_pic_p                                ((void*)g_hearing_aid_ndm_export_pointer)
+#define scl_cosine32x32                             ((f_scl_cosine32x32)g_hearing_aid_ndm_export_parameters[0])
+#define scl_sine32x32                               ((f_scl_sine32x32)g_hearing_aid_ndm_export_parameters[1])
+#define scl_sqrt64x32                               ((f_scl_sqrt64x32)g_hearing_aid_ndm_export_parameters[2])
+#define ha_tln_process                              ((f_ha_tln_process)g_hearing_aid_tln_export_parameters[0])
+#define ha_biquad_pic_p                             ((void*)g_hearing_aid_biquad_export_pointer)
+#define ha_biquad_frame_process                     ((f_ha_biquad_frame_process)g_hearing_aid_biquad_export_parameters[0])
 
 uint32_t hearing_aid_library_load(void *code_address, void *data_address, uint32_t *dram_pic_usage);
 uint32_t hearing_aid_library_unload(void);

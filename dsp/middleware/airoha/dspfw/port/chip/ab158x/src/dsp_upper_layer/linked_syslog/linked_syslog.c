@@ -198,6 +198,8 @@ ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_149[] = LOG_DEBUG_PREFIX(anc) "[ANC_API
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_150[] = LOG_DEBUG_PREFIX(anc) "ANC MIC Switch one-shot timer(%u) expire/start(%d)";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_151[] = LOG_DEBUG_PREFIX(anc) "[ANC_API] dsp_anc_task_event_handler, sub_event_id %d, filter_id %d, count %d";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_152[] = LOG_DEBUG_PREFIX(anc) "hal_anc_pwd_enable, AFE_ANC_PWR_(0x%x/0x%x)(0x%x/0x%x), AFE_IRQ_MCU_IRQ_MCU_(0x%x/0x%x)";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_153[] = LOG_DEBUG_PREFIX(anc) "[ANC_API] wait asynchronous process done : %d ms !\n";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_154[] = LOG_DEBUG_PREFIX(anc) "[ANC_API] get ramp mask off(0x%x), switching(0x%x)\n";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_999[] = LOG_DEBUG_PREFIX(anc) "[ANC] DBG";
 
 #ifdef AIR_FULL_ADAPTIVE_ANC_ENABLE
@@ -494,6 +496,8 @@ ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_149[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_150[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_151[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_152[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_153[] = "";
+ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_154[] = "";
 ATTR_LOG_STRING_LIB  g_ANC_msg_id_string_999[] = "";
 
 #ifdef AIR_FULL_ADAPTIVE_ANC_ENABLE

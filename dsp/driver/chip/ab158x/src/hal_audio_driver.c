@@ -2886,7 +2886,7 @@ bool hal_hw_gain_set_up_step(afe_hardware_digital_gain_t gain_select, uint32_t u
     return false;
 }
 
-bool hal_hw_gain_set_sample_per_step(afe_hardware_digital_gain_t gain_select, uint32_t sample_per_step)
+bool hal_hw_gain_set_sample_per_step(afe_hardware_digital_gain_t gain_select, uint32_t sample_per_step, bool debug_log)
 {
     uint32_t gain_register = 0, sample_per_step_register;
     UNUSED(sample_per_step_register);
@@ -2915,12 +2915,14 @@ bool hal_hw_gain_set_sample_per_step(afe_hardware_digital_gain_t gain_select, ui
         } else {
             sample_per_step = 0xFFFFFFFF;
         }
-        HAL_AUDIO_LOG_INFO("DSP - Hal Audio Gain Output Set HW gain:%d, sample_per_step:0x%x", 2, gain_select, sample_per_step);
+        if (debug_log) {
+            HAL_AUDIO_LOG_INFO("DSP - Hal Audio Gain Output Set HW gain:%d, sample_per_step:0x%x", 2, gain_select, sample_per_step);
+        }
     }
     return false;
 }
 
-uint32_t hal_hw_gain_get_sample_per_step(afe_hardware_digital_gain_t gain_select)
+uint32_t hal_hw_gain_get_sample_per_step(afe_hardware_digital_gain_t gain_select, bool debug_log)
 {
     uint32_t gain_register = 0, sample_per_step = 0;
     switch (gain_select) {
@@ -2941,7 +2943,9 @@ uint32_t hal_hw_gain_get_sample_per_step(afe_hardware_digital_gain_t gain_select
             break;
     }
     sample_per_step = (AFE_GET_REG(gain_register) & AFE_GAIN1_CON0_PER_STEP_MASK) >> AFE_GAIN1_CON0_PER_STEP_POS;
-    HAL_AUDIO_LOG_INFO("DSP - Hal Audio Gain Output Get HW gain:%d, sample_per_step:0x%x", 2, gain_select, sample_per_step);
+    if (debug_log) {
+        HAL_AUDIO_LOG_INFO("DSP - Hal Audio Gain Output Get HW gain:%d, sample_per_step:0x%x", 2, gain_select, sample_per_step);
+    }
     return sample_per_step;
 }
 
@@ -4497,7 +4501,11 @@ bool hal_audio_dl_set_sdm_enable(bool enable)
 {
     if (enable) {
         AFE_SET_REG(AFUNC_AUD_CON2, (1 << AFUNC_AUD_CON2_SDM_CLK_POS) | (1 << AFUNC_AUD_CON2_SDM_FT_TEST_POS), AFUNC_AUD_CON2_SDM_CLK_MASK | AFUNC_AUD_CON2_SDM_FT_TEST_MASK); //sdm audio fifo clock power on
-        AFE_SET_REG(AFUNC_AUD_CON0, 0xCBA1, 0xFFFF);    //scrambler clock on enable
+        if (afe_analog_gain[AFE_HW_ANALOG_GAIN_OUTPUT].analog_mode == HAL_AUDIO_ANALOG_OUTPUT_CLASSD) {
+            AFE_SET_REG(AFUNC_AUD_CON0, 0xCFA1, 0xFFFF);    //scrambler clock on enable
+        } else {
+            AFE_SET_REG(AFUNC_AUD_CON0, 0xCBA1, 0xFFFF);    //scrambler clock on enable
+        }
         AFE_SET_REG(AFUNC_AUD_CON2, (1 << AFUNC_AUD_CON2_SDM_FIFO_RSTB_POS) | (0 << AFUNC_AUD_CON2_SDM_FT_TEST_POS), AFUNC_AUD_CON2_SDM_FIFO_RSTB_MASK | AFUNC_AUD_CON2_SDM_FT_TEST_MASK); //sdm power on
         AFE_SET_REG(AFUNC_AUD_CON2, (1 << AFUNC_AUD_CON2_SDM_ENABLE_POS), AFUNC_AUD_CON2_SDM_ENABLE_MASK);  //sdm fifo enable
         AFE_SET_REG(AFE_ANA_GAIN_MUX, 0x5A, 0x005f);    //set HP gain control to ZCD module
@@ -7162,7 +7170,7 @@ void hal_audio_ana_set_dac_reset(void)
     //ANA_WRITE(AUDDEC_ANA_CON7, 0x533);
     //ANA_WRITE(AUDDEC_ANA_CON8, 0x3F);
     //ANA_WRITE(AUDDEC_ANA_CON9, 0x0);
-    //ANA_WRITE(AUDDEC_ANA_CON10, 0x0);
+    ANA_WRITE(AUDDEC_ANA_CON10, 0x0);
     ANA_WRITE(AUDDEC_ANA_CON11, 0x0);
     ANA_WRITE(AUDDEC_ANA_CON12, 0x0);
     ANA_WRITE(AUDDEC_ANA_CON13, 0x0);
@@ -8062,6 +8070,7 @@ bool hal_audio_ana_set_dac_open_loop_classd_enable(hal_audio_device_parameter_da
         AFE_SET_REG(AUDIO_TOP_CON0, 1 << AUDIO_TOP_CON0_PDN_OL_CLD_POS, AUDIO_TOP_CON0_PDN_OL_CLD_MASK);
         hal_audio_afe_enable_common_global(AFE_ANALOG_DAC, enable);
         hal_audio_dl_set_sdm_enable(enable);
+        hal_audio_ana_set_dac_reset();
     }
     return false;
 }

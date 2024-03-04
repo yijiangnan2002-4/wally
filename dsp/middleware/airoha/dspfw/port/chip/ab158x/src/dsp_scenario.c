@@ -4932,6 +4932,9 @@ void dsp_dc_compensation_start(hal_ccni_message_t msg, hal_ccni_message_t *ack)
         device_handle.analog_mic.adc_parameter.with_au_in_swap = false;
         hal_audio_set_device(&device_handle, device_handle.analog_mic.audio_device, HAL_AUDIO_CONTROL_ON);
     }
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+    AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, (open_param->stream_out_param.afe.CLD_align_gain & 0x3F) << AFE_ADDA_DL_SDM_DCCOMP_CON_ATTGAIN_CTL_POS, AFE_ADDA_DL_SDM_DCCOMP_CON_ATTGAIN_CTL_MASK);
+#endif
 //#endif
 #else
     UNUSED(msg);
@@ -5601,7 +5604,11 @@ const uint32_t gUser_Unaware_en = 0;
 #endif
 
 #ifdef MTK_PROMPT_SOUND_ENABLE
+#ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+#define DSP_VP_POLLING_TIME 200  //us
+#else
 #define DSP_VP_POLLING_TIME 600  //us
+#endif
 uint32_t gDSP_VP_GPT_TIMER_HANDLE = 0;
 uint32_t gDSP_VP_GPT_TARGET_TIME = 0;
 ATTR_TEXT_IN_RAM_FOR_MASK_IRQ void CB_CM4_VP_PLAYBACK_GPT_CALLBACK(void *user_data)

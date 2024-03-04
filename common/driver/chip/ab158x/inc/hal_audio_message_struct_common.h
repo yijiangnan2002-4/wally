@@ -960,6 +960,9 @@ typedef struct {
     uint8_t                                 dchs_ul_scenario_type;
     uint32_t                                codec_type;
 #endif
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+    uint8_t                                 CLD_align_gain;     /*  For align final output volume of CLD and OLD */
+#endif
 } au_afe_open_param_t,*au_afe_open_param_p;
 
 typedef enum {

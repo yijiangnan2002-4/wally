@@ -342,6 +342,8 @@ bool app_hearing_aid_utils_is_drc_enable(bool a2dp_streaming, bool sco_streaming
 
 bool app_hearing_aid_utils_is_sco_mix_mode_on();
 
+bool app_hearing_aid_utils_is_music_mix_mode_on();
+
 void app_hearing_aid_utils_sync_runtime_parameters(uint8_t *parameter, uint16_t parameter_len);
 
 #ifdef __cplusplus

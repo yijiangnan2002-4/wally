@@ -3251,7 +3251,7 @@ void dsp_sync_callback_adapt_anc(cm4_dsp_audio_sync_action_type_t request_action
 #endif
 
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
-void dsp_sync_callback_llf(cm4_dsp_audio_sync_action_type_t request_action_id, void *user_data)
+ATTR_TEXT_IN_IRAM void dsp_sync_callback_llf(cm4_dsp_audio_sync_action_type_t request_action_id, void *user_data)
 {
     cm4_dsp_audio_sync_request_param_t *sync_info;
     sync_info = (cm4_dsp_audio_sync_request_param_t*)user_data;

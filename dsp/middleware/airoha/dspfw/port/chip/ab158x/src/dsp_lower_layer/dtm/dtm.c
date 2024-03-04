@@ -447,9 +447,9 @@ VOID DTM(VOID)
             case DTM_EVENT_ID_DAC_DEACTIVE_MODE_EXIT:
                 {
                     hal_audio_analog_mdoe_t new_dac_mode = (cur_queue.arg & 0xFF);
-                    uint8_t cld_gain_compensation = (cur_queue.arg >> 16);
+//                    uint8_t cld_gain_compensation = (cur_queue.arg >> 16);
 
-                    AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, cld_gain_compensation << AFE_ADDA_DL_SDM_DCCOMP_CON_ATTGAIN_CTL_POS, AFE_ADDA_DL_SDM_DCCOMP_CON_ATTGAIN_CTL_MASK);
+//                    AFE_SET_REG(AFE_ADDA_DL_SDM_DCCOMP_CON, cld_gain_compensation << AFE_ADDA_DL_SDM_DCCOMP_CON_ATTGAIN_CTL_POS, AFE_ADDA_DL_SDM_DCCOMP_CON_ATTGAIN_CTL_MASK);
                     hal_volume_set_analog_mode(AFE_HW_ANALOG_GAIN_OUTPUT, new_dac_mode);
                     hal_audio_device_enter_dac_deactive_mode(false);
                 }

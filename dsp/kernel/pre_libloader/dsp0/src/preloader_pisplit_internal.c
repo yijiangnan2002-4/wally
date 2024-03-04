@@ -515,6 +515,7 @@ void xtlib_load_data_seg_mtk_fn(pisplit_library_info_t *p_handle, Elf32_Phdr *ph
     } else {
         PRELOADER_LOG_I(preloader, "xtlib_load_data_seg_mtk_fn library(0x%x)-loading data region- bytes_to_copy is 0, no need start dma to do memcpy\r\n ", 1, (unsigned int)p_handle->p_pi_library);
         p_handle->data_mem_copy_request.pre_load_dma_event = PRELOADER_PISPLIT_DO_MEM_DONE;
+        pisplit_library_dma_irq_handle(HAL_SW_DMA_EVENT_TRANSACTION_SUCCESS,&p_handle->data_mem_copy_request);
     }
     }
     
@@ -594,6 +595,7 @@ void xtlib_load_data_seg_mtk_fn(pisplit_library_info_t *p_handle, Elf32_Phdr *ph
     } else {
         PRELOADER_LOG_I(preloader, "xtlib_load_data_seg_mtk_fn library(0x%x)-loading data region- bytes_to_zero is 0, no need start dma to do memset\r\n ", 1, (unsigned int)p_handle->p_pi_library);
         p_handle->data_mem_set_request.pre_load_dma_event = PRELOADER_PISPLIT_DO_MEM_DONE;
+        pisplit_library_dma_irq_handle(HAL_SW_DMA_EVENT_TRANSACTION_SUCCESS,&p_handle->data_mem_set_request);
     }
     
 }

@@ -37,14 +37,19 @@
 
 #if defined(AIR_HEARTHROUGH_VIVID_PT_ENABLE) && defined(AIR_HEARTHROUGH_VIVID_PT_USE_PIC)
 
-extern void *g_vivid_passthru_export_parameters[];
+extern void *g_vivid_passthru_afc_export_parameters[];
+extern void *g_vivid_passthru_limiter_export_parameters[];
 
 /*for export parameters*************************************************/
 typedef void (*f_vpt_afc_process)(void* afc_st, int* inout, void* scratch);
 typedef void (*f_vpt_afc_put_references)(void* afc_st, const int* pRef);
+typedef void (*f_vpt_limiter_process)(void* limiter_st, const int* pin, int* pout);
+typedef void (*f_vpt_limiter_pwd_pic_set_extern_functions)(void* peq_api);
 
-#define vpt_afc_process ((f_vpt_afc_process)g_vivid_passthru_export_parameters[0])
-#define vpt_afc_put_references ((f_vpt_afc_put_references)g_vivid_passthru_export_parameters[1])
+#define vpt_afc_process ((f_vpt_afc_process)g_vivid_passthru_afc_export_parameters[0])
+#define vpt_afc_put_references ((f_vpt_afc_put_references)g_vivid_passthru_afc_export_parameters[1])
+#define vpt_limiter_process ((f_vpt_limiter_process)g_vivid_passthru_limiter_export_parameters[0])
+#define vpt_limiter_pwd_pic_set_extern_functions ((f_vpt_limiter_pwd_pic_set_extern_functions)g_vivid_passthru_limiter_export_parameters[1])
 
 uint32_t vivid_passthru_library_load(void *code_address, void *data_address, uint32_t *dram_pic_usage);
 uint32_t vivid_passthru_library_unload();

@@ -197,6 +197,8 @@ SECTIONS {
         /* Put vivid pt ldnr code on SYSRAM*/
         *libLD_NR.a:*(.literal* .text*)
         *libawha_aea.a:*(.literal* .text*)
+        /* Put ha/psap mfa code on SYSRAM */
+        *libawha_mfa.a:*(.literal* .text*)
 
         /* Put wnd/ed lib on SYSRAM*/
         *libwind_det_1585.a:*(.literal* .text*)

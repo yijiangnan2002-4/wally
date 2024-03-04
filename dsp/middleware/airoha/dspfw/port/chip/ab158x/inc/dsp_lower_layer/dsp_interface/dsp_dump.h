@@ -357,6 +357,10 @@ typedef enum {
     AUDIO_VIVID_LDNR_OUT        = 819,
     AUDIO_VIVID_OUT             = 820,
     AUDIO_PSAP_MUSIC_VOICE_PLC_OUT  = 821,
+    AUDIO_PSAP_AFC_DEBUG        = 822,
+    AUDIO_VIVID_AFC_DEBUG       = 823,
+    AUDIO_PSAP_AFC_IN_0         = 824,
+    AUDIO_PSAP_AFC_IN_1         = 825,
     AUDIO_LLF_MAX_ID            = 850,
 
     /* SRC fixed ratio */

@@ -385,6 +385,9 @@ void audio_driver_dc_compensation(void)
     vPortFree(feature_param);
 }
 
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+extern HAL_DSP_PARA_AU_AFE_CTRL_t audio_nvdm_HW_config;
+#endif
 
 void hal_audio_set_dc_compensation(void) {
         audio_src_srv_report("[Sink][AM] Init: DC Compensation\n", 0);
@@ -396,6 +399,9 @@ void hal_audio_set_dc_compensation(void) {
         open_param.param.stream_out = STREAM_OUT_AFE;
         open_param.stream_out_param.afe.audio_device = HAL_AUDIO_DEVICE_DAC_DUAL;
         open_param.stream_out_param.afe.sampling_rate = 48000;
+#if defined(AIR_DAC_MODE_RUNTIME_CHANGE)
+        open_param.stream_out_param.afe.CLD_align_gain = audio_nvdm_HW_config.adc_dac_config.ADDA_DAC_CLD_Gain_Compensation;
+#endif
         ami_hal_audio_status_set_running_flag(AUDIO_SCENARIO_TYPE_DC_COMPENSATION, &open_param, true);
         //get DAC Class G/Class AB type and send to DSP with start & stop msg
         p_param_share = hal_audio_dsp_controller_put_paramter(&open_param, sizeof(mcu2dsp_open_param_t), AUDIO_MESSAGE_TYPE_COMMON);

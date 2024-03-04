@@ -453,7 +453,8 @@ extern xtlib_packaged_library pisplit_awha_inr;
 
 #ifdef AIR_HEARTHROUGH_VIVID_PT_USE_PIC
 extern xtlib_packaged_library pisplit_awha_vpt_afc;
-#define HEARTHROUGH_VIVID_PT_LIB &pisplit_awha_vpt_afc,
+extern xtlib_packaged_library pisplit_awha_vpt_limiter;
+#define HEARTHROUGH_VIVID_PT_LIB &pisplit_awha_vpt_afc, &pisplit_awha_vpt_limiter,
 #else
 #define HEARTHROUGH_VIVID_PT_LIB
 #endif

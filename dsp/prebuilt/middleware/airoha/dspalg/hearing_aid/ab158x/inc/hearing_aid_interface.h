@@ -60,8 +60,6 @@
 #define HA_1KHZ_INDEX               (4)
 #define HA_MIC_DRC_MAX_INDEX        (49) /* 12250Hz */
 
-#define HA_HS_IMPROVEMENT       (0)
-
 typedef struct {
     U8                      afc_enabled;
     U8                      inr_enabled;
@@ -79,6 +77,8 @@ typedef struct {
     U8                      drc_enabled;
     S8                      scenario_ha_gain[3];
     U8                      scenario_drc_enabled[3];
+    U8                      scenario_mfa_enabled[3];
+    U8                      audio_mfa_enabled;
     U8                      isAudioDrcOn;
     U8                      isAudioOn;
     U8                      mute_enabled;
@@ -98,45 +98,57 @@ typedef struct {
     U32                     nr_current_level_q8p8;
     S32                     nr_smooth_times;
     S16                     afc_gse_multiplier_shift;
-    S16                     afc_gse_multiplier_frac;
+    S16                     reserved_3;
     U8                      mic_biquad_index;
     U8                      mic_biquad_enabled;
     U8                      ptg_bg_enabled;
     U8                      isAudioDrcOn_target;
+    U8                      mfa_enabled;
+    U8                      mfa_shift;
+    U8                      reserved_2[2];
 } PACKED ha_alg_switch_t;
+
+typedef struct{
+    S32 ref_power;
+    S32 error_power;
+    S32 feedback_power;
+    S32 delay_feedback_power;
+    S32 input_power;
+    S32 decorrelated_input_power;
+}PACKED ha_alg_afc_energy_analysis_data_t;
 
 typedef struct {
     S8  gse_frac_index;
-    U8  reserved;
+    U8  speed_up_enabled;
     U8  gse_shift;
     U8  max_gse_frac_index;
     S32 ref_energy_sum;
     U32 count;
 } PACKED ha_alg_afc_acs_t;
 
-#if (HA_HS_IMPROVEMENT == 1)
 typedef struct {
     U8  mute_state;
-    U8  acs_target;
-    U8  mute_index;
-    S8  mute_gain;
+    U8  Reserved[3];
     S32 input_energy_sum;
     S32 feedback_energy_sum;
     S32 detect_times;
     S32 smooth_times;
-    S32 detect_stop_times;
+    U32 ratio_regular_sum;
+    U32 ratio_regular_lower_sum;
+    U32 ratio_shadow_sum;
+    U32 count;
+    U32 regular_alpha;
+    U32 shadow_alpha;
+    S32 smooth_up_step;
+    S32 smooth_down_step;
+    U32 ratio_regular_error_sum;
+    U32 error_alpha;
+    U32 error_ratio_hs_count;
+    U32 regular_ratio_hs_count;
+    U32 regular_ratio_power_threshold;
+    U32 shadow_ratio_power_threshold;
+    U32 smoothdown_detect_threshold;
 } PACKED ha_alg_afc_hs_t;
-#else
-typedef struct {
-    U8  mute_state;
-    U8  acs_target;
-    U8  Reserved[2];
-    S32 input_energy_sum;
-    S32 feedback_energy_sum;
-    S32 detect_times;
-    S32 smooth_times;
-} PACKED ha_alg_afc_hs_t;
-#endif
 
 typedef struct {
     S32 current;
@@ -202,10 +214,13 @@ typedef struct {
     U8                      ha_switch;
     ha_alg_inr_t            inr_ctrl;
     ha_alg_switch_t         alg_ctl;
-    ha_alg_afc_acs_t        afc_acs_ctl[2];     /* Master, Sec */
-    ha_alg_afc_hs_t         afc_hs_ctl[2];      /* Master, Sec */
+    ha_alg_afc_acs_t        afc_acs_ctl;
+    ha_alg_afc_hs_t         afc_hs_ctl;
     ha_alg_mic_smooth_t     mic_out_smooth_ctl;
+    ha_alg_mic_smooth_t     hs_out_smooth_ctl;
     ha_alg_two_channel_smooth_t dl_two_channel_smooth_ctl;
+    ha_alg_afc_energy_analysis_data_t* afc_master_data_ptr;
+    ha_alg_afc_energy_analysis_data_t* afc_shadow_data_ptr;
     U8                      ha_switch_target;
     U8                      pt_switch_target;
     U8                      afc_working_flag;
@@ -213,11 +228,9 @@ typedef struct {
     U8                      deinitial_flag;
     U8                      audio_dump_align;
     U8                      audio_dump_flag;
-    U8                      aea_must_update_flag;
-    U8                      afc_acs_debug;
-    U8                      afc_hs_debug;
     U8                      afc_fbd_debug;
-    U8                      reversed[3];
+    U8                      afc_debug_flag;
+    U8                      reversed[5];
     S16                     anc_ff_cal_gain;
     S32                     bypass_gain_frac;
     S32                     bypass_gain_shift;
@@ -259,7 +272,7 @@ typedef struct {
 #define HA_NVKEY_SIZE     (sizeof(ha_nvkey_t))
 
 #if defined(AIR_HEARTHROUGH_HA_USE_PIC)
-#define HA_AFC_MEM_SIZE         1728
+#define HA_AFC_MEM_SIZE         1744
 #define HA_BFM_MEM_SIZE         1576
 #define HA_AEA_MEM_SIZE         128
 #define HA_INR_MEM_SIZE         208
@@ -278,6 +291,7 @@ typedef struct {
 #define HA_DRC_TABLE_MEM_SIZE   1344 /* ver.2311063100: 50 bands */
 #define HA_DRC_SCRATCH_MEM_SIZE 416  /* ver.2311063100: 50 bands, !! Use Scratch mem !! */
 #define HA_WNR_MEM_SIZE         1856
+#define HA_MFA_MEM_SIZE         24
 #define HA_HOW_MEM_SIZE         944
 #define HA_CALIB_MEM_SIZE       640
 #define HA_CALIB_SCRATCH_MEM_SIZE 208 /* ver.2305290101: FFT 100 */
@@ -286,7 +300,8 @@ typedef struct {
 
 #define HA_AFC_MASTER_MEM_POSITION      0
 #define HA_AFC_SEC_MEM_POSITION         HA_AFC_MASTER_MEM_POSITION      + GET_ALIGN_SIZE(HA_AFC_MEM_SIZE)
-#define HA_AFC_FS_MEM_POSITION          HA_AFC_SEC_MEM_POSITION         + GET_ALIGN_SIZE(HA_AFC_MEM_SIZE)
+#define HA_AFC_SHADOW_MEM_POSITION      HA_AFC_SEC_MEM_POSITION         + GET_ALIGN_SIZE(HA_AFC_MEM_SIZE)
+#define HA_AFC_FS_MEM_POSITION          HA_AFC_SHADOW_MEM_POSITION      + GET_ALIGN_SIZE(HA_AFC_MEM_SIZE)
 #define HA_INR_MEM_POSITION             HA_AFC_FS_MEM_POSITION          + GET_ALIGN_SIZE(HA_AFC_FS_MEM_SIZE)
 #define HA_OLA_MASTER_MEM_POSITION      HA_INR_MEM_POSITION             + GET_ALIGN_SIZE(HA_INR_MEM_SIZE)
 #define HA_OLA_SEC_MEM_POSITION         HA_OLA_MASTER_MEM_POSITION      + GET_ALIGN_SIZE(HA_OLA_MEM_SIZE)
@@ -296,12 +311,14 @@ typedef struct {
 #define HA_MIC_DRC_TABLE_MEM_POSITION   HA_MIC_DRC_MEM_POSITION         + GET_ALIGN_SIZE(HA_DRC_MEM_SIZE)
 #define HA_AEA_MEM_POSITION             HA_MIC_DRC_TABLE_MEM_POSITION   + GET_ALIGN_SIZE(HA_DRC_TABLE_MEM_SIZE)
 #define HA_WNR_MEM_POSITION             HA_AEA_MEM_POSITION             + GET_ALIGN_SIZE(HA_AEA_MEM_SIZE)
-#define HA_CALIB_MEM_POSITION           HA_WNR_MEM_POSITION             + GET_ALIGN_SIZE(HA_WNR_MEM_SIZE)
+#define HA_MFA_MEM_POSITION             HA_WNR_MEM_POSITION             + GET_ALIGN_SIZE(HA_WNR_MEM_SIZE)
+#define HA_CALIB_MEM_POSITION           HA_MFA_MEM_POSITION             + GET_ALIGN_SIZE(HA_MFA_MEM_SIZE)
 #define HA_HOW_MEM_POSITION             HA_CALIB_MEM_POSITION           + GET_ALIGN_SIZE(HA_CALIB_MEM_SIZE)
 #define HA_AUDIO_OLA_MEM_POSITION       HA_CALIB_MEM_POSITION           + GET_ALIGN_SIZE(HA_CALIB_MEM_SIZE)
 #define HA_AUDIO_DRC_MEM_POSITION       HA_AUDIO_OLA_MEM_POSITION       + GET_ALIGN_SIZE(HA_OLA_MEM_SIZE)
 #define HA_AUDIO_DRC_TABLE_MEM_POSITION HA_AUDIO_DRC_MEM_POSITION       + GET_ALIGN_SIZE(HA_DRC_MEM_SIZE)
-#define HA_BIQUAD_MASTER_MEM_POSITION   HA_AUDIO_DRC_TABLE_MEM_POSITION + GET_ALIGN_SIZE(HA_DRC_TABLE_MEM_SIZE)
+#define HA_AUDIO_MFA_MEM_POSITION       HA_AUDIO_DRC_TABLE_MEM_POSITION + GET_ALIGN_SIZE(HA_DRC_TABLE_MEM_SIZE)
+#define HA_BIQUAD_MASTER_MEM_POSITION   HA_AUDIO_MFA_MEM_POSITION       + GET_ALIGN_SIZE(HA_MFA_MEM_SIZE)
 #define HA_BIQUAD_SEC_MEM_POSITION      HA_BIQUAD_MASTER_MEM_POSITION   + GET_ALIGN_SIZE(HA_BIQUAD_MEM_SIZE)
 #define HA_BIQUAD_CAL_MEM_POSITION      HA_BIQUAD_SEC_MEM_POSITION      + GET_ALIGN_SIZE(HA_BIQUAD_MEM_SIZE)
 #define HA_SCRATCH_MEM_POSITION         HA_BIQUAD_CAL_MEM_POSITION      + GET_ALIGN_SIZE(HA_BIQUAD_MEM_SIZE)

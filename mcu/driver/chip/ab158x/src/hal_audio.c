@@ -3515,7 +3515,8 @@ void hal_audio_status_change_dac_mode_handler(void)
         hal_audio_status_change_dac_mode_config(target_dac_mode);
         hal_audio_dsp_controller_send_message(  MSG_MCU2DSP_COMMON_DAC_EXIT_DEACTIVE_MODE,
                                                 (uint16_t)target_dac_mode,
-                                                (uint32_t)(target_dac_mode == HAL_AUDIO_DAC_MODE_CLASSD ? audio_nvdm_HW_config.adc_dac_config.ADDA_DAC_CLD_Gain_Compensation : 0x1E),
+                                                /*(uint32_t)(target_dac_mode == HAL_AUDIO_DAC_MODE_CLASSD ? audio_nvdm_HW_config.adc_dac_config.ADDA_DAC_CLD_Gain_Compensation : 0x1E)*/
+                                                0,
                                                 false);
         target_dac_mode = 0xff;
     }

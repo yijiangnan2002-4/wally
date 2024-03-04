@@ -75,7 +75,7 @@ typedef struct {
     /** AFC HS **/
     U8  hs_enable;                                          /**< @Value 1 @Desc 1 */
     U8  reserved_12;                                        /**< @Value 0 @Desc 1 */
-    U8  reserved_13;                                        /**< @Value 0 @Desc 1 */
+    U8  hs_version;                                         /**< @Value 0 @Desc 1 */
     U8  reserved_14;                                        /**< @Value 0 @Desc 1 */
     S32 hs_input_smoothing_alpha;                           /**< @Value 0x73333332 @Desc 1 */
     S32 hs_feedback_smoothing_alpha;                        /**< @Value 0x73333332 @Desc 1 */
@@ -85,7 +85,10 @@ typedef struct {
     U16 hs_supression_time;                                 /**< @Value 0x0BB8 @Desc 1 */
     U16 hs_smooth_up_time;                                  /**< @Value 0x00C8 @Desc 1 */
     U16 hs_detect_times_threshold;                          /**< @Value 0x012C @Desc 1 */
-    U32 reserved_15;                                        /**< @Value 0 @Desc 1 */
+    U8  hs_afc_convergence_speed_target;                    /**< @Value 0 @Desc 1 */
+    U8  hs_afc_convergence_speed_add_step;                  /**< @Value 0 @Desc 1 */
+    U8  hs_afc_convergence_speed_sub_step;                  /**< @Value 0 @Desc 1 */
+    U8  reserved_15;                                        /**< @Value 0 @Desc 1 */
     U32 reserved_16;                                        /**< @Value 0 @Desc 1 */
     U32 reserved_17;                                        /**< @Value 0 @Desc 1 */
     U32 reserved_18;                                        /**< @Value 0 @Desc 1 */
@@ -372,7 +375,11 @@ typedef struct {
     S8  HA_mic_AD_gain_l;                                  /**< @Value 0 @Desc 1 */
     S8  HA_mic_AD_gain_r;                                  /**< @Value 0 @Desc 1 */
     U8  config_tool_band_count;                            /**< @Value 16 @Desc 1 */
-    U8  reserved_3[8];                                     /**< @Value 0, 0, 0, 0, 0, 0, 0, 0 @Desc 1 */
+    U8  ptg_bg_frequency;                                  /**< @Value 0 @Desc 1 */
+    S8  ptg_bg_dbfs;                                       /**< @Value 0 @Desc 1 */
+    U8  mfa_total_enabled                   : 1;           /**< @Value 0 @Desc 1 */
+    U8  reserved_4                          : 7;           /**< @Value 0 @Desc 1 */
+    U8  reserved_3[5];                                     /**< @Value 0, 0, 0, 0, 0 @Desc 1 */
 } PACKED psap_system_nvdm_t;
 
 
