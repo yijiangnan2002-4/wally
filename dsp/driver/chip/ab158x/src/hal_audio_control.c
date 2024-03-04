@@ -62,7 +62,6 @@
 
 #ifdef MTK_HWSRC_IN_STREAM
 #include "dsp_audio_process.h"
-#include "hal_audio_driver.h"
 #endif
 
 #ifdef AIR_SILENCE_DETECTION_ENABLE
@@ -140,9 +139,6 @@ static int16_t afe_control_special_isr_counter;
 //static int16_t afe_control_adda_counter;
 //static int16_t afe_control_global_bias_counter;
 //static int16_t afe_control_bias_counter[HAL_AUDIO_BIAS_SELECT_NUM];
-#ifdef AIR_NLE_ENABLE
-extern afe_volume_analog_control_t afe_analog_gain[AFE_HW_ANALOG_GAIN_NUM];
-#endif
 hal_audio_performance_mode_t afe_adc_performance_mode[AFE_ANALOG_NUMBER];
 #ifdef AIR_HWGAIN_SET_FADE_TIME_ENABLE
 hal_audio_volume_digital_gain_fade_time_setting_parameter_t g_gain_fade_time_setting[AFE_HW_DIGITAL_GAIN_NUM];
@@ -3647,7 +3643,7 @@ bool hal_audio_hardware_gain_set_agent(afe_hardware_digital_gain_t gain_select, 
                 hal_hw_gain_set_enable(AFE_HW_DIGITAL_GAIN2, samplerate, true);
             }
 
-            afe_volume_digital_set_mute(gain_select, AFE_VOLUME_MUTE_BLOCK_DISABLE, false);
+            afe_volume_digital_set_mute(gain_select, AFE_VOLUME_MUTE_BLOCK_DISABLE, false, true);
             //device on to apply HW gain compensation value
             if (hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_BLOCK_HWGAIN1)) {
                 afe_volume_digital_update(AFE_HW_DIGITAL_GAIN1);
@@ -3664,7 +3660,7 @@ bool hal_audio_hardware_gain_set_agent(afe_hardware_digital_gain_t gain_select, 
         }
     } else {
         if (hal_audio_component_id_resource_management(type, hw_gain_agent, control)) {
-            afe_volume_digital_set_mute(gain_select, AFE_VOLUME_MUTE_BLOCK_DISABLE, true);
+            afe_volume_digital_set_mute(gain_select, AFE_VOLUME_MUTE_BLOCK_DISABLE, true, true);
             if (((gain_select == AFE_HW_DIGITAL_GAIN3) && (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_BLOCK_HWGAIN4))) ||
                 ((gain_select == AFE_HW_DIGITAL_GAIN4) && (!hal_audio_status_get_agent_status(HAL_AUDIO_AGENT_BLOCK_HWGAIN3)))) {
                 hal_hw_gain_set_enable(AFE_HW_DIGITAL_GAIN3, samplerate, false);
@@ -4727,7 +4723,7 @@ bool hal_audio_volume_set_digital_gain(hal_audio_volume_digital_gain_parameter_t
 {
     afe_hardware_digital_gain_t gain_select = hal_audio_hardware_gain_get_selcet(digital_gain->memory_select);
     if (digital_gain->is_mute_control) {
-        afe_volume_digital_set_mute(gain_select, (afe_volume_mute_control_t)digital_gain->mute_control, digital_gain->mute_enable);
+        afe_volume_digital_set_mute(gain_select, (afe_volume_mute_control_t)digital_gain->mute_control, digital_gain->mute_enable, true);
     } else if (digital_gain->is_set_by_register) {
         afe_volume_digital_set_gain_by_value(gain_select, digital_gain->value);
     } else {

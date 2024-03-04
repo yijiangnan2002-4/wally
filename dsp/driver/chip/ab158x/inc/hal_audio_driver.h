@@ -48,7 +48,7 @@
 // Constant Definitions ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define AFE_SIDETONE_0DB_REGISTER_VALUE 32767 //(2^15-1)
-
+extern afe_volume_analog_control_t afe_analog_gain[AFE_HW_ANALOG_GAIN_NUM];
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Type Definitions ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -229,8 +229,8 @@ bool hal_hw_gain_set_up_step(afe_hardware_digital_gain_t gain_select,uint32_t up
 uint32_t hal_hw_gain_get_target(afe_hardware_digital_gain_t gain_select);
 uint32_t hal_hw_gain_get_current_gain(afe_hardware_digital_gain_t gain_select);
 bool hal_hw_gain_is_running(afe_hardware_digital_gain_t gain_select);
-bool hal_hw_gain_set_sample_per_step(afe_hardware_digital_gain_t gain_select, uint32_t sample_per_step);
-uint32_t hal_hw_gain_get_sample_per_step(afe_hardware_digital_gain_t gain_select);
+bool hal_hw_gain_set_sample_per_step(afe_hardware_digital_gain_t gain_select, uint32_t sample_per_step, bool debug_log);
+uint32_t hal_hw_gain_get_sample_per_step(afe_hardware_digital_gain_t gain_select, bool debug_log);
 uint32_t hal_hw_gain_get_sample_rate(afe_hardware_digital_gain_t gain_select);
 bool hal_hw_gain_set_current_gain(afe_hardware_digital_gain_t gain_select, uint32_t gain);
 

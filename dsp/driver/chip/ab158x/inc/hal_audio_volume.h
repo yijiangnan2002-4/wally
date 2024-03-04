@@ -236,7 +236,7 @@ hal_audio_analog_mdoe_t hal_volume_get_analog_mode(afe_hardware_analog_gain_t ga
 uint32_t afe_calculate_digital_gain_index(int32_t digital_gain_in_01unit_db, uint32_t digital_0db_register_value);
 int afe_calc_Lnx(double n);
 
-bool afe_volume_digital_set_mute(afe_hardware_digital_gain_t gain_select, afe_volume_mute_control_t mask, bool enable);
+bool afe_volume_digital_set_mute(afe_hardware_digital_gain_t gain_select, afe_volume_mute_control_t mask, bool enable, bool debug_log);
 bool afe_volume_digital_set_gain(afe_hardware_digital_gain_t gain_select, uint32_t value);
 int32_t afe_volume_digital_get_gain_index(afe_hardware_digital_gain_t gain_select);
 bool afe_volume_digital_set_gain_by_index(afe_hardware_digital_gain_t gain_select, int32_t index);

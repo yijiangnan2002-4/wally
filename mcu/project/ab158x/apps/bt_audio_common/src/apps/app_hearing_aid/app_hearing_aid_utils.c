@@ -3547,6 +3547,11 @@ bool app_hearing_aid_utils_is_sco_mix_mode_on()
     return app_ha_utils_context.ha_mix_mode.sco_mix_mode_switch;
 }
 
+bool app_hearing_aid_utils_is_music_mix_mode_on()
+{
+    return app_ha_utils_context.ha_mix_mode.a2dp_mix_mode_switch;
+}
+
 void app_hearing_aid_utils_sync_runtime_parameters(uint8_t *parameter, uint16_t parameter_len)
 {
     if ((parameter == NULL) || (parameter_len == 0)) {

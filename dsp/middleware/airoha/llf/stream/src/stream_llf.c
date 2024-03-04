@@ -187,10 +187,10 @@ void llf_sharebuf_semaphore_give(void)
 static void llf_one_shot_timer_callback(TimerHandle_t xTimer)
 {
     U32 *sample_per_step_ori = llf_dl_mute_ctrl.sample_per_step_ori;
-    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN1, sample_per_step_ori[AFE_HW_DIGITAL_GAIN1]);
-//    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN2, sample_per_step_ori[AFE_HW_DIGITAL_GAIN2]);
-    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN3, sample_per_step_ori[AFE_HW_DIGITAL_GAIN3]);
-    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN4, sample_per_step_ori[AFE_HW_DIGITAL_GAIN4]);
+    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN1, sample_per_step_ori[AFE_HW_DIGITAL_GAIN1], false);
+//    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN2, sample_per_step_ori[AFE_HW_DIGITAL_GAIN2], false);
+    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN3, sample_per_step_ori[AFE_HW_DIGITAL_GAIN3], false);
+    hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN4, sample_per_step_ori[AFE_HW_DIGITAL_GAIN4], false);
     UNUSED(xTimer);
 }
 
@@ -1566,29 +1566,29 @@ void dsp_llf_mute(bool is_mute)
     DSP_LLF_LOG_I("[LLF] mute:%d", 1, is_mute);
 }
 
-void dsp_llf_mute_dl(bool is_mute)
+ATTR_TEXT_IN_IRAM void dsp_llf_mute_dl(bool is_mute)
 {
     U32 *sample_per_step_ori = llf_dl_mute_ctrl.sample_per_step_ori;
     bool *mute_dl_flag = &(llf_dl_mute_ctrl.llf_mute_dl_flag);
 
     if (*mute_dl_flag == false) {
-        sample_per_step_ori[AFE_HW_DIGITAL_GAIN1] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN1);
-        //sample_per_step_ori[AFE_HW_DIGITAL_GAIN2] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN2);
-        sample_per_step_ori[AFE_HW_DIGITAL_GAIN3] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN3);
-        sample_per_step_ori[AFE_HW_DIGITAL_GAIN4] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN4);
+        sample_per_step_ori[AFE_HW_DIGITAL_GAIN1] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN1, false);
+        //sample_per_step_ori[AFE_HW_DIGITAL_GAIN2] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN2, false);
+        sample_per_step_ori[AFE_HW_DIGITAL_GAIN3] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN3, false);
+        sample_per_step_ori[AFE_HW_DIGITAL_GAIN4] = hal_hw_gain_get_sample_per_step(AFE_HW_DIGITAL_GAIN4, false);
         DSP_LLF_LOG_I("[LLF] sample_per_step_ori:[%d %d %d %d]", 4, sample_per_step_ori[AFE_HW_DIGITAL_GAIN1], sample_per_step_ori[AFE_HW_DIGITAL_GAIN2], sample_per_step_ori[AFE_HW_DIGITAL_GAIN3], sample_per_step_ori[AFE_HW_DIGITAL_GAIN4]);
         if (is_mute) {
-            hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN1, LLF_MUTE_DL_SAMPLE_PER_STEP);
-            //hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN2, LLF_MUTE_DL_SAMPLE_PER_STEP);
-            hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN3, LLF_MUTE_DL_SAMPLE_PER_STEP);
-            hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN4, LLF_MUTE_DL_SAMPLE_PER_STEP);
+            hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN1, LLF_MUTE_DL_SAMPLE_PER_STEP, false);
+            //hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN2, LLF_MUTE_DL_SAMPLE_PER_STEP, false);
+            hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN3, LLF_MUTE_DL_SAMPLE_PER_STEP, false);
+            hal_hw_gain_set_sample_per_step(AFE_HW_DIGITAL_GAIN4, LLF_MUTE_DL_SAMPLE_PER_STEP, false);
         }
     }
     *mute_dl_flag = is_mute;
-    afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN1, AFE_VOLUME_MUTE_LLF, is_mute);
-    //afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN2, AFE_VOLUME_MUTE_LLF, is_mute);
-    afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN3, AFE_VOLUME_MUTE_LLF, is_mute);
-    afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN4, AFE_VOLUME_MUTE_LLF, is_mute);
+    afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN1, AFE_VOLUME_MUTE_LLF, is_mute, false);
+    //afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN2, AFE_VOLUME_MUTE_LLF, is_mute, false);
+    afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN3, AFE_VOLUME_MUTE_LLF, is_mute, false);
+    afe_volume_digital_set_mute(AFE_HW_DIGITAL_GAIN4, AFE_VOLUME_MUTE_LLF, is_mute, false);
 
     if (!is_mute) {
         xTimerStartFromISR(g_llf_one_shot_timer, 0);

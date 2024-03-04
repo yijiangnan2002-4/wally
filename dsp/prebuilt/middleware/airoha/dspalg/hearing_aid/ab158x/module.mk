@@ -66,6 +66,7 @@ ifeq ($(AIR_HEARTHROUGH_HA_USE_PIC), y)
 	LIBS  += $(strip $(LIBDIR2))/hearing_aid/$(IC_CONFIG)/pisplit/libawha_ha_biquad.a
 	LIBS  += $(strip $(LIBDIR2))/hearing_aid/$(IC_CONFIG)/pisplit/libawha_calib.a
 	LIBS  += $(strip $(LIBDIR2))/hearing_aid/$(IC_CONFIG)/pisplit/libawha_tln.a
+    LIBS  += $(strip $(LIBDIR2))/hearing_aid/$(IC_CONFIG)/pisplit/libawha_mfa.a
 endif
 
 ###################################################

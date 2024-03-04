@@ -49,6 +49,7 @@
 #define VIVID_PT_FRAME_NUM     (6)
 #define VIVID_PT_BUFFER_LEN    (VIVID_PT_FRAME_SIZE * VIVID_PT_FRAME_NUM)
 #define VIVID_PT_FORMAT        (HAL_AUDIO_PCM_FORMAT_S32_LE)
+#define VIVID_PT_LIMITER_LEN   (136)
 
 #ifdef AUDIO_USE_MSGID_LOG
 #define LOGMSGIDE(fmt,arg...)               LOG_MSGID_E(aud,"[VIVID_PT] "fmt,##arg)
@@ -108,9 +109,9 @@ uint32_t *hal_audio_query_llf_share_info(U32 index);
 
 void audio_vivid_pt_set_parameter(U32 is_runtime)
 {
-    U8 *nvkey_data_afc, *nvkey_data_nr;
+    U8 *nvkey_data_afc, *nvkey_data_nr, *nvkey_data_limiter;
     sysram_status_t nvdm_status;
-    U32 nvkey_length_afc = 0, nvkey_length_nr = 0, nvkey_length_total = 0;
+    U32 nvkey_length_afc = 0, nvkey_length_nr = 0, nvkey_length_limiter = VIVID_PT_LIMITER_LEN, nvkey_length_total = 0;
 
     aud_set_vivid_pt_peq_param();
 
@@ -122,9 +123,12 @@ void audio_vivid_pt_set_parameter(U32 is_runtime)
     nvdm_status =  flash_memory_query_nvdm_data_length(NVID_DSP_ALG_VIVID_PT_LDNR, &nvkey_length_nr);
     if (nvdm_status || !nvkey_length_nr) {
         //LOGMSGIDE(" Read Nvkey length Fail id:0x%x, status:%d ", 2, NVID_DSP_ALG_VIVID_PT_LDNR, nvdm_status);
-        assert(0 && "Read Nvkey length Fail or length mismatch, id:0xE8FA");
+        assert(0 && "Read Nvkey length Fail or length mismatch, id:0xE8FB");
     }
-    nvkey_length_total = nvkey_length_nr + nvkey_length_afc;
+    nvdm_status =  flash_memory_query_nvdm_data_length(NVID_DSP_ALG_VIVID_PT_LIMITER, &nvkey_length_limiter);
+
+
+    nvkey_length_total = nvkey_length_nr + nvkey_length_afc + VIVID_PT_LIMITER_LEN;
 
     nvkey_data_nr = (U8 *)pvPortMalloc(nvkey_length_total);
     nvdm_status = flash_memory_read_nvdm_data(NVID_DSP_ALG_VIVID_PT_LDNR, nvkey_data_nr, &nvkey_length_nr);
@@ -132,6 +136,31 @@ void audio_vivid_pt_set_parameter(U32 is_runtime)
     nvkey_data_afc = nvkey_data_nr + nvkey_length_nr;
     nvdm_status = flash_memory_read_nvdm_data(NVID_DSP_ALG_VIVID_PT_AFC, nvkey_data_afc, &nvkey_length_afc);
 
+    nvkey_data_limiter = nvkey_data_afc + nvkey_length_afc;
+    if (nvdm_status || !nvkey_length_limiter) {
+        LOGMSGIDE(" Read Nvkey length Fail id:0x%x, status:%d ", 2, NVID_DSP_ALG_VIVID_PT_LIMITER, nvdm_status);
+        //assert(0 && "Read Nvkey length Fail or length mismatch, id:0xE8FD");
+        U8 default_val[VIVID_PT_LIMITER_LEN] = {   0x01, 0x01, 0xC4, 0xFF, 0x2C, 0xCA, 0x3C, 0x2F, 0x2C, 0xCA,
+                                                   0x3C, 0x2F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                  0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        memcpy(nvkey_data_limiter, default_val, VIVID_PT_LIMITER_LEN);
+    } else {
+        if (nvkey_length_limiter != VIVID_PT_LIMITER_LEN) {
+            LOGMSGIDE(" Nvkey NVID_DSP_ALG_VIVID_PT_LIMITER length is uncorrect:%d ", 1, nvkey_length_limiter);
+        }
+        nvdm_status = flash_memory_read_nvdm_data(NVID_DSP_ALG_VIVID_PT_LIMITER, nvkey_data_limiter, &nvkey_length_limiter);
+    }
 
     if (is_runtime) {
         *nvkey_data_nr = vivid_pt_ctrl.nr_enable;

@@ -790,6 +790,7 @@ typedef enum
     NVID_DSP_ALG_VIVID_PT_LDNR                         = 0xE8FA,
     NVID_DSP_ALG_VIVID_PT_AFC                          = 0xE8FB,
     NVID_DSP_ALG_HW_VIVID_PT_LDNR                      = 0xE8FC,
+    NVID_DSP_ALG_VIVID_PT_LIMITER                      = 0xE8FD,
     NVID_DSP_ALG_ANC_L_FL_RSV_1                        = 0xEC00,
     NVID_DSP_ALG_ANC_R_FL_RSV_1                        = 0xEC01,
     NVID_DSP_ALG_ANC_L_FL_RSV_2                        = 0xEC02,

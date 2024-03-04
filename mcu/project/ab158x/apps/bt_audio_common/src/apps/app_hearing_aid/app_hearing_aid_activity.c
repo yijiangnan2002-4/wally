@@ -770,7 +770,8 @@ void app_hearing_aid_activity_set_open_fwk_done(bool result)
          * If HA framework disable done, check ANC disable done or not, if done, need open HA FWK.
          */
         if ((app_ha_activity_context.is_need_disable_anc == false)
-                && (app_ha_activity_context.is_anc_disable_done == true)) {
+                && (app_ha_activity_context.is_anc_disable_done == true)
+                && (app_ha_activity_context.need_re_open_fwk == false)) {
             app_ha_activity_context.is_anc_disable_done = false;
             app_hearing_aid_activity_open_hearing_aid_fwk();
         }
@@ -791,6 +792,11 @@ void app_hearing_aid_activity_set_open_fwk_done(bool result)
 void app_hearing_aid_activity_set_need_play_locally(bool play_locally)
 {
     app_ha_activity_context.is_need_play_locally = play_locally;
+}
+
+void app_hearing_aid_activity_set_mode_vp_played(bool played)
+{
+    app_ha_activity_context.is_mode_index_vp_played = played;
 }
 
 bool app_hearing_aid_activity_is_open_fwk_done()

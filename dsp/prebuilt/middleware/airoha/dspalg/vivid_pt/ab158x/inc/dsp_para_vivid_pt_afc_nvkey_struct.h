@@ -73,8 +73,8 @@ typedef struct {
 
     /** AFC HS **/
     U8  hs_enable;                         /**< @Value 0x01       @Desc 1 */
-    U8  reserved_15;                       /**< @Value 0x00       @Desc 1 */
-    U8  reserved_16;                       /**< @Value 0x00       @Desc 1 */
+    U8  hs_debug;                          /**< @Value 0x00       @Desc 1 */
+    U8  hs_version;                        /**< @Value 0x00       @Desc 1 */
     U8  reserved_17;                       /**< @Value 0x00       @Desc 1 */
 
     S32 hs_input_smoothing_alpha;          /**< @Value 0x73333332       @Desc 1 */
@@ -87,16 +87,20 @@ typedef struct {
     U16 hs_sooth_up_time;                  /**< @Value 0x00C8       @Desc 1 */
     U16 hs_detect_times_threshold;         /**< @Value 0x012C       @Desc 1 */
 
-    S32 reserved_18;                       /**< @Value 0x00000000       @Desc 1 */
-    S32 reserved_19;                       /**< @Value 0x00000000       @Desc 1 */
-    S32 reserved_20;                       /**< @Value 0x00000000       @Desc 1 */
+    U8  hs_afc_convergence_speed_target;   /**< @Value 0x00 @Desc 1 */
+    U8  hs_afc_convergence_speed_add_step; /**< @Value 0x00 @Desc 1 */
+    U8  hs_afc_convergence_speed_sub_step; /**< @Value 0x00 @Desc 1 */
+    S8  hs_dbfs_threshold;                 /**< @Value 0x00 @Desc 1 */
+    U8  hs_suppression_gain_mode;          /**< @Value 0x00 @Desc 1 */
+    U8  reserved_19[3];                    /**< @Value 0x000000       @Desc 1 */
+    U32 hs_smoothdown_detect_threshold;    /**< @Value 0x00000000       @Desc 1 */
     S32 reserved_21;                       /**< @Value 0x00000000       @Desc 1 */
 
     /** AFC ACS **/
     U8  acs_enable;                        /**< @Value 0x01       @Desc 1 */
     U8  acs_gse_frac_array_size;           /**< @Value 0x28       @Desc 1 */
     U8  acs_trigger_block_count;           /**< @Value 0x04       @Desc 1 */
-    U8  reserved_22;                       /**< @Value 0x00       @Desc 1 */
+    U8  acs_debug;                         /**< @Value 0x00       @Desc 1 */
 
     S32 acs_ref_smoothing_alpha;           /**< @Value 0x73333332       @Desc 1 */
     S32 acs_threshold_1;                   /**< @Value 0x000249F0       @Desc 1 */

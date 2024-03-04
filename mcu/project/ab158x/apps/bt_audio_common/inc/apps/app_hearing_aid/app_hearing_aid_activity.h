@@ -70,6 +70,8 @@ void app_hearing_aid_activity_set_open_fwk_done(bool result);
 
 void app_hearing_aid_activity_set_need_play_locally(bool play_locally);
 
+void app_hearing_aid_activity_set_mode_vp_played(bool played);
+
 bool app_hearing_aid_activity_is_open_fwk_done();
 
 bool app_hearing_aid_activity_is_fwk_opening();

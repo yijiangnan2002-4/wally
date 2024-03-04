@@ -576,7 +576,7 @@ void hal_volume_convert_register_value(afe_hardware_analog_gain_t gain_select, u
 /*******************************************************************************************
 *                                      HW digital gain                                     *
 ********************************************************************************************/
-ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool afe_volume_digital_set_mute(afe_hardware_digital_gain_t gain_select, afe_volume_mute_control_t mask, bool enable)
+ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool afe_volume_digital_set_mute(afe_hardware_digital_gain_t gain_select, afe_volume_mute_control_t mask, bool enable, bool debug_log)
 {
     bool status_change;
     uint32_t irq_mask;
@@ -591,7 +591,9 @@ ATTR_TEXT_IN_RAM_FOR_MASK_IRQ bool afe_volume_digital_set_mute(afe_hardware_digi
     hal_nvic_restore_interrupt_mask(irq_mask);
     if (status_change) {
         afe_volume_digital_update(gain_select);
-        HAL_AUDIO_LOG_INFO("DSP - Hal Audio HW Gain %d mute enable: %d", 2, gain_select, afe_digital_gain[gain_select].mute);
+        if (debug_log) {
+            HAL_AUDIO_LOG_INFO("DSP - Hal Audio HW Gain %d mute enable: %d", 2, gain_select, afe_digital_gain[gain_select].mute);
+        }
     }
     return afe_digital_gain[gain_select].mute;
 }

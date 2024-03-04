@@ -60,7 +60,11 @@ typedef struct {
 } CONNECTION_IF;
 // For Audio Sync
 #define AUDIO_DSP_SYNC_MIN_TIME_OUT                            (1000)   // 1ms
+#ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+#define AUDIO_DSP_SYNC_FIXED_POLLING_TIME                      (200) // 200us
+#else
 #define AUDIO_DSP_SYNC_FIXED_POLLING_TIME                      (600) // 600us
+#endif
 #define AUDIO_DSP_SYNC_REQUEST_MIN_REQUEST_INTERVAL            (800) // 800us
 //#define MTK_AUDIO_DSP_SYNC_REQUEST_GPIO_DEBUG
 
