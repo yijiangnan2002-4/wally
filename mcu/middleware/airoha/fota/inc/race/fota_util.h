@@ -116,7 +116,7 @@
 
 #define FOTA_VERSION_MAX_SIZE (28) /* The maximum size of the FOTA package release version string including the null-terminator. */
 #define FOTA_VERSION_INTEGRITY_CHECK_VALUE_SIZE (4) /* The size of the integrity check value of the version string. */
-#define FOTA_DEFAULT_VERSION    ("v3.0.1") /* The default FOTA package release version. */
+#define FOTA_DEFAULT_VERSION    ("v3.0.2") /* The default FOTA package release version. */
 
 
 typedef enum {
