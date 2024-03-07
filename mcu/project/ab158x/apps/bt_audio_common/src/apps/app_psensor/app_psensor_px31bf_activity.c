@@ -763,7 +763,7 @@ static bool _proc_proximity_sensor(ui_shell_activity_t *self, uint32_t event_id,
 #ifdef BLE_ZOUND_ENABLE
 				app_wear_sensor_call_control_behavior_zound(extra_data);
 #else
-            	app_wear_sensor_call_control_behavior(extra_data);
+//            	app_wear_sensor_call_control_behavior(extra_data);
 #endif
 				ret = true;
             	break;
