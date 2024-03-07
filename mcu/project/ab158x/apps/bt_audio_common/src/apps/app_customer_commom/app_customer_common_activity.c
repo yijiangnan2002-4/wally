@@ -266,7 +266,7 @@ void key_volumeup_proc(void)
 	}
 	else
 	{
-		*p_key_action = KEY_HEARING_AID_VOLUME_UP;
+		*p_key_action = KEY_HEARING_AID_VOLUME_UP;	// KEY_HEARING_AID_LEVEL_UP
 	}
 
     	if (p_key_action)
@@ -290,7 +290,7 @@ void key_volumedown_proc(void)
 	}
 	else
 	{
-		*p_key_action = KEY_HEARING_AID_VOLUME_DOWN;
+		*p_key_action = KEY_HEARING_AID_VOLUME_DOWN;	//	KEY_HEARING_AID_LEVEL_DOWN
 	}
 
     	if (p_key_action)
