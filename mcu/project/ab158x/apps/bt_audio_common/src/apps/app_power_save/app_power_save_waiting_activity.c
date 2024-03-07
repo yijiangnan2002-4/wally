@@ -257,6 +257,9 @@ static bool app_power_saving_waiting_timeout_psensor_event_proc(
 	{
 		case EVENT_ID_PSENSOR_POWER_SAVING_TIME_STOP:
 		{
+			ret = true;	// richard for UI spec.
+			break;
+
 			app_power_saving_type_t type = 0;
  			app_power_saving_target_mode_t target_mode = app_power_save_utils_get_target_mode(self, &type);
 			int32_t charger_exist = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);

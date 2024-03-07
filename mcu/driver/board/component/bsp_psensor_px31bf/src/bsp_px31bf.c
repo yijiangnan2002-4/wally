@@ -110,12 +110,13 @@ static void bsp_px31bf_callback(void *data)
 								 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)pSensorStatus1, sizeof(bool),
 								 NULL, 500);
 #endif
+#if 0
     /* Send new value indication to psensor activity */
     ui_shell_send_event(true, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_PSENSOR,
                         EVENT_ID_PSENSOR_NEW_SENSOR_IND, (void *)pSensorStatus, sizeof(uint16_t),
                         NULL, 0);
 
-
+#endif
 
     /* Clear interrupt flag to receive new interrupt */
     hal_eint_unmask(EINT_PSENSOR);						

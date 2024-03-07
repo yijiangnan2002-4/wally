@@ -58,6 +58,7 @@ uint8_t app_get_ir_isr_status(void)
 	return ir_status_test;
 }
 
+#if 0
 void app_psensor_limit_set(uint8_t limit)
 {
 	psensor_limit = limit;
@@ -72,6 +73,7 @@ uint8_t app_limit_bud_key_in_case(void)
 {
 	return (app_psensor_limit_read()|get_hall_sensor_status() | app_key_limit_read());
 }
+#endif
 
 static void app_psensor_status_checking(void)
 {
@@ -157,6 +159,7 @@ static void setLocalInEar(bool newStatus)
 	}
 }
 
+#if 0
 bool power_saving_get_inear_status(void)
 {
 	bool ret = false;
@@ -194,7 +197,7 @@ bool getLocalInEar(void)
 		uint8_t temp =0;
 		uint16_t ps_data = 0;
 		uint16_t level = 0;
-		int32_t charger_exist = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);
+//		int32_t charger_exist = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);
 		
 		app_nvkey_psensor_threshold_read(&temp, &PsensorThresholdHigh, &PsensorThresholdLow);
 		ps_data = bsp_px31bf_Threshold_Factory_Calibrate();
@@ -205,7 +208,7 @@ bool getLocalInEar(void)
 			level = PsensorThresholdHigh;
 
 		if(ps_data > level
-			&& (!get_hall_sensor_status() && !charger_exist) && !app_psensor_limit_read())
+			/*&& (!get_hall_sensor_status() && !charger_exist) && !app_psensor_limit_read()*/)
 		{
 			uint16_t *pSensorStatus = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
 
@@ -223,7 +226,7 @@ bool getLocalInEar(void)
 
 	return in_ear;
 }
-
+#endif
 
 #if 1	//def BLE_ZOUND_ENABLE
 bool getLeftInEar(void) {
@@ -525,7 +528,7 @@ static bool _proc_proximity_sensor(ui_shell_activity_t *self, uint32_t event_id,
 				/* Handle sensor new status from sensor interrupt callback */
 				APPS_LOG_MSGID_I("_proc_proximity_sensor.c:: psensor_status= %d", 1, psensor_status);
 
-				if(get_hall_sensor_status() || charger_exist || app_psensor_limit_read())
+				if(get_hall_sensor_status() || charger_exist /*|| app_psensor_limit_read()*/)
 				{
 					APPS_LOG_MSGID_I("_proc_proximity_sensor.c::earbuds in case, not need handle IR interrupt!", 0);
 					ret = true;
@@ -580,7 +583,7 @@ static bool _proc_proximity_sensor(ui_shell_activity_t *self, uint32_t event_id,
 	                if (appPsensorFotaState == FOTA_STATE_IDLE)
 	                {
                         APPS_LOG_MSGID_I("_proc_proximity_sensor.c::out ear event, restart power saving timer", 0);
-#ifdef APPS_SLEEP_AFTER_NO_CONNECTION        
+#if 0	//def APPS_SLEEP_AFTER_NO_CONNECTION        
 						if(apps_config_key_get_mmi_state() != APP_BT_OFF && !power_saving_get_inear_status())
 							app_power_save_utils_cfg_updated_notify();
 #endif
@@ -687,14 +690,14 @@ static bool _proc_proximity_sensor(ui_shell_activity_t *self, uint32_t event_id,
 				ret = true;
            	 	break;
         	}
-
+#if 0
 		case EVENT_ID_PSENSOR_LIMIT_CLEAN:
 			{
 				app_psensor_limit_set(false);
 				ret = true;
 			}
 			break;
-
+#endif
         case EVENT_ID_PSENSOR_DO_PLAY:
 			{
                 bt_sink_srv_send_action(BT_SINK_SRV_ACTION_PLAY, NULL);
@@ -725,7 +728,7 @@ static bool _proc_proximity_sensor(ui_shell_activity_t *self, uint32_t event_id,
 
         case EVENT_ID_PSENSOR_ACTIVITY_RESUME_ANC:
 			{			
-				if(!get_hall_sensor_status() && !charger_exist && !app_psensor_limit_read())
+				if(!get_hall_sensor_status() && !charger_exist /*&& !app_psensor_limit_read()*/)
 				{
                     APPS_LOG_MSGID_I("psensor in ear, ANC resume! \n", 0);
 				
@@ -816,7 +819,7 @@ static bool _psensor_app_aws_data_proc(ui_shell_activity_t *self, uint32_t event
                     }
 					else
 					{
-#ifdef APPS_SLEEP_AFTER_NO_CONNECTION
+#if 0	//def APPS_SLEEP_AFTER_NO_CONNECTION
 						if(power_saving_get_inear_status())
 						{
 							if(apps_config_key_get_mmi_state() != APP_BT_OFF)
@@ -953,14 +956,15 @@ static bool _proc_fota_state_change_event(struct _ui_shell_activity *self,
     {
         /* Fota state: FOTA_STATE_RUNNING->FOTA_STATE_IDLE */
         APPS_LOG_MSGID_I("app_psensor_px31bf_activity.c::_proc_fota_state_change_event FOTA_STATE_RUNNING->FOTA_STATE_IDLE", 0);
-
-		if (!power_saving_get_inear_status())
+#if 0
+	if (!power_saving_get_inear_status())
         {
 			APPS_LOG_MSGID_I("app_psensor_px31bf_activity.c:: FOTA completed, restart power saving timer!", 0);
 #ifdef APPS_SLEEP_AFTER_NO_CONNECTION        
         	app_power_save_utils_cfg_updated_notify();
 #endif
         }
+#endif
     }
 
     return ret;

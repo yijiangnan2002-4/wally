@@ -33,6 +33,7 @@ static app_sensor_fota_state_t appHallFotaState = FOTA_STATE_IDLE;
 
 static uint8_t test_flag = 0;
 
+#if 0
 static bool key_limit = false;
 
 void app_key_limit_set(uint8_t limit)
@@ -44,7 +45,7 @@ uint8_t app_key_limit_read(void)
 {
 	return key_limit;
 }
-
+#endif
 
 bool get_hall_sensor_status(void)
 {
@@ -137,22 +138,24 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 
 				if(hall_sensor_status == HALL_STATUS_IN_CASE)
 				{
+#if 0				
 					if (appHallFotaState == FOTA_STATE_IDLE && !charger_exist)
 					{
 						app_common_add_tracking_log(0x13);
 						ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_OUT_CASE);
-				        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_IN_CASE);
-				        ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
+						ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_IN_CASE);
+				        	ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
 				                            EVENT_ID_HALL_SENSOR_IN_CASE, NULL, 0,
 				                            NULL, TIMEOUT_TO_IDLE_BY_HALL_SENSOR);  	
 					}
+#endif					
 					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_RESUME_ANC);
 					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_PAUSE_ANC);
 					ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
 										EVENT_ID_HALL_SENSOR_PAUSE_ANC, NULL, 0, NULL, 100);
 
-					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_KEY_LIMIT);
-					app_key_limit_set(true);
+//					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_KEY_LIMIT);
+//					app_key_limit_set(true);
 				}
 				else
 				{
@@ -160,17 +163,18 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_PAUSE_ANC);
 					ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
 										EVENT_ID_HALL_SENSOR_RESUME_ANC, NULL, 0, NULL, 500);
-			        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_IN_CASE);
+#if 0
+			        	ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_IN_CASE);
 					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_OUT_CASE);
 					ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
 										EVENT_ID_HALL_SENSOR_OUT_CASE, NULL, 0,
 										NULL, 500);		
-					
 					app_key_limit_set(true);
 					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_KEY_LIMIT);
 					ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
 										EVENT_ID_HALL_SENSOR_KEY_LIMIT, NULL, 0,
-										NULL, 1500);						
+										NULL, 1500);
+#endif
 				}
 				
 				ret = true;
@@ -178,7 +182,10 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
     		}
 
 		case EVENT_ID_HALL_SENSOR_IN_CASE:
-			{				
+			{
+				ret = true;		// richard for UI requirement
+				break;
+
 				if(get_hall_sensor_status() && !charger_exist )
 				{
 					app_common_add_tracking_log(0x14);
@@ -219,8 +226,11 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 
 		case EVENT_ID_HALL_SENSOR_OUT_CASE:
 			{
-	            if(apps_config_key_get_mmi_state() == APP_BT_OFF)
-	            {					
+				ret = true;	// richard for UI spec.
+				break;
+
+		            if(apps_config_key_get_mmi_state() == APP_BT_OFF)
+		            {					
 					if( !get_hall_sensor_status() && !charger_exist)
 					{
 						uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
@@ -232,7 +242,7 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 											sizeof(uint16_t), NULL, 0);											
 					}
 					
-	            }				
+		            }				
 				ret = true;
 				break;
 			}	
@@ -245,8 +255,8 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 				{
 					APPS_LOG_MSGID_I("Hall sensor out case, ANC resume! \n", 0);
 
-					app_anc_service_resume();
-					app_psensor_limit_set(false);
+//					app_anc_service_resume();
+//					app_psensor_limit_set(false);
 					app_common_add_tracking_log(0x11);
 				#ifdef AIR_SMART_CHARGER_ENABLE
 					app_mute_audio(FALSE);
@@ -263,13 +273,13 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 			#ifdef AIR_SMART_CHARGER_ENABLE
 				app_mute_audio(TRUE);
 			#endif
-				app_anc_service_suspend();
-				app_psensor_limit_set(true);
+//				app_anc_service_suspend();
+//				app_psensor_limit_set(true);
 				app_common_add_tracking_log(0x10);
 				ret = true;
 	            break;
         	}
-
+#if 0
         case EVENT_ID_HALL_SENSOR_KEY_LIMIT:
 			{
 				APPS_LOG_MSGID_I("limit release! \n", 0);
@@ -277,7 +287,7 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 				ret = true;
 	            break;
         	}		
-
+#endif
 		default:
 			break;
     }
@@ -314,6 +324,7 @@ static bool _proc_fota_state_change_event(struct _ui_shell_activity *self,
         case RACE_EVENT_TYPE_FOTA_NEED_REBOOT:
             break;
 
+#if 0	// richard for UI spec.
 	 	/* On fota state change */
 	    if (lastFotaState == FOTA_STATE_IDLE && appHallFotaState == FOTA_STATE_RUNNING)
 	    {
@@ -329,13 +340,14 @@ static bool _proc_fota_state_change_event(struct _ui_shell_activity *self,
 			int32_t charger_exitst = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);
 			
 			if(get_hall_sensor_status() && !charger_exitst)
-	        {
+		        {
 	        	ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_OUT_CASE);
 				ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
 									EVENT_ID_HALL_SENSOR_IN_CASE, NULL, 0,
 									NULL, TIMEOUT_TO_IDLE_BY_HALL_SENSOR);						
-	        }
-	    }		
+		        }
+	    }	
+#endif		
     }
 
     return ret;

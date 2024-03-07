@@ -87,8 +87,8 @@ bool apps_psensor_activity_proc(
       size_t data_len);
 
 void apps_psensor_set_avrcp_status(bt_avrcp_status_t newStatus);
-bool getLocalInEar(void);
-bool power_saving_get_inear_status(void);
+//bool getLocalInEar(void);
+//bool power_saving_get_inear_status(void);
 
 #if 1	//def BLE_ZOUND_ENABLE
 bool getLeftInEar(void);

@@ -3521,25 +3521,25 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			{
 				key_volumeup_proc();
 			}
-			else if(temp_command_data==2)								// DP
-			{
-				key_avrcp_next_proc();
-			}
 			break;
 		case 1:			// key1: volume down
 			if((temp_command_data==1)||(temp_command_data==0x38))	// SP and repeat P
 			{
 				key_volumedown_proc();
 			}
-			else if(temp_command_data==2)								// DP
-			{
-				key_avrcp_prev_proc();
-			}
 			break;
 		case 2:			// Multi-function
 			if(temp_command_data==1)									// SP
 			{
 				key_multifunction_short_click();
+			}
+			else if(temp_command_data==2)								// DP
+			{
+				key_avrcp_next_proc();
+			}
+			else if(temp_command_data==3)								// TP
+			{
+				key_avrcp_prev_proc();
 			}
 			else if(temp_command_data==0x22)							// LP2
 			{
