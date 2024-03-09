@@ -288,15 +288,20 @@ static bool app_music_proc_apps_internal_events(ui_shell_activity_t *self,
 
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
         case APPS_EVENTS_INTERACTION_IN_EAR_UPDATE_STA: {
+           APPS_LOG_MSGID_I(APP_MUSIC_ACTI"APPS_EVENTS_INTERACTION_IN_EAR_UPDATE_STA harry", 0);
+          
             /* The event come from in ear detection app. */
             app_in_ear_sta_info_t *sta_info = (app_in_ear_sta_info_t *)extra_data;
             if (sta_info->previous != sta_info->current) {
 #if defined(AIR_BT_ULTRA_LOW_LATENCY_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
                 if (app_music_get_ull_is_streaming()) {
+                  APPS_LOG_MSGID_I(APP_MUSIC_ACTI"app_music_get_ull_is_streaming=1 harry", 0);
                     break;
-                } else
+                } else{
 #endif
+                    APPS_LOG_MSGID_I(APP_MUSIC_ACTI"app_music_get_ull_is_streaming=0 harry", 0);
                     ret = app_music_check_and_end_music(self, extra_data);
+                  }
             }
             break;
         }

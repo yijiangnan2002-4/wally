@@ -47,9 +47,13 @@ static void bsp_HALL_callback(void *data)
 	if ( status == HAL_GPIO_STATUS_OK)
 	{
 		if(pin_status & 0x0001)
+      {  
 			*pHallStatus = 0; // out case
+      }
 		else
+      {  
 			*pHallStatus = 1; // in case
+      }
 
 	    /* Send new value indication to psensor activity */
 	    ui_shell_send_event(true, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
