@@ -238,18 +238,23 @@ const apps_config_key_event_map_t temp_key_release_configs[] = {
 };
 
 const apps_config_key_event_map_t temp_key_short_click_configs[] = {
+#if 1	// richard for UI
     {
         DEVICE_KEY_POWER,
         KEY_ACCEPT_CALL,
         (1 << APP_HFP_INCOMING)
     },
-#if 0	// richard for UI
+    {
+        DEVICE_KEY_POWER,
+        KEY_MUTE_MIC,
+	  (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_STATE_HELD_ACTIVE)
+    },
+#else    
     {
         DEVICE_KEY_POWER,
         KEY_3WAY_HOLD_ACTIVE_ACCEPT_OTHER,
         (1 << APP_HFP_TWC_INCOMING)
     },
-#endif
     {
         DEVICE_KEY_POWER,
         KEY_END_CALL,
@@ -289,13 +294,21 @@ const apps_config_key_event_map_t temp_key_short_click_configs[] = {
         | (1 << APP_STATE_FIND_ME) | (1 << APP_STATE_VA) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
 #endif /* AIR_HEARING_AID_ENABLE */
+#endif
 };
 
 const apps_config_key_event_map_t temp_key_double_click_configs[] = {
+#if 1	// richard for UI spec
     {
         DEVICE_KEY_POWER,
         KEY_REJCALL,
         (1 << APP_HFP_INCOMING)
+    },
+    {
+        DEVICE_KEY_POWER,
+        KEY_END_CALL,
+        (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_MULTIPARTY_CALL)
+        | (1 << APP_HFP_OUTGOING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_TWC_OUTGOING)
     },
 #if 0	//DUT Test
     {
@@ -312,12 +325,6 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
         | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
 #endif
-#if 1	// richard for UI spec
-    {
-        DEVICE_KEY_POWER,
-        KEY_MUTE_MIC,
-	  (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_STATE_HELD_ACTIVE)
-    },
 #else
     {
         DEVICE_KEY_POWER,
@@ -339,7 +346,6 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE)
 #endif
     },
-#endif
 #ifdef AIR_MCSYNC_SHARE_ENABLE
     {
         EINT_KEY_0,
@@ -378,6 +384,7 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
         | (1 << APP_STATE_FIND_ME) | (1 << APP_STATE_VA) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
 #endif /* AIR_HEARING_AID_ENABLE */
+#endif
 };
 
 const apps_config_key_event_map_t temp_key_triple_click_configs[] = {
@@ -407,7 +414,6 @@ const apps_config_key_event_map_t temp_key_triple_click_configs[] = {
         KEY_RHO_TO_AGENT,
         (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING)
     },
-#endif
 #endif
 #ifdef APPS_LINE_IN_SUPPORT
     {
@@ -451,9 +457,11 @@ const apps_config_key_event_map_t temp_key_triple_click_configs[] = {
         | (1 << APP_STATE_FIND_ME) | (1 << APP_STATE_VA) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
 #endif /* AIR_HEARING_AID_ENABLE */
+#endif
 };
 
 const apps_config_key_event_map_t temp_key_long_press1_configs[] = {
+#if 0	// richard for UI spec.
 #if !(defined(AIR_HEARING_AID_ENABLE)) && !(defined(AIR_HEARTHROUGH_PSAP_ENABLE))
     {
         EINT_KEY_0,
@@ -475,10 +483,12 @@ const apps_config_key_event_map_t temp_key_long_press1_configs[] = {
         | (1 << APP_STATE_FIND_ME) | (1 << APP_STATE_VA) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
 #endif /* !AIR_HEARING_AID_ENABLE && !AIR_HEARTHROUGH_PSAP_ENABLE */
+#endif
 };
 
 const apps_config_key_event_map_t temp_key_long_press2_configs[] = {
-#if 0	//def AIR_MULTI_POINT_ENABLE
+#if 1	// richard for UI spec.
+#ifdef AIR_MULTI_POINT_ENABLE
     {
         DEVICE_KEY_POWER,
         KEY_SWITCH_ANC_AND_PASSTHROUGH,
@@ -487,7 +497,7 @@ const apps_config_key_event_map_t temp_key_long_press2_configs[] = {
         | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING)
         | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY) | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA)
     },
-//#else
+#else
     {
         DEVICE_KEY_POWER,    
         KEY_SWITCH_ANC_AND_PASSTHROUGH,
@@ -496,6 +506,7 @@ const apps_config_key_event_map_t temp_key_long_press2_configs[] = {
         | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY) | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA)
     },
 #endif
+#else
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
     {
         EINT_KEY_0,
@@ -522,6 +533,7 @@ const apps_config_key_event_map_t temp_key_long_press2_configs[] = {
         | (1 << APP_STATE_FIND_ME) | (1 << APP_STATE_VA) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENA */
+#endif
 };
 
 const apps_config_key_event_map_t temp_key_long_press3_configs[] = {
@@ -801,6 +813,7 @@ const apps_config_key_event_map_t temp_left_key_dlong_configs[] = {
 
 // For right side or default configurable mapping table
 const static apps_config_configurable_table_t default_configurable_table[] = {
+#if 1		// richard for UI spec
     {
         APPS_CONFIG_KEY_SHORT_CLICK,
         DEVICE_KEY_POWER,
@@ -813,7 +826,7 @@ const static apps_config_configurable_table_t default_configurable_table[] = {
         KEY_AVRCP_PAUSE,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
-#if 0		// richard for UI spec
+#else    
     {
         APPS_CONFIG_KEY_DOUBLE_CLICK,
         DEVICE_KEY_POWER,
@@ -858,7 +871,13 @@ const static apps_config_configurable_table_t left_configurable_table[] = {
     {
         APPS_CONFIG_KEY_SHORT_CLICK,
         DEVICE_KEY_POWER,
-        KEY_SWITCH_ANC_AND_PASSTHROUGH,
+        KEY_AVRCP_PLAY,
+        0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
+    },
+    {
+        APPS_CONFIG_KEY_SHORT_CLICK,
+        DEVICE_KEY_POWER,
+        KEY_AVRCP_PAUSE,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
 #else

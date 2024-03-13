@@ -119,7 +119,8 @@ static bool _proc_ui_shell_group(ui_shell_activity_t *self, uint32_t event_id, v
     return ret;
 }
 
-
+extern void app_hear_through_handle_charger_in();
+extern void app_hear_through_handle_charger_out();
 static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void *extra_data,size_t data_len)
 {
     bool ret = false;
@@ -249,9 +250,9 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 
         case EVENT_ID_HALL_SENSOR_RESUME_ANC:
 			{
-				int32_t charger_exist = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);
+//				int32_t charger_exist = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);
 			
-				if(!charger_exist)
+//				if(!charger_exist)
 				{
 					APPS_LOG_MSGID_I("Hall sensor out case, ANC resume! \n", 0);
 
@@ -261,6 +262,7 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 				#ifdef AIR_SMART_CHARGER_ENABLE
 					app_mute_audio(FALSE);
 				#endif
+					app_hear_through_handle_charger_out();
 				}
 				ret = true;
            	 	break;
@@ -273,6 +275,7 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 			#ifdef AIR_SMART_CHARGER_ENABLE
 				app_mute_audio(TRUE);
 			#endif
+				app_hear_through_handle_charger_in();
 //				app_anc_service_suspend();
 //				app_psensor_limit_set(true);
 				app_common_add_tracking_log(0x10);

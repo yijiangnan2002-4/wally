@@ -1878,7 +1878,11 @@ bool app_hear_through_proc_hearing_aid_event(int32_t event_id, void *extra_data,
 }
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
 
+#if 0	// richard for UI spec.
 static void app_hear_through_handle_charger_out()
+#else
+void app_hear_through_handle_charger_out()
+#endif
 {
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_handle_charger_out] Charger OUT, power_on_vp_played : %d, power_on_vp_playing : %d, powering_off : %d",
                         3,
@@ -1910,7 +1914,11 @@ static void app_hear_through_handle_charger_out()
     }
 }
 
+#if 0	// richard for UI spec.
 static void app_hear_through_handle_charger_in()
+#else
+void app_hear_through_handle_charger_in()
+#endif
 {
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_handle_charger_in] Charger IN",0);
 
