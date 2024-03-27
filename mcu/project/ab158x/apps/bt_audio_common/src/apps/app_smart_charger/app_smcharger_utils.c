@@ -846,8 +846,9 @@ void app_smcharger_handle_key_event(uint32_t key_value)
                 app_smcharger_bt_clear_enter_discoverable(APP_SMCHARGER_REQUEST_BT_OFF);
             }
 #if 1	// richard for UI spe.
-            else if((key_value == APP_SMCHARGER_KEY_BT_SIGNAL_DISCOVERABLE)&&(aws_link_type == BT_AWS_MCE_SRV_LINK_NONE)) {
-				app_smcharger_send_key_action(KEY_SIGNAL_DISCOVERABLE);
+            else if((key_value == APP_SMCHARGER_KEY_BT_SIGNAL_DISCOVERABLE)/*&&(aws_link_type == BT_AWS_MCE_SRV_LINK_NONE)*/) {
+//				app_smcharger_send_key_action(KEY_SIGNAL_DISCOVERABLE);
+				app_smcharger_send_key_action(KEY_DISCOVERABLE);
             } else if (key_value == APP_SMCHARGER_KEY_BT_DUT_TEST) {
 			if((APP_DISCONNECTED == apps_config_key_get_mmi_state()	|| APP_CONNECTABLE == apps_config_key_get_mmi_state())&& dut_test_flag == 0)
 			{
