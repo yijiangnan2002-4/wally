@@ -57,6 +57,11 @@
 #endif /* AIR_LE_AUDIO_BIS_ENABLE */
 
 #define APP_HA_KEY_HANDLER_TAG      "[HearingAid][KeyHandler]"
+#include "app_customer_common_activity.h"
+
+uint8_t anc_key_count;
+
+
 
 typedef void (*key_event_handler)();
 
@@ -297,10 +302,57 @@ void app_hearing_aid_key_handler_proc_mode_down_notify()
 {
     app_hearing_aid_activity_play_vp(VP_INDEX_PRESS, true);
 }
-
 void app_hearing_aid_key_handler_proc_mode_down()
 {
-    app_hearing_aid_key_handler_proc_mode_adjust(false, false);
+    uint8_t l_level_index = 0;
+    uint8_t r_level_index = 0;
+    uint8_t level_max_count = 0;
+    uint8_t mode_max_count = 0;
+    uint8_t vol_max_count = 0;
+    uint8_t mode_index = 0;
+
+    audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
+    audio_psap_status_t mode_max_count_status = audio_anc_psap_control_get_level_mode_max_count(&level_max_count, &mode_max_count, &vol_max_count);
+    audio_psap_status_t get_level_index_status = audio_anc_psap_control_get_level_index(&l_level_index, &r_level_index);
+
+    APPS_LOG_MSGID_I("app_hearing_aid_key_handler_proc_mode_down  current mode index:%d, mode max:%d,anc_key_count=%d,vol_max_count=%d",
+                     4,
+                     mode_index,
+                     mode_max_count,
+                     anc_key_count,
+                     vol_max_count
+                     );
+
+    //app_hearing_aid_key_handler_proc_mode_adjust(false, false);
+    APPS_LOG_MSGID_I("app_hearing_aid_key_handler_proc_mode_down  l_index : %d, r_index : %d, level_max : %d,anc_key_count=%d",
+                     4,
+                     l_level_index,
+                     r_level_index,
+                     level_max_count,
+                     anc_key_count
+                     );
+
+
+    
+    if (anc_key_count)
+    {
+      uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t));
+      if (p_key_action) {
+          *p_key_action = 0x0092;//KEY_DISCOVERABLE = 0x0002KEY_DISCOVERABLE;	   
+          ui_shell_send_event(true, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_KEY, 0xFFFF, p_key_action,	sizeof(uint16_t), NULL, 0);
+        }
+        anc_key_count=0;  
+  	    apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_ANC_KEY_SYNC,(void*)&anc_key_count ,1);
+    }
+    else
+    {
+        app_hearing_aid_key_handler_proc_mode_adjust(true, true);
+        if((mode_index+2)==mode_max_count)
+        {
+            anc_key_count=1;  
+		    apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_ANC_KEY_SYNC,(void*)&anc_key_count ,1);
+        }
+    }
 }
 
 void app_hearing_aid_key_handler_proc_mode_up_circular_notify()

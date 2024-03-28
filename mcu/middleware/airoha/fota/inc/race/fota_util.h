@@ -116,7 +116,10 @@
 
 #define FOTA_VERSION_MAX_SIZE (28) /* The maximum size of the FOTA package release version string including the null-terminator. */
 #define FOTA_VERSION_INTEGRITY_CHECK_VALUE_SIZE (4) /* The size of the integrity check value of the version string. */
-#define FOTA_DEFAULT_VERSION    ("v3.0.7.1_vibe") /* The default FOTA package release version. */
+////////////////hugo
+#define FOTA_DEFAULT_VERSION    ("v1.3.01.01") /* HUGO HUGO The default FOTA package release version. */
+/////////////// VIBE
+//#define FOTA_DEFAULT_VERSION    ("v2.1.01.01") /* VIBE VIBE The default FOTA package release version. */
 
 
 typedef enum {

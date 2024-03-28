@@ -140,7 +140,9 @@ static uint32_t g_anc_set_agent_vol; //anc_sw_gain_t
 static uint32_t g_anc_set_partner_vol; //anc_sw_gain_t
 #endif
 #endif
+//errrrrrrrrrrrrrrrrrrrr
 #ifdef AIR_AIRDUMP_ENABLE
+//errrrrrrrrrrrrrrrrrrrrrrrr
 uint8_t g_airdump_race_ch_id;
 uint8_t g_airdump_cnt_past = 0;
 static TimerHandle_t g_airdump_timer = NULL;

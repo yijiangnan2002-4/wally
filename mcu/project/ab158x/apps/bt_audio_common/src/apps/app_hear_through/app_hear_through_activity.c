@@ -2327,15 +2327,15 @@ void app_hear_through_activity_switch_ambient_control()
 #endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
 
     uint8_t old_mode_index = app_hear_through_ctx.mode_index;
-    app_hear_through_ctx.mode_index ++;
-    #if 0 // harry to test for sample,just switch beteew anc off and ha . harry 0231208
-    if (app_hear_through_ctx.mode_index == 2)
-  #else
+    #if 1 // harry for anc key for hufo
+    app_hear_through_ctx.mode_index =APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC;
+    //if (app_hear_through_ctx.mode_index == 2)
+    #else
     if (app_hear_through_ctx.mode_index == 3)
-  #endif
     {
         app_hear_through_ctx.mode_index = 0;
     }
+    #endif
 
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_switch_ambient_control] mode_index change %d -> %d",
                         2,

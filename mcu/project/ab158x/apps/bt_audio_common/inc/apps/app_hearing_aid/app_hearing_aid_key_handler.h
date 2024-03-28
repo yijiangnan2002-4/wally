@@ -44,6 +44,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+extern uint8_t anc_key_count;
 
 bool app_hearing_aid_key_handler_processing(apps_config_key_action_t key_event);
 

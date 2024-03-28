@@ -44,6 +44,8 @@
 //#include "race_cmd_factory_test.h"
 #include "bt_app_common_at_cmd.h"
 #include "apps_customer_config.h"
+#include "app_hearing_aid_key_handler.h"
+
 #ifdef BATTERY_HEATHY_ENABLE
 //calculate when in case after 5s, so need power on or out of case more than 1min, and keep charge in case more than 5s
 #define BATTERY_HEATHY_PERIOD (30*1000)
@@ -1802,6 +1804,14 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 					break;
 				}
 #endif
+				case EVENT_ID_ANC_KEY_SYNC:
+				{
+					anc_key_count = *(uint16_t*)p_extra_data;
+					APPS_LOG_MSGID_I(" EVENT_ID_ANC_KEY_SYNC: anc_key_count = %d", 1, anc_key_count);
+					ret = true;
+					break;
+				}
+
 
                 default:
                     break;

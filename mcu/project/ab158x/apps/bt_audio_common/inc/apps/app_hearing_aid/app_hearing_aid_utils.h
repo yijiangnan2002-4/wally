@@ -46,7 +46,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define APP_HEARING_AID_DEBUG_ENABLE                    0
+#define APP_HEARING_AID_DEBUG_ENABLE                    1
 
 #define APP_HEARING_AID_CHAR_LOG_MAX_LEN                40
 

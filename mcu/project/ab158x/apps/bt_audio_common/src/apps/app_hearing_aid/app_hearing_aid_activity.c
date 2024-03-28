@@ -94,6 +94,7 @@
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
 
 #include "audio_anc_psap_control.h"
+#include "app_customer_common_activity.h"
 
 #define APP_HA_ACTIVITY_TAG        "[HearingAid][ACTIVITY]"
 
@@ -1917,10 +1918,34 @@ static bool app_hearing_aid_activity_proc_key_event(uint32_t event_id,
                                                     size_t data_len)
 {
     uint16_t key_id = *(uint16_t *)extra_data;
+    uint8_t level_max_count = 0;
+    uint8_t mode_max_count = 0;
+    uint8_t vol_max_count = 0;
+    uint8_t mode_index = 0;
 
     if ((key_id < KEY_HEARING_AID_BEGIN) || (key_id > KEY_HEARING_AID_END)) {
         return false;
     }
+
+    audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
+    audio_psap_status_t mode_max_count_status = audio_anc_psap_control_get_level_mode_max_count(&level_max_count, &mode_max_count, &vol_max_count);
+
+    APPS_LOG_MSGID_I("app_hearing_aid_activity_proc_key_event  current mode index:%d, mode max:%d,anc_key_count=%d,vol_max_count=%d",
+                     4,
+                     mode_index,
+                     mode_max_count,
+                     anc_key_count,
+                     vol_max_count
+                     );
+
+
+    
+        if((mode_index+1)==mode_max_count&&anc_key_count==0)
+        {
+          APPS_LOG_MSGID_I("app_hearing_aid_activity_proc_key_event  set user_switch=1",0);
+          app_hearing_aid_activity_set_user_switch(true, true);
+        }
+
 
     bool user_switch = app_hearing_aid_utils_is_ha_user_switch_on();
     if ((user_switch == false) || (app_ha_activity_context.inited == false)) {
@@ -2381,8 +2406,8 @@ static bool app_hearing_aid_activity_proc_cm_event(uint32_t event_id,
                                                    void *extra_data,
                                                    size_t data_len)
 {
-    // user_switch = app_hearing_aid_utils_is_ha_user_switch_on();
-    if (/*(user_switch == false) || */(app_ha_activity_context.inited == false)) {
+     bool user_switch = app_hearing_aid_utils_is_ha_user_switch_on();
+    if ((user_switch == false) || (app_ha_activity_context.inited == false)) {
 #if APP_HEARING_AID_DEBUG_ENABLE
         APPS_LOG_MSGID_E(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_cm_event] Not ready to process CM event, %d - %d, event_id : 0x%04x",
                             3,
@@ -2420,6 +2445,8 @@ static bool app_hearing_aid_activity_proc_cm_event(uint32_t event_id,
                 if (user_switch_on == true) {
                     app_hearing_aid_aws_handle_connected(app_ha_activity_context.power_on_ha_executed);
                 }
+                // harry for anc key
+  	            apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_ANC_KEY_SYNC,(void*)&anc_key_count ,1);
 
                 /**
                  * @brief Fix issue - 44600

@@ -106,9 +106,21 @@ static void bsp_px31bf_callback(void *data)
 	*pSensorStatus1 = *pSensorStatus;
 
 	ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT);
-	ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-								 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)pSensorStatus1, sizeof(bool),
-								 NULL, 500);
+
+    if((*pSensorStatus1)==1)
+    {
+    	APPS_LOG_MSGID_I("px31bf:interrupt in ear after 500ms", 0);
+    	ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+    								 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)pSensorStatus1, sizeof(bool),
+    								 NULL, 500);
+    }
+    else
+    {
+    	APPS_LOG_MSGID_I("px31bf:interrupt out ear after 100ms", 0);
+    	ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+    								 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)pSensorStatus1, sizeof(bool),
+    								 NULL, 100);
+    }
 #endif
 #if 0
     /* Send new value indication to psensor activity */
