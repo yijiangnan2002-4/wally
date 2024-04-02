@@ -638,6 +638,7 @@ bool app_anc_service_enable(audio_anc_control_filter_id_t filter_id,
 #endif /* MTK_LEAKAGE_DETECTION_ENABLE */
 
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+//ERRRRRRRRRRRR
     if (anc_type == AUDIO_ANC_CONTROL_TYPE_PASSTHRU_FF) {
         app_hear_through_activity_switch_to_hear_through();
         return true;

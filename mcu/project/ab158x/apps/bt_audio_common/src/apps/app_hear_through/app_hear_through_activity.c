@@ -182,7 +182,7 @@ typedef struct {
 
 #endif /* AIR_TWS_ENABLE */
 
-static bool app_hear_through_switch_on_off(bool need_store, bool enable);
+bool app_hear_through_switch_on_off(bool need_store, bool enable);
 static bool app_hear_through_is_aws_connected();
 bool app_hear_through_activity_is_out_case();
 
@@ -599,7 +599,7 @@ static bool app_hear_through_control_vivid_pt(bool enable)
 }
 #endif /* AIR_HEARTHROUGH_VIVID_PT_ENABLE || AIR_HW_VIVID_PT_ENABLE */
 
-static bool app_hear_through_switch_on_off(bool need_store, bool enable)
+ bool app_hear_through_switch_on_off(bool need_store, bool enable)
 {
     bool ret_value = false;
 
@@ -2299,7 +2299,7 @@ static void app_hear_through_activity_handle_mode_index_changed()
                                                 (uint8_t *)&mode_switch,
                                                 sizeof(app_hear_through_sync_ambient_control_switch_t),
                                                 APP_HEAR_THROUGH_SYNC_EVENT_DEFAULT_TIMEOUT);
-    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_is_aws_connected() == true] Enter", 1,app_hear_through_is_aws_connected());
+    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_is_aws_connected() == true] mode_index=%d", 1,mode_switch.mode_index);
     } else {
 #endif /* AIR_TWS_ENABLE */
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_is_aws_connected() != true] Enter", 0);
@@ -2309,7 +2309,15 @@ static void app_hear_through_activity_handle_mode_index_changed()
 #endif /* AIR_TWS_ENABLE */
 }
 
-void app_hear_through_activity_switch_to_hear_through()
+void app_hear_through_activity_switch_ancon(void)
+{
+    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_switch_ancon] Enter", 0);
+
+    app_hear_through_ctx.mode_index =APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC;
+    app_hear_through_activity_handle_mode_index_changed();
+}
+
+void app_hear_through_activity_switch_to_hear_through(void)
 {
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_switch_to_hear_through] Enter", 0);
 
@@ -2327,9 +2335,13 @@ void app_hear_through_activity_switch_ambient_control()
 #endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
 
     uint8_t old_mode_index = app_hear_through_ctx.mode_index;
-    #if 1 // harry for anc key for hufo
+    app_hear_through_ctx.mode_index ++;
+    #if 0 // harry for anc key for hufo
     app_hear_through_ctx.mode_index =APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC;
-    //if (app_hear_through_ctx.mode_index == 2)
+    if (app_hear_through_ctx.mode_index == 3)
+    {
+        app_hear_through_ctx.mode_index = 1;
+    }
     #else
     if (app_hear_through_ctx.mode_index == 3)
     {

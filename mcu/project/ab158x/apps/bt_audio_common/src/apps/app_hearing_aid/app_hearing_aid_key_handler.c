@@ -55,9 +55,11 @@
 #include "bt_sink_srv_le_cap_stream.h"
 #include "apps_events_key_event.h"
 #endif /* AIR_LE_AUDIO_BIS_ENABLE */
+#include "app_customer_common_activity.h"
+#include "App_hear_through_activity.h"
 
 #define APP_HA_KEY_HANDLER_TAG      "[HearingAid][KeyHandler]"
-#include "app_customer_common_activity.h"
+
 
 uint8_t anc_key_count;
 
@@ -330,29 +332,36 @@ void app_hearing_aid_key_handler_proc_mode_down()
                      r_level_index,
                      level_max_count,
                      anc_key_count
-                     );
-
-
-    
+                     );    
     if (anc_key_count)
     {
+    #if 1
+      app_hear_through_activity_switch_ancon();
+    #else
       uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t));
       if (p_key_action) {
           *p_key_action = 0x0092;//KEY_DISCOVERABLE = 0x0002KEY_DISCOVERABLE;	   
           ui_shell_send_event(true, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_KEY, 0xFFFF, p_key_action,	sizeof(uint16_t), NULL, 0);
         }
+    #endif
         anc_key_count=0;  
   	    apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_ANC_KEY_SYNC,(void*)&anc_key_count ,1);
     }
     else
     {
+        //app_hear_through_switch_on_off(true, true);
+        app_hear_through_activity_switch_to_hear_through();       
         app_hearing_aid_key_handler_proc_mode_adjust(true, true);
+       // if((mode_index+2)>=mode_max_count)
         if((mode_index+2)==mode_max_count)
         {
             anc_key_count=1;  
 		    apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_ANC_KEY_SYNC,(void*)&anc_key_count ,1);
         }
     }
+    audio_anc_psap_control_get_mode_index(&mode_index);
+    APPS_LOG_MSGID_I("app_hearing_aid_key_handler_proc_mode_down  mode_index:%d", 1, mode_index );
+
 }
 
 void app_hearing_aid_key_handler_proc_mode_up_circular_notify()
