@@ -1725,6 +1725,7 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
             }
 
 #ifdef MTK_AWS_MCE_ENABLE
+#if 0	// test
             if (!local_ctx->aws_connected
 #ifdef AIR_SPEAKER_ENABLE
                 && BT_AWS_MCE_SRV_MODE_DOUBLE == bt_aws_mce_srv_get_mode()
@@ -1734,11 +1735,13 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
                 s_factory_reset_doing = false;
                 break;
             }
+#endif
 
             if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
 #ifdef AIR_SPEAKER_ENABLE
                 && BT_AWS_MCE_SRV_MODE_DOUBLE == bt_aws_mce_srv_get_mode()
 #endif
+		&& local_ctx->aws_connected
             ) {
                 if (BT_STATUS_SUCCESS != apps_aws_sync_event_send(EVENT_GROUP_UI_SHELL_KEY, s_factory_reset_key_action)) {
                     voice_prompt_play_vp_failed();

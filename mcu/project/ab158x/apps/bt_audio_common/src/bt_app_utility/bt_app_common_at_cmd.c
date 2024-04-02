@@ -459,7 +459,8 @@ static atci_status_t bt_app_comm_at_cmd_enable_discoverable(atci_parse_cmd_param
 
     uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
 
-	*p_key_action = KEY_SIGNAL_DISCOVERABLE;
+//	*p_key_action = KEY_SIGNAL_DISCOVERABLE;
+	*p_key_action = KEY_DISCOVERABLE;
 
     ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action,
                         sizeof(uint16_t), NULL, 100);	
