@@ -53,6 +53,31 @@ extern "C" {
 #define APP_HEAR_THROUGH_EVENT_ID_VP_STREAMING_END              0x0007
 #define APP_HEAR_THROUGH_EVENT_ID_MIDDLEWARE_CONTROL_CALLBACK   0x0008
 
+#define APP_HEAR_THROUGH_MODE_SWITCH_INDEX_OFF                  0x00
+#define APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH         0x01
+#define APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC                  0x02
+typedef struct {
+#if 1//def MTK_RACE_EVENT_ID_ENABLE
+    int32_t                             race_register_id;
+#endif /* MTK_RACE_EVENT_ID_ENABLE */
+    bool                                is_hear_through_enabled;
+    bool                                is_power_on_vp_playing;
+    bool                                is_power_on_vp_played;
+    bool                                is_power_on_ht_executed;
+    bool                                is_powering_off;
+    bool                                is_anc_changed;
+    bool                                trigger_from_key;
+    bool                                init_done;
+    bool                                hear_through_key_to_off;
+    uint8_t                             mode_index;
+    bool                                is_charger_in;
+#if defined(MTK_FOTA_ENABLE) && defined (MTK_FOTA_VIA_RACE_CMD)
+    bool                                is_hear_through_enabled_before_ota;
+    bool                                is_ota_ongoing;
+#endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
+} app_hear_through_context_t;
+extern  app_hear_through_context_t app_hear_through_ctx;
+
 bool app_hear_through_activity_proc(ui_shell_activity_t *self,
                                     uint32_t event_group,
                                     uint32_t event_id,

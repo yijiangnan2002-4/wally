@@ -387,8 +387,8 @@ void *RACE_ClaimPacket(uint8_t race_type, uint16_t race_id, uint16_t dat_len, ui
 {
     race_send_pkt_t *pPacket = NULL;
     pPacket = (race_send_pkt_t *)race_mem_alloc(sizeof(race_send_pkt_t) + dat_len);
-    //RACE_LOG_MSGID_I("RACE_ClaimPacket, race_type[0x%X], race_id[0x%X], dat_len[%d], channel_id[%d], pPacket[0x%X]", 5,
-    //                 race_type, race_id, dat_len, channel_id, pPacket);
+    RACE_LOG_MSGID_I("RACE_ClaimPacket, race_type[0x%X], race_id[0x%X], dat_len[%d], channel_id[%d], pPacket[0x%X]", 5,
+                     race_type, race_id, dat_len, channel_id, pPacket);
 
     if (pPacket != NULL) {
         pPacket->channel_id = channel_id;

@@ -126,32 +126,9 @@
 #define APP_HEAR_THROUGH_AWS_EVENT_ID_HEAR_THROUGH_KEY_TO_OFF   0x3005
 #endif /* AIR_TWS_ENABLE */
 
-#define APP_HEAR_THROUGH_MODE_SWITCH_INDEX_OFF                  0x00
-#define APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH         0x01
-#define APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC                  0x02
 
-typedef struct {
-#ifdef MTK_RACE_EVENT_ID_ENABLE
-    int32_t                             race_register_id;
-#endif /* MTK_RACE_EVENT_ID_ENABLE */
-    bool                                is_hear_through_enabled;
-    bool                                is_power_on_vp_playing;
-    bool                                is_power_on_vp_played;
-    bool                                is_power_on_ht_executed;
-    bool                                is_powering_off;
-    bool                                is_anc_changed;
-    bool                                trigger_from_key;
-    bool                                init_done;
-    bool                                hear_through_key_to_off;
-    uint8_t                             mode_index;
-    bool                                is_charger_in;
-#if defined(MTK_FOTA_ENABLE) && defined (MTK_FOTA_VIA_RACE_CMD)
-    bool                                is_hear_through_enabled_before_ota;
-    bool                                is_ota_ongoing;
-#endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
-} app_hear_through_context_t;
 
-static app_hear_through_context_t app_hear_through_ctx;
+ app_hear_through_context_t app_hear_through_ctx;
 
 typedef struct {
     llf_type_t type;
@@ -175,8 +152,8 @@ typedef struct {
     bool                from_key;
     bool                is_anc_changed; // Fix issue - 47152
     bool                is_need_sync_operate;
-    uint8_t             hear_through_switch;
-    uint8_t             hear_through_mode;
+    uint8_t             hear_through_switch;// 0 : OFF, 1 : ON
+    uint8_t             hear_through_mode; // 0 : vivid_pt, 1 : HA/PSAP
     uint8_t             ambient_control_index;
 } __attribute__((packed)) app_hear_through_sync_configuration_t;
 

@@ -408,7 +408,8 @@ uint8_t app_ull_get_mix_ratio(void);
 static void *apps_race_cmd_handler(ptr_race_pkt_t p_race_package, uint16_t length, uint8_t channel_id)
 {
     void *pEvt = NULL;
-    APPS_LOG_MSGID_I(LOG_TAG"apps_race_cmd_handler, type[0x%X], id[0x%X]", 2, p_race_package->hdr.type, p_race_package->hdr.id);
+    APPS_LOG_MSGID_I(LOG_TAG"apps_race_cmd_handler, type[0x%X], id[0x%X],len[0x%X],", 3, p_race_package->hdr.type, p_race_package->hdr.id,p_race_package->hdr.length);    
+    APPS_LOG_MSGID_I(LOG_TAG"apps_race_cmd_handler, payload[0][0x%X],", 1, p_race_package->payload[0]);
 #ifdef MTK_AWS_MCE_ENABLE
     bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
 #endif

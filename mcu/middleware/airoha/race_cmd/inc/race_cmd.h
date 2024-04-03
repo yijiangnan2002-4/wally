@@ -251,10 +251,10 @@ typedef union {
 } RACE_CH_BYTE;
 
 typedef struct {
-    RACE_CH_BYTE    pktId;
-    uint8_t     type;
+    RACE_CH_BYTE    pktId;  
+    uint8_t     type;  // 0x5a    command type
     uint16_t    length;
-    uint16_t    id;
+    uint16_t    id; //0x2c87  command id
 
 } PACKED RACE_COMMON_HDR_STRU, *PTR_RACE_COMMON_HDR_STRU;
 

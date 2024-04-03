@@ -241,6 +241,7 @@ void *app_hear_through_race_cmd_handler(ptr_race_pkt_t p_race_package, uint16_t 
         APPS_LOG_MSGID_E(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_handler] NOT Hear Through event, 0x%x", 1, p_race_package->hdr.id);
         return NULL;
     }
+    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_handler] hdr.id=0x%x,channel_id=%d", 1, p_race_package->hdr.id,channel_id);
 
     app_hear_through_race_cmd_context.channel_id = channel_id;
 

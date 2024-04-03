@@ -92,6 +92,10 @@ static const uint8_t captouch_keys[] = APPS_CAPTOUCH_KEY_IDS;
 #include "app_dongle_service.h"
 #endif
 
+#include "apps_config_event_list.h"
+#include "audio_anc_psap_control.h"
+#include "app_hear_through_activity.h"
+
 static bool _proc_ui_shell_group(ui_shell_activity_t *self,
                                  uint32_t event_id,
                                  void *extra_data,
@@ -218,6 +222,44 @@ errrrrrrrrrrrrrrrr
             key_id = DEVICE_KEY_POWER;
         }
         *p_key_action = apps_config_key_event_remapper_map_action(key_id, key_event);
+
+      APPS_LOG_MSGID_I("pre_proc_key_event_proc, action: %04x,key_id=%x,key_event=%x", 3, *p_key_action,key_id,key_event);
+     if(*p_key_action==KEY_HEARING_AID_MODE_UP_CIRCULAR)
+      {
+    uint8_t level_max_count = 0;
+    uint8_t mode_max_count = 0;
+    uint8_t vol_max_count = 0;
+    uint8_t mode_index = 0;
+
+    audio_anc_psap_control_get_mode_index(&mode_index);
+    audio_anc_psap_control_get_level_mode_max_count(&level_max_count, &mode_max_count, &vol_max_count);
+    APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_HEARING_AID_MODE_UP_CIRCULAR", 0);
+    APPS_LOG_MSGID_I("pre_proc_key_event_proc  current mode index:%d, mode max:%d,app_hear_through_ctx.mode_index=%d,vol_max_count=%d",
+                     4,
+                     mode_index,
+                     mode_max_count,
+                     app_hear_through_ctx.mode_index,
+                     vol_max_count
+                     );
+        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC)
+        {
+          app_hear_through_ctx.mode_index=APP_HEAR_THROUGH_MODE_SWITCH_INDEX_OFF;
+        }
+        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)
+        {
+          if(mode_index+2==mode_max_count)
+            {
+
+            }
+        }
+      }
+     else if(*p_key_action==KEY_AVRCP_PAUSE)
+      {
+            APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_AVRCP_PAUSE", 0);
+      }else if(*p_key_action==KEY_AVRCP_PLAY)
+      {
+            APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_AVRCP_PLAY", 0);
+      } 
 #endif /* #if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)) */
     }
     return false;
