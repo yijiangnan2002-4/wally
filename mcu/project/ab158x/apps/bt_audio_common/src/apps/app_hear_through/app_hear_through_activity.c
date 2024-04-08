@@ -126,6 +126,7 @@
 #define APP_HEAR_THROUGH_AWS_EVENT_ID_HEAR_THROUGH_KEY_TO_OFF   0x3005
 #endif /* AIR_TWS_ENABLE */
 
+uint8_t anc_eastech_spec=0;
 
 
  app_hear_through_context_t app_hear_through_ctx;
@@ -671,7 +672,6 @@ static void app_hearing_through_activity_leave_hear_through_mode()
 
     app_hear_through_notify_switch_state_change(false);
 }
-
 static void app_hear_through_activity_handle_ambient_control_switch()
 {
     /**
@@ -714,6 +714,8 @@ static void app_hear_through_activity_handle_ambient_control_switch()
 
   		// richard for customer UI spec.
 		voice_prompt_play_sync_vp_hearing_through();
+      anc_eastech_spec=1;
+      app_hearing_aid_key_handler_proc_mode_up_circular();  // harry add for anc new feature
       }
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC: {
@@ -2313,11 +2315,10 @@ void app_hear_through_activity_switch_ambient_control()
 
     uint8_t old_mode_index = app_hear_through_ctx.mode_index;
     app_hear_through_ctx.mode_index ++;
-    #if 0 // harry for anc key for hufo
-    app_hear_through_ctx.mode_index =APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC;
+    #if 1 // harry for anc key for hufo
     if (app_hear_through_ctx.mode_index == 3)
     {
-        app_hear_through_ctx.mode_index = 1;
+        app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH;
     }
     #else
     if (app_hear_through_ctx.mode_index == 3)

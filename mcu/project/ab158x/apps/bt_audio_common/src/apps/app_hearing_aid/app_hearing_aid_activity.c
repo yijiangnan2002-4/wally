@@ -226,7 +226,14 @@ void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
     } else {
         vp.control = VOICE_PROMPT_CONTROL_MASK_NONE;
     }
+    if(vp_index==VP_INDEX_HEARING_AID_MODE_1)
+   {
+    vp.delay_time = VOICE_PROMPT_SYNC_DELAY_MIN+200;
+   }
+    else
+   {
     vp.delay_time = VOICE_PROMPT_SYNC_DELAY_MIN;
+   }
 
 #ifdef AIR_TWS_ENABLE
     if ((need_sync == true) && (aws_role == BT_AWS_MCE_ROLE_PARTNER) && (is_aws_connected == true)) {
@@ -247,7 +254,20 @@ void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
 
 void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 {
-    app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
+    bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
+    bool is_aws_connected = app_hearing_aid_aws_is_connected();
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_play_mode_index_vp] need_sync : %d,",1,need_sync);
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_play_mode_index_vp] harry aws_role : %d, is_aws_connected : %d,anc_eastech_spec=%d",3,aws_role,is_aws_connected,anc_eastech_spec);
+    if((anc_eastech_spec==1)&&(is_aws_connected == true)&&(aws_role == BT_AWS_MCE_ROLE_PARTNER))
+    {
+    return;
+        //app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], false);
+    }
+
+    else
+    {
+        app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
+    }
 }
 
 void app_hearing_aid_activity_play_ha_on_vp(bool enable, bool need_mode_vp, bool need_sync_play)

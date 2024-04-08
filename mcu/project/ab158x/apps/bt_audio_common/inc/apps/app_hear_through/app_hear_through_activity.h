@@ -77,6 +77,7 @@ typedef struct {
 #endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
 } app_hear_through_context_t;
 extern  app_hear_through_context_t app_hear_through_ctx;
+extern  uint8_t anc_eastech_spec;
 
 bool app_hear_through_activity_proc(ui_shell_activity_t *self,
                                     uint32_t event_group,

@@ -98,6 +98,14 @@ __weak void reserved_nvdm_item_list_modify(void)
 	0x00, 0x00, 0x00, 0x00, 0x00, };
 	nvkey_write_data(NVID_DSP_FW_AUDIO_HW_IO_CFG, dsp_audio_hw_cfg, sizeof(dsp_audio_hw_cfg) / sizeof(uint8_t));
 #endif
+#if 1 
+	//const uint8_t rfpower_cfg[] = {0x2C, 0x00, 0x31, 0x00, 0x3D, 0x00, 0x3D, 0x00};// br edr set to 6.5db 20240108 
+
+  	const uint8_t rfpower_cfg[] = {0x35, 0x00, 0x39, 0x00, 0x3D, 0x00, 0x3D, 0x00};// br 11db,edr set to 10.5db 20240403 from yanzhen provide
+
+	nvkey_write_data(NVID_CAL_PWR_CTL_MP_K, rfpower_cfg, sizeof(rfpower_cfg) / sizeof(uint8_t));
+#endif
+
 }
 
 /**

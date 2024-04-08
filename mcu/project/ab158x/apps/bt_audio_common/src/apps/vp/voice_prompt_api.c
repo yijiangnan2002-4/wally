@@ -503,7 +503,14 @@ static voice_prompt_status_t voice_prompt_play_sync_vp_x(uint32_t vp_index)
     voice_prompt_param_t vp = {0};
     vp.vp_index = vp_index;
     vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
+    if(VP_INDEX_ANC_ON==VP_INDEX_ANC_ON)
+      {
+    vp.delay_time = VOICE_PROMPT_SYNC_DELAY_MIN+200;
+      }
+    else
+      {
     vp.delay_time = VOICE_PROMPT_SYNC_DELAY_MIN;
+      }
     return voice_prompt_play(&vp, NULL);
 }
 

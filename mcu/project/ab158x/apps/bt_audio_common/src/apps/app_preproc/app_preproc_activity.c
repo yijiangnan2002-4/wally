@@ -224,7 +224,7 @@ errrrrrrrrrrrrrrrr
         *p_key_action = apps_config_key_event_remapper_map_action(key_id, key_event);
 
       APPS_LOG_MSGID_I("pre_proc_key_event_proc, action: %04x,key_id=%x,key_event=%x", 3, *p_key_action,key_id,key_event);
-     if(*p_key_action==KEY_HEARING_AID_MODE_UP_CIRCULAR)
+     if(*p_key_action==KEY_SWITCH_ANC_AND_PASSTHROUGH)
       {
     uint8_t level_max_count = 0;
     uint8_t mode_max_count = 0;
@@ -233,7 +233,6 @@ errrrrrrrrrrrrrrrr
 
     audio_anc_psap_control_get_mode_index(&mode_index);
     audio_anc_psap_control_get_level_mode_max_count(&level_max_count, &mode_max_count, &vol_max_count);
-    APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_HEARING_AID_MODE_UP_CIRCULAR", 0);
     APPS_LOG_MSGID_I("pre_proc_key_event_proc  current mode index:%d, mode max:%d,app_hear_through_ctx.mode_index=%d,vol_max_count=%d",
                      4,
                      mode_index,
@@ -241,16 +240,22 @@ errrrrrrrrrrrrrrrr
                      app_hear_through_ctx.mode_index,
                      vol_max_count
                      );
-        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC)
+        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)//现在在hear
         {
-          app_hear_through_ctx.mode_index=APP_HEAR_THROUGH_MODE_SWITCH_INDEX_OFF;
+          if(mode_index!=(mode_max_count-1)) // 现在不是最大mode
+          {
+            *p_key_action=KEY_HEARING_AID_MODE_UP_CIRCULAR;
+            APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_HEARING_AID_MODE_UP_CIRCULAR", 0);
+          }
+          else
+          {
+            APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_SWITCH_ANC_AND_PASSTHROUGH11", 0);
+          }
+          
         }
-        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)
+        else
         {
-          if(mode_index+2==mode_max_count)
-            {
-
-            }
+          APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_SWITCH_ANC_AND_PASSTHROUGH22", 0);
         }
       }
      else if(*p_key_action==KEY_AVRCP_PAUSE)

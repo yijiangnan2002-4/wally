@@ -202,6 +202,8 @@ static void app_hearing_aid_key_handler_proc_mode_adjust(bool up, bool circular)
     bool max = false;
     bool min = false;
     bool get_result = app_hearing_aid_utils_get_mode_change_value(up, circular, &out_mode, &max, &min);
+    APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_proc_mode_adjust] anc_eastech_spec=%d,max=%d,min=%d",
+                        3,anc_eastech_spec,max,min);
 
     // if (get_result == false) {
         if ((max == true) || (min == true)) {
@@ -217,10 +219,23 @@ static void app_hearing_aid_key_handler_proc_mode_adjust(bool up, bool circular)
             } else {
                 vp_index = VP_INDEX_HEARING_AID_MIN_MODE;
             }
-
+    APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_proc_mode_adjust] anc_eastech_spec=%d,vp_index : %d",
+                        2,
+                        anc_eastech_spec,
+                        vp_index);
             if (vp_index != 0xFF) {
 #ifdef AIR_TWS_ENABLE
-                app_hearing_aid_activity_play_vp(vp_index, true);
+
+                if(anc_eastech_spec==0)
+                {
+                    APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_proc_mode_adjust] anc_eastech_spec==0",0);
+                    app_hearing_aid_activity_play_vp(vp_index, true);
+                }
+                else
+                {
+                    APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_proc_mode_adjust] anc_eastech_spec!=0",0);
+                    app_hearing_aid_activity_play_vp(vp_index, false);
+                }
 #else
                 app_hearing_aid_activity_play_vp(vp_index, false);
 #endif /* AIR_TWS_ENABLE */
@@ -233,7 +248,7 @@ static void app_hearing_aid_key_handler_proc_mode_adjust(bool up, bool circular)
     // }
 
 #ifdef AIR_TWS_ENABLE
-    if (app_hearing_aid_aws_is_connected() == true) {
+    if ((app_hearing_aid_aws_is_connected() == true)&&(anc_eastech_spec==0)) {
         app_hearing_aid_aws_index_change_t change = {0};
         change.index = out_mode;
         app_hearing_aid_aws_send_operate_command(APP_HEARING_AID_OP_COMMAND_CHANGE_MODE,
@@ -243,9 +258,11 @@ static void app_hearing_aid_key_handler_proc_mode_adjust(bool up, bool circular)
                                                 APP_HEARING_AID_SYNC_EVENT_DEFAULT_TIMEOUT);
     } else {
 #endif /* AIR_TWS_ENABLE */
+        APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_proc_mode_adjust] harry single call",0);
         app_hearing_aid_key_handler_adjust_mode(out_mode, true);
 #ifdef AIR_TWS_ENABLE
     }
+    anc_eastech_spec=0;
 #endif /* AIR_TWS_ENABLE */
 }
 
@@ -678,7 +695,8 @@ void app_hearing_aid_key_handler_adjust_volume(uint8_t l_index, uint8_t r_index,
 
 void app_hearing_aid_key_handler_adjust_mode(uint8_t target_mode, bool need_vp)
 {
-    app_hearing_aid_utils_adjust_mode(target_mode);
+         APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_adjust_mode] harry target_mode=%d,need_vp=%d",2,target_mode,need_vp);
+   app_hearing_aid_utils_adjust_mode(target_mode);
     if (need_vp == true) {
         app_hearing_aid_activity_play_mode_index_vp(target_mode, true);
     }

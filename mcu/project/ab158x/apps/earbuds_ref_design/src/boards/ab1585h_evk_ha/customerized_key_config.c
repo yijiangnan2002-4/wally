@@ -37,14 +37,6 @@
 
 const apps_config_configurable_event_status_table_t s_key_config_event_sta_maps[] = {
     {
-
-        KEY_SWITCH_ANC_AND_PASSTHROUGH,
-        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALL_ACTIVE)
-        | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_INCOMING)
-        | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING)
-        | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY) | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA)
-    },
-    {
         KEY_AVRCP_PLAY,
         (1 << APP_CONNECTED)
     },
@@ -497,7 +489,7 @@ const apps_config_key_event_map_t temp_key_long_press1_configs[] = {
 const apps_config_key_event_map_t temp_key_long_press2_configs[] = {
 #if 1	// richard for UI spec.
 #ifdef AIR_MULTI_POINT_ENABLE
-    #if 0
+    #if 1
     {
         DEVICE_KEY_POWER,
         KEY_SWITCH_ANC_AND_PASSTHROUGH,
@@ -833,12 +825,6 @@ const apps_config_key_event_map_t temp_left_key_dlong_configs[] = {
 // For right side or default configurable mapping table
 const static apps_config_configurable_table_t default_configurable_table[] = {
 #if 1		// richard for UI spec
-#if 1
-        APPS_CONFIG_KEY_SHORT_CLICK,
-        DEVICE_KEY_POWER,
-        KEY_SWITCH_ANC_AND_PASSTHROUGH,
-        0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
-#else
     {
         APPS_CONFIG_KEY_SHORT_CLICK,
         DEVICE_KEY_POWER,
@@ -851,7 +837,6 @@ const static apps_config_configurable_table_t default_configurable_table[] = {
         KEY_AVRCP_PAUSE,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
-    #endif
 #else    
     {
         APPS_CONFIG_KEY_DOUBLE_CLICK,

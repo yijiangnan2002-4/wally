@@ -489,7 +489,7 @@ const apps_config_key_event_map_t temp_key_long_press1_configs[] = {
 const apps_config_key_event_map_t temp_key_long_press2_configs[] = {
 #if 1	// richard for UI spec.
 #ifdef AIR_MULTI_POINT_ENABLE
-    #if 0
+    #if 1
     {
         DEVICE_KEY_POWER,
         KEY_SWITCH_ANC_AND_PASSTHROUGH,

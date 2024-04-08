@@ -570,6 +570,7 @@ static void app_hearing_aid_aws_sync_handle_change_mode(uint8_t from_which_role,
                         from_which_role,
                         current_role,
                         target_mode);
+        APPS_LOG_MSGID_I("[app_hearing_aid_aws_sync_handle_change_mode] harry both ear call",0);
 
     app_hearing_aid_key_handler_adjust_mode(target_mode, ((current_role == BT_AWS_MCE_ROLE_AGENT) ? true : false));
 }

@@ -222,7 +222,7 @@ the name is NVID_TOOL_DSP_VOICE_TX_WB_EQ and will not be built-in the nvdm.bin f
     <Value>0x0007</Value>
   </NVKey>
   <NVKey KeyID="0x2040" Name="NVID_CAL_PWR_CTL_MP_K" Domain="MP_DATA">
-    <Value>0x2C0031003D003D00</Value>
+    <Value>0x350039003D003D00</Value>
   </NVKey>
   <NVKey KeyID="0x2045" Name="NVID_CAL_XO_26M_CRTSTAL_TRIM" Domain="MP_DATA">
     <Value>0x029B00</Value>
