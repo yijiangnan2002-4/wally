@@ -222,6 +222,7 @@ void app_nvkey_factory_reset(void)
 	p_customer_nvkey_setting->eco_charging_profile_status = 0x0;
 	//p_customer_nvkey_setting->shipping_mode_state = 0x1;
 	p_customer_nvkey_setting->mini_ui = 0x00;
+	p_customer_nvkey_setting->hx300x_log_debug = 0;
 #ifdef BLE_ZOUND_ENABLE
 	LOG_MSGID_I(GATT_ZOUND_SERVICE, "app_nvkey_factory_reset", 0);
 	p_customer_nvkey_setting->touch_lock = 0x0;
@@ -363,6 +364,17 @@ void app_nvkey_ble_mini_ui_set(uint8_t mini_ui)
 	app_nvkey_setting_set(NULL);
 }
 
+uint8_t app_nvkey_is_lea_disable(void)
+{
+	return g_customer_nvkey_setting.lea_disable;
+}
+void app_nvkey_is_lea_disable_set(uint8_t lea_disable)
+{
+	g_customer_nvkey_setting.lea_disable = lea_disable;
+	app_nvkey_setting_set(NULL);
+}
+
+
 uint8_t app_nvkey_ble_touch_limit_disable_read(void)
 {
 	return g_customer_nvkey_setting.touch_limit_disable;
@@ -488,11 +500,87 @@ void app_nvkey_eco_setting_read(void* setting)
 
 void app_nvkey_eco_setting_set(void* setting)
 {
+	app_eco_charge_soc_limit_handle(setting);
 	memcpy(g_customer_nvkey_setting.eco_charging_setting, setting, 8);
 	app_nvkey_setting_set(NULL);
 }
 
 
+void app_nvkey_hx300x_read_cali_setting(void *pEvt)
+{
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t data_reg10;
+		uint8_t data_reg12;
+		uint8_t data_reg13;
+		uint16_t data_h_thod;
+		uint16_t data_l_thod;
+		uint16_t data_read_ps3;
+	}PACKED RSP;
+
+	RSP* pRsp = (RSP*)pEvt;
+
+	pRsp->data_reg10 = g_customer_nvkey_setting.hx300x_reg10;
+	pRsp->data_reg12 = g_customer_nvkey_setting.hx300x_reg12;
+	pRsp->data_reg13 = g_customer_nvkey_setting.hx300x_reg13;
+	pRsp->data_h_thod = g_customer_nvkey_setting.hx300x_THOD_H;
+	pRsp->data_l_thod = g_customer_nvkey_setting.hx300x_THOD_L;
+	pRsp->data_read_ps3 = g_customer_nvkey_setting.hx300x_read_ps;	
+
+}
+
+uint8_t app_nvkey_hx300x_Gain_read(void)
+{
+	return g_customer_nvkey_setting.hx300x_reg12;
+}
+
+void app_nvkey_hx300x_Thres_read(uint16_t* h_thrd, uint16_t* l_thrd)
+{
+	h_thrd = &g_customer_nvkey_setting.hx300x_THOD_H;
+	l_thrd = &g_customer_nvkey_setting.hx300x_THOD_L;
+}
+
+void app_nvkey_hx300x_cur_read(uint16_t* reg_10, uint8_t* reg_13)
+{
+	reg_10 = &g_customer_nvkey_setting.hx300x_reg10;
+	reg_13 = &g_customer_nvkey_setting.hx300x_reg13;
+}
+
+
+void app_nvkey_hx300x_setting_save(uint8_t reg10, uint8_t reg12, uint8_t reg13, uint16_t THOD_H, uint16_t THOD_L, uint16_t read_ps)
+{
+	g_customer_nvkey_setting.hx300x_reg10 = reg10;
+	g_customer_nvkey_setting.hx300x_reg12 = reg12;
+	g_customer_nvkey_setting.hx300x_reg13 = reg13;
+	g_customer_nvkey_setting.hx300x_THOD_H = THOD_H;		
+	g_customer_nvkey_setting.hx300x_THOD_L = THOD_L;	
+	g_customer_nvkey_setting.hx300x_read_ps = read_ps;
+	app_nvkey_setting_set(NULL);
+}
+
+uint8_t app_nvkey_get_hx300x_log_status(void)
+{
+	return g_customer_nvkey_setting.hx300x_log_debug;
+}
+void app_nvkey_set_hx300x_log_status(uint8_t log_state)
+{
+	g_customer_nvkey_setting.hx300x_log_debug = log_state;
+	app_nvkey_setting_set(NULL);
+}
+
+
+
+uint8_t app_nvkey_eco_soc_limit_status_read(void)
+{
+    return g_customer_nvkey_setting.eco_soc_display_limit;
+}
+
+void app_nvkey_eco_soc_limit_status_write(uint8_t limit_enable)
+{
+    g_customer_nvkey_setting.eco_soc_display_limit = limit_enable;
+    app_nvkey_setting_set(NULL);
+}
 
 
 uint8_t app_nvkey_eco_charging_profile_status_read(void)
@@ -539,6 +627,12 @@ void app_nvkey_battery_heathy_percent2time_set(uint8_t percent2time)
 	g_customer_nvkey_setting.battery_heathy_percent_to_time = percent2time;
 	app_nvkey_setting_set(NULL);
 }
+
+uint8_t app_nvkey_factory_reset_flag_read(void)
+{
+	return g_customer_nvkey_setting.factory_reset_flag;
+}
+
 
 void app_nvkey_factory_reset_flag_write(uint8_t flag)
 {

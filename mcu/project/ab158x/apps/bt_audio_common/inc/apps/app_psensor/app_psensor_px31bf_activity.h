@@ -17,6 +17,12 @@
 
 #define TIMEOUT_CLEAN_AUDIO_RESUME_AFTER_OUTEAR	(10*60*1000)
 
+typedef enum
+{
+	PSENSOR_PX31BF_USING = 0,
+	PSENSOR_HX300X_USING,
+};
+
 enum
 {
     EVENT_ID_PSENSOR_NEW_SENSOR_IND = 0,  /* Getting new proximity sensor value from sensor callback */

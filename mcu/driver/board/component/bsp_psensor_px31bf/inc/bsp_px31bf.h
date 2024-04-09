@@ -62,7 +62,7 @@ extern "C" {
 hal_i2c_status_t PX31BF_I2C_Write(uint8_t reg, uint8_t* data, uint8_t length);
 hal_i2c_status_t PX31BF_I2C_Read(uint8_t reg, uint8_t* data, uint8_t length);
 
-void bsp_component_px31bf_init(void);
+void bsp_component_psensor_init(void);
 
 void bsp_px31bf_enable(uint8_t enable);
 void bsp_px31bf_config_calibration(void);
@@ -70,6 +70,7 @@ uint8_t bsp_px31bf_auto_dac(void);
 void bsp_px31bf_PsData_read(uint8_t* buff);
 void bsp_px31bf_PsData_read_reg(uint8_t* buff);
 uint16_t bsp_px31bf_Threshold_Factory_Calibrate(void);
+uint8_t bsp_component_psensor_ic(void);
 
 
 

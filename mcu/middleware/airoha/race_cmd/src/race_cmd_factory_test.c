@@ -46,6 +46,12 @@ extern bt_bd_addr_t *bt_sink_srv_cm_get_aws_connected_device(void);
 
 static uint8_t g_channel_id_save = 0;
 
+void race_port_send_debug_data(uint8_t *buffer, uint32_t len)
+{
+	uint32_t port_handle = race_get_port_handle_by_channel_id(race_get_channel_id_by_port_type(RACE_SERIAL_PORT_TYPE_SPP));
+
+	race_port_send_data(port_handle, buffer, len);
+}
 
 void* RACE_FACTORY_TEST_ROLE_HANDOVER_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
@@ -90,7 +96,7 @@ void* RACE_FACTORY_TEST_EARBUD_READ_OUT_CASE_VERS(ptr_race_pkt_t pCmdMsg, uint8_
 	{
 		uint8_t status;
 	
-		uint8_t case_version[4];
+		uint8_t case_version[8];
 	}PACKED RSP;
 
 	CMD* pCmd = (CMD *)pCmdMsg;
@@ -116,6 +122,7 @@ void* RACE_FACTORY_TEST_EARBUD_READ_OUT_CASE_VERS(ptr_race_pkt_t pCmdMsg, uint8_
 	return pEvt;
 }
 
+#if 0
 void* RACE_FACTORY_TEST_EARBUD_READ_OUT_AB1571D_VERS(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
 	typedef struct
@@ -151,7 +158,7 @@ void* RACE_FACTORY_TEST_EARBUD_READ_OUT_AB1571D_VERS(ptr_race_pkt_t pCmdMsg, uin
 	
 	return pEvt;
 }
-
+#endif
 
 #if 0
 void* RACE_FACTORY_TEST_BLE_COLOR_ID(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
@@ -292,6 +299,362 @@ void* RACE_FACTORY_TEST_BLE_MINI_UI(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 	
 }
 #endif
+void* RACE_FACTORY_TEST_HX300X_PS_DATA_READ(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{	
+	 typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint16_t action_result;
+	}PACKED RSP;
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_HX300X_PS_DATA_READ, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {
+		pEvt->action_result = hx300x_read_ps_data();
+
+        pEvt->status = ret;
+    }
+	return pEvt;
+	
+}
+
+void* RACE_FACTORY_TEST_HX300X_IIC_INT_CHECK(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{	
+	 typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t action_result;
+	}PACKED RSP;
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_HX300X_IIC_INT_CHECK, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {
+		pEvt->action_result = Calibration_First_IIC_INT_check();
+
+        pEvt->status = ret;
+    }
+	return pEvt;
+	
+}
+
+
+void* RACE_FACTORY_TEST_HX300X_OPEN_AIR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{	
+	 typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint16_t action_result;
+	}PACKED RSP;
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_HX300X_OPEN_AIR, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {
+		pEvt->action_result = Calibration_Second_OpenAir();
+
+        pEvt->status = ret;
+    }
+	return pEvt;
+	
+}
+
+void* RACE_FACTORY_TEST_HX300X_IN_EAR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{	
+	 typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint16_t ps_data;
+		uint16_t ps_k;
+	}PACKED RSP;
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_HX300X_IN_EAR, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {		
+		Calibration_Third_GreyCard((void*)pEvt);
+        pEvt->status = ret;
+    }
+	return pEvt;
+	
+}
+
+
+void* RACE_FACTORY_TEST_HX300X_OUT_EAR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{	
+	 typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t data_reg10;
+		uint8_t data_reg12;
+		uint8_t data_reg13;
+		uint16_t data_h_thod;
+		uint16_t data_str_diff;
+		uint16_t data_read_ps3;
+	}PACKED RSP;
+
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_HX300X_OUT_EAR, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {
+		Calibration_Fourth_RemoveGreyCard((void*)pEvt);
+        pEvt->status = ret;
+    }
+	return pEvt;
+	
+}
+
+void* RACE_FACTORY_TEST_HX300X_DATA_SAVE(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{	
+	 typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t action_result;
+	}PACKED RSP;
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_HX300X_DATA_SAVE, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {
+		pEvt->action_result = Calibration_Fifth_SaveDataToFlash();
+        pEvt->status = ret;
+    }
+	return pEvt;
+	
+}
+
+
+void* RACE_FACTORY_TEST_HX300X_READ_CALI_SETTING(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{	
+	 typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t data_reg10;
+		uint8_t data_reg12;
+		uint8_t data_reg13;
+		uint16_t data_h_thod;
+		uint16_t data_l_thod;
+		uint16_t data_read_ps3;
+	}PACKED RSP;
+
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_HX300X_READ_CALI_SETTING, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {
+		app_nvkey_hx300x_read_cali_setting((void*)pEvt);
+        pEvt->status = ret;
+    }
+	return pEvt;
+	
+}
+
+void* RACE_FACTORY_TEST_HX300X_DEBUG(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{
+    typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+		uint8_t log_enable;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+	}PACKED RSP;
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_HX300X_DEBUG_SWITCH, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {
+		app_set_hx300x_debug_state(pCmd->log_enable);
+
+        pEvt->status = ret;
+    }
+	return pEvt;
+}
+
+void* RACE_FACTORY_TEST_HX300X_REG_CTR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{
+    typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+		uint8_t WR;
+		uint8_t reg_addr;
+		uint8_t reg_data;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t ret_reg_addr;
+		uint8_t ret_reg_data;
+	}PACKED RSP;
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_HX300X_REG_CTR, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {
+    	if(pCmd->WR)
+		{
+			pEvt->status = (uint8_t)HX300X_reg_ctr_write(pCmd->reg_addr, pCmd->reg_data);
+			if(pEvt->status == RACE_ERRCODE_SUCCESS)
+			{
+				pEvt->ret_reg_addr = pCmd->reg_addr;
+				pEvt->ret_reg_data = pCmd->reg_data;				
+			}
+			else
+			{
+				pEvt->ret_reg_addr = 0;
+				pEvt->ret_reg_data = 0;				
+			}
+		}
+		else
+		{
+			pEvt->status = (uint8_t)HX300X_reg_ctr_read(pCmd->reg_addr, &pEvt->ret_reg_data);
+			if(pEvt->status == RACE_ERRCODE_SUCCESS)
+			{
+				pEvt->ret_reg_addr = pCmd->reg_addr;
+			}
+			else
+			{
+				pEvt->ret_reg_addr = 0;
+				pEvt->ret_reg_data = 0;				
+			}			
+		}
+
+    }
+	return pEvt;
+}
+
+
+void* RACE_FACTORY_TEST_HX300X_READ_ALL_REG(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{	
+	 typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+	}PACKED RSP;
+
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_HX300X_READ_ALL_REG, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {
+		pEvt->status = ret;
+		app_read_all_reg();
+    }
+	return pEvt;
+	
+}
+
+
+void* RACE_FACTORY_TEST_LEA_DISABLE(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{	
+	 typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+		uint8_t WR;
+		uint8_t lea_disable;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t action;
+		uint8_t lea_status_rsp;
+	}PACKED RSP;
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_LEA_DISABLE, (uint16_t)sizeof(RSP), channel_id);
+    int32_t ret = RACE_ERRCODE_SUCCESS;
+
+    if (pEvt)
+    {
+    
+		pEvt->action = pCmd->WR;
+		
+    	if(pCmd->WR == 0x00)
+		{
+			pEvt->lea_status_rsp = app_nvkey_is_lea_disable();
+		}
+		else if(pCmd->WR == 0x01 && bt_sink_srv_cm_get_aws_connected_device() != NULL)
+		{
+			pEvt->lea_status_rsp = pCmd->lea_disable;
+
+			app_set_lea_disable_state(pCmd->lea_disable);
+		}
+		else
+		{
+			pEvt->lea_status_rsp = 0xFF;
+			ret = RACE_ERRCODE_FAIL;
+		}
+        pEvt->status = ret;
+    }
+	return pEvt;
+	
+}
+
 
 void* RACE_FACTORY_TEST_TOUCH_LIMIT_DISABLE_SET(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {	
@@ -1593,12 +1956,12 @@ void* RACE_CmdHandler_FACTORY_TEST(ptr_race_pkt_t pRaceHeaderCmd, uint16_t lengt
           		ptr = RACE_FACTORY_TEST_EARBUD_READ_OUT_CASE_VERS(pRaceHeaderCmd, channel_id);
             	}
             	break;
+#if 0
 		case FACTORY_TEST_BLE_CMD_AB1571D_VERSION :
             	{
                 	ptr = RACE_FACTORY_TEST_EARBUD_READ_OUT_AB1571D_VERS(pRaceHeaderCmd, channel_id);
             	}
 		break;	
-#if 0
             case FACTORY_TEST_SET_ECO_PROFILE:
             {
                 ptr = RACE_FACTORY_TEST_SET_ECO_CHARGING_PROFILE_STATE(pRaceHeaderCmd, channel_id);
@@ -1629,6 +1992,71 @@ void* RACE_CmdHandler_FACTORY_TEST(ptr_race_pkt_t pRaceHeaderCmd, uint16_t lengt
 			}
 			break;
 #endif
+			case FACTORY_TEST_BLE_CMD_LEA_DISABLE:
+			{
+				ptr = RACE_FACTORY_TEST_LEA_DISABLE(pRaceHeaderCmd, channel_id);
+			}
+			break;
+
+			case FACTORY_TEST_BLE_CMD_HX300X_PS_DATA_READ:
+			{
+				ptr = RACE_FACTORY_TEST_HX300X_PS_DATA_READ(pRaceHeaderCmd, channel_id);
+			}
+			break;
+
+			case FACTORY_TEST_BLE_CMD_HX300X_IIC_INT_CHECK:
+			{
+				ptr = RACE_FACTORY_TEST_HX300X_IIC_INT_CHECK(pRaceHeaderCmd, channel_id);
+			}
+			break;
+
+			case FACTORY_TEST_BLE_CMD_HX300X_OPEN_AIR:
+			{
+				ptr = RACE_FACTORY_TEST_HX300X_OPEN_AIR(pRaceHeaderCmd, channel_id);
+			}
+			break;				
+
+			case FACTORY_TEST_BLE_CMD_HX300X_IN_EAR:
+			{
+				ptr = RACE_FACTORY_TEST_HX300X_IN_EAR(pRaceHeaderCmd, channel_id);
+			}
+			break;	
+
+			case FACTORY_TEST_BLE_CMD_HX300X_OUT_EAR:
+			{
+				ptr = RACE_FACTORY_TEST_HX300X_OUT_EAR(pRaceHeaderCmd, channel_id);
+			}
+			break;				
+
+			case FACTORY_TEST_BLE_CMD_HX300X_DATA_SAVE:
+			{
+				ptr = RACE_FACTORY_TEST_HX300X_DATA_SAVE(pRaceHeaderCmd, channel_id);
+			}
+			break;
+
+			case FACTORY_TEST_BLE_CMD_HX300X_READ_CALI_SETTING:
+			{
+				ptr = RACE_FACTORY_TEST_HX300X_READ_CALI_SETTING(pRaceHeaderCmd, channel_id);
+			}
+			break;	
+
+			case FACTORY_TEST_BLE_CMD_HX300X_DEBUG_SWITCH:
+			{
+				ptr = RACE_FACTORY_TEST_HX300X_DEBUG(pRaceHeaderCmd, channel_id);
+			}
+			break;
+
+			case FACTORY_TEST_BLE_CMD_HX300X_REG_CTR:
+			{
+				ptr = RACE_FACTORY_TEST_HX300X_REG_CTR(pRaceHeaderCmd, channel_id);
+			}
+			break;	
+
+			case FACTORY_TEST_BLE_CMD_HX300X_READ_ALL_REG:
+			{
+				ptr = RACE_FACTORY_TEST_HX300X_READ_ALL_REG(pRaceHeaderCmd, channel_id);
+			}
+			break;			
 			case FACTORY_TEST_BLE_CMD_TOUCH_TEST_CTR:
 			{
 				ptr = RACE_FACTORY_TEST_TOUCH_CTR(pRaceHeaderCmd, channel_id);

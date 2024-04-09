@@ -53,7 +53,16 @@ typedef struct {
 	uint8_t psensor_setting[4];
 	uint8_t cus_eq101_set;
 	uint8_t anc_status_bk;
-	uint8_t reserved[28];
+	uint8_t lea_disable;
+	uint8_t eco_soc_display_limit;
+	uint8_t hx300x_reg10;
+	uint8_t hx300x_reg12;
+	uint8_t hx300x_reg13;
+	uint16_t hx300x_THOD_H;
+	uint16_t hx300x_THOD_L;
+	uint16_t hx300x_read_ps;
+	uint8_t hx300x_log_debug;
+	uint8_t reserved[16];
 }PACKED app_customer_nvkey_t;
 
 //LSB first
@@ -126,7 +135,15 @@ void app_nvkey_anc_status_bk_set(uint8_t status);
 
 void app_nvkey_psensor_setting_read(uint8_t * data);
 
-
+uint8_t app_nvkey_eco_soc_limit_status_read(void);
+void app_nvkey_eco_soc_limit_status_write(uint8_t limit_enable);
+void app_nvkey_hx300x_setting_save(uint8_t reg10, uint8_t reg12, uint8_t reg13, uint16_t THOD_H, uint16_t THOD_L, uint16_t read_ps);
+uint8_t app_nvkey_hx300x_Gain_read(void);
+void app_nvkey_hx300x_Thres_read(uint16_t* h_thrd, uint16_t* l_thrd);
+void app_nvkey_hx300x_cur_read(uint16_t* reg_10, uint8_t* reg_13);
+void app_nvkey_hx300x_read_cali_setting(void *pEvt);
+uint8_t app_nvkey_get_hx300x_log_status(void);
+void app_nvkey_set_hx300x_log_status(uint8_t log_state);
 
 #endif //__APP_CUSTOMER_NVKEY_OPERATION_H__
 

@@ -508,6 +508,7 @@ endif
 # richard for customer UI spec.
 include $(SOURCE_DIR)/driver/board/component/bsp_psensor_px31bf/module.mk
 include $(SOURCE_DIR)/driver/board/component/bsp_hall_sensor/module.mk
+include $(SOURCE_DIR)/driver/board/component/bsp_psensor_hx300x/module.mk
 
 ifeq ($(AIR_BT_ROLE_HANDOVER_SERVICE_ENABLE), y)
 CFLAGS += -DSUPPORT_ROLE_HANDOVER_SERVICE
