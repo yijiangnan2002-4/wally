@@ -265,20 +265,21 @@ void key_volumeup_proc(void)
 	if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
 	{
 		*p_key_action = KEY_VOICE_UP;
+        voice_prompt_play_sync_vp_volume_up();
 	}
 	else
 	{
 		*p_key_action = KEY_HEARING_AID_VOLUME_UP;	// KEY_HEARING_AID_LEVEL_UP
 	}
 
-    	if (p_key_action)
+    if (p_key_action)
 	{
-		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
-    	}
-    	else
-    	{
-        	vPortFree(p_key_action);
-    	}		
+        ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+  	}
+  	else
+  	{
+      	vPortFree(p_key_action);
+  	}		
 }
 
 void key_volumedown_proc(void)
@@ -289,6 +290,7 @@ void key_volumedown_proc(void)
 	if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
 	{
 		*p_key_action = KEY_VOICE_DN;
+         voice_prompt_play_sync_vp_volume_down();
 	}
 	else
 	{
