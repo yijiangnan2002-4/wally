@@ -47,7 +47,7 @@ uint8_t app_touch_key_test_status_get(void);
 
 void app_touch_key_test_status_set(uint8_t status);
 void app_set_hw_version(uint8_t *ver, uint8_t len);
-void app_force_disconnect_bt_connection_before_pairing(void);
+//void app_force_disconnect_bt_connection_before_pairing(void);
 void app_set_anc_status_bk(uint8_t status);
 void app_common_set_eco_charging_soc(uint8_t status);
 uint8_t app_common_get_eco_charging_soc(void);

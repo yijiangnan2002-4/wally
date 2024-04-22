@@ -3548,9 +3548,13 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			break;
 		case 3:		// ab1571d version
 			app_set_ab1571d_version(temp_command_data);
-			ab1585h_command_no=2;	// 0: version feedback
+			ab1585h_command_no=2;	// 2: version feedback
 			ab1585h_command_data=0;
-			BT_send_data_proc();	
+			BT_send_data_proc();
+
+			ab1585h_command_no=4;	// 4: bt address
+			ab1585h_command_data=0;
+			BT_send_data_proc();
 			break;
 		default:
 			break;

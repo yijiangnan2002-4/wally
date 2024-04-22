@@ -123,7 +123,8 @@ log_create_module(SM_CHG, PRINT_LEVEL_INFO);
 #define CASE_LOG_ENABLE         0xE
 #define CASE_RACE_ENABLE        0xF
 // richard for UI spec
-#define CASE_CHARGER_STATE		0x07
+//#define CASE_CHARGER_STATE		0x07
+#define CASE_BT_CONNECTED		0x07
 #define CASE_REVERSION			0x09
 #define CASE_CURRENT_LIMIT		0x0A
 #define CASE_SHIPPING_MODE		0x0B
@@ -1186,8 +1187,7 @@ static smchg_status_t smchg_1wire_tx_post_handle(uint32_t user_data_len, void *u
     return smchg_status;
 }
 
-
-
+extern uint8_t app_bt_connected_number(void);		// richard for UI spec.
 static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
 {
     uint8_t raceCmd[SMCHG_MUX_RX_DATA_SIZE] = {0};
@@ -1228,6 +1228,7 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
                 data = raceCmd[KEY_ID];
                 data_len = 1;
             } else if((raceCmd[CMD_ID] == CASE_REVERSION)		// richard for UI spec
+			|| (raceCmd[CMD_ID] == CASE_BT_CONNECTED)
 			|| (raceCmd[CMD_ID] == CASE_CURRENT_LIMIT)
 			|| (raceCmd[CMD_ID] == CASE_EOC_CHECKING)
 			|| (raceCmd[CMD_ID] == CASE_SHIPPING_MODE)) {
@@ -1253,6 +1254,10 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
 			if (raceCmd[CMD_ID] == CASE_REVERSION)
 			{
 				raceEvt[DATA] = app_smcharger_get_state1();
+			}
+			else if (raceCmd[CMD_ID] == CASE_BT_CONNECTED)
+			{
+				raceEvt[DATA] = app_bt_connected_number();
 			}
 			else if (raceCmd[CMD_ID] == CASE_LID_CLOSE)
 			{

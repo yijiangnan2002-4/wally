@@ -463,6 +463,17 @@ void app_touch_key_test_status_set(uint8_t status)
 	touch_key_test_status = status;
 }
 
+uint8_t app_bt_connected_number(void)
+{
+	uint32_t conn_num = 0;
+	bt_bd_addr_t addr_list[3] ={{0}};
+	conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK_NONE, addr_list, 3);
+	if(conn_num>1)
+		conn_num = (conn_num-1);
+	return (conn_num&0xff);
+}
+
+#if 0
 void app_force_disconnect_bt_connection_before_pairing(void)
 {
 	return;
@@ -485,6 +496,7 @@ void app_force_disconnect_bt_connection_before_pairing(void)
 	}
 
 }
+#endif
 
 #define TRACKING_INDEX_MAX 32
 static uint8_t tracking_log[TRACKING_INDEX_MAX] = {0};
