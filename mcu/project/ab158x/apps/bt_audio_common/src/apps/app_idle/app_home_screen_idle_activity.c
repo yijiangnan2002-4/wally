@@ -674,6 +674,23 @@ nvdm_status_t app_home_screen_fact_rst_nvdm_flag(uint8_t factrst_flag)
 
     return status;
 }
+
+// richard for ota reset
+void set_ota_flag_proc(uint8_t ota_set_flag)
+{
+	uint8_t temp_value=0;
+
+	if(ota_set_flag)
+	{
+		app_home_screen_fact_rst_nvdm_flag(FACTORY_RESET_FLAG);
+		temp_value=0xaa;
+	}
+	else
+	{
+		temp_value=0x00;
+	}
+	nvkey_write_data(NVID_CUS_OTA_FLAG, &temp_value, 1);
+}
 #endif
 
 #if defined(AIR_DCHS_MODE_ENABLE)
