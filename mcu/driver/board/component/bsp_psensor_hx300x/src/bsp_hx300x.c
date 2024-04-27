@@ -796,6 +796,9 @@ static void bsp_hx300x_callback(void *data)
 	uint16_t *p_wear_status = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
 	
 	*p_wear_status = hx300x_int_handle();
+
+	APPS_LOG_MSGID_I("psensor hx300x :interrupt pin ret = %d", 1, *p_wear_status);
+
 	
 	ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT);
 	ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,

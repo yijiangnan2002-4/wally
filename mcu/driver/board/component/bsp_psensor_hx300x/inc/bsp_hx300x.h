@@ -17,7 +17,7 @@ extern uint8_t final_trim_ldo;
 #define HX300X_ID (0x44)
 #define HX300X_ID_2 (0x45)
 
-#define PIO_HX300X_INT HAL_GPIO_10
+#define PIO_HX300X_INT HAL_GPIO_5
 #define BSP_HX300X_I2C_PORT HAL_I2C_MASTER_0
 
 #define CALI_STEP1 (1<<0)
