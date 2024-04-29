@@ -68,7 +68,8 @@ typedef struct {
 
 static const factory_rst_reserved_nvdm_item_t g_factory_rst_clear_nvdm_items[] = FACTORY_RST_CLEAR_NVDM_ITEM_LIST;  /* NVDM item reserve list in factory reset. */
 static const uint16_t g_factory_rst_clear_nvkey_items[] = FACTORY_RST_CLEAR_NVKEY_ITEM_LIST;  /* NVKEY item reserve list in factory reset. */
-
+// richard for reset after firmware ota
+static const uint16_t g_factory_rst_clear_nvkey_items1[] = FACTORY_RST_CLEAR_NVKEY_ITEM_LIST1;  /* NVKEY item reserve list in factory reset. */
 
 void factory_rst_reserved_nvdm_item_list_check(void)
 {
@@ -117,6 +118,25 @@ void factory_rst_reserved_nvdm_item_list_check(void)
                         g_factory_rst_clear_nvdm_items[i].group_name, g_factory_rst_clear_nvdm_items[i].item_name);
         }
 
+	// richard for ota reset
+	uint8_t firmware_ota_flag;
+	size = sizeof(firmware_ota_flag);
+    	nvkey_read_data(NVID_CUS_OTA_FLAG, &firmware_ota_flag, &size);
+	if(firmware_ota_flag==0xaa)
+	{
+		set_ota_flag_proc(0);
+        /* Clear nvkey item. */
+        for (i = 0; i < (sizeof(g_factory_rst_clear_nvkey_items1) / sizeof(uint16_t)); i++) {
+            snprintf(item_name, sizeof(item_name), "%X", g_factory_rst_clear_nvkey_items1[i]);
+            status = nvdm_delete_data_item("AB15", item_name);
+            if (status != NVDM_STATUS_OK) {
+                LOG_MSGID_E(common, "nvdm_delete_data_item fail: group_name(AB15), data_item_name(%s), %d", 2, item_name, status);
+            }
+            LOG_MSGID_I(common, "delete item: group_name = AB15, data_item_name = %s", 1, item_name);
+        }
+	}
+	else
+	{
         /* Clear nvkey item. */
         for (i = 0; i < (sizeof(g_factory_rst_clear_nvkey_items) / sizeof(uint16_t)); i++) {
             snprintf(item_name, sizeof(item_name), "%X", g_factory_rst_clear_nvkey_items[i]);
@@ -126,7 +146,8 @@ void factory_rst_reserved_nvdm_item_list_check(void)
             }
             LOG_MSGID_I(common, "delete item: group_name = AB15, data_item_name = %s", 1, item_name);
         }
-
+	}
+	
 #if 0
         /* Scan all the NVDM items from the beginning of NVDM region. */
         status = nvdm_query_begin();

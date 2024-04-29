@@ -22,7 +22,7 @@ void app_customer_test_enable_dut(void);
 void app_set_charger_case_version(uint8_t version_data);
 void app_get_charger_case_version(uint8_t* p_version);
 void app_set_ab1571d_version(uint8_t version_data);
-void app_get_ab1571d_version(uint8_t* p_version);
+//void app_get_ab1571d_version(uint8_t* p_version);
 void app_set_eco_charing_profile_switch(uint8_t profile_status);
 uint8_t app_get_eco_charing_profile_switch(void);
 void app_set_a2dp_volume(uint8_t volume_level);
@@ -47,10 +47,15 @@ uint8_t app_touch_key_test_status_get(void);
 
 void app_touch_key_test_status_set(uint8_t status);
 void app_set_hw_version(uint8_t *ver, uint8_t len);
-void app_force_disconnect_bt_connection_before_pairing(void);
+//void app_force_disconnect_bt_connection_before_pairing(void);
 void app_set_anc_status_bk(uint8_t status);
 void app_common_set_eco_charging_soc(uint8_t status);
 uint8_t app_common_get_eco_charging_soc(void);
+void app_eco_charge_soc_limit_handle(void* eco_setting);
+uint8_t app_is_eco_charge_level_limit_enable(void);
+void app_set_hx300x_debug_state(uint8_t state);
+void app_spp_debug_print(char *fmt, uint8_t len);
+void app_read_all_reg(void);
 
 
 #endif //__APP_CUSTOMER_COMMON_H__

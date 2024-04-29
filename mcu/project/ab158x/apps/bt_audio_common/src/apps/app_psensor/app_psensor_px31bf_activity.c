@@ -190,7 +190,7 @@ bool getLocalInEar(void)
         in_ear = s_app_psensor_context.isRightInEar;
     }
 
-	if(!in_ear)
+	if(!in_ear && PSENSOR_PX31BF_USING == bsp_component_psensor_ic())
 	{
 		uint16_t PsensorThresholdHigh = 0;
 		uint16_t PsensorThresholdLow = 0;
@@ -469,7 +469,13 @@ static bool _proc_ui_shell_group(ui_shell_activity_t *self, uint32_t event_id, v
 			cxt->cur_BothStatus = false;
 			cxt->pre_BothStatus = false;
 
-			bsp_px31bf_config_calibration();
+			if(PSENSOR_PX31BF_USING == bsp_component_psensor_ic())
+			{
+				bsp_px31bf_config_calibration();
+			}
+			else if(PSENSOR_HX300X_USING == bsp_component_psensor_ic())
+			{
+			}
             break;
         }
 

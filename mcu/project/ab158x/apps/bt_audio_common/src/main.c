@@ -248,7 +248,7 @@ int main(void)
 
 	// richard for customer UI spec.
 	app_nvkey_setting_init();
-	bsp_component_px31bf_init();
+	bsp_component_psensor_init();
 	bsp_component_HALL_init();
 
     bt_power_on_config_init();

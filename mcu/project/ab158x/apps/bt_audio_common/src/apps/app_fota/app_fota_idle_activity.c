@@ -280,6 +280,8 @@ static bool app_fota_idle_proc_ui_shell_group(ui_shell_activity_t *self, uint32_
 * @return     If return TRUE, the current event cannot be handle by the next activity.
 */
 #ifdef MTK_RACE_CMD_ENABLE
+// richard for ota reset
+extern void set_ota_flag_proc(uint8_t ota_set_flag);
 static bool app_fota_idle_proc_fota_group(struct _ui_shell_activity *self,
                                           uint32_t event_id,
                                           void *extra_data,
@@ -346,6 +348,8 @@ static bool app_fota_idle_proc_fota_group(struct _ui_shell_activity *self,
             /* Because FOTA reboot will be sync from slave to master in middleware, APP don't need sync. */
 #if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DCHS_MODE_SLAVE_ENABLE))
         case RACE_EVENT_TYPE_FOTA_NEED_REBOOT: {
+		// richard for ota reset
+//		set_ota_flag_proc(1);
             ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_REQUEST_REBOOT, NULL, 0,
                                 NULL, 0);

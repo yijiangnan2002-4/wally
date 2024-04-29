@@ -17,7 +17,9 @@
 #include "apps_events_event_group.h"
 #include "app_customer_nvkey_operation.h"
 #include "apps_events_interaction_event.h"
-#include "app_anc_service.h"
+#include "bsp_hx300x.h"
+
+uint8_t g_bsp_psensor_using_ic = 0xFF;
 
 
 //******************************************************************
@@ -32,14 +34,7 @@ hal_i2c_status_t PX31BF_I2C_Write(uint8_t reg, uint8_t* data, uint8_t length)
 
 hal_i2c_status_t PX31BF_I2C_Write_byte(uint8_t reg, uint8_t data)
 {
-#if 0
-	hal_i2c_status_t ret;
-	ret = PX31BF_I2C_Write(reg, &data, 1);
-	APPS_LOG_MSGID_I("px31bf:write byte ret = %d", 1, ret);
-	return ret;
-#else
 	return PX31BF_I2C_Write(reg, &data, 1);
-#endif
 }
 
 
@@ -94,40 +89,28 @@ static uint8_t bsp_px31bf_ISR(void)
 
 static void bsp_px31bf_callback(void *data)
 {
-    uint16_t *pSensorStatus = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
-	
-	*pSensorStatus = (uint16_t)bsp_px31bf_ISR();
-
-	APPS_LOG_MSGID_I("px31bf:interrupt pin ret = %d", 1, *pSensorStatus);
 
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
-    uint16_t *pSensorStatus1 = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
+		uint16_t *p_wear_status = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
+		
+		*p_wear_status = (uint16_t)bsp_px31bf_ISR();
 
-	*pSensorStatus1 = *pSensorStatus;
+		APPS_LOG_MSGID_I("px31bf:interrupt pin ret = %d", 1, *p_wear_status);
 
-	ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT);
-
-    if((*pSensorStatus1)==1)
-    {
-    	APPS_LOG_MSGID_I("px31bf:interrupt in ear after 500ms", 0);
-    	ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-    								 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)pSensorStatus1, sizeof(bool),
-    								 NULL, 500);
-    }
-    else
-    {
-    	APPS_LOG_MSGID_I("px31bf:interrupt out ear after 100ms", 0);
-    	ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-    								 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)pSensorStatus1, sizeof(bool),
-    								 NULL, 100);
-    }
-#endif
-#if 0
-    /* Send new value indication to psensor activity */
-    ui_shell_send_event(true, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_PSENSOR,
-                        EVENT_ID_PSENSOR_NEW_SENSOR_IND, (void *)pSensorStatus, sizeof(uint16_t),
-                        NULL, 0);
-
+		
+		ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT);
+		if((*p_wear_status)==1)
+		{
+			ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
+									 NULL, 500);
+		}
+		else
+		{
+			ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
+									 NULL, 100);
+		}
 #endif
 
     /* Clear interrupt flag to receive new interrupt */
@@ -272,15 +255,13 @@ static void bsp_px31bf_initial(void)
 static void bsp_px31bf_HW_config(void)
 {
 	//config power & reset	
-	//TODO:
+	//TODO:		
 
     /* Config i2c peripheral */
     hal_i2c_config_t i2c_config;
 	
     i2c_config.frequency = HAL_I2C_FREQUENCY_100K;
-//    hal_i2c_status_t ret = hal_i2c_master_init(BSP_PX31BF_I2C_PORT, &i2c_config);
-    hal_i2c_master_init(BSP_PX31BF_I2C_PORT, &i2c_config);
-	
+    hal_i2c_status_t ret = hal_i2c_master_init(BSP_PX31BF_I2C_PORT, &i2c_config);	
 }
 
 #if 0
@@ -311,13 +292,34 @@ static void bsp_px31bf_read_reg_test(TimerHandle_t pxTimer)
 
 #endif
 
+bool bsp_is_px31bf_using(void)
+{
+	uint8_t i = 0;
+	bool ret = 0;
 
-void bsp_component_px31bf_init(void)
+	for(i=0;i<5;i++)
+	{
+		uint8_t data = 0;
+	
+		if(HAL_I2C_STATUS_OK == PX31BF_I2C_Read(0x00, &data, 1))
+		{
+			APPS_LOG_MSGID_I("psensor px31bf:iic checking reg00 = 0x%x", 1, data);
+			ret = 1;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+
+
+static void bsp_component_px31bf_init(void)
 {		
     hal_eint_config_t eint_config;
 	hal_eint_status_t ret; 
 
-	bsp_px31bf_HW_config();
+	//bsp_px31bf_HW_config();
 	
 	ret = hal_eint_mask(EINT_PSENSOR);
 	APPS_LOG_MSGID_I("px31bf:hal_eint_mask ret = %d", 1, ret);
@@ -341,6 +343,37 @@ void bsp_component_px31bf_init(void)
         APPS_LOG_MSGID_E("ir read timer xTimerStart fail\n", 0);
     }
 #endif
+
+}
+
+uint8_t bsp_component_psensor_ic(void)
+{
+	return g_bsp_psensor_using_ic;
+}
+
+void bsp_component_psensor_init(void)
+{
+	uint8_t hw_version [6] = {0};
+	
+	bsp_px31bf_HW_config();
+
+	app_nvkey_hw_version_read(hw_version, 5);	
+	if(/*hw_version[0] >= 0x36 &&*/ bsp_is_hx300x_using())//hw version 6.x.x
+	{
+		APPS_LOG_MSGID_I("psensor init hx300x is using", 0);
+		bsp_component_hx300x_init();
+		g_bsp_psensor_using_ic = PSENSOR_HX300X_USING;
+	}
+	else if(bsp_is_px31bf_using())
+	{
+		APPS_LOG_MSGID_I("psensor init px31bf is using", 0);
+		bsp_component_px31bf_init();
+		g_bsp_psensor_using_ic = PSENSOR_PX31BF_USING;
+	}
+	else
+	{
+		APPS_LOG_MSGID_E("psensor iic error!", 0);
+	}
 
 }
 

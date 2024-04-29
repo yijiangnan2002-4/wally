@@ -341,6 +341,7 @@ static apps_config_serialized_event_t apps_config_key_remap_key_ev_to_serialized
 extern uint8_t ab1585h_command_no;
 extern uint8_t ab1585h_command_data;
 extern void BT_send_data_proc(void);
+extern uint8_t app_bt_connected_number(void);
 #endif
 apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state(uint8_t key_id,
                                                                                  airo_key_event_t key_event,
@@ -453,11 +454,20 @@ void apps_config_key_set_mmi_state(apps_config_state_t state)
         app_fast_pair_connection_state_change();
 #endif
     }
-    APPS_LOG_MSGID_I(LOG_TAG" apps_config_key_set_mmi_state = %d", 1, s_mmi_state);
+//    APPS_LOG_MSGID_I(LOG_TAG" apps_config_key_set_mmi_state = %d", 1, s_mmi_state);
 #if 1	// richard for customer UI spec.(BT send data)
+	uint8_t bt_connected_number=app_bt_connected_number();
+	APPS_LOG_MSGID_I(LOG_TAG" apps_config_key_set_mmi_state = %d connected num = %d", 2, s_mmi_state, bt_connected_number);
+
 	ab1585h_command_no=0;		// 0: BT status
 	ab1585h_command_data=s_mmi_state;
 	BT_send_data_proc();
+	if(s_mmi_state==APP_CONNECTED)
+	{
+		ab1585h_command_no=3;		// 3: bt_connnected_num
+		ab1585h_command_data=bt_connected_number;
+		BT_send_data_proc();
+	}
 #endif	
 }
 

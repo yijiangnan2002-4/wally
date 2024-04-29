@@ -124,6 +124,7 @@
 #include "apps_config_event_list.h"
 
 
+#include "app_psensor_px31bf_activity.h"
 
 #ifdef MTK_AWS_MCE_ENABLE
 extern uint8_t at_config_adv_flag;
@@ -756,7 +757,12 @@ static atci_status_t bt_app_comm_at_cmd_IR_check(atci_parse_cmd_param_t *parse_c
     atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
     response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
 
-	uint16_t ir_ps = bsp_px31bf_Threshold_Factory_Calibrate();
+	uint16_t ir_ps =0;
+
+	if(PSENSOR_PX31BF_USING == bsp_component_psensor_ic())
+		ir_ps = bsp_px31bf_Threshold_Factory_Calibrate();
+	else
+		ir_ps = hx300x_read_ps_data();
 	
 	APPS_LOG_MSGID_I("IR_check = %d\r\n", 1, ir_ps);
 

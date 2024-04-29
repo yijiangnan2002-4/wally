@@ -37,9 +37,10 @@
 #include "bt_device_manager_internal.h"
 #include "apps_events_interaction_event.h"
 #include "bt_connection_manager_utils.h"
+#include "battery_management.h"
 
-static char case_verison[4] = "v0.0";
-static char ab1571d_verison[4] = "v0.0";
+static char case_verison[8] = "v3.00.00";
+//static char ab1571d_verison[4] = "v0.0";
 static uint8_t isShippingMode = 0;
 volatile static uint8_t g_limit_status = 0;
 volatile static uint8_t sn_cmp_result = 0x0;
@@ -153,29 +154,36 @@ void app_customer_common_tws_clean(void)
 
 void app_set_charger_case_version(uint8_t version_data)
 {
-	case_verison[1] = ((version_data>>4) & 0xF) + 0x30;
-	case_verison[3] = (version_data & 0xF) + 0x30;
+//	case_verison[1] = ((version_data>>4) & 0xF) + 0x30;
+//	case_verison[3] = (version_data & 0xF) + 0x30;
+	case_verison[3] = (version_data/10)+0x30;
+	case_verison[4] = (version_data%10)+0x30;
 }
 
 void app_get_charger_case_version(uint8_t* p_version)
 {
-	race_debug_print((uint8_t*)case_verison, 4,"customer case version:");
-	memcpy((void*)p_version, (void*)case_verison, 4);
+//	race_debug_print((uint8_t*)case_verison, 4,"customer case version:");
+//	memcpy((void*)p_version, (void*)case_verison, 4);
+	race_debug_print((uint8_t*)case_verison, 8,"customer case version:");
+	memcpy((void*)p_version, (void*)case_verison, 8);	
 }
 
 void app_set_ab1571d_version(uint8_t version_data)
 {
-	ab1571d_verison[1] = ((version_data>>4) & 0xF) + 0x30;
-	ab1571d_verison[3] = (version_data & 0xF) + 0x30;
+//	ab1571d_verison[1] = ((version_data>>4) & 0xF) + 0x30;
+//	ab1571d_verison[3] = (version_data & 0xF) + 0x30;
+	case_verison[6] = (version_data&0xf)/10+0x30;
+	case_verison[7] = (version_data&0xf)%10+0x30;
 }
 
+#if 0
 void app_get_ab1571d_version(uint8_t* p_version)
 {
 	race_debug_print((uint8_t*)ab1571d_verison, 4,"ab1571d version:");
 	memcpy((void*)p_version, (void*)ab1571d_verison, 4);
 }
+#endif
 
-	
 void app_set_eco_charing_profile_switch(uint8_t profile_status)
 {
 	app_nvkey_eco_charging_profile_status_write(profile_status);
@@ -309,6 +317,25 @@ void app_set_ble_device_mini_ui_state(uint8_t state)
 
 }
 
+void app_set_lea_disable_state(uint8_t state)
+{
+	if(bt_sink_srv_cm_get_aws_connected_device() != NULL)
+	{
+		app_nvkey_is_lea_disable_set(state);
+		apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_DEVICE_LEA_DISABLE_STATE_SYNC,(void*)&state ,1);
+
+	    uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
+
+		*p_key_action = KEY_SYSTEM_REBOOT;
+
+	    ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action,
+	                        sizeof(uint16_t), NULL, 2000);		
+
+	}
+
+}
+
+
 void app_set_anc_status_bk(uint8_t status)
 {
 	app_nvkey_anc_status_bk_set(status);
@@ -377,6 +404,35 @@ uint8_t app_write_sn_compare_result_read(void)
 	return sn_cmp_result;
 }
 
+void app_set_hx300x_debug_state(uint8_t state)
+{
+	if(state != app_nvkey_get_hx300x_log_status())
+	{
+		if(state == 0x01)
+			hx300x_spp_open_log();
+		else
+			hx300x_spp_stop_log();
+		
+		app_nvkey_set_hx300x_log_status(state);
+	}
+
+	if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
+		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+	{
+		apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_HX300X_DEBUG_SYNC,(void*)&state ,1);
+	}	
+}
+
+void app_spp_debug_print(char *fmt, uint8_t len)
+{
+	race_port_send_debug_data(fmt, len);
+}
+
+void app_read_all_reg(void)
+{
+	ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+						EVENT_ID_HX300X_READ_ALL_REG, NULL, 0, NULL, 10); 		
+}
 
 
 void app_battery_heathy_send2peer(uint16_t times)
@@ -407,6 +463,17 @@ void app_touch_key_test_status_set(uint8_t status)
 	touch_key_test_status = status;
 }
 
+uint8_t app_bt_connected_number(void)
+{
+	uint32_t conn_num = 0;
+	bt_bd_addr_t addr_list[3] ={{0}};
+	conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK_NONE, addr_list, 3);
+	if(conn_num>1)
+		conn_num = (conn_num-1);
+	return (conn_num&0xff);
+}
+
+#if 0
 void app_force_disconnect_bt_connection_before_pairing(void)
 {
 	return;
@@ -429,6 +496,7 @@ void app_force_disconnect_bt_connection_before_pairing(void)
 	}
 
 }
+#endif
 
 #define TRACKING_INDEX_MAX 32
 static uint8_t tracking_log[TRACKING_INDEX_MAX] = {0};
@@ -465,4 +533,42 @@ uint8_t app_common_get_eco_charging_soc(void)
 	return g_eco_chraging_soc;
 }
 
+void app_eco_charge_soc_limit_handle(void* eco_setting)
+{
+	typedef struct
+	{
+		uint8_t EcoChargingState;
+		uint8_t ChargeLevelLimit;
+		uint8_t ChargeRate;
+		uint8_t ChargeCondition;
+		uint8_t LowTempLimit;
+		uint8_t HighTempLimit;
+		uint8_t SmartCharging;
+		uint8_t reserved1;
+	}eco_charge_tem_t;
+
+	eco_charge_tem_t* p_eco_setting = (eco_charge_tem_t*)eco_setting;
+	int soc = battery_management_get_battery_property(BATTERY_PROPERTY_CAPACITY);
+
+	if( p_eco_setting->EcoChargingState == 1
+		|| (p_eco_setting->EcoChargingState == 2 && p_eco_setting->ChargeLevelLimit && p_eco_setting->ChargeLevelLimit != 0x64))
+	{//enable charge soc
+		if(!app_nvkey_eco_soc_limit_status_read() && soc== p_eco_setting->ChargeLevelLimit)
+		{
+			app_nvkey_eco_soc_limit_status_write(true);
+		}
+	}
+	else
+	{//disable charge soc
+		if(app_nvkey_eco_soc_limit_status_read() && soc < 90)
+		{
+			app_nvkey_eco_soc_limit_status_write(false);
+		}			
+	}
+}
+
+uint8_t app_is_eco_charge_level_limit_enable(void)
+{
+	return app_nvkey_eco_soc_limit_status_read();
+}
 

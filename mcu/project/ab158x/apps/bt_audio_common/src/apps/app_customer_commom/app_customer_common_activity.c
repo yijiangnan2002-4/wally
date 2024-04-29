@@ -265,7 +265,6 @@ void key_volumeup_proc(void)
 	if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
 	{
 		*p_key_action = KEY_VOICE_UP;
-        //voice_prompt_play_sync_vp_volume_up();
 	}
 	else
 	{
@@ -290,7 +289,6 @@ void key_volumedown_proc(void)
 	if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
 	{
 		*p_key_action = KEY_VOICE_DN;
-         //voice_prompt_play_sync_vp_volume_down();
 	}
 	else
 	{
@@ -1347,6 +1345,13 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 				break;
 			}
 
+		case EVENT_ID_HX300X_READ_ALL_REG:
+			{
+				HX300X_read_all_reg();
+				ret = true;
+				break;
+			}		
+
 		case EVENT_ID_DELAY_NOTIFY_BAT:
 			{
 //				notify_battery();
@@ -1485,6 +1490,12 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 				ret = true;
 				break;
 			}
+			case EVENT_ID_BLE_BROADCAST_INTERVAL:
+			{
+//				set_ble_broadcast_interval(0xF4);
+//				default_ble_adv_update();
+				break;
+			}
 		default:
 			break;
     }
@@ -1559,6 +1570,24 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 				ret = true;
 				break;
 
+				case EVENT_ID_DEVICE_LEA_DISABLE_STATE_SYNC:
+				{
+					APPS_LOG_MSGID_I(" app customer setting sync:: LEA_DISABLE_STATE = %d", 1, *(uint16_t*)p_extra_data);
+
+					app_nvkey_is_lea_disable_set(*(uint16_t*)p_extra_data);
+
+					uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
+					
+					*p_key_action = KEY_SYSTEM_REBOOT;
+					
+					ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action,
+										sizeof(uint16_t), NULL, 2000);		
+					
+				}
+				ret = true;
+				break;
+				
+
 				case EVENT_ID_ECO_CHARGING_STATUS_SYNC:
 				{
 					uint8_t eco_charging_status[1] = {0};
@@ -1602,6 +1631,13 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
                     ret = true;
                     break;
                 }
+
+				case EVENT_ID_HX300X_DEBUG_SYNC:
+				{
+				  	app_set_hx300x_debug_state(*(uint16_t*)p_extra_data);
+				}
+				ret = true;
+				break;				
 
 				case EVENT_ID_BATTERY_HEATHY_SYNC:
 				{
