@@ -40,6 +40,8 @@
 #include "task.h"
 #include "semphr.h"
 #include "hal_nvic_internal.h"
+#include "syslog.h"
+#include "hal.h"
 
 
 uint32_t atci_queue_create(uint32_t queue_length, uint32_t item_size)
@@ -227,9 +229,11 @@ atci_status_t atci_semaphore_give(uint32_t semaphore_id)
 uint16_t atci_get_parameter_list(atci_parse_cmd_param_t *atcmd, uint8_t **list_out, uint16_t list_cnt)
 {
     if (NULL == atcmd || NULL == list_out || 0 >= list_cnt) {
-        return 0;
+     log_hal_msgid_info("atci_cmd_hdlr_test return 1111\r\n ",0);
+       return 0;
     }
     if (ATCI_CMD_MODE_EXECUTION != atcmd->mode || atcmd->parse_pos >= atcmd->string_len) {
+     log_hal_msgid_info("atci_cmd_hdlr_test return 2222\r\n ",0);
         return 0;
     }
     uint8_t *para_str = (uint8_t *)&atcmd->string_ptr[atcmd->parse_pos];
@@ -238,14 +242,22 @@ uint16_t atci_get_parameter_list(atci_parse_cmd_param_t *atcmd, uint8_t **list_o
     uint8_t *param = para_str;
     uint32_t i;
     bool parse_end = false;
+    
+    log_hal_msgid_info("atci_cmd_hdlr_test atcmd->string_len=%d,->parse_pos=%d,->name_len=%d\r\n ",3,atcmd->string_len,atcmd->parse_pos,atcmd->name_len);
+
     for (i = 0; i < rest_len; i++) {
+    log_hal_msgid_info("atci_cmd_hdlr_test rest_len=%d,para_str[%d]=%d\r\n ",3,rest_len,i,para_str[i]);
         switch(para_str[i]) {
             case '\0':
             case '\r':
             case '\n': {
+              if(para_str[i]=='\0') { log_hal_msgid_info("atci_cmd_hdlr_test str=xiegan zero,para_str[i]=%d\r\n ",1,para_str[i]);}
+              else if(para_str[i]=='\r') { log_hal_msgid_info("atci_cmd_hdlr_test str=xiegan r,para_str[i]=%d\r\n ",1,para_str[i]);}
+              else if(para_str[i]=='\n') { log_hal_msgid_info("atci_cmd_hdlr_test str=xiegan n,para_str[i]=%d\r\n ",1,para_str[i]);}
                 parse_end = true;
                 }
             case ',': {
+               { log_hal_msgid_info("atci_cmd_hdlr_test str=douhao,para_str[%d]=%d\r\n ",2,i,para_str[i]);}
                 para_str[i] = '\0';
                 if (param != &para_str[i]) {
                     list_out[param_cnt] = param;

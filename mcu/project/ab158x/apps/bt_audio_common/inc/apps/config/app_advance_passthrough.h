@@ -65,5 +65,6 @@ void app_advance_passthrough_proc(uint32_t event_group, uint32_t event_id,
 void app_advance_passthrough_save_to_flash(void);
 
 void app_advance_passthrough_init(void);
+bool app_advance_get_passthrough_state(void);
 
 #endif   /* AIR_ADVANCED_PASSTHROUGH_ENABLE */

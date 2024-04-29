@@ -265,7 +265,7 @@ void key_volumeup_proc(void)
 	if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
 	{
 		*p_key_action = KEY_VOICE_UP;
-        voice_prompt_play_sync_vp_volume_up();
+        //voice_prompt_play_sync_vp_volume_up();
 	}
 	else
 	{
@@ -290,7 +290,7 @@ void key_volumedown_proc(void)
 	if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
 	{
 		*p_key_action = KEY_VOICE_DN;
-         voice_prompt_play_sync_vp_volume_down();
+         //voice_prompt_play_sync_vp_volume_down();
 	}
 	else
 	{
@@ -1313,6 +1313,17 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
     bool ret = false;
     switch (event_id)
     {
+    	case EVENT_ID_RD_DEBUG:
+    		{
+              uint8_t * rec_data=(uint8_t *)extra_data;
+              for(int i=0;i<data_len;i++)
+              {
+        	      APPS_LOG_MSGID_I("_proc_customer_common rec_data+%d *(rec_data+i)=%d \r\n", 2,i,*(rec_data+i));
+              }
+            
+				ret = true;
+				break;
+    		}
     	case EVENT_ID_CUSTOMER_COMMON_PROCESS_INPUT:
     		{
 

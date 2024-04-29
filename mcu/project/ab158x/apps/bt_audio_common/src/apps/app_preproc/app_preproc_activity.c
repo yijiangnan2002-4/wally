@@ -225,15 +225,15 @@ errrrrrrrrrrrrrrrr
 
       APPS_LOG_MSGID_I("pre_proc_key_event_proc, action: %04x,key_id=%x,key_event=%x", 3, *p_key_action,key_id,key_event);
      if(*p_key_action==KEY_SWITCH_ANC_AND_PASSTHROUGH)
-      {
-    uint8_t level_max_count = 0;
-    uint8_t mode_max_count = 0;
-    uint8_t vol_max_count = 0;
-    uint8_t mode_index = 0;
+     {
+      uint8_t level_max_count = 0;
+      uint8_t mode_max_count = 0;
+      uint8_t vol_max_count = 0;
+      uint8_t mode_index = 0;
 
-    audio_anc_psap_control_get_mode_index(&mode_index);
-    audio_anc_psap_control_get_level_mode_max_count(&level_max_count, &mode_max_count, &vol_max_count);
-    APPS_LOG_MSGID_I("pre_proc_key_event_proc  current mode index:%d, mode max:%d,app_hear_through_ctx.mode_index=%d,vol_max_count=%d",
+      audio_anc_psap_control_get_mode_index(&mode_index);
+      audio_anc_psap_control_get_level_mode_max_count(&level_max_count, &mode_max_count, &vol_max_count);
+      APPS_LOG_MSGID_I("pre_proc_key_event_proc  current mode index:%d, mode max:%d,app_hear_through_ctx.mode_index=%d,vol_max_count=%d",
                      4,
                      mode_index,
                      mode_max_count,
@@ -268,10 +268,10 @@ errrrrrrrrrrrrrrrr
      else if(*p_key_action==KEY_VOICE_DN)
       {
             APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_VOICE_DN", 0);
-            voice_prompt_play_sync_vp_volume_down();
+            //voice_prompt_play_sync_vp_volume_down();
       }else if(*p_key_action==KEY_VOICE_UP)
       {
-            voice_prompt_play_sync_vp_volume_up();
+            //voice_prompt_play_sync_vp_volume_up();
             APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_VOICE_UP", 0);
       } 
 #endif /* #if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)) */

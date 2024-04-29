@@ -101,6 +101,7 @@
 
 #define APP_HA_CONTROL_HEARING_AID_BY_A2DP_TIMEOUT_UNIT  (1000) // Unit : 1s
 #define APP_HA_CONTROL_HEARING_AID_BY_A2DP_TIMEOUT  (3 * 1000) // 3s
+#define APP_HA_CONTROL_HEARING_AID_BY_SCO_TIMEOUT  (3 * 1000) // 3s
 #define APP_HA_REQUEST_POWER_OFF_DELAY              (300) // 500ms
 
 #define APP_HA_STATE_DISABLED       0
@@ -1450,7 +1451,7 @@ static void app_hearing_aid_activity_handle_sco_status_change(bool sco_start)
     bool user_switch = app_hearing_aid_utils_is_ha_user_switch_on();
     bool is_out_case = app_hearing_aid_activity_is_out_case();
     uint8_t old_sco_connected = app_ha_activity_context.sco_connected;
-
+    bool need_aws_sync = true;
     if (sco_start == true) {
         app_ha_activity_context.sco_connected += 1;
     } else {
@@ -1478,8 +1479,19 @@ static void app_hearing_aid_activity_handle_sco_status_change(bool sco_start)
         }
 
         app_hearing_aid_activity_update_sco_side_tone_status();
+#if 1  // harry for hfp pop noise 20240415
+            ui_shell_send_event(false,
+                                EVENT_PRIORITY_MIDDLE,
+                                EVENT_GROUP_UI_SHELL_HEARING_AID,
+                                APP_HEARING_AID_EVENT_ID_REQUEST_SCO_CONTROL_HA,
+                                (void *)need_aws_sync,
+                                0,
+                                NULL,
+                                APP_HA_CONTROL_HEARING_AID_BY_SCO_TIMEOUT);
 
+#else
         app_hearing_aid_activity_pre_proc_operate_ha(APP_HEARING_AID_CHANGE_CAUSE_SCO, false, false);
+#endif
     }
 }
 
@@ -2207,6 +2219,19 @@ static void app_hearing_aid_activity_handle_request_to_control_ha(void *data, si
     app_hearing_aid_activity_pre_proc_operate_ha(APP_HEARING_AID_CHANGE_CAUSE_REQUEST, false, need_aws_sync);
 }
 
+
+#if 1
+static void app_hearing_aid_activity_handle_request_sco_control_ha(void *data, size_t data_len)
+{
+    bool need_aws_sync = (bool)data;
+
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_handle_request_sco_control_ha] Request to control HA, need_aws_sync : %d",
+                        1,
+                        need_aws_sync);
+
+    app_hearing_aid_activity_pre_proc_operate_ha(APP_HEARING_AID_CHANGE_CAUSE_SCO, false, false);
+}
+#endif
 #if 0
 static void app_hearing_aid_activity_handle_vp_streaming_begin(void *data, size_t data_len)
 {
@@ -2379,6 +2404,7 @@ static ha_event_handler app_hearing_aid_ha_event_handler[] = {
     NULL, // app_hearing_aid_activity_handle_init_to_play_power_on_vp,       // 0x0B
     app_hearing_aid_activity_handle_rssi_power_off,                 // 0x0C
     app_hearing_aid_activity_handle_request_to_resume_anc,          // 0x0D
+    app_hearing_aid_activity_handle_request_sco_control_ha,           // 0x0E
 };
 
 /**

@@ -41,7 +41,7 @@
 
 
 #if defined(AIR_ADVANCED_PASSTHROUGH_ENABLE) || defined(AIR_ADVANCED_PASSTHROUGH_ENABLE_V2)
-
+errrrrrrrrrrrrrr
 #include "app_advance_passthrough.h"
 
 #include "apps_aws_sync_event.h"
@@ -470,6 +470,10 @@ static bool app_advance_passthrough_resume(bool is_sync)
     return success;
 }
 
+bool app_advance_get_passthrough_state(void)
+{//need_resume=1,passthrough state is suspendmode,need_resume=0,passthrough state already resume  
+  return app_advance_pt_ctx.need_resume;  
+}
 static void app_advance_passthrough_switch_from_aws(app_advance_pt_sync_pt_t *sync_data)
 {
     bt_aws_mce_role_t role = bt_connection_manager_device_local_info_get_aws_role();

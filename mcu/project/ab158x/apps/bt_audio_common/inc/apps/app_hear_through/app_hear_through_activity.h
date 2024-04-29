@@ -93,6 +93,7 @@ void app_hear_through_activity_handle_anc_switched(bool need_sync, bool anc_enab
 
 void app_hear_through_activity_power_on_vp_start_to_play();
 extern  bool app_hear_through_switch_on_off(bool need_store, bool enable);
+bool app_hear_through_activity_is_out_case();
 
 #ifdef __cplusplus
 }

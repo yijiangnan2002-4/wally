@@ -65,6 +65,7 @@
 #include "apps_events_event_group.h"
 #include "nvkey.h"
 #include "nvkey_id_list.h"
+#include "app_customer_common_activity.h"
 
 #if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_COMMON_ENABLE)
 #include "app_lea_service_event.h"
@@ -110,6 +111,19 @@
 #include "apps_events_interaction_event.h"
 #include "app_hall_sensor_activity.h"
 #include "app_customer_common.h"
+
+#include "app_anc_service.h"
+#include "app_advance_passthrough.h"
+#include "app_hear_through_storage.h"
+#include "bt_sink_srv_ami.h"
+#include "bt_device_manager.h"
+#include "app_hear_through_activity.h"
+#ifdef MTK_IN_EAR_FEATURE_ENABLE
+#include "app_in_ear_utils.h"
+#endif
+#include "apps_config_event_list.h"
+
+
 
 #ifdef MTK_AWS_MCE_ENABLE
 extern uint8_t at_config_adv_flag;
@@ -195,6 +209,8 @@ static atci_status_t bt_app_comm_at_cmd_touch_check(atci_parse_cmd_param_t *pars
 static atci_status_t bt_app_comm_at_cmd_wrire_HW_ver(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_IR_check(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_mem_check(atci_parse_cmd_param_t *parse_cmd);
+static atci_status_t bt_app_comm_at_cmd_check_eastech(atci_parse_cmd_param_t *parse_cmd);
+
 #endif
 static atci_cmd_hdlr_item_t bt_app_comm_at_cmd[] = {
     {
@@ -348,6 +364,12 @@ static atci_cmd_hdlr_item_t bt_app_comm_at_cmd[] = {
 		.hash_value2 = 0,
 	},
 	{
+		.command_head = "AT+EASTECH",	  /**< AT command string. */
+		.command_hdlr = bt_app_comm_at_cmd_check_eastech,
+		.hash_value1 = 0,
+		.hash_value2 = 0,
+	},
+	{
 		.command_head = "AT+DISCOVERABLE",	  /**< AT command string. */
 		.command_hdlr = bt_app_comm_at_cmd_enable_discoverable,
 		.hash_value1 = 0,
@@ -446,6 +468,80 @@ static atci_status_t bt_app_comm_at_cmd_check_fw_version(atci_parse_cmd_param_t 
 		response.response_flag = ATCI_RESPONSE_FLAG_APPEND_ERROR;
 	response.response_len = strlen((char *)response.response_buf);
 	atci_send_response(&response);	
+
+    return ATCI_STATUS_OK;
+}
+static atci_status_t bt_app_comm_at_cmd_check_eastech(atci_parse_cmd_param_t *parse_cmd)
+{
+    uint8_t data_len;
+    uint8_t *var_list[3]={NULL,NULL,NULL};
+    #if 1
+
+    data_len=parse_cmd->string_len-parse_cmd->parse_pos-1;
+    
+	APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech data_len=%d,parse_cmd->string_len=%d,parse_cmd->parse_pos=%d\r\n", 3,data_len,parse_cmd->string_len,parse_cmd->parse_pos);
+    uint16_t var_size = atci_get_parameter_list(parse_cmd, &var_list[0], data_len);
+    log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech var_size=%d,data_len=%d\r\n ",2,var_size,data_len);
+    for(uint8_t j=0;j<var_size;j++)
+    {
+      for(uint8_t i=0;var_list[j][i]!=0;i++)
+      {
+  	  APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech var_list[%d][%d]=%d,address=%c \r\n", 4,j,i,var_list[j][i],var_list[j][i]);
+      }
+    }
+    for(uint8_t i=0;i<data_len;i++)
+    {
+	  APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech var_list[0][%d]=%d,address=%d \r\n",3 ,i,var_list[0][i],&var_list[0][i]);
+    }
+    // ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_RD_DEBUG, &var_list[0],
+    //                     data_len, NULL, 100);	
+  	  //APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech 100MS, \r\n", 0);
+
+
+      uint8_t *exterdata=(uint8_t *)pvPortMalloc(sizeof(uint8_t)*data_len);
+      if (exterdata != NULL) {
+        memset(exterdata, 0, sizeof(data_len));
+        memcpy(exterdata, &(var_list[0][0]), sizeof(uint8_t)*data_len);
+        for(uint8_t k=0;k<data_len;k++)
+        {
+    	  //APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech exterdata[%d]=%d, addr=%d\r\n",3,k,*(exterdata+k),(exterdata+k));
+    	  //APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech var_list[0][%d]=%d, addr=%d,var_list[%d]=%d, addr=%d\r\n",6,k,var_list[0][k],&(var_list[0][k]),k,var_list[k],&var_list[k]);
+        }
+        ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_RD_DEBUG, exterdata,
+                         data_len, NULL, 100);	
+      }
+
+    #else
+    data_len=parse_cmd->string_len-parse_cmd->parse_pos-2;
+	APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech data_len=%d,parse_cmd->string_len=%d,parse_cmd->parse_pos=%d\r\n", 3,data_len,parse_cmd->string_len,parse_cmd->parse_pos);
+    uint8_t *extra_data = pvPortMalloc(data_len);
+    uint16_t var_size1 = atci_get_parameter_list(parse_cmd, &var_list[0], data_len);
+    uint16_t var_size = atci_get_parameter_list(parse_cmd, extra_data, data_len);
+    atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+	//APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech var_size=%d,sizeof(var_list)=%d\r\n", 2,var_size,sizeof(var_list));
+	APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech var_size=%d,var_size1=%d", 2,var_size,var_size1);
+    for(int i=0;i<data_len;i++)
+    {
+	  APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech extra_data+%d ==extra_data=%d,*(extra_data+i)=%d,*extra_data+i=%d \r\n", 4,i,extra_data,*(extra_data+i),*extra_data+i);
+    }
+    ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_RD_DEBUG, extra_data,
+                        data_len, NULL, 100);	
+    #endif
+
+	APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech ancsuspend=%d,ancenbale=%d,ancisenable=%d,getancstate=%d\r\n", 4,app_anc_service_is_suspended(),app_anc_service_is_anc_enabled(),app_anc_service_is_enable(),app_anc_service_get_state());
+  
+	APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech hearthroumode=%d,hearthroumode=%d,hearthroumode=%d,right_ear=%d\r\n", 4,app_hear_through_storage_get_hear_through_mode(),app_hear_through_storage_get_hear_through_mode(),app_hear_through_storage_get_hear_through_mode(),ami_get_audio_channel());
+
+	APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech role =%d,casestate=%d,rssi=%d,inear=%d\r\n", 4,bt_device_manager_aws_local_info_get_role(),app_hear_through_activity_is_out_case(),app_hear_through_storage_get_ha_rssi_threshold(),app_in_ear_get_own_state());
+     atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
+    response.response_flag = ATCI_RESPONSE_FLAG_APPEND_OK;
+
+
+	strcpy((char *)(response.response_buf), "Enable eastech Done!\r\n");
+	response.response_len = strlen((char *)response.response_buf);
+	atci_send_response(&response);	
+
 
     return ATCI_STATUS_OK;
 }
