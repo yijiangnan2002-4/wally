@@ -241,6 +241,7 @@ static bool app_music_check_and_end_music(struct _ui_shell_activity *self, void 
                 if (bt_status == BT_STATUS_SUCCESS) {
                     ctx->isAutoPaused = false;
                     ctx->music_playing = true;
+                APPS_LOG_MSGID_I(APP_MUSIC_ACTI" auto play music.", 0);
                 }
             }
         }
