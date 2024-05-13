@@ -580,7 +580,7 @@ void bt_ull_atci_init(void)
 //#include "bt_ull_le_service.h"
 //#include "bt_ull_le_utility.h"
 uint8_t send_command_type=2;		// 2: command from ab1585h to ab1571d; 3: command from ab1571d to ab1585h
-uint8_t ab1585h_command_no=10;		// 0: BT status; 1:OTA staus; 2: version feed back; 3: bt_connnected_num; 4:bt address
+uint8_t ab1585h_command_no=10;		// 0: BT status; 1:OTA staus; 2: version feed back; 3: bt_connnected_num; 4:bt address; 5: anc ha mode
 uint8_t ab1585h_command_data=0;
 void BT_send_data_proc(void)
 {

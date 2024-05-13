@@ -267,6 +267,7 @@ void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 
     else
     {
+    		if(index<3)		// richard for UI
         app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
     }
 }

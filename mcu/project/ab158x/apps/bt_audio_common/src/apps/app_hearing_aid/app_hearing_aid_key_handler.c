@@ -321,6 +321,17 @@ void app_hearing_aid_key_handler_proc_mode_down_notify()
 {
     app_hearing_aid_activity_play_vp(VP_INDEX_PRESS, true);
 }
+
+#if 1	// richard for UI spec.
+uint8_t get_current_ha_mode(void)
+{
+	uint8_t mode_index = 0;
+
+	audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
+	return mode_index;
+}
+#endif
+
 void app_hearing_aid_key_handler_proc_mode_down()
 {
     uint8_t l_level_index = 0;

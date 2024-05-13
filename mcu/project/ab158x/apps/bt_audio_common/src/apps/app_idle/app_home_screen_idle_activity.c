@@ -447,6 +447,13 @@ static void app_home_screen_disable_anc_when_howling(ui_shell_activity_t *self)
 }
 #endif
 
+#if 1	// richard for UI spec.
+extern uint8_t get_current_ha_mode(void);
+extern uint8_t anc_ha_flag;
+extern uint8_t ab1585h_command_no;
+extern uint8_t ab1585h_command_data;
+extern void BT_send_data_proc(void);
+#endif
 static bool app_home_screen_process_anc_and_pass_through(ui_shell_activity_t *self, apps_config_key_action_t key_action)
 {
     bool ret = false;
@@ -519,11 +526,37 @@ errrrrrrrrrrrrrrrrrrrrr
         target_filter_id = AUDIO_ANC_CONTROL_ANC_FILTER_DEFAULT;
         ret = true;
         #endif
+    }	else if(KEY_SWITCH_ANC_AND_PASSTHROUGH1== key_action) {		// richard for UI
+        app_hear_through_activity_switch_ambient_control1();
+
+#if 1	// richard for UI spec.
+			ab1585h_command_no=5;	// 4: anc ha mode
+			if(anc_ha_flag)
+			{
+				ab1585h_command_data=get_current_ha_mode();
+				ab1585h_command_data++;
+			}
+			else ab1585h_command_data=0;
+			BT_send_data_proc();
+#endif
+        return true;
+    
     } else if (KEY_SWITCH_ANC_AND_PASSTHROUGH == key_action) {
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 //errrrrrrrrrrrrrrrrrrrrr
         // OFF -> SW PT -> ANC
         app_hear_through_activity_switch_ambient_control();
+
+#if 1	// richard for UI spec.
+			ab1585h_command_no=5;	// 4: anc ha mode
+			if(anc_ha_flag)
+			{
+				ab1585h_command_data=get_current_ha_mode();
+				ab1585h_command_data++;
+			}
+			else ab1585h_command_data=0;
+			BT_send_data_proc();
+#endif
         return true;
 #else
         /* Switch loop is OFF->PassThrough->ANC->OFF. */
@@ -803,6 +836,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         || (action == KEY_PASS_THROUGH)
         || (action == KEY_ANC)
         || (action == KEY_SWITCH_ANC_AND_PASSTHROUGH)
+        || (action == KEY_SWITCH_ANC_AND_PASSTHROUGH1)		// richard for UI
         || (action == KEY_BETWEEN_ANC_PASSTHROUGH)
 #endif
         || (action == KEY_FACTORY_RESET)
@@ -995,6 +1029,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         case KEY_PASS_THROUGH:
         case KEY_ANC:
         case KEY_SWITCH_ANC_AND_PASSTHROUGH:
+        case KEY_SWITCH_ANC_AND_PASSTHROUGH1:	// richard for UI		
         case KEY_BETWEEN_ANC_PASSTHROUGH:
         case KEY_ANC_GAIN:
         case KEY_ANC_ON:
@@ -1264,6 +1299,7 @@ static bool homescreen_app_aws_data_proc(ui_shell_activity_t *self, uint32_t eve
                         || (aws_event_id == KEY_PASS_THROUGH)
                         || (aws_event_id == KEY_ANC)
                         || (aws_event_id == KEY_SWITCH_ANC_AND_PASSTHROUGH)
+                        || (aws_event_id == KEY_SWITCH_ANC_AND_PASSTHROUGH1)		// richard for UI
                         || (aws_event_id == KEY_BETWEEN_ANC_PASSTHROUGH)
 #endif
                         || (aws_event_id == KEY_FACTORY_RESET)
