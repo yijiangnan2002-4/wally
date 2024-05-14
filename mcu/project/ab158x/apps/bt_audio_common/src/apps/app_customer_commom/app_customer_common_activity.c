@@ -257,27 +257,32 @@ uint8_t Is_earbuds_agent_proc(void)
 	else return 0;
 }
 
+extern uint8_t anc_ha_flag;
 void key_volumeup_proc(void)
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
-	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-	if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
+
+	if(anc_ha_flag)
 	{
-		*p_key_action = KEY_VOICE_UP;
+		*p_key_action = KEY_HEARING_AID_VOLUME_UP;	// KEY_HEARING_AID_LEVEL_UP	
 	}
 	else
 	{
-		*p_key_action = KEY_HEARING_AID_VOLUME_UP;	// KEY_HEARING_AID_LEVEL_UP
+		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
+		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
+		{
+			*p_key_action = KEY_VOICE_UP;
+		}
 	}
 
-    if (p_key_action)
+	if (p_key_action)
 	{
-        ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+        	ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
   	}
   	else
   	{
-      	vPortFree(p_key_action);
+      		vPortFree(p_key_action);
   	}		
 }
 
@@ -285,14 +290,18 @@ void key_volumedown_proc(void)
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
-	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-	if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
+
+	if(anc_ha_flag)
 	{
-		*p_key_action = KEY_VOICE_DN;
+		*p_key_action = KEY_HEARING_AID_VOLUME_DOWN;	//	KEY_HEARING_AID_LEVEL_DOWN
 	}
 	else
 	{
-		*p_key_action = KEY_HEARING_AID_VOLUME_DOWN;	//	KEY_HEARING_AID_LEVEL_DOWN
+		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
+		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
+		{
+			*p_key_action = KEY_VOICE_DN;
+		}
 	}
 
     	if (p_key_action)
@@ -354,7 +363,7 @@ void key_switch_anc_and_passthrough_proc(void)
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
     	if (p_key_action)
 	{
-		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH;
+		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH1;
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
     	else

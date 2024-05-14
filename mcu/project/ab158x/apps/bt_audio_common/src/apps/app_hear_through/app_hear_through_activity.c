@@ -732,6 +732,65 @@ static void app_hear_through_activity_handle_ambient_control_switch()
     }
 }
 
+// richard for UI
+static void app_hear_through_activity_handle_ambient_control_switch1()
+{
+    /**
+     * @brief Make the anc_changed to be true firstly
+     */
+    app_hear_through_ctx.is_anc_changed = true;
+
+    switch (app_hear_through_ctx.mode_index) {
+        case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_OFF: {
+            APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] OFF", 0);
+            app_hear_through_ctx.trigger_from_key = false;
+            app_hearing_through_activity_leave_hear_through_mode();
+            app_anc_service_disable_without_notify_hear_through();
+        }
+        break;
+        case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH: {
+            APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable Hear Through", 0);
+            app_hear_through_ctx.trigger_from_key = true;
+            /**
+             * @brief if change to hear through mode, make it to be false.
+             */
+            app_hear_through_ctx.is_anc_changed = false;
+
+            app_hear_through_ctx.hear_through_key_to_off = false;
+
+#if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
+            uint8_t hear_through_mode = app_hear_through_storage_get_hear_through_mode();
+            if ((hear_through_mode == APP_HEAR_THROUGH_MODE_HA_PSAP)
+#if defined(MTK_FOTA_ENABLE) && defined (MTK_FOTA_VIA_RACE_CMD)
+                && (app_hear_through_ctx.is_ota_ongoing == false)
+#endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
+                ) {
+                app_hearing_aid_activity_set_user_switch(false, true);
+            }
+#endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
+
+            app_hear_through_switch_on_off(true, true);
+
+  		// richard for customer UI spec.
+		voice_prompt_play_sync_vp_hearing_through();
+        }
+        break;
+        case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC: {
+            APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable ANC", 0);
+
+            app_hearing_through_activity_leave_hear_through_mode();
+            app_anc_service_reset_hear_through_anc(true);
+
+		// richard for customer UI spec.
+		voice_prompt_play_sync_vp_anc_on();			
+        }
+        break;
+        default:
+        return;
+    }
+}
+
+
 static void app_hear_through_activity_handle_anc_state_changed()
 {
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_anc_state_changed] ANC state changed", 0);
@@ -2288,6 +2347,29 @@ static void app_hear_through_activity_handle_mode_index_changed()
 #endif /* AIR_TWS_ENABLE */
 }
 
+static void app_hear_through_activity_handle_mode_index_changed1()
+{
+
+#ifdef AIR_TWS_ENABLE
+    if (app_hear_through_is_aws_connected() == true) {
+        app_hear_through_sync_ambient_control_switch_t mode_switch;
+        mode_switch.mode_index = app_hear_through_ctx.mode_index;
+
+        apps_aws_sync_send_future_sync_event(false,
+                                                EVENT_GROUP_UI_SHELL_HEAR_THROUGH,
+                                                APP_HEAR_THROUGH_AWS_EVENT_ID_AMBIENT_CONTROL,
+                                                true,
+                                                (uint8_t *)&mode_switch,
+                                                sizeof(app_hear_through_sync_ambient_control_switch_t),
+                                                APP_HEAR_THROUGH_SYNC_EVENT_DEFAULT_TIMEOUT);
+    } else {
+#endif /* AIR_TWS_ENABLE */
+        app_hear_through_activity_handle_ambient_control_switch1();
+#ifdef AIR_TWS_ENABLE
+    }
+#endif /* AIR_TWS_ENABLE */
+}
+
 void app_hear_through_activity_switch_ancon(void)
 {
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_switch_ancon] Enter", 0);
@@ -2304,6 +2386,7 @@ void app_hear_through_activity_switch_to_hear_through(void)
     app_hear_through_activity_handle_mode_index_changed();
 }
 
+uint8_t anc_ha_flag=0;	// richard for UI requirement
 void app_hear_through_activity_switch_ambient_control()
 {
 #if defined(MTK_FOTA_ENABLE) && defined (MTK_FOTA_VIA_RACE_CMD)
@@ -2327,6 +2410,12 @@ void app_hear_through_activity_switch_ambient_control()
     }
     #endif
 
+#if 1	// richard for UI requirement
+	if (app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC)
+		anc_ha_flag=0;
+	else anc_ha_flag=1;
+#endif
+
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_switch_ambient_control] mode_index change %d -> %d",
                         2,
                         old_mode_index,
@@ -2334,6 +2423,74 @@ void app_hear_through_activity_switch_ambient_control()
 
     app_hear_through_activity_handle_mode_index_changed();
 }
+
+#if 1	// richard for UI requirement
+void app_hear_through_activity_switch_ambient_control1()
+{
+#if defined(MTK_FOTA_ENABLE) && defined (MTK_FOTA_VIA_RACE_CMD)
+        if (app_hear_through_ctx.is_ota_ongoing == true) {
+            APPS_LOG_MSGID_W(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_switch_ambient_control] OTA is ongoing, do not support to switch ambient control", 0);
+            return;
+        }
+#endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
+
+	uint8_t old_mode_index = app_hear_through_ctx.mode_index;
+
+	if (app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)
+    	{
+		uint8_t mode_index = 0;
+		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
+		if(mode_index<2)
+		{
+			mode_index++;
+			anc_ha_flag=1;
+#ifdef AIR_TWS_ENABLE
+			if (app_hearing_aid_aws_is_connected() == true) {
+				app_hearing_aid_aws_index_change_t change = {0};
+				change.index = mode_index;
+				app_hearing_aid_aws_send_operate_command(APP_HEARING_AID_OP_COMMAND_CHANGE_MODE,
+                                                (uint8_t *)&change,
+                                                sizeof(app_hearing_aid_aws_index_change_t),
+                                                true,
+                                                APP_HEARING_AID_SYNC_EVENT_DEFAULT_TIMEOUT);
+			} else {
+#endif /* AIR_TWS_ENABLE */
+				app_hearing_aid_key_handler_adjust_mode(mode_index, true);
+#ifdef AIR_TWS_ENABLE
+			}
+#endif /* AIR_TWS_ENABLE */
+		}
+		else			// switch to ANC
+		{
+			app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC;
+			anc_ha_flag=0;
+			app_hear_through_activity_handle_mode_index_changed1();
+		}
+    	}
+	else
+	{
+		app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH;
+		anc_ha_flag=1;
+		app_hear_through_activity_handle_mode_index_changed1();
+#ifdef AIR_TWS_ENABLE
+		if (app_hearing_aid_aws_is_connected() == true) {
+			app_hearing_aid_aws_index_change_t change = {0};
+			change.index = 0;
+			app_hearing_aid_aws_send_operate_command(APP_HEARING_AID_OP_COMMAND_CHANGE_MODE,
+                                                (uint8_t *)&change,
+                                                sizeof(app_hearing_aid_aws_index_change_t),
+                                                true,
+                                                APP_HEARING_AID_SYNC_EVENT_DEFAULT_TIMEOUT);
+			} else {
+#endif /* AIR_TWS_ENABLE */
+				app_hearing_aid_key_handler_adjust_mode(0, true);
+#ifdef AIR_TWS_ENABLE
+			}
+#endif /* AIR_TWS_ENABLE */
+		
+	}
+}
+#endif
 
 void app_hear_through_activity_handle_anc_switched(bool need_sync, bool anc_enable)
 {

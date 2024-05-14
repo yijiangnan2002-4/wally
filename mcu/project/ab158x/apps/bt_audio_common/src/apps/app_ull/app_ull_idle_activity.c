@@ -1341,7 +1341,7 @@ static void app_ull_reconnect_request_process(void) {
     APPS_LOG_MSGID_I(LOG_TAG", app_ull_reconnect_request_process connected[sp:dongle][%d:%d], connecting[sp:dongle][%d:%d]", 4,
                      addr_list_len, s_ull_le_connected, connecting_list_len, ull_connecting);
     if (s_ull_le_connected && addr_list_len > 0) {
-        voice_prompt_play_vp_failed();
+//richard for UI        voice_prompt_play_vp_failed();
         return;
     } else if (addr_list_len > 0 || !s_ull_le_connected) {
         /* When SP is connected or ull is not connecting, reconnect dongle. */
@@ -1390,7 +1390,7 @@ static void app_ull_reconnect_request_process(void) {
             }
         }
         if (BT_STATUS_SUCCESS != sta) {
-            vp.vp_index = VP_INDEX_FAILED;
+//richard for UI           vp.vp_index = VP_INDEX_FAILED;
         }
         voice_prompt_play(&vp, NULL);
     } else if (!s_ull_le_connected && addr_list_len == 0 && s_ull_adv_en && connecting_list_len > 0) {
@@ -1822,13 +1822,13 @@ static bool app_ull_proc_key_event_group(ui_shell_activity_t *self, uint32_t eve
                 if (bt_aws_mce_srv_get_link_type() != BT_AWS_MCE_SRV_LINK_NONE) {
                     if (BT_STATUS_SUCCESS != apps_aws_sync_event_send(EVENT_GROUP_UI_SHELL_KEY, action)) {
                         voice_prompt_param_t vp = {0};
-                        vp.vp_index = VP_INDEX_FAILED;
+//richard for UI                       vp.vp_index = VP_INDEX_FAILED;
                         voice_prompt_play(&vp, NULL);
                         //apps_config_set_vp(VP_INDEX_FAILED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     }
                 } else {
                     voice_prompt_param_t vp = {0};
-                    vp.vp_index = VP_INDEX_FAILED;
+// richard for UI                    vp.vp_index = VP_INDEX_FAILED;
                     voice_prompt_play(&vp, NULL);
                     //apps_config_set_vp(VP_INDEX_FAILED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     APPS_LOG_MSGID_I(LOG_TAG", Partner aws disconnected for key action: %x", 1, action);
@@ -2147,8 +2147,8 @@ static bool app_ull_proc_ull_event(ui_shell_activity_t *self, uint32_t event_id,
         }
         case BT_ULL_EVENT_LE_DISCONNECTED:
             app_ull_process_events(ULL_EVENTS_DONGLE_DISCONNECTED, NULL);
-            vp.vp_index = VP_INDEX_FAILED;
-            voice_prompt_play(&vp, NULL);
+//richard for UI            vp.vp_index = VP_INDEX_FAILED;
+//            voice_prompt_play(&vp, NULL);
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_UPDATE_MMI_STATE, NULL, 0,
                                 NULL, 0);
