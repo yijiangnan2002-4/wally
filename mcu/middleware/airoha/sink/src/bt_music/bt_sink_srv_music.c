@@ -862,6 +862,10 @@ bt_avrcp_operation_id_t bt_sink_srv_music_get_play_pause_action(bt_sink_srv_musi
                && dev->a2dp_status == BT_SINK_SRV_A2DP_STATUS_SUSPEND) {
         action_id = BT_AVRCP_OPERATION_ID_PLAY;
     }
+  //get_play_pause_action, action_id:0x46, last_play_pause_action:0x00, avrcp_status:0x01, a2dp_status:0x01 
+ // get_play_pause_action, action_id:0x44, last_play_pause_action:0x46, avrcp_status:0x01, a2dp_status:0x01
+//get_play_pause_action, action_id:0x44, last_play_pause_action:0x00, avrcp_status:0x02, a2dp_status:0x00
+//get_play_pause_action, action_id:0x46, last_play_pause_action:0x00, avrcp_status:0x01, a2dp_status:0x01
 
     bt_sink_srv_report_id("[sink][music] get_play_pause_action, action_id:0x%02x, last_play_pause_action:0x%02x, avrcp_status:0x%02x, a2dp_status:0x%02x",
                           4, action_id,

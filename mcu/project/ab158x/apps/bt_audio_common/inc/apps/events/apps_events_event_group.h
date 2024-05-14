@@ -53,7 +53,7 @@ typedef enum {
     EVENT_GROUP_UI_SHELL_ROTARY_ENCODER,    /**< group for rotary encoder events */
     EVENT_GROUP_UI_SHELL_BATTERY,           /**< group for battery events */
     EVENT_GROUP_UI_SHELL_BT,                /**< group for bt events */
-    EVENT_GROUP_UI_SHELL_BT_SINK,           /**< group for bt sink events */
+    EVENT_GROUP_UI_SHELL_BT_SINK,           /**< group for bt sink events 0x06*/
     EVENT_GROUP_UI_SHELL_BT_CONN_MANAGER,   /**< group for bt connection manager */
     EVENT_GROUP_UI_SHELL_BT_DEVICE_MANAGER, /**< group for bt device manager */
     EVENT_GROUP_UI_SHELL_LE_SERVICE,        /**< group for bt le service event */

@@ -46,6 +46,7 @@
 #ifdef __BT_AWS_MCE_A2DP_SUPPORT__
 #include "bt_role_handover.h"
 #endif
+#include "apps_customer_config.h"
 
 #define AUD_VOL_IN_LEVEL_VALUE_MAX (127)
 /* Function declare */
@@ -307,7 +308,7 @@ static int32_t bt_sink_srv_avrcp_handle_event_notification_ind(bt_avrcp_event_no
     int32_t ret = BT_STATUS_FAIL;
 
     if (noti_ind) {
-        bt_sink_srv_report_id("[sink][music][avrcp] event_notification_ind(changed)--evt_id: %d, status: 0x%x, AVRCP status: %d",
+        bt_sink_srv_report_id("[sink][music][avrcp] event_notification_ind(changed)--evt_id: %d, status: 0x%x, AVRCP status: 0x%x",
             3, noti_ind->event_id, noti_ind->status, status);
         if (BT_AVRCP_EVENT_PLAYBACK_STATUS_CHANGED == noti_ind->event_id) {
             if (BT_STATUS_SUCCESS == status) {
@@ -1061,7 +1062,23 @@ void bt_sink_srv_avrcp_send_vup_vdn_command(uint8_t type)
         }
     bt_sink_srv_mutex_unlock();
 }
+#ifdef EASTECH_FORCE_TO_PLAY
+bt_status_t bt_sink_srv_avrcp_force_play_music(bt_sink_srv_music_device_t *dev)
+{
+    bt_status_t ret = bt_sink_srv_avrcp_send_play_pause_command(dev, BT_AVRCP_OPERATION_ID_PLAY);
 
+    if (ret == BT_STATUS_SUCCESS) {
+        dev->last_play_pause_action = BT_AVRCP_OPERATION_ID_PLAY;
+        dev->last_wear_action = BT_SINK_SRV_INVALID_LAST_PLAY_PAUSE_ACTION;
+    }
+
+    bt_sink_srv_report_id("[sink][music][avrcp] force_pause_music, ret:0x%08x", 1, ret);
+    return ret;
+}
+//errrrrrrrrrrrr
+#else
+//errrrrrrrrrrrrrrrrrrr
+#endif
 bt_status_t bt_sink_srv_avrcp_force_pause_music(bt_sink_srv_music_device_t *dev)
 {
     bt_status_t ret = bt_sink_srv_avrcp_send_play_pause_command(dev, BT_AVRCP_OPERATION_ID_PAUSE);
@@ -1092,6 +1109,8 @@ static void bt_sink_srv_avrcp_handle_last_wear_action(bt_sink_srv_music_device_t
     } else if (dev->last_play_pause_action == BT_SINK_SRV_INVALID_LAST_PLAY_PAUSE_ACTION) {
         dev->last_wear_action = BT_SINK_SRV_INVALID_LAST_PLAY_PAUSE_ACTION;
     }
+//handle_last_wear_action, action_id:0x44, dev:0x0423959c, last_send_actio:0x44, last_wear_action:0x00
+//handle_last_wear_action, action_id:0x46, dev:0x042394f8, last_send_actio:0x00, last_wear_action:0x00    
     bt_sink_srv_report_id("[sink][music][avrcp] handle_last_wear_action, action_id:0x%02x, dev:0x%08x, last_send_actio:0x%02x, last_wear_action:0x%02x",
                           4, action_id, dev,
                           dev->last_play_pause_action,
@@ -1100,11 +1119,14 @@ static void bt_sink_srv_avrcp_handle_last_wear_action(bt_sink_srv_music_device_t
 
 int32_t bt_sink_srv_avrcp_play_music(bt_sink_srv_music_device_t *dev)
 {
+#ifdef EASTECH_FORCE_TO_PLAY
+    bt_sink_srv_avrcp_force_play_music(dev);
+#else
     if ((dev) && (dev->conn_bit & BT_SINK_SRV_MUSIC_AVRCP_CONN_BIT)) {
         dev->last_wear_action = BT_AVRCP_OPERATION_ID_PLAY;
         bt_sink_srv_avrcp_handle_last_wear_action(dev);
     }
-
+#endif
     bt_sink_srv_report_id("[sink][music][avrcp] play_music-dev: 0x%08x", 1, dev);
     return BT_STATUS_SUCCESS;
 }

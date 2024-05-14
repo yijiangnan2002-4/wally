@@ -154,8 +154,8 @@ static bool app_music_proc_bt_event_when_playing(ui_shell_activity_t *self,
     if (event_id == BT_SINK_SRV_EVENT_STATE_CHANGE) {
         bt_sink_srv_state_change_t *param = (bt_sink_srv_state_change_t *)extra_data;
 
-        APPS_LOG_MSGID_I(APP_MUSIC_ACTI" app_music_proc_bt_event:param->pre=0x%x, param->now=0x%x, is playing=0x%x, isAutoPaused=%d",
-                         4, param->previous, param->current, local_context->music_playing, local_context->isAutoPaused);
+        APPS_LOG_MSGID_I(APP_MUSIC_ACTI" app_music_proc_bt_event:param->pre=0x%x, param->now=0x%x, is playing=0x%x, isAutoPaused=%d,music_streaming_state=%d",
+                         5, param->previous, param->current, local_context->music_playing, local_context->isAutoPaused,local_context->music_streaming_state);
 
         /* Finish current activity when the a2dp streaming stops. */
         if ((param->previous == BT_SINK_SRV_STATE_STREAMING) && (param->current != BT_SINK_SRV_STATE_STREAMING)) {
@@ -169,7 +169,7 @@ static bool app_music_proc_bt_event_when_playing(ui_shell_activity_t *self,
     else if (event_id == BT_SINK_SRV_EVENT_AVRCP_STATUS_CHANGE) {
         bt_sink_srv_event_param_t *event = (bt_sink_srv_event_param_t *)extra_data;
         bt_avrcp_status_t avrcp_status = event->avrcp_status_change.avrcp_status;
-        APPS_LOG_MSGID_I(APP_MUSIC_ACTI" app_music_proc_bt_event: avrcp_status=%d", 1, avrcp_status);
+        APPS_LOG_MSGID_I(APP_MUSIC_ACTI" app_music_proc_bt_event: avrcp_status=%d,local_context->music_streaming_state=%d", 2, avrcp_status,local_context->music_streaming_state);
         /* Finish current activity when the avrcp stopped or paused. */
         if (BT_AVRCP_STATUS_PLAY_PAUSED == avrcp_status || BT_AVRCP_STATUS_PLAY_STOPPED == avrcp_status) {
             app_music_remove_avrcp_status(&(event->avrcp_status_change.address));
@@ -183,12 +183,16 @@ static bool app_music_proc_bt_event_when_playing(ui_shell_activity_t *self,
         }
     }
 #endif
+        APPS_LOG_MSGID_I(APP_MUSIC_ACTI" app_music_proc_bt_event: local_context->music_streaming_state=%d", 1,local_context->music_streaming_state);
+
     if ((event_id == BT_SINK_SRV_EVENT_STATE_CHANGE
         || event_id == BT_SINK_SRV_EVENT_AVRCP_STATUS_CHANGE)
         && local_context->music_streaming_state == 0x00) {
         local_context->music_playing = false;
         local_context->isAutoPaused = false;
         ui_shell_finish_activity(self, self);
+        APPS_LOG_MSGID_E(APP_MUSIC_ACTI" app_music_proc_bt_event_when_playing set pause=0,play=0,11 ui_shell_finish_activity app_music_activity_proc", 0);
+        
     }
     return false;
 }
@@ -222,6 +226,7 @@ static bool app_music_check_and_end_music(struct _ui_shell_activity *self, void 
             if (bt_status == BT_STATUS_SUCCESS) {
                 ctx->isAutoPaused = true;
                 //ctx->music_playing = false;
+        APPS_LOG_MSGID_E(APP_MUSIC_ACTI" app_music_check_and_end_music set pause=1,22 ui_shell_finish_activity app_music_activity_proc", 0);
                 ui_shell_finish_activity(self, self);
                 APPS_LOG_MSGID_I(APP_MUSIC_ACTI" auto pause music.", 0);
             }
@@ -289,7 +294,7 @@ static bool app_music_proc_apps_internal_events(ui_shell_activity_t *self,
 
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
         case APPS_EVENTS_INTERACTION_IN_EAR_UPDATE_STA: {
-           APPS_LOG_MSGID_I(APP_MUSIC_ACTI"APPS_EVENTS_INTERACTION_IN_EAR_UPDATE_STA harry", 0);
+           APPS_LOG_MSGID_I(APP_MUSIC_ACTI" APPS_EVENTS_INTERACTION_IN_EAR_UPDATE_STA harry", 0);
           
             /* The event come from in ear detection app. */
             app_in_ear_sta_info_t *sta_info = (app_in_ear_sta_info_t *)extra_data;
@@ -320,6 +325,7 @@ static bool app_music_proc_apps_internal_events(ui_shell_activity_t *self,
                     && APP_IN_EAR_STA_BOTH_OUT == app_in_ear_get_state()
 #endif
                    ) {
+        APPS_LOG_MSGID_E(APP_MUSIC_ACTI" app_music_proc_apps_internal_events 33 ui_shell_finish_activity app_music_activity_proc", 0);
                     ui_shell_finish_activity(self, self);
                 }
             }
@@ -366,6 +372,7 @@ bool app_music_proc_aws_data_events(ui_shell_activity_t *self,
                 if (local_ctx->music_streaming_state == 0x00) {
                     local_ctx->music_playing = false;
                     local_ctx->isAutoPaused = false;
+        APPS_LOG_MSGID_E(APP_MUSIC_ACTI" app_music_proc_aws_data_events 44 ui_shell_finish_activity app_music_activity_proc", 0);
                     ui_shell_finish_activity(self, self);
                 }
             }
@@ -383,6 +390,7 @@ static void app_music_finish_music_activity(ui_shell_activity_t *self, apps_musi
     if (local_ctx && self) {
         local_ctx->music_playing = false;
         local_ctx->isAutoPaused = false;
+        APPS_LOG_MSGID_E(APP_MUSIC_ACTI" app_music_finish_music_activity 55 ui_shell_finish_activity app_music_activity_proc", 0);
         ui_shell_finish_activity(self, self);
     }
 }
@@ -464,6 +472,7 @@ bool app_music_proc_bt_cm_events(ui_shell_activity_t *self, uint32_t event_id,
                     if (local_context->music_streaming_state == 0x00) {
                         local_context->music_playing = false;
                         local_context->isAutoPaused = false;
+        APPS_LOG_MSGID_E(APP_MUSIC_ACTI" app_music_proc_bt_cm_events 66 ui_shell_finish_activity app_music_activity_proc", 0);
                         ui_shell_finish_activity(self, self);
                     }
                 }

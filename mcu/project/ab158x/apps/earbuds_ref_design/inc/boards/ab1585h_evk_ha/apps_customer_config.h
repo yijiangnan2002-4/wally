@@ -62,7 +62,7 @@
 /* The delay time to start BT visible after BT power on. */
 #define TIME_TO_STOP_RECONNECTION   (2 * 60 * 1000)         /* The delay time to stop reconnection. */
 #define VISIBLE_TIMEOUT             (2 * 60 * 1000)         /* The timeout of BT visibility. */
-
+//errrrrrrrrrrrrrrrrrrrrrr
 
 #ifdef APPS_SLEEP_AFTER_NO_CONNECTION
 #define APPS_TIMEOUT_OF_SLEEP_AFTER_NO_CONNECTION   (5 * 60 * 1000)     /* The waiting time (ms) before sleep */
@@ -122,5 +122,8 @@
                                     | APP_MS_TEAMS_TELEMETRY_MASK_NOISE_SUPPRESSION\
                                     | APP_MS_TEAMS_TELEMETRY_MASK_BEAM_FORMING)
 #endif
+//#define EASTECH_SCO_DELAY_TO_PROCESS_HA
+//#define EASTECH_FORCE_TO_PLAY 
+//#define EASTECH_IRSENSER_ADVANCED_CONTROL 
 
 #endif /* __APPS_CUSTOMER_CONFIG_H__ */

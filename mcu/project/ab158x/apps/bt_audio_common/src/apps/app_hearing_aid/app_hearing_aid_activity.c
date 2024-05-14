@@ -90,6 +90,7 @@
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
 #include "leakage_detection_control.h"
 #endif /* MTK_LEAKAGE_DETECTION_ENABLE */
+#include "apps_customer_config.h"
 
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
 
@@ -130,9 +131,15 @@ static void app_hearing_aid_activity_handle_music_status_change(bool music_start
 extern uint32_t sub_chip_version_get();
 
 static const uint8_t app_hearing_aid_mode_vp_index_list[] = {
+  #if 1 //harry for vp 20240513
+    VP_INDEX_HEARING_THROUGH,
+    VP_INDEX_SPEECH_FOCUS,
+    VP_INDEX_HEARING_AID_MODE_2,
+  #else
     VP_INDEX_HEARING_AID_MODE_1,
     VP_INDEX_HEARING_AID_MODE_2,
     VP_INDEX_HEARING_AID_MODE_3,
+    #endif
     VP_INDEX_HEARING_AID_MODE_4,
     VP_INDEX_HEARING_AID_MODE_5,
     VP_INDEX_HEARING_AID_MODE_6,
@@ -229,7 +236,7 @@ void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
     }
     if(vp_index==VP_INDEX_HEARING_AID_MODE_1)
    {
-    vp.delay_time = VOICE_PROMPT_SYNC_DELAY_MIN+200;
+    vp.delay_time = VOICE_PROMPT_SYNC_DELAY_MIN;
    }
     else
    {
@@ -1479,7 +1486,8 @@ static void app_hearing_aid_activity_handle_sco_status_change(bool sco_start)
         }
 
         app_hearing_aid_activity_update_sco_side_tone_status();
-#if 1  // harry for hfp pop noise 20240415
+#ifdef EASTECH_SCO_DELAY_TO_PROCESS_HA  // harry for hfp pop noise 20240415
+errrrrrrrrrrrr
             ui_shell_send_event(false,
                                 EVENT_PRIORITY_MIDDLE,
                                 EVENT_GROUP_UI_SHELL_HEARING_AID,
@@ -2220,7 +2228,7 @@ static void app_hearing_aid_activity_handle_request_to_control_ha(void *data, si
 }
 
 
-#if 1
+#ifdef EASTECH_SCO_DELAY_TO_PROCESS_HA
 static void app_hearing_aid_activity_handle_request_sco_control_ha(void *data, size_t data_len)
 {
     bool need_aws_sync = (bool)data;
@@ -2404,7 +2412,9 @@ static ha_event_handler app_hearing_aid_ha_event_handler[] = {
     NULL, // app_hearing_aid_activity_handle_init_to_play_power_on_vp,       // 0x0B
     app_hearing_aid_activity_handle_rssi_power_off,                 // 0x0C
     app_hearing_aid_activity_handle_request_to_resume_anc,          // 0x0D
+#ifdef EASTECH_SCO_DELAY_TO_PROCESS_HA
     app_hearing_aid_activity_handle_request_sco_control_ha,           // 0x0E
+    #endif
 };
 
 /**

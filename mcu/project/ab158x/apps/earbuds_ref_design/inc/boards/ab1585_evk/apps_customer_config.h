@@ -63,7 +63,7 @@
 #define TIME_TO_STOP_RECONNECTION   (2 * 60 * 1000)         /* The delay time to stop reconnection. */
 #define VISIBLE_TIMEOUT             (2 * 60 * 1000)         /* The timeout of BT visibility. */
 
-
+errrrrrrrrrrrrrrrrrr
 #ifdef APPS_SLEEP_AFTER_NO_CONNECTION
 #define APPS_TIMEOUT_OF_SLEEP_AFTER_NO_CONNECTION   (5 * 60 * 1000)     /* The waiting time (ms) before sleep */
 #define APPS_TIMEOUT_OF_SLEEP_OF_SILENCE_DETECT     (20 * 60 * 1000)    /* The waiting time (ms) before sleep after silence detected. */

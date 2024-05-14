@@ -713,7 +713,7 @@ static void app_hear_through_activity_handle_ambient_control_switch()
             app_hear_through_switch_on_off(true, true);
 
   		// richard for customer UI spec.
-		voice_prompt_play_sync_vp_hearing_through();
+		//voice_prompt_play_sync_vp_hearing_through();
       anc_eastech_spec=1;
       app_hearing_aid_key_handler_proc_mode_up_circular();  // harry add for anc new feature
       }

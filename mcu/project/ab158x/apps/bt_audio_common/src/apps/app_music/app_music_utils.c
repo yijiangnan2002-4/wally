@@ -106,6 +106,7 @@ extern bt_le_sink_srv_music_active_handle g_music_active_handle;
 #include "app_dongle_service.h"
 #include "apps_dongle_sync_event.h"
 #endif
+#include "apps_customer_config.h"
 
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
 uint8_t g_music_in_ear_config = APP_MUSIC_IN_EAR_NONE;        /**<  Record the music in ear config. */
@@ -621,7 +622,7 @@ bool app_music_idle_proc_bt_sink_events(ui_shell_activity_t *self, uint32_t even
 
     if (event_id == BT_SINK_SRV_EVENT_STATE_CHANGE) {
         bt_sink_srv_state_change_t *param = (bt_sink_srv_state_change_t *) extra_data;
-        APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_proc_bt_sink_events param->pre=0x%x,  param->now=0x%x, is_playing=%d, isAutoPaused=%d",
+        APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_idle_proc_bt_sink_events param->pre=0x%x,  param->now=0x%x, is_playing=%d, isAutoPaused=%d",
                          4, param->previous, param->current, local_context->music_playing, local_context->isAutoPaused);
         /* Try to start app_music_activity when the music starts playing. */
         if ((param->previous != BT_SINK_SRV_STATE_STREAMING) && (param->current == BT_SINK_SRV_STATE_STREAMING)) {
@@ -642,7 +643,7 @@ bool app_music_idle_proc_bt_sink_events(ui_shell_activity_t *self, uint32_t even
         bt_sink_srv_event_param_t *event = (bt_sink_srv_event_param_t *)extra_data;
         bt_sink_srv_state_t bt_sink_state = bt_sink_srv_get_state();
         bt_avrcp_status_t avrcp_status = event->avrcp_status_change.avrcp_status;
-        APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_proc_bt_event: avrcp_status=0x%x, sink_state=0x%x",
+        APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_idle_proc_bt_sink_events: avrcp_status=0x%x, sink_state=0x%x",
                          2, avrcp_status, bt_sink_state);
         if (BT_AVRCP_STATUS_PLAY_PLAYING == avrcp_status) {
             app_music_add_avrcp_status(event);
@@ -672,11 +673,12 @@ bool app_music_idle_proc_bt_sink_events(ui_shell_activity_t *self, uint32_t even
 #endif
     if (event_id == BT_SINK_SRV_EVENT_STATE_CHANGE
         || event_id == BT_SINK_SRV_EVENT_AVRCP_STATUS_CHANGE) {
-        APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_proc_bt_sink_events music_streaming_state=0x%x",
-                         1, local_context->music_streaming_state);
+        APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_idle_proc_bt_sink_events music_streaming_state=0x%x,music_playing=0x%x",
+                         2, local_context->music_streaming_state,local_context->music_playing);
         if (local_context->music_streaming_state != 0 && !local_context->music_playing) {
             local_context->music_playing = true;
             local_context->isAutoPaused = false;
+            APPS_LOG_MSGID_W(APP_MUSIC_UTILS" app_music_idle_proc_bt_sink_events ui_shell_start_activity 11 app_music_activity_proc",0);
             ui_shell_start_activity(self, app_music_activity_proc, ACTIVITY_PRIORITY_MIDDLE, local_context, 0);
         } else if (local_context->music_streaming_state == 0) {
             local_context->music_playing = false;
@@ -786,6 +788,7 @@ bool app_music_idle_proc_aws_data_events(ui_shell_activity_t *self, uint32_t eve
                    && action == APPS_EVENTS_INTERACTION_SYNC_BT_AVRCP_STATUS_TO_PEER) {
             bt_sink_srv_event_param_t *avrcp_data = (bt_sink_srv_event_param_t *)p_extra_data;
             if (BT_AWS_MCE_ROLE_PARTNER == bt_connection_manager_device_local_info_get_aws_role()) {
+        APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_proc_aws_data_events call app_music_idle_proc_bt_sink_events", 0);
                 app_music_idle_proc_bt_sink_events(self, BT_SINK_SRV_EVENT_AVRCP_STATUS_CHANGE, avrcp_data, extra_data_len);
             }
         } else if (event_group == EVENT_GROUP_UI_SHELL_APP_INTERACTION
@@ -803,6 +806,8 @@ bool app_music_idle_proc_aws_data_events(ui_shell_activity_t *self, uint32_t eve
                             if (s_app_music_avrcp_status.avrcp_device[i].is_playing) {
                                 local_context->isAutoPaused = false;
                                 local_context->music_playing = true;
+            //APPS_LOG_MSGID_W(APP_MUSIC_UTILS" app_music_idle_proc_bt_sink_events app_music_idle_proc_aws_data_events 22 app_music_activity_proc",0);
+            APPS_LOG_MSGID_W(APP_MUSIC_UTILS"  app_music_idle_proc_aws_data_events ui_shell_start_activity 22 app_music_activity_proc",0);
                                 ui_shell_start_activity(self, app_music_activity_proc, ACTIVITY_PRIORITY_MIDDLE, local_context, 0);
                                 break;
                             }
@@ -901,6 +906,7 @@ bool app_music_idle_proc_gsound_reject_action(ui_shell_activity_t *self, bt_sink
             if (bt_status == BT_STATUS_SUCCESS) {
                 if (!local_ctx->music_playing) {
                     local_ctx->isAutoPaused = false;
+            APPS_LOG_MSGID_W(APP_MUSIC_UTILS" app_music_idle_proc_gsound_reject_action ui_shell_start_activity 33 app_music_activity_proc",0);
                     ui_shell_start_activity(self, app_music_activity_proc, ACTIVITY_PRIORITY_MIDDLE, local_ctx, 0);
                     local_ctx->music_playing = true;
                 }
@@ -919,7 +925,6 @@ bool app_music_idle_proc_gsound_reject_action(ui_shell_activity_t *self, bt_sink
     return ret;
 }
 #endif
-
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
 /**
 * @brief      This function is used to resume music when the earbud was put into the ear.
@@ -938,7 +943,12 @@ static bool app_music_idle_check_and_start_music(struct _ui_shell_activity *self
                      5, sta_info->current, sta_info->previous, ctx->isAutoPaused, avrcp_is_playing, temp_music_in_ear_config);
 
     /* Resume music when the earbud was put into the ear. */
-    if (ctx->isAutoPaused && sta_info->previous != APP_IN_EAR_STA_BOTH_IN && sta_info->current != APP_IN_EAR_STA_BOTH_OUT) {
+    #ifdef EASTECH_IRSENSER_ADVANCED_CONTROL
+    if (sta_info->previous != APP_IN_EAR_STA_BOTH_IN && sta_info->current != APP_IN_EAR_STA_BOTH_OUT) 
+    #else
+    if (ctx->isAutoPaused && sta_info->previous != APP_IN_EAR_STA_BOTH_IN && sta_info->current != APP_IN_EAR_STA_BOTH_OUT) 
+    #endif
+      {
         //if (!avrcp_is_playing) {
             if (APP_MUSIC_IN_EAR_AUTO_PAUSE_RESUME == temp_music_in_ear_config) {
                 bt_status_t bt_status = app_music_send_actions_by_address(BT_SINK_SRV_ACTION_PLAY);
@@ -964,7 +974,7 @@ static bool app_music_idle_check_and_start_music(struct _ui_shell_activity *self
                 if (bt_status == BT_STATUS_SUCCESS) {
                     //ctx->music_playing = false;
                     ctx->isAutoPaused = true;
-                    APPS_LOG_MSGID_I(APP_MUSIC_UTILS"  auto play music", 0);
+                    APPS_LOG_MSGID_I(APP_MUSIC_UTILS"  isAutoPaused", 0);
                 }
             }
         }

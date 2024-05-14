@@ -142,8 +142,21 @@ bt_status_t bt_sink_srv_send_action(bt_sink_srv_action_t action, void *parameter
 {
     bt_status_t result = BT_STATUS_SUCCESS;
     uint32_t action_module = (action & 0xF8F00000);
+    if(action==BT_SINK_SRV_ACTION_PAUSE)
+      {
+            bt_sink_srv_report_id("[LE_BT][Sink]bt_sink_srv_send_action BT_SINK_SRV_ACTION_PAUSE ", 0);
+      }
+    else if(action==BT_SINK_SRV_ACTION_PLAY)
+      {
+            bt_sink_srv_report_id("[LE_BT][Sink]bt_sink_srv_send_action BT_SINK_SRV_ACTION_PLAY ", 0);
+      }
+    else if(action==BT_SINK_SRV_ACTION_PLAY_PAUSE)
+      {
+            bt_sink_srv_report_id("[LE_BT][Sink]bt_sink_srv_send_action BT_SINK_SRV_ACTION_PLAY_PAUSE ", 0);
+      }
 
     if (BT_MODULE_CUSTOM_SINK == action_module) {
+            bt_sink_srv_report_id("[LE_BT][Sink]bt_sink_srv_send_action action_module=BT_MODULE_CUSTOM_SINK ", 0);
 #ifdef AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE
         result = bt_sink_srv_state_manager_action_handler(action, parameters);
 #else

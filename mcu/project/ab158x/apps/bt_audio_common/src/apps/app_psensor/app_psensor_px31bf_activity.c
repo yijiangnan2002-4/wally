@@ -887,7 +887,7 @@ static bool _proc_apps_internal_events(
 			ret = true;
 			break;
 		}
-#ifdef MTK_IN_EAR_FEATURE_ENABLE
+#if 0//def MTK_IN_EAR_FEATURE_ENABLE
 		case APPS_EVENTS_INTERACTION_IN_EAR_UPDATE_STA: 
 		{
 			app_in_ear_sta_info_t *sta_info = (app_in_ear_sta_info_t *)extra_data;
@@ -897,14 +897,16 @@ static bool _proc_apps_internal_events(
 				|| mmi_state == APP_HFP_MULTITPART_CALL || mmi_state == APP_STATE_HELD_ACTIVE)
 			{	
 				app_psensor_process_input_t *p_process_input = (app_psensor_process_input_t *)pvPortMalloc(sizeof(app_psensor_process_input_t)); /* free by ui shell */
-				p_process_input->event = ((sta_info->inout_ear == 1)? APP_PROXIMITY_SENSOR_EVENT_INEAR : APP_PROXIMITY_SENSOR_EVENT_OUTEAR);
-				p_process_input->lr_source = sta_info->trigger_channel;
+//				p_process_input->event = ((sta_info->inout_ear == 1)? APP_PROXIMITY_SENSOR_EVENT_INEAR : APP_PROXIMITY_SENSOR_EVENT_OUTEAR);
+//				p_process_input->lr_source = sta_info->trigger_channel;
 #ifdef BLE_ZOUND_ENABLE
+
+//errrrrrrrrrrrrrrrrrrrrrr
 				p_process_input->previous = sta_info->previous;
 				p_process_input->current = sta_info->current;
-				p_process_input->trigger_channel = sta_info->trigger_channel;
-				p_process_input->inout_ear = sta_info->inout_ear;
-				p_process_input->cus_needResumePlay = sta_info->cus_needResumePlay;
+//				p_process_input->trigger_channel = sta_info->trigger_channel;
+//				p_process_input->inout_ear = sta_info->inout_ear;
+//				p_process_input->cus_needResumePlay = sta_info->cus_needResumePlay;
 #endif
 				ui_shell_remove_event(EVENT_GROUP_UI_SHELL_PSENSOR, EVENT_ID_PSENSOR_SWITCH_AUDIO);
 				ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_PSENSOR, EVENT_ID_PSENSOR_SWITCH_AUDIO,

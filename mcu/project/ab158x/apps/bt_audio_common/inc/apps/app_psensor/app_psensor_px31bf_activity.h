@@ -67,9 +67,9 @@ typedef struct{
     app_psensor_event_t event;
     uint8_t previous;      /**<  The previous state of earbuds. */
     uint8_t current;       /**<  The current state of earbuds. */
-	uint8_t trigger_channel;
-	uint8_t inout_ear;	
-	uint8_t cus_needResumePlay;
+//	uint8_t trigger_channel;
+//	uint8_t inout_ear;	
+//	uint8_t cus_needResumePlay;
 } app_psensor_process_input_t;
 
 

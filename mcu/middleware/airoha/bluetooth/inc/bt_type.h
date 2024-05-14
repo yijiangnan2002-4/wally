@@ -122,7 +122,7 @@ typedef uint8_t bt_role_t;  /**< Define the role type. */
 #define BT_MODULE_RFCOMM                (0x0BU<<BT_MODULE_OFFSET) /**< Prefix of the RFCOMM module. 0x2C000000*/
 #define BT_MODULE_HFP                   (0x0CU<<BT_MODULE_OFFSET) /**< Prefix of the HFP module. 0x30000000*/
 #define BT_MODULE_SPP                   (0x0DU<<BT_MODULE_OFFSET) /**< Prefix of the SPP module. 0x34000000*/
-#define BT_MODULE_AVRCP                 (0x0EU<<BT_MODULE_OFFSET) /**< Prefix of the SPP module. 0x38000000*/
+#define BT_MODULE_AVRCP                 (0x0EU<<BT_MODULE_OFFSET) /**< Prefix of the AVRCP module. 0x38000000*/
 #define BT_MODULE_A2DP                  (0x0FU<<BT_MODULE_OFFSET) /**< Prefix of the A2DP module. 0x3C000000*/
 #define BT_MODULE_GOEP                  (0x10U<<BT_MODULE_OFFSET) /**< Prefix of the GOEP module. 0x40000000*/
 #define BT_MODULE_PBAPC                 (0x11U<<BT_MODULE_OFFSET) /**< Prefix of the PBAPC module. 0x44000000*/

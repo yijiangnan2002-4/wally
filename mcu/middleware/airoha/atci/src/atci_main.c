@@ -338,7 +338,7 @@ static void atci_mux_callback(mux_handle_t handle, mux_event_t event, uint32_t d
 #ifdef MTK_RACE_CMD_ENABLE
     atci_port_info_t *p_info = atci_get_port_info(RACE_GET_PORT_BY_MUX_HANDLE(handle));
     atci_general_msg_t msg_item;
-    ATCI_LOG_I("atci_mux_callback, event:%d, p_info:0x%x", 2, event, (uint32_t)p_info);
+    //ATCI_LOG_I("atci_mux_callback, event:%d, p_info:0x%x", 2, event, (uint32_t)p_info);
     if (NULL == p_info) {
         return;
     }

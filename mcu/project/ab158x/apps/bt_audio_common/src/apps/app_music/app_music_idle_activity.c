@@ -382,6 +382,7 @@ bool app_music_idle_proc_ull_events(ui_shell_activity_t *self,
                 local_ctx->music_streaming_state |= APP_MUSIC_STEAMING_STATE_ULL_STATE;
                 local_ctx->isAutoPaused = false;
                 local_ctx->music_playing = true;
+            APPS_LOG_MSGID_W(APP_MUSIC_UTILS" app_music_idle_proc_ull_events ui_shell_start_activity 44 app_music_activity_proc",0);
                 ui_shell_start_activity(self, app_music_activity_proc, ACTIVITY_PRIORITY_MIDDLE, local_ctx, 0);
                 APPS_LOG_MSGID_I(APP_MUSIC_UTILS" app_music_idle_proc_ull_events-START_IND", 0);
             }

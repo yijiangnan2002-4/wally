@@ -87,7 +87,7 @@ typedef enum {
 /**
  *  @brief This structure defines the state information.
  */
-#if 0	// richard for customer UI spec
+#if 1	// richard for customer UI spec
 typedef struct {
     app_in_ear_state_t previous;      /**<  The previous state of earbuds. */
     app_in_ear_state_t current;       /**<  The current state of earbuds. */

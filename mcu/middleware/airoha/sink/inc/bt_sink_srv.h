@@ -272,7 +272,7 @@ typedef uint32_t bt_sink_srv_event_t;
 #define BT_SINK_MODULE_USER_EVENT     ((BT_SINK_MODULE_USER)   | (0x1U << BT_SINK_MODULE_SUB_TYPE_OFFSET))  /**< Prefix of the User custom event. 0xF81F1000*/
 
 /* Common event */
-#define BT_SINK_SRV_EVENT_STATE_CHANGE          (BT_SINK_MODULE_COMMON_EVENT | 0x000U)  /**< This event indicates the status of sink service has changed. 0xF8111000*/
+#define BT_SINK_SRV_EVENT_STATE_CHANGE          (BT_SINK_MODULE_COMMON_EVENT | 0x000U)  /**< This event indicates the status of sink service has changed. 0xF8111000  0xF8112000 harrr mark*/
 #define LE_SINK_SRV_EVENT_REMOTE_INFO_UPDATE    (BT_SINK_MODULE_COMMON_EVENT | 0x001U)  /**< This event indicates the status of le audio . 0xF8111001*/
 #define BT_SINK_SRV_EVENT_PLAYING_DEVICE_CHANGE (BT_SINK_MODULE_COMMON_EVENT | 0x002U)  /**< This event indicates the playing device of sink service has changed. 0xF81110002*/
 
@@ -287,7 +287,7 @@ typedef uint32_t bt_sink_srv_event_t;
 #define BT_SINK_SRV_EVENT_HF_RING_IND                   (BT_SINK_MODULE_HFP_EVENT | 0x007U)   /**< This event indicates the ring tone can be played by application. 0xF8121007*/
 #define BT_SINK_SRV_EVENT_HF_TWC_RING_IND               (BT_SINK_MODULE_HFP_EVENT | 0x008U)   /**< This event indicates the three-way ring tone can be played by application. 0xF8121008*/
 /* AVRCP event*/
-#define BT_SINK_SRV_EVENT_AVRCP_STATUS_CHANGE           (BT_SINK_MODULE_AVRCP_EVENT | 0x000U) /**<AVRCP status change*/
+#define BT_SINK_SRV_EVENT_AVRCP_STATUS_CHANGE           (BT_SINK_MODULE_AVRCP_EVENT | 0x000U) /**<AVRCP status change  0xf815 2000*/
 
 #define BT_SINK_SRV_EVENT_AVRCP_GET_ELEMENT_ATTRIBUTES_CNF     (BT_SINK_MODULE_AVRCP_EVENT | 0x001U)    /**< This event indicates the result of getting element attributes with the parameter #bt_sink_srv_avrcp_get_element_attributes_cnf_t. */
 #define BT_SINK_SRV_EVENT_AVRCP_GET_PLAY_STATUS_CNF            (BT_SINK_MODULE_AVRCP_EVENT | 0x002U)    /**< This event indicates the result of getting element attributes with the parameter #bt_sink_srv_avrcp_get_play_status_cnf_t. */
