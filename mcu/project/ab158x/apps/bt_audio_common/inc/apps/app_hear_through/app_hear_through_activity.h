@@ -88,7 +88,7 @@ bool app_hear_through_activity_proc(ui_shell_activity_t *self,
 void app_hear_through_activity_switch_to_hear_through();
 
 void app_hear_through_activity_switch_ambient_control();
-void app_hear_through_activity_switch_ambient_control1();	// richard for UI
+void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode);	// richard for UI
 
 void app_hear_through_activity_handle_anc_switched(bool need_sync, bool anc_enable);
 

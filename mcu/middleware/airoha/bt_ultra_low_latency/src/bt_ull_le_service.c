@@ -3486,9 +3486,9 @@ static bt_status_t bt_ull_le_srv_send_configuration(bt_handle_t handle)
 }
 
 #if 1	// richard for ab1571d command processing
-extern void key_volumeup_proc(void);
-extern void key_volumedown_proc(void);
-extern void key_avrcp_next_proc(void);
+extern void key_volumeup_proc(uint8_t volume_up_mode);
+extern void key_volumedown_proc(uint8_t volume_down_mode);
+extern void key_avrcp_next_proc(uint8_t vol_m_flag);
 extern void key_avrcp_prev_proc(void);
 extern void key_switch_anc_and_passthrough_proc(void);
 extern bool key_multifunction_short_click();
@@ -3517,30 +3517,44 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 	switch(temp_command_no)
 	{
 		case 0:			// key0: volume up
-			if((temp_command_data==1)||(temp_command_data==0x38))	// SP and repeat P
+			if(temp_command_data==1)			// SP
 			{
-				key_volumeup_proc();
+				key_volumeup_proc(0);
 			}
+			else if(temp_command_data==2)		// DP
+			{
+				key_avrcp_next_proc(0);
+			}
+			else if(temp_command_data==0x22)	// LP2
+			{
+				key_volumeup_proc(1);
+			}
+			
 			break;
 		case 1:			// key1: volume down
-			if((temp_command_data==1)||(temp_command_data==0x38))	// SP and repeat P
+			if(temp_command_data==1)			// SP
 			{
-				key_volumedown_proc();
+				key_volumedown_proc(0);
 			}
+			else if(temp_command_data==2)		// DP
+			{
+				key_avrcp_prev_proc();
+			}			
+			else if(temp_command_data==0x22)	// LP2
+			{
+				key_volumedown_proc(1);			
+			}
+			
 			break;
 		case 2:			// Multi-function
 			if(temp_command_data==1)									// SP
 			{
 				key_multifunction_short_click();
 			}
-			else if(temp_command_data==2)								// DP
+			else if(temp_command_data==2)		// DP
 			{
-				key_avrcp_next_proc();
-			}
-			else if(temp_command_data==3)								// TP
-			{
-				key_avrcp_prev_proc();
-			}
+				key_avrcp_next_proc(1);
+			}			
 			else if(temp_command_data==0x22)							// LP2
 			{
 				key_switch_anc_and_passthrough_proc();

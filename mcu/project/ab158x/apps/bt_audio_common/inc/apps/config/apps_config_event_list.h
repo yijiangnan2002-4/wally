@@ -259,6 +259,8 @@ typedef enum {
     KEY_CUSTOMER_SLONG_PRESS_RELEASE = 0xF00F,
     KEY_TEST_TWS_CLEAN = 0xF010,
     KEY_SWITCH_ANC_AND_PASSTHROUGH1= 0xF011,
+    KEY_SWITCH_WORLD_MODE			= 0xF012,
+    KEY_HA_FLAG_CLEAR					= 0xF013,
     
 } apps_config_key_action_t;
 

@@ -527,7 +527,7 @@ errrrrrrrrrrrrrrrrrrrrr
         ret = true;
         #endif
     }	else if(KEY_SWITCH_ANC_AND_PASSTHROUGH1== key_action) {		// richard for UI
-        app_hear_through_activity_switch_ambient_control1();
+        app_hear_through_activity_switch_ambient_control1(0);
 
 #if 1	// richard for UI spec.
 			ab1585h_command_no=5;	// 4: anc ha mode
@@ -540,7 +540,20 @@ errrrrrrrrrrrrrrrrrrrrr
 			BT_send_data_proc();
 #endif
         return true;
-    
+    }	else if(KEY_SWITCH_WORLD_MODE== key_action) {		// richard for UI
+        app_hear_through_activity_switch_ambient_control1(1);
+
+#if 1	// richard for UI spec.
+			ab1585h_command_no=5;	// 4: anc ha mode
+			if(anc_ha_flag)
+			{
+				ab1585h_command_data=get_current_ha_mode();
+				ab1585h_command_data++;
+			}
+			else ab1585h_command_data=0;
+			BT_send_data_proc();
+#endif
+        return true;
     } else if (KEY_SWITCH_ANC_AND_PASSTHROUGH == key_action) {
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 //errrrrrrrrrrrrrrrrrrrrr
@@ -792,6 +805,8 @@ static bool _proc_ui_shell_group(struct _ui_shell_activity *self,
     return ret;
 }
 
+extern uint8_t not_play_prompt_flag;		// richard for UI spec
+extern void delay_play_ha_prompt_proc(void);
 static bool _proc_key_event_group(ui_shell_activity_t *self,
                                   uint32_t event_id,
                                   void *extra_data,
@@ -837,6 +852,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         || (action == KEY_ANC)
         || (action == KEY_SWITCH_ANC_AND_PASSTHROUGH)
         || (action == KEY_SWITCH_ANC_AND_PASSTHROUGH1)		// richard for UI
+        || (action == KEY_SWITCH_WORLD_MODE)
         || (action == KEY_BETWEEN_ANC_PASSTHROUGH)
 #endif
         || (action == KEY_FACTORY_RESET)
@@ -1029,7 +1045,8 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         case KEY_PASS_THROUGH:
         case KEY_ANC:
         case KEY_SWITCH_ANC_AND_PASSTHROUGH:
-        case KEY_SWITCH_ANC_AND_PASSTHROUGH1:	// richard for UI		
+        case KEY_SWITCH_ANC_AND_PASSTHROUGH1:	// richard for UI
+        case KEY_SWITCH_WORLD_MODE:
         case KEY_BETWEEN_ANC_PASSTHROUGH:
         case KEY_ANC_GAIN:
         case KEY_ANC_ON:
@@ -1039,6 +1056,12 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             ret = app_home_screen_process_anc_and_pass_through(self, action);
             break;
 #endif
+		case KEY_HA_FLAG_CLEAR:		// richard for UI spec.
+			not_play_prompt_flag=0;
+			delay_play_ha_prompt_proc();
+			ret = true;
+			break;
+			
 		case KEY_TEST_FACTORY_RESET:	// richard for customer UI spec
         case KEY_FACTORY_RESET:
 #ifdef MTK_AWS_MCE_ENABLE
@@ -1300,6 +1323,7 @@ static bool homescreen_app_aws_data_proc(ui_shell_activity_t *self, uint32_t eve
                         || (aws_event_id == KEY_ANC)
                         || (aws_event_id == KEY_SWITCH_ANC_AND_PASSTHROUGH)
                         || (aws_event_id == KEY_SWITCH_ANC_AND_PASSTHROUGH1)		// richard for UI
+                        || (aws_event_id == KEY_SWITCH_WORLD_MODE)
                         || (aws_event_id == KEY_BETWEEN_ANC_PASSTHROUGH)
 #endif
                         || (aws_event_id == KEY_FACTORY_RESET)

@@ -258,21 +258,22 @@ uint8_t Is_earbuds_agent_proc(void)
 }
 
 extern uint8_t anc_ha_flag;
-void key_volumeup_proc(void)
+void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
 
-	if(anc_ha_flag)
+	if(volume_up_mode==0)
 	{
-		*p_key_action = KEY_HEARING_AID_VOLUME_UP;	// KEY_HEARING_AID_LEVEL_UP	
+//		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
+//		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
+		*p_key_action = KEY_VOICE_UP;
 	}
 	else
 	{
-		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
+		if(anc_ha_flag)
 		{
-			*p_key_action = KEY_VOICE_UP;
+			*p_key_action = KEY_HEARING_AID_VOLUME_UP;	// KEY_HEARING_AID_LEVEL_UP
 		}
 	}
 
@@ -286,21 +287,22 @@ void key_volumeup_proc(void)
   	}		
 }
 
-void key_volumedown_proc(void)
+void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
 
-	if(anc_ha_flag)
+	if(volume_down_mode==0)
 	{
-		*p_key_action = KEY_HEARING_AID_VOLUME_DOWN;	//	KEY_HEARING_AID_LEVEL_DOWN
+//		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
+//		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
+		*p_key_action = KEY_VOICE_DN;
 	}
 	else
 	{
-		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
+		if(anc_ha_flag)
 		{
-			*p_key_action = KEY_VOICE_DN;
+			*p_key_action = KEY_HEARING_AID_VOLUME_DOWN;	// KEY_HEARING_AID_LEVEL_DOWN
 		}
 	}
 
@@ -314,25 +316,32 @@ void key_volumedown_proc(void)
     	}		
 }
 
-void key_avrcp_next_proc(void)
+void key_avrcp_next_proc(uint8_t vol_m_flag)			// 0: VOLUP_DP, 1: MBUTTON_DP
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
-	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-	if(app_mmi_state == APP_HFP_INCOMING)
+
+	if(vol_m_flag==0)
 	{
-		*p_key_action = KEY_REJCALL;
-	}
-	else if(app_mmi_state == APP_HFP_CALLACTIVE || app_mmi_state == APP_HFP_CALLACTIVE_WITHOUT_SCO || app_mmi_state == APP_HFP_MULTITPART_CALL
-			||app_mmi_state == APP_HFP_OUTGOING || app_mmi_state == APP_STATE_HELD_ACTIVE || app_mmi_state == APP_HFP_TWC_OUTGOING)
-	{
-		*p_key_action = KEY_END_CALL;
+		*p_key_action = KEY_AVRCP_FORWARD;	
 	}
 	else
 	{
-		*p_key_action = KEY_AVRCP_FORWARD;
+		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
+		if(app_mmi_state == APP_HFP_INCOMING)
+		{
+			*p_key_action = KEY_REJCALL;
+		}
+		else if(app_mmi_state == APP_HFP_CALLACTIVE || app_mmi_state == APP_HFP_CALLACTIVE_WITHOUT_SCO || app_mmi_state == APP_HFP_MULTITPART_CALL
+			||app_mmi_state == APP_HFP_OUTGOING || app_mmi_state == APP_STATE_HELD_ACTIVE || app_mmi_state == APP_HFP_TWC_OUTGOING)
+		{
+			*p_key_action = KEY_END_CALL;
+		}
+		else
+		{
+			*p_key_action = KEY_SWITCH_WORLD_MODE;
+		}
 	}
-
 
     	if (p_key_action)
 	{
@@ -365,6 +374,20 @@ void key_switch_anc_and_passthrough_proc(void)
 	{
 		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH1;
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+    	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}		
+}
+
+void key_ha_flag_clear_proc(void)
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t));
+    	if (p_key_action)
+	{
+		*p_key_action = KEY_HA_FLAG_CLEAR;
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 250);
     	}
     	else
     	{

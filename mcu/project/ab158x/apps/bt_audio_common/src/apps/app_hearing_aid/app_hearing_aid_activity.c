@@ -260,6 +260,7 @@ void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
 #endif /* AIR_TWS_ENABLE */
 }
 
+extern uint8_t not_play_prompt_flag;
 void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 {
     bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
@@ -274,9 +275,16 @@ void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 
     else
     {
-    		if(index<3)		// richard for UI
+		if(not_play_prompt_flag==0)	// richard for UI
         app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
     }
+}
+
+void delay_play_ha_prompt_proc(void)
+{
+	uint8_t mode_index = 0;
+	audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
+	app_hearing_aid_activity_play_mode_index_vp(mode_index, true);
 }
 
 void app_hearing_aid_activity_play_ha_on_vp(bool enable, bool need_mode_vp, bool need_sync_play)

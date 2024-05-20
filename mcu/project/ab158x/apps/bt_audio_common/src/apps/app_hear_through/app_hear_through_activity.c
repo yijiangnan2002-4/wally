@@ -772,7 +772,7 @@ static void app_hear_through_activity_handle_ambient_control_switch1()
             app_hear_through_switch_on_off(true, true);
 
   		// richard for customer UI spec.
-		voice_prompt_play_sync_vp_hearing_through();
+//		voice_prompt_play_sync_vp_hearing_through();
         }
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC: {
@@ -2425,7 +2425,9 @@ void app_hear_through_activity_switch_ambient_control()
 }
 
 #if 1	// richard for UI requirement
-void app_hear_through_activity_switch_ambient_control1()
+uint8_t not_play_prompt_flag=0;
+extern void key_ha_flag_clear_proc(void);
+void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode)		// 0: switch ha/anc; 1: switch ha mode
 {
 #if defined(MTK_FOTA_ENABLE) && defined (MTK_FOTA_VIA_RACE_CMD)
         if (app_hear_through_ctx.is_ota_ongoing == true) {
@@ -2435,15 +2437,23 @@ void app_hear_through_activity_switch_ambient_control1()
 #endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
 
 	uint8_t old_mode_index = app_hear_through_ctx.mode_index;
-
-	if (app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)
-    	{
-		uint8_t mode_index = 0;
-		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
-		if(mode_index<2)
+	if(switch_ha_or_mode==0)		// switch ha/anc
+	{
+		if (app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)
+    		{		// switch to ANC
+			app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC;
+			anc_ha_flag=0;
+			app_hear_through_activity_handle_mode_index_changed1();
+	    	}
+		else
 		{
-			mode_index++;
+			uint8_t mode_index = 0;
+			audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
+			app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH;
 			anc_ha_flag=1;
+			not_play_prompt_flag=1;
+			key_ha_flag_clear_proc();
+			app_hear_through_activity_handle_mode_index_changed1();			
 #ifdef AIR_TWS_ENABLE
 			if (app_hearing_aid_aws_is_connected() == true) {
 				app_hearing_aid_aws_index_change_t change = {0};
@@ -2460,34 +2470,33 @@ void app_hear_through_activity_switch_ambient_control1()
 			}
 #endif /* AIR_TWS_ENABLE */
 		}
-		else			// switch to ANC
-		{
-			app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC;
-			anc_ha_flag=0;
-			app_hear_through_activity_handle_mode_index_changed1();
-		}
-    	}
+	}
 	else
 	{
-		app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH;
-		anc_ha_flag=1;
-		app_hear_through_activity_handle_mode_index_changed1();
+		if (app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)
+    		{
+			uint8_t mode_index = 0;
+			audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
+			if(mode_index<2)
+				mode_index++;
+			else mode_index=0;
+			anc_ha_flag=1;
 #ifdef AIR_TWS_ENABLE
-		if (app_hearing_aid_aws_is_connected() == true) {
-			app_hearing_aid_aws_index_change_t change = {0};
-			change.index = 0;
-			app_hearing_aid_aws_send_operate_command(APP_HEARING_AID_OP_COMMAND_CHANGE_MODE,
+			if (app_hearing_aid_aws_is_connected() == true) {
+				app_hearing_aid_aws_index_change_t change = {0};
+				change.index = mode_index;
+				app_hearing_aid_aws_send_operate_command(APP_HEARING_AID_OP_COMMAND_CHANGE_MODE,
                                                 (uint8_t *)&change,
                                                 sizeof(app_hearing_aid_aws_index_change_t),
                                                 true,
                                                 APP_HEARING_AID_SYNC_EVENT_DEFAULT_TIMEOUT);
 			} else {
 #endif /* AIR_TWS_ENABLE */
-				app_hearing_aid_key_handler_adjust_mode(0, true);
+				app_hearing_aid_key_handler_adjust_mode(mode_index, true);
 #ifdef AIR_TWS_ENABLE
 			}
 #endif /* AIR_TWS_ENABLE */
-		
+    		}
 	}
 }
 #endif
