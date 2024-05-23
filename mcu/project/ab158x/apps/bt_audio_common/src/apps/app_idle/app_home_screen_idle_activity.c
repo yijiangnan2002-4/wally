@@ -805,8 +805,6 @@ static bool _proc_ui_shell_group(struct _ui_shell_activity *self,
     return ret;
 }
 
-extern uint8_t not_play_prompt_flag;		// richard for UI spec
-extern void delay_play_ha_prompt_proc(void);
 static bool _proc_key_event_group(ui_shell_activity_t *self,
                                   uint32_t event_id,
                                   void *extra_data,
@@ -1056,11 +1054,6 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             ret = app_home_screen_process_anc_and_pass_through(self, action);
             break;
 #endif
-		case KEY_HA_FLAG_CLEAR:		// richard for UI spec.
-			not_play_prompt_flag=0;
-			delay_play_ha_prompt_proc();
-			ret = true;
-			break;
 			
 		case KEY_TEST_FACTORY_RESET:	// richard for customer UI spec
         case KEY_FACTORY_RESET:

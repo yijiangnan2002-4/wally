@@ -260,7 +260,7 @@ void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
 #endif /* AIR_TWS_ENABLE */
 }
 
-extern uint8_t not_play_prompt_flag;
+#if 0
 void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 {
     bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
@@ -275,17 +275,15 @@ void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 
     else
     {
-		if(not_play_prompt_flag==0)	// richard for UI
         app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
     }
 }
-
-void delay_play_ha_prompt_proc(void)
+#else
+void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 {
-	uint8_t mode_index = 0;
-	audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
-	app_hearing_aid_activity_play_mode_index_vp(mode_index, true);
+    app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
 }
+#endif
 
 void app_hearing_aid_activity_play_ha_on_vp(bool enable, bool need_mode_vp, bool need_sync_play)
 {
@@ -1962,6 +1960,7 @@ static bool app_hearing_aid_activity_proc_sys_event(uint32_t event_id,
  * @return true
  * @return false
  */
+ #if 0
 static bool app_hearing_aid_activity_proc_key_event(uint32_t event_id,
                                                     void *extra_data,
                                                     size_t data_len)
@@ -2012,6 +2011,34 @@ static bool app_hearing_aid_activity_proc_key_event(uint32_t event_id,
      */
     return app_hearing_aid_key_handler_processing(key_id);
 }
+#else
+static bool app_hearing_aid_activity_proc_key_event(uint32_t event_id,
+                                                    void *extra_data,
+                                                    size_t data_len)
+{
+    uint16_t key_id = *(uint16_t *)extra_data;
+
+    if ((key_id < KEY_HEARING_AID_BEGIN) || (key_id > KEY_HEARING_AID_END)) {
+        return false;
+    }
+
+    bool user_switch = app_hearing_aid_utils_is_ha_user_switch_on();
+    if ((user_switch == false) || (app_ha_activity_context.inited == false)) {
+#if APP_HEARING_AID_DEBUG_ENABLE
+        APPS_LOG_MSGID_E(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_key_event] Not ready to process key event, %d - %d",
+                            2,
+                            app_ha_activity_context.inited,
+                            user_switch);
+#endif /* APP_HEARING_AID_DEBUG_ENABLE */
+        return false;
+    }
+
+    /**
+     * @brief Handle the key event locally.
+     */
+    return app_hearing_aid_key_handler_processing(key_id);
+}
+#endif
 
 /**
  * @brief Process BT Sink Service event

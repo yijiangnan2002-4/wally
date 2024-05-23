@@ -381,20 +381,6 @@ void key_switch_anc_and_passthrough_proc(void)
     	}		
 }
 
-void key_ha_flag_clear_proc(void)
-{
-	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t));
-    	if (p_key_action)
-	{
-		*p_key_action = KEY_HA_FLAG_CLEAR;
-		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 250);
-    	}
-    	else
-    	{
-        	vPortFree(p_key_action);
-    	}		
-}
-
 bool key_multifunction_short_click()
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell

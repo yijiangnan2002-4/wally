@@ -672,6 +672,8 @@ static void app_hearing_through_activity_leave_hear_through_mode()
 
     app_hear_through_notify_switch_state_change(false);
 }
+
+#if 0
 static void app_hear_through_activity_handle_ambient_control_switch()
 {
     /**
@@ -731,9 +733,8 @@ static void app_hear_through_activity_handle_ambient_control_switch()
         return;
     }
 }
-
-// richard for UI
-static void app_hear_through_activity_handle_ambient_control_switch1()
+#else	// richard for UI
+static void app_hear_through_activity_handle_ambient_control_switch()
 {
     /**
      * @brief Make the anc_changed to be true firstly
@@ -789,7 +790,7 @@ static void app_hear_through_activity_handle_ambient_control_switch1()
         return;
     }
 }
-
+#endif
 
 static void app_hear_through_activity_handle_anc_state_changed()
 {
@@ -2323,9 +2324,7 @@ bool app_hear_through_activity_is_out_case()
 static void app_hear_through_activity_handle_mode_index_changed()
 {
 
-    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"app_hear_through_activity aws connect=%d", 1,app_hear_through_is_aws_connected());
 #ifdef AIR_TWS_ENABLE
-//errrrrrrrrrrrrrrrrrrrr
     if (app_hear_through_is_aws_connected() == true) {
         app_hear_through_sync_ambient_control_switch_t mode_switch;
         mode_switch.mode_index = app_hear_through_ctx.mode_index;
@@ -2337,34 +2336,9 @@ static void app_hear_through_activity_handle_mode_index_changed()
                                                 (uint8_t *)&mode_switch,
                                                 sizeof(app_hear_through_sync_ambient_control_switch_t),
                                                 APP_HEAR_THROUGH_SYNC_EVENT_DEFAULT_TIMEOUT);
-    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_is_aws_connected() == true] mode_index=%d", 1,mode_switch.mode_index);
     } else {
 #endif /* AIR_TWS_ENABLE */
-    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_is_aws_connected() != true] Enter", 0);
         app_hear_through_activity_handle_ambient_control_switch();
-#ifdef AIR_TWS_ENABLE
-    }
-#endif /* AIR_TWS_ENABLE */
-}
-
-static void app_hear_through_activity_handle_mode_index_changed1()
-{
-
-#ifdef AIR_TWS_ENABLE
-    if (app_hear_through_is_aws_connected() == true) {
-        app_hear_through_sync_ambient_control_switch_t mode_switch;
-        mode_switch.mode_index = app_hear_through_ctx.mode_index;
-
-        apps_aws_sync_send_future_sync_event(false,
-                                                EVENT_GROUP_UI_SHELL_HEAR_THROUGH,
-                                                APP_HEAR_THROUGH_AWS_EVENT_ID_AMBIENT_CONTROL,
-                                                true,
-                                                (uint8_t *)&mode_switch,
-                                                sizeof(app_hear_through_sync_ambient_control_switch_t),
-                                                APP_HEAR_THROUGH_SYNC_EVENT_DEFAULT_TIMEOUT);
-    } else {
-#endif /* AIR_TWS_ENABLE */
-        app_hear_through_activity_handle_ambient_control_switch1();
 #ifdef AIR_TWS_ENABLE
     }
 #endif /* AIR_TWS_ENABLE */
@@ -2425,8 +2399,6 @@ void app_hear_through_activity_switch_ambient_control()
 }
 
 #if 1	// richard for UI requirement
-uint8_t not_play_prompt_flag=0;
-extern void key_ha_flag_clear_proc(void);
 void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode)		// 0: switch ha/anc; 1: switch ha mode
 {
 #if defined(MTK_FOTA_ENABLE) && defined (MTK_FOTA_VIA_RACE_CMD)
@@ -2443,7 +2415,7 @@ void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode
     		{		// switch to ANC
 			app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC;
 			anc_ha_flag=0;
-			app_hear_through_activity_handle_mode_index_changed1();
+			app_hear_through_activity_handle_mode_index_changed();
 	    	}
 		else
 		{
@@ -2451,9 +2423,7 @@ void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode
 			audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
 			app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH;
 			anc_ha_flag=1;
-			not_play_prompt_flag=1;
-			key_ha_flag_clear_proc();
-			app_hear_through_activity_handle_mode_index_changed1();			
+			app_hear_through_activity_handle_mode_index_changed();
 #ifdef AIR_TWS_ENABLE
 			if (app_hearing_aid_aws_is_connected() == true) {
 				app_hearing_aid_aws_index_change_t change = {0};
