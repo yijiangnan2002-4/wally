@@ -3490,6 +3490,7 @@ extern void key_volumeup_proc(uint8_t volume_up_mode);
 extern void key_volumedown_proc(uint8_t volume_down_mode);
 extern void key_avrcp_next_proc(uint8_t vol_m_flag);
 extern void key_avrcp_prev_proc(void);
+extern void key_fact_pairing_proc(void);
 extern void key_switch_anc_and_passthrough_proc(void);
 extern bool key_multifunction_short_click();
 extern uint8_t Is_earbuds_agent_proc(void);
@@ -3505,9 +3506,19 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 	ull_report("[ULL][LE] key from charging box: key=%d, event=%d ", 2, temp_command_no, temp_command_data);
 
 #if 0	// for production test
-	if((temp_command_no==0)||(temp_command_no==1)||(temp_command_no==2))
+	if(temp_command_no==0)
 	{
-		voice_prompt_play_vp_press();
+		voice_prompt_play_sync_vp_ull_volume_up();
+		return;
+	}		
+	else if(temp_command_no==1)
+	{
+		voice_prompt_play_sync_vp_ull_volume_down();
+		return;
+	}		
+	else if(temp_command_no==2)
+	{
+		voice_prompt_play_sync_vp_ull_mbutton();
 		return;
 	}
 #endif
@@ -3529,7 +3540,6 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			{
 				key_volumeup_proc(1);
 			}
-			
 			break;
 		case 1:			// key1: volume down
 			if(temp_command_data==1)			// SP
@@ -3544,7 +3554,6 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			{
 				key_volumedown_proc(1);			
 			}
-			
 			break;
 		case 2:			// Multi-function
 			if(temp_command_data==1)									// SP
@@ -3570,6 +3579,10 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			ab1585h_command_data=0;
 			BT_send_data_proc();
 			break;
+		case 4:		// pairing
+			key_fact_pairing_proc();
+			break;
+			
 		default:
 			break;
 	}

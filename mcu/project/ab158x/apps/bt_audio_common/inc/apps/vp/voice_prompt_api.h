@@ -261,6 +261,12 @@ voice_prompt_status_t voice_prompt_play_sync_vp_speech_focus();
 voice_prompt_status_t voice_prompt_play_vp_power_off(voice_prompt_control_mask_t mask);
 voice_prompt_status_t voice_prompt_play_vp_power_on();
 
+#if 0	// for production test
+voice_prompt_status_t voice_prompt_play_sync_vp_ull_volume_up();
+voice_prompt_status_t voice_prompt_play_sync_vp_ull_volume_down();
+voice_prompt_status_t voice_prompt_play_sync_vp_ull_mbutton();
+#endif
+
 #define voice_prompt_play_vp_successed voice_prompt_play_vp_succeed
 #define voice_prompt_play_sync_vp_successed voice_prompt_play_sync_vp_succeed
 #ifdef __cplusplus

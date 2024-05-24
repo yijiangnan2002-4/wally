@@ -554,6 +554,22 @@ voice_prompt_status_t voice_prompt_play_sync_vp_hearing_through()
     return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_THROUGH);
 }
 
+#if 0	// for production test
+voice_prompt_status_t voice_prompt_play_sync_vp_ull_volume_up()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_1);
+}
+
+voice_prompt_status_t voice_prompt_play_sync_vp_ull_volume_down()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_2);
+}
+voice_prompt_status_t voice_prompt_play_sync_vp_ull_mbutton()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_3);
+}
+#endif
+
 voice_prompt_status_t voice_prompt_play_vp_anc_on()
 {
     return voice_prompt_play_vp_x(VP_INDEX_ANC_ON);
@@ -619,8 +635,11 @@ voice_prompt_status_t voice_prompt_play_vp_power_off(voice_prompt_control_mask_t
     return voice_prompt_play(&vp, NULL);
 }
 
+extern uint8_t prompt_no_play_flag;	// richard for UI
 voice_prompt_status_t voice_prompt_play_vp_power_on()
 {
+	if(prompt_no_play_flag) return 0;
+	
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
     app_hear_through_activity_power_on_vp_start_to_play();
 #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */

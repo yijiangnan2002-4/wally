@@ -1956,11 +1956,13 @@ void app_hear_through_handle_charger_out()
 #if 0	// richard for UI spec.
 static void app_hear_through_handle_charger_in()
 #else
+uint8_t prompt_no_play_flag=0;
 void app_hear_through_handle_charger_in()
 #endif
 {
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_handle_charger_in] Charger IN",0);
 
+	prompt_no_play_flag=1;
     app_hear_through_ctx.is_charger_in = true;
     app_hear_through_ctx.is_power_on_vp_played = false;
     app_hear_through_ctx.is_power_on_vp_playing = false;
@@ -2409,6 +2411,8 @@ void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode
 #endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
 
 	uint8_t old_mode_index = app_hear_through_ctx.mode_index;
+
+	prompt_no_play_flag=0;
 	if(switch_ha_or_mode==0)		// switch ha/anc
 	{
 		if (app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)
