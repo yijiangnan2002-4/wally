@@ -256,6 +256,15 @@ bool voice_nr_check_enable(void)
     return true;
 }
 
+bool voice_nr_check_mp(void)		// richard for patch from Airoha
+{
+	if (gAecNrEn_MP == FALSE)
+	{
+		//DSP_MW_LOG_I("[AEC] MP Disable", 0);
+		return false;
+	}
+	return true;
+}
 
 //==============================================
 //    Get Ref Gain

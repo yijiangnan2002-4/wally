@@ -772,6 +772,12 @@ void voice_ecnr_check_txnr_lib_match(void *para)
         DSP_MW_LOG_I("[DSP][VOICE_NR] stream has no tx nr, bypass lib match check", 0);
         return;
     }
+    else if(voice_nr_check_mp() == false)	// richard for patch from Airoha
+    {
+	DSP_MW_LOG_I("[DSP][VOICE_NR] tx nr disabled, bypass lib match check", 0);
+	return;
+    }
+
     voice_ecnr_check_lib_version();//check version
 
     if(voice_ecnr_need_check_match() == false){ //special IGO nr lib no need check match for next check

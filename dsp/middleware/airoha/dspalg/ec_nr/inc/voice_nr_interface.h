@@ -61,6 +61,7 @@ void voice_nr_airdump(void);
 /* Voice NR control: NR on/off control */
 void voice_nr_enable(hal_ccni_message_t msg, hal_ccni_message_t *ack);
 bool voice_nr_check_enable(void);
+bool voice_nr_check_mp(void);		// richard for patch from Airoha
 
 /* Voice NR control: Config tool get the reference gain value */
 void voice_nr_get_ref_gain(int16_t *gain_addr);
