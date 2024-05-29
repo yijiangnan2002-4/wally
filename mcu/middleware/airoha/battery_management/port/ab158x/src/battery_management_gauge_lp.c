@@ -271,6 +271,7 @@ uint32_t battery_get_gauge_percent(void)
     interpolationVoltage = get_fg_soc();
 #else
 #ifdef BATTERY_LINEAR_SMOOTH_SOC
+//errrrrrrrrrrrrrrr
     interpolationVoltage = get_smooth_soc();
 #else
     interpolationVoltage = battery_core_gauge_function(pmu_auxadc_get_channel_value(PMU_AUX_VBAT));

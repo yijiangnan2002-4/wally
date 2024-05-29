@@ -347,10 +347,12 @@ void *RACE_BLUETOOTH_GET_BATTERY_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
         (void)pCmd;
 #else
         if (!pCmd->agent_or_partner) {
+                    RACE_LOG_MSGID_I("RACE_BLUETOOTH_GET_BATTERY_HDR harrydbg pCmd->agent_or_partner !!!!=ture", 0);
             /* Agent */
             race_bt_get_battery_level_noti_struct *noti = NULL;
             /* A1. Execute the cmd. */
             uint8_t battery_level = race_get_battery_level();
+                    RACE_LOG_MSGID_I("RACE_BLUETOOTH_GET_BATTERY_HDR harrydbg bat=%d\n", 1,battery_level);
 
             /* A2. Create the noti. */
             noti = (void *)RACE_ClaimPacketAppID(pCmdMsg->hdr.pktId.field.app_id,
@@ -375,6 +377,8 @@ void *RACE_BLUETOOTH_GET_BATTERY_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
                 ret = RACE_ERRCODE_NOT_ENOUGH_MEMORY;
             }
         } else {
+       RACE_LOG_MSGID_I("RACE_BLUETOOTH_GET_BATTERY_HDR harrydbg agent_or_partner ==ture", 0);
+        
             /* Client */
 #if defined(RACE_LPCOMM_ENABLE) && defined(RACE_AWS_ENABLE)
             uint16_t process_id = race_gen_process_id();

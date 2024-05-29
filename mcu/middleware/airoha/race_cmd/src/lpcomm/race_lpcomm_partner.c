@@ -1252,6 +1252,7 @@ RACE_ERRCODE race_lpcommp_bt_get_battery_level_req_hdl(race_lpcomm_packet_struct
 
     rsp.status = RACE_ERRCODE_SUCCESS;
     rsp.battery_level = race_get_battery_level();
+    RACE_LOG_MSGID_I("race_lpcommp_bt_get_battery_level_req_hdl harrydbg: bat = %d \r\n", 1, rsp.battery_level);
 
     ret = race_lpcomm_send_race_cmd_rsp_to_peer((uint8_t *)&rsp,
                                                 sizeof(race_lpcomm_bt_get_battery_level_rsp_struct),

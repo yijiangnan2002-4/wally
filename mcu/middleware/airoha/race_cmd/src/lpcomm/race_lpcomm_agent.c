@@ -989,6 +989,8 @@ RACE_ERRCODE race_lpcomma_bt_get_battery_level_rsp_hdl(race_lpcomm_packet_struct
         noti->agent_or_partner = device_id;
         if (RACE_ERRCODE_SUCCESS == noti->status) {
             noti->battery_level = rsp->battery_level;
+    RACE_LOG_MSGID_I("race_lpcomma_bt_get_battery_level_rsp_hdl:harrydbg bat = %d \r\n", 1, noti->battery_level);
+            
         }
 
         ret = race_noti_send(noti, packet->channel_id, FALSE);

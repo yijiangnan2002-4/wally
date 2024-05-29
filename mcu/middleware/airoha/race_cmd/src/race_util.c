@@ -49,6 +49,8 @@
 #include "bt_sink_srv_ami.h"
 #include "queue.h"
 #include "hal_nvic_internal.h"
+#include "app_smcharger_utils.h"
+#include "apps_customer_config.h"
 
 RACE_ERRCODE race_list_insert(race_template_list_struct **list, race_template_list_struct *list_node)
 {
@@ -284,13 +286,17 @@ race_device_role_enum race_get_device_role(void)
 uint8_t race_get_battery_level(void)
 {
 #ifdef MTK_BATTERY_MANAGEMENT_ENABLE
+#ifdef EASTECH_GET_BATTER_LEVEL
+//errrrrrrrrrrrrrrrrrrrr
+  uint8_t battery_level =((app_get_smcharger_context()->battery_percent) & 0x7F);
+#else
     uint8_t battery_level = battery_management_get_battery_property(BATTERY_PROPERTY_VOLTAGE_IN_PERCENT);
 
-    //RACE_LOG_MSGID_I("battery_level:%d", 1, battery_level);
+    RACE_LOG_MSGID_I("battery_level:%d", 1, battery_level);
 #ifdef RACE_BT_BATTERY_FAKE_VALUE
     battery_level = 70;
 #endif
-
+#endif
     return battery_level;
 #else
     return 0;

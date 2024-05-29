@@ -551,7 +551,7 @@ static bool smcharger_idle_aws_data_event_group(ui_shell_activity_t *self, uint3
                 // Notify other APP when peer battery changed
                 if (old_peer_battery != smcharger_ctx->peer_battery_percent) {
                     app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
-                 app_hfp_report_battery_to_remote(smcharger_ctx->peer_battery_percent, old_peer_battery,PEER_REPORT);
+                 //app_hfp_report_battery_to_remote(smcharger_ctx->peer_battery_percent, old_peer_battery,PEER_REPORT);  //harry for battery level display
                 }
                
             }
@@ -725,12 +725,12 @@ bool app_smcharger_idle_activity_proc(struct _ui_shell_activity *self, uint32_t 
                        || event_id == SMCHARGER_EVENT_NOTIFY_BOTH_IN_OUT
                        || event_id == SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED) {
                 /* Other APP should only receive and use public event. */
-              if(event_id == SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED)  // HARRY FOR BATTERT LEVEL
+              if(event_id == SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED)  //  harry for battery level display
               {
                 APPS_LOG_MSGID_I(LOG_TAG"peer_battery_percent=%d,local_battery_percent=%d", 2, smcharger_ctx->peer_battery_percent,smcharger_ctx->battery_percent);
                // if(smcharger_ctx->peer_battery_percent<smcharger_ctx->battery_percent)
                 {
-                  //app_hfp_report_battery_to_remote(smcharger_ctx->peer_battery_percent, smcharger_ctx->battery_percent);
+                  app_hfp_report_battery_to_remote(smcharger_ctx->peer_battery_percent, smcharger_ctx->battery_percent,PEER_REPORT);
                 }
                }
                 ret = FALSE;
