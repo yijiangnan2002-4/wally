@@ -789,6 +789,7 @@ bool bsp_is_hx300x_using(void)
 	return ret;
 }
 
+extern void app_set_ir_isr_status(uint8_t status);
 static void bsp_hx300x_callback(void *data)
 {
 
@@ -796,6 +797,8 @@ static void bsp_hx300x_callback(void *data)
 	uint16_t *p_wear_status = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
 	
 	*p_wear_status = hx300x_int_handle();
+	
+	app_set_ir_isr_status(*p_wear_status);
 
 	APPS_LOG_MSGID_I("psensor hx300x :interrupt pin ret = %d", 1, *p_wear_status);
 

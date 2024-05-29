@@ -279,9 +279,13 @@ void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
     }
 }
 #else
+extern uint8_t prompt_no_play_flag;	// richard for UI
 void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 {
-    app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
+	if(prompt_no_play_flag==0)
+	{
+    		app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
+	}
 }
 #endif
 

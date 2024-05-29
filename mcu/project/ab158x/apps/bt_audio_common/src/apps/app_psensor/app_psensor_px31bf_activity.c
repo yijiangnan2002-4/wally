@@ -48,7 +48,7 @@ static volatile uint8_t  psensor_limit = 0;
 
 static volatile uint8_t ir_status_test = 0;
 
-static void app_set_ir_isr_status(uint8_t status)
+void app_set_ir_isr_status(uint8_t status)
 {
 	ir_status_test = status;
 }
