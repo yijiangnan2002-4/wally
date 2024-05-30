@@ -446,14 +446,15 @@ static void app_hfp_incoming_call_vp_callback(uint32_t idx, voice_prompt_event_t
 void app_hfp_report_battery_to_remote(int32_t bat_val, int32_t pre_val,uint8_t formstate)
 {
     /* Report current battery level to remote device, such as smartphone. */
-    int32_t peer_bat_level,current_bat_level,bal_val1;
+    int32_t peer_bat_level,current_bat_level,bal_val1,bal_val2;
     bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
-    APPS_LOG_MSGID_I(APP_HFP_UTILS", bat_val : %d, pre_val : %d,hfp profile=%d,role=%d,formstate=%d", 5, bat_val, pre_val,BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP),role,formstate);
-    if(!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP)))   // harry for battery level display
-    {
-      return;
-    }
+    APPS_LOG_MSGID_I(APP_HFP_UTILS", bat_val : %d, pre_val : %d,role=%d,formstate=%d", 4, bat_val, pre_val,role,formstate);
+    // harry for battery level display.
     bal_val1=(bat_val & 0x7F);
+    if (bal_val1>100)
+    {
+         APPS_LOG_MSGID_E(APP_HFP_UTILS",BATT>100 error, bat_val1 : %d,bat_val : %d,",2,bal_val1,bat_val); 
+    }
     peer_bat_level=((app_get_smcharger_context()->peer_battery_percent) & 0x7F);
     current_bat_level=((app_get_smcharger_context()->battery_percent) & 0x7F);
     APPS_LOG_MSGID_I(APP_HFP_UTILS", bat_val : origine battery_percent : %d,peer_battery_percent=%d", 2, app_get_smcharger_context()->battery_percent,app_get_smcharger_context()->peer_battery_percent);
@@ -482,8 +483,9 @@ void app_hfp_report_battery_to_remote(int32_t bat_val, int32_t pre_val,uint8_t f
           {
             if(formstate==WHEN_CONNECTING)
               {
-               APPS_LOG_MSGID_I(APP_HFP_UTILS",aws sent battery level %d to phone,when hfp connecting",1,bat_val); 
-               bt_sink_srv_send_action(BT_SINK_SRV_ACTION_REPORT_BATTERY_EXT, &bat_val);
+                bal_val2=(bal_val1<peer_bat_level)? bal_val1:peer_bat_level;
+               APPS_LOG_MSGID_I(APP_HFP_UTILS",aws sent battery level %d to phone,when hfp connecting,peer_bat_level=%d,bat_val=%d,bal_val1=%d",4,bal_val2,peer_bat_level,bal_val1,bat_val); 
+               bt_sink_srv_send_action(BT_SINK_SRV_ACTION_REPORT_BATTERY_EXT, &bal_val2);
               }
             else if(formstate==PEER_REPORT)
               {
@@ -509,8 +511,15 @@ void app_hfp_report_battery_to_remote(int32_t bat_val, int32_t pre_val,uint8_t f
         }
         else
         {
-          APPS_LOG_MSGID_I(APP_HFP_UTILS",single sent battery level %d to phone",1,bat_val); 
-          bt_sink_srv_send_action(BT_SINK_SRV_ACTION_REPORT_BATTERY_EXT, &bat_val);
+          if (bal_val1<=100)
+            {
+          APPS_LOG_MSGID_I(APP_HFP_UTILS",single sent battery level %d to phone,bal_val=%d",2,bal_val1,bat_val); 
+          bt_sink_srv_send_action(BT_SINK_SRV_ACTION_REPORT_BATTERY_EXT, &bal_val1);
+            }
+          else
+            {
+          APPS_LOG_MSGID_I(APP_HFP_UTILS",single sent battery level  nooooo sent  to phone,because bal_val%d,bal_val=%d",2,bal_val1,bat_val); 
+            }
         }
     }
 }

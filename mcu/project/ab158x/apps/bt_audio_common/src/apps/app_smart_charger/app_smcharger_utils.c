@@ -894,6 +894,7 @@ void app_smcharger_update_case_battery_nvkey(uint8_t case_battery)
     // Notify other APP when Agent smcharger_case_battery changed
     bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
     if (role == BT_AWS_MCE_ROLE_AGENT) {
+        APPS_LOG_MSGID_I(LOG_TAG"harrydbg app_smcharger_update_case_battery_nvkey case_battery=%d,status=%d",2,case_battery , status);
         app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
     }
 }

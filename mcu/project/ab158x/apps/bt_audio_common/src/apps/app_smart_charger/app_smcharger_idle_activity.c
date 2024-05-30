@@ -392,6 +392,8 @@ static bool smcharger_idle_battery_event_group(struct _ui_shell_activity *self, 
             // Notify other APP when own battery changed
             bt_aws_mce_role_t role = bt_device_manager_aws_local_info_get_role();
             if (role == BT_AWS_MCE_ROLE_AGENT && old_battery != smcharger_ctx->battery_percent) {
+                          APPS_LOG_MSGID_I(LOG_TAG"harrydbg smcharger_idle_battery_event_group old=%d,bat=%d",2,old_battery , smcharger_ctx->battery_percent);
+
                 app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
             }
             break;
@@ -448,6 +450,7 @@ static bool smcharger_idle_bt_cm_event_group(ui_shell_activity_t *self, uint32_t
                     app_power_save_utils_notify_mode_changed(FALSE, app_smcharger_get_power_saving_target_mode);
 #endif
                     // Notify other APP when AWS disconnected (peer battery/state will be INVALID)
+                          APPS_LOG_MSGID_I(LOG_TAG"harrydbg smcharger_idle_bt_cm_event_group peer_bat=%d",1, smcharger_ctx->peer_battery_percent);
                     app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
                 }
 
@@ -550,8 +553,9 @@ static bool smcharger_idle_aws_data_event_group(ui_shell_activity_t *self, uint3
 
                 // Notify other APP when peer battery changed
                 if (old_peer_battery != smcharger_ctx->peer_battery_percent) {
-                    app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
-                 //app_hfp_report_battery_to_remote(smcharger_ctx->peer_battery_percent, old_peer_battery,PEER_REPORT);  //harry for battery level display
+                           APPS_LOG_MSGID_I(LOG_TAG"harrydbg smcharger_idle_aws_data_event_group old=%d,peer_bat=%d",2,old_peer_battery , smcharger_ctx->peer_battery_percent);
+                   app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
+                 app_hfp_report_battery_to_remote(smcharger_ctx->peer_battery_percent, old_peer_battery,PEER_REPORT);  //harry for battery level display
                 }
                
             }
@@ -585,6 +589,7 @@ static bool smcharger_idle_aws_data_event_group(ui_shell_activity_t *self, uint3
                 need_check_rho = TRUE;
 
                 // Notify other APP when peer smcharger_state changed
+                           APPS_LOG_MSGID_I(LOG_TAG"harrydbg smcharger_idle_aws_data_event_group old_state=%d,state=%d",2,old_state , state);
                 app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
 
 #ifdef APPS_SLEEP_AFTER_NO_CONNECTION
@@ -694,6 +699,7 @@ bool app_smcharger_idle_activity_proc(struct _ui_shell_activity *self, uint32_t 
                     if (role == BT_AWS_MCE_ROLE_AGENT) {
                         smcharger_agent_check_and_do_rho(smcharger_ctx, TRUE);
                         // Notify other APP when own smcharger_state changed
+                           APPS_LOG_MSGID_I(LOG_TAG"harrydbg app_smcharger_idle_activity_proc ",0);
                         app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
                     }
                     smcharger_sync_data_to_peer(APP_SMCHARGER_SYNC_STATE, smcharger_ctx);
@@ -730,7 +736,7 @@ bool app_smcharger_idle_activity_proc(struct _ui_shell_activity *self, uint32_t 
                 APPS_LOG_MSGID_I(LOG_TAG"peer_battery_percent=%d,local_battery_percent=%d", 2, smcharger_ctx->peer_battery_percent,smcharger_ctx->battery_percent);
                // if(smcharger_ctx->peer_battery_percent<smcharger_ctx->battery_percent)
                 {
-                  app_hfp_report_battery_to_remote(smcharger_ctx->peer_battery_percent, smcharger_ctx->battery_percent,PEER_REPORT);
+                  //app_hfp_report_battery_to_remote(smcharger_ctx->peer_battery_percent, smcharger_ctx->battery_percent,PEER_REPORT);
                 }
                }
                 ret = FALSE;
