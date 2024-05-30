@@ -39,7 +39,7 @@
 #include "bt_connection_manager_utils.h"
 #include "battery_management.h"
 
-static char case_verison[8] = "v3.00.00";
+static char case_verison[8] = "v4.00.00";
 //static char ab1571d_verison[4] = "v0.0";
 static uint8_t isShippingMode = 0;
 volatile static uint8_t g_limit_status = 0;
