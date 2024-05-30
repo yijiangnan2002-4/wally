@@ -244,6 +244,7 @@ voice_prompt_status_t voice_prompt_play_vp_failed();
 voice_prompt_status_t voice_prompt_play_sync_vp_failed();
 
 // richard for customer UI spec.
+voice_prompt_status_t voice_prompt_play_sync_vp_ha(uint8_t ha_mode_value);
 voice_prompt_status_t voice_prompt_play_vp_hearing_through();
 voice_prompt_status_t voice_prompt_play_sync_vp_hearing_through();
 voice_prompt_status_t voice_prompt_play_vp_anc_on();
