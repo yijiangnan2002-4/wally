@@ -773,7 +773,9 @@ static void app_hear_through_activity_handle_ambient_control_switch()
             app_hear_through_switch_on_off(true, true);
 
   		// richard for customer UI spec.
-//		voice_prompt_play_sync_vp_hearing_through();
+		uint8_t mode_index = 0;
+		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
+  		voice_prompt_play_sync_vp_ha(mode_index);
         }
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC: {
@@ -2423,11 +2425,12 @@ void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode
 	    	}
 		else
 		{
-			uint8_t mode_index = 0;
-			audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
+//			uint8_t mode_index = 0;
+//			audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
 			app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH;
 			anc_ha_flag=1;
 			app_hear_through_activity_handle_mode_index_changed();
+#if 0
 #ifdef AIR_TWS_ENABLE
 			if (app_hearing_aid_aws_is_connected() == true) {
 				app_hearing_aid_aws_index_change_t change = {0};
@@ -2443,6 +2446,7 @@ void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode
 #ifdef AIR_TWS_ENABLE
 			}
 #endif /* AIR_TWS_ENABLE */
+#endif
 		}
 	}
 	else

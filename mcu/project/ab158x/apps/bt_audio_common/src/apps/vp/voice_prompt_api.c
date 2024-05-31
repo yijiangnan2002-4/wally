@@ -484,6 +484,7 @@ voice_prompt_status_t voice_prompt_get_support_language(uint16_t *buffer, uint16
 #endif
 }
 
+#if 0
 static voice_prompt_status_t voice_prompt_play_vp_x(uint32_t vp_index)
 {
     voice_prompt_param_t vp = {0};
@@ -513,6 +514,23 @@ static voice_prompt_status_t voice_prompt_play_sync_vp_x(uint32_t vp_index)
       }
     return voice_prompt_play(&vp, NULL);
 }
+#else
+static voice_prompt_status_t voice_prompt_play_vp_x(uint32_t vp_index)
+{
+    voice_prompt_param_t vp = {0};
+    vp.vp_index = vp_index;
+    return voice_prompt_play(&vp, NULL);
+}
+
+static voice_prompt_status_t voice_prompt_play_sync_vp_x(uint32_t vp_index)
+{
+    voice_prompt_param_t vp = {0};
+    vp.vp_index = vp_index;
+    vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
+    vp.delay_time = VOICE_PROMPT_SYNC_DELAY_MIN;
+    return voice_prompt_play(&vp, NULL);
+}
+#endif
 
 voice_prompt_status_t voice_prompt_play_vp_press()
 {
@@ -569,6 +587,22 @@ voice_prompt_status_t voice_prompt_play_sync_vp_ull_mbutton()
     return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_3);
 }
 #endif
+voice_prompt_status_t voice_prompt_play_sync_vp_ha(uint8_t ha_mode_value)
+{
+	if(ha_mode_value==0)
+	{
+		return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_THROUGH);
+	}
+	else if(ha_mode_value==1)
+	{
+		return voice_prompt_play_sync_vp_x(VP_INDEX_SPEECH_FOCUS);	
+	}
+	else if(ha_mode_value==2)
+	{
+		return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_2);	
+	}
+	return VP_STATUS_SUCCESS;
+}
 
 voice_prompt_status_t voice_prompt_play_vp_anc_on()
 {
