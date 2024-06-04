@@ -154,6 +154,7 @@ void battery_eoc_timer_callback(TimerHandle_t pxTimer) {
 
 void battery_charger_state_change_callback(void) {
     uint32_t newState = pmu_get_charger_state();
+        LOG_MSGID_I(battery_management, "[BM_CHR] battery_charger_state_change_callback harrydbg newState=%d\r\n", 1,newState);
     switch (newState) {
     case CHARGER_STATE_CHR_OFF:
         break;
@@ -188,6 +189,7 @@ void battery_set_charger_step_timer(uint8_t cur, uint8_t next) {
     }
 }
 void battery_charger_setting(TimerHandle_t pxTimer) {
+        LOG_MSGID_I(battery_management, "[BM_CHR] battery_charger_setting harrydbg bm_ctrl_info.charger_step=%d\n", 1,bm_ctrl_info.charger_step);
     switch (bm_ctrl_info.charger_step) {
     case BM_CHARGER_IN_USB:
 #ifdef HAL_USB_MODULE_ENABLED
