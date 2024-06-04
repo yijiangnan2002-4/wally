@@ -599,7 +599,7 @@ voice_prompt_status_t voice_prompt_play_sync_vp_ha(uint8_t ha_mode_value)
 	}
 	else if(ha_mode_value==2)
 	{
-		return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_2);	
+		return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_2);
 	}
 	return VP_STATUS_SUCCESS;
 }

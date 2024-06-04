@@ -96,6 +96,7 @@ static void bsp_px31bf_callback(void *data)
 		*p_wear_status = (uint16_t)bsp_px31bf_ISR();
 
 		APPS_LOG_MSGID_I("px31bf:interrupt pin ret = %d", 1, *p_wear_status);
+		app_set_ir_isr_status(*p_wear_status);
 
 		
 		ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT);
