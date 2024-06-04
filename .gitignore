@@ -20,3 +20,5 @@
 /mcu/tools/scripts/build/PostBuildTool/windows/nvdm_post_build.exe
 /mcu/tools/scripts/build/lm_bin_generator/windows/gen_lm_tool.exe
 /mcu/tools/scripts/build/parse_dump_id_bin/windows/parse_dump_id.exe
+/mcu/out
+/dsp/out
