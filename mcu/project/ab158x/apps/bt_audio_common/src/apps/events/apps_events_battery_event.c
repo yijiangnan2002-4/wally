@@ -204,6 +204,7 @@ static void _timer_callback_function(TimerHandle_t xTimer)
 static void _battery_management_callback(battery_management_event_t event, const void *data)
 {
     /* Charging state change */
+            APPS_LOG_MSGID_I("_battery_management_callback harrtdbg event: %d", 1, event);
     if (event == BATTERY_MANAGEMENT_EVENT_CHARGER_STATE_UPDATE) {
         int32_t charging_status = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_STATE);
         if (s_charging_status == charging_status) {
