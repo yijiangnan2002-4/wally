@@ -552,6 +552,11 @@ voice_prompt_status_t voice_prompt_play_sync_vp_succeed()
     return voice_prompt_play_sync_vp_x(VP_INDEX_SUCCEED);
 }
 
+voice_prompt_status_t voice_prompt_play_sync_vp_mute()
+{
+    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_5);
+}
+
 voice_prompt_status_t voice_prompt_play_vp_failed()
 {
     return voice_prompt_play_vp_x(VP_INDEX_FAILED);

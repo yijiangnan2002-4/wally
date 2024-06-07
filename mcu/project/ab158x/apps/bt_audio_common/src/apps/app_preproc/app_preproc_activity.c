@@ -268,10 +268,10 @@ errrrrrrrrrrrrrrrr
      else if(*p_key_action==KEY_VOICE_DN)
       {
             APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_VOICE_DN", 0);
-            //voice_prompt_play_sync_vp_volume_down();
+            voice_prompt_play_sync_vp_volume_down();
       }else if(*p_key_action==KEY_VOICE_UP)
       {
-            //voice_prompt_play_sync_vp_volume_up();
+            voice_prompt_play_sync_vp_volume_up();
             APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_VOICE_UP", 0);
       } 
 #endif /* #if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)) */

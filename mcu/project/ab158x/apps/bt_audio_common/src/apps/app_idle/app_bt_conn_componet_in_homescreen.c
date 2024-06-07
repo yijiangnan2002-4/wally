@@ -408,6 +408,21 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                         }
 #endif
                         voice_prompt_play(&vp, NULL);
+#if 0 //harry for new vp  backup for reserved
+                        vp.vp_index = VP_INDEX_CONNECTED;
+#ifdef MTK_AWS_MCE_ENABLE
+                        if (g_apps_bt_event_aws_connect_acl || BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type() ||
+                            (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)) {
+                            vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
+                            vp.delay_time = 200;
+                        } else {
+                            vp.control = VOICE_PROMPT_CONTROL_MASK_NONE;
+                            vp.delay_time = 0;
+                        }
+#endif
+                        voice_prompt_play(&vp, NULL);
+
+#endif
 #endif
                     }
                 } else if (BT_CM_ACL_LINK_DISCONNECTED != remote_update->pre_acl_state

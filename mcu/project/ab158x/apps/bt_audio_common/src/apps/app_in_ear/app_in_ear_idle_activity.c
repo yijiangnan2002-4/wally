@@ -67,7 +67,7 @@
 #include "bt_connection_manager.h"
 #include "voice_prompt_api.h"
 #include "apps_config_vp_index_list.h"
-
+#include "app_bt_state_service.h"
 
 #define APP_INEAR_TAG "[In ear]idle_activity"
 
@@ -418,10 +418,21 @@ static bool app_in_ear_proc_apps_internal_events(ui_shell_activity_t *self,
             bool *pstatus = (bool *)extra_data;
             ctx->isInEar = *pstatus;
             if (ctx->isInEar) {
+              #if 1//harry for new vp
+          if (app_bt_connection_service_get_current_status()->bt_visible)
+            {
+                voice_prompt_param_t vp;
+                memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
+                vp.vp_index = VP_INDEX_PAIRING;
+                vp.delay_time = 200;
+                voice_prompt_play(&vp, NULL);
+                }
+              #else
                 app_in_ear_play_press_vp();
+              #endif
             }
         }
-        APPS_LOG_MSGID_I(APP_INEAR_TAG" [IN_EAR_UPDATE] isInEar=%d", 1, ctx->isInEar);
+        APPS_LOG_MSGID_I(APP_INEAR_TAG" [IN_EAR_UPDATE] isInEar=%d pairing=%d", 1, ctx->isInEar,app_bt_connection_service_get_current_status()->bt_visible);
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
         /* Events are not handled during RHO, and the new agent will handle them. */
         APPS_LOG_MSGID_I(APP_INEAR_TAG" [IN_EAR_UPDATE] isInRho=%d", 1, ctx->isInRho);
