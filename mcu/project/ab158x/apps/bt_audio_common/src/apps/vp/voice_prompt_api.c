@@ -577,10 +577,10 @@ voice_prompt_status_t voice_prompt_play_sync_vp_hearing_through()
     return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_THROUGH);
 }
 
-#if 0	// for production test
+#if 1	// for production test
 voice_prompt_status_t voice_prompt_play_sync_vp_ull_volume_up()
 {
-    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_1);
+    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_5);
 }
 
 voice_prompt_status_t voice_prompt_play_sync_vp_ull_volume_down()
@@ -589,7 +589,7 @@ voice_prompt_status_t voice_prompt_play_sync_vp_ull_volume_down()
 }
 voice_prompt_status_t voice_prompt_play_sync_vp_ull_mbutton()
 {
-    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_3);
+    return voice_prompt_play_sync_vp_x(VP_INDEX_POWER_ON);
 }
 #endif
 voice_prompt_status_t voice_prompt_play_sync_vp_ha(uint8_t ha_mode_value)

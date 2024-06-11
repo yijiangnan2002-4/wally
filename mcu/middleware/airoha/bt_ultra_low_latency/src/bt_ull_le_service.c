@@ -3498,14 +3498,14 @@ extern void app_set_ab1571d_version(uint8_t version_data);
 extern uint8_t ab1585h_command_no;
 extern uint8_t ab1585h_command_data;
 extern void BT_send_data_proc(void);
-#if 0	// for production test
+#if 1	// for production test
 #include "voice_prompt_api.h"
 #endif
 void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 {
 	ull_report("[ULL][LE] key from charging box: key=%d, event=%d ", 2, temp_command_no, temp_command_data);
 
-#if 0	// for production test
+#if 1	// for production test
 	if(temp_command_no==0)
 	{
 		voice_prompt_play_sync_vp_ull_volume_up();
