@@ -577,7 +577,7 @@ voice_prompt_status_t voice_prompt_play_sync_vp_hearing_through()
     return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_THROUGH);
 }
 
-#if 1	// for production test
+#if 0	// for production test
 voice_prompt_status_t voice_prompt_play_sync_vp_ull_volume_up()
 {
     return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_5);
