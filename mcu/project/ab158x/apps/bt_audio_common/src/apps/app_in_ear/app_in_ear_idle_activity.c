@@ -418,17 +418,18 @@ static bool app_in_ear_proc_apps_internal_events(ui_shell_activity_t *self,
             bool *pstatus = (bool *)extra_data;
             ctx->isInEar = *pstatus;
             if (ctx->isInEar) {
-              #if 1//harry for new vp
-          if (app_bt_connection_service_get_current_status()->bt_visible)
-            {
+              #if 0//harry for new vp
+                if (app_bt_connection_service_get_current_status()->bt_visible)
+                {
                 voice_prompt_param_t vp;
                 memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                 vp.vp_index = VP_INDEX_PAIRING;
                 vp.delay_time = 200;
+                APPS_LOG_MSGID_I("VP_INDEX_PAIRING 666", 0);
                 voice_prompt_play(&vp, NULL);
                 }
               #else
-                app_in_ear_play_press_vp();
+                //app_in_ear_play_press_vp();
               #endif
             }
         }

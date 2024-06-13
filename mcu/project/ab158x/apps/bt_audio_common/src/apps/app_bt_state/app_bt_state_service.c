@@ -621,7 +621,14 @@ static bool app_bt_state_service_process_interaction_events(uint32_t event_id,
                 if (s_current_status.bt_visible) {
                     bt_cm_discoverable(false);
                 }
+              voice_prompt_param_t vp = {0};
+              vp.vp_index = VP_INDEX_EN_Pairing_out;   
+              vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
+              vp.delay_time = 300;
+              voice_prompt_play(&vp, NULL);
+              APPS_LOG_MSGID_I(LOG_TAG" VP_INDEX_EN_Pairing_out BT visible timeout 111", 0);
             }
+
 #endif
             ret = true;
             break;
@@ -1091,6 +1098,8 @@ static bool app_bt_state_service_process_aws_data_events(uint32_t event_id,
                             voice_prompt_param_t vp = {0};
                             vp.vp_index = VP_INDEX_PAIRING;
                             voice_prompt_play(&vp, NULL);
+                            APPS_LOG_MSGID_I("VP_INDEX_PAIRING 111", 0);
+                           
                             //apps_config_set_vp(VP_INDEX_PAIRING, false, 100, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                         }
 

@@ -2413,6 +2413,10 @@ void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode
 #endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
 
 	uint8_t old_mode_index = app_hear_through_ctx.mode_index;
+    APPS_LOG_MSGID_I("[app_hear_through_activity_switch_ambient_control1] old_mode_index : %d, switch_ha_or_mode : %d",
+                        2,
+                        old_mode_index,
+                        switch_ha_or_mode);
 
 	prompt_no_play_flag=0;
 	if(switch_ha_or_mode==0)		// switch ha/anc
@@ -2422,6 +2426,7 @@ void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode
 			app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC;
 			anc_ha_flag=0;
 			app_hear_through_activity_handle_mode_index_changed();
+    APPS_LOG_MSGID_I("[app_hear_through_activity_switch_ambient_control1] switch to anc",0);
 	    	}
 		else
 		{
@@ -2430,6 +2435,7 @@ void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode
 			app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH;
 			anc_ha_flag=1;
 			app_hear_through_activity_handle_mode_index_changed();
+    APPS_LOG_MSGID_I("[app_hear_through_activity_switch_ambient_control1] switch to ha",0);
 #if 0
 #ifdef AIR_TWS_ENABLE
 			if (app_hearing_aid_aws_is_connected() == true) {
@@ -2468,9 +2474,11 @@ void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode
                                                 sizeof(app_hearing_aid_aws_index_change_t),
                                                 true,
                                                 APP_HEARING_AID_SYNC_EVENT_DEFAULT_TIMEOUT);
+    APPS_LOG_MSGID_I("[app_hear_through_activity_switch_ambient_control1] aws connect switch to ha",0);
 			} else {
 #endif /* AIR_TWS_ENABLE */
 				app_hearing_aid_key_handler_adjust_mode(mode_index, true);
+    APPS_LOG_MSGID_I("[app_hear_through_activity_switch_ambient_control1] aws disconnect switch to ha",0);
 #ifdef AIR_TWS_ENABLE
 			}
 #endif /* AIR_TWS_ENABLE */
