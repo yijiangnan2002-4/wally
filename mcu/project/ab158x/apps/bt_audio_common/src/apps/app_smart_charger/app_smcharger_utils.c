@@ -741,9 +741,13 @@ app_smcharger_action_status_t app_smcharger_state_do_action(uint8_t state)
 			if(app_get_shipping_mode_state())
 			{
 				app_enter_shipping_mode_flag_set(true);
+				app_system_factory_reset(4);
 			}
+			else
+			{
 			app_common_add_tracking_log(0x32);
             status += app_smcharger_power_off(FALSE);
+			}
             break;
         }
         default: {

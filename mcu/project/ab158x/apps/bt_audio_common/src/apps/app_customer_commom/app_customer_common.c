@@ -209,7 +209,7 @@ void app_set_a2dp_volume(uint8_t volume_level)
 
 void app_system_factory_reset(uint8_t reset_mode)
 {
-	uint8_t delay_ms = 200;
+	uint8_t delay_ms = 20;		// 200;
     uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
 
 	if(reset_mode == 0x1)

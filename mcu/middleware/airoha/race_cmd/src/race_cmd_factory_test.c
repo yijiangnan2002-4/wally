@@ -1134,9 +1134,7 @@ void* RACE_FACTORY_TEST_SET_A2DP_VOLUME(ptr_race_pkt_t pCmdMsg, uint8_t channel_
 	return pEvt;
 }
 
-extern uint8_t ab1585h_command_no;
-extern uint8_t ab1585h_command_data;
-extern void BT_send_data_proc(void);
+extern void key_send_address_proc(void);
 void* RACE_FACTORY_TEST_BLE_CMD_BT_ADDR_SET(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
 	typedef struct
@@ -1163,9 +1161,7 @@ void* RACE_FACTORY_TEST_BLE_CMD_BT_ADDR_SET(ptr_race_pkt_t pCmdMsg, uint8_t chan
 
 		if(pCmd->set_flag == 0x1) 
 		{
-			ab1585h_command_no=4;	// 4: bt address
-			ab1585h_command_data=0;
-			BT_send_data_proc();
+			key_send_address_proc();
 		}
 		else
 		{
