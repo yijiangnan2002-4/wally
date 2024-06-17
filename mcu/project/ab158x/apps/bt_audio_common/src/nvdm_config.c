@@ -98,7 +98,11 @@ __weak void reserved_nvdm_item_list_modify(void)
 #if 1 
 	//const uint8_t rfpower_cfg[] = {0x2C, 0x00, 0x31, 0x00, 0x3D, 0x00, 0x3D, 0x00};// br edr set to 6.5db 20240108 
 
-  	const uint8_t rfpower_cfg[] = {0x35, 0x00, 0x39, 0x00, 0x3D, 0x00, 0x3D, 0x00};// br 11db,edr set to 10.5db 20240403 from yanzhen provide
+    //10db
+  	//const uint8_t rfpower_cfg[] = {0x35, 0x00, 0x39, 0x00, 0x3D, 0x00, 0x3D, 0x00};// br 11db,edr set to 10.5db 20240403 from yanzhen provide
+
+    // 8 db
+  	const uint8_t rfpower_cfg[] = {0x2F, 0x00, 0x34, 0x00, 0x3D, 0x00, 0x3D, 0x00};// br 8db,edr set to 8db 20240614 
 
 	nvkey_write_data(NVID_CAL_PWR_CTL_MP_K, rfpower_cfg, sizeof(rfpower_cfg) / sizeof(uint8_t));
 #endif
