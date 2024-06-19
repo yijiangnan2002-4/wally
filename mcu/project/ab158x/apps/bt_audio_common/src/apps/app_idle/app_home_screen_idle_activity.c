@@ -533,7 +533,7 @@ errrrrrrrrrrrrrrrrrrrrr
         app_hear_through_activity_switch_ambient_control1(0);
 
 #if 1	// richard for UI spec.
-			ab1585h_command_no=5;	// 4: anc ha mode
+			ab1585h_command_no=5;	// 5: anc ha mode
 			if(anc_ha_flag)
 			{
 				ab1585h_command_data=get_current_ha_mode();
@@ -547,7 +547,7 @@ errrrrrrrrrrrrrrrrrrrrr
         app_hear_through_activity_switch_ambient_control1(1);
 
 #if 1	// richard for UI spec.
-			ab1585h_command_no=5;	// 4: anc ha mode
+			ab1585h_command_no=5;	// 5: anc ha mode
 			if(anc_ha_flag)
 			{
 				ab1585h_command_data=get_current_ha_mode();
@@ -564,7 +564,7 @@ errrrrrrrrrrrrrrrrrrrrr
         app_hear_through_activity_switch_ambient_control();
 
 #if 1	// richard for UI spec.
-			ab1585h_command_no=5;	// 4: anc ha mode
+			ab1585h_command_no=5;	// 5: anc ha mode
 			if(anc_ha_flag)
 			{
 				ab1585h_command_data=get_current_ha_mode();
@@ -1025,6 +1025,11 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             app_bt_state_service_set_bt_visible(false, false, 0);
 #endif
             break;
+		case KEY_SEND_ADDRESS:			// richard for send address to ab1571d
+			ab1585h_command_no=4;	// 4: bt address
+			ab1585h_command_data=0;
+			BT_send_data_proc();		
+			break;
         case KEY_RECONNECT_LAST_DEVICE:
             /* Send AWS sync event to Agent for Partner role and AWS connected. */
             /* Play "fail" VP if Partner send fail or AWS not connected. */
