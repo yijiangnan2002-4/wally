@@ -857,21 +857,21 @@ void* RACE_FACTORY_TEST_HW_VERSION(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 	return pEvt;
 	
 }
-
+#define SN_LEN  10
 void* RACE_FACTORY_TEST_SERIAL_NUMBER(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
 	 typedef struct
 	{
 	    RACE_COMMON_HDR_STRU cmdhdr;
 		uint8_t WR;
-		uint8_t ver[22];
+		uint8_t ver[SN_LEN];
 	}PACKED CMD;
 
 	typedef struct
 	{
 		uint8_t status;
 		uint8_t action;
-		uint8_t ver_rsp[22];
+		uint8_t ver_rsp[SN_LEN];
 	}PACKED RSP;
 
 	CMD* pCmd = (CMD *)pCmdMsg;
@@ -885,25 +885,25 @@ void* RACE_FACTORY_TEST_SERIAL_NUMBER(ptr_race_pkt_t pCmdMsg, uint8_t channel_id
 		
     	if(pCmd->WR == 0x00)
 		{
-			app_nvkey_sn_read(pEvt->ver_rsp, 22);
+			app_nvkey_sn_read(pEvt->ver_rsp, SN_LEN);
 		}
 		else if(pCmd->WR == 0x01)
 		{
 			if(bt_sink_srv_cm_get_aws_connected_device() != 0)
 			{
-				memmove(pEvt->ver_rsp, pCmd->ver, 22);  
-				app_set_ble_write_SN(pCmd->ver, 22);
+				memmove(pEvt->ver_rsp, pCmd->ver, SN_LEN);  
+				app_set_ble_write_SN(pCmd->ver, SN_LEN);
 			}
 			else
 			{
-				memset(pEvt->ver_rsp, 0x00, 22);
+				memset(pEvt->ver_rsp, 0x00, SN_LEN);
 				ret = RACE_ERRCODE_FAIL;
 			}
 		}
 		else if(pCmd->WR == 0x02)
 		{
-			memmove(pEvt->ver_rsp, pCmd->ver, 22);	
-			app_nvkey_sn_set(pCmd->ver, 22);		
+			memmove(pEvt->ver_rsp, pCmd->ver, SN_LEN);	
+			app_nvkey_sn_set(pCmd->ver, SN_LEN);		
 		}
 		else
 		{
