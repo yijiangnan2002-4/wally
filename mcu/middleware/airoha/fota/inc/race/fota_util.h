@@ -118,6 +118,7 @@
 #define FOTA_VERSION_INTEGRITY_CHECK_VALUE_SIZE (4) /* The size of the integrity check value of the version string. */
 ////////////////hugo
 #define FOTA_DEFAULT_VERSION    ("v1.4.02.05") /* HUGO HUGO The default FOTA package release version. */
+
 /////////////// VIBE
 //#define FOTA_DEFAULT_VERSION    ("v2.1.01.01") /* VIBE VIBE The default FOTA package release version. */
 
