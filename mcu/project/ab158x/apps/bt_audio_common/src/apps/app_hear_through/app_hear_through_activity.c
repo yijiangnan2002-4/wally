@@ -713,11 +713,12 @@ static void app_hear_through_activity_handle_ambient_control_switch()
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
 
             app_hear_through_switch_on_off(true, true);
-
+#if 0
   		// richard for customer UI spec.
 		//voice_prompt_play_sync_vp_hearing_through();
       anc_eastech_spec=1;
       app_hearing_aid_key_handler_proc_mode_up_circular();  // harry add for anc new feature
+#endif
       }
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC: {
@@ -2376,7 +2377,7 @@ void app_hear_through_activity_switch_ambient_control()
 
     uint8_t old_mode_index = app_hear_through_ctx.mode_index;
     app_hear_through_ctx.mode_index ++;
-    #if 1 // harry for anc key for hufo
+    #if 1 // harry for anc key for hugo
     if (app_hear_through_ctx.mode_index == 3)
     {
         app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH;
@@ -2389,7 +2390,7 @@ void app_hear_through_activity_switch_ambient_control()
     #endif
 
 #if 1	// richard for UI requirement
-	if (app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC)
+	if (app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC||app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_OFF)
 		anc_ha_flag=0;
 	else anc_ha_flag=1;
 #endif

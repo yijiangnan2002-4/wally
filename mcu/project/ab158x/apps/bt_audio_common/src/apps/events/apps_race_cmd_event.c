@@ -204,7 +204,7 @@ static void *apps_race_cmd_power_saving(ptr_race_pkt_t p_race_package, uint16_t 
                 ((QUERY_RSP *)pEvt)->timeout = cfg->timeout;
                 ((QUERY_RSP *)pEvt)->silence_detect_enable = cfg->silence_detect_enable;
                 ((QUERY_RSP *)pEvt)->silence_detect_timeout = cfg->silence_detect_timeout;
-                APPS_LOG_MSGID_I(LOG_TAG"get power saving cfg, en: %d, t:%d", 2, cfg->power_saving_enable, cfg->timeout);
+                APPS_LOG_MSGID_I(LOG_TAG"get power saving cfg, en: %d, t:%d,silence_enable:%d, silence_timeout:%d", 4, cfg->power_saving_enable, cfg->timeout, cfg->silence_detect_enable, cfg->silence_detect_timeout);
             } else {
                 APPS_LOG_MSGID_I(LOG_TAG" RACE_ClaimPacketAppID return NULL. ", 0);
             }

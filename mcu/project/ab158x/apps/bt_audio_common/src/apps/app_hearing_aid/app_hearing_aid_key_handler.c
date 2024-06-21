@@ -225,7 +225,7 @@ static void app_hearing_aid_key_handler_proc_mode_adjust(bool up, bool circular)
                         vp_index);
             if (vp_index != 0xFF) {
 #ifdef AIR_TWS_ENABLE
-
+   #if 0 // harry for anc+ha common key
                 if(anc_eastech_spec==0)
                 {
                     APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_proc_mode_adjust] anc_eastech_spec==0",0);
@@ -236,6 +236,9 @@ static void app_hearing_aid_key_handler_proc_mode_adjust(bool up, bool circular)
                     APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_proc_mode_adjust] anc_eastech_spec!=0",0);
                     app_hearing_aid_activity_play_vp(vp_index, false);
                 }
+   #else
+                 app_hearing_aid_activity_play_vp(vp_index, true);
+   #endif
 #else
                 app_hearing_aid_activity_play_vp(vp_index, false);
 #endif /* AIR_TWS_ENABLE */
@@ -248,7 +251,12 @@ static void app_hearing_aid_key_handler_proc_mode_adjust(bool up, bool circular)
     // }
 
 #ifdef AIR_TWS_ENABLE
-    if ((app_hearing_aid_aws_is_connected() == true)&&(anc_eastech_spec==0)) {
+#if 0// harry for anc+ha common key
+    if ((app_hearing_aid_aws_is_connected() == true)&&(anc_eastech_spec==0))
+      #else
+    if ((app_hearing_aid_aws_is_connected() == true))
+      #endif
+      {
         app_hearing_aid_aws_index_change_t change = {0};
         change.index = out_mode;
         app_hearing_aid_aws_send_operate_command(APP_HEARING_AID_OP_COMMAND_CHANGE_MODE,
@@ -262,7 +270,7 @@ static void app_hearing_aid_key_handler_proc_mode_adjust(bool up, bool circular)
         app_hearing_aid_key_handler_adjust_mode(out_mode, true);
 #ifdef AIR_TWS_ENABLE
     }
-    anc_eastech_spec=0;
+    //anc_eastech_spec=0;// harry for anc+ha common key
 #endif /* AIR_TWS_ENABLE */
 }
 
@@ -334,6 +342,7 @@ uint8_t get_current_ha_mode(void)
 
 void app_hearing_aid_key_handler_proc_mode_down()
 {
+#if 0// harry for anc+ha common key
     uint8_t l_level_index = 0;
     uint8_t r_level_index = 0;
     uint8_t level_max_count = 0;
@@ -389,6 +398,9 @@ void app_hearing_aid_key_handler_proc_mode_down()
     }
     audio_anc_psap_control_get_mode_index(&mode_index);
     APPS_LOG_MSGID_I("app_hearing_aid_key_handler_proc_mode_down  mode_index:%d", 1, mode_index );
+    #else
+    app_hearing_aid_key_handler_proc_mode_adjust(false, false);
+    #endif
 
 }
 

@@ -119,6 +119,8 @@ extern void app_ull_take_over_disable_visible(void);
 #include "bt_ull_le_service.h"
 #endif
 
+//#include "app_multi_va_idle_activity.h"
+
 
 #define LOG_TAG     "[app_bt_state_service]"
 
@@ -685,6 +687,7 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                 s_current_status.connection_state = APP_BT_CONNECTION_SERVICE_BT_STATE_DISCONNECTED;
 
                 app_bt_state_service_check_and_do_bt_visible();
+                start_default_ble_adv();
             } else if (BT_CM_POWER_STATE_OFF == power_update->power_state) {
                 /* BT on switch to off. */
                 s_current_status.bt_visible = false;
@@ -746,6 +749,7 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                     app_ull_take_over_disable_visible();
                 }
                 bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_DISCOVERABLE, latency);
+                default_ble_adv_update();
             }
 #endif
             break;
@@ -839,6 +843,7 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                     /* Agent send AWS state to APP via RACE command. */
                     race_bt_notify_aws_state(1);
 #endif
+                    start_default_ble_adv();
                 } else if ((BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->pre_connected_service)
                            && !(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)) {
                     /* Agent update AWS connection state when AWS disconnected. */

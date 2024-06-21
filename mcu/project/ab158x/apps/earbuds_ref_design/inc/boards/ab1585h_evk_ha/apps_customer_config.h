@@ -81,8 +81,10 @@
 
 #ifndef AIR_HEARTHROUGH_MAIN_ENABLE
 #define AIR_APPS_DEFAULT_ADV_ENABLE                     (1)
+//errrrrrrrrrrrr
 #else
-#define AIR_APPS_DEFAULT_ADV_ENABLE                     (0)
+#define AIR_APPS_DEFAULT_ADV_ENABLE                     (1) // harry form 0 change to 1
+//errrrrrrrrrrrrrrr
 #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
 
 #if (!(defined MULTI_VA_SUPPORT_COMPETITION)) && defined AIR_XIAOWEI_ENABLE

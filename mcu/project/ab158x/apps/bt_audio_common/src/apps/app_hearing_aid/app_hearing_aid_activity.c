@@ -2546,8 +2546,8 @@ static bool app_hearing_aid_activity_proc_cm_event(uint32_t event_id,
                 if (user_switch_on == true) {
                     app_hearing_aid_aws_handle_connected(app_ha_activity_context.power_on_ha_executed);
                 }
-                // harry for anc key
-  	            apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_ANC_KEY_SYNC,(void*)&anc_key_count ,1);
+                // harry for anc key // harry for anc+ha common key
+  	            //apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_ANC_KEY_SYNC,(void*)&anc_key_count ,1);
 
                 /**
                  * @brief Fix issue - 44600

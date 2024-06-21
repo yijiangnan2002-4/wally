@@ -236,6 +236,7 @@ errrrrrrrrrrrrrrrr
       APPS_LOG_MSGID_I("pre_proc_key_event_proc, action: %04x,key_id=%x,key_event=%x", 3, *p_key_action,key_id,key_event);
      if(*p_key_action==KEY_SWITCH_ANC_AND_PASSTHROUGH)
      {
+     #if 0
       uint8_t level_max_count = 0;
       uint8_t mode_max_count = 0;
       uint8_t vol_max_count = 0;
@@ -264,6 +265,7 @@ errrrrrrrrrrrrrrrr
           
         }
         else
+       #endif
         {
           APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_SWITCH_ANC_AND_PASSTHROUGH22", 0);
         }
