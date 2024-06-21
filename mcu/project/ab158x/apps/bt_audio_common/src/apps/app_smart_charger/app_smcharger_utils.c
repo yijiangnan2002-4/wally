@@ -646,6 +646,7 @@ app_power_saving_target_mode_t app_smcharger_get_power_saving_target_mode(void)
 #endif
 
 static uint8_t dut_test_flag = 0;	// richard for UI spec
+extern void factory_reset_at_shipping_mode(void);
 app_smcharger_action_status_t app_smcharger_state_do_action(uint8_t state)
 {
     if (g_smcharger_context == NULL) {
@@ -741,13 +742,10 @@ app_smcharger_action_status_t app_smcharger_state_do_action(uint8_t state)
 			if(app_get_shipping_mode_state())
 			{
 				app_enter_shipping_mode_flag_set(true);
-				app_system_factory_reset(4);
+				factory_reset_at_shipping_mode();
 			}
-			else
-			{
 			app_common_add_tracking_log(0x32);
             status += app_smcharger_power_off(FALSE);
-			}
             break;
         }
         default: {

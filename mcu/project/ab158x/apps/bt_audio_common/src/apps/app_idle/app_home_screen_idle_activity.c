@@ -724,6 +724,23 @@ nvdm_status_t app_home_screen_fact_rst_nvdm_flag(uint8_t factrst_flag)
     return status;
 }
 
+nvdm_status_t app_home_screen_fact_rst_nvdm_flag1(uint8_t factrst_flag)
+{
+    nvdm_status_t status;
+
+    APPS_LOG_MSGID_I("Write Factory reset flag to NVDM: %d", 1, factrst_flag);
+
+    factrst_flag = FACTORY_RESET_FLAG;
+    status = nvkey_write_data(NVID_SYS_FACTORY_RESET_FLAG, &factrst_flag, 1);
+
+    return status;
+}
+
+void factory_reset_at_shipping_mode(void)
+{
+	app_home_screen_fact_rst_nvdm_flag1(FACTORY_RESET_FLAG);
+}
+
 // richard for ota reset
 void set_ota_flag_proc(uint8_t ota_set_flag)
 {
