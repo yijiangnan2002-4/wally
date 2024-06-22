@@ -749,9 +749,10 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                     app_ull_take_over_disable_visible();
                 }
                 bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_DISCOVERABLE, latency);
-                default_ble_adv_update();
+//                default_ble_adv_update();
             }
 #endif
+                default_ble_adv_update();
             break;
         }
         case BT_CM_EVENT_REMOTE_INFO_UPDATE: {
