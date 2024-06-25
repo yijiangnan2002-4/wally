@@ -347,6 +347,7 @@ void app_set_anc_status_bk(uint8_t status)
 
 }
 
+#define SN_LEN  10
 
 void app_set_ble_write_SN(uint8_t *sn, uint8_t len)
 {
@@ -358,10 +359,10 @@ void app_set_ble_write_SN(uint8_t *sn, uint8_t len)
 	}
 	else
 	{
-		uint8_t local_sn[22] = {0};
-		app_nvkey_sn_read(local_sn, 22);
-		race_debug_print((uint8_t*)local_sn, 22,"sn local1:");
-		apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_DEVICE_SN_COMPARE, (void*)local_sn, 22);
+		uint8_t local_sn[SN_LEN] = {0};
+		app_nvkey_sn_read(local_sn, SN_LEN);
+		race_debug_print((uint8_t*)local_sn, SN_LEN,"sn local1:");
+		apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_DEVICE_SN_COMPARE, (void*)local_sn, SN_LEN);
 	}
 }
 
@@ -382,11 +383,11 @@ void app_set_hw_version(uint8_t *ver, uint8_t len)
 void app_write_sn_compare(uint8_t *sn, uint8_t len)
 {
 
-	if(len == 22)
+	if(len == SN_LEN)
 	{
-		uint8_t local_sn[22] = {0};
-		app_nvkey_sn_read(local_sn, 22);
-		race_debug_print((uint8_t*)local_sn, 22,"sn local2:");
+		uint8_t local_sn[SN_LEN] = {0};
+		app_nvkey_sn_read(local_sn, SN_LEN);
+		race_debug_print((uint8_t*)local_sn, SN_LEN,"sn local2:");
 		
 		if(!memcmp(local_sn, sn, len))
 			sn_cmp_result = 1;

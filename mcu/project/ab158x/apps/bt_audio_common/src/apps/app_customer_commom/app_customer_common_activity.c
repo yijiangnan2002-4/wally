@@ -1567,6 +1567,8 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 	return ret;
 
 }
+#define SN_LEN  10
+
 static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
 {
     bool ret = false;
@@ -1719,7 +1721,7 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 
 				case EVENT_ID_DEVICE_SN_SYNC:
 					race_debug_print((uint8_t*)p_extra_data, extra_data_len,"sn sync:");
-					app_set_ble_write_SN((uint8_t*)p_extra_data, 22);
+					app_set_ble_write_SN((uint8_t*)p_extra_data, SN_LEN);
 					ret = true;
 					break;
 
