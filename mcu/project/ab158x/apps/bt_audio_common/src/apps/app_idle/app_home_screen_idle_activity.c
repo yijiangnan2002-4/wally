@@ -992,18 +992,21 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                 } else {
                     app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
                    #ifdef ALWAYS_PLAY_PAIRING_VP
-                   app_eastech_voice_prompt_play_pairing();
+        #ifndef EASTECH_SPEC_VP
+                      ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
+         	          ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                           EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                           (uint32_t)EVENT_ID_EASTECH_PRE_PAIR_VP,
+                           NULL, 0,
+                           NULL, PRE_VP_PAIR_TIMEOUT);
+         #endif
                    APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 222", 0);
-                   ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
-                 	ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
-                                   EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
-                                   (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
-                                   NULL, 0,
-                                   NULL, VP_PLAY_INTERVAL);
+ 
+                  
          		   #else
                       memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                       vp.vp_index = VP_INDEX_PAIRING;
-                      APPS_LOG_MSGID_I("VP_INDEX_PAIRING 222", 0);
+                      APPS_LOG_MSGID_I("VP_INDEX_PAIRING 2222", 0);
                       voice_prompt_play(&vp, NULL);
                    #endif
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 100, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
@@ -1012,17 +1015,18 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             } else if (bt_device_manager_aws_local_info_get_role() != BT_AWS_MCE_ROLE_CLINET)
 #endif
             {
-                app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
+           app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
+           APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 333", 0);  // press pair key vp
+        #ifndef EASTECH_SPEC_VP
            #ifdef ALWAYS_PLAY_PAIRING_VP
-           app_eastech_voice_prompt_play_pairing();
-           APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 333", 0);
-           ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
-         	ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                      ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
+         	          ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
                            EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
-                           (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
+                           (uint32_t)EVENT_ID_EASTECH_PRE_PAIR_VP,
                            NULL, 0,
-                           NULL, VP_PLAY_INTERVAL);
+                           NULL, PRE_VP_PAIR_TIMEOUT);
  
+ 		  #endif
  		#endif
                //apps_config_set_vp(VP_INDEX_PAIRING, true, 100, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
             }
@@ -1226,8 +1230,8 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                 if (BT_STATUS_SUCCESS == bt_aws_mce_srv_air_pairing_start(&air_pairing_data)) {
                     app_bt_state_service_set_air_pairing_doing(true);
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-                    vp.vp_index = VP_INDEX_PAIRING;
-                            APPS_LOG_MSGID_I("VP_INDEX_PAIRING 555", 0);
+                    vp.vp_index = VP_INDEX_PAIRING;  // 
+                    APPS_LOG_MSGID_I("VP_INDEX_PAIRING 555", 0);  // 组队动作音
                     voice_prompt_play(&vp, NULL);
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING, APPS_AIR_PAIRING_DURATION * 10, false);
@@ -1555,14 +1559,15 @@ static bool homescreen_app_bt_connection_manager_event_proc(ui_shell_activity_t 
             //APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", start visible when power on if paired_num is 0", 0);
             app_bt_state_service_set_bt_visible(true, true, VISIBLE_TIMEOUT);
             #ifdef ALWAYS_PLAY_PAIRING_VP
-            app_eastech_voice_prompt_play_pairing();
             APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",  VP_INDEX_PAIRING 222333 ", 0);
-            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
-         	 ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                    #ifndef EASTECH_SPEC_VP
+                     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
+         	          ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
                            EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
-                           (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
+                           (uint32_t)EVENT_ID_EASTECH_PRE_PAIR_VP,
                            NULL, 0,
-                           NULL, VP_PLAY_INTERVAL);
+                           NULL, PRE_VP_PAIR_TIMEOUT);
+                    #endif
  		    #endif
         } else if (bt_on) {
             //APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", delay to start visible if paired_num > 0", 0);
@@ -1665,22 +1670,21 @@ static bool homescreen_app_aws_event_proc(ui_shell_activity_t *self, uint32_t ev
 #if APPS_AUTO_SET_BT_DISCOVERABLE
                     APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", set flag auto_start_visiable when air pairing successfully", 0);
                     app_bt_state_service_set_bt_visible(true, true, VISIBLE_TIMEOUT);
-#endif
-                    apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING_SUCCESS, 30, false);
                    #ifdef ALWAYS_PLAY_PAIRING_VP
-                   app_eastech_voice_prompt_play_pairing();
-                   APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 121222", 0);
-                   ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
-                 	ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
-                                   EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
-                                   (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
-                                   NULL, 0,
-                                   NULL, VP_PLAY_INTERVAL);
+                   APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 121222", 0);  //组队成功音
+                      ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
+         	          ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                           EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                           (uint32_t)EVENT_ID_EASTECH_PRE_PAIR_VP,
+                           NULL, 0,
+                           NULL, PRE_VP_PAIR_TIMEOUT);
          		   #else
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                     vp.vp_index = VP_INDEX_SUCCEED;
                     voice_prompt_play(&vp, NULL);
                    #endif
+#endif
+                    apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING_SUCCESS, 30, false);
 #if defined(AIR_CIS_DUAL_UPLINK_ENABLE) && defined(AIR_LE_AUDIO_CIS_ENABLE)
                     audio_channel_t channel = ami_get_audio_channel();
                     uint32_t le_audio_channel = (channel == AUDIO_CHANNEL_NONE) ? AUDIO_LOCATION_NONE : (channel == AUDIO_CHANNEL_R) ? AUDIO_LOCATION_FRONT_RIGHT : AUDIO_LOCATION_FRONT_LEFT;

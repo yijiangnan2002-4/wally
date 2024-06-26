@@ -61,6 +61,9 @@
 #if defined(AIR_DCHS_MODE_SLAVE_ENABLE)
 #include "mux_ll_uart_latch.h"
 #endif
+#include "apps_customer_config.h"
+#include "app_bt_state_service.h"
+#include "app_in_ear_idle_activity.h"
 
 #define LOG_TAG   "VP_API"
 
@@ -121,6 +124,25 @@ static voice_prompt_status_t voice_prompt_check_param(voice_prompt_param_t *vp)
 
 voice_prompt_status_t voice_prompt_play(voice_prompt_param_t *vp, uint16_t *play_id)
 {
+bool visi;
+#ifdef EASTECH_SPEC_VP
+if(vp->vp_index == VP_INDEX_PAIRING||vp->vp_index == VP_INDEX_EN_Pairing_2)
+{
+visi=app_bt_connection_service_get_current_status()->bt_visible;
+       VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING inear play vp=%d ir_senser_in_ear_statu=%d,visi=%d",3,vp->vp_index,ir_senser_in_ear_statu,visi);
+  if((ir_senser_in_ear_statu==1)&&visi)
+  {
+       VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING inear play vp=%d",1,vp->vp_index);
+  }
+  else
+  {
+    VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING out ear no need play vp=%d",1,vp->vp_index);
+    return VP_STATUS_SUCCESS;
+  }
+}
+#else
+
+#endif
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DCHS_MODE_SLAVE_ENABLE)
 #ifdef AIR_DCHS_MODE_SLAVE_ENABLE
     if (dchs_get_device_mode() != DCHS_MODE_SINGLE) {

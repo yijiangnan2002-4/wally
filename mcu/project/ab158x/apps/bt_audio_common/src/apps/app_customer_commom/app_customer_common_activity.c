@@ -1553,6 +1553,18 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 			}
 
 #ifdef ALWAYS_PLAY_PAIRING_VP
+	    case EVENT_ID_EASTECH_PRE_PAIR_VP:	
+		    log_hal_msgid_info("_proc_customer_common VP_INDEX_PAIRING EVENT_ID_EASTECH_PRE_PAIR_VP",0);
+           app_eastech_voice_prompt_play_pairing();
+           ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
+         	ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                           EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                           (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
+                           NULL, 0,
+                           NULL, VP_PLAY_INTERVAL);
+		break;
+
+
 	    case EVENT_ID_EASTECH_CALLBACK_PAIR_VP:	
 		log_hal_msgid_info("_proc_customer_common EASTECH_CALLBACK_PAIR_VP",0);
 		app_eastech_pair_vp_callback();

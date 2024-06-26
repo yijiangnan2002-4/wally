@@ -68,6 +68,8 @@
 #include "voice_prompt_api.h"
 #include "apps_config_vp_index_list.h"
 #include "app_bt_state_service.h"
+#include "app_customer_common_activity.h"
+#include "apps_customer_config.h"
 
 #define APP_INEAR_TAG "[In ear]idle_activity"
 
@@ -394,7 +396,7 @@ static bool app_in_ear_proc_bt_cm_events(ui_shell_activity_t *self,
 
     return false;
 }
-
+uint8_t ir_senser_in_ear_statu; 
 static bool app_in_ear_proc_apps_internal_events(ui_shell_activity_t *self,
                                                  uint32_t event_id,
                                                  void *extra_data,
@@ -417,23 +419,33 @@ static bool app_in_ear_proc_apps_internal_events(ui_shell_activity_t *self,
         if (extra_data != NULL) {
             bool *pstatus = (bool *)extra_data;
             ctx->isInEar = *pstatus;
-            if (ctx->isInEar) {
-              #if 0//harry for new vp
-                if (app_bt_connection_service_get_current_status()->bt_visible)
+            ir_senser_in_ear_statu = ctx->isInEar ;
+            bool visib;
+                   APPS_LOG_MSGID_I(APP_INEAR_TAG", VP_INDEX_PAIRING ctx->isInEar=%d", 1,ctx->isInEar);
+          if (ctx->isInEar) {
+               #ifdef ALWAYS_PLAY_PAIRING_VP
+              visib=app_bt_connection_service_get_current_status()->bt_visible;
+                 APPS_LOG_MSGID_I(APP_INEAR_TAG", VP_INDEX_PAIRING visib=%d", 1,visib);
+               // if (visib)
                 {
-                voice_prompt_param_t vp;
-                memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-                vp.vp_index = VP_INDEX_PAIRING;
-                vp.delay_time = 200;
-                APPS_LOG_MSGID_I("VP_INDEX_PAIRING 666", 0);
-                voice_prompt_play(&vp, NULL);
+                 APPS_LOG_MSGID_I(APP_INEAR_TAG",VP_INDEX_PAIRING IN_EAR_UPDATE", 0);
+                      ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
+         	          ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                           EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                           (uint32_t)EVENT_ID_EASTECH_PRE_PAIR_VP,
+                           NULL, 0,
+                           NULL, PRE_VP_PAIR_TIMEOUT);
                 }
-              #else
-                //app_in_ear_play_press_vp();
               #endif
             }
+            else  // out ear turn off vp of pair  harry 
+              {
+                 #ifdef ALWAYS_PLAY_PAIRING_VP
+                 ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
+                 #endif
+              }
         }
-        APPS_LOG_MSGID_I(APP_INEAR_TAG" [IN_EAR_UPDATE] isInEar=%d pairing=%d", 1, ctx->isInEar,app_bt_connection_service_get_current_status()->bt_visible);
+        APPS_LOG_MSGID_I(APP_INEAR_TAG" [IN_EAR_UPDATE] isInEar=%d pairing=%d", 2, ctx->isInEar,app_bt_connection_service_get_current_status()->bt_visible);
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
         /* Events are not handled during RHO, and the new agent will handle them. */
         APPS_LOG_MSGID_I(APP_INEAR_TAG" [IN_EAR_UPDATE] isInRho=%d", 1, ctx->isInRho);
