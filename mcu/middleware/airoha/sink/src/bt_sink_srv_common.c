@@ -316,13 +316,17 @@ uint32_t bt_sink_srv_get_volume(bt_bd_addr_t *bd_addr, bt_sink_srv_volume_type_t
 {
     uint32_t volume = 0xffffffff;
     if (type == BT_SINK_SRV_VOLUME_HFP) {
+      
 #ifdef AIR_BT_SINK_CALL_ENABLE
         bt_sink_srv_hf_get_speaker_volume(bd_addr, &volume);
 #endif
+    bt_sink_srv_report_id("[SINK][COMMON]bt_sink_srv_get_volume hfp vol=%d", 1, volume);
+
     } else if (type == BT_SINK_SRV_VOLUME_A2DP) {
 #ifdef AIR_BT_SINK_MUSIC_ENABLE
         bt_sink_srv_a2dp_get_volume(bd_addr, &volume);
 #endif
+    bt_sink_srv_report_id("[SINK][COMMON]bt_sink_srv_get_volume a2dp vol=%d", 1, volume);
     }
 
     return volume;
