@@ -921,9 +921,12 @@ typedef enum
     NVID_CUS_CUST_RANGE_START                          = 0xF400,
 
 	// richard for customer UI spec.============CUSTOMER DEFINITION ITEM================
-	NVID_CUS_OTA_FLAG							=0xF900,
-	NVID_CUSTOMER_DEFAULT_SETTING			= 0xFE00,
+	//NVID_CUS_OTA_FLAG							=0xF900,
+	//NVID_CUSTOMER_DEFAULT_SETTING			= 0xFE00,
 	
     NVID_CUS_CUST_RANGE_END                            = 0xFFFF,
 }NVKey_ID_list;
+	#define NVID_CUS_OTA_FLAG							0xF900
+	#define NVID_CUSTOMER_DEFAULT_SETTING			 0xFE00
+
 #endif /* __NVKEY_ID_LIST_H__ */ 
