@@ -772,11 +772,12 @@ static void app_hear_through_activity_handle_ambient_control_switch()
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
 
             app_hear_through_switch_on_off(true, true);
-
+        #if 1  
   		// richard for customer UI spec.
 		uint8_t mode_index = 0;
 		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
   		voice_prompt_play_sync_vp_ha(mode_index);
+        #endif
         }
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC: {
@@ -785,8 +786,8 @@ static void app_hear_through_activity_handle_ambient_control_switch()
             app_hearing_through_activity_leave_hear_through_mode();
             app_anc_service_reset_hear_through_anc(true);
 
-		// richard for customer UI spec.
-		voice_prompt_play_sync_vp_anc_on();			
+    		// richard for customer UI spec.
+    		voice_prompt_play_sync_vp_anc_on();			
         }
         break;
         default:

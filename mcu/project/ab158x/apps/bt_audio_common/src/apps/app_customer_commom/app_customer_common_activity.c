@@ -344,8 +344,8 @@ void key_avrcp_next_proc(uint8_t vol_m_flag)			// 0: VOLUP_DP, 1: MBUTTON_DP
 		}
 		else
 		{
-			*p_key_action = KEY_SWITCH_WORLD_MODE;
-			//*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
+			//*p_key_action = KEY_SWITCH_WORLD_MODE;
+			*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
       
 		}
 	}
@@ -407,8 +407,8 @@ void key_switch_anc_and_passthrough_proc(void)
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
     	if (p_key_action)
 	{
-		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH1;
-		//*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH;
+		//*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH1;
+		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH;
     
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
