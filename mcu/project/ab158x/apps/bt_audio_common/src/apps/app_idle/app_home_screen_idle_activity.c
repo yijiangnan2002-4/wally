@@ -162,6 +162,7 @@ extern void dchs_device_ready_to_off_callback(void);
 // richard for customer UI spec
 #include "app_customer_nvkey_operation.h"
 #include "app_customer_common_activity.h"
+#include "app_in_ear_idle_activity.h"
 
 #define UI_SHELL_IDLE_BT_CONN_ACTIVITY  "[TK_Home]app_home_screen_idle_activity"
 
@@ -991,24 +992,28 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     }
                 } else {
                     app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
-                   #ifdef ALWAYS_PLAY_PAIRING_VP
-        #ifndef EASTECH_SPEC_VP
-                      ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
-         	          ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
-                           EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
-                           (uint32_t)EVENT_ID_EASTECH_PRE_PAIR_VP,
-                           NULL, 0,
-                           NULL, PRE_VP_PAIR_TIMEOUT);
-         #endif
-                   APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 222", 0);
- 
-                  
+
+           #ifdef EASTECH_SPEC_VP
+              if(ir_senser_in_ear_statu==1)   // pair 启动时，耳机在入耳模式
+ 		    #endif
+              { 
+                #ifdef ALWAYS_PLAY_PAIRING_VP
+                ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
+                ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                     EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                     (uint32_t)EVENT_ID_EASTECH_PRE_PAIR_VP,
+                     NULL, 0,
+                     NULL, PRE_VP_PAIR_TIMEOUT);
          		   #else
                       memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                       vp.vp_index = VP_INDEX_PAIRING;
                       APPS_LOG_MSGID_I("VP_INDEX_PAIRING 2222", 0);
                       voice_prompt_play(&vp, NULL);
                    #endif
+              }
+                   APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 222 ir_senser_in_ear_statu=%d", 1,ir_senser_in_ear_statu);
+ 
+                  
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 100, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Partner aws disconnected for KEY_DISCOVERABLE", 0);
                 }
@@ -1016,8 +1021,11 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
 #endif
             {
            app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
-           APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 333", 0);  // press pair key vp
-        #ifndef EASTECH_SPEC_VP
+           APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 333 ir_senser_in_ear_statu=%d", 1,ir_senser_in_ear_statu);  // press pair key vp
+        #ifdef EASTECH_SPEC_VP
+        if(ir_senser_in_ear_statu==1)   // pair 启动时，耳机在入耳模式
+ 		  #endif
+          {
            #ifdef ALWAYS_PLAY_PAIRING_VP
                       ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
          	          ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
@@ -1025,8 +1033,8 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                            (uint32_t)EVENT_ID_EASTECH_PRE_PAIR_VP,
                            NULL, 0,
                            NULL, PRE_VP_PAIR_TIMEOUT);
+          }
  
- 		  #endif
  		#endif
                //apps_config_set_vp(VP_INDEX_PAIRING, true, 100, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
             }
@@ -1558,16 +1566,19 @@ static bool homescreen_app_bt_connection_manager_event_proc(ui_shell_activity_t 
         if (bt_on && bt_device_manager_remote_get_paired_num() == 0) {
             //APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", start visible when power on if paired_num is 0", 0);
             app_bt_state_service_set_bt_visible(true, true, VISIBLE_TIMEOUT);
-            #ifdef ALWAYS_PLAY_PAIRING_VP
-            APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",  VP_INDEX_PAIRING 222333 ", 0);
-                    #ifndef EASTECH_SPEC_VP
-                     ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
-         	          ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
-                           EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
-                           (uint32_t)EVENT_ID_EASTECH_PRE_PAIR_VP,
-                           NULL, 0,
-                           NULL, PRE_VP_PAIR_TIMEOUT);
-                    #endif
+            APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",  VP_INDEX_PAIRING 222333  ir_senser_in_ear_statu=%d", 1,ir_senser_in_ear_statu);
+           #ifdef EASTECH_SPEC_VP
+              if(ir_senser_in_ear_statu==1)   // pair 启动时，耳机在入耳模式
+ 		    #endif
+           #ifdef ALWAYS_PLAY_PAIRING_VP
+            { 
+              ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
+              ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                 EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                 (uint32_t)EVENT_ID_EASTECH_PRE_PAIR_VP,
+                 NULL, 0,
+                 NULL, PRE_VP_PAIR_TIMEOUT);
+            }
  		    #endif
         } else if (bt_on) {
             //APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", delay to start visible if paired_num > 0", 0);
