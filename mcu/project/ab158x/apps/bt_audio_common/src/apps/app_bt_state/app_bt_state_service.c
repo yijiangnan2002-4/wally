@@ -119,6 +119,8 @@ extern void app_ull_take_over_disable_visible(void);
 #include "bt_ull_le_service.h"
 #endif
 
+//#include "app_multi_va_idle_activity.h"
+
 
 #define LOG_TAG     "[app_bt_state_service]"
 
@@ -621,7 +623,14 @@ static bool app_bt_state_service_process_interaction_events(uint32_t event_id,
                 if (s_current_status.bt_visible) {
                     bt_cm_discoverable(false);
                 }
+              voice_prompt_param_t vp = {0};
+              vp.vp_index = VP_INDEX_EN_Pairing_out;   
+              vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
+              vp.delay_time = 300;
+              voice_prompt_play(&vp, NULL);
+              APPS_LOG_MSGID_I(LOG_TAG" VP_INDEX_EN_Pairing_out BT visible timeout 111", 0);
             }
+
 #endif
             ret = true;
             break;
@@ -678,6 +687,7 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                 s_current_status.connection_state = APP_BT_CONNECTION_SERVICE_BT_STATE_DISCONNECTED;
 
                 app_bt_state_service_check_and_do_bt_visible();
+                start_default_ble_adv();
             } else if (BT_CM_POWER_STATE_OFF == power_update->power_state) {
                 /* BT on switch to off. */
                 s_current_status.bt_visible = false;
@@ -739,8 +749,10 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                     app_ull_take_over_disable_visible();
                 }
                 bt_app_common_pre_set_ultra_low_latency_retry_count(BT_APP_COMMON_ULL_LATENCY_MODULE_DISCOVERABLE, latency);
+//                default_ble_adv_update();
             }
 #endif
+                default_ble_adv_update();
             break;
         }
         case BT_CM_EVENT_REMOTE_INFO_UPDATE: {
@@ -832,6 +844,7 @@ static bool app_bt_state_service_process_bt_cm_events(uint32_t event_id,
                     /* Agent send AWS state to APP via RACE command. */
                     race_bt_notify_aws_state(1);
 #endif
+                    start_default_ble_adv();
                 } else if ((BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->pre_connected_service)
                            && !(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)) {
                     /* Agent update AWS connection state when AWS disconnected. */
@@ -1091,6 +1104,8 @@ static bool app_bt_state_service_process_aws_data_events(uint32_t event_id,
                             voice_prompt_param_t vp = {0};
                             vp.vp_index = VP_INDEX_PAIRING;
                             voice_prompt_play(&vp, NULL);
+                            APPS_LOG_MSGID_I("VP_INDEX_PAIRING 111", 0);
+                           
                             //apps_config_set_vp(VP_INDEX_PAIRING, false, 100, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                         }
 

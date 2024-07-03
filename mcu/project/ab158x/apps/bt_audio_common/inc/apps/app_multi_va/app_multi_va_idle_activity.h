@@ -61,4 +61,7 @@ bool app_multi_va_idle_activity_proc(ui_shell_activity_t *self,
                                      void *extra_data,
                                      size_t data_len);
 
+ void start_default_ble_adv(void);
+ void default_ble_adv_update(void);
+
 #endif /* __APP_MULTI_BLE_ADV_ACTIVITY_H__ */

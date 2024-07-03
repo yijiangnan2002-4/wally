@@ -96,6 +96,8 @@ static const uint8_t captouch_keys[] = APPS_CAPTOUCH_KEY_IDS;
 #include "audio_anc_psap_control.h"
 #include "app_hear_through_activity.h"
 
+
+bool key_porc_in_ear_statu; 
 static bool _proc_ui_shell_group(ui_shell_activity_t *self,
                                  uint32_t event_id,
                                  void *extra_data,
@@ -221,11 +223,20 @@ errrrrrrrrrrrrrrrr
             /* For QA testing, use power key table to implement . */
             key_id = DEVICE_KEY_POWER;
         }
+        if(0)//(key_porc_in_ear_statu==0)// harry for key proc
+          {
+          APPS_LOG_MSGID_I("pre_proc_key_event_proc, it is outear action", 0);
+          }
+        else
+          {
+          //APPS_LOG_MSGID_I("pre_proc_key_event_proc, it is inear action", 0);
         *p_key_action = apps_config_key_event_remapper_map_action(key_id, key_event);
+          }
 
       APPS_LOG_MSGID_I("pre_proc_key_event_proc, action: %04x,key_id=%x,key_event=%x", 3, *p_key_action,key_id,key_event);
      if(*p_key_action==KEY_SWITCH_ANC_AND_PASSTHROUGH)
      {
+     #if 0
       uint8_t level_max_count = 0;
       uint8_t mode_max_count = 0;
       uint8_t vol_max_count = 0;
@@ -254,6 +265,7 @@ errrrrrrrrrrrrrrrr
           
         }
         else
+       #endif
         {
           APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_SWITCH_ANC_AND_PASSTHROUGH22", 0);
         }
@@ -268,10 +280,10 @@ errrrrrrrrrrrrrrrr
      else if(*p_key_action==KEY_VOICE_DN)
       {
             APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_VOICE_DN", 0);
-            //voice_prompt_play_sync_vp_volume_down();
+            voice_prompt_play_sync_vp_volume_down();
       }else if(*p_key_action==KEY_VOICE_UP)
       {
-            //voice_prompt_play_sync_vp_volume_up();
+            voice_prompt_play_sync_vp_volume_up();
             APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_VOICE_UP", 0);
       } 
 #endif /* #if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)) */
@@ -400,6 +412,18 @@ static bool pre_proc_app_interaction_event_proc(ui_shell_activity_t *self, uint3
             }
             ret = true;
         }
+#ifdef MTK_IN_EAR_FEATURE_ENABLE   // harry for key proc
+        case APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT: {
+            if (extra_data) {
+                bool *in_ear = (bool *)extra_data;
+                key_porc_in_ear_statu = *in_ear;
+             APPS_LOG_MSGID_I("app_preproc APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT inear= %d", 1,key_porc_in_ear_statu);
+           }
+            break;
+        }
+#endif
+
+        
         default:
             break;
     }
@@ -560,6 +584,9 @@ bool app_preproc_activity_proc(ui_shell_activity_t *self,
             app_pre_proc_dual_chip_cmd(self, event_id, extra_data, data_len);
             break;
 #endif
+
+
+
         default:
             break;
     }

@@ -275,7 +275,7 @@ static bool app_le_audio_proc_bt_ull2_event_group(struct _ui_shell_activity *sel
             bt_handle_t handle = app_lea_conn_mgr_get_dongle_handle(APP_LEA_CONN_TYPE_LE_ULL);
             uint8_t *addr = app_lea_conn_mgr_get_addr_by_handle(handle);
             if (handle != BT_HANDLE_INVALID && addr != NULL) {
-                app_le_audio_cancel_discoverable_mode(addr);
+//richard for paring from airoha fudong                app_le_audio_cancel_discoverable_mode(addr);
             }
             break;
         }

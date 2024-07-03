@@ -857,21 +857,21 @@ void* RACE_FACTORY_TEST_HW_VERSION(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 	return pEvt;
 	
 }
-
+#define SN_LEN  10
 void* RACE_FACTORY_TEST_SERIAL_NUMBER(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
 	 typedef struct
 	{
 	    RACE_COMMON_HDR_STRU cmdhdr;
 		uint8_t WR;
-		uint8_t ver[22];
+		uint8_t ver[SN_LEN];
 	}PACKED CMD;
 
 	typedef struct
 	{
 		uint8_t status;
 		uint8_t action;
-		uint8_t ver_rsp[22];
+		uint8_t ver_rsp[SN_LEN];
 	}PACKED RSP;
 
 	CMD* pCmd = (CMD *)pCmdMsg;
@@ -885,25 +885,25 @@ void* RACE_FACTORY_TEST_SERIAL_NUMBER(ptr_race_pkt_t pCmdMsg, uint8_t channel_id
 		
     	if(pCmd->WR == 0x00)
 		{
-			app_nvkey_sn_read(pEvt->ver_rsp, 22);
+			app_nvkey_sn_read(pEvt->ver_rsp, SN_LEN);
 		}
 		else if(pCmd->WR == 0x01)
 		{
 			if(bt_sink_srv_cm_get_aws_connected_device() != 0)
 			{
-				memmove(pEvt->ver_rsp, pCmd->ver, 22);  
-				app_set_ble_write_SN(pCmd->ver, 22);
+				memmove(pEvt->ver_rsp, pCmd->ver, SN_LEN);  
+				app_set_ble_write_SN(pCmd->ver, SN_LEN);
 			}
 			else
 			{
-				memset(pEvt->ver_rsp, 0x00, 22);
+				memset(pEvt->ver_rsp, 0x00, SN_LEN);
 				ret = RACE_ERRCODE_FAIL;
 			}
 		}
 		else if(pCmd->WR == 0x02)
 		{
-			memmove(pEvt->ver_rsp, pCmd->ver, 22);	
-			app_nvkey_sn_set(pCmd->ver, 22);		
+			memmove(pEvt->ver_rsp, pCmd->ver, SN_LEN);	
+			app_nvkey_sn_set(pCmd->ver, SN_LEN);		
 		}
 		else
 		{
@@ -1095,9 +1095,6 @@ void* RACE_FACTORY_TEST_GFP_TX_POWER_SET(ptr_race_pkt_t pCmdMsg, uint8_t channel
 	return pEvt;
 }
 
-
-
-
 void* RACE_FACTORY_TEST_SET_A2DP_VOLUME(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
     typedef struct
@@ -1137,7 +1134,43 @@ void* RACE_FACTORY_TEST_SET_A2DP_VOLUME(ptr_race_pkt_t pCmdMsg, uint8_t channel_
 	return pEvt;
 }
 
+extern void key_send_address_proc(void);
+void* RACE_FACTORY_TEST_BLE_CMD_BT_ADDR_SET(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{
+	typedef struct
+	{
+		RACE_COMMON_HDR_STRU cmdhdr;
+		uint8_t set_flag;
+	}PACKED CMD;
 
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t set_value;
+	}PACKED RSP;
+
+	CMD* pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_BT_ADDR_SET, (uint16_t)sizeof(RSP), channel_id);
+	int32_t ret = RACE_ERRCODE_SUCCESS;
+
+	RACE_LOG_MSGID_I("RACE_FACTORY_TEST_BLE_CMD_BT_ADDR_SET set_falg = %x \r\n",1, pCmd->set_flag);
+
+	if (pEvt)
+	{
+		pEvt->set_value = pCmd->set_flag;
+
+		if(pCmd->set_flag == 0x1) 
+		{
+			key_send_address_proc();
+		}
+		else
+		{
+			ret = RACE_ERRCODE_FAIL;		
+		}
+		pEvt->status = ret;
+	}
+	return pEvt;
+}
 
 void* RACE_FACTORY_TEST_CHANNEL_CHECK_PARAMETER_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
@@ -1956,6 +1989,12 @@ void* RACE_CmdHandler_FACTORY_TEST(ptr_race_pkt_t pRaceHeaderCmd, uint16_t lengt
           		ptr = RACE_FACTORY_TEST_EARBUD_READ_OUT_CASE_VERS(pRaceHeaderCmd, channel_id);
             	}
             	break;
+
+		case FACTORY_TEST_BLE_CMD_BT_ADDR_SET:
+		{
+			ptr = RACE_FACTORY_TEST_BLE_CMD_BT_ADDR_SET(pRaceHeaderCmd, channel_id);
+		}
+		break;
 #if 0
 		case FACTORY_TEST_BLE_CMD_AB1571D_VERSION :
             	{

@@ -569,7 +569,16 @@ app_smcharger_action_status_t app_smcharger_power_off(bool normal_off)
     APPS_LOG_MSGID_I(LOG_TAG" power_off %d", 1, normal_off);
     if (normal_off) {
         /* LOW_VOLTAGE power off outside of SmartCharger case, play "power off" VP and foreground led pattern. */
+      #if 1  //harry for new vp
+      voice_prompt_param_t vp = {0};
+      vp.vp_index = VP_INDEX_BATTERY_FAIL;
+      vp.control = ( VOICE_PROMPT_CONTROL_MASK_PREEMPT | VOICE_PROMPT_CONTROL_MASK_CLEANUP );
+      vp.delay_time = 0;
+      voice_prompt_play(&vp, NULL);
+
+      #else
         voice_prompt_play_vp_power_off(VOICE_PROMPT_CONTROL_POWEROFF);
+      #endif
         apps_config_set_foreground_led_pattern(LED_INDEX_POWER_OFF, 30, FALSE);
     }
 #ifdef AIR_TILE_ENABLE
@@ -637,6 +646,7 @@ app_power_saving_target_mode_t app_smcharger_get_power_saving_target_mode(void)
 #endif
 
 static uint8_t dut_test_flag = 0;	// richard for UI spec
+extern void factory_reset_at_shipping_mode(void);
 app_smcharger_action_status_t app_smcharger_state_do_action(uint8_t state)
 {
     if (g_smcharger_context == NULL) {
@@ -732,6 +742,7 @@ app_smcharger_action_status_t app_smcharger_state_do_action(uint8_t state)
 			if(app_get_shipping_mode_state())
 			{
 				app_enter_shipping_mode_flag_set(true);
+				factory_reset_at_shipping_mode();
 			}
 			app_common_add_tracking_log(0x32);
             status += app_smcharger_power_off(FALSE);

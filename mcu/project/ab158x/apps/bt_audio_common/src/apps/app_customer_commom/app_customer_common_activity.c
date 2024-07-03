@@ -45,6 +45,8 @@
 #include "bt_app_common_at_cmd.h"
 #include "apps_customer_config.h"
 #include "app_hearing_aid_key_handler.h"
+#include "app_bt_state_service.h"
+#include "app_home_screen_idle_activity.h"
 
 #ifdef BATTERY_HEATHY_ENABLE
 //calculate when in case after 5s, so need power on or out of case more than 1min, and keep charge in case more than 5s
@@ -68,6 +70,7 @@ bool customer_key_configure_slong_press(void);
 bool customer_key_configure_short_click(void);
 bool customer_key_configure_double_click(void);
 bool customer_key_configure_triple_click(void);
+void app_eastech_pair_vp_callback(void );
 
 #ifdef BATTERY_HEATHY_ENABLE
 static void battery_heathy_timer_callback(TimerHandle_t pxTimer)
@@ -268,6 +271,7 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 //		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
 //		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
 		*p_key_action = KEY_VOICE_UP;
+            voice_prompt_play_sync_vp_volume_up();
 	}
 	else
 	{
@@ -297,6 +301,7 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 //		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
 //		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
 		*p_key_action = KEY_VOICE_DN;
+            voice_prompt_play_sync_vp_volume_down();  
 	}
 	else
 	{
@@ -340,6 +345,8 @@ void key_avrcp_next_proc(uint8_t vol_m_flag)			// 0: VOLUP_DP, 1: MBUTTON_DP
 		else
 		{
 			*p_key_action = KEY_SWITCH_WORLD_MODE;
+			//*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
+      
 		}
 	}
 
@@ -381,12 +388,28 @@ void key_fact_pairing_proc(void)
     	}		
 }
 
+void key_send_address_proc(void)
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
+    	if (p_key_action)
+	{
+		*p_key_action = KEY_SEND_ADDRESS;
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+    	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}		
+}
+
 void key_switch_anc_and_passthrough_proc(void)
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
     	if (p_key_action)
 	{
 		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH1;
+		//*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH;
+    
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
     	else
@@ -1528,6 +1551,15 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 //				default_ble_adv_update();
 				break;
 			}
+
+#ifdef ALWAYS_PLAY_PAIRING_VP
+	    case EVENT_ID_EASTECH_CALLBACK_PAIR_VP:	
+		log_hal_msgid_info("_proc_customer_common EASTECH_CALLBACK_PAIR_VP",0);
+		app_eastech_pair_vp_callback();
+		break;
+#endif
+
+      
 		default:
 			break;
     }
@@ -1893,7 +1925,6 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 					break;
 				}
 
-
                 default:
                     break;
             }
@@ -1956,6 +1987,37 @@ bool apps_customer_common_activity_proc(
 
 }
 
-
-
+#ifdef ALWAYS_PLAY_PAIRING_VP
+void app_eastech_pair_vp_callback(void )
+{
+	apps_config_state_t sta = apps_config_key_get_mmi_state();
+	APPS_LOG_MSGID_I("app_eastech_pair_vp_callback is_bt_visiable=%x,aws_connected=%d,connection_state=%x", 3,app_bt_connection_service_get_current_status()->bt_visible,app_bt_connection_service_get_current_status()->aws_connected,app_bt_connection_service_get_current_status()->connection_state);
+	APPS_LOG_MSGID_I("app_eastech_pair_vp_callback pmu_get_power_on_reason=%d,pmu_get_power_off_reason=%d", 2,pmu_get_power_on_reason() ,pmu_get_power_off_reason());
+	APPS_LOG_MSGID_I("app_eastech_pair_vp_callback mmi_state=%d,bt_sink_srv_get_music_state=%d,vpindex=%d", 3,sta ,bt_sink_srv_get_music_state(),voice_prompt_get_current_index());
+    if (app_bt_connection_service_get_current_status()->bt_visible)
+	{
+		//if (VP_INDEX_PAIRING != voice_prompt_get_current_index())
+		{
+			voice_prompt_param_t vp;
+			memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
+			vp.vp_index = VP_INDEX_PAIRING;
+			//vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC | VOICE_PROMPT_CONTROL_MASK_LOOP | VOICE_PROMPT_CONTROL_MASK_PREEMPT;
+			vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
+			vp.delay_time = 200;
+			voice_prompt_play(&vp, NULL);
+		}
+      APPS_LOG_MSGID_I("app_eastech_pair_vp_callback VP_INDEX_PAIRING 444", 0);
+      ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST,
+            EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+            (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
+            NULL, 0,
+            NULL, VP_PLAY_INTERVAL);	
+	}else
+	{
+		/*device connected or connection time out*/
+		APPS_LOG_MSGID_I("app_eastech_pair_vp_callback: STOP PAIRING Voice Prompt", 0);
+ 		voice_prompt_stop(VP_INDEX_PAIRING,VOICE_PROMPT_ID_INVALID,false);
+	}
+}	
+#endif
 

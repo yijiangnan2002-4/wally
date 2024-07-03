@@ -56,6 +56,8 @@
 * @param[in]  data_len, the length of the extra data. 0 means extra_data is NULL.
 * @return     If return true, the current event cannot be handle by the next activity.
 */
+#define VP_PLAY_INTERVAL  4000
+
 bool app_home_screen_idle_activity_proc(ui_shell_activity_t *self,
                                         uint32_t event_group,
                                         uint32_t event_id,

@@ -252,8 +252,9 @@ bool bt_conn_component_bt_sink_event_proc(ui_shell_activity_t *self,
                 && update_ind->state == BT_BLE_LINK_CONNECTED) {
                 local_ctx->bt_power_off = false;
                 voice_prompt_param_t vp = {0};
-                vp.vp_index = VP_INDEX_CONNECTED;
+                vp.vp_index = VP_INDEX_EN_Pairing_success;
                 voice_prompt_play(&vp, NULL);
+                             APPS_LOG_MSGID_I("VP_INDEX_EN_Pairing_success 111", 0);
                 //apps_config_set_vp(VP_INDEX_CONNECTED, FALSE, 0, VOICE_PROMPT_PRIO_MEDIUM, FALSE, NULL);
                 bt_conn_component_update_mmi();
                 APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY"[LEA] Play Connected VP", 0);
@@ -263,7 +264,8 @@ bool bt_conn_component_bt_sink_event_proc(ui_shell_activity_t *self,
                     voice_prompt_param_t vp = {0};
                     vp.vp_index = VP_INDEX_DEVICE_DISCONNECTED;
                     voice_prompt_play(&vp, NULL);
-                    //apps_config_set_vp(VP_INDEX_DEVICE_DISCONNECTED, FALSE, 0, VOICE_PROMPT_PRIO_MEDIUM, FALSE, NULL);
+                             APPS_LOG_MSGID_I("VP_INDEX_DEVICE_DISCONNECTED 111", 0);
+                   //apps_config_set_vp(VP_INDEX_DEVICE_DISCONNECTED, FALSE, 0, VOICE_PROMPT_PRIO_MEDIUM, FALSE, NULL);
                     bt_conn_component_update_mmi();
                     APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY"[LEA] Play Disconnected VP", 0);
                 }
@@ -303,6 +305,7 @@ bool bt_conn_component_app_interaction_event_proc(ui_shell_activity_t *self, uin
             if (local_ctx->state == APP_HOME_SCREEN_STATE_IDLE && (!local_ctx->bt_power_off)) {
                 voice_prompt_param_t vp = {0};
                 vp.vp_index = VP_INDEX_DEVICE_DISCONNECTED;
+                             APPS_LOG_MSGID_I("VP_INDEX_DEVICE_DISCONNECTED 222", 0);
                 voice_prompt_play(&vp, NULL);
                 //apps_config_set_vp(VP_INDEX_DEVICE_DISCONNECTED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
             }
@@ -367,7 +370,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                         bt_conn_component_update_mmi();
 
                         voice_prompt_param_t vp = {0};
-                        vp.vp_index = VP_INDEX_CONNECTED;
+                        vp.vp_index = VP_INDEX_EN_Pairing_success;
 #ifdef MTK_AWS_MCE_ENABLE
                         ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_MULTIPOINT_SWITCH_AWS);
                         if (g_apps_bt_event_aws_connect_acl || BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type() ||
@@ -376,6 +379,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                             vp.delay_time = 200;
                         }
 #endif
+                             APPS_LOG_MSGID_I("VP_INDEX_EN_Pairing_success 222", 0);
                         voice_prompt_play(&vp, NULL);
 
                         local_ctx->conn_device_num = 1;
@@ -387,6 +391,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                         if (local_ctx->conn_device_num == APP_CONN_MAX_DEVICE_NUM) {
                             /* This will take over another. */
                             vp.vp_index = VP_INDEX_DEVICE_DISCONNECTED;
+                             APPS_LOG_MSGID_I("VP_INDEX_DEVICE_DISCONNECTED 333", 0);
 #ifdef MTK_AWS_MCE_ENABLE
                             if (g_apps_bt_event_aws_connect_acl || BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type() ||
                                 (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)) {
@@ -396,7 +401,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
 #endif
                             voice_prompt_play(&vp, NULL);
                         }
-                        vp.vp_index = VP_INDEX_CONNECTED;
+                        vp.vp_index = VP_INDEX_EN_Pairing_success;
 #ifdef MTK_AWS_MCE_ENABLE
                         if (g_apps_bt_event_aws_connect_acl || BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type() ||
                             (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)) {
@@ -407,6 +412,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                             vp.delay_time = 0;
                         }
 #endif
+                             APPS_LOG_MSGID_I("VP_INDEX_EN_Pairing_success 333", 0);
                         voice_prompt_play(&vp, NULL);
 #endif
                     }
@@ -420,6 +426,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                             && (local_ctx->state == APP_HOME_SCREEN_STATE_IDLE)  && (!local_ctx->bt_power_off)) {
                             voice_prompt_param_t vp = {0};
                             vp.vp_index = VP_INDEX_DEVICE_DISCONNECTED;
+                             APPS_LOG_MSGID_I("VP_INDEX_DEVICE_DISCONNECTED 444", 0);
 #ifdef MTK_AWS_MCE_ENABLE
                             if (g_apps_bt_event_aws_connect_acl || BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type()) {
                                 vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC_MUST;

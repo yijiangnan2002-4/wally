@@ -139,10 +139,13 @@ static const uint8_t app_hearing_aid_mode_vp_index_list[] = {
     VP_INDEX_HEARING_AID_MODE_1,
     VP_INDEX_HEARING_AID_MODE_2,
     VP_INDEX_HEARING_AID_MODE_3,
-    #endif
     VP_INDEX_HEARING_AID_MODE_4,
     VP_INDEX_HEARING_AID_MODE_5,
     VP_INDEX_HEARING_AID_MODE_6,
+    #endif
+    VP_INDEX_HEARING_AID_MODE_7,
+    VP_INDEX_HEARING_AID_MODE_7,
+    VP_INDEX_HEARING_AID_MODE_7,
     VP_INDEX_HEARING_AID_MODE_7,
     VP_INDEX_HEARING_AID_MODE_8,
 };
@@ -202,14 +205,14 @@ void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
     bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
     bool is_aws_connected = app_hearing_aid_aws_is_connected();
 
-    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_play_vp] aws_connected : %d, aws_role : 0x%02x, vp_index : %d, need_sync : %d",
+    APPS_LOG_MSGID_I("[app_hearing_aid_activity_play_vp] aws_connected : %d, aws_role : 0x%02x, vp_index : %d, need_sync : %d",
                         4,
                         is_aws_connected,
                         aws_role,
                         vp_index,
                         need_sync);
 #else
-    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_play_vp] vp_index : %d, need_sync : %d",
+    APPS_LOG_MSGID_I("[app_hearing_aid_activity_play_vp] vp_index : %d, need_sync : %d",
                         2,
                         vp_index,
                         need_sync);
@@ -282,6 +285,7 @@ void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 extern uint8_t prompt_no_play_flag;	// richard for UI
 void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 {
+    APPS_LOG_MSGID_I("app_hearing_aid_activity_play_mode_index_vp  prompt_no_play_flag=%d",1,prompt_no_play_flag);
 	if(prompt_no_play_flag==0)
 	{
     		app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
@@ -296,7 +300,7 @@ void app_hearing_aid_activity_play_ha_on_vp(bool enable, bool need_mode_vp, bool
     bool module_result = false;
     bool need_mode_vp_switch = app_hear_through_storage_get_ha_mode_on_vp_switch();
 
-    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_play_ha_on_vp] enable : %d, need_mode_vp : %d, need_mode_vp_switch : %d, need_sync_play : %d",
+    APPS_LOG_MSGID_I("[app_hearing_aid_activity_play_ha_on_vp] enable : %d, need_mode_vp : %d, need_mode_vp_switch : %d, need_sync_play : %d",
                         4,
                         enable,
                         need_mode_vp,
@@ -308,6 +312,7 @@ void app_hearing_aid_activity_play_ha_on_vp(bool enable, bool need_mode_vp, bool
     }
 
 #ifdef AIR_TWS_ENABLE
+
     bt_aws_mce_role_t aws_role = bt_device_manager_aws_local_info_get_role();
     bool is_aws_connected = app_hearing_aid_aws_is_connected();
 
@@ -318,13 +323,13 @@ void app_hearing_aid_activity_play_ha_on_vp(bool enable, bool need_mode_vp, bool
 
     if ((is_aws_connected == true) && (need_sync_play == true)) {
         if (aws_role == BT_AWS_MCE_ROLE_AGENT) {
-            app_hearing_aid_activity_play_vp(VP_INDEX_DOORBELL, true);
+            //app_hearing_aid_activity_play_vp(VP_INDEX_DOORBELL, true);
             if (module_result == true) {
                 app_hearing_aid_activity_play_mode_index_vp(mode_index, true);
             }
         }
     } else {
-        app_hearing_aid_activity_play_vp(VP_INDEX_DOORBELL, false);
+        //app_hearing_aid_activity_play_vp(VP_INDEX_DOORBELL, false);
         if (module_result == true) {
             app_hearing_aid_activity_play_mode_index_vp(mode_index, false);
         }
@@ -2541,8 +2546,8 @@ static bool app_hearing_aid_activity_proc_cm_event(uint32_t event_id,
                 if (user_switch_on == true) {
                     app_hearing_aid_aws_handle_connected(app_ha_activity_context.power_on_ha_executed);
                 }
-                // harry for anc key
-  	            apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_ANC_KEY_SYNC,(void*)&anc_key_count ,1);
+                // harry for anc key // harry for anc+ha common key
+  	            //apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_ANC_KEY_SYNC,(void*)&anc_key_count ,1);
 
                 /**
                  * @brief Fix issue - 44600

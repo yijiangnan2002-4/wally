@@ -206,4 +206,5 @@ uint32_t app_bt_state_service_get_connected_exclude_aws(bt_bd_addr_t *addr_list,
  */
 bool app_bt_state_client_connect_aws(bool connect);
 
+
 #endif /* __APP_BT_STATE_SERVICE_H__ */

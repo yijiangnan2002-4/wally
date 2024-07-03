@@ -473,3 +473,19 @@ bool app_multi_va_idle_activity_proc(ui_shell_activity_t *self,
     }
     return ret;
 }
+
+void start_default_ble_adv(void)    // harry for after on entry BLE boardcast by airoha patch
+{
+	multi_voice_assistant_manager_enable_adv(true);
+	multi_ble_adv_manager_remove_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func);
+	multi_ble_adv_manager_add_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func, 1);
+	multi_ble_adv_manager_notify_ble_adv_data_changed(MULTI_ADV_INSTANCE_DEFAULT);
+}
+
+void default_ble_adv_update(void)  // harry for after on entry BLE boardcast by airoha patch
+{
+	multi_ble_adv_manager_remove_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func);
+	multi_ble_adv_manager_add_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func, 1);
+	multi_ble_adv_manager_notify_ble_adv_data_changed(MULTI_ADV_INSTANCE_DEFAULT);
+}
+

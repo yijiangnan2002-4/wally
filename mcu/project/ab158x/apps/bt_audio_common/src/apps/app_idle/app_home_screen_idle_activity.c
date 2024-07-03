@@ -161,6 +161,7 @@ extern void dchs_device_ready_to_off_callback(void);
 
 // richard for customer UI spec
 #include "app_customer_nvkey_operation.h"
+#include "app_customer_common_activity.h"
 
 #define UI_SHELL_IDLE_BT_CONN_ACTIVITY  "[TK_Home]app_home_screen_idle_activity"
 
@@ -188,6 +189,8 @@ static bool s_fake_off = false;
 
 #define RETRY_ENTER_RTC_MODE_TIMES      (10)
 
+
+ void app_eastech_voice_prompt_play_pairing(void);
 void app_home_screen_check_power_off_and_reboot(void)
 {
     if (s_ready_to_off) {
@@ -530,7 +533,7 @@ errrrrrrrrrrrrrrrrrrrrr
         app_hear_through_activity_switch_ambient_control1(0);
 
 #if 1	// richard for UI spec.
-			ab1585h_command_no=5;	// 4: anc ha mode
+			ab1585h_command_no=5;	// 5: anc ha mode
 			if(anc_ha_flag)
 			{
 				ab1585h_command_data=get_current_ha_mode();
@@ -544,7 +547,7 @@ errrrrrrrrrrrrrrrrrrrrr
         app_hear_through_activity_switch_ambient_control1(1);
 
 #if 1	// richard for UI spec.
-			ab1585h_command_no=5;	// 4: anc ha mode
+			ab1585h_command_no=5;	// 5: anc ha mode
 			if(anc_ha_flag)
 			{
 				ab1585h_command_data=get_current_ha_mode();
@@ -561,7 +564,7 @@ errrrrrrrrrrrrrrrrrrrrr
         app_hear_through_activity_switch_ambient_control();
 
 #if 1	// richard for UI spec.
-			ab1585h_command_no=5;	// 4: anc ha mode
+			ab1585h_command_no=5;	// 5: anc ha mode
 			if(anc_ha_flag)
 			{
 				ab1585h_command_data=get_current_ha_mode();
@@ -719,6 +722,23 @@ nvdm_status_t app_home_screen_fact_rst_nvdm_flag(uint8_t factrst_flag)
     status = nvkey_write_data(NVID_SYS_FACTORY_RESET_FLAG, &factrst_flag, 1);
 
     return status;
+}
+
+nvdm_status_t app_home_screen_fact_rst_nvdm_flag1(uint8_t factrst_flag)
+{
+    nvdm_status_t status;
+
+    APPS_LOG_MSGID_I("Write Factory reset flag to NVDM: %d", 1, factrst_flag);
+
+    factrst_flag = FACTORY_RESET_FLAG;
+    status = nvkey_write_data(NVID_SYS_FACTORY_RESET_FLAG, &factrst_flag, 1);
+
+    return status;
+}
+
+void factory_reset_at_shipping_mode(void)
+{
+	app_home_screen_fact_rst_nvdm_flag1(FACTORY_RESET_FLAG);
 }
 
 // richard for ota reset
@@ -971,9 +991,21 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     }
                 } else {
                     app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
-                    memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-                    vp.vp_index = VP_INDEX_PAIRING;
-                    voice_prompt_play(&vp, NULL);
+                   #ifdef ALWAYS_PLAY_PAIRING_VP
+                   app_eastech_voice_prompt_play_pairing();
+                   APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 222", 0);
+                   ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
+                 	ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                                   EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                                   (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
+                                   NULL, 0,
+                                   NULL, VP_PLAY_INTERVAL);
+         		   #else
+                      memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
+                      vp.vp_index = VP_INDEX_PAIRING;
+                      APPS_LOG_MSGID_I("VP_INDEX_PAIRING 222", 0);
+                      voice_prompt_play(&vp, NULL);
+                   #endif
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 100, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Partner aws disconnected for KEY_DISCOVERABLE", 0);
                 }
@@ -981,12 +1013,18 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
 #endif
             {
                 app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
-                memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-                vp.vp_index = VP_INDEX_PAIRING;
-                vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
-                vp.delay_time = 200;
-                voice_prompt_play(&vp, NULL);
-                //apps_config_set_vp(VP_INDEX_PAIRING, true, 100, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
+           #ifdef ALWAYS_PLAY_PAIRING_VP
+           app_eastech_voice_prompt_play_pairing();
+           APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 333", 0);
+           ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
+         	ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                           EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                           (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
+                           NULL, 0,
+                           NULL, VP_PLAY_INTERVAL);
+ 
+ 		#endif
+               //apps_config_set_vp(VP_INDEX_PAIRING, true, 100, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
             }
             ret = true;
             break;
@@ -1004,6 +1042,11 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             app_bt_state_service_set_bt_visible(false, false, 0);
 #endif
             break;
+		case KEY_SEND_ADDRESS:			// richard for send address to ab1571d
+			ab1585h_command_no=4;	// 4: bt address
+			ab1585h_command_data=0;
+			BT_send_data_proc();		
+			break;
         case KEY_RECONNECT_LAST_DEVICE:
             /* Send AWS sync event to Agent for Partner role and AWS connected. */
             /* Play "fail" VP if Partner send fail or AWS not connected. */
@@ -1134,6 +1177,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     app_bt_state_service_set_ull_air_pairing_doing(true);
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                     vp.vp_index = VP_INDEX_PAIRING;
+                            APPS_LOG_MSGID_I("VP_INDEX_PAIRING 444", 0);
                     voice_prompt_play(&vp, NULL);
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING, APPS_AIR_PAIRING_DURATION * 10, false);
@@ -1183,6 +1227,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     app_bt_state_service_set_air_pairing_doing(true);
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                     vp.vp_index = VP_INDEX_PAIRING;
+                            APPS_LOG_MSGID_I("VP_INDEX_PAIRING 555", 0);
                     voice_prompt_play(&vp, NULL);
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING, APPS_AIR_PAIRING_DURATION * 10, false);
@@ -1509,6 +1554,16 @@ static bool homescreen_app_bt_connection_manager_event_proc(ui_shell_activity_t 
         if (bt_on && bt_device_manager_remote_get_paired_num() == 0) {
             //APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", start visible when power on if paired_num is 0", 0);
             app_bt_state_service_set_bt_visible(true, true, VISIBLE_TIMEOUT);
+            #ifdef ALWAYS_PLAY_PAIRING_VP
+            app_eastech_voice_prompt_play_pairing();
+            APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",  VP_INDEX_PAIRING 222333 ", 0);
+            ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
+         	 ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                           EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                           (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
+                           NULL, 0,
+                           NULL, VP_PLAY_INTERVAL);
+ 		    #endif
         } else if (bt_on) {
             //APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", delay to start visible if paired_num > 0", 0);
             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_AUTO_START_BT_VISIBLE);
@@ -1612,9 +1667,20 @@ static bool homescreen_app_aws_event_proc(ui_shell_activity_t *self, uint32_t ev
                     app_bt_state_service_set_bt_visible(true, true, VISIBLE_TIMEOUT);
 #endif
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING_SUCCESS, 30, false);
+                   #ifdef ALWAYS_PLAY_PAIRING_VP
+                   app_eastech_voice_prompt_play_pairing();
+                   APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 121222", 0);
+                   ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
+                 	ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                                   EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                                   (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
+                                   NULL, 0,
+                                   NULL, VP_PLAY_INTERVAL);
+         		   #else
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                     vp.vp_index = VP_INDEX_SUCCEED;
                     voice_prompt_play(&vp, NULL);
+                   #endif
 #if defined(AIR_CIS_DUAL_UPLINK_ENABLE) && defined(AIR_LE_AUDIO_CIS_ENABLE)
                     audio_channel_t channel = ami_get_audio_channel();
                     uint32_t le_audio_channel = (channel == AUDIO_CHANNEL_NONE) ? AUDIO_LOCATION_NONE : (channel == AUDIO_CHANNEL_R) ? AUDIO_LOCATION_FRONT_RIGHT : AUDIO_LOCATION_FRONT_LEFT;
@@ -2063,4 +2129,18 @@ home_screen_local_context_type_t *app_home_screen_idle_activity_get_context(void
 {
     return &s_app_homescreen_context;
 }
+
+#ifdef ALWAYS_PLAY_PAIRING_VP
+
+ void app_eastech_voice_prompt_play_pairing(void)
+{
+    voice_prompt_param_t vp;
+    memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
+    vp.vp_index = VP_INDEX_EN_Pairing_2;
+    vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
+    vp.delay_time = 200;
+    voice_prompt_play(&vp, NULL);
+}
+
+#endif
 

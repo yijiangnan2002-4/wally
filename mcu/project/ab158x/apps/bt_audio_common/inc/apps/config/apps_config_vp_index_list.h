@@ -97,6 +97,9 @@ enum {
     VP_INDEX_VOLUME_UP					= 45,
     VP_INDEX_VOLUME_DOWN				= 46,
     VP_INDEX_SPEECH_FOCUS				= 47,
+    VP_INDEX_EN_Pairing_2					= 48,
+    VP_INDEX_EN_Pairing_out				= 49,
+    VP_INDEX_EN_Pairing_success				= 50,
 };
 
 #endif /* __APPS_CONFIG_APPS_CONFIG_VP_INDEX_LIST_H__ */

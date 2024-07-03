@@ -460,7 +460,8 @@ static bool app_speaker_proc_key_event(uint32_t event_id, void *extra_data, size
         case KEY_BROADCAST_AGENT: {
             APPS_LOG_MSGID_I(LOG_TAG" key_event, KEY_BROADCAST_AGENT mode=%d role=%02X", 2, mode, role);
             app_speaker_play_vp(VP_INDEX_PAIRING);
-            app_speaker_ctx.target_mode = BT_AWS_MCE_SRV_MODE_BROADCAST;
+                             APPS_LOG_MSGID_I("VP_INDEX_PAIRING 777", 0);
+           app_speaker_ctx.target_mode = BT_AWS_MCE_SRV_MODE_BROADCAST;
             app_speaker_ctx.target_role = BT_AWS_MCE_ROLE_AGENT;
             app_speaker_ctx.switch_state = APP_SPEAKER_SWITCH_STATE_PAIRING;
 
@@ -489,6 +490,7 @@ static bool app_speaker_proc_key_event(uint32_t event_id, void *extra_data, size
                 break;
             } else {
                 app_speaker_play_vp(VP_INDEX_PAIRING);
+                            APPS_LOG_MSGID_I("VP_INDEX_PAIRING 888", 0);
                 app_speaker_ctx.target_mode = BT_AWS_MCE_SRV_MODE_BROADCAST;
                 app_speaker_ctx.target_role = BT_AWS_MCE_ROLE_CLINET;
                 app_speaker_ctx.switch_state = APP_SPEAKER_SWITCH_STATE_PAIRING;
@@ -513,6 +515,7 @@ static bool app_speaker_proc_key_event(uint32_t event_id, void *extra_data, size
                 break;
             } else {
                 app_speaker_play_vp(VP_INDEX_PAIRING);
+                            APPS_LOG_MSGID_I("VP_INDEX_PAIRING 999", 0);
                 app_speaker_ctx.target_mode = BT_AWS_MCE_SRV_MODE_DOUBLE;
                 app_speaker_ctx.target_role = BT_AWS_MCE_ROLE_AGENT;
                 app_speaker_ctx.switch_state = APP_SPEAKER_SWITCH_STATE_PAIRING;
@@ -540,6 +543,7 @@ static bool app_speaker_proc_key_event(uint32_t event_id, void *extra_data, size
                 break;
             } else {
                 app_speaker_play_vp(VP_INDEX_PAIRING);
+                            APPS_LOG_MSGID_I("VP_INDEX_PAIRING aaa", 0);
                 app_speaker_ctx.target_mode = BT_AWS_MCE_SRV_MODE_DOUBLE;
                 app_speaker_ctx.target_role = BT_AWS_MCE_ROLE_PARTNER;
                 app_speaker_ctx.switch_state = APP_SPEAKER_SWITCH_STATE_PAIRING;

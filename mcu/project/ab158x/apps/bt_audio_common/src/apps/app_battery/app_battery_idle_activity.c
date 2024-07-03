@@ -109,7 +109,15 @@ static void _shutdown_when_low_battery(struct _ui_shell_activity *self)
     {
         /* Play low battery VP if BT is not in classic off mode */
 #ifndef AIR_DONGLE_ENABLE
-        voice_prompt_play_vp_power_off(VOICE_PROMPT_CONTROL_POWEROFF);
+      #if 1  //harry for new vp
+      voice_prompt_param_t vp = {0};
+      vp.vp_index = VP_INDEX_BATTERY_FAIL;
+      vp.control = ( VOICE_PROMPT_CONTROL_MASK_PREEMPT | VOICE_PROMPT_CONTROL_MASK_CLEANUP );
+      vp.delay_time = 0;
+      voice_prompt_play(&vp, NULL);
+      #else
+      voice_prompt_play_vp_power_off(VOICE_PROMPT_CONTROL_POWEROFF);
+      #endif
 #endif
         apps_config_set_foreground_led_pattern(LED_INDEX_POWER_OFF, 30, false);
     }
