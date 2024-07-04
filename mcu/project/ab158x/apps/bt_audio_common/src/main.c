@@ -299,6 +299,7 @@ int main(void)
     task_def_init();
     task_def_create();
     bt_app_common_init();
+    ami_audio_setting_init(); // add forfix anc gain setting L/r EARBUD 
     apps_init();
 	
     /* Call this function to indicate the system initialize done. */
