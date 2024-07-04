@@ -729,7 +729,7 @@ nvdm_status_t app_home_screen_fact_rst_nvdm_flag1(uint8_t factrst_flag)
 {
     nvdm_status_t status;
 
-    APPS_LOG_MSGID_I("Write Factory reset flag to NVDM: %d", 1, factrst_flag);
+    APPS_LOG_MSGID_I("Write Factory reset flag to NVDM1: %d", 1, factrst_flag);
 
     factrst_flag = FACTORY_RESET_FLAG;
     status = nvkey_write_data(NVID_SYS_FACTORY_RESET_FLAG, &factrst_flag, 1);
