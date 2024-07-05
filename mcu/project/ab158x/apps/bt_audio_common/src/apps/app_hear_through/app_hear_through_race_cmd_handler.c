@@ -139,11 +139,11 @@ void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *
         return;
     }
 
-    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_notification] - [Notify] type : 0x%04x, data : 0x%x, data_len : %d",
-                        3,
+    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_notification] - [Notify] type : 0x%04x, data : 0x%x, data_len : %d,SPP: %d,BLE: %d",
+                        5,
                         config_type,
                         data,
-                        data_len);
+                        data_len,MUX_BT_SPP,MUX_BT_BLE);
 
     typedef struct {
         uint16_t type;
@@ -208,6 +208,11 @@ void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *
      * @brief Send the notification to all of the connected channels.
      */
     for (notify_channel_index = 0; notify_channel_index < notify_channel_counter; notify_channel_index ++) {
+          APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_notification] index : %d,notify_channel_list[notify_channel_index]=: %d",
+                        2,
+                        notify_channel_index,
+                        notify_channel_list[notify_channel_index]);
+
         if (notify_channel_list[notify_channel_index] == 0xFF) {
             continue;
         }
