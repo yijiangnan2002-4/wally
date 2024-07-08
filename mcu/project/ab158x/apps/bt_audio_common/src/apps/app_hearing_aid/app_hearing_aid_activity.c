@@ -285,8 +285,8 @@ void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 extern uint8_t prompt_no_play_flag;	// richard for UI
 void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 {
-    APPS_LOG_MSGID_I("app_hearing_aid_activity_play_mode_index_vp  prompt_no_play_flag=%d",1,prompt_no_play_flag);
-	if(prompt_no_play_flag==0)
+    APPS_LOG_MSGID_I("app_hearing_aid_activity_play_mode_index_vp  prompt_no_play_flag=%d,index=%d,need_sync=%d",3,prompt_no_play_flag,index,need_sync);
+//	if(prompt_no_play_flag==0)   harry mask for play vp bug 0708
 	{
     		app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
 	}

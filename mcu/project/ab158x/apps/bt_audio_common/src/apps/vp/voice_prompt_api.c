@@ -699,7 +699,7 @@ voice_prompt_status_t voice_prompt_play_vp_power_off(voice_prompt_control_mask_t
 extern uint8_t prompt_no_play_flag;	// richard for UI
 voice_prompt_status_t voice_prompt_play_vp_power_on()
 {
-	if(prompt_no_play_flag) return 0;
+//	if(prompt_no_play_flag) return 0;   // harry mask 0708
 	
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
     app_hear_through_activity_power_on_vp_start_to_play();
