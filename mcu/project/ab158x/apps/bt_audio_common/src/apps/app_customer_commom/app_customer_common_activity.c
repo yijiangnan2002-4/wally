@@ -416,6 +416,20 @@ void key_write_sirk_proc(void)
     	}		
 }
 
+void key_anc_ha_display_proc(void)
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t));
+    	if (p_key_action)
+	{
+		*p_key_action = KEY_ANC_HA_DISPLAY;
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 300);
+    	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}		
+}
+
 void key_switch_anc_and_passthrough_proc(void)
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell

@@ -262,6 +262,7 @@ typedef enum {
     KEY_SWITCH_WORLD_MODE			= 0xF012,
     KEY_SEND_ADDRESS					= 0xF013,
     KEY_WRITE_SIRK_KEY					= 0xF014,
+    KEY_ANC_HA_DISPLAY					= 0xf015,
     
     
 } apps_config_key_action_t;
