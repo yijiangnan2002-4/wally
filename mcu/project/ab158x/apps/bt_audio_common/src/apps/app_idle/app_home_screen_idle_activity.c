@@ -825,6 +825,7 @@ static bool _proc_ui_shell_group(struct _ui_shell_activity *self,
     return ret;
 }
 
+extern void write_sirk_key_proc(void);
 static bool _proc_key_event_group(ui_shell_activity_t *self,
                                   uint32_t event_id,
                                   void *extra_data,
@@ -1045,7 +1046,12 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
 		case KEY_SEND_ADDRESS:			// richard for send address to ab1571d
 			ab1585h_command_no=4;	// 4: bt address
 			ab1585h_command_data=0;
-			BT_send_data_proc();		
+			BT_send_data_proc();
+			ret=true;
+			break;
+		case KEY_WRITE_SIRK_KEY:
+			write_sirk_key_proc();
+			ret=true;
 			break;
         case KEY_RECONNECT_LAST_DEVICE:
             /* Send AWS sync event to Agent for Partner role and AWS connected. */

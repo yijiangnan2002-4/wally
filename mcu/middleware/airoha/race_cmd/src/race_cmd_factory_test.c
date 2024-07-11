@@ -903,7 +903,7 @@ void* RACE_FACTORY_TEST_SERIAL_NUMBER(ptr_race_pkt_t pCmdMsg, uint8_t channel_id
 		else if(pCmd->WR == 0x02)
 		{
 			memmove(pEvt->ver_rsp, pCmd->ver, SN_LEN);	
-			app_nvkey_sn_set(pCmd->ver, SN_LEN);		
+			app_nvkey_sn_set(pCmd->ver, SN_LEN);
 		}
 		else
 		{

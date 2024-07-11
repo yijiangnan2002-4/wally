@@ -180,6 +180,18 @@ static void app_smcharger_handle_case_battery_report(bool from_isr, uint8_t data
 * @param[in]  data, data from SmartCharger case.
 * @param[in]  data_len, data length.
 */
+extern void key_write_sirk_proc(void);		// richard for UI spec.
+uint8_t sirk_key_data=0;
+void write_sirk_key_proc(void)
+{
+	uint8_t sirk_temp[16] = {0};
+	uint8_t i;
+	for(i=0;i<16;i++)
+		sirk_temp[i]=0x55;
+	sirk_temp[0]=sirk_key_data;
+	app_le_ull_write_nvkey_sirk(&sirk_temp);
+}
+
 static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, uint32_t data, uint16_t data_len)
 {
     APPS_LOG_MSGID_I(LOG_TAG" [DRV]callback, drv_event=%d from_isr=%d data=%d data_len=%d",
@@ -289,7 +301,13 @@ static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, u
 		}
 		case DRV_CHARGER_EVENT_EOC_CHECKING: {
 			log_hal_msgid_info(" driver_callback[eoc checking] = 0x%x", 1, data);
-			break;					
+			break;
+		}
+		case DRV_CHARGER_EVENT_SIRK_KEY: {
+			sirk_key_data=(uint8_t)data;
+			key_write_sirk_proc();
+			log_hal_msgid_info(" driver_callback[sirk key write] = 0x%x", 1, data);
+			break;
 		}
         default: {
             break;
