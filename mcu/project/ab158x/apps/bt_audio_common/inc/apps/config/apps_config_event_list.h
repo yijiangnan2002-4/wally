@@ -261,6 +261,7 @@ typedef enum {
     KEY_SWITCH_ANC_AND_PASSTHROUGH1= 0xF011,
     KEY_SWITCH_WORLD_MODE			= 0xF012,
     KEY_SEND_ADDRESS					= 0xF013,
+    KEY_WRITE_SIRK_KEY					= 0xF014,
     
     
 } apps_config_key_action_t;

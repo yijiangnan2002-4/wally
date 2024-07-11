@@ -73,6 +73,7 @@ typedef enum {
 #define DRV_CHARGER_EVENT_CHARGING_CURRENT_LIMIT 21
 #define DRV_CHARGER_EVENT_SHIPPING_MODE_ENABLE 22
 #define DRV_CHARGER_EVENT_EOC_CHECKING 23
+#define DRV_CHARGER_EVENT_SIRK_KEY		24
 
 ////////////////////////////////////////////////////////////////////////////////
 // FUNCTION PROTOTYPES /////////////////////////////////////////////////////////
