@@ -132,9 +132,9 @@ extern uint32_t sub_chip_version_get();
 
 static const uint8_t app_hearing_aid_mode_vp_index_list[] = {
   #if 1 //harry for vp 20240513
-    VP_INDEX_HEARING_THROUGH,
-    VP_INDEX_SPEECH_FOCUS,
-    VP_INDEX_HEARING_AID_MODE_2,
+    VP_INDEX_AWARE,
+    VP_INDEX_SPEECH,
+    VP_INDEX_COMFORT,
   #else
     VP_INDEX_HEARING_AID_MODE_1,
     VP_INDEX_HEARING_AID_MODE_2,

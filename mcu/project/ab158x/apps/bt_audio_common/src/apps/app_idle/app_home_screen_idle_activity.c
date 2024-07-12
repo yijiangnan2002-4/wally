@@ -1238,7 +1238,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                 if (BT_STATUS_SUCCESS == bt_aws_mce_srv_air_pairing_start(&air_pairing_data)) {
                     app_bt_state_service_set_air_pairing_doing(true);
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-                    vp.vp_index = VP_INDEX_PAIRING;  // 
+                    vp.vp_index = VP_INDEX_PAIRING_LOOP;  // 
                     APPS_LOG_MSGID_I("VP_INDEX_PAIRING 555", 0);  // 组队动作音
                     voice_prompt_play(&vp, NULL);
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
@@ -2151,7 +2151,8 @@ home_screen_local_context_type_t *app_home_screen_idle_activity_get_context(void
 {
     voice_prompt_param_t vp;
     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-    vp.vp_index = VP_INDEX_EN_Pairing_2;
+    //vp.vp_index = VP_INDEX_EN_Pairing_2;
+    vp.vp_index = VP_INDEX_PAIRING;
     vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
     vp.delay_time = 200;
     voice_prompt_play(&vp, NULL);

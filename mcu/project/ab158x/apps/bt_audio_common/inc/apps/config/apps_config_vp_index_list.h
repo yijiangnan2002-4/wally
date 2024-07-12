@@ -91,15 +91,17 @@ enum {
     VP_INDEX_HEARING_AID_MODE_7         = 40,
     VP_INDEX_HEARING_AID_MODE_8         = 41,
 	// richard for customer UI spec.    
-    VP_INDEX_HEARING_THROUGH			= 42,
+    VP_INDEX_AWARE			= 42,
     VP_INDEX_ANC_ON					= 43,
     VP_INDEX_BATTERY_FAIL				= 44,
     VP_INDEX_VOLUME_UP					= 45,
     VP_INDEX_VOLUME_DOWN				= 46,
-    VP_INDEX_SPEECH_FOCUS				= 47,
-    VP_INDEX_EN_Pairing_2					= 48,
+    VP_INDEX_SPEECH				= 47,
+    VP_INDEX_PAIRING_LOOP= 48,
     VP_INDEX_EN_Pairing_out				= 49,
     VP_INDEX_EN_Pairing_success				= 50,
+    VP_INDEX_COMFORT					= 51,
+    VP_INDEX_MUTE					= 52,
 };
 
 #endif /* __APPS_CONFIG_APPS_CONFIG_VP_INDEX_LIST_H__ */

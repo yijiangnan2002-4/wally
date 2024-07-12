@@ -2428,7 +2428,7 @@ void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode
 			app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC;
 			anc_ha_flag=0;
 			app_hear_through_activity_handle_mode_index_changed();
-    APPS_LOG_MSGID_I("[app_hear_through_activity_switch_ambient_control1] switch to anc",0);
+            APPS_LOG_MSGID_I("[app_hear_through_activity_switch_ambient_control1] switch to anc",0);
 	    	}
 		else
 		{

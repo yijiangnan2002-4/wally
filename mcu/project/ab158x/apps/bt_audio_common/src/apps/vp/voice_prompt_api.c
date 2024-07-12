@@ -126,7 +126,7 @@ voice_prompt_status_t voice_prompt_play(voice_prompt_param_t *vp, uint16_t *play
 {
 bool visi;
 #ifdef EASTECH_SPEC_VP
-if(vp->vp_index == VP_INDEX_PAIRING||vp->vp_index == VP_INDEX_EN_Pairing_2)
+if(vp->vp_index == VP_INDEX_PAIRING||vp->vp_index == VP_INDEX_PAIRING_LOOP)
 {
 visi=app_bt_connection_service_get_current_status()->bt_visible;
        VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING inear play vp=%d ir_senser_in_ear_statu=%d,visi=%d",3,vp->vp_index,ir_senser_in_ear_statu,visi);
@@ -576,7 +576,7 @@ voice_prompt_status_t voice_prompt_play_sync_vp_succeed()
 
 voice_prompt_status_t voice_prompt_play_sync_vp_mute()
 {
-    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_5);
+    return voice_prompt_play_sync_vp_x(VP_INDEX_MUTE);
 }
 
 voice_prompt_status_t voice_prompt_play_vp_failed()
@@ -592,11 +592,11 @@ voice_prompt_status_t voice_prompt_play_sync_vp_failed()
 // richard for customer UI spec.
 voice_prompt_status_t voice_prompt_play_vp_hearing_through()
 {
-    return voice_prompt_play_vp_x(VP_INDEX_HEARING_THROUGH);
+    return voice_prompt_play_vp_x(VP_INDEX_AWARE);
 }
 voice_prompt_status_t voice_prompt_play_sync_vp_hearing_through()
 {
-    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_THROUGH);
+    return voice_prompt_play_sync_vp_x(VP_INDEX_AWARE);
 }
 
 #if 0	// for production test
@@ -618,15 +618,15 @@ voice_prompt_status_t voice_prompt_play_sync_vp_ha(uint8_t ha_mode_value)
 {
 	if(ha_mode_value==0)
 	{
-		return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_THROUGH);
+		return voice_prompt_play_sync_vp_x(VP_INDEX_AWARE);
 	}
 	else if(ha_mode_value==1)
 	{
-		return voice_prompt_play_sync_vp_x(VP_INDEX_SPEECH_FOCUS);	
+		return voice_prompt_play_sync_vp_x(VP_INDEX_SPEECH);	
 	}
 	else if(ha_mode_value==2)
 	{
-		return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_2);
+		return voice_prompt_play_sync_vp_x(VP_INDEX_COMFORT);
 	}
 	return VP_STATUS_SUCCESS;
 }
@@ -678,11 +678,11 @@ voice_prompt_status_t voice_prompt_play_sync_vp_volume_down()
 
 voice_prompt_status_t voice_prompt_play_vp_speech_focus()
 {
-    return voice_prompt_play_vp_x(VP_INDEX_SPEECH_FOCUS);
+    return voice_prompt_play_vp_x(VP_INDEX_SPEECH);
 }
 voice_prompt_status_t voice_prompt_play_sync_vp_speech_focus()
 {
-    return voice_prompt_play_sync_vp_x(VP_INDEX_SPEECH_FOCUS);
+    return voice_prompt_play_sync_vp_x(VP_INDEX_SPEECH);
 }
 
 voice_prompt_status_t voice_prompt_play_vp_power_off(voice_prompt_control_mask_t mask)

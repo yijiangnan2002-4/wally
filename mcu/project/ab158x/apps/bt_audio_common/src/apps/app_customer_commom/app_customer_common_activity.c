@@ -2014,7 +2014,7 @@ void app_eastech_pair_vp_callback(void )
 		{
 			voice_prompt_param_t vp;
 			memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-			vp.vp_index = VP_INDEX_PAIRING;
+			vp.vp_index = VP_INDEX_PAIRING_LOOP;
 			//vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC | VOICE_PROMPT_CONTROL_MASK_LOOP | VOICE_PROMPT_CONTROL_MASK_PREEMPT;
 			vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
 			vp.delay_time = 200;
@@ -2030,7 +2030,7 @@ void app_eastech_pair_vp_callback(void )
 	{
 		/*device connected or connection time out*/
 		APPS_LOG_MSGID_I("app_eastech_pair_vp_callback: STOP PAIRING Voice Prompt", 0);
- 		voice_prompt_stop(VP_INDEX_PAIRING,VOICE_PROMPT_ID_INVALID,false);
+ 		voice_prompt_stop(VP_INDEX_PAIRING_LOOP,VOICE_PROMPT_ID_INVALID,false);
 	}
 }	
 #endif
