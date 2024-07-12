@@ -220,6 +220,9 @@ static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, u
             } else {
                 need_send_event = TRUE;
             }
+            if (data_len == 1) {
+                app_smcharger_handle_case_battery_report(from_isr, (uint8_t)data);
+            }			
             break;
         }
         /* SmartCharger middleware LID_CLOSE complete Command - The command is sent after close lid and wait 3 sec. */
@@ -277,10 +280,16 @@ static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, u
         }
 	// richard for UI spec
 		case DRV_CHARGER_EVENT_BATTERY_LEVEL: {
+	            if (data_len == 1) {
+	      	          app_smcharger_handle_case_battery_report(from_isr, data);
+	            }
 			APPS_LOG_MSGID_I(" driver_callback[battery level]", 0);
 			break;
 		}
 		case DRV_CHARGER_EVENT_CHARGER_STATE: {
+	            if (data_len == 1) {
+	      	          app_smcharger_handle_case_battery_report(from_isr, data);
+	            }
 			APPS_LOG_MSGID_I(" driver_callback[charger state]", 0);
 			break;
 		}

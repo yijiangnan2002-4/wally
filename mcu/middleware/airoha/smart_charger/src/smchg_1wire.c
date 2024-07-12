@@ -1223,7 +1223,8 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
             uint32_t data = 0;
             uint16_t data_len = 0;
 
-            if (raceCmd[CMD_ID] == CASE_LID_OPEN || raceCmd[CMD_ID] == CASE_CHARGER_OFF) {
+            if (raceCmd[CMD_ID] == CASE_LID_OPEN || raceCmd[CMD_ID] == CASE_CHARGER_OFF|| 
+			raceCmd[CMD_ID] == CASE_BATTER_LEVEL|| raceCmd[CMD_ID] == CASE_LID_CLOSE) {
                 data = raceCmd[BAT_LV];
                 data_len = 1;
             } else if (raceCmd[CMD_ID] == CASE_CHARGER_KEY) {

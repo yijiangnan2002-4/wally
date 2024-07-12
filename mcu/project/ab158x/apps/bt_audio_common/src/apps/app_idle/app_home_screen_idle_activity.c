@@ -457,6 +457,20 @@ extern uint8_t anc_ha_flag;
 extern uint8_t ab1585h_command_no;
 extern uint8_t ab1585h_command_data;
 extern void BT_send_data_proc(void);
+extern void key_anc_ha_display_proc(void);
+void anc_ha_mode_disp_proc(void)
+{
+	ab1585h_command_no=5;	// 5: anc ha mode
+	if(anc_ha_flag)
+	{
+		ab1585h_command_data=get_current_ha_mode();
+		ab1585h_command_data++;
+	}
+	else ab1585h_command_data=0;
+	APPS_LOG_MSGID_I("richard for anc ha mode =%d anc_ha_flag=%d", 2, ab1585h_command_data, anc_ha_flag);
+	
+	BT_send_data_proc();
+}
 #endif
 static bool app_home_screen_process_anc_and_pass_through(ui_shell_activity_t *self, apps_config_key_action_t key_action)
 {
@@ -532,48 +546,21 @@ errrrrrrrrrrrrrrrrrrrrr
         #endif
     }	else if(KEY_SWITCH_ANC_AND_PASSTHROUGH1== key_action) {		// richard for UI
         app_hear_through_activity_switch_ambient_control1(0);
-
-#if 1	// richard for UI spec.
-			ab1585h_command_no=5;	// 5: anc ha mode
-			if(anc_ha_flag)
-			{
-				ab1585h_command_data=get_current_ha_mode();
-				ab1585h_command_data++;
-			}
-			else ab1585h_command_data=0;
-			BT_send_data_proc();
-#endif
+		key_anc_ha_display_proc();
         return true;
     }	else if(KEY_SWITCH_WORLD_MODE== key_action) {		// richard for UI
         app_hear_through_activity_switch_ambient_control1(1);
-
-#if 1	// richard for UI spec.
-			ab1585h_command_no=5;	// 5: anc ha mode
-			if(anc_ha_flag)
-			{
-				ab1585h_command_data=get_current_ha_mode();
-				ab1585h_command_data++;
-			}
-			else ab1585h_command_data=0;
-			BT_send_data_proc();
-#endif
+		if(anc_ha_flag)
+		{
+			key_anc_ha_display_proc();
+		}
         return true;
     } else if (KEY_SWITCH_ANC_AND_PASSTHROUGH == key_action) {
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 //errrrrrrrrrrrrrrrrrrrrr
         // OFF -> SW PT -> ANC
         app_hear_through_activity_switch_ambient_control();
-
-#if 1	// richard for UI spec.
-			ab1585h_command_no=5;	// 5: anc ha mode
-			if(anc_ha_flag)
-			{
-				ab1585h_command_data=get_current_ha_mode();
-				ab1585h_command_data++;
-			}
-			else ab1585h_command_data=0;
-			BT_send_data_proc();
-#endif
+		key_anc_ha_display_proc();		// richard for UI spec.
         return true;
 #else
         /* Switch loop is OFF->PassThrough->ANC->OFF. */
@@ -1063,6 +1050,10 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
 			break;
 		case KEY_WRITE_SIRK_KEY:
 			write_sirk_key_proc();
+			ret=true;
+			break;
+		case KEY_ANC_HA_DISPLAY:
+			anc_ha_mode_disp_proc();
 			ret=true;
 			break;
         case KEY_RECONNECT_LAST_DEVICE:
