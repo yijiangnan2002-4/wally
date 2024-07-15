@@ -370,6 +370,7 @@ bool app_va_xiaowei_activity_cb_execute_customer_skill(xiaowei_payload_custom_sk
      * @brief Should replace the VP with customer vp
      */
     app_va_xiaowei_activity_play_vp(true, VP_INDEX_SUCCEED);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 12 ", 0);
 
     return true;
 }

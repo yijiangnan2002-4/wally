@@ -186,7 +186,13 @@ static bool app_hfp_idle_proc_aws_data(ui_shell_activity_t *self,
 #endif
 #ifdef MTK_AWS_MCE_ENABLE
             if (BT_AWS_MCE_ROLE_AGENT == bt_device_manager_aws_local_info_get_role()) {
-                voice_prompt_play_sync_vp_succeed();
+                //voice_prompt_play_sync_vp_succeed();
+                if (mute==TRUE)
+                {
+                  voice_prompt_play_sync_vp_mute();   // press slave earbud mute key harry 
+                }
+
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 19 VP_INDEX_MUTE", 0);
             }
 #endif
         } else if (event_group == EVENT_GROUP_UI_SHELL_APP_INTERACTION
@@ -458,6 +464,7 @@ static bool app_hfp_idle_proc_key_event_group(ui_shell_activity_t *self,
             dial_addr.type = app_hfp_get_active_device_type();
             bool active_addr_ret = app_hfp_get_active_device_addr(&(dial_addr.address));
             voice_prompt_play_vp_succeed();
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 13 ", 0);
             if (active_addr_ret) {
                 bt_sink_srv_send_action(BT_SINK_SRV_ACTION_DIAL_LAST, &dial_addr);
             } else {
@@ -939,6 +946,7 @@ static atci_status_t app_hfp_atci_test_redial(atci_parse_cmd_param_t *parse_cmd)
     dial_addr.type = app_hfp_get_active_device_type();
     bool active_addr_ret = app_hfp_get_active_device_addr(&(dial_addr.address));
     voice_prompt_play_vp_succeed();
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 14 ", 0);
     if (active_addr_ret) {
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_DIAL_LAST, &dial_addr);
     } else {

@@ -1073,6 +1073,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                     vp.vp_index = VP_INDEX_SUCCEED;
                     voice_prompt_play(&vp, NULL);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 1 ", 0);
                     //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                 }
             }
@@ -1087,6 +1088,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                 memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                 vp.vp_index = VP_INDEX_SUCCEED;
                 voice_prompt_play(&vp, NULL);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 2 ", 0);
                 //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
             }
             ret = true;
@@ -1115,11 +1117,13 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC | VOICE_PROMPT_CONTROL_MASK_PREEMPT;
             voice_prompt_play(&vp, NULL);
             //apps_config_set_vp(VP_INDEX_SUCCEED, true, 100, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 3 ", 0);
 #else
             memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
             vp.vp_index = VP_INDEX_SUCCEED;
             vp.control = VOICE_PROMPT_CONTROL_MASK_PREEMPT;
             voice_prompt_play(&vp, NULL);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 4 ", 0);
             //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
 #endif
             s_factory_reset_key_action = KEY_FACTORY_RESET;
@@ -1136,12 +1140,14 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             vp.vp_index = VP_INDEX_SUCCEED;
             vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC | VOICE_PROMPT_CONTROL_MASK_PREEMPT | VOICE_PROMPT_CONTROL_MASK_NO_PREEMPTED;
             voice_prompt_play(&vp, NULL);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 5 ", 0);
             //apps_config_set_vp(VP_INDEX_SUCCEED, true, 100, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
 #else
             memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
             vp.vp_index = VP_INDEX_SUCCEED;
             vp.control = VOICE_PROMPT_CONTROL_MASK_PREEMPT | VOICE_PROMPT_CONTROL_MASK_NO_PREEMPTED;
             voice_prompt_play(&vp, NULL);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 6 ", 0);
             //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
 #endif
             s_factory_reset_key_action = KEY_FACTORY_RESET_AND_POWEROFF;
@@ -1266,6 +1272,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                     vp.vp_index = VP_INDEX_SUCCEED;
                     voice_prompt_play(&vp, NULL);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 7 ", 0);
                     //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     apps_config_set_foreground_led_pattern(LED_INDEX_TRIGGER_RHO, 30, false);
                 }
@@ -1690,6 +1697,7 @@ static bool homescreen_app_aws_event_proc(ui_shell_activity_t *self, uint32_t ev
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                     vp.vp_index = VP_INDEX_SUCCEED;
                     voice_prompt_play(&vp, NULL);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 8 ", 0);
                    #endif
 #endif
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING_SUCCESS, 30, false);
@@ -1750,6 +1758,7 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
                         memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                         vp.vp_index = VP_INDEX_SUCCEED;
                         voice_prompt_play(&vp, NULL);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 9 ", 0);
                         //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     } else {
                        voice_prompt_play_vp_failed();

@@ -1330,6 +1330,7 @@ static void app_ull_reconnect_request_process(void) {
     uint32_t i;
     voice_prompt_param_t vp = {0};
     vp.vp_index = VP_INDEX_SUCCEED;
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 10 ", 0);
 
     if (ULL_LINK_MODE_MULTIPLE == s_ull_context.link_mode) {
         return;
@@ -2138,6 +2139,7 @@ static bool app_ull_proc_ull_event(ui_shell_activity_t *self, uint32_t event_id,
             app_ull_process_events(ULL_EVENTS_DONGLE_CONNECTED, NULL);
             vp.vp_index = VP_INDEX_SUCCEED;
             voice_prompt_play(&vp, NULL);
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 11 ", 0);
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_UPDATE_MMI_STATE, NULL, 0,
                                 NULL, 0);
