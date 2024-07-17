@@ -464,12 +464,13 @@ static bool app_in_ear_proc_apps_internal_events(ui_shell_activity_t *self,
 #endif
             {
                 APPS_LOG_MSGID_I(APP_INEAR_TAG" [IN_EAR_UPDATE] partner report status to agent: in-ear=%d", 1, ctx->isInEar);
-                app_in_ear_send_aws_data(ctx, APP_IN_EAR_EVENT_UPDATE_STA);
+                app_in_ear_send_aws_data(ctx, APP_IN_EAR_EVENT_UPDATE_STA);  //从耳把出入耳状态发给主耳
             }
         } else
 #endif
         {
-            app_in_ear_update_status(ctx);
+                APPS_LOG_MSGID_I(APP_INEAR_TAG" [IN_EAR_UPDATE] it is agent earbud  in-ear=%d", 1, ctx->isInEar);
+            app_in_ear_update_status(ctx);  // 主耳直接执行
         }
     }
     return ret;

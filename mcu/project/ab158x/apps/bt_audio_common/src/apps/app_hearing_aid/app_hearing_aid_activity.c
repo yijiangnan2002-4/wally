@@ -2152,7 +2152,7 @@ static bool app_hearing_aid_activity_proc_app_interaction(uint32_t event_id,
                             timeout);
 
         app_ha_activity_context.is_in_ear = is_in_ear;
-
+      APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_app_interaction] user switch=%d,inited=%d",2,user_switch , app_ha_activity_context.inited);
         if ((user_switch == false) || (app_ha_activity_context.inited == false)) {
             return false;
         }
@@ -2171,6 +2171,7 @@ static bool app_hearing_aid_activity_proc_app_interaction(uint32_t event_id,
                 app_anc_service_resume();
             }
             app_hearing_aid_activity_pre_proc_operate_ha(caused_by_which, true, false);
+            APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_app_interaction] on == false return flase",0);
             return false;
         }
 
@@ -2188,11 +2189,13 @@ static bool app_hearing_aid_activity_proc_app_interaction(uint32_t event_id,
                                 0,
                                 NULL,
                                 timeout);
+            APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_app_interaction] sent APP_HEARING_AID_EVENT_ID_REQUEST_TO_RESUME_ANC",0);
         } else {
             /**
              * @brief Fix issue - 45772, do not disable HA, but suspend ANC.
              */
             app_anc_service_suspend();
+            APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_app_interaction]  action app_anc_service_suspend",0);
             // app_hearing_aid_activity_disable_hearing_aid(false);
         }
     }
