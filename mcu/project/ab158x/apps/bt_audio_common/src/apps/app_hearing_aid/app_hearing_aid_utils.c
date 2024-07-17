@@ -2761,6 +2761,9 @@ bool app_hearing_aid_utils_mix_table_to_enable(app_hearing_aid_state_table_t *ta
 
 bool app_hearing_aid_utils_set_user_switch(bool enable)
 {
+    APPS_LOG_MSGID_I(APP_HA_UTILS_TAG"[app_hearing_aid_utils_control_ha] user_switch enable= : %d",
+                     1,
+                     enable);
     if (app_ha_utils_context.user_switch != enable) {
         app_ha_utils_context.user_switch = enable;
     }
