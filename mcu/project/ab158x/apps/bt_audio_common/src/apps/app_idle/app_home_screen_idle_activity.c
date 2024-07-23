@@ -1970,7 +1970,7 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
             break;
         }
 #endif
-#ifdef MTK_IN_EAR_FEATURE_ENABLE   // harry for ha/anc bug
+#if 0//def MTK_IN_EAR_FEATURE_ENABLE   // harry for ha/anc bug
         case APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT: {
         if (extra_data) {
         bool is_in_ear = ((uint8_t *)extra_data)[0];
