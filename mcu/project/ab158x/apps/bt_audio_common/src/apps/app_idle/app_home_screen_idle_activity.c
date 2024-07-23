@@ -1970,6 +1970,24 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
             break;
         }
 #endif
+#ifdef MTK_IN_EAR_FEATURE_ENABLE   // harry for ha/anc bug
+        case APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT: {
+        if (extra_data) {
+        bool is_in_ear = ((uint8_t *)extra_data)[0];
+        bool anc_suspended = app_anc_service_is_suspended();
+        bool is_anc_enabled = app_anc_service_is_anc_enabled();
+        APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", is_in_ear=%d,anc_suspended=%d ,is_anc_enabled=%d,mode=%d", 4, is_in_ear,anc_suspended ,is_anc_enabled ,app_hear_through_ctx.mode_index);
+        if(app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC)
+          {
+          if (is_in_ear == true&&(anc_suspended == true)) {
+                  app_anc_service_resume();
+            }
+          }
+        }
+            break;
+      }
+#endif
+
         default:
             /*APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Not supported event id = %d", 1, event_id);*/
             break;

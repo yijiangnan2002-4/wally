@@ -188,6 +188,7 @@ typedef struct {
 app_hearing_aid_activity_context_t  app_ha_activity_context;
 
 bool app_feedback_detection_directly = false;
+extern void key_anc_ha_display_proc(void);
 
 bool app_hearing_aid_activity_is_out_case()
 {
@@ -257,8 +258,13 @@ void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
                                                     0);
     } else {
 #endif /* AIR_TWS_ENABLE */
-        voice_prompt_play(&vp, NULL);
+        voice_prompt_play(&vp, NULL);
 #ifdef AIR_TWS_ENABLE
+    }
+    if(vp_index==42||vp_index==47||vp_index==51)  // harry add for case ui display
+    {
+		//anc_ha_mode_disp_proc();
+		key_anc_ha_display_proc();
     }
 #endif /* AIR_TWS_ENABLE */
 }

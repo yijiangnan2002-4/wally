@@ -204,7 +204,7 @@ static void smcharger_agent_check_and_do_rho(app_smcharger_context_t *smcharger_
 #endif
             && smcharger_ctx->peer_battery_percent < PARTNER_BATTERY_CHARGING        /* Partner not charging. */
             && smcharger_ctx->battery_percent + APPS_DIFFERENCE_BATTERY_VALUE_FOR_RHO   /* 30% difference. */
-            < smcharger_ctx->peer_battery_percent) {
+            < smcharger_ctx->peer_battery_percent||(smcharger_ctx->battery_percent<=15 &&smcharger_ctx->peer_battery_percent>=20)) {
             APPS_LOG_MSGID_I(LOG_TAG" trigger RHO due to low_battery", 0);
             /* Send TRIGGER_RHO event to notify HomeScreen APP do RHO. */
             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_TRIGGER_RHO);
