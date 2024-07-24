@@ -544,7 +544,9 @@ errrrrrrrrrrrrrrrrrrrrr
         target_filter_id = AUDIO_ANC_CONTROL_ANC_FILTER_DEFAULT;
         ret = true;
         #endif
-    }	else if(KEY_SWITCH_ANC_AND_PASSTHROUGH1== key_action) {		// richard for UI
+    }
+    #if 0
+    else if(KEY_SWITCH_ANC_AND_PASSTHROUGH1== key_action) {		// richard for UI
         app_hear_through_activity_switch_ambient_control1(0);
 		key_anc_ha_display_proc();
         return true;
@@ -555,7 +557,9 @@ errrrrrrrrrrrrrrrrrrrrr
 			key_anc_ha_display_proc();
 		}
         return true;
-    } else if (KEY_SWITCH_ANC_AND_PASSTHROUGH == key_action) {
+    } 
+    #endif
+    else if (KEY_SWITCH_ANC_AND_PASSTHROUGH == key_action) {
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 //errrrrrrrrrrrrrrrrrrrrr
         // OFF -> SW PT -> ANC
@@ -1212,7 +1216,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         }
 #endif
         case KEY_AIR_PAIRING: {
-#ifdef AIR_LE_AUDIO_BIS_ENABLE
+#if 0//def AIR_LE_AUDIO_BIS_ENABLE   // harry 改善不能组队，连接了le广播
             uint8_t zero_addr[6] = {0};
             bt_bd_addr_t *bd_addr = bt_device_manager_aws_local_info_get_peer_address();
             uint8_t *peer_addr = (uint8_t *)(*bd_addr);
@@ -1970,7 +1974,7 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
             break;
         }
 #endif
-#if 0//def MTK_IN_EAR_FEATURE_ENABLE   // harry for ha/anc bug
+#ifdef MTK_IN_EAR_FEATURE_ENABLE   // harry for ha/anc bug
         case APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT: {
         if (extra_data) {
         bool is_in_ear = ((uint8_t *)extra_data)[0];

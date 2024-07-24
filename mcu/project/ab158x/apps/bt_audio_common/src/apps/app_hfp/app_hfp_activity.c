@@ -311,6 +311,8 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
 
             /* Check the call status, if there are no HFP related states, finish current activity. */
             if (param->current <= BT_SINK_SRV_STATE_STREAMING) {
+            APPS_LOG_MSGID_I(APP_HFP_ACTI" call end mute=%d",1,hfp_context->mute_mic);
+              
                 /* Call is end */
 #if defined(AIR_MULTI_POINT_ENABLE) && defined(MTK_AWS_MCE_ENABLE) && !defined(AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE)
                 if (BT_AWS_MCE_ROLE_PARTNER == bt_device_manager_aws_local_info_get_role()
@@ -329,6 +331,7 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
                     ) {
                         hfp_context->transient_active = false;
                         hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
+                        hfp_context->mute_mic= false;   // harry for unmute mic when disconnet hfp
                         ui_shell_finish_activity(self, self);
                     }
                 }
@@ -341,6 +344,7 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
                 ) {
                     hfp_context->transient_active = false;
                     hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
+                    hfp_context->mute_mic= false;   // harry for unmute mic when disconnet hfp
                     ui_shell_finish_activity(self, self);
                 }
 #endif

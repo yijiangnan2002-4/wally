@@ -192,7 +192,7 @@ static bool app_hfp_idle_proc_aws_data(ui_shell_activity_t *self,
                   voice_prompt_play_sync_vp_mute();   // press slave earbud mute key harry 
                 }
 
-                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 19 VP_INDEX_MUTE", 0);
+             APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 19 VP_INDEX_MUTE", 0);
             }
 #endif
         } else if (event_group == EVENT_GROUP_UI_SHELL_APP_INTERACTION

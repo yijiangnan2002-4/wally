@@ -88,6 +88,7 @@
 #ifdef MTK_LEAKAGE_DETECTION_ENABLE
 #include "leakage_detection_control.h"
 #endif /* MTK_LEAKAGE_DETECTION_ENABLE */
+#include "app_in_ear_idle_activity.h"
 
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 
@@ -127,6 +128,7 @@
 #endif /* AIR_TWS_ENABLE */
 
 uint8_t anc_eastech_spec=0;
+uint8_t prompt_no_play_flag=0;
 
 
  app_hear_through_context_t app_hear_through_ctx;
@@ -776,15 +778,27 @@ static void app_hear_through_activity_handle_ambient_control_switch()
   		// richard for customer UI spec.
 		uint8_t mode_index = 0;
 		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
+        prompt_no_play_flag=1;  // 设这个标志1，播放HA VP后，不要再重复播放
   		voice_prompt_play_sync_vp_ha(mode_index);
         #endif
         }
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC: {
             APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable ANC", 0);
+          #ifdef MTK_IN_EAR_FEATURE_ENABLE   // harry for ha/anc bug
+            {
+                bool anc_suspended = app_anc_service_is_suspended();
+                bool is_anc_enabled = app_anc_service_is_anc_enabled();
+                APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"anc_suspended=%d,is_anc_enabled=%d,ir_senser_in_ear_statu=%d", 3,anc_suspended ,is_anc_enabled ,ir_senser_in_ear_statu);
+                  if ((anc_suspended == true)) {
+                          app_anc_service_resume();
+                  }
+              }
+          #endif
 
             app_hearing_through_activity_leave_hear_through_mode();
             app_anc_service_reset_hear_through_anc(true);
+            prompt_no_play_flag=0; // 撤销这个标志，操作双击可以播放HA VP
 
     		// richard for customer UI spec.
     		voice_prompt_play_sync_vp_anc_on();			
@@ -1949,7 +1963,7 @@ void app_hear_through_handle_charger_out()
     if (app_hear_through_ctx.is_powering_off == false) {
         if (app_hear_through_ctx.is_power_on_vp_played == false) {
             if (app_hear_through_ctx.is_power_on_vp_playing == false) {
-                voice_prompt_play_vp_power_on();
+               // voice_prompt_play_vp_power_on();   // 我们不要在出盒的时候响power on提示音
             }
         } else {
             app_hear_through_activity_handle_ht_enable(true);
@@ -1960,13 +1974,12 @@ void app_hear_through_handle_charger_out()
 #if 0	// richard for UI spec.
 static void app_hear_through_handle_charger_in()
 #else
-uint8_t prompt_no_play_flag=0;
 void app_hear_through_handle_charger_in()
 #endif
 {
     APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_handle_charger_in] Charger IN",0);
 
-	prompt_no_play_flag=1;
+//	prompt_no_play_flag=1;
     app_hear_through_ctx.is_charger_in = true;
     app_hear_through_ctx.is_power_on_vp_played = false;
     app_hear_through_ctx.is_power_on_vp_playing = false;
@@ -2404,7 +2417,7 @@ void app_hear_through_activity_switch_ambient_control()
     app_hear_through_activity_handle_mode_index_changed();
 }
 
-#if 1	// richard for UI requirement
+#if 0	// richard for UI requirement
 void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode)		// 0: switch ha/anc; 1: switch ha mode
 {
 #if defined(MTK_FOTA_ENABLE) && defined (MTK_FOTA_VIA_RACE_CMD)

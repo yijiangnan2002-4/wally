@@ -354,7 +354,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
             bt_event_suffix_data_t *suffix_data = get_bt_event_suffix_data(extra_data, sizeof(bt_cm_remote_info_update_ind_t));
             role = suffix_data->aws_role;
 #endif
-            //APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", role %x, conn_state %d", 2, role, local_ctx->connection_state);
+            APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", role %x, conn_state %d", 2, role, local_ctx->connection_state);
 
 #ifdef MTK_AWS_MCE_ENABLE
             if (BT_AWS_MCE_ROLE_AGENT == role || BT_AWS_MCE_ROLE_NONE == role || BT_AWS_MCE_ROLE_FOLLOWER_1 == role)
@@ -379,7 +379,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                             vp.delay_time = 200;
                         }
 #endif
-                             APPS_LOG_MSGID_I("VP_INDEX_EN_Pairing_success 222", 0);
+                        APPS_LOG_MSGID_I("VP_INDEX_EN_Pairing_success 222", 0);
                         voice_prompt_play(&vp, NULL);
 
                         local_ctx->conn_device_num = 1;
