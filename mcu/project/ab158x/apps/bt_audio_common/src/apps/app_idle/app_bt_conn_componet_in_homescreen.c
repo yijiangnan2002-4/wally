@@ -66,6 +66,7 @@
 #include "ui_shell_manager.h"
 #include "bt_gap_le.h"
 #include "apps_aws_sync_event.h"
+#include "app_customer_common.h"
 
 #define APP_BT_CONN_EDR_CHECKED_PROFILES    (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HFP) \
                                             | BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_HSP) \
@@ -363,14 +364,21 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                 if ((remote_update->connected_service & ~remote_update->pre_connected_service)
                     & APP_BT_CONN_EDR_CHECKED_PROFILES) {
                     /* When A2DP or HFP connect, treat as connected to SP. */
-                    APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY" Agent Connected, local_ctx->connection_state : %d", 1, local_ctx->connection_state);
+                    APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY" Agent Connected, local_ctx->connection_state : %d,local_ctx->is_bt_visiable=%d", 2, local_ctx->connection_state,local_ctx->is_bt_visiable);
                     if (!(local_ctx->connection_state)) {
                         local_ctx->connection_state = true;
                         local_ctx->bt_power_off = false;
                         bt_conn_component_update_mmi();
 
                         voice_prompt_param_t vp = {0};
+                        if(local_ctx->is_bt_visiable)
+                        {
                         vp.vp_index = VP_INDEX_EN_Pairing_success;
+                        }
+                        else
+                        {
+                        vp.vp_index = VP_INDEX_EN_Pairing_success;//VP_INDEX_CONNECTED;
+                        }
 #ifdef MTK_AWS_MCE_ENABLE
                         ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_MULTIPOINT_SWITCH_AWS);
                         if (g_apps_bt_event_aws_connect_acl || BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type() ||
@@ -538,6 +546,8 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                 }
             }
 #endif
+            APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY" local_ctx->conn_device_num: %d", 1, local_ctx->conn_device_num);
+		device_connect_num=local_ctx->conn_device_num;
         }
         break;
         case BT_CM_EVENT_VISIBILITY_STATE_UPDATE: {

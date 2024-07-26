@@ -106,6 +106,7 @@
 #define APP_SIDE_TONE_VOLUME_MAX_LEVEL  (24)    /* The side tone max volume level. */
 #define APP_SIDE_TONE_CHANGE_LEVEL_PRE_STEP  (3)    /* When press key once, how much increase or decrease. */
 
+//#define AIR_APP_HFP_DEBUG_ENABLE
 static hfp_context_t s_app_hfp_context;   /* The variable records context */
 
 hfp_context_t *app_hfp_get_context(void)
@@ -1036,11 +1037,13 @@ static atci_cmd_hdlr_item_t app_hfp_atci_cmd_debug[] = {
         .hash_value1 = 0,
         .hash_value2 = 0,
     },
+    #if 0
     .command_head = "AT+TESTREDIAL",       /**< HFP redial debug. */
     .command_hdlr = app_hfp_atci_test_redial,
     .hash_value1 = 0,
     .hash_value2 = 0,
 },
+#endif
 };
 
 void app_hfp_atci_debug_init(void)

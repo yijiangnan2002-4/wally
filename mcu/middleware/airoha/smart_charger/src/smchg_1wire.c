@@ -1265,7 +1265,12 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
 			}
 			else if (raceCmd[CMD_ID] == CASE_BT_CONNECTED)
 			{
-				raceEvt[DATA] = app_bt_connected_number();
+				if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
+				&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+				{
+					raceEvt[DATA] = app_bt_connected_number();  // harry 0726
+				}
+
 			}
 			else if (raceCmd[CMD_ID] == CASE_LID_CLOSE)
 			{

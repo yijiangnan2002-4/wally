@@ -308,10 +308,19 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
                 ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_AUTO_ACCEPT_INCOMING_CALL);
 #endif
             }
+            APPS_LOG_MSGID_I(APP_HFP_ACTI" call end mute=%d",1,hfp_context->mute_mic);
+            if (param->current == BT_SINK_SRV_STATE_INCOMING || param->current == BT_SINK_SRV_STATE_OUTGOING|| param->current == BT_SINK_SRV_STATE_ACTIVE)
+            	{
+			if (hfp_context->mute_mic==TRUE)
+			{
+                       ret = app_hfp_mute_mic(false);
+			hfp_context->mute_mic= false;   // harry for unmute mic when disconnet hfp
+            		APPS_LOG_MSGID_I(APP_HFP_ACTI" call end sent unmute mic command 00",0);
+			}
 
+            	}
             /* Check the call status, if there are no HFP related states, finish current activity. */
             if (param->current <= BT_SINK_SRV_STATE_STREAMING) {
-            APPS_LOG_MSGID_I(APP_HFP_ACTI" call end mute=%d",1,hfp_context->mute_mic);
               
                 /* Call is end */
 #if defined(AIR_MULTI_POINT_ENABLE) && defined(MTK_AWS_MCE_ENABLE) && !defined(AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE)
@@ -331,7 +340,6 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
                     ) {
                         hfp_context->transient_active = false;
                         hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
-                        hfp_context->mute_mic= false;   // harry for unmute mic when disconnet hfp
                         ui_shell_finish_activity(self, self);
                     }
                 }
@@ -344,7 +352,6 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
                 ) {
                     hfp_context->transient_active = false;
                     hfp_context->curr_state        = BT_SINK_SRV_STATE_NONE;
-                    hfp_context->mute_mic= false;   // harry for unmute mic when disconnet hfp
                     ui_shell_finish_activity(self, self);
                 }
 #endif

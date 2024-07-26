@@ -68,6 +68,7 @@ static const char go_brand[] = " ";
 #define GO_CMD_DATA_LENGHT_MIN (37)//33+2+2
 #define GO_CMD_LENGHT_MAX (64)
 
+uint8_t device_connect_num=0;
 
 void app_spotify_tap_triggle(void)
 {
@@ -466,12 +467,27 @@ void app_touch_key_test_status_set(uint8_t status)
 
 uint8_t app_bt_connected_number(void)
 {
+	uint8_t ret;
+	#if 1 // harry fix bug	
+	if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
+		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+	{
+		 ret=device_connect_num;  
+	}
+	else
+	{
+		ret=0xff;  // error or partner
+	}
+	return ret;
+
+	#else
 	uint32_t conn_num = 0;
 	bt_bd_addr_t addr_list[3] ={{0}};
 	conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK_NONE, addr_list, 3);
 	if(conn_num>1)
 		conn_num = (conn_num-1);
 	return (conn_num&0xff);
+	#endif
 }
 
 #if 0
