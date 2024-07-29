@@ -309,7 +309,7 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
 #endif
             }
             APPS_LOG_MSGID_I(APP_HFP_ACTI" call end mute=%d",1,hfp_context->mute_mic);
-            if (param->current == BT_SINK_SRV_STATE_INCOMING || param->current == BT_SINK_SRV_STATE_OUTGOING|| param->current == BT_SINK_SRV_STATE_ACTIVE)
+            if (param->current == BT_SINK_SRV_STATE_INCOMING || param->current ==BT_SINK_SRV_STATE_ACTIVE|| param->current == BT_SINK_SRV_STATE_OUTGOING|| param->current == BT_SINK_SRV_STATE_ACTIVE)
             	{
 			if (hfp_context->mute_mic==TRUE)
 			{
@@ -317,7 +317,6 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
 			hfp_context->mute_mic= false;   // harry for unmute mic when disconnet hfp
             		APPS_LOG_MSGID_I(APP_HFP_ACTI" call end sent unmute mic command 00",0);
 			}
-
             	}
             /* Check the call status, if there are no HFP related states, finish current activity. */
             if (param->current <= BT_SINK_SRV_STATE_STREAMING) {
