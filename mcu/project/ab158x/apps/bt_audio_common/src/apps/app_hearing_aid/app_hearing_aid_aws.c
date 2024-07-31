@@ -561,7 +561,7 @@ static void app_hearing_aid_aws_sync_handle_change_volume(uint8_t from_which_rol
 
     app_hearing_aid_key_handler_adjust_volume(change->l_index, change->r_index, change->up, ((current_role == BT_AWS_MCE_ROLE_AGENT) ? true : false));
 }
-
+extern uint8_t prompt_no_play_flag;	// richard for UI
 static void app_hearing_aid_aws_sync_handle_change_mode(uint8_t from_which_role, uint8_t current_role, void *data, size_t data_len)
 {
     uint8_t target_mode = ((uint8_t *)data)[0];
@@ -570,8 +570,10 @@ static void app_hearing_aid_aws_sync_handle_change_mode(uint8_t from_which_role,
                         from_which_role,
                         current_role,
                         target_mode);
-        APPS_LOG_MSGID_I("[app_hearing_aid_aws_sync_handle_change_mode] harry both ear call",0);
-
+        APPS_LOG_MSGID_I("[app_hearing_aid_aws_sync_handle_change_mode] harry both ear call.prompt_no_play_flag=%d",1,prompt_no_play_flag);
+	if((from_which_role==BT_AWS_MCE_ROLE_PARTNER)&&(prompt_no_play_flag==1)){
+		prompt_no_play_flag=0;		
+	}
     app_hearing_aid_key_handler_adjust_mode(target_mode, ((current_role == BT_AWS_MCE_ROLE_AGENT) ? true : false));
 }
 

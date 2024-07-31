@@ -413,7 +413,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
 #ifdef MTK_AWS_MCE_ENABLE
                         if (g_apps_bt_event_aws_connect_acl || BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type() ||
                             (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)) {
-                            vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
+                            vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC|VOICE_PROMPT_CONTROL_MASK_NO_PREEMPTED;
                             vp.delay_time = 200;
                         } else {
                             vp.control = VOICE_PROMPT_CONTROL_MASK_NONE;
@@ -421,6 +421,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                         }
 #endif
                              APPS_LOG_MSGID_I("VP_INDEX_EN_Pairing_success 333", 0);
+                        voice_prompt_play(&vp, NULL);
                         voice_prompt_play(&vp, NULL);
 #endif
                     }

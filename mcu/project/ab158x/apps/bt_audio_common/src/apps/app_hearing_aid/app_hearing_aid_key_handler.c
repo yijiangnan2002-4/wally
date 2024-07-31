@@ -719,10 +719,15 @@ void app_hearing_aid_key_handler_adjust_volume(uint8_t l_index, uint8_t r_index,
 
 void app_hearing_aid_key_handler_adjust_mode(uint8_t target_mode, bool need_vp)
 {
-         APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_adjust_mode] harry target_mode=%d,need_vp=%d",2,target_mode,need_vp);
+   static uint8_t  pre_target=0xff;
+   APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_adjust_mode] harry target_mode=%d,need_vp=%d,pre_target=%d",3,target_mode,need_vp,pre_target);
    app_hearing_aid_utils_adjust_mode(target_mode);
     if (need_vp == true) {
-        app_hearing_aid_activity_play_mode_index_vp(target_mode, true);
+	if(pre_target!=target_mode)
+	{
+        	app_hearing_aid_activity_play_mode_index_vp(target_mode, true);
+	}
+	pre_target=target_mode;
     }
 }
 

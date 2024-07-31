@@ -419,8 +419,9 @@ bt_status_t bt_sink_srv_set_mute(bt_sink_srv_mute_t type, bool mute)
 
         case BT_SINK_SRV_MUTE_SPEAKER: {
             const audio_src_srv_handle_t *device = audio_src_srv_get_runing_pseudo_device();
+                bt_sink_srv_report_id("bt_sink_srv_set_mute, device->type 0x%x,mute=%d", 2, device->type,mute);
             if (device != NULL) {
-                bt_sink_srv_report_id("[Sink]set mute, mute 0x%x speaker", 1, device->type);
+                bt_sink_srv_report_id("bt_sink_srv_set_mute device != NULL ", 0);
                 if ((device->type == AUDIO_SRC_SRV_PSEUDO_DEVICE_A2DP) ||
                     (device->type == AUDIO_SRC_SRV_PSEUDO_DEVICE_AWS_A2DP)) {
 #ifdef AIR_BT_SINK_MUSIC_ENABLE
@@ -433,6 +434,10 @@ bt_status_t bt_sink_srv_set_mute(bt_sink_srv_mute_t type, bool mute)
                     /* Add more cases here. */
                 }
             }
+	else
+		{
+                bt_sink_srv_report_id("bt_sink_srv_set_mute device == NULL ", 0);
+		}
             break;
         }
 
@@ -441,7 +446,7 @@ bt_status_t bt_sink_srv_set_mute(bt_sink_srv_mute_t type, bool mute)
         }
     }
 
-    bt_sink_srv_report_id("[Sink]set mute, type:%x mute:%d status:0x%x", 3, type, mute, status);
+    bt_sink_srv_report_id("bt_sink_srv_set_mute, type:%x mute:%d status:0x%x", 3, type, mute, status);
     return status;
 }
 
