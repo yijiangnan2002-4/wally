@@ -102,6 +102,7 @@ enum {
     VP_INDEX_EN_Pairing_success				= 50,
     VP_INDEX_COMFORT					= 51,
     VP_INDEX_MUTE					= 52,
+    VP_INDEX_Ocean					= 53,
 };
 
 #endif /* __APPS_CONFIG_APPS_CONFIG_VP_INDEX_LIST_H__ */

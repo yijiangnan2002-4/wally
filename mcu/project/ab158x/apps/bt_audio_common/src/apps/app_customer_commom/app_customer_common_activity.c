@@ -71,7 +71,9 @@ bool customer_key_configure_short_click(void);
 bool customer_key_configure_double_click(void);
 bool customer_key_configure_triple_click(void);
 void app_eastech_pair_vp_callback(void );
-
+void customer_key_triger_ocean_vp(void);
+    bool ocean_cnt=0;
+   uint8_t	ocean_vp_vol=10;  // DEF= VP DEF
 #ifdef BATTERY_HEATHY_ENABLE
 static void battery_heathy_timer_callback(TimerHandle_t pxTimer)
 {
@@ -244,6 +246,54 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
 			break;
 
 #endif
+		case KEY_TRIGER_OCEAN_VP:		
+			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+			&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+			{
+				APPS_LOG_MSGID_I("customer_key_triger_ocean_vp role=partner sent data to agent ", 0);
+				apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_CALLBACK_OCEAN_VP,NULL,0);
+			}
+			else
+			{
+				APPS_LOG_MSGID_I("customer_key_triger_ocean_vp role=agent play vp ", 0);
+				if(ocean_cnt==0)		
+				{
+					ocean_cnt=1;	
+					customer_key_triger_ocean_vp();	
+				}
+				else	
+				{
+					ocean_cnt=0;	
+		       			ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_OCEAN_VP);
+			 		voice_prompt_stop(VP_INDEX_Ocean,VOICE_PROMPT_ID_INVALID,false);	
+				}
+			}
+			ret = true;
+			break;
+		case KEY_VP_UP:
+			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
+			&& bt_sink_srv_cm_get_aws_connected_device() != NULL&&ocean_cnt==1)
+			{
+				if(ocean_vp_vol<15)
+				{
+				ocean_vp_vol++;	
+				}
+			}
+			ret = true;
+			break;
+
+		case KEY_VP_DM:
+			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
+			&& bt_sink_srv_cm_get_aws_connected_device() != NULL&&ocean_cnt==1)
+			{
+				if(ocean_vp_vol>1)
+				{
+				ocean_vp_vol--;	
+				}
+			}
+			ret = true;
+			break;
+
 		default:
 			break;
 
@@ -435,7 +485,6 @@ void key_switch_anc_and_passthrough_proc(void)
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
     	if (p_key_action)
 	{
-		//*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH1;
 		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH;
     
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
@@ -1599,6 +1648,11 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 		break;
 #endif
 
+	    case EVENT_ID_EASTECH_CALLBACK_OCEAN_VP:	
+		log_hal_msgid_info("_proc_customer_common EVENT_ID_EASTECH_CALLBACK_OCEAN_VP role=agent ocean_cnt=%d",1,ocean_cnt);
+		customer_key_triger_ocean_vp();	
+		break;
+
       
 		default:
 			break;
@@ -1966,6 +2020,21 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 					ret = true;
 					break;
 				}
+			    case EVENT_ID_EASTECH_CALLBACK_OCEAN_VP:	
+				log_hal_msgid_info("_customer_common_app_aws_data_proc EVENT_ID_EASTECH_CALLBACK_OCEAN_VP from partner message ocean_cnt=%d",1,ocean_cnt);
+				if(ocean_cnt==0)		
+				{
+					ocean_cnt=1;	
+					customer_key_triger_ocean_vp();	
+				}
+				else	
+				{
+					ocean_cnt=0;	
+		       			ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_OCEAN_VP);
+			 		voice_prompt_stop(VP_INDEX_Ocean,VOICE_PROMPT_ID_INVALID,false);	
+				}
+				break;
+
 
                 default:
                     break;
@@ -2062,4 +2131,21 @@ void app_eastech_pair_vp_callback(void )
 	}
 }	
 #endif
+#define VP_PLAY_INTERVAL_OCEAN	17000
+void customer_key_triger_ocean_vp(void)
+{
+	APPS_LOG_MSGID_I("customer_key_triger_ocean_vp: start Voice Prompt", 0);
+	voice_prompt_param_t vp;
+	memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
+	vp.vp_index = VP_INDEX_Ocean;
+	vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC | VOICE_PROMPT_CONTROL_MASK_PREEMPT;
+	vp.delay_time = 200;
+	voice_prompt_play(&vp, NULL);
+	ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST,
+	EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+	(uint32_t)EVENT_ID_EASTECH_CALLBACK_OCEAN_VP,
+	NULL, 0,
+	NULL, VP_PLAY_INTERVAL_OCEAN);	
+}
+
 

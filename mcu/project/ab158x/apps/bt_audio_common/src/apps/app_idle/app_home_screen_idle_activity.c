@@ -862,7 +862,6 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         || (action == KEY_PASS_THROUGH)
         || (action == KEY_ANC)
         || (action == KEY_SWITCH_ANC_AND_PASSTHROUGH)
-        || (action == KEY_SWITCH_ANC_AND_PASSTHROUGH1)		// richard for UI
         || (action == KEY_SWITCH_WORLD_MODE)
         || (action == KEY_BETWEEN_ANC_PASSTHROUGH)
 #endif
@@ -892,6 +891,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
 #endif
 
     switch (action) {
+		
         case KEY_BT_OFF: {
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_APP_INTERACTION,
@@ -1101,7 +1101,6 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         case KEY_PASS_THROUGH:
         case KEY_ANC:
         case KEY_SWITCH_ANC_AND_PASSTHROUGH:
-        case KEY_SWITCH_ANC_AND_PASSTHROUGH1:	// richard for UI
         case KEY_SWITCH_WORLD_MODE:
         case KEY_BETWEEN_ANC_PASSTHROUGH:
         case KEY_ANC_GAIN:
@@ -1380,7 +1379,6 @@ static bool homescreen_app_aws_data_proc(ui_shell_activity_t *self, uint32_t eve
                         || (aws_event_id == KEY_PASS_THROUGH)
                         || (aws_event_id == KEY_ANC)
                         || (aws_event_id == KEY_SWITCH_ANC_AND_PASSTHROUGH)
-                        || (aws_event_id == KEY_SWITCH_ANC_AND_PASSTHROUGH1)		// richard for UI
                         || (aws_event_id == KEY_SWITCH_WORLD_MODE)
                         || (aws_event_id == KEY_BETWEEN_ANC_PASSTHROUGH)
 #endif

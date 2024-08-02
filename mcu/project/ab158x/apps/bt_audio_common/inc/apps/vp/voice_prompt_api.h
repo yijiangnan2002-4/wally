@@ -145,6 +145,7 @@ typedef struct {
     voice_prompt_play_callback_t callback;   /* User callback. */
 } voice_prompt_param_t;
 
+extern bool is_play_ocean;
 
 /**
 * @brief      This function is for user to play a VP.

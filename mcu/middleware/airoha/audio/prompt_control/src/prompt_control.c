@@ -69,6 +69,9 @@
 #include "downlink_sw_gain.h"
 #endif
 
+#include "app_customer_common_activity.h"
+#include "voice_prompt_api.h"
+
 #ifndef UNUSED
 #define UNUSED(x)  ((void)(x))
 #endif
@@ -178,6 +181,7 @@ static void prompt_control_set_mixer_volume(void)
 #endif //!MTK_AVM_DIRECT
 
 #ifdef MTK_AVM_DIRECT
+//errrrrrrrrrrrrr
 void prompt_control_set_volume(void)
 {
 #ifdef __BT_SINK_SRV_AUDIO_SETTING_SUPPORT__
@@ -190,8 +194,16 @@ void prompt_control_set_volume(void)
     vol_info.type = VOL_VP;
 #ifndef MTK_PROMPT_SOUND_USING_CONFIG_DEFAULT_GAIN_LEVEL
     vol_info.vol_info.def_vol_info.lev = g_prompt_gain_level;
+errrrrrrrrrrrrrr
 #else
+if(is_play_ocean==1)
+{
+    vol_info.vol_info.def_vol_info.lev = ocean_vp_vol;
+}
+else
+{
     vol_info.vol_info.def_vol_info.lev = PROMPT_CONTROL_DEFAULT_GAIN_LEVEL;
+}
 #endif
     memset(&vol, 0, sizeof(bt_sink_srv_audio_setting_vol_t));
 
@@ -205,6 +217,7 @@ void prompt_control_set_volume(void)
     }
 
 #ifdef AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
+errrrrrrrrrr
     if (g_DL_SW_gain_default_para->enable_vp) {
         extern void am_set_volume_to_DL_SW_gain(void);
         am_set_volume_to_DL_SW_gain();
@@ -217,8 +230,8 @@ void prompt_control_set_volume(void)
     hal_audio_set_stream_out_volume(HAL_AUDIO_STREAM_OUT2, digital, analog);
 #endif
 
-    LOG_MSGID_I(VPC, "[VPC]Set Prompt Volume Scenario:%d Level[%d] D_Gain:0x%x A_Gain:0x%x\n", 4,
-                current_audio_type, vol_info.vol_info.def_vol_info.lev, digital, analog);
+    LOG_MSGID_I(VPC, "[VPC]Set Prompt Volume Scenario:%d Level[%d] D_Gain:0x%x A_Gain:0x%x,is_play_ocean=%d,ocean_vp_vol=%d\n", 6,
+                current_audio_type, vol_info.vol_info.def_vol_info.lev, digital, analog,is_play_ocean,ocean_vp_vol);
 #endif
 }
 #endif

@@ -66,6 +66,7 @@
 #include "app_in_ear_idle_activity.h"
 
 #define LOG_TAG   "VP_API"
+bool is_play_ocean=0;
 
 #ifdef AIR_PROMPT_SOUND_ENABLE
 static voice_prompt_status_t voice_prompt_check_param(voice_prompt_param_t *vp)
@@ -121,25 +122,33 @@ static voice_prompt_status_t voice_prompt_check_param(voice_prompt_param_t *vp)
     return VP_STATUS_SUCCESS;
 }
 #endif
-
 voice_prompt_status_t voice_prompt_play(voice_prompt_param_t *vp, uint16_t *play_id)
 {
 bool visi;
 #ifdef EASTECH_SPEC_VP
-if(vp->vp_index == VP_INDEX_PAIRING||vp->vp_index == VP_INDEX_PAIRING_LOOP)
-{
-visi=app_bt_connection_service_get_current_status()->bt_visible;
-       VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING inear play vp=%d ir_senser_in_ear_statu=%d,visi=%d",3,vp->vp_index,ir_senser_in_ear_statu,visi);
-  if((ir_senser_in_ear_statu==1)&&visi)
-  {
-       VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING inear play vp=%d",1,vp->vp_index);
-  }
-  else
-  {
-    VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING out ear no need play vp=%d",1,vp->vp_index);
-    return VP_STATUS_SUCCESS;
-  }
-}
+	if(vp->vp_index == VP_INDEX_PAIRING||vp->vp_index == VP_INDEX_PAIRING_LOOP)
+	{
+		visi=app_bt_connection_service_get_current_status()->bt_visible;
+	       VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING inear play vp=%d ir_senser_in_ear_statu=%d,visi=%d",3,vp->vp_index,ir_senser_in_ear_statu,visi);
+	  if((ir_senser_in_ear_statu==1)&&visi)
+	  {
+	       VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING inear play vp=%d",1,vp->vp_index);
+	  }
+	  else
+	  {
+	    VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING out ear no need play vp=%d",1,vp->vp_index);
+	    return VP_STATUS_SUCCESS;
+	  }
+	}
+	
+	if (vp->vp_index == VP_INDEX_Ocean)
+	{
+		is_play_ocean=1;
+	}
+	else
+	{
+		is_play_ocean=0;
+	}
 #else
 
 #endif

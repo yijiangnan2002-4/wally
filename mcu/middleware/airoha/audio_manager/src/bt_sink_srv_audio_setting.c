@@ -826,7 +826,7 @@ static uint8_t audio_get_percentage_out_pcm(uint8_t level)
 
     pVprtPercentageTable = ((uint8_t *)pNvdmVprtVol) + sizeof(bt_sink_srv_audio_setting_vol_para);
     percentage = pVprtPercentageTable[level];
-    //audio_src_srv_report("[Sink][Setting]audio_get_percentage_out_pcm level[%d] percentage:%d\n", 2, level, percentage);
+    audio_src_srv_report("[Sink][Setting]audio_get_percentage_out_pcm level[%d] percentage:%d\n", 2, level, percentage);
 
     vPortFree(pNvdmVprtVol);
     return percentage;
@@ -1930,7 +1930,7 @@ static void bt_sink_srv_audio_setting_get_vp_vol(vp_vol_info_t *info,
 
     vol->vol.digital = digital;
     vol->vol.analog_L = analog;
-    audio_src_srv_report("[Sink][Setting]get_vp_vol--lev: %d, ret: %d, d: 0x%x, a: 0x%x", 3,
+    audio_src_srv_report("[Sink][Setting]get_vp_vol--lev: %d, d: 0x%x, a: 0x%x", 3,
                          lev,  digital, analog);
 }
 
