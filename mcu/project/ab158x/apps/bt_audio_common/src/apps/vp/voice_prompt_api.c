@@ -720,10 +720,12 @@ voice_prompt_status_t voice_prompt_play_vp_power_on()
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
     app_hear_through_activity_power_on_vp_start_to_play();
 #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
-
+/*
     voice_prompt_param_t vp = {0};
     vp.vp_index = VP_INDEX_POWER_ON;
     vp.control = VOICE_PROMPT_CONTROL_MASK_PREEMPT;
     return voice_prompt_play(&vp, NULL);
+    */
+    return 0;
 }
 
