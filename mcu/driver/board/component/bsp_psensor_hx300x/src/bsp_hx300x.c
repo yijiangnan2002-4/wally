@@ -845,7 +845,7 @@ void bsp_component_hx300x_init(void)
 	
 	ret = hal_eint_mask(EINT_PSENSOR);
 
-	eint_config.debounce_time = 20;
+	eint_config.debounce_time = 14;
 	eint_config.trigger_mode  = HAL_EINT_EDGE_FALLING_AND_RISING;
 
 	ret = hal_eint_init(EINT_PSENSOR, &eint_config);
@@ -854,6 +854,7 @@ void bsp_component_hx300x_init(void)
 	APPS_LOG_MSGID_I("hx300x:hal_eint_register_callback ret = %d", 1, ret);
 
 	hal_eint_unmask(EINT_PSENSOR);
+//	    delay_ms(500);
 
 	HX300x_init();
 

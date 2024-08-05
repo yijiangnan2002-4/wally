@@ -498,6 +498,9 @@ static atci_status_t bt_app_comm_at_cmd_check_eastech(atci_parse_cmd_param_t *pa
     //                     data_len, NULL, 100);	
   	  //APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech 100MS, \r\n", 0);
 
+    uint8_t mode_index = 0;
+
+    audio_anc_psap_control_get_mode_index(&mode_index);
 
       uint8_t *exterdata=(uint8_t *)pvPortMalloc(sizeof(uint8_t)*data_len);
       if (exterdata != NULL) {
@@ -532,7 +535,7 @@ static atci_status_t bt_app_comm_at_cmd_check_eastech(atci_parse_cmd_param_t *pa
 
 	APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech ancsuspend=%d,ancenbale=%d,ancisenable=%d,getancstate=%d\r\n", 4,app_anc_service_is_suspended(),app_anc_service_is_anc_enabled(),app_anc_service_is_enable(),app_anc_service_get_state());
   
-	APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech hearthroumode=%d,hearthroumode=%d,hearthroumode=%d,right_ear=%d\r\n", 4,app_hear_through_storage_get_hear_through_mode(),app_hear_through_storage_get_hear_through_mode(),app_hear_through_storage_get_hear_through_mode(),ami_get_audio_channel());
+	APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech hearthroumode=%d,hear_through_switch=%d,mode_index=%d,right_ear=%d\r\n", 4,app_hear_through_storage_get_hear_through_mode(),app_hear_through_storage_get_hear_through_switch(),mode_index,ami_get_audio_channel());
 
 	APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech role =%d,casestate=%d,rssi=%d,inear=%d\r\n", 4,bt_device_manager_aws_local_info_get_role(),app_hear_through_activity_is_out_case(),app_hear_through_storage_get_ha_rssi_threshold(),app_in_ear_get_own_state());
      atci_response_t response = {{0}, 0, ATCI_RESPONSE_FLAG_APPEND_ERROR};
