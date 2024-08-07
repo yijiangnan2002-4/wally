@@ -346,6 +346,8 @@ void app_hearing_aid_activity_play_ha_on_vp(bool enable, bool need_mode_vp, bool
         app_hearing_aid_activity_play_mode_index_vp(mode_index, false);
     }
 #endif /* AIR_TWS_ENABLE */
+	prompt_no_play_flag=0;    // »Ö¸´ÌáÊ¾Òô¿ª
+
 }
 
 void app_hearing_aid_activity_pre_proc_operate_ha(uint8_t which, bool on, bool need_aws_sync)
@@ -2160,6 +2162,18 @@ static bool app_hearing_aid_activity_proc_app_interaction(uint32_t event_id,
         app_ha_activity_context.is_in_ear = is_in_ear;
       APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_app_interaction] user switch=%d,inited=%d",2,user_switch , app_ha_activity_context.inited);
         if ((user_switch == false) || (app_ha_activity_context.inited == false)) {
+		if(is_in_ear==true)	{
+		if(anc_suspended==true)
+		{
+      			app_anc_service_resume();
+		}
+
+		}
+		else
+		{
+			app_anc_service_suspend();
+		}
+		
             return false;
         }
 

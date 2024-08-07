@@ -1963,7 +1963,7 @@ void app_hear_through_handle_charger_out()
     if (app_hear_through_ctx.is_powering_off == false) {
         if (app_hear_through_ctx.is_power_on_vp_played == false) {
             if (app_hear_through_ctx.is_power_on_vp_playing == false) {
-                voice_prompt_play_vp_power_on();   // 我们不要在出盒的时候响power on提示音
+                voice_prompt_play_vp_power_on();   
             }
         } else {
             app_hear_through_activity_handle_ht_enable(true);
