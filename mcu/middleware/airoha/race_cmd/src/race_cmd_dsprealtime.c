@@ -637,19 +637,92 @@ void race_dsprt_anc_notify(audio_anc_control_event_t event_id, uint8_t fromPartn
     uint8_t                  anc_enable;
     audio_anc_control_type_t anc_type;
     audio_anc_control_get_status(&anc_enable, NULL, &anc_type, NULL, NULL, NULL);
+#if 0
+    uint8_t notify_channel_counter = 0;
+    uint8_t notify_channel_index = 0;
+    uint8_t notify_channel_list[5];
 
+#if defined(MTK_MUX_BT_ENABLE)
+    if (race_bt_is_connected(MUX_BT_SPP) == true) {
+        notify_channel_counter ++;
+        notify_channel_list[notify_channel_index] = MUX_BT_SPP;
+        notify_channel_index ++;
+          RACE_LOG_MSGID_I("[anc_notify]race_dsprt_anc_notify]  index : %d,MUX_BT_SPP=: %d",
+                        2,
+                        notify_channel_index,
+                        MUX_BT_SPP);
+		  }
+    if (race_bt_is_connected(MUX_BT_BLE) == true) {
+        notify_channel_counter ++;
+        notify_channel_list[notify_channel_index] = MUX_BT_BLE;
+        notify_channel_index ++;
+          RACE_LOG_MSGID_I("[[anc_notify]race_dsprt_anc_notify]  index : %d,MUX_BT_BLE=: %d",
+                        2,
+                        notify_channel_index,
+                        MUX_BT_BLE);
+    }
+#endif /* MTK_MUX_BT_ENABLE */
+#if defined(MTK_IAP2_VIA_MUX_ENABLE)
+    if (race_bt_is_connected(RACE_MUX_IAP2_PORT) == true) {
+        notify_channel_counter ++;
+        notify_channel_list[notify_channel_index] = RACE_MUX_IAP2_PORT;
+        notify_channel_index ++;
+          RACE_LOG_MSGID_I("[[anc_notify]race_dsprt_anc_notify]  index : %d,RACE_MUX_IAP2_PORT=: %d",
+                        2,
+                        notify_channel_index,
+                        RACE_MUX_IAP2_PORT);
+    }
+#endif /* MTK_IAP2_VIA_MUX_ENABLE */
+
+    /**
+     * @brief Check UART is valid or not.
+     */
+    if (RACE_SERIAL_PORT_TYPE_UART != RACE_SERIAL_PORT_TYPE_NONE) {
+        notify_channel_counter ++;
+        notify_channel_list[notify_channel_index] = RACE_SERIAL_PORT_TYPE_UART;
+        notify_channel_index ++;
+          RACE_LOG_MSGID_I("[anc_notify]race_dsprt_anc_notify  index : %d,RACE_SERIAL_PORT_TYPE_UART=: %d",
+                        2,
+                        notify_channel_index,
+                        RACE_SERIAL_PORT_TYPE_UART);
+  }
+#endif
     if ((anc_enable == 0) || (anc_type < AUDIO_ANC_CONTROL_TYPE_MASK_BEGIN) || ((anc_type & 0xFFFF0000) == AUDIO_ANC_CONTROL_TYPE_PT_ADAP) || ((anc_type & 0xFFFF0000) == AUDIO_ANC_CONTROL_TYPE_PT_HW_VIVID)) {
         pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_NOTIFICATION, (uint16_t)RACE_MMI_GET_ENUM, (uint16_t)sizeof(RACE_MMI_GET_ENUM_EVT_STRU) + sizeof(RACE_MMI_ANC_STATUS_STRU), g_anc_race_ch_id);
         if (pEvt) {
+			#if 0
+	    for (notify_channel_index = 0; notify_channel_index < notify_channel_counter; notify_channel_index ++) {
+          RACE_LOG_MSGID_I("[anc_notify]race_dsprt_anc_notify index : %d,notify_channel_list[notify_channel_index]=: %d",
+                        2,
+                        notify_channel_index,
+                        notify_channel_list[notify_channel_index]);
+
+        if (notify_channel_list[notify_channel_index] == 0xFF) {
+            continue;
+        }
             memset(pEvt, 0, sizeof(RACE_MMI_GET_ENUM_EVT_STRU)+sizeof(RACE_MMI_ANC_STATUS_STRU));
             pEvt_MMI = (RACE_MMI_GET_ENUM_EVT_STRU *)pEvt;
             pEvt_MMI->module = RACE_MMI_MODULE_ANC_STATUS;
             race_mmi_get_anc_status(&pEvt_MMI->data[0], &pEvt_MMI->status);
 
             memcpy(&debug, &pEvt_MMI->data[0], sizeof(RACE_MMI_ANC_STATUS_STRU));
-            race_status_t race_status = race_flush_packet((void *)pEvt_MMI, g_anc_race_ch_id);
-            RACE_LOG_MSGID_I("[anc_notify]race_dsprt_anc_notify, race_status %d, filter_id %d, runtime_gain %d, type %d", 4, race_status, debug.anc_flash_id, debug.anc_runtime_gain, debug.anc_type);
+
+            race_status_t race_status = race_flush_packet((void *)pEvt_MMI, notify_channel_list[notify_channel_index]);
+            RACE_LOG_MSGID_I("[anc_notify]race_dsprt_anc_notify, race_status %d, filter_id %d, runtime_gain %d, type %d,notify_channel_list[notify_channel_index]=%d,g_anc_race_ch_id=%d", 6, race_status, debug.anc_flash_id, debug.anc_runtime_gain, debug.anc_type,notify_channel_list[notify_channel_index],g_anc_race_ch_id);
         }
+		#else
+            memset(pEvt, 0, sizeof(RACE_MMI_GET_ENUM_EVT_STRU)+sizeof(RACE_MMI_ANC_STATUS_STRU));
+            pEvt_MMI = (RACE_MMI_GET_ENUM_EVT_STRU *)pEvt;
+            pEvt_MMI->module = RACE_MMI_MODULE_ANC_STATUS;
+            race_mmi_get_anc_status(&pEvt_MMI->data[0], &pEvt_MMI->status);
+
+            memcpy(&debug, &pEvt_MMI->data[0], sizeof(RACE_MMI_ANC_STATUS_STRU));
+
+            race_status_t race_status = race_flush_packet((void *)pEvt_MMI, g_anc_race_ch_id);
+            RACE_LOG_MSGID_I("[anc_notify]race_dsprt_anc_notify, race_status %d, filter_id %d, runtime_gain %d, type %d,g_anc_race_ch_id=%d,pEvt_MMI.status=%d", 6, race_status, debug.anc_flash_id, debug.anc_runtime_gain, debug.anc_type,g_anc_race_ch_id,pEvt_MMI->status);
+
+		#endif
+	}
     }
 
     return;

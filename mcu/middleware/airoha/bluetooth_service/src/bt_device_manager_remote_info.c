@@ -805,7 +805,7 @@ static void bt_device_manager_remote_aws_sync_timer_callback(uint32_t timer_id, 
         if (g_bt_dm_remote_sequence[index]) {
             bt_device_manager_remote_aws_sync_db(BT_DEVICE_MANAGER_DB_TYPE_REMOTE_DEVICE0_INFO + index, true,
                                          sizeof(bt_device_manager_db_remote_info_t), (void *)(g_bt_dm_remote_list_cnt + index));
-            bt_timer_ext_start(BT_DM_PAIRED_INFOR_SYNC_TIMER_ID, index + 1, 10, bt_device_manager_remote_aws_sync_timer_callback);
+            bt_timer_ext_start(BT_DM_PAIRED_INFOR_SYNC_TIMER_ID, index + 1, 50, bt_device_manager_remote_aws_sync_timer_callback);
             return;
         }
     }

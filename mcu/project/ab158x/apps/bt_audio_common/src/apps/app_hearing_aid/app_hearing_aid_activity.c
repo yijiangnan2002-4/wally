@@ -684,9 +684,27 @@ void app_hearing_aid_activity_handle_get_race_cmd(uint8_t *race_data, uint16_t r
                         request->op_type,
                         *get_response_len);
 }
+extern uint8_t charge_out_flag;
 
 bool app_hearing_aid_activity_open_hearing_aid_fwk()
 {
+
+    if (app_anc_service_is_suspended() == true) {
+	if(charge_out_flag==1)
+	{
+           APPS_LOG_MSGID_W(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_open_hearing_aid_fwk] just change out,so resume anc", 0);
+           app_anc_service_resume();
+           charge_out_flag=0;
+	}
+	else
+	{
+           APPS_LOG_MSGID_W(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_open_hearing_aid_fwk] ANC has been suspended", 0);
+	   charge_out_flag=0;
+           return false;
+	}
+    }
+	charge_out_flag=0;
+	
     if (app_ha_activity_context.inited == false) {
         APPS_LOG_MSGID_E(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_open_hearing_aid_fwk] Not inited", 0);
         return false;
@@ -705,11 +723,6 @@ bool app_hearing_aid_activity_open_hearing_aid_fwk()
             APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_open_hearing_aid_fwk] Framework is opening", 0);
             return true;
         }
-    }
-
-    if (app_anc_service_is_suspended() == true) {
-        APPS_LOG_MSGID_W(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_open_hearing_aid_fwk] ANC has been suspended", 0);
-        return false;
     }
 
     if (app_ha_activity_context.is_closing_fwk == true) {
@@ -2171,7 +2184,7 @@ static bool app_hearing_aid_activity_proc_app_interaction(uint32_t event_id,
 		}
 		else
 		{
-			app_anc_service_suspend();
+			//app_anc_service_suspend();
 		}
 		
             return false;

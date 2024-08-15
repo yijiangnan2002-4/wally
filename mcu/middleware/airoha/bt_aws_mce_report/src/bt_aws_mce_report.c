@@ -186,8 +186,10 @@ void bt_aws_mce_report_test_by_gpio_init(hal_gpio_pin_t port_num)
 extern bool bt_aws_mce_srv_is_switching_state();
 bt_status_t bt_aws_mce_report_send(bt_aws_mce_report_info_t *info, bool urgent, bool is_sync)
 {
+
+        LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report]  bt_aws_mce_report_send, BT_STATUS_OUT_OF_MEMORY= 0x%08x,BT_MODULE_GENERAL= 0x%08x BT_MODULE_MASK= 0x%08x", 3, BT_STATUS_OUT_OF_MEMORY,BT_MODULE_GENERAL,BT_MODULE_MASK);
     if (bt_aws_mce_srv_is_switching_state()) {
-        //LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report] AWS link is not attched", 0);
+        LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report] AWS link is not attched", 0);
         return BT_STATUS_BUSY;
     }
     uint32_t aws_handle = 0;
@@ -200,7 +202,7 @@ bt_status_t bt_aws_mce_report_send(bt_aws_mce_report_info_t *info, bool urgent, 
     if (info->module_id == BT_AWS_MCE_REPORT_MODULE_TEST) {
         gpio_data = gpio_data == HAL_GPIO_DATA_HIGH ? HAL_GPIO_DATA_LOW : HAL_GPIO_DATA_HIGH;
         hal_gpio_set_output(HAL_GPIO_13, gpio_data);
-        //LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report]send event test signl, gpio_data: %x, module:0x%0x", 2, gpio_data, info->module_id);
+        LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report]send event test signl, gpio_data: %x, module:0x%0x", 2, gpio_data, info->module_id);
     }
 #endif
 
@@ -211,7 +213,7 @@ bt_status_t bt_aws_mce_report_send(bt_aws_mce_report_info_t *info, bool urgent, 
     uint32_t len;
 
     if (bt_aws_mce_report_cntx.role == BT_AWS_MCE_ROLE_CLINET) {
-        //LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report]client can not send event, module:0x%0x", 1, info->module_id);
+        LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report]client can not send event, module:0x%0x", 1, info->module_id);
         return BT_STATUS_FAIL;
     }
 
@@ -267,7 +269,7 @@ bt_status_t bt_aws_mce_report_send(bt_aws_mce_report_info_t *info, bool urgent, 
         }
         /* send to aws_mce profile */
         status = bt_aws_mce_send_information_with_extra_header(aws_handle, (const bt_aws_mce_information_t *)&information, urgent, (uint8_t *)&aws_sync_header, sizeof(aws_sync_header));
-        //LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report]send sync event, module:0x%0x, sync_time: %d, aws_handle: 0x%x", 3, info->module_id, info->sync_time, aws_handle);
+        LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report]send sync event, module:0x%0x, sync_time: %d, aws_handle: 0x%x", 3, info->module_id, info->sync_time, aws_handle);
     } else {
         len =  info->param_len + sizeof(bt_aws_mce_report_payload_header_t);
         bt_aws_mce_report_none_sync_header_t aws_none_sync_header;
@@ -284,7 +286,7 @@ bt_status_t bt_aws_mce_report_send(bt_aws_mce_report_info_t *info, bool urgent, 
         }
         /* send to aws_mce profile */
         status = bt_aws_mce_send_information_with_extra_header(aws_handle, (const bt_aws_mce_information_t *)&information, urgent, (uint8_t *)&aws_none_sync_header, sizeof(aws_none_sync_header));
-        //LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report]send event, module:0x%0x, aws_handle: 0x%x", 2, info->module_id, aws_handle);
+        LOG_MSGID_I(bt_aws_mce_report, "[aws_mce_report]send event, module:0x%0x, aws_handle: 0x%x", 2, info->module_id, aws_handle);
     }
     return status;
 }

@@ -170,11 +170,19 @@ void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *
         notify_channel_counter ++;
         notify_channel_list[notify_channel_index] = MUX_BT_SPP;
         notify_channel_index ++;
+          APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_notification]  index : %d,MUX_BT_SPP=: %d",
+                        2,
+                        notify_channel_index,
+                        MUX_BT_SPP);
     }
     if (race_bt_is_connected(MUX_BT_BLE) == true) {
         notify_channel_counter ++;
         notify_channel_list[notify_channel_index] = MUX_BT_BLE;
         notify_channel_index ++;
+          APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_notification]  index : %d,MUX_BT_BLE=: %d",
+                        2,
+                        notify_channel_index,
+                        MUX_BT_BLE);
     }
 #endif /* MTK_MUX_BT_ENABLE */
 #if defined(MTK_IAP2_VIA_MUX_ENABLE)
@@ -182,6 +190,10 @@ void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *
         notify_channel_counter ++;
         notify_channel_list[notify_channel_index] = RACE_MUX_IAP2_PORT;
         notify_channel_index ++;
+          APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_notification]  index : %d,RACE_MUX_IAP2_PORT=: %d",
+                        2,
+                        notify_channel_index,
+                        RACE_MUX_IAP2_PORT);
     }
 #endif /* MTK_IAP2_VIA_MUX_ENABLE */
 
@@ -192,6 +204,10 @@ void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *
         notify_channel_counter ++;
         notify_channel_list[notify_channel_index] = RACE_SERIAL_PORT_TYPE_UART;
         notify_channel_index ++;
+          APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_notification]  index : %d,RACE_SERIAL_PORT_TYPE_UART=: %d",
+                        2,
+                        notify_channel_index,
+                        RACE_SERIAL_PORT_TYPE_UART);
     }
 
     /**
@@ -202,7 +218,11 @@ void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *
         notify_channel_counter ++;
         notify_channel_list[notify_channel_index] = app_hear_through_race_cmd_context.channel_id;
         notify_channel_index ++;
-    }
+            APPS_LOG_MSGID_I(APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG"[app_hear_through_race_cmd_send_notification]  index : %d,channel_id=: %d",
+                        2,
+                        notify_channel_index,
+                        app_hear_through_race_cmd_context.channel_id);
+  }
 
     /**
      * @brief Send the notification to all of the connected channels.

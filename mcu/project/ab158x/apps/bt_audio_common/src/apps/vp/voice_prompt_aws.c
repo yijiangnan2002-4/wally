@@ -62,6 +62,9 @@
 #include "FreeRTOS.h"
 #include "timers.h"
 #include "hal_gpt.h"
+#include "app_customer_common_activity.h"
+#include "apps_config_event_list.h"
+#include "apps_events_event_group.h"
 
 #define LOG_TAG "VP_AWS"
 #define VP_AWS_IF_TIMER_MS  (3 * 1000)
@@ -360,7 +363,7 @@ static bt_status_t voice_prompt_aws_gap_evt_cb(bt_msg_type_t msg, bt_status_t st
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
 static void voice_prompt_aws_rho_cb(const bt_bd_addr_t *addr, bt_aws_mce_role_t role, bt_role_handover_event_t event, bt_status_t status)
 {
-    VP_LOG_MSGID_I(LOG_TAG" voice prompt rho, role: 0x%x, state: %d", 2, role, g_voice_prompt_aws_ctx.aws_state);
+    VP_LOG_MSGID_I(LOG_TAG" voice_prompt_aws_rho_cb voice prompt rho, role: 0x%x, state: %d,event=0x%x,ocean_cnt=%d", 4, role, g_voice_prompt_aws_ctx.aws_state,event,ocean_cnt);
 
     if (BT_ROLE_HANDOVER_COMPLETE_IND == event && status == BT_STATUS_SUCCESS) {
         /* Update sniff status. */
@@ -369,6 +372,23 @@ static void voice_prompt_aws_rho_cb(const bt_bd_addr_t *addr, bt_aws_mce_role_t 
         } else if (role == BT_AWS_MCE_ROLE_PARTNER) {
             //g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_ACTIVE;
             g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF;
+	     if(ocean_cnt)
+	     {
+		uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); 
+
+		*p_key_action = KEY_TRIGER_OCEAN_VP;
+		
+    		VP_LOG_MSGID_I(LOG_TAG" voice_prompt_aws_rho_cb when rho,if ocean_cnt=1 than (new agent earbud) resent key voice_prompt_aws_rho_cb ", 0);
+
+		if (p_key_action)
+		{
+	        	ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, 0xFFFF, p_key_action, sizeof(uint16_t), NULL, 1000);
+	  	}
+	  	else
+	  	{
+	      		vPortFree(p_key_action);
+	  	}		
+	  }
         }
     }
 }

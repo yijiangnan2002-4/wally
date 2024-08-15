@@ -71,9 +71,12 @@ enum
     EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
     EVENT_ID_EASTECH_PRE_PAIR_VP,
     EVENT_ID_EASTECH_CALLBACK_OCEAN_VP, //50 0x32
+    EVENT_ID_EASTECH_VOLUME_VP, //50 0x32
+    EVENT_ID_EASTECH_OCEAN_ADJUST_VP, //51 0x33
+    EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP, 
 };
 
-  extern  bool ocean_cnt;
+  extern  uint8_t ocean_cnt;
   extern  uint8_t	ocean_vp_vol;  // DEF= VP DEF
 
 typedef struct {

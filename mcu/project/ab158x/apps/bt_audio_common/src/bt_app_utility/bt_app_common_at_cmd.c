@@ -125,6 +125,7 @@
 
 
 #include "app_psensor_px31bf_activity.h"
+#include "app_smcharger_utils.h"
 
 #ifdef MTK_AWS_MCE_ENABLE
 extern uint8_t at_config_adv_flag;
@@ -211,6 +212,11 @@ static atci_status_t bt_app_comm_at_cmd_wrire_HW_ver(atci_parse_cmd_param_t *par
 static atci_status_t bt_app_comm_at_cmd_IR_check(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_mem_check(atci_parse_cmd_param_t *parse_cmd);
 static atci_status_t bt_app_comm_at_cmd_check_eastech(atci_parse_cmd_param_t *parse_cmd);
+extern void key_volumeup_proc(uint8_t volume_up_mode);
+extern void key_volumedown_proc(uint8_t volume_down_mode);
+extern void key_oceanvp_up_proc(void );		
+extern void key_ocean_vpdown_proc(void );		
+extern void key_oceanvp_trige_proc(void );		
 
 #endif
 static atci_cmd_hdlr_item_t bt_app_comm_at_cmd[] = {
@@ -487,7 +493,41 @@ static atci_status_t bt_app_comm_at_cmd_check_eastech(atci_parse_cmd_param_t *pa
     {
       for(uint8_t i=0;var_list[j][i]!=0;i++)
       {
-  	  APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech var_list[%d][%d]=%d,address=%c \r\n", 4,j,i,var_list[j][i],var_list[j][i]);
+  	  APPS_LOG_MSGID_I("bt_app_comm_at_cmd_check_eastech var_list[%d][%d]=%d,val=%c \r\n", 4,j,i,var_list[j][i],var_list[j][i]);
+	  if(var_list[0][0]==49)
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=1 test vol+ ",0);
+		key_volumeup_proc(0);
+            app_smcharger_state_do_action(STATE_SMCHARGER_LID_OPEN);
+
+	  }
+	  else if(var_list[0][0]==50)
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=2 test vol- ",0);
+		key_volumedown_proc(0);
+		app_smcharger_state_do_action(STATE_SMCHARGER_LID_CLOSE);  // close case
+
+	  }
+	  else if(var_list[0][0]=='3')
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=3 test key_ocean_vpdown_proc ",0);
+		key_ocean_vpdown_proc();
+
+	  }	  
+
+	  else if(var_list[0][0]=='4')
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=4 test key_oceanvp_up_proc(); ",0);
+		key_oceanvp_up_proc();
+
+	  }	  
+	  else if(var_list[0][0]=='5')
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=5 test key_oceanvp_trige_proc(); ",0);
+		key_oceanvp_trige_proc();
+
+	  }	  
+
       }
     }
     for(uint8_t i=0;i<data_len;i++)

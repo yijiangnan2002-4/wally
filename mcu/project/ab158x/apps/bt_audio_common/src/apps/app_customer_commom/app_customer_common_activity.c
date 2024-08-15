@@ -72,7 +72,7 @@ bool customer_key_configure_double_click(void);
 bool customer_key_configure_triple_click(void);
 void app_eastech_pair_vp_callback(void );
 void customer_key_triger_ocean_vp(void);
-    bool ocean_cnt=0;
+    uint8_t ocean_cnt=0;
    uint8_t	ocean_vp_vol=10;  // DEF= VP DEF
 #ifdef BATTERY_HEATHY_ENABLE
 static void battery_heathy_timer_callback(TimerHandle_t pxTimer)
@@ -250,45 +250,69 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
 			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
 			&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
 			{
-				APPS_LOG_MSGID_I("customer_key_triger_ocean_vp role=partner sent data to agent ", 0);
+				APPS_LOG_MSGID_I("customer_key_triger_ocean_vp role=partner sent EVENT_ID_EASTECH_CALLBACK_OCEAN_VP to agent,ocean_cnt=%d ", 1,ocean_cnt);
 				apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_CALLBACK_OCEAN_VP,NULL,0);
 			}
 			else
 			{
-				APPS_LOG_MSGID_I("customer_key_triger_ocean_vp role=agent play vp ", 0);
 				if(ocean_cnt==0)		
 				{
+					APPS_LOG_MSGID_I("customer_key_triger_ocean_vp role=agent play vp ", 0);
 					ocean_cnt=1;	
 					customer_key_triger_ocean_vp();	
 				}
 				else	
 				{
+					APPS_LOG_MSGID_I("customer_key_triger_ocean_vp role=agent stop vp ", 0);
 					ocean_cnt=0;	
 		       			ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_OCEAN_VP);
 			 		voice_prompt_stop(VP_INDEX_Ocean,VOICE_PROMPT_ID_INVALID,false);	
 				}
+				apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_CALLBACK_OCEAN_VP,&ocean_cnt,1);
 			}
 			ret = true;
 			break;
 		case KEY_VP_UP:
-			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
-			&& bt_sink_srv_cm_get_aws_connected_device() != NULL&&ocean_cnt==1)
+			if(ocean_cnt==1)
 			{
-				if(ocean_vp_vol<15)
+				if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+				&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
 				{
-				ocean_vp_vol++;	
+					APPS_LOG_MSGID_I("_proc_key_event_group KEY_VP_UP role=partner sent EVENT_ID_EASTECH_OCEAN_ADJUST_VP to agent,local ocean_vp_vol=%d ", 1,ocean_vp_vol);
+					apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_OCEAN_ADJUST_VP,NULL,0);
+				}
+				else
+				{
+					if(ocean_vp_vol<15)
+					{
+						ocean_vp_vol++;	
+					}
+					APPS_LOG_MSGID_I("_proc_key_event_group KEY_VP_UP role=agent   action vol+,local ocean_vp_vol=%d ", 1,ocean_vp_vol);
+					APPS_LOG_MSGID_I("_proc_key_event_group KEY_VP_UP role=agent   sync sent EVENT_ID_EASTECH_OCEAN_ADJUST_VP,ocean_vp_vol to partner",0);
+					apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_OCEAN_ADJUST_VP,&ocean_vp_vol,1);
 				}
 			}
 			ret = true;
 			break;
 
 		case KEY_VP_DM:
-			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
-			&& bt_sink_srv_cm_get_aws_connected_device() != NULL&&ocean_cnt==1)
+			if(ocean_cnt==1)
 			{
-				if(ocean_vp_vol>1)
+				if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
+				&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
 				{
-				ocean_vp_vol--;	
+					APPS_LOG_MSGID_I("_proc_key_event_group KEY_VP_DM role=partner sent EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP to agent,partner-local ocean_vp_vol=%d ", 1,ocean_vp_vol);
+					apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP,NULL,0);
+				}
+				else
+				{
+					if(ocean_vp_vol>1)
+					{
+					ocean_vp_vol--;	
+					}
+					APPS_LOG_MSGID_I("_proc_key_event_group KEY_VP_DM role=agent,local ocean_vp_vol=%d ", 1,ocean_vp_vol);
+					APPS_LOG_MSGID_I("_proc_key_event_group KEY_VP_DM role=agent   sync sent EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP to partner,ocean_vp_vol to partner ", 0);
+					apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP,&ocean_vp_vol,1);
 				}
 			}
 			ret = true;
@@ -310,18 +334,108 @@ uint8_t Is_earbuds_agent_proc(void)
 	else return 0;
 }
 
+void key_oceanvp_trige_proc(void)		
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); 
+
+	*p_key_action = KEY_TRIGER_OCEAN_VP;
+	
+
+	if (p_key_action)
+	{
+        	ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+  	}
+  	else
+  	{
+      		vPortFree(p_key_action);
+  	}		
+}
+
+void key_oceanvp_up_proc(void)		
+{
+   if(ocean_cnt==1)
+   {
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); 
+	//*p_key_action = KEY_ACTION_INVALID;
+	//uint8_t volkey_val;
+
+	*p_key_action = KEY_VP_UP;
+	//volkey_val=2;
+	if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+	&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+	{
+	}
+	else
+	{
+	//	if(ocean_vp_vol<15)
+		{
+	//		ocean_vp_vol++;	
+		}
+
+	}
+
+	if (p_key_action)
+	{
+        	ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+  	}
+  	else
+  	{
+      		vPortFree(p_key_action);
+  	}		
+}
+
+}
+void key_ocean_vpdown_proc(void )		// 0: sp; 1: LP2
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
+//	uint8_t volkey_val;
+	 if(ocean_cnt==1)
+   	{
+
+	*p_key_action = KEY_VP_DM;
+	//volkey_val=1;
+	if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+	&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+	{
+	}
+	else
+	{
+
+	}	
+
+	if (p_key_action)
+	{
+        	ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
+  	}
+  	else
+  	{
+      		vPortFree(p_key_action);
+  	}	
+    }
+}
+
 extern uint8_t anc_ha_flag;
 void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
-
+	uint8_t volkey_val;
 	if(volume_up_mode==0)
 	{
 //		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
 //		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
 		*p_key_action = KEY_VOICE_UP;
-            voice_prompt_play_sync_vp_volume_up();
+		volkey_val=2;
+		if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+		{
+			APPS_LOG_MSGID_I("key_volumeup_proc role=partner sent data to agent", 0);
+			apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_VOLUME_VP,(void*)&volkey_val,1);
+		}
+		else
+		{
+        		voice_prompt_play_sync_vp_volume_down();  
+		}
 	}
 	else
 	{
@@ -345,13 +459,24 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
+	uint8_t volkey_val;
 
 	if(volume_down_mode==0)
 	{
 //		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
 //		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
 		*p_key_action = KEY_VOICE_DN;
-            voice_prompt_play_sync_vp_volume_down();  
+		volkey_val=1;
+		if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+		{
+			APPS_LOG_MSGID_I("key_volumedown_proc role=partner sent data to agent ", 0);
+			apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_VOLUME_VP,(void*)&volkey_val,1);
+		}
+		else
+		{
+        		voice_prompt_play_sync_vp_volume_down();  
+		}
 	}
 	else
 	{
@@ -1649,8 +1774,18 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 #endif
 
 	    case EVENT_ID_EASTECH_CALLBACK_OCEAN_VP:	
-		log_hal_msgid_info("_proc_customer_common EVENT_ID_EASTECH_CALLBACK_OCEAN_VP role=agent ocean_cnt=%d",1,ocean_cnt);
-		customer_key_triger_ocean_vp();	
+		if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+		{
+			log_hal_msgid_info("_proc_customer_common role=partner,bacause rho occurs,the earbud from agent change to partner,so stop vppp",0);
+       			ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_OCEAN_VP);
+	 		voice_prompt_stop(VP_INDEX_Ocean,VOICE_PROMPT_ID_INVALID,false);	
+		}
+		else
+		{
+			log_hal_msgid_info("_proc_customer_common EVENT_ID_EASTECH_CALLBACK_OCEAN_VP role=agent  repeat play vp role=0x%x,ocean_cnt=%d",2,bt_device_manager_aws_local_info_get_role(),ocean_cnt);
+			customer_key_triger_ocean_vp();	
+		}
 		break;
 
       
@@ -2021,22 +2156,91 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 					break;
 				}
 			    case EVENT_ID_EASTECH_CALLBACK_OCEAN_VP:	
-				log_hal_msgid_info("_customer_common_app_aws_data_proc EVENT_ID_EASTECH_CALLBACK_OCEAN_VP from partner message ocean_cnt=%d",1,ocean_cnt);
+			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+			&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+			{
+				ocean_cnt=*(uint16_t*)p_extra_data;
+				log_hal_msgid_info("_customer_common_app_aws_data_proc EVENT_ID_EASTECH_CALLBACK_OCEAN_VP receiver agent message; sync ocean_cnt val=%d",1,ocean_cnt);
+			}
+			else
+			{
+
 				if(ocean_cnt==0)		
 				{
+				log_hal_msgid_info("_customer_common_app_aws_data_proc EVENT_ID_EASTECH_CALLBACK_OCEAN_VP receiver partner message,play vp. ocean_cnt=%d",1,ocean_cnt);
 					ocean_cnt=1;	
 					customer_key_triger_ocean_vp();	
 				}
 				else	
 				{
+				log_hal_msgid_info("_customer_common_app_aws_data_proc EVENT_ID_EASTECH_CALLBACK_OCEAN_VP receiver partner message,stop vpppp ocean_cnt=%d",1,ocean_cnt);
 					ocean_cnt=0;	
 		       			ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_OCEAN_VP);
 			 		voice_prompt_stop(VP_INDEX_Ocean,VOICE_PROMPT_ID_INVALID,false);	
 				}
+				apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_CALLBACK_OCEAN_VP,&ocean_cnt,1);
+				log_hal_msgid_info("_customer_common_app_aws_data_proc sync ocean_cnt to partner.  ocean_cnt=%d",1,ocean_cnt);
+			}
 				break;
 
+			    case EVENT_ID_EASTECH_VOLUME_VP:	{
+					uint8_t tmp_val;
+					tmp_val=*(uint8_t*)p_extra_data;
+					APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc EVENT_ID_EASTECH_VOLUME_VP from partner vol= 0x%x", 1, *(uint8_t*)p_extra_data);
+					if(tmp_val==1)
+					{
+        					voice_prompt_play_sync_vp_volume_down();  
+					}
+					else if (tmp_val==2)
+					{
+        					voice_prompt_play_sync_vp_volume_up();  
+					}
+				}
+					break;
+			    case EVENT_ID_EASTECH_OCEAN_ADJUST_VP:	{
+					uint8_t tmp_val1;
+					tmp_val1=*(uint8_t*)p_extra_data;
+					if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+					&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+					{
+						APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc role=partner,receiver agent EVENT_ID_EASTECH_OCEAN_ADJUST_VP event, sync local ocean_vp_vol= 0x%x,tmp_val1=%d", 1, ocean_vp_vol,tmp_val1);
+						ocean_vp_vol=tmp_val1;
+					}
+					else
+					{
+						if(ocean_vp_vol<15)
+						{
+							ocean_vp_vol++;	
+						}
+						APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc role=agent,receiver partner EVENT_ID_EASTECH_OCEAN_ADJUST_VP event, ocean_vp_vol= 0x%x", 1, ocean_vp_vol);
+					APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc KEY_VP_UP role=agent   sync sent EVENT_ID_EASTECH_OCEAN_ADJUST_VP,ocean_vp_vol to partner",0);
+					apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_OCEAN_ADJUST_VP,&ocean_vp_vol,1);
+					}
+				}
+					break;
 
-                default:
+ 			    case EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP:	{
+					uint8_t tmp_val1;
+					if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+					&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+					{
+					tmp_val1=*(uint8_t*)p_extra_data;
+						APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc role=partner,receiver agent EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP event, local ocean_vp_vol= 0x%x,tmp_val1=%d", 1, ocean_vp_vol,tmp_val1);
+						ocean_vp_vol=tmp_val1;
+					}
+					else
+					{
+					if(ocean_vp_vol>1)
+					{
+					ocean_vp_vol--;	
+					}
+					APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc role=agent,receiver partner EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP event, ocean_vp_vol= 0x%x", 1, ocean_vp_vol);
+					APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc KEY_VP_DM role=agent   sync sent EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP,ocean_vp_vol to partner",0);
+					apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP,&ocean_vp_vol,1);
+					}
+				}
+					break;
+               default:
                     break;
             }
         }

@@ -3486,6 +3486,10 @@ static bt_status_t bt_ull_le_srv_send_configuration(bt_handle_t handle)
 }
 
 #if 1	// richard for ab1571d command processing
+
+extern void key_oceanvp_trige_proc(void);
+extern void key_oceanvp_up_proc(void);
+extern void key_ocean_vpdown_proc(void);
 extern void key_volumeup_proc(uint8_t volume_up_mode);
 extern void key_volumedown_proc(uint8_t volume_down_mode);
 extern void key_avrcp_next_proc(uint8_t vol_m_flag);
@@ -3581,6 +3585,18 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			break;
 		case 4:		// pairing
 			key_fact_pairing_proc();
+			break;
+			
+		case 5:		// OCEAN   ON/OFF 
+			key_oceanvp_trige_proc();
+			break;
+			
+		case 6:		// OCEAN  VP+ 
+			key_oceanvp_up_proc();
+			break;
+			
+		case 7:		// OCEAN  VP- 
+			key_ocean_vpdown_proc();
 			break;
 			
 		default:

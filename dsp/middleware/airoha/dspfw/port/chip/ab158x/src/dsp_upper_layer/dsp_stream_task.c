@@ -621,7 +621,7 @@ const stream_task_config_t stream_task_config_table[DSP_STREAM_TASK_MAX_NUMBER+1
 #endif
 
 #if defined(MTK_GAMING_MODE_HEADSET) || defined(AIR_GAMING_MODE_DONGLE_ENABLE) || defined(AIR_BLE_AUDIO_DONGLE_ENABLE) || defined(AIR_ULL_AUDIO_V2_DONGLE_ENABLE) || defined(AIR_ULL_BLE_HEADSET_ENABLE) || defined(AIR_WIRELESS_MIC_RX_ENABLE) || defined(AIR_BT_AUDIO_DONGLE_ENABLE) || (defined(AIR_WIRED_AUDIO_ENABLE) && !defined(AIR_DCHS_MODE_ENABLE))
-    {STREAM_TASK_HP,        "DHP_TASK",         0x1000 / sizeof(StackType_t),          TASK_PRIORITY_HARD_REALTIME,   NO_OF_HP_STREAM,     DHP_TASK_MAX_RUNTIME},        /* DHP     */
+    {STREAM_TASK_HP,        "DHP_TASK",         0x1000 / sizeof(StackType_t),          TASK_PRIORITY_ABOVE_NORMAL,   NO_OF_HP_STREAM,     DHP_TASK_MAX_RUNTIME},        /* DHP     */
 #else
     {STREAM_TASK_HP,        "DHP_TASK",         0x1000 / sizeof(StackType_t),          TASK_PRIORITY_ABOVE_NORMAL,    NO_OF_HP_STREAM,     DHP_TASK_MAX_RUNTIME},        /* DHP     */
 #endif

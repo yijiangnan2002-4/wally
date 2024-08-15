@@ -130,6 +130,7 @@
 uint8_t anc_eastech_spec=0;
 uint8_t prompt_no_play_flag=0;
 
+uint8_t charge_out_flag=0;
 
  app_hear_through_context_t app_hear_through_ctx;
 
@@ -1934,7 +1935,6 @@ bool app_hear_through_proc_hearing_aid_event(int32_t event_id, void *extra_data,
     return false;
 }
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
-
 #if 0	// richard for UI spec.
 static void app_hear_through_handle_charger_out()
 #else
@@ -1954,7 +1954,7 @@ void app_hear_through_handle_charger_out()
     app_hear_through_update_ambient_control_mode();
 
     app_anc_service_resume();
-
+	charge_out_flag=1;
     /**
      * Fix issue - 47608
      * If out of case happen, need check is powering off or not, if is not powering off
@@ -1983,6 +1983,7 @@ void app_hear_through_handle_charger_in()
     app_hear_through_ctx.is_charger_in = true;
     app_hear_through_ctx.is_power_on_vp_played = false;
     app_hear_through_ctx.is_power_on_vp_playing = false;
+    charge_out_flag=0;
 
     app_hear_through_storage_save_user_configuration();
 
