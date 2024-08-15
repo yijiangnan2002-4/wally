@@ -2203,7 +2203,7 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 					if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
 					&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
 					{
-						APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc role=partner,receiver agent EVENT_ID_EASTECH_OCEAN_ADJUST_VP event, sync local ocean_vp_vol= 0x%x,tmp_val1=%d", 1, ocean_vp_vol,tmp_val1);
+						APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc role=partner,receiver agent EVENT_ID_EASTECH_OCEAN_ADJUST_VP event, sync local ocean_vp_vol= 0x%x,tmp_val1=%d", 2, ocean_vp_vol,tmp_val1);
 						ocean_vp_vol=tmp_val1;
 					}
 					else
@@ -2225,7 +2225,7 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 					&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
 					{
 					tmp_val1=*(uint8_t*)p_extra_data;
-						APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc role=partner,receiver agent EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP event, local ocean_vp_vol= 0x%x,tmp_val1=%d", 1, ocean_vp_vol,tmp_val1);
+						APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc role=partner,receiver agent EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP event, local ocean_vp_vol= 0x%x,tmp_val1=%d", 2, ocean_vp_vol,tmp_val1);
 						ocean_vp_vol=tmp_val1;
 					}
 					else
@@ -2240,6 +2240,27 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 					}
 				}
 					break;
+
+ 			    case EVENT_ID_EASTECH_OCEAN_IS_PLAY_NOW:	{
+					uint8_t tmp_val1;
+					if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+					&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+					{
+						tmp_val1=*(uint8_t*)p_extra_data;
+						APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc role=partner,receiver agent EVENT_ID_EASTECH_OCEAN_IS_PLAY_NOW event,  is_play_ocean= %D,tmp_val1=%d", 2, is_play_ocean,tmp_val1);
+						is_play_ocean=tmp_val1;
+					}
+					else
+					{
+					//APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc role=agent,receiver partner EVENT_ID_EASTECH_OCEAN_IS_PLAY_NOW event, ocean_vp_vol= 0x%x", 1, is_play_ocean);
+					//APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc KEY_VP_DM role=agent   sync sent EVENT_ID_EASTECH_OCEAN_IS_PLAY_NOW,ocean_vp_vol to partner",0);
+					//apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP,&ocean_vp_vol,1);
+					}
+				}
+					break;
+
+
+					
                default:
                     break;
             }

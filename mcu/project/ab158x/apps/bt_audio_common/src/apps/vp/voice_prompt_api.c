@@ -64,6 +64,8 @@
 #include "apps_customer_config.h"
 #include "app_bt_state_service.h"
 #include "app_in_ear_idle_activity.h"
+#include "apps_events_event_group.h"
+#include "app_customer_common_activity.h"
 
 #define LOG_TAG   "VP_API"
 bool is_play_ocean=0;
@@ -140,7 +142,9 @@ bool visi;
 	    return VP_STATUS_SUCCESS;
 	  }
 	}
-	
+
+   if(ocean_cnt==1)	
+   	{
 	if (vp->vp_index == VP_INDEX_Ocean)
 	{
 		is_play_ocean=1;
@@ -149,6 +153,9 @@ bool visi;
 	{
 		is_play_ocean=0;
 	}
+	apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_OCEAN_IS_PLAY_NOW,&is_play_ocean,1);
+	
+   	}
 #else
 
 #endif

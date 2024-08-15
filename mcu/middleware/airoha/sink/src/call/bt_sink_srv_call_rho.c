@@ -437,7 +437,10 @@ static bt_status_t bt_sink_srv_call_role_handover_update(bt_role_handover_update
             bt_sink_srv_call_pseudo_dev_t *dev = &bt_sink_srv_call_pseudo_dev[i];
             if ((dev->user_cb != NULL) &&
                 (dev->user_cb != bt_sink_srv_aws_mce_call_pseudo_dev_callback)) {
-                dev->audio_src->dev_id = 0;
+                if (dev->audio_src->state != AUDIO_SRC_SRV_STATE_NONE) {
+                    bt_sink_srv_call_psd_state_event_notify(dev, BT_SINK_SRV_CALL_EVENT_LINK_DISCONNECTED, NULL);
+                }
+				dev->audio_src->dev_id = 0;
                 bt_sink_srv_call_psd_del_waiting_list(dev);
                 bt_sink_srv_call_psd_free_device(dev);
             }
@@ -492,7 +495,10 @@ static void bt_sink_srv_call_role_handover_status_callback(
                         bt_sink_srv_call_pseudo_dev_t *dev = &bt_sink_srv_call_pseudo_dev[i];
                         if ((dev->user_cb != NULL) &&
                             (dev->user_cb == bt_sink_srv_aws_mce_call_pseudo_dev_callback)) {
-                            dev->audio_src->dev_id = 0;
+                            if (dev->audio_src->state != AUDIO_SRC_SRV_STATE_NONE) {
+                                bt_sink_srv_call_psd_state_event_notify(dev, BT_SINK_SRV_CALL_EVENT_LINK_DISCONNECTED, NULL);
+                            }
+							dev->audio_src->dev_id = 0;
                             bt_sink_srv_call_psd_del_waiting_list(dev);
                             bt_sink_srv_call_psd_free_device(dev);
                         }
