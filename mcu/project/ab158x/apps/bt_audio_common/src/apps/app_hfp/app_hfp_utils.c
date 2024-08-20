@@ -802,7 +802,7 @@ bool app_hfp_mute_mic(bool mute)
     bt_handle_t handle = bt_sink_srv_cap_get_ble_link_by_streaming_mode(bt_sink_srv_cap_am_get_current_mode());
     if (handle != BT_HANDLE_INVALID && app_le_audio_aird_client_is_support_hid_call(handle)) {
         app_le_audio_aird_client_send_action(handle, APP_LE_AUDIO_AIRD_ACTION_MUTE_MIC, NULL, 0);
-      #if 1  //harry for new vp
+      #if 0  //harry for new vp
       if (mute==TRUE)
       {
         APPS_LOG_MSGID_I(APP_HFP_UTILS" [LEA] AIRD_Client MUTE mic leaudio : handle=0x%x", 1, handle);
@@ -833,7 +833,7 @@ bool app_hfp_mute_mic(bool mute)
                                            &mute, sizeof(bool));
         }
 #endif
-      #if 1  //harry for new vp
+      #if 0  //harry for new vp
       if (BT_AWS_MCE_ROLE_AGENT == bt_device_manager_aws_local_info_get_role()&&(mute==TRUE))
       {
         voice_prompt_play_sync_vp_mute();

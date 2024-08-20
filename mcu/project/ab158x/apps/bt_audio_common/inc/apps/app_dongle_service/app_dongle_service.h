@@ -79,6 +79,7 @@ typedef enum {
     APP_DONGLE_SERVICE_HEADSET_EVENT_BATTERY_LEVEL             = 0x11,
     APP_DONGLE_SERVICE_HEADSET_EVENT_CHARGING_STATE            = 0x12,
     APP_DONGLE_SERVICE_HEADSET_EVENT_POWER_OFF                 = 0x20,
+    APP_DONGLE_SERVICE_HEADSET_EVENT_DELAY_TO_PROCESS           = 0X60,	
 } ap_dongle_service_headset_event_t;
 
 typedef enum {

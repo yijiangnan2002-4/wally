@@ -244,11 +244,13 @@ const apps_config_key_event_map_t temp_key_short_click_configs[] = {
         KEY_ACCEPT_CALL,
         (1 << APP_HFP_INCOMING)
     },
+    #if 0  // harry disable the function by custom
     {
         DEVICE_KEY_POWER,
         KEY_MUTE_MIC,
 	  (1 << APP_HFP_CALLACTIVE) | (1 << APP_HFP_CALLACTIVE_WITHOUT_SCO) | (1 << APP_HFP_MULTITPART_CALL) | (1 << APP_STATE_HELD_ACTIVE)
     },
+    #endif
 #else    
     {
         DEVICE_KEY_POWER,

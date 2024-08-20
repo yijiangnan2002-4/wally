@@ -1484,6 +1484,7 @@ static bool app_ull_proc_ui_shell_group(ui_shell_activity_t *self, uint32_t even
 }
 
 #ifdef AIR_ROTARY_ENCODER_ENABLE
+errrrrrrrrrrrr
 static bool app_ull_proc_rotary_event_group(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len) {
     /* UI shell internal event must process by this activity, so default is true. */
     bool ret = false;

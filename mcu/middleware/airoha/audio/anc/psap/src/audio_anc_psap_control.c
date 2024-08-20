@@ -51,6 +51,10 @@
 #include "hal_resource_assignment.h"
 #include "leakage_detection_control.h"
 
+#include "nvkey.h"
+#include "nvdm_config_factory_reset.h"
+
+
 /* Private define ------------------------------------------------------------*/
 
 #if defined(AIR_HEARTHROUGH_PSAP_ENABLE)
@@ -864,14 +868,14 @@ audio_psap_status_t audio_anc_psap_control_init(void)
         .bt_aws_mce_report_callback_entry = bt_aws_mce_report_ha_callback,
         .runtime_config_handler_entry = audio_anc_psap_control_runtime_config_handler,
     };
-    LOGMSGIDI("register entry 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x", 7,
+    LOGMSGIDI("register entry 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x,HA_NV_SIZE_USR=%d", 8,
         reg_entry.open_entry,
         reg_entry.close_entry,
         reg_entry.set_para_entry,
         reg_entry.dsp_callback_entry,
         reg_entry.bt_aws_mce_report_callback_entry,
         reg_entry.runtime_config_handler_entry,
-        reg_entry.switch_mode_callback_entry);
+        reg_entry.switch_mode_callback_entry,HA_NV_SIZE_USR);
 
     llf_control_register_entry(LLF_TYPE_HEARING_AID, &reg_entry);
 
@@ -2848,13 +2852,34 @@ audio_psap_status_t audio_anc_psap_control_save_setting(void)
     sysram_status_t nvdm_status;
     U8 mp_test_mode;
 
+
+#if 1
+    uint32_t i, size;
+    uint8_t factrst_flag;;
+    nvkey_status_t nvkey_status;
+
+    size = sizeof(factrst_flag);
+    nvkey_status = nvkey_read_data(NVID_SYS_FACTORY_RESET_FLAG, &factrst_flag, &size);
+    if (nvkey_status == NVKEY_STATUS_OK) {
+
+    } else {
+         LOGMSGIDE("Wrong para, audio_anc_psap_control_save_setting read nvk fail", 0);
+   
+    }
+   
+#endif
     audio_anc_psap_control_get_mp_test_mode(&mp_test_mode);
+    LOGMSGIDI("audio_anc_psap_control_save_setting, mp_test_mode:0x%x,factrst_flag=0x%x,mode_index=%d", 3, mp_test_mode,factrst_flag,g_ha_ctrl.usr_setting.mode_index);
     if (mp_test_mode) {
         return AUDIO_PSAP_STATUS_SUCCESS;
     }
     if (g_ha_ctrl.usr_setting.psap_master_mic_ch == 0) {
         LOGMSGIDE("Wrong para, psap_master_mic_ch:%d, psap_vol_index_l:%d, psap_vol_index_r:%d", 3, g_ha_ctrl.usr_setting.psap_master_mic_ch, g_ha_ctrl.usr_setting.psap_vol_index_l, g_ha_ctrl.usr_setting.psap_vol_index_r);
         return AUDIO_PSAP_STATUS_FAIL;
+    }
+    if (factrst_flag == FACTORY_RESET_FLAG)   
+    {
+	g_ha_ctrl.usr_setting.mode_index=0;
     }
 
     nvdm_status = flash_memory_write_nvdm_data(NVID_DSP_ALG_HA_CUS_SETTING, (uint8_t*)&g_ha_ctrl.usr_setting, HA_NV_SIZE_USR);

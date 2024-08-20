@@ -110,6 +110,7 @@ bt_status_t apps_dongle_sync_event_send_extra_by_channel(uint32_t event_group,
     if (extra_data_len > 0) {
         memcpy(&pkg->data, extra_data, extra_data_len);
     }
+    APPS_LOG_MSGID_I(TAG"apps_dongle_sync_event_send_extra_by_channel than noti to app.", 0);
     RACE_ERRCODE race_notify_ret = race_noti_send(pkg, channel_id, false);
     APPS_LOG_MSGID_I(TAG"set race data ret=%d, input_channel=%d", 2, race_notify_ret, channel_id);
     if (race_notify_ret != RACE_ERRCODE_SUCCESS) {

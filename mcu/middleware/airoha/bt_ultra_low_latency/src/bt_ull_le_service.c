@@ -3586,7 +3586,7 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 		case 4:		// pairing
 			key_fact_pairing_proc();
 			break;
-			
+			#if 0
 		case 5:		// OCEAN   ON/OFF 
 			key_oceanvp_trige_proc();
 			break;
@@ -3598,7 +3598,7 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 		case 7:		// OCEAN  VP- 
 			key_ocean_vpdown_proc();
 			break;
-			
+			#endif
 		default:
 			break;
 	}

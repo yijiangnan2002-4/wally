@@ -187,11 +187,14 @@ static bool app_hfp_idle_proc_aws_data(ui_shell_activity_t *self,
 #endif
 #ifdef MTK_AWS_MCE_ENABLE
             if (BT_AWS_MCE_ROLE_AGENT == bt_device_manager_aws_local_info_get_role()) {
-                //voice_prompt_play_sync_vp_succeed();
+		#if 0
                 if (mute==TRUE)
                 {
                   voice_prompt_play_sync_vp_mute();   // press slave earbud mute key harry 
                 }
+		#else
+                voice_prompt_play_sync_vp_succeed();
+		#endif
 
              APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 19 VP_INDEX_MUTE", 0);
             }

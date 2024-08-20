@@ -201,6 +201,8 @@ static void app_srv_send_charger_state()
     if (charging_status != CHARGER_STATE_CHR_OFF) {
         charging = true;
     }
+	
+    APPS_LOG_MSGID_I(TAG"app_srv_send_charger_state charging=%d", 1,charging);
 
     apps_dongle_sync_event_send_extra(EVENT_GROUP_UI_SHELL_APP_SERVICE,
                                       APP_DONGLE_SERVICE_HEADSET_EVENT_CHARGING_STATE,
@@ -359,7 +361,15 @@ static bool _proc_battery_data_event(struct _ui_shell_activity *self, uint32_t e
                 APPS_LOG_MSGID_I(TAG"_proc_battery_data_event [CHARGER_STATE_CHANGE] The Headset set is not handshake done with dongle", 0);
                 break;
             }
-            app_srv_send_charger_state();
+		#if 1// harry for delay process change state
+                APPS_LOG_MSGID_I("_proc_battery_data_event sent APP_DONGLE_SERVICE_HEADSET_EVENT_DELAY_TO_PROCESS", 0);
+	        ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_SERVICE, APP_DONGLE_SERVICE_HEADSET_EVENT_DELAY_TO_PROCESS);
+	        ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_APP_SERVICE,
+	                            APP_DONGLE_SERVICE_HEADSET_EVENT_DELAY_TO_PROCESS, NULL, 0,
+	                            NULL, 100);
+		#else
+	            app_srv_send_charger_state();
+		#endif
         }
         break;
     }
@@ -431,6 +441,11 @@ bool app_dongle_service_activity_proc(
                                     NULL, 100);
 #endif
             }
+            else if (event_id == APP_DONGLE_SERVICE_HEADSET_EVENT_DELAY_TO_PROCESS) {
+                APPS_LOG_MSGID_I("app_dongle_service_activity_proc event_id == APP_DONGLE_SERVICE_HEADSET_EVENT_DELAY_TO_PROCESS", 0);
+		            app_srv_send_charger_state();
+            	}
+			
             break;
         }
         case EVENT_GROUP_UI_SHELL_APP_INTERACTION: {

@@ -151,7 +151,23 @@ void factory_rst_reserved_nvdm_item_list_check(void)
             LOG_MSGID_I(common, "delete item: group_name = AB15, data_item_name = %s", 1, item_name);
         }
 	}
-	
+	#if 0  //harry20240819
+    sysram_status_t nvdm_status;
+    U32 nvkey_length = 0;
+    psap_usr_setting_nvdm_t *usr_setting;
+	    //get HA parameters
+    nvdm_status =  flash_memory_query_nvdm_data_length(NVID_DSP_ALG_HA_CUS_SETTING, &nvkey_length);
+    if (nvdm_status || !nvkey_length ) {
+        //LOGMSGIDE(" Read Nvkey length Fail id:0x%x, status:%d ", 2, NVID_DSP_ALG_HA_CUS_SETTING, nvdm_status);
+        assert(0 && "Read Nvkey length Fail or length mismatch, id:0xE825");
+    }
+    nvdm_status = flash_memory_read_nvdm_data(NVID_DSP_ALG_HA_CUS_SETTING, (uint8_t *)usr_setting, &nvkey_length);
+    if (nvdm_status || !nvkey_length) {
+        //LOGMSGIDE(" Read Nvkey data Fail id:0x%x, status:%d ", 2, NVID_DSP_ALG_HA_CUS_SETTING, nvdm_status);
+        assert(0 && "Read Nvkey data Fail id:0xE825");
+    }
+    LOGMSGIDI("factory_rst_reserved_nvdm_item_list_check,read usr_setting->mode_index=(%d),nvkey_length=%d", 2, usr_setting->mode_index,nvkey_length);
+	#endif
 #if 0
         /* Scan all the NVDM items from the beginning of NVDM region. */
         status = nvdm_query_begin();

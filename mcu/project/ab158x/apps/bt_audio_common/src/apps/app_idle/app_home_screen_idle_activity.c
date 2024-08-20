@@ -1587,7 +1587,7 @@ static bool homescreen_app_bt_connection_manager_event_proc(ui_shell_activity_t 
             }
  		    #endif
         } else if (bt_on) {
-            APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", delay to start visible if paired_num > 0", 0);
+           // APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", delay to start visible if paired_num > 0", 0);
             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_AUTO_START_BT_VISIBLE);
             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_BT_RECONNECT_TIMEOUT);
 #if 0 
@@ -1599,7 +1599,7 @@ static bool homescreen_app_bt_connection_manager_event_proc(ui_shell_activity_t 
                                 APPS_EVENTS_INTERACTION_BT_RECONNECT_TIMEOUT, NULL, 0,
                                 NULL, TIME_TO_STOP_RECONNECTION + TIME_TO_START_VISIBLE_AFTER_POWER_ON);
         } else {
-            APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", start reconnect timer", 0);
+            //APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", start reconnect timer", 0);
             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_BT_RECONNECT_TIMEOUT);
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_BT_RECONNECT_TIMEOUT, NULL, 0,

@@ -372,6 +372,7 @@ static void voice_prompt_aws_rho_cb(const bt_bd_addr_t *addr, bt_aws_mce_role_t 
         } else if (role == BT_AWS_MCE_ROLE_PARTNER) {
             //g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_ACTIVE;
             g_voice_prompt_aws_ctx.aws_state = VOICE_PROMPT_AWS_STATE_SNIFF;
+			#if 0
 	     if(ocean_cnt)
 	     {
 		uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); 
@@ -389,6 +390,7 @@ static void voice_prompt_aws_rho_cb(const bt_bd_addr_t *addr, bt_aws_mce_role_t 
 	      		vPortFree(p_key_action);
 	  	}		
 	  }
+		 #endif
         }
     }
 }

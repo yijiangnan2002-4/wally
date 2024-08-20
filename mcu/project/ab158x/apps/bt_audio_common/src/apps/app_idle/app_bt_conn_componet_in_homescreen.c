@@ -377,11 +377,11 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
                         voice_prompt_param_t vp = {0};
                         if(local_ctx->is_bt_visiable)
                         {
-                        vp.vp_index = VP_INDEX_EN_Pairing_success;
+                        vp.vp_index = VP_INDEX_CONNECTED;//VP_INDEX_EN_Pairing_success;	
                         }
                         else
                         {
-                        vp.vp_index = VP_INDEX_EN_Pairing_success;//VP_INDEX_CONNECTED;
+                        vp.vp_index = VP_INDEX_CONNECTED;//VP_INDEX_EN_Pairing_success;	
                         }
 #ifdef MTK_AWS_MCE_ENABLE
                         ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_MULTIPOINT_SWITCH_AWS);
@@ -413,7 +413,7 @@ bool bt_conn_component_bt_cm_event_proc(ui_shell_activity_t *self, uint32_t even
 #endif
                             voice_prompt_play(&vp, NULL);
                         }
-                        vp.vp_index = VP_INDEX_EN_Pairing_success;
+                        vp.vp_index = VP_INDEX_CONNECTED;//VP_INDEX_EN_Pairing_success;
 #ifdef MTK_AWS_MCE_ENABLE
                         if (g_apps_bt_event_aws_connect_acl || BT_AWS_MCE_SRV_LINK_NONE != bt_aws_mce_srv_get_link_type() ||
                             (BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->connected_service)) {
