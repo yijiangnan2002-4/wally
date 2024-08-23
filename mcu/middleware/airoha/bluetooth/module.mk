@@ -49,7 +49,7 @@ CFLAGS += -DMTK_BT_HFP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_hfp_release.a
 #endif
 #ifeq ($(MTK_BT_HSP_ENABLE), y)
-CFLAGS += -DMTK_BT_HSP_ENABLE
+#CFLAGS += -DMTK_BT_HSP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_hsp_release.a
 #endif
 ifeq ($(MTK_BT_A2DP_ENABLE), y)
@@ -152,7 +152,7 @@ CFLAGS += -DMTK_BT_HFP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_hfp.a
 #endif
 #ifeq ($(MTK_BT_HSP_ENABLE), y)
-CFLAGS += -DMTK_BT_HSP_ENABLE
+#CFLAGS += -DMTK_BT_HSP_ENABLE
 LIBS += $(SOURCE_DIR)/prebuilt/$(MIDDLEWARE_PROPRIETARY)/bluetooth/$(IC_CONFIG)/lib/libbt_hsp.a
 #endif
 ifeq ($(MTK_BT_A2DP_ENABLE), y)

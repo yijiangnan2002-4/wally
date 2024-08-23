@@ -79,6 +79,7 @@
 #include "app_bt_state_service.h"
 #endif
 #ifdef MTK_BLE_BAS
+//errrrrrrrrrrrrrrrrr
 #include "ble_bas_app.h"
 #endif
 #ifdef MTK_ANC_ENABLE

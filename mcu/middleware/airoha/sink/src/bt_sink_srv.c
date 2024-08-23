@@ -51,7 +51,9 @@
 #include "bt_sink_srv_aws_mce_a2dp.h"
 #endif
 #include "bt_sink_srv_aws_mce.h"
-
+#ifndef MTK_BT_HSP_ENABLE
+#include "bt_hsp.h"
+#endif
 #ifdef AIR_BT_CODEC_BLE_ENABLED
 #include "bt_sink_srv_le.h"
 #endif
@@ -244,6 +246,9 @@ void bt_sink_srv_init(bt_sink_feature_config_t *features)
 #endif
 #ifdef AIR_BT_HID_ENABLE
     bt_sink_hid_init();
+#endif
+#ifndef MTK_BT_HSP_ENABLE
+    bt_hsp_enable_service_record(false);
 #endif
 }
 

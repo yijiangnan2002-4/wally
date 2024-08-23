@@ -32,7 +32,7 @@ static apps_hall_sensor_local_context_t s_app_hall_sensor_context;
 static app_sensor_fota_state_t appHallFotaState = FOTA_STATE_IDLE;
 
 static uint8_t test_flag = 0;
-
+static uint8_t case_nobattery=0;
 #if 0
 static bool key_limit = false;
 
@@ -133,7 +133,7 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 				uint16_t hall_sensor_status = *(uint16_t *)extra_data;
 				
 				/* Handle sensor new status from sensor interrupt callback */
-				APPS_LOG_MSGID_I("_proc_hall_sensor.c:: hall_sensor_status= %d", 1, hall_sensor_status);
+				APPS_LOG_MSGID_I("_proc_hall_sensor.c:: hall_sensor_status= %d,case_nobattery=%d", 2, hall_sensor_status,case_nobattery);
 
 				app_common_add_tracking_log(0x12);
 
@@ -160,6 +160,15 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 				}
 				else
 				{
+					if (case_nobattery)
+					{
+		        		  ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_REQUEST_ON_OFF_BT);
+		                    	  ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                                        APPS_EVENTS_INTERACTION_REQUEST_ON_OFF_BT, (void *)true, 0,
+                                        NULL, 0);
+
+					}
+					case_nobattery=0;
 					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_RESUME_ANC);
 					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_PAUSE_ANC);
 					ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
@@ -252,7 +261,7 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 			{
 //				int32_t charger_exist = battery_management_get_battery_property(BATTERY_PROPERTY_CHARGER_EXIST);
 			
-//				if(!charger_exist)
+	//			if(!charger_exist)
 				{
 					APPS_LOG_MSGID_I("Hall sensor out case, ANC resume! \n", 0);
 
@@ -264,6 +273,8 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 				#endif
 					app_hear_through_handle_charger_out();
 				}
+				case_nobattery=0;
+				
 				ret = true;
            	 	break;
         	}
@@ -271,7 +282,7 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
         case EVENT_ID_HALL_SENSOR_PAUSE_ANC:
 			{
 				
-				APPS_LOG_MSGID_I("Hall sensor in case, ANC pause! \n", 0);
+				APPS_LOG_MSGID_I("Hall sensor in case, ANC pause!charger_exist=%d \n", 1,charger_exist);
 			#ifdef AIR_SMART_CHARGER_ENABLE
 				app_mute_audio(TRUE);
 			#endif
@@ -279,6 +290,18 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 //				app_anc_service_suspend();
 //				app_psensor_limit_set(true);
 				app_common_add_tracking_log(0x10);
+
+
+				if(!charger_exist)  // in case but not in charge mode
+				{
+				case_nobattery=1;
+        	ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_REQUEST_ON_OFF_BT);
+            	ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST,
+                                EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                                APPS_EVENTS_INTERACTION_REQUEST_ON_OFF_BT,
+                                (void *)false, 0,
+                                NULL, 0);
+				}
 				ret = true;
 	            break;
         	}

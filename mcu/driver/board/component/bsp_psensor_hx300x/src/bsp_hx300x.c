@@ -805,7 +805,7 @@ static void bsp_hx300x_callback(void *data)
 	
 	ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT);
 	if((*p_wear_status)==1)  // inear
-  { 
+  	{ 
 	ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
 								 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
 								 NULL, 500);

@@ -78,7 +78,7 @@ static apps_in_ear_local_context_t s_app_in_ear_context;    /* The variable reco
 static bool app_in_ear_play_press_vp()
 {
     voice_prompt_param_t vp = {0};
-    vp.vp_index = VP_INDEX_PRESS;
+    vp.vp_index = VP_INDEX_SUCCEED;
     APPS_LOG_MSGID_I(APP_INEAR_TAG"Play Press Vp", 0);
     return (VP_STATUS_SUCCESS == voice_prompt_play(&vp, NULL));
 }
@@ -423,6 +423,8 @@ static bool app_in_ear_proc_apps_internal_events(ui_shell_activity_t *self,
             bool visib;
                    APPS_LOG_MSGID_I(APP_INEAR_TAG", VP_INDEX_PAIRING ctx->isInEar=%d", 1,ctx->isInEar);
           if (ctx->isInEar) {
+		app_in_ear_play_press_vp();
+ 	
                #ifdef ALWAYS_PLAY_PAIRING_VP
               visib=app_bt_connection_service_get_current_status()->bt_visible;
                  APPS_LOG_MSGID_I(APP_INEAR_TAG", VP_INDEX_PAIRING visib=%d", 1,visib);
