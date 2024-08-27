@@ -33,10 +33,10 @@ the name is NVID_TOOL_DSP_VOICE_TX_WB_EQ and will not be built-in the nvdm.bin f
     <Value>0x030000110100001000800000805F9B34FB00000000000000000099AABBCCDDEEFF66666666666666666666666666666666</Value>
   </NVKey>
   <NVKey KeyID="0x1837" Name="NVID_BT_HOST_MUSIC_AAC_CONFIG" Domain="BT_HOST">
-    <Value>0x0100000600</Value>
+    <Value>0x0100900300</Value>
   </NVKey>
   <NVKey KeyID="0x1838" Name="NVID_BT_HOST_MUSIC_SBC_CONFIG" Domain="BT_HOST">
-    <Value>0x084B</Value>
+    <Value>0x0835</Value>
   </NVKey>
   <NVKey KeyID="0x1839" Name="NVID_BT_HOST_RELAY_ENABLE" Domain="TEST_USE_DATA">
     <Value>0x0000</Value>
