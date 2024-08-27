@@ -57,6 +57,7 @@
 * @return     If return true, the current event cannot be handle by the next activity.
 */
 #define VP_PLAY_INTERVAL  4000
+extern uint8_t from_case_haanckey;
 
 bool app_home_screen_idle_activity_proc(ui_shell_activity_t *self,
                                         uint32_t event_group,

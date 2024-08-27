@@ -265,6 +265,7 @@ typedef enum {
     KEY_ANC_HA_DISPLAY					= 0xf015,
     KEY_VP_UP					= 0xF016,
     KEY_VP_DM					= 0xf017,
+    KEY_ANC_AND_HA					= 0xf018,
     
     
 } apps_config_key_action_t;

@@ -610,8 +610,7 @@ void key_switch_anc_and_passthrough_proc(void)
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
     	if (p_key_action)
 	{
-		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH;
-    
+		*p_key_action = KEY_ANC_AND_HA;
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
     	else
@@ -2183,6 +2182,23 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 			}
 				break;
 
+			    case EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI:	{
+				if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+				&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+				{
+					from_case_haanckey=*(uint16_t*)p_extra_data;
+					log_hal_msgid_info("_customer_common_app_aws_data_proc EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI receiver agent message; sync from_case_haanckey=%d",1,from_case_haanckey);
+				}
+				else
+				{
+					from_case_haanckey=*(uint16_t*)p_extra_data;
+					log_hal_msgid_info("_customer_common_app_aws_data_proc EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI receiver partner message,sync from_case_haanckey=%d",1,from_case_haanckey);
+
+				}
+
+			    }
+				break;
+				
 			    case EVENT_ID_EASTECH_VOLUME_VP:	{
 					uint8_t tmp_val;
 					tmp_val=*(uint8_t*)p_extra_data;

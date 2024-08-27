@@ -3538,7 +3538,6 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			}
 			else if(temp_command_data==2)		// DP
 			{
-				key_avrcp_next_proc(0);
 			}
 			else if(temp_command_data==0x22)	// LP2
 			{
@@ -3552,7 +3551,6 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			}
 			else if(temp_command_data==2)		// DP
 			{
-				key_avrcp_prev_proc();
 			}			
 			else if(temp_command_data==0x22)	// LP2
 			{
@@ -3566,7 +3564,11 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			}
 			else if(temp_command_data==2)		// DP
 			{
-				key_avrcp_next_proc(1);
+				key_avrcp_next_proc(0);  // 0 next;1 ha MODE SWITCH;
+			}			
+			else if(temp_command_data==3)		// tripe P
+			{
+				key_avrcp_prev_proc();
 			}			
 			else if(temp_command_data==0x22)							// LP2
 			{

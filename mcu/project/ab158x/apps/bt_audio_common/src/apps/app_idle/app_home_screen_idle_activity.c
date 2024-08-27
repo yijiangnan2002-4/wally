@@ -187,6 +187,7 @@ static bool s_sync_reboot_waiting = false;
 #ifdef AIR_TILE_ENABLE
 static bool s_fake_off = false;
 #endif
+uint8_t from_case_haanckey=0;
 
 #define RETRY_ENTER_RTC_MODE_TIMES      (10)
 
@@ -472,6 +473,70 @@ void anc_ha_mode_disp_proc(void)
 	BT_send_data_proc();
 }
 #endif
+ void app_home_screen_process_anc_and_hamode_cycle(void)
+{
+      uint8_t level_max_count = 0;
+      uint8_t mode_max_count = 0;
+      uint8_t vol_max_count = 0;
+      uint8_t mode_index = 0;
+      uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); 
+
+      audio_anc_psap_control_get_mode_index(&mode_index);
+      audio_anc_psap_control_get_level_mode_max_count(&level_max_count, &mode_max_count, &vol_max_count);
+      APPS_LOG_MSGID_I("app_home_screen_process_anc_and_hamode_cycle  current mode index:%d, mode max:%d,app_hear_through_ctx.mode_index=%d,vol_max_count=%d",
+                     4,
+                     mode_index,
+                     mode_max_count,
+                     app_hear_through_ctx.mode_index,
+                     vol_max_count
+                     );
+        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)//现在在hear
+        {
+          if(mode_index!=(mode_max_count-1)) // 现在不是最大mode
+          {
+
+		*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
+		
+
+		if (p_key_action)
+		{
+	        	ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 0);
+	  	}
+	  	else
+	  	{
+	      		vPortFree(p_key_action);
+	  	}		
+	            APPS_LOG_MSGID_I("app_home_screen_process_anc_and_hamode_cycle KEY_HEARING_AID_MODE_UP_CIRCULAR", 0);
+          }
+          else
+          {
+		*p_key_action=KEY_SWITCH_ANC_AND_PASSTHROUGH;
+		if (p_key_action)
+		{
+	        	ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 0);
+	  	}
+	  	else
+	  	{
+	      		vPortFree(p_key_action);
+	  	}		
+		APPS_LOG_MSGID_I("app_home_screen_process_anc_and_hamode_cycle KEY_SWITCH_ANC_AND_PASSTHROUGH ha is maxmode,sent to anc mode  ", 0);
+          }
+        }
+        else //if (app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC)
+        {
+		*p_key_action=KEY_SWITCH_ANC_AND_PASSTHROUGH;
+		if (p_key_action)
+		{
+	        	ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 0);
+	  	}
+	  	else
+	  	{
+	      		vPortFree(p_key_action);
+	  	}		
+          APPS_LOG_MSGID_I("app_home_screen_process_anc_and_hamode_cycle KEY_SWITCH_ANC_AND_PASSTHROUGH  switch ha mode0", 0);
+        }
+
+}
 static bool app_home_screen_process_anc_and_pass_through(ui_shell_activity_t *self, apps_config_key_action_t key_action)
 {
     bool ret = false;
@@ -1098,6 +1163,27 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             ret = true;
             break;
 #ifdef MTK_ANC_ENABLE
+
+        case KEY_ANC_AND_HA:
+	APPS_LOG_MSGID_I("_proc_key_event_group KEY_ANC_AND_HA", 0);
+	from_case_haanckey=1;	
+	if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+	&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+	{
+		APPS_LOG_MSGID_I("_proc_key_event_group KEY_ANC_AND_HA role=partner sent EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI to agent,from_case_haanckey=1 ",0);
+		apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI,&from_case_haanckey,1);
+	}
+	else
+	{
+		APPS_LOG_MSGID_I("_proc_key_event_group KEY_ANC_AND_HA role=agent", 0);
+		//ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI);
+		//apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI,&from_case_haanckey,1);
+	}
+
+	  app_home_screen_process_anc_and_hamode_cycle();
+            ret = true;
+            break;
+			
         case KEY_PASS_THROUGH:
         case KEY_ANC:
         case KEY_SWITCH_ANC_AND_PASSTHROUGH:

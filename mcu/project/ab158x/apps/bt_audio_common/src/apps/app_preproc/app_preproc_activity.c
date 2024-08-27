@@ -133,6 +133,7 @@ void app_touch_key_test_clean(void)
 #ifdef AIRO_KEY_EVENT_ENABLE
 static bool pre_proc_key_event_proc(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
 {
+//uint8_t ret=false;
     if (extra_data) {
 #ifdef AIR_RACE_SCRIPT_ENABLE
         race_script_key_notify();
@@ -289,7 +290,7 @@ errrrrrrrrrrrrrrrr
       {
             voice_prompt_play_sync_vp_volume_up();
             APPS_LOG_MSGID_I("pre_proc_key_event_proc KEY_VOICE_UP", 0);
-      } 
+      }
 #endif /* #if !(defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE)) */
     }
     return false;

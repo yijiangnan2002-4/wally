@@ -89,6 +89,7 @@
 #include "leakage_detection_control.h"
 #endif /* MTK_LEAKAGE_DETECTION_ENABLE */
 #include "app_in_ear_idle_activity.h"
+#include "app_home_screen_idle_activity.h"
 
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 
@@ -773,13 +774,19 @@ static void app_hear_through_activity_handle_ambient_control_switch()
                 app_hearing_aid_activity_set_user_switch(false, true);
             }
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
-
+#if 1  // for anc_and_ha
+	if(from_case_haanckey)
+	{
+	   	app_hearing_aid_utils_adjust_mode(0); // harry add 20240826;
+	}
+	from_case_haanckey=0;
+#endif
             app_hear_through_switch_on_off(true, true);
         #if 1  
   		// richard for customer UI spec.
 		uint8_t mode_index = 0;
 		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
-        prompt_no_play_flag=1;  // 设这个标志1，播放HA VP后，不要再重复播放
+        	prompt_no_play_flag=1;  // 设这个标志1，播放HA VP后，不要再重复播放
   		voice_prompt_play_sync_vp_ha(mode_index);
         #endif
         }
