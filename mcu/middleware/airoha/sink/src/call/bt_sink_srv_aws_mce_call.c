@@ -682,8 +682,10 @@ bt_status_t  bt_sink_srv_aws_mce_call_callback(bt_msg_type_t msg, bt_status_t st
 
                             if (bt_sink_srv_hf_check_is_connected(addr)) {
                                 dev = (bt_sink_srv_call_pseudo_dev_t*)bt_sink_srv_hf_get_pseudo_device_by_address(addr);
+#ifdef MTK_BT_HSP_ENABLE
                             } else if (bt_sink_srv_hsp_check_is_connected(addr)) {
                                 dev = (bt_sink_srv_call_pseudo_dev_t*)bt_sink_srv_hsp_get_pseudo_device_by_address(addr);
+#endif
                             }
                             
                             bt_utils_assert(dev && dev->audio_src);

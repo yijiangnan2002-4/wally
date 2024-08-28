@@ -473,10 +473,10 @@ void bt_hfp_enable_service_record(bool enable)
 }
 #endif
 #ifndef MTK_BT_HSP_ENABLE
-void bt_hsp_enable_service_record(bool enable)
-{
-    return;
-}
+//void bt_hsp_enable_service_record(bool enable)   // harry by airoha for disable hsp
+//{
+//    return;
+//}
 #endif
 #ifndef AIR_BT_A2DP_ENABLE
 void bt_a2dp_enable_service_record(bool enable)
