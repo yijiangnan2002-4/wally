@@ -434,7 +434,7 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 		}
 		else
 		{
-        		voice_prompt_play_sync_vp_volume_down();  
+        		voice_prompt_play_sync_vp_volume_up();  
 		}
 	}
 	else
