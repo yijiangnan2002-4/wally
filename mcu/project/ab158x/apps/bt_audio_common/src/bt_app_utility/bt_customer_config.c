@@ -366,7 +366,8 @@ const bt_gap_config_t *bt_customer_config_get_gap_config(void)
         }
 
 #if 1	// richard for customer UI spec.
-	snprintf((char *)name, sizeof(name), "PSAP Earbuds");
+	//snprintf((char *)name, sizeof(name), "PSAP Earbuds");
+	snprintf((char *)name, sizeof(name), "Audeara Buds");
 #else
         snprintf((char *)name, sizeof(name), "H_%.2X%.2X%.2X%.2X%.2X%.2X",
                  (*local_addr)[5], (*local_addr)[4], (*local_addr)[3],
