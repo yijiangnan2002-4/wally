@@ -1318,7 +1318,8 @@ int32_t bt_sink_srv_a2dp_change_volume(uint8_t type, uint8_t sync, uint32_t volu
         }
     }
 
-    if ((vol != old_vol) && dev) {
+    if ((vol != old_vol) && dev) {   
+//    if ( dev) {
         ctx->vol_lev = vol;
         bt_sink_srv_music_set_am_volume(ctx->vol_lev);
         if (sync) {
@@ -1346,7 +1347,6 @@ int32_t bt_sink_srv_a2dp_change_volume(uint8_t type, uint8_t sync, uint32_t volu
     bt_sink_srv_report_id("[sink][music][a2dp] change_volume-ami_ret: %d, vol: %d, dev:0x%x, run_dev:0x%x, old_vol:%d, vol:%d, type:0x%x, sync:%d",
         9, ami_ret, ctx->vol_lev, dev, run_dev, old_vol, vol, type, sync);
     bt_sink_srv_mutex_unlock();
-
     return BT_STATUS_SUCCESS;
 }
 
