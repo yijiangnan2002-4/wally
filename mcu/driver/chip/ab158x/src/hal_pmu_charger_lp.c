@@ -57,7 +57,7 @@
 #define CHG_INT_COMPL        (1<<3)
 #define CHG_INT_RECHG        (1<<4)
 
-#define CHG_GAUGE_EN         1  // harry change 0 to 1
+#define CHG_GAUGE_EN         0  // harry 
 #define VBAT_RSEL            1
 #define W1T_TIMEOUT_US       10000
 

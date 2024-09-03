@@ -300,7 +300,7 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
                                 EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_REQUEST_ON_OFF_BT,
                                 (void *)false, 0,
-                                NULL, 0);
+                                NULL, 1000);
 				}
 				ret = true;
 	            break;

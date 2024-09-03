@@ -3541,7 +3541,7 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			}
 			else if(temp_command_data==0x22)	// LP2
 			{
-				key_volumeup_proc(1);
+				//key_volumeup_proc(1);
 			}
 			break;
 		case 1:			// key1: volume down
@@ -3554,7 +3554,7 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			}			
 			else if(temp_command_data==0x22)	// LP2
 			{
-				key_volumedown_proc(1);			
+				//key_volumedown_proc(1);			
 			}
 			break;
 		case 2:			// Multi-function

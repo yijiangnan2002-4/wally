@@ -420,21 +420,34 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
 	uint8_t volkey_val;
+	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
+	APPS_LOG_MSGID_I("key_volumeup_proc app_mmi_state=%d,anc_ha_flag=%d", 2,app_mmi_state,anc_ha_flag);
 	if(volume_up_mode==0)
 	{
-//		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-//		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
-		*p_key_action = KEY_VOICE_UP;
-		volkey_val=2;
-		if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
-		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY||
+		app_mmi_state == APP_HFP_INCOMING || app_mmi_state == APP_HFP_MULTIPARTY_CALL||
+		app_mmi_state == APP_HFP_TWC_INCOMING || app_mmi_state == APP_STATE_HELD_ACTIVE || app_mmi_state == APP_LE_AUDIO_BIS_PLAYING||
+		app_mmi_state == APP_HFP_OUTGOING || app_mmi_state == APP_HFP_CALL_ACTIVE || app_mmi_state == APP_HFP_TWC_OUTGOING)
 		{
-			APPS_LOG_MSGID_I("key_volumeup_proc role=partner sent data to agent", 0);
-			apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_VOLUME_VP,(void*)&volkey_val,1);
+			*p_key_action = KEY_VOICE_UP;
+			volkey_val=2;
+			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+			&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+			{
+				APPS_LOG_MSGID_I("key_volumeup_proc role=partner sent data to agent", 0);
+				apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_VOLUME_VP,(void*)&volkey_val,1);
+			}
+			else
+			{
+	        		voice_prompt_play_sync_vp_volume_up();  
+			}
 		}
-		else
+		else if (app_mmi_state == APP_DISCONNECTED ||app_mmi_state == APP_CONNECTABLE ||
+			app_mmi_state == APP_CONNECTED ||app_mmi_state == APP_STATE_FIND_ME ||
+			app_mmi_state == APP_HFP_CALL_ACTIVE_WITHOUT_SCO ||app_mmi_state == APP_STATE_VA)
 		{
-        		voice_prompt_play_sync_vp_volume_up();  
+			*p_key_action = KEY_HEARING_AID_LEVEL_UP;
+
 		}
 	}
 	else
@@ -460,22 +473,36 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
 	uint8_t volkey_val;
+	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
+	APPS_LOG_MSGID_I("key_volumedown_proc app_mmi_state=%d,anc_ha_flag=%d", 2,app_mmi_state,anc_ha_flag);
 
 	if(volume_down_mode==0)
 	{
-//		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-//		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY)
-		*p_key_action = KEY_VOICE_DN;
-		volkey_val=1;
-		if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
-		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY||
+		 app_mmi_state == APP_HFP_INCOMING || app_mmi_state == APP_HFP_MULTIPARTY_CALL||
+		app_mmi_state == APP_HFP_TWC_INCOMING || app_mmi_state == APP_STATE_HELD_ACTIVE || app_mmi_state == APP_LE_AUDIO_BIS_PLAYING||
+		app_mmi_state == APP_HFP_OUTGOING || app_mmi_state == APP_HFP_CALL_ACTIVE || app_mmi_state == APP_HFP_TWC_OUTGOING
+		)
 		{
-			APPS_LOG_MSGID_I("key_volumedown_proc role=partner sent data to agent ", 0);
-			apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_VOLUME_VP,(void*)&volkey_val,1);
+			*p_key_action = KEY_VOICE_DN;
+			volkey_val=1;
+			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+			&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+			{
+				APPS_LOG_MSGID_I("key_volumedown_proc role=partner sent data to agent ", 0);
+				apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_VOLUME_VP,(void*)&volkey_val,1);
+			}
+			else
+			{
+	        		voice_prompt_play_sync_vp_volume_down();  
+			}
 		}
-		else
+		else if (app_mmi_state == APP_DISCONNECTED ||app_mmi_state == APP_CONNECTABLE ||
+			app_mmi_state == APP_CONNECTED ||app_mmi_state == APP_STATE_FIND_ME ||
+			app_mmi_state == APP_HFP_CALL_ACTIVE_WITHOUT_SCO ||app_mmi_state == APP_STATE_VA)
 		{
-        		voice_prompt_play_sync_vp_volume_down();  
+			*p_key_action = KEY_HEARING_AID_LEVEL_DOWN;
+
 		}
 	}
 	else
