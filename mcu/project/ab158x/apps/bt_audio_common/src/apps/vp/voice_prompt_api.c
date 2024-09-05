@@ -729,7 +729,7 @@ voice_prompt_status_t voice_prompt_play_vp_power_on()
 #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
 
     voice_prompt_param_t vp = {0};
-    vp.vp_index = VP_INDEX_PRESS;
+    vp.vp_index = VP_INDEX_FAILED;
     vp.control = VOICE_PROMPT_CONTROL_MASK_PREEMPT;
     voice_prompt_play(&vp, NULL);
 	prompt_no_play_flag=1;    // 出盒那一下子也不要有HA的提示音

@@ -293,6 +293,7 @@ void                bt_device_manager_link_record_aws_update_context(const bt_de
             record_index++;
             continue;
         }
+#if 0  // airoha patch 20200905 harry add
         while(dst_index < BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM) {
             if (dst_cntx[dst_index].link_type == BT_DEVICE_MANAGER_LINK_TYPE_LE) {
                 g_dm_link_record_cnt.connected_device[record_index] = dst_cntx[dst_index];
@@ -302,6 +303,26 @@ void                bt_device_manager_link_record_aws_update_context(const bt_de
             } 
             dst_index++;
         }
+#else
+        if ((g_dm_link_record_cnt.connected_num - 1) < record_index) {
+            while(dst_index < BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM) {
+                if (dst_cntx[dst_index].link_type == BT_DEVICE_MANAGER_LINK_TYPE_LE) {
+                    g_dm_link_record_cnt.connected_device[record_index] = dst_cntx[dst_index];
+                    record_index++;
+                    dst_index++;
+                    break;
+                } 
+                dst_index++;
+            }
+        } else {
+            bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] partner le recird less than agent", 0);
+            g_dm_link_record_cnt.connected_device[record_index] = dst_cntx[record_index];
+            record_index++;
+        }
+#endif
+
+
+			
         if (dst_index >= BT_DEVICE_MANAGER_LINK_RECORD_MAXIMUM) {
             /* partner le recird less than agent*/
             bt_dmgr_report_id("[BT_DM][LINK_RECORD][I] partner le recird less than agent", 0);

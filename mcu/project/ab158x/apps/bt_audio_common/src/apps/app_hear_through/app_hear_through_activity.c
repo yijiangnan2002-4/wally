@@ -132,6 +132,7 @@ uint8_t anc_eastech_spec=0;
 uint8_t prompt_no_play_flag=0;
 
 uint8_t charge_out_flag=0;
+uint8_t charge_out_pre_play_poweron=0;
 
  app_hear_through_context_t app_hear_through_ctx;
 
@@ -1980,6 +1981,7 @@ void app_hear_through_handle_charger_out()
 
     app_anc_service_resume();
 	charge_out_flag=1;
+	charge_out_pre_play_poweron=1;
     /**
      * Fix issue - 47608
      * If out of case happen, need check is powering off or not, if is not powering off
@@ -2009,7 +2011,7 @@ void app_hear_through_handle_charger_in()
     app_hear_through_ctx.is_power_on_vp_played = false;
     app_hear_through_ctx.is_power_on_vp_playing = false;
     charge_out_flag=0;
-
+    charge_out_pre_play_poweron=0;
     app_hear_through_storage_save_user_configuration();
 
     if (app_hear_through_ctx.is_hear_through_enabled == true) {

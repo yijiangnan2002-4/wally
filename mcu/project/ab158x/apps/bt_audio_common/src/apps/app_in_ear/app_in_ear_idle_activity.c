@@ -74,12 +74,20 @@
 #define APP_INEAR_TAG "[In ear]idle_activity"
 
 static apps_in_ear_local_context_t s_app_in_ear_context;    /* The variable records context. */
+extern uint8_t charge_out_pre_play_poweron;
 
 static bool app_in_ear_play_press_vp()
 {
     voice_prompt_param_t vp = {0};
-    //vp.vp_index = VP_INDEX_POWER_ON;
-    vp.vp_index = VP_INDEX_SUCCEED;
+	if(charge_out_pre_play_poweron==1)
+	{
+    		vp.vp_index = VP_INDEX_POWER_ON;
+	}
+	else
+	{
+    		vp.vp_index = VP_INDEX_SUCCEED;
+	}
+	charge_out_pre_play_poweron=0;
     APPS_LOG_MSGID_I(APP_INEAR_TAG"Play Press Vp", 0);
     return (VP_STATUS_SUCCESS == voice_prompt_play(&vp, NULL));
 }
