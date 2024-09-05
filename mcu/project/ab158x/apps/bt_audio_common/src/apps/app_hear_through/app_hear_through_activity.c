@@ -259,7 +259,7 @@ static void app_hear_through_update_ambient_control_mode()
             app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_OFF;
         }
     }
-    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_update_ambient_control_mode] ambient control mode_index : %d", 1, app_hear_through_ctx.mode_index);
+   APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_update_ambient_control_mode] ambient control mode_index : %d", 1, app_hear_through_ctx.mode_index);
 }
 
 static void app_hear_through_notify_switch_state_change(bool on)
@@ -313,9 +313,8 @@ static bool app_hear_through_activity_handle_switch_set_cmd(void *extra_data, ui
     bool is_out_case = app_hear_through_activity_is_out_case();
     uint8_t *parameter = (uint8_t *)extra_data;
     app_hear_through_mode_t running_mode = app_hear_through_storage_get_hear_through_mode();
-
-    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_switch_set_cmd] out_case : %d, running_mode : %d, trigger_from : %d, switch change to : %d, is_ota_ongoing : %d",
-                        5,
+    APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_switch_set_cmd] out_case : %d, running_mode : %d, trigger_from : %d, switch change to : %d,is_ota_ongoing : %d",
+                        6,
                         is_out_case,
                         running_mode,
                         app_hear_through_ctx.trigger_from_key,
@@ -369,6 +368,25 @@ static bool app_hear_through_activity_handle_switch_set_cmd(void *extra_data, ui
 
     if (ret_value == true) {
         app_hear_through_update_ambient_control_mode();
+ 	#if 1// harry for app ha vp 20240904
+	uint8_t mode_index = 0;
+	audio_anc_psap_control_get_mode_index(&mode_index);
+	if(app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH&&running_mode==APP_HEAR_THROUGH_MODE_HA_PSAP){
+		if (parameter[0] == true){
+			if(bt_sink_srv_cm_get_aws_connected_device() != NULL){
+				if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT )
+				{
+			               app_hearing_aid_activity_play_mode_index_vp(mode_index, true);
+				}
+			}
+			else{
+		               app_hearing_aid_activity_play_mode_index_vp(mode_index, false);
+			}
+		}
+	}
+ 	APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_switch_set_cmd] ha mode_index=%d,ha/anc mode_index=%d",2,mode_index,app_hear_through_ctx.mode_index);
+	#endif
+		
     }
 
     app_hear_through_race_cmd_send_set_response(APP_HEAR_THROUGH_CONFIG_TYPE_SWITCH, ((ret_value == true) ? RACE_ERRCODE_SUCCESS : RACE_ERRCODE_FAIL));

@@ -78,7 +78,8 @@ static apps_in_ear_local_context_t s_app_in_ear_context;    /* The variable reco
 static bool app_in_ear_play_press_vp()
 {
     voice_prompt_param_t vp = {0};
-    vp.vp_index = VP_INDEX_POWER_ON;
+    //vp.vp_index = VP_INDEX_POWER_ON;
+    vp.vp_index = VP_INDEX_SUCCEED;
     APPS_LOG_MSGID_I(APP_INEAR_TAG"Play Press Vp", 0);
     return (VP_STATUS_SUCCESS == voice_prompt_play(&vp, NULL));
 }

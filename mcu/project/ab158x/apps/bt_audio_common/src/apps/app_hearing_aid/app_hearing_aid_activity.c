@@ -568,13 +568,21 @@ bool app_hearing_aid_activity_process_race_cmd(void *race_data, size_t race_data
     execute_where = app_hearing_aid_config_get_where_to_execute(request->op_code, request->op_type);
     need_sync_execute = app_hearing_aid_config_get_need_execute_set_cmd_sync(request->op_type);
 
-    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_process_race_cmd] handle code : %s, type : %s, where : %s, need_sync_execute : %d",
-                        4,
+    APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_process_race_cmd] handle code : %s, type : %s, where : %s, need_sync_execute : %d,op_parameter[0]=%d",
+                        5,
                         app_hearing_aid_command_string[request->op_code],
                         app_hearing_aid_type_string[request->op_type],
                         app_hearing_aid_execute_where_string[execute_where],
-                        need_sync_execute);
+                        need_sync_execute,request->op_parameter[0]);
+#if 1 // harry for app ha vp 20240904
+if(request->op_code == APP_HEAR_THROUGH_CMD_OP_CODE_SET&&request->op_type== 0x0007)
+{
+                app_hearing_aid_activity_play_mode_index_vp(request->op_parameter[0], true);
 
+}
+	
+
+#endif
 #ifdef AIR_TWS_ENABLE
     if ((app_hearing_aid_aws_is_connected() == true) && (execute_where == APP_HEARING_AID_EXECUTE_ON_BOTH)) {
 

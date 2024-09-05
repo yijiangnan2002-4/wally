@@ -626,7 +626,7 @@ const apps_config_key_event_map_t temp_key_long_press3_configs[] = {
 
 const apps_config_key_event_map_t temp_key_slong_configs[] = {
 #if 1	// richard for UI spec
-#if defined(MTK_AWS_MCE_ENABLE)
+#if 0//defined(MTK_AWS_MCE_ENABLE)
     {
         DEVICE_KEY_POWER,
         KEY_AIR_PAIRING,

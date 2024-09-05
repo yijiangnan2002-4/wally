@@ -430,6 +430,14 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 		app_mmi_state == APP_HFP_OUTGOING || app_mmi_state == APP_HFP_CALL_ACTIVE || app_mmi_state == APP_HFP_TWC_OUTGOING)
 		{
 			*p_key_action = KEY_VOICE_UP;
+		}
+		else if (app_mmi_state == APP_DISCONNECTED ||app_mmi_state == APP_CONNECTABLE ||
+			app_mmi_state == APP_CONNECTED ||app_mmi_state == APP_STATE_FIND_ME ||
+			app_mmi_state == APP_HFP_CALL_ACTIVE_WITHOUT_SCO ||app_mmi_state == APP_STATE_VA)
+		{
+			*p_key_action = KEY_HEARING_AID_LEVEL_UP;
+
+		}
 			volkey_val=2;
 			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
 			&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
@@ -441,14 +449,6 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 			{
 	        		voice_prompt_play_sync_vp_volume_up();  
 			}
-		}
-		else if (app_mmi_state == APP_DISCONNECTED ||app_mmi_state == APP_CONNECTABLE ||
-			app_mmi_state == APP_CONNECTED ||app_mmi_state == APP_STATE_FIND_ME ||
-			app_mmi_state == APP_HFP_CALL_ACTIVE_WITHOUT_SCO ||app_mmi_state == APP_STATE_VA)
-		{
-			*p_key_action = KEY_HEARING_AID_LEVEL_UP;
-
-		}
 	}
 	else
 	{
@@ -485,17 +485,6 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 		)
 		{
 			*p_key_action = KEY_VOICE_DN;
-			volkey_val=1;
-			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
-			&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
-			{
-				APPS_LOG_MSGID_I("key_volumedown_proc role=partner sent data to agent ", 0);
-				apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_VOLUME_VP,(void*)&volkey_val,1);
-			}
-			else
-			{
-	        		voice_prompt_play_sync_vp_volume_down();  
-			}
 		}
 		else if (app_mmi_state == APP_DISCONNECTED ||app_mmi_state == APP_CONNECTABLE ||
 			app_mmi_state == APP_CONNECTED ||app_mmi_state == APP_STATE_FIND_ME ||
@@ -503,6 +492,17 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 		{
 			*p_key_action = KEY_HEARING_AID_LEVEL_DOWN;
 
+		}
+		volkey_val=1;
+		if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+		{
+			APPS_LOG_MSGID_I("key_volumedown_proc role=partner sent data to agent ", 0);
+			apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_VOLUME_VP,(void*)&volkey_val,1);
+		}
+		else
+		{
+        		voice_prompt_play_sync_vp_volume_down();  
 		}
 	}
 	else
