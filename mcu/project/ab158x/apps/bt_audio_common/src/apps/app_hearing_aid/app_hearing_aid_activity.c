@@ -129,7 +129,7 @@ static void app_hearing_aid_activity_update_sco_side_tone_status();
 static void app_hearing_aid_activity_handle_sco_status_change(bool sco_start);
 static void app_hearing_aid_activity_handle_music_status_change(bool music_start);
 extern uint32_t sub_chip_version_get();
-
+uint8_t	need_disable_irsenser=0;
 static const uint8_t app_hearing_aid_mode_vp_index_list[] = {
   #if 1 //harry for vp 20240513
     VP_INDEX_AWARE,
@@ -575,12 +575,24 @@ bool app_hearing_aid_activity_process_race_cmd(void *race_data, size_t race_data
                         app_hearing_aid_execute_where_string[execute_where],
                         need_sync_execute,request->op_parameter[0]);
 #if 1 // harry for app ha vp 20240904
-if(request->op_code == APP_HEAR_THROUGH_CMD_OP_CODE_SET&&request->op_type== 0x0007)
-{
+		if(request->op_code == APP_HEAR_THROUGH_CMD_OP_CODE_SET&&request->op_type== 0x0007)
+		{
                 app_hearing_aid_activity_play_mode_index_vp(request->op_parameter[0], true);
 
-}
+		}
 	
+		if(request->op_code == APP_HEAR_THROUGH_CMD_OP_CODE_SET&&request->op_type== 0x001A)
+		{
+			if(request->op_parameter[0]==0)
+			{
+		            need_disable_irsenser=1;
+			}
+			else
+			{
+		            need_disable_irsenser=0;
+			}
+
+		}
 
 #endif
 #ifdef AIR_TWS_ENABLE

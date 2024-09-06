@@ -8,6 +8,7 @@
 #include "apps_events_event_group.h"
 #include "app_customer_nvkey_operation.h"
 #include "apps_events_interaction_event.h"
+#include "app_hearing_aid_activity.h"
 
 #define EINT_PSENSOR HAL_EINT_NUMBER_5
 
@@ -804,19 +805,28 @@ static void bsp_hx300x_callback(void *data)
 
 	
 	ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT);
-	if((*p_wear_status)==1)  // inear
-  	{ 
-	ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-								 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
-								 NULL, 500);
-   }
-  else
-    { // out ear
-	ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
-								 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
-								 NULL, 100);
+	if(need_disable_irsenser)
+	{
+		ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
+									 NULL, 500);
+	}
+	else
+	{
+		if((*p_wear_status)==1)  // inear
+	  	{ 
+		ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
+									 NULL, 500);
+	   }
+	  else
+	    { // out ear
+		ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
+									 NULL, 100);
 
-    }
+	    }
+	}
 #endif
     /* Clear interrupt flag to receive new interrupt */
     hal_eint_unmask(EINT_PSENSOR);						

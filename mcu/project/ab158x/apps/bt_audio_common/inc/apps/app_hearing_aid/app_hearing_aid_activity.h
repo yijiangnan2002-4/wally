@@ -41,6 +41,7 @@
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
 
 #include "app_hearing_aid_aws.h"
+extern uint8_t	need_disable_irsenser;	
 
 #ifdef __cplusplus
 extern "C" {
