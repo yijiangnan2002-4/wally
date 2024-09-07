@@ -801,12 +801,13 @@ static void bsp_hx300x_callback(void *data)
 	
 	app_set_ir_isr_status(*p_wear_status);
 
-	APPS_LOG_MSGID_I("psensor hx300x :interrupt pin ret = %d", 1, *p_wear_status);
+	APPS_LOG_MSGID_I("psensor hx300x :interrupt pin ret = %d,need_disable_irsenser=%d", 2, *p_wear_status,need_disable_irsenser);
 
 	
 	ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT);
 	if(need_disable_irsenser)
 	{
+	*p_wear_status=1;
 		ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
 									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
 									 NULL, 500);
