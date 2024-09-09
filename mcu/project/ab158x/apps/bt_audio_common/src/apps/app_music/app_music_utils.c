@@ -107,6 +107,7 @@ extern bt_le_sink_srv_music_active_handle g_music_active_handle;
 #include "apps_dongle_sync_event.h"
 #endif
 #include "apps_customer_config.h"
+#include "app_bt_conn_manager.h"
 
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
 uint8_t g_music_in_ear_config = APP_MUSIC_IN_EAR_NONE;        /**<  Record the music in ear config. */
@@ -159,10 +160,10 @@ bool app_music_get_active_device(uint8_t *active_type, bt_bd_addr_t *active_addr
                     break;
                 }
             } else {
-            	//uint8_t *addr= link_info->connected_device[i].remote_addr;
-		//bool isdongle=app_bt_conn_mgr_is_dongle(addr)
-		//if(!isdongle)
-			{
+            	uint8_t *addr = link_info->connected_device[i].remote_addr;
+		bool isdongle=app_bt_conn_mgr_is_dongle(addr);
+		if(!isdongle)
+		{
                 *active_type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE;
                 memcpy((*active_addr), link_info->connected_device[i].remote_addr, sizeof(bt_bd_addr_t));
                 break;
