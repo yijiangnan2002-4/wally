@@ -159,9 +159,14 @@ bool app_music_get_active_device(uint8_t *active_type, bt_bd_addr_t *active_addr
                     break;
                 }
             } else {
+            	//uint8_t *addr= link_info->connected_device[i].remote_addr;
+		//bool isdongle=app_bt_conn_mgr_is_dongle(addr)
+		//if(!isdongle)
+			{
                 *active_type = BT_SINK_SRV_STATE_MANAGER_DEVICE_TYPE_LE;
                 memcpy((*active_addr), link_info->connected_device[i].remote_addr, sizeof(bt_bd_addr_t));
                 break;
+		}
             }
         }
     }

@@ -1252,16 +1252,13 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
                 memset(&smchg_mux_ctrl, 0x0, sizeof(smchg_mux_ctrl));
                 raceEvt[CMD_ID] = raceCmd[CMD_ID];
                 raceEvt[EARBUD_ID] = earbud_ch;
+				
                 raceEvt[BAT_LV] = battery_management_get_battery_property(BATTERY_PROPERTY_CAPACITY);
 
 			// richard for UI spec.
 			if (raceCmd[CMD_ID] == CASE_REVERSION)
 			{
-#if 0	// for production test
-				raceEvt[DATA] = 0xff;
-#else			
 				raceEvt[DATA] = app_smcharger_get_state1();
-#endif
 			}
 			else if (raceCmd[CMD_ID] == CASE_BT_CONNECTED)
 			{

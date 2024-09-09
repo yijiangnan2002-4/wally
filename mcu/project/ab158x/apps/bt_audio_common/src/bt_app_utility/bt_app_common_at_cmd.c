@@ -450,7 +450,7 @@ static atci_cmd_hdlr_item_t bt_app_comm_at_cmd[] = {
 	},		
 #endif
 };
-	
+	uint8_t	case_cammand_flag;
 #if 1	// richard for customer UI spec
 static atci_status_t bt_app_comm_at_cmd_check_fw_version(atci_parse_cmd_param_t *parse_cmd)
 {
@@ -521,13 +521,52 @@ static atci_status_t bt_app_comm_at_cmd_check_eastech(atci_parse_cmd_param_t *pa
 		key_oceanvp_up_proc();
 
 	  }	  
+	  else if(var_list[0][0]=='0')
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=0",0);
+		case_cammand_flag=0;	
+	  }	  
+
 	  else if(var_list[0][0]=='5')
 	  {
     		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=5 test key_oceanvp_trige_proc(); ",0);
-		key_oceanvp_trige_proc();
-
+		case_cammand_flag=1;	
 	  }	  
 
+	  else if(var_list[0][0]=='6')
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=6 test key_oceanvp_trige_proc(); ",0);
+		case_cammand_flag=2;	
+	  }	  
+
+	  else if(var_list[0][0]=='7')
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=7 test key_oceanvp_trige_proc(); ",0);
+		case_cammand_flag=3;	
+	  }	  
+
+	  else if(var_list[0][0]=='8')
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=8 test key_oceanvp_trige_proc(); ",0);
+		case_cammand_flag=4;	
+	  }	  
+
+	  else if(var_list[0][0]=='9')
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=9 test key_oceanvp_trige_proc(); ",0);
+		case_cammand_flag=5;	
+	  }	  
+	  else if(var_list[0][0]=='a')
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=a test key_oceanvp_trige_proc(); ",0);
+		case_cammand_flag=6;	
+	  }	  
+
+	  else if(var_list[0][0]=='b')
+	  {
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=b test key_oceanvp_trige_proc(); ",0);
+		case_cammand_flag=7;	
+	  }	  
       }
     }
     for(uint8_t i=0;i<data_len;i++)

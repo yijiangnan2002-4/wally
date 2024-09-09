@@ -192,6 +192,8 @@ void write_sirk_key_proc(void)
 	app_le_ull_write_nvkey_sirk(&sirk_temp);
 }
 
+extern uint8_t case_handle_command;
+
 static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, uint32_t data, uint16_t data_len)
 {
     APPS_LOG_MSGID_I(LOG_TAG" [DRV]callback, drv_event=%d from_isr=%d data=%d data_len=%d",
@@ -295,6 +297,7 @@ static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, u
 		}
 		case DRV_CHARGER_EVENT_REVERSION_REPORT: {
 			log_hal_msgid_info(" driver_callback[casing version] = 0x%x", 1, data);
+			case_handle_command=1;
 			app_set_charger_case_version((uint8_t)data);
 			break;	
 		}
