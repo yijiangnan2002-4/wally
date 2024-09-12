@@ -716,18 +716,18 @@ void app_hearing_aid_key_handler_adjust_volume(uint8_t l_index, uint8_t r_index,
         app_hearing_aid_activity_play_vp(app_hearing_aid_volume_index_list[up], true);
     }
 }
+  uint8_t  preha_target=0xff;
 
 void app_hearing_aid_key_handler_adjust_mode(uint8_t target_mode, bool need_vp)
 {
-   static uint8_t  pre_target=0xff;
-   APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_adjust_mode] harry target_mode=%d,need_vp=%d,pre_target=%d",3,target_mode,need_vp,pre_target);
+   APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_adjust_mode] harry target_mode=%d,need_vp=%d,pre_target=%d",3,target_mode,need_vp,preha_target);
    app_hearing_aid_utils_adjust_mode(target_mode);
     if (need_vp == true) {
-	if(pre_target!=target_mode)
+	if(preha_target!=target_mode)
 	{
         	app_hearing_aid_activity_play_mode_index_vp(target_mode, true);
 	}
-	pre_target=target_mode;
+	preha_target=target_mode;
     }
 }
 

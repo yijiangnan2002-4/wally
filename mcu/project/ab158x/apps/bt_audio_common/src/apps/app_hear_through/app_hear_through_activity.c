@@ -90,6 +90,7 @@
 #endif /* MTK_LEAKAGE_DETECTION_ENABLE */
 #include "app_in_ear_idle_activity.h"
 #include "app_home_screen_idle_activity.h"
+#include "app_hearing_aid_key_handler.h"
 
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 
@@ -797,6 +798,7 @@ static void app_hear_through_activity_handle_ambient_control_switch()
 	if(from_case_haanckey)
 	{
 	   	app_hearing_aid_utils_adjust_mode(0); // harry add 20240826;
+	   	preha_target=0;
 	}
 	from_case_haanckey=0;
 #endif
