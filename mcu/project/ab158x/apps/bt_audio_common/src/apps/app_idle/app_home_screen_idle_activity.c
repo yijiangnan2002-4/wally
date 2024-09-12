@@ -176,6 +176,7 @@ static uint16_t s_factory_reset_pending_event = KEY_ACTION_INVALID;
 static uint16_t s_factory_reset_key_action = KEY_ACTION_INVALID;
 static uint16_t s_factory_reset_doing = false;
 static bool s_ready_to_off = false;
+static TimerHandle_t app_anckey_timer_handle = NULL;     /* The pointer to the time hander. */
 
 #if defined(AIR_LE_AUDIO_ENABLE) && defined(SUPPORT_ROLE_HANDOVER_SERVICE) && !defined(AIR_SMART_CHARGER_ENABLE)
 static bool s_le_audio_muted = false;
@@ -188,8 +189,40 @@ static bool s_sync_reboot_waiting = false;
 static bool s_fake_off = false;
 #endif
 uint8_t from_case_haanckey=0;
+uint8_t wait_key_process_time=0;
 
 #define RETRY_ENTER_RTC_MODE_TIMES      (10)
+static void app_anckey_timer_callback(TimerHandle_t xTimer)
+{
+	wait_key_process_time=0;
+        APPS_LOG_MSGID_I("app_anckey_timer_callback : set wait_key_process_time=%d", 1, wait_key_process_time);
+}
+static bool app_anckey_timer_is_active(void)
+{
+    if ((app_anckey_timer_handle != NULL) && (xTimerIsTimerActive(app_anckey_timer_handle) != pdFALSE)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+void app_anckey_timer_handle_process(void)  
+{
+  	if (app_anckey_timer_handle != NULL) 
+	{
+  		if (app_anckey_timer_is_active()) {
+	      	xTimerStop(app_anckey_timer_handle, 0);
+	      	log_hal_msgid_info("app_anckey_timer_handle_process  xTimerStop(app_anckey_timer_handle, 0)\r\n", 0);
+	  	}
+		
+	      	xTimerDelete(app_anckey_timer_handle, 0);
+	      	app_anckey_timer_handle = NULL;
+	      	log_hal_msgid_info("app_anckey_timer_handle_process  xTimerDelete(app_anckey_timer_handle, 0)\r\n", 0);
+  	}
+  	app_anckey_timer_handle = xTimerCreate("app_ankkey_timer", 800, pdFALSE, NULL, app_anckey_timer_callback);
+    	xTimerStart(app_anckey_timer_handle, 0);
+  	log_hal_msgid_info("app_anckey_timer_handle_process  xTimerStart(app_anckey_timer_handle, 0)\r\n", 0);
+}
+
 
 
  void app_eastech_voice_prompt_play_pairing(void);
@@ -628,8 +661,15 @@ errrrrrrrrrrrrrrrrrrrrr
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 //errrrrrrrrrrrrrrrrrrrrr
         // OFF -> SW PT -> ANC
-        app_hear_through_activity_switch_ambient_control();
+        APPS_LOG_MSGID_I("app_home_screen_process_anc_and_pass_through : KEY_SWITCH_ANC_AND_PASSTHROUGH wait_key_process_time=%d", 1, wait_key_process_time);
+        if(wait_key_process_time==0)
+        {
+        	app_anckey_timer_handle_process();
+        	app_hear_through_activity_switch_ambient_control();
 		key_anc_ha_display_proc();		// richard for UI spec.
+        }
+        APPS_LOG_MSGID_I("app_home_screen_process_anc_and_pass_through 1 : KEY_SWITCH_ANC_AND_PASSTHROUGH wait_key_process_time=%d", 1, wait_key_process_time);
+		wait_key_process_time=1;
         return true;
 #else
         /* Switch loop is OFF->PassThrough->ANC->OFF. */

@@ -58,6 +58,7 @@
 */
 #define VP_PLAY_INTERVAL  4000
 extern uint8_t from_case_haanckey;
+extern uint8_t wait_key_process_time;
 
 bool app_home_screen_idle_activity_proc(ui_shell_activity_t *self,
                                         uint32_t event_group,
@@ -81,5 +82,8 @@ home_screen_local_context_type_t *app_home_screen_idle_activity_get_context(void
 * @brief      This function must be called in idle task, check and do system off or reboot.
 */
 void app_home_screen_check_power_off_and_reboot(void);
+
+extern void app_anckey_timer_handle_process(void);	
+
 
 #endif /* __APP_HOME_SCREEN_IDLE_ACTIVITY_H__ */

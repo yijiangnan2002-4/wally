@@ -233,6 +233,7 @@ void app_system_factory_reset(uint8_t reset_mode)
 /******************Shipping Mode Start*****************************************************************/
 void app_set_shipping_mode_state(uint8_t state)
 {
+	APPS_LOG_MSGID_I("app_set_shipping_mode_state state = %d",1 , state);
 
 	if(state == 0)
 	{
@@ -264,25 +265,25 @@ uint8_t app_get_shipping_mode_state(void)
 void app_enter_shipping_mode_flag_set(uint8_t shipping_mode)
 {
 	isShippingMode = shipping_mode;
-	//APPS_LOG_MSGID_I("app_customer_common.c:: Set isShippingMode = %d",1 , shipping_mode);
+	APPS_LOG_MSGID_I("app_customer_common.c:: Set isShippingMode = %d",1 , shipping_mode);
 }
 
 uint8_t app_enter_shipping_mode_flag_read(void)
 {
-	//APPS_LOG_MSGID_I("app_customer_common.c:: Read isShippingMode = %d",1 , isShippingMode);
+	APPS_LOG_MSGID_I("app_customer_common.c:: Read isShippingMode = %d",1 , isShippingMode);
 	return isShippingMode;
 }
 
 void app_shipping_mode_enter(void)
 {
-	//APPS_LOG_MSGID_I("app_customer_common.c:: Enter Shipping Mode!!!",0);
+	APPS_LOG_MSGID_I("app_customer_common.c:: Enter Shipping Mode!!!",0);
 	hal_gpio_set_output(HAL_GPIO_15, HAL_GPIO_DATA_HIGH);
 	hal_gpt_delay_ms(500);
 }
 
 void app_shipping_mode_exit(void)
 {
-	//APPS_LOG_MSGID_I("app_customer_common.c:: Exit Shipping Mode!!!",0);
+	APPS_LOG_MSGID_I("app_customer_common.c:: Exit Shipping Mode!!!",0);
 	hal_gpio_set_output(HAL_GPIO_15, HAL_GPIO_DATA_LOW);
 	hal_gpt_delay_ms(40);
 }

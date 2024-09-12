@@ -96,6 +96,7 @@
 
 #include "audio_anc_psap_control.h"
 #include "app_customer_common_activity.h"
+#include "app_home_screen_idle_activity.h"
 
 #define APP_HA_ACTIVITY_TAG        "[HearingAid][ACTIVITY]"
 
@@ -2072,7 +2073,16 @@ static bool app_hearing_aid_activity_proc_key_event(uint32_t event_id,
     if ((key_id < KEY_HEARING_AID_BEGIN) || (key_id > KEY_HEARING_AID_END)) {
         return false;
     }
-
+        APPS_LOG_MSGID_I("app_hearing_aid_activity_proc_key_event :  wait_key_process_time=%d", 1, wait_key_process_time);
+	
+        if(wait_key_process_time==0){
+        	///app_anckey_timer_handle_process();
+        }
+	else{
+        APPS_LOG_MSGID_I("app_hearing_aid_activity_proc_key_event :  so fast press, ingone. wait_key_process_time=%d", 1, wait_key_process_time);
+        return false;
+	}
+	//wait_key_process_time=1;	
     bool user_switch = app_hearing_aid_utils_is_ha_user_switch_on();
     if ((user_switch == false) || (app_ha_activity_context.inited == false)) {
 #if APP_HEARING_AID_DEBUG_ENABLE
