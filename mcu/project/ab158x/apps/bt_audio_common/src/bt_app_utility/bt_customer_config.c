@@ -69,6 +69,7 @@ extern bool app_le_audio_dhss_is_data_ready(void);
 #if defined(AIR_HEARING_AID_ENABLE) || defined(AIR_HEARTHROUGH_PSAP_ENABLE)
 #include "app_hearing_aid_activity.h"
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
+#include "app_customer_nvkey_operation.h"
 
 extern bool bt_sink_srv_music_is_must_play_dev_by_addr(bt_bd_addr_t *sp_addr);
 
@@ -327,6 +328,12 @@ static bt_gap_config_t g_bt_sink_srv_gap_config = {
  * @brief    This function is used to get the GAP configuration.
  * @return   pointer of bt_gap_config_t.
  */
+ #define AUDEARA 0x60
+#define CLINICO 0x66
+
+ #define AUDEARA_BUD "Audeara Buds"		
+#define CLINICO_SOUND "Clinico Sound earbuds CS1"	
+
 const bt_gap_config_t *bt_customer_config_get_gap_config(void)
 {
     uint8_t name[BT_GAP_MAX_DEVICE_NAME_LENGTH] = {0};
@@ -367,7 +374,18 @@ const bt_gap_config_t *bt_customer_config_get_gap_config(void)
 
 #if 1	// richard for customer UI spec.
 	//snprintf((char *)name, sizeof(name), "PSAP Earbuds");
-	snprintf((char *)name, sizeof(name), "Audeara Buds");
+	if(app_nvkey_btname_read()==AUDEARA)
+	{
+	snprintf((char *)name, sizeof(name), AUDEARA_BUD);
+	}
+	else if(app_nvkey_btname_read()==CLINICO)
+	{
+	snprintf((char *)name, sizeof(name), CLINICO_SOUND);
+
+	}
+	else{
+	snprintf((char *)name, sizeof(name), AUDEARA_BUD);
+	}
 #else
         snprintf((char *)name, sizeof(name), "H_%.2X%.2X%.2X%.2X%.2X%.2X",
                  (*local_addr)[5], (*local_addr)[4], (*local_addr)[3],

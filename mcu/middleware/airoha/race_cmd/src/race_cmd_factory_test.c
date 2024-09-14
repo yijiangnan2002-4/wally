@@ -1414,6 +1414,45 @@ void* RACE_FACTORY_TEST_NTC_STATE_READ(ptr_race_pkt_t pCmdMsg, uint8_t channel_i
 }
 
 
+void* RACE_FACTORY_TEST_FACTORY_REWRITE_BTNAME(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{
+    typedef struct
+	{
+	    RACE_COMMON_HDR_STRU cmdhdr;
+		uint8_t param;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+	
+		uint8_t data[1];
+	}PACKED RSP;
+
+	CMD *pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_REWIRE_BTNAME, (uint16_t)sizeof(RSP), channel_id);
+    	int32_t ret = RACE_ERRCODE_SUCCESS;
+
+	RACE_LOG_MSGID_I("cmd data = %x \r\n",1, pCmd->param);
+
+    if (pEvt)
+    {
+    	pEvt->data[0] = pCmd->param;
+    	if(pCmd->param == 0x60 || pCmd->param == 0x66)
+		{
+		app_nvkey_btname_write(pCmd->param);
+		}
+		else
+		{
+			ret = RACE_ERRCODE_FAIL;
+		}
+
+        pEvt->status = ret;
+    }
+
+	return pEvt;
+}
+
 void* RACE_FACTORY_TEST_FACTORY_RST_PARAMETER_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
     typedef struct
@@ -1431,7 +1470,7 @@ void* RACE_FACTORY_TEST_FACTORY_RST_PARAMETER_HDR(ptr_race_pkt_t pCmdMsg, uint8_
 
 	CMD *pCmd = (CMD *)pCmdMsg;
 	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_FACTORY_REST, (uint16_t)sizeof(RSP), channel_id);
-    int32_t ret = RACE_ERRCODE_SUCCESS;
+    	int32_t ret = RACE_ERRCODE_SUCCESS;
 
 	RACE_LOG_MSGID_I("cmd data = %x \r\n",1, pCmd->param);
 
@@ -2184,6 +2223,11 @@ void* RACE_CmdHandler_FACTORY_TEST(ptr_race_pkt_t pRaceHeaderCmd, uint16_t lengt
             case FACTORY_TEST_BLE_CMD_FACTORY_REST :
             {
                 ptr = RACE_FACTORY_TEST_FACTORY_RST_PARAMETER_HDR(pRaceHeaderCmd, channel_id);
+            }
+            break;	
+            case FACTORY_TEST_BLE_CMD_REWIRE_BTNAME :
+            {
+                ptr = RACE_FACTORY_TEST_FACTORY_REWRITE_BTNAME(pRaceHeaderCmd, channel_id);
             }
             break;	
 

@@ -34,7 +34,8 @@ typedef struct {
 	uint8_t anc_level;//25
 	uint8_t tra_level;//26
 	uint8_t mini_ui;//27
-	uint8_t reserved1;//28
+	//uint8_t reserved1;//28
+	uint8_t nv_btname;//28  harry use
 	uint16_t PsensorPsThresholdHigh;//29-30
 	uint16_t PsensorPsThresholdLow;//31-32
 	uint8_t psensor_power;//33
@@ -144,6 +145,8 @@ void app_nvkey_hx300x_cur_read(uint16_t* reg_10, uint8_t* reg_13);
 void app_nvkey_hx300x_read_cali_setting(void *pEvt);
 uint8_t app_nvkey_get_hx300x_log_status(void);
 void app_nvkey_set_hx300x_log_status(uint8_t log_state);
+extern void app_nvkey_btname_write(uint8_t name);
+extern uint8_t app_nvkey_btname_read(void);
 
 #endif //__APP_CUSTOMER_NVKEY_OPERATION_H__
 

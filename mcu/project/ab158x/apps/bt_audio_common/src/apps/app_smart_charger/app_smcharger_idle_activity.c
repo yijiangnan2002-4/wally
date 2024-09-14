@@ -179,7 +179,7 @@ static void smcharger_agent_check_and_do_rho(app_smcharger_context_t *smcharger_
     if (ota_ongoing)
 #endif
     {
-        APPS_LOG_MSGID_E(LOG_TAG" check_and_do_rho, OTA ongoing", 0);
+        APPS_LOG_MSGID_E(LOG_TAG" smcharger_agent_check_and_do_rho, OTA ongoing", 0);
         return;
     }
 #endif
@@ -193,7 +193,7 @@ static void smcharger_agent_check_and_do_rho(app_smcharger_context_t *smcharger_
         app_smcharger_context_print(smcharger_ctx, charger_exist_state, charging_state);
 #ifdef MTK_IN_EAR_FEATURE_ENABLE
         app_in_ear_state_t in_ear_state = app_in_ear_get_state();
-        APPS_LOG_MSGID_I(LOG_TAG" check RHO in_ear_state=%d", 1, in_ear_state);
+        APPS_LOG_MSGID_I(LOG_TAG" smcharger_agent_check_and_do_rho in_ear_state=%d", 1, in_ear_state);
 #endif
         if (smcharger_ctx->battery_state != SMCHARGER_BATTERY_STATE_SHUTDOWN  /* SHUTDOWN battery state will notify HomeScreen to do power off and RHO. */
             && smcharger_ctx->battery_state < SMCHARGER_BATTERY_STATE_CHARGING                /* Agent not charging. */
@@ -205,7 +205,7 @@ static void smcharger_agent_check_and_do_rho(app_smcharger_context_t *smcharger_
             && smcharger_ctx->peer_battery_percent < PARTNER_BATTERY_CHARGING        /* Partner not charging. */
             && smcharger_ctx->battery_percent + APPS_DIFFERENCE_BATTERY_VALUE_FOR_RHO   /* 30% difference. */
             < smcharger_ctx->peer_battery_percent||(smcharger_ctx->battery_percent<=15 &&smcharger_ctx->peer_battery_percent>=20)) {
-            APPS_LOG_MSGID_I(LOG_TAG" trigger RHO due to low_battery", 0);
+            APPS_LOG_MSGID_I(LOG_TAG" smcharger_agent_check_and_do_rho trigger RHO due to low_battery", 0);
             /* Send TRIGGER_RHO event to notify HomeScreen APP do RHO. */
             ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_TRIGGER_RHO);
             ui_shell_send_event(FALSE, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
@@ -215,7 +215,7 @@ static void smcharger_agent_check_and_do_rho(app_smcharger_context_t *smcharger_
                             || smcharger_ctx->smcharger_state == STATE_SMCHARGER_LID_CLOSE);
             bool partner_out_case = (smcharger_ctx->peer_smcharger_state == STATE_SMCHARGER_OUT_OF_CASE);
             if (in_case && partner_out_case) {
-                APPS_LOG_MSGID_I(LOG_TAG" PREPARE_RHO due to in/out case, flag=%d",
+                APPS_LOG_MSGID_I(LOG_TAG" smcharger_agent_check_and_do_rho PREPARE_RHO due to in/out case, flag=%d",
                                  1, smcharger_ctx->agent_prepare_rho_flag);
                 if (!smcharger_ctx->agent_prepare_rho_flag) {
                     smcharger_ctx->agent_prepare_rho_flag = TRUE;
@@ -226,13 +226,13 @@ static void smcharger_agent_check_and_do_rho(app_smcharger_context_t *smcharger_
                                         (need_delay ? 1000 : 0));
                 }
             } else {
-                APPS_LOG_MSGID_I(LOG_TAG" cancel PREPARE_RHO due to in/out case", 0);
+                APPS_LOG_MSGID_I(LOG_TAG" smcharger_agent_check_and_do_rho cancel PREPARE_RHO due to in/out case", 0);
                 smcharger_ctx->agent_prepare_rho_flag = FALSE;
                 ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CHARGER_CASE, SMCHARGER_EVENT_PREPARE_RHO);
             }
         }
     } else {
-        APPS_LOG_MSGID_I(LOG_TAG" check RHO condition fail, [%02X] aws_link_type=%d",
+        APPS_LOG_MSGID_I(LOG_TAG" smcharger_agent_check_and_do_rho check RHO condition fail, [%02X] aws_link_type=%d",
                          2, role, aws_link_type);
     }
 #endif
@@ -431,9 +431,8 @@ static bool smcharger_idle_bt_cm_event_group(ui_shell_activity_t *self, uint32_t
             }
 
             bool need_check_rho = FALSE;
-            APPS_LOG_MSGID_I(LOG_TAG" bt_cm_event, bt_info_update acl=%d->%d srv=0x%04X->0x%04X",
-                             4, remote_update->pre_acl_state, remote_update->acl_state,
-                             remote_update->pre_connected_service, remote_update->connected_service);
+            APPS_LOG_MSGID_I(LOG_TAG" bt_cm_event, bt_info_update acl=%d->%d srv=0x%04X->0x%04X,role=0x%x",
+                             5, remote_update->pre_acl_state, remote_update->acl_state,remote_update->pre_connected_service, remote_update->connected_service,role);
             if (BT_AWS_MCE_ROLE_AGENT == role || BT_AWS_MCE_ROLE_NONE == role) {
                 /* Check Agent AWS connection and set AWS state. */
                 if (!(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_AWS) & remote_update->pre_connected_service)
@@ -545,7 +544,7 @@ static bool smcharger_idle_aws_data_event_group(ui_shell_activity_t *self, uint3
         if ((sync_data->sync_type & APP_SMCHARGER_SYNC_BATTERY) > 0) {
             uint8_t old_peer_battery = smcharger_ctx->peer_battery_percent;
             smcharger_ctx->peer_battery_percent = sync_data->battery;
-            APPS_LOG_MSGID_I(LOG_TAG" [%02X] Received peer battery=%d->%d",
+            APPS_LOG_MSGID_I(LOG_TAG" role=[%02X] Received peer battery=%d->%d",
                              3, role, old_peer_battery, smcharger_ctx->peer_battery_percent);
             app_smcharger_update_bat();
             if (role == BT_AWS_MCE_ROLE_AGENT) {
@@ -589,7 +588,7 @@ static bool smcharger_idle_aws_data_event_group(ui_shell_activity_t *self, uint3
                 need_check_rho = TRUE;
 
                 // Notify other APP when peer smcharger_state changed
-                           APPS_LOG_MSGID_I(LOG_TAG"harrydbg smcharger_idle_aws_data_event_group old_state=%d,state=%d",2,old_state , state);
+                APPS_LOG_MSGID_I(LOG_TAG"harrydbg smcharger_idle_aws_data_event_group old_state=%d,state=%d",2,old_state , state);
                 app_smcharger_ui_shell_event(FALSE, SMCHARGER_EVENT_NOTIFY_BOTH_CHANGED, NULL, 0);
 
 #ifdef APPS_SLEEP_AFTER_NO_CONNECTION
