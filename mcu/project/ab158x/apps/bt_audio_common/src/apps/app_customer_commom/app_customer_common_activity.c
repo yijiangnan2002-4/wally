@@ -47,6 +47,7 @@
 #include "app_hearing_aid_key_handler.h"
 #include "app_bt_state_service.h"
 #include "app_home_screen_idle_activity.h"
+#include "app_music_utils.h"
 
 #ifdef BATTERY_HEATHY_ENABLE
 //calculate when in case after 5s, so need power on or out of case more than 1min, and keep charge in case more than 5s
@@ -421,7 +422,7 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 	*p_key_action = KEY_ACTION_INVALID;
 	uint8_t volkey_val;
 	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-	APPS_LOG_MSGID_I("key_volumeup_proc app_mmi_state=%d,anc_ha_flag=%d", 2,app_mmi_state,anc_ha_flag);
+	APPS_LOG_MSGID_I("key_volumeup_proc app_mmi_state=%d,anc_ha_flag=%d,music_streaming_state_common=%d", 3,app_mmi_state,anc_ha_flag,music_streaming_state_common);
 	if(volume_up_mode==0)
 	{
 		if(app_mmi_state == APP_A2DP_PLAYING || app_mmi_state == APP_ULTRA_LOW_LATENCY_PLAYING || app_mmi_state == APP_WIRED_MUSIC_PLAY||
@@ -430,13 +431,19 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 		app_mmi_state == APP_HFP_OUTGOING || app_mmi_state == APP_HFP_CALL_ACTIVE || app_mmi_state == APP_HFP_TWC_OUTGOING)
 		{
 			*p_key_action = KEY_VOICE_UP;
+		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_VOICE_UP 11", 0);
+		}
+		else if(music_streaming_state_common==1)
+		{
+			*p_key_action = KEY_VOICE_UP;
+		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_VOICE_UP 22", 0);
 		}
 		else if (app_mmi_state == APP_DISCONNECTED ||app_mmi_state == APP_CONNECTABLE ||
 			app_mmi_state == APP_CONNECTED ||app_mmi_state == APP_STATE_FIND_ME ||
 			app_mmi_state == APP_HFP_CALL_ACTIVE_WITHOUT_SCO ||app_mmi_state == APP_STATE_VA)
 		{
 			*p_key_action = KEY_HEARING_AID_LEVEL_UP;
-
+		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_HEARING_AID_LEVEL_UP", 0);
 		}
 			volkey_val=2;
 			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
@@ -474,7 +481,7 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 	*p_key_action = KEY_ACTION_INVALID;
 	uint8_t volkey_val;
 	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-	APPS_LOG_MSGID_I("key_volumedown_proc app_mmi_state=%d,anc_ha_flag=%d", 2,app_mmi_state,anc_ha_flag);
+	APPS_LOG_MSGID_I("key_volumedown_proc app_mmi_state=%d,anc_ha_flag=%d,music_streaming_state_common=%d", 3,app_mmi_state,anc_ha_flag,music_streaming_state_common);
 
 	if(volume_down_mode==0)
 	{
@@ -485,13 +492,19 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 		)
 		{
 			*p_key_action = KEY_VOICE_DN;
+		APPS_LOG_MSGID_I("key_volumedown_proc sent KEY_VOICE_DN 11", 0);
+		}
+		else if(music_streaming_state_common==1)
+		{
+			*p_key_action = KEY_VOICE_DN;
+		APPS_LOG_MSGID_I("key_volumedown_proc sent KEY_VOICE_DN 22", 0);
 		}
 		else if (app_mmi_state == APP_DISCONNECTED ||app_mmi_state == APP_CONNECTABLE ||
 			app_mmi_state == APP_CONNECTED ||app_mmi_state == APP_STATE_FIND_ME ||
 			app_mmi_state == APP_HFP_CALL_ACTIVE_WITHOUT_SCO ||app_mmi_state == APP_STATE_VA)
 		{
 			*p_key_action = KEY_HEARING_AID_LEVEL_DOWN;
-
+		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_HEARING_AID_LEVEL_DOWN", 0);
 		}
 		volkey_val=1;
 		if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER

@@ -80,6 +80,7 @@ typedef enum {
     MUSIC_MONO              /**<  Mono mode. */
 } music_mix_state_t;
 #endif
+extern uint8_t music_streaming_state_common;
 
 
 /**

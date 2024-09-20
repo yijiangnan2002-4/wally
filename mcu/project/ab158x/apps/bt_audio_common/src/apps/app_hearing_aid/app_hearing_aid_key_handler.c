@@ -57,6 +57,8 @@
 #endif /* AIR_LE_AUDIO_BIS_ENABLE */
 #include "app_customer_common_activity.h"
 #include "App_hear_through_activity.h"
+#include "apps_config_key_remapper.h"
+#include "apps_config_state_list.h"
 
 #define APP_HA_KEY_HANDLER_TAG      "[HearingAid][KeyHandler]"
 

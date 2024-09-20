@@ -609,7 +609,7 @@ apps_config_key_action_t app_music_utils_proc_key_events(ui_shell_activity_t *se
         return KEY_ACTION_INVALID;
     }
 }
-
+uint8_t music_streaming_state_common;
 bool app_music_idle_proc_bt_sink_events(ui_shell_activity_t *self, uint32_t event_id,
                                         void *extra_data, size_t data_len)
 {
@@ -639,9 +639,12 @@ bool app_music_idle_proc_bt_sink_events(ui_shell_activity_t *self, uint32_t even
 //                ui_shell_start_activity(self, app_music_activity_proc, ACTIVITY_PRIORITY_MIDDLE, local_context, 0);
 //            }
             local_context->music_streaming_state |= APP_MUSIC_STEAMING_STATE_SINK_STATE;
+	music_streaming_state_common=1;		
         } else if ((param->previous == BT_SINK_SRV_STATE_STREAMING) && (param->current != BT_SINK_SRV_STATE_STREAMING)) {
 //            local_context->music_playing = false;
             local_context->music_streaming_state &= ~APP_MUSIC_STEAMING_STATE_SINK_STATE;
+	music_streaming_state_common=0;		
+
         }
     }
 #if defined(MTK_IN_EAR_FEATURE_ENABLE)
