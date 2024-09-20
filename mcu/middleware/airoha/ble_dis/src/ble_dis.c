@@ -343,9 +343,10 @@ BT_GATTS_NEW_CHARC_VALUE_CALLBACK(ble_dis_software_revision_string, BT_SIG_UUID_
                                   ble_dis_software_revision_string_callback);
 
 //MANUFACTURER_NAME_STRING manufacturer_name_string
+//per Audeara Information Spec, don't display VENDOR NAME, MANUFACTURER_NAME
 BT_GATTS_NEW_CHARC_16(ble_dis_char4_manufacturer_name_string, BT_GATT_CHARC_PROP_READ, BLE_DIS_MANUFACTURER_NAME_STRING_VALUE_HANDLE, BLE_DIS_MANUFACTURER_NAME_STRING_UUID16);
 BT_GATTS_NEW_CHARC_VALUE_CALLBACK(ble_dis_manufacturer_name_string, BT_SIG_UUID_MANUFACTURER_NAME_STRING,
-                                  BT_GATTS_REC_PERM_READABLE,
+                                  BT_GATTS_REC_PERM_READABLE_AUTHORIZATION,
                                   ble_dis_manufacturer_name_string_callback);
 //IEEE
 BT_GATTS_NEW_CHARC_16(ble_dis_char4_ieee_data, BT_GATT_CHARC_PROP_READ, BLE_DIS_IEEE_DATA_VALUE_HANDLE, BLE_DIS_IEEE_DATA_UUID16);

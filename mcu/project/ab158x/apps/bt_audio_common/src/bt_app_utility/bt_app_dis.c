@@ -33,12 +33,14 @@
  */
 
 #include "ble_dis.h"
+#include "fota_util.h"
 
-#define MANUFACTURER_NAME               "Airoha"
-#define MODEL_NUMBER                    "AIROHA-DIS-EXAMPLE"
-#define FIRMWARE_REVISION               "Version1.0"
+#define SN_LEN 10
+#define MANUFACTURER_NAME               "Audeara LTD"
+#define MODEL_NUMBER                    "Clinico Sound Earbuds CS1"
+#define FIRMWARE_REVISION               FOTA_DEFAULT_VERSION
 #define SOFTWARE_REVISION               "Version1.0"
-#define HARDWARE_REVISION               "Version1.0"
+#define HARDWARE_REVISION               "1.0"
 #define SERIAL_NUMBER                   "20180422"
 #define IEEE_DATA                       "Regulatory_Certification"
 #define MANUFACTURER_ID                 0x1122334455
@@ -72,9 +74,11 @@ bt_status_t ble_dis_get_characteristic_value_callback(ble_dis_charc_type_t charc
         }
         case BLE_DIS_CHARC_SERIAL_NUMBER: {
             if (value) {
+                uint8_t local_sn[SN_LEN] = {0};
+		        app_nvkey_sn_read(local_sn, SN_LEN);
                 ble_dis_string_t *buffer = (ble_dis_string_t *)value;
-                buffer->length = (uint16_t)strlen(SERIAL_NUMBER);
-                buffer->utf8_string = (uint8_t *)SERIAL_NUMBER;
+                buffer->length = (uint16_t)strlen(local_sn);
+                buffer->utf8_string = (uint8_t *)local_sn;
             }
             break;
         }

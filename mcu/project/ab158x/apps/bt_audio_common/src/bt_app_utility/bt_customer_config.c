@@ -332,7 +332,7 @@ static bt_gap_config_t g_bt_sink_srv_gap_config = {
 #define CLINICO 0x66
 
  #define AUDEARA_BUD "Audeara Buds"		
-#define CLINICO_SOUND "Clinico Sound earbuds CS1"	
+#define CLINICO_SOUND "Clinico Sound Buds"	
 
 const bt_gap_config_t *bt_customer_config_get_gap_config(void)
 {
