@@ -497,14 +497,14 @@ static atci_status_t bt_app_comm_at_cmd_check_eastech(atci_parse_cmd_param_t *pa
 	  if(var_list[0][0]==49)
 	  {
     		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=1 test vol+ ",0);
-		key_volumeup_proc(0);
+		//key_volumeup_proc(0);
             app_smcharger_state_do_action(STATE_SMCHARGER_LID_OPEN);
 
 	  }
 	  else if(var_list[0][0]==50)
 	  {
     		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=2 test vol- ",0);
-		key_volumedown_proc(0);
+		//key_volumedown_proc(0);
 		app_smcharger_state_do_action(STATE_SMCHARGER_LID_CLOSE);  // close case
 
 	  }

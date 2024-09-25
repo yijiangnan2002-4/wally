@@ -541,28 +541,21 @@ void key_avrcp_next_proc(uint8_t vol_m_flag)			// 0: VOLUP_DP, 1: MBUTTON_DP
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
 
-	if(vol_m_flag==0)
+	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
+	if(app_mmi_state == APP_HFP_INCOMING)
 	{
-		*p_key_action = KEY_AVRCP_FORWARD;	
+		*p_key_action = KEY_REJCALL;
+	}
+	else if(app_mmi_state == APP_HFP_CALLACTIVE || app_mmi_state == APP_HFP_CALLACTIVE_WITHOUT_SCO || app_mmi_state == APP_HFP_MULTITPART_CALL
+		||app_mmi_state == APP_HFP_OUTGOING || app_mmi_state == APP_STATE_HELD_ACTIVE || app_mmi_state == APP_HFP_TWC_OUTGOING)
+	{
+		*p_key_action = KEY_END_CALL;
 	}
 	else
 	{
-		apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-		if(app_mmi_state == APP_HFP_INCOMING)
-		{
-			*p_key_action = KEY_REJCALL;
-		}
-		else if(app_mmi_state == APP_HFP_CALLACTIVE || app_mmi_state == APP_HFP_CALLACTIVE_WITHOUT_SCO || app_mmi_state == APP_HFP_MULTITPART_CALL
-			||app_mmi_state == APP_HFP_OUTGOING || app_mmi_state == APP_STATE_HELD_ACTIVE || app_mmi_state == APP_HFP_TWC_OUTGOING)
-		{
-			*p_key_action = KEY_END_CALL;
-		}
-		else
-		{
-			//*p_key_action = KEY_SWITCH_WORLD_MODE;
-			*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
-      
-		}
+	 //(1 << APP_A2DP_PLAYING) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
+		//*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
+  			*p_key_action = KEY_AVRCP_FORWARD;	
 	}
 
     	if (p_key_action)

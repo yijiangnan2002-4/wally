@@ -430,6 +430,7 @@ void app_hearing_aid_utils_deinit()
 audio_psap_device_role_t app_hearing_aid_utils_get_role()
 {
     audio_channel_t channel = ami_get_audio_channel();
+        APPS_LOG_MSGID_I(APP_HA_UTILS_TAG"[app_hearing_aid_utils_get_role] channel : %d", 1, channel);
     if (channel == AUDIO_CHANNEL_L) {
         return AUDIO_PSAP_DEVICE_ROLE_LEFT;
     } else if (channel == AUDIO_CHANNEL_R) {
