@@ -3570,7 +3570,7 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			{
 				key_avrcp_prev_proc();
 			}			
-			else if(temp_command_data==0x22)							// LP2
+			else if(temp_command_data==0x21)							// case hold 1s
 			{
 				key_switch_anc_and_passthrough_proc();
 			}
@@ -3588,10 +3588,10 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 		case 4:		// pairing
 			key_fact_pairing_proc();
 			break;
-			#if 0
 		case 5:		// OCEAN   ON/OFF 
 			key_oceanvp_trige_proc();
 			break;
+			#if 0
 			
 		case 6:		// OCEAN  VP+ 
 			key_oceanvp_up_proc();

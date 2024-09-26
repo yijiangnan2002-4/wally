@@ -315,7 +315,7 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
     {
         DEVICE_KEY_POWER,
         KEY_AVRCP_FORWARD,  
-        #if 1
+        #if 0
         (1 << APP_A2DP_PLAYING) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
 	#else
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_A2DP_PLAYING)
@@ -405,7 +405,7 @@ const apps_config_key_event_map_t temp_key_triple_click_configs[] = {
 #if 1
         DEVICE_KEY_POWER,
         KEY_AVRCP_BACKWARD,
-        #if 1
+        #if 0
         (1 << APP_A2DP_PLAYING) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
 	#else
         (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_HFP_CALL_ACTIVE)
