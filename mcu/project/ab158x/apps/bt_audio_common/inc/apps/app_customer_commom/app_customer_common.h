@@ -13,6 +13,7 @@
 #define __APP_CUSTOMER_COMMON_H__
 #include <string.h>
 #include <stdint.h>
+extern uint8_t device_connect_num;	
 
 #define CUS_LE_BIS_TEST 0
 

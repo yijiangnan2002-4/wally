@@ -330,7 +330,7 @@ void app_hearing_aid_key_handler_proc_mode_down_notify()
     app_hearing_aid_activity_play_vp(VP_INDEX_PRESS, true);
 }
 
-#if 1	// richard for UI spec.
+#if 1	// richard for UI spec. Alex UI
 uint8_t get_current_ha_mode(void)
 {
 	uint8_t mode_index = 0;
@@ -671,6 +671,7 @@ bool app_hearing_aid_key_handler_is_ready_to_process(apps_config_key_action_t ke
 
     return true;
 }
+extern uint8_t prompt_no_play_flag;	// richard for UI
 
 bool app_hearing_aid_key_handler_processing(apps_config_key_action_t key_event)
 {
@@ -685,12 +686,12 @@ bool app_hearing_aid_key_handler_processing(apps_config_key_action_t key_event)
     }
 
     bool ready_to_handle = app_hearing_aid_key_handler_is_ready_to_process(key_event);
-    APPS_LOG_MSGID_I(APP_HA_KEY_HANDLER_TAG"[app_hearing_aid_key_handler_processing] Handle key event : 0x%04x (%s), ready to handle : %d",
-                     3,
+    APPS_LOG_MSGID_I(APP_HA_KEY_HANDLER_TAG"[app_hearing_aid_key_handler_processing] Handle key event : 0x%04x (%s), ready to handle : %d,prompt_no_play_flag=%d",
+                     4,
                      key_event,
                      app_hearing_aid_key_string[key_event - KEY_HEARING_AID_BEGIN],
-                     ready_to_handle);
-
+                     ready_to_handle,prompt_no_play_flag);
+      prompt_no_play_flag=0; // ˫����HA����Ҫ�򿪲���HA VP
     if (ready_to_handle == false) {
         return true;
     }

@@ -41,7 +41,7 @@
 ***********************************************************************************************/
 #define APPS_BATTERY_LOW_THRESHOLD                      (10) /* Low battery status if battery percentage < the value */
 #define APPS_BATTERY_FULL_THRESHOLD                     (100) /* Battery full status if battery percentage >= the value */
-#define APPS_DIFFERENCE_BATTERY_VALUE_FOR_RHO           (30) /* When the battery percentage of agent add the value < the battery value of partner, will trigger RHO */
+#define APPS_DIFFERENCE_BATTERY_VALUE_FOR_RHO          (15)// (30) /* When the battery percentage of agent add the value < the battery value of partner, will trigger RHO */
 
 #define APPS_AIR_PAIRING_INFO    { \
         0x41, 0x69, 0x72, 0x6f, 0x68, 0x61, \
@@ -127,4 +127,6 @@
 //#define EASTECH_IRSENSER_ADVANCED_CONTROL 
 #define EASTECH_GET_BATTER_LEVEL  
 #define ALWAYS_PLAY_PAIRING_VP
+#define EASTECH_SPEC_VP
+#define PRE_VP_PAIR_TIMEOUT   500
 #endif /* __APPS_CUSTOMER_CONFIG_H__ */

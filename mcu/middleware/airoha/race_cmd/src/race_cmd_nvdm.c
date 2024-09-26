@@ -65,7 +65,7 @@
 #define RACE_GROUP_NAME "AB15"
 #define RACE_ITEM_NAME_SIZE 2
 
-// #define RACE_CMD_NVDM_ENABLE_DEBUG_LOG
+ #define RACE_CMD_NVDM_ENABLE_DEBUG_LOG
 
 ////////////////////////////////////////////////////////////////////////////////
 // Global Variables ////////////////////////////////////////////////////////////
@@ -428,6 +428,7 @@ void *RACE_NVKEY_READFULLKEY_RESP_NVID_HDR(ptr_race_pkt_t pCmdMsg, uint8_t chann
 void *RACE_NVKEY_WRITEFULLKEY_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
 #ifdef RACE_CMD_NVDM_ENABLE_DEBUG_LOG
+//ERRRRRRRRRRRR
     RACE_LOG_MSGID_I("RACE_NVKEY_WRITEFULLKEY_HDR, channel_id[%d]", 1, channel_id);
 #endif
 
@@ -436,6 +437,7 @@ void *RACE_NVKEY_WRITEFULLKEY_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 
     RACE_NVKEY_WRITEFULLKEY_CMD_STRU *pCmd = (RACE_NVKEY_WRITEFULLKEY_CMD_STRU *)pCmdMsg;
 #ifdef AIR_RACE_CO_SYS_ENABLE
+ERRRRRRRRRRRRR
     RACE_NVKEY_WRITEFULLKEY_EVT_STRU *pEvt;
     if (nvkey_need_sync(pCmd->NVKEY_ID)) {
         if (s_pEvt_without_id_rsp == NULL) {

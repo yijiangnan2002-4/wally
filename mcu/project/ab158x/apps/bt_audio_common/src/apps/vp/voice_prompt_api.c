@@ -61,6 +61,9 @@
 #if defined(AIR_DCHS_MODE_SLAVE_ENABLE)
 #include "mux_ll_uart_latch.h"
 #endif
+#include "apps_customer_config.h"
+#include "app_bt_state_service.h"
+#include "app_in_ear_idle_activity.h"
 
 #define LOG_TAG   "VP_API"
 
@@ -121,6 +124,25 @@ static voice_prompt_status_t voice_prompt_check_param(voice_prompt_param_t *vp)
 
 voice_prompt_status_t voice_prompt_play(voice_prompt_param_t *vp, uint16_t *play_id)
 {
+bool visi;
+#ifdef EASTECH_SPEC_VP
+if(vp->vp_index == VP_INDEX_PAIRING||vp->vp_index == VP_INDEX_PAIRING_LOOP)
+{
+visi=app_bt_connection_service_get_current_status()->bt_visible;
+       VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING inear play vp=%d ir_senser_in_ear_statu=%d,visi=%d",3,vp->vp_index,ir_senser_in_ear_statu,visi);
+  if((ir_senser_in_ear_statu==1)&&visi)
+  {
+       VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING inear play vp=%d",1,vp->vp_index);
+  }
+  else
+  {
+    VP_LOG_MSGID_I(LOG_TAG" VP_INDEX_PAIRING out ear no need play vp=%d",1,vp->vp_index);
+    return VP_STATUS_SUCCESS;
+  }
+}
+#else
+
+#endif
 #if defined(AIR_DUAL_CHIP_MIXING_MODE_ROLE_SLAVE_ENABLE) || defined(AIR_DCHS_MODE_SLAVE_ENABLE)
 #ifdef AIR_DCHS_MODE_SLAVE_ENABLE
     if (dchs_get_device_mode() != DCHS_MODE_SINGLE) {
@@ -526,7 +548,14 @@ static voice_prompt_status_t voice_prompt_play_sync_vp_x(uint32_t vp_index)
 {
     voice_prompt_param_t vp = {0};
     vp.vp_index = vp_index;
+    if(vp_index==VP_INDEX_MUTE)
+    {
+    vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC|VOICE_PROMPT_CONTROL_MASK_NO_PREEMPTED;
+    }
+    else
+    {
     vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
+    }
     vp.delay_time = VOICE_PROMPT_SYNC_DELAY_MIN;
     return voice_prompt_play(&vp, NULL);
 }
@@ -554,7 +583,7 @@ voice_prompt_status_t voice_prompt_play_sync_vp_succeed()
 
 voice_prompt_status_t voice_prompt_play_sync_vp_mute()
 {
-    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_5);
+    return voice_prompt_play_sync_vp_x(VP_INDEX_MUTE);
 }
 
 voice_prompt_status_t voice_prompt_play_vp_failed()
@@ -570,11 +599,11 @@ voice_prompt_status_t voice_prompt_play_sync_vp_failed()
 // richard for customer UI spec.
 voice_prompt_status_t voice_prompt_play_vp_hearing_through()
 {
-    return voice_prompt_play_vp_x(VP_INDEX_HEARING_THROUGH);
+    return voice_prompt_play_vp_x(VP_INDEX_AWARE);
 }
 voice_prompt_status_t voice_prompt_play_sync_vp_hearing_through()
 {
-    return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_THROUGH);
+    return voice_prompt_play_sync_vp_x(VP_INDEX_AWARE);
 }
 
 #if 0	// for production test
@@ -596,15 +625,15 @@ voice_prompt_status_t voice_prompt_play_sync_vp_ha(uint8_t ha_mode_value)
 {
 	if(ha_mode_value==0)
 	{
-		return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_THROUGH);
+		return voice_prompt_play_sync_vp_x(VP_INDEX_AWARE);
 	}
 	else if(ha_mode_value==1)
 	{
-		return voice_prompt_play_sync_vp_x(VP_INDEX_SPEECH_FOCUS);	
+		return voice_prompt_play_sync_vp_x(VP_INDEX_SPEECH);	
 	}
 	else if(ha_mode_value==2)
 	{
-		return voice_prompt_play_sync_vp_x(VP_INDEX_HEARING_AID_MODE_2);
+		return voice_prompt_play_sync_vp_x(VP_INDEX_COMFORT);
 	}
 	return VP_STATUS_SUCCESS;
 }
@@ -656,11 +685,11 @@ voice_prompt_status_t voice_prompt_play_sync_vp_volume_down()
 
 voice_prompt_status_t voice_prompt_play_vp_speech_focus()
 {
-    return voice_prompt_play_vp_x(VP_INDEX_SPEECH_FOCUS);
+    return voice_prompt_play_vp_x(VP_INDEX_SPEECH);
 }
 voice_prompt_status_t voice_prompt_play_sync_vp_speech_focus()
 {
-    return voice_prompt_play_sync_vp_x(VP_INDEX_SPEECH_FOCUS);
+    return voice_prompt_play_sync_vp_x(VP_INDEX_SPEECH);
 }
 
 voice_prompt_status_t voice_prompt_play_vp_power_off(voice_prompt_control_mask_t mask)
@@ -677,7 +706,7 @@ voice_prompt_status_t voice_prompt_play_vp_power_off(voice_prompt_control_mask_t
 extern uint8_t prompt_no_play_flag;	// richard for UI
 voice_prompt_status_t voice_prompt_play_vp_power_on()
 {
-	if(prompt_no_play_flag) return 0;
+//	if(prompt_no_play_flag) return 0;   // harry mask 0708
 	
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
     app_hear_through_activity_power_on_vp_start_to_play();

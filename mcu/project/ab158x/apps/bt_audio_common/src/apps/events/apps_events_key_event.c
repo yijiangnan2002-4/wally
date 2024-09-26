@@ -95,6 +95,7 @@ static void _apps_key_airo_key_callback(airo_key_event_t event, uint8_t key_data
                 status = ui_shell_send_event(true, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                              APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)isInEar, sizeof(bool),
                                              NULL, 500);
+                    APPS_LOG_MSGID_I(LOG_TAG"sent APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, isInEar = %d", 1, isInEar);
                 if (UI_SHELL_STATUS_OK != status) {
                     vPortFree(isInEar);
                     APPS_LOG_MSGID_I(LOG_TAG"touch sensor event send failed., err = %d", 1, status);

@@ -834,7 +834,7 @@ bool app_hfp_mute_mic(bool mute)
         }
 #endif
       #if 1  //harry for new vp
-      if (mute==TRUE)
+      if (BT_AWS_MCE_ROLE_AGENT == bt_device_manager_aws_local_info_get_role()&&(mute==TRUE))
       {
         voice_prompt_play_sync_vp_mute();
       }

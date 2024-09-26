@@ -318,6 +318,9 @@ extern atci_bt_context_struct_t *atci_bt_cntx_p;
 
 static int16_t bt_sink_srv_cmd_entry(const char *string)
 {
+    atci_response_t response = {{0}, 0};
+    uint32_t volume = 0xffffffff;
+
 #ifdef AIR_BT_SINK_MUSIC_ENABLE
     bt_sink_srv_music_device_t *dev = bt_sink_srv_music_get_device(BT_SINK_SRV_MUSIC_DEVICE_SP, NULL);
 #endif
@@ -636,7 +639,75 @@ static int16_t bt_sink_srv_cmd_entry(const char *string)
         bt_a2dp_set_mtu_size(a2dp_mtu);
 #endif
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("GET_VOLUME,"))) {
-        bt_sink_srv_get_volume(NULL, (uint8_t)strtoul(string + 11, NULL, 10));
+       volume=bt_sink_srv_get_volume(NULL, (uint8_t)strtoul(string + 11, NULL, 10));
+    bt_sink_srv_report_id("[SINK][ATCI] bt_sink_srv_cmd_entry vol::0x%08x,vol=%d", 2, volume,volume);
+        memset(response.response_buf, 0, ATCI_UART_TX_FIFO_BUFFER_SIZE);
+       if(volume==0xffffff0f)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 15");
+        }
+       else if(volume==0xffffff0e)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 14");
+
+        }
+       else if(volume==0xffffff10)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 16");
+
+        }
+       else if(volume==0xffffff0d)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 13");
+
+        }
+       else if(volume==0xffffff0c)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 12");
+
+        }
+       else if(volume==0xffffff0b)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 11");
+
+        }
+       else if(volume==0xffffff0a)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 10");
+        }
+       else if(volume==0xffffff09)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 9");
+        }
+       else if(volume==0xffffff08)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 8");
+        }
+       else if(volume==0xffffff07)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 7");
+        }
+       else if(volume==0xffffff06)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 6");
+        }
+       else if(volume==0xffffff05)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol = 5");
+        }
+       else if(volume==0xffffffff)
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol  error");
+        }
+       else
+        {
+         snprintf((char *)response.response_buf, ATCI_UART_TX_FIFO_BUFFER_SIZE, "vol < 5");
+        }
+
+    response.response_len = strlen((char *)response.response_buf);
+    atci_send_response(&response);
+
+        
     } else if (0 == bt_sink_srv_memcmp(string, CMD_PARAM("SET_VOLUME,"))) {
         uint8_t volume = (uint8_t)strtoul(string + 11, NULL, 10);
         bt_sink_srv_send_action(BT_SINK_SRV_ACTION_SET_VOLUME, &volume);

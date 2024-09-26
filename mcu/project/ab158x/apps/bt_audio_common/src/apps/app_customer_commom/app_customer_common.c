@@ -68,6 +68,7 @@ static const char go_brand[] = " ";
 #define GO_CMD_DATA_LENGHT_MIN (37)//33+2+2
 #define GO_CMD_LENGHT_MAX (64)
 
+uint8_t device_connect_num=0;
 
 void app_spotify_tap_triggle(void)
 {
@@ -347,6 +348,7 @@ void app_set_anc_status_bk(uint8_t status)
 
 }
 
+#define SN_LEN  10
 
 void app_set_ble_write_SN(uint8_t *sn, uint8_t len)
 {
@@ -358,10 +360,10 @@ void app_set_ble_write_SN(uint8_t *sn, uint8_t len)
 	}
 	else
 	{
-		uint8_t local_sn[22] = {0};
-		app_nvkey_sn_read(local_sn, 22);
-		race_debug_print((uint8_t*)local_sn, 22,"sn local1:");
-		apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_DEVICE_SN_COMPARE, (void*)local_sn, 22);
+		uint8_t local_sn[SN_LEN] = {0};
+		app_nvkey_sn_read(local_sn, SN_LEN);
+		race_debug_print((uint8_t*)local_sn, SN_LEN,"sn local1:");
+		apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_DEVICE_SN_COMPARE, (void*)local_sn, SN_LEN);
 	}
 }
 
@@ -382,11 +384,11 @@ void app_set_hw_version(uint8_t *ver, uint8_t len)
 void app_write_sn_compare(uint8_t *sn, uint8_t len)
 {
 
-	if(len == 22)
+	if(len == SN_LEN)
 	{
-		uint8_t local_sn[22] = {0};
-		app_nvkey_sn_read(local_sn, 22);
-		race_debug_print((uint8_t*)local_sn, 22,"sn local2:");
+		uint8_t local_sn[SN_LEN] = {0};
+		app_nvkey_sn_read(local_sn, SN_LEN);
+		race_debug_print((uint8_t*)local_sn, SN_LEN,"sn local2:");
 		
 		if(!memcmp(local_sn, sn, len))
 			sn_cmp_result = 1;
@@ -465,12 +467,27 @@ void app_touch_key_test_status_set(uint8_t status)
 
 uint8_t app_bt_connected_number(void)
 {
+	uint8_t ret;
+	#if 1 // harry fix bug	
+	if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
+		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+	{
+		 ret=device_connect_num;  
+	}
+	else
+	{
+		ret=0xff;  // error or partner
+	}
+	return ret;
+
+	#else
 	uint32_t conn_num = 0;
 	bt_bd_addr_t addr_list[3] ={{0}};
 	conn_num = bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK_NONE, addr_list, 3);
 	if(conn_num>1)
 		conn_num = (conn_num-1);
 	return (conn_num&0xff);
+	#endif
 }
 
 #if 0

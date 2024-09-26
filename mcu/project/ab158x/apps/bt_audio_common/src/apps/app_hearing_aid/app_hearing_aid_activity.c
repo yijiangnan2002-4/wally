@@ -132,9 +132,9 @@ extern uint32_t sub_chip_version_get();
 
 static const uint8_t app_hearing_aid_mode_vp_index_list[] = {
   #if 1 //harry for vp 20240513
-    VP_INDEX_HEARING_THROUGH,
-    VP_INDEX_SPEECH_FOCUS,
-    VP_INDEX_HEARING_AID_MODE_2,
+    VP_INDEX_AWARE,
+    VP_INDEX_SPEECH,
+    VP_INDEX_COMFORT,
   #else
     VP_INDEX_HEARING_AID_MODE_1,
     VP_INDEX_HEARING_AID_MODE_2,
@@ -188,6 +188,7 @@ typedef struct {
 app_hearing_aid_activity_context_t  app_ha_activity_context;
 
 bool app_feedback_detection_directly = false;
+extern void key_anc_ha_display_proc(void);
 
 bool app_hearing_aid_activity_is_out_case()
 {
@@ -257,8 +258,13 @@ void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
                                                     0);
     } else {
 #endif /* AIR_TWS_ENABLE */
-        voice_prompt_play(&vp, NULL);
+        voice_prompt_play(&vp, NULL);
 #ifdef AIR_TWS_ENABLE
+    }
+    if(vp_index==42||vp_index==47||vp_index==51)  // harry add for case ui display
+    {
+		//anc_ha_mode_disp_proc();
+		key_anc_ha_display_proc();
     }
 #endif /* AIR_TWS_ENABLE */
 }
@@ -285,8 +291,8 @@ void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 extern uint8_t prompt_no_play_flag;	// richard for UI
 void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 {
-    APPS_LOG_MSGID_I("app_hearing_aid_activity_play_mode_index_vp  prompt_no_play_flag=%d",1,prompt_no_play_flag);
-	if(prompt_no_play_flag==0)
+    APPS_LOG_MSGID_I("app_hearing_aid_activity_play_mode_index_vp  prompt_no_play_flag=%d,index=%d,need_sync=%d",3,prompt_no_play_flag,index,need_sync);
+	if(prompt_no_play_flag==0)   // 在切HA的时候，如果prompt_no_play_flag=1，已经播放过VP了。在这禁止再播放。harry mask for play vp bug 0708
 	{
     		app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
 	}
@@ -2152,7 +2158,7 @@ static bool app_hearing_aid_activity_proc_app_interaction(uint32_t event_id,
                             timeout);
 
         app_ha_activity_context.is_in_ear = is_in_ear;
-
+      APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_app_interaction] user switch=%d,inited=%d",2,user_switch , app_ha_activity_context.inited);
         if ((user_switch == false) || (app_ha_activity_context.inited == false)) {
             return false;
         }
@@ -2171,6 +2177,7 @@ static bool app_hearing_aid_activity_proc_app_interaction(uint32_t event_id,
                 app_anc_service_resume();
             }
             app_hearing_aid_activity_pre_proc_operate_ha(caused_by_which, true, false);
+            APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_app_interaction] on == false return flase",0);
             return false;
         }
 
@@ -2188,11 +2195,13 @@ static bool app_hearing_aid_activity_proc_app_interaction(uint32_t event_id,
                                 0,
                                 NULL,
                                 timeout);
+            APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_app_interaction] sent APP_HEARING_AID_EVENT_ID_REQUEST_TO_RESUME_ANC",0);
         } else {
             /**
              * @brief Fix issue - 45772, do not disable HA, but suspend ANC.
              */
             app_anc_service_suspend();
+            APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_proc_app_interaction]  action app_anc_service_suspend",0);
             // app_hearing_aid_activity_disable_hearing_aid(false);
         }
     }

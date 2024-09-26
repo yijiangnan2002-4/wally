@@ -129,7 +129,8 @@ log_create_module(SM_CHG, PRINT_LEVEL_INFO);
 #define CASE_CURRENT_LIMIT		0x0A
 #define CASE_SHIPPING_MODE		0x0B
 #define CASE_EOC_CHECKING		0x0C
-#define CASE_RESERVE_MAX		0x0D
+#define CASE_SIRK_KEY			0x0D
+#define CASE_RESERVE_MAX		0x0E
 
 #define SMCHG_MUX_RX_DATA_SIZE  32
 #define SMCHG_MUX_TX_BUFF_SIZE  1024
@@ -172,7 +173,8 @@ const uint8_t smchg_app_table[] = {
     DRV_CHARGER_EVENT_REVERSION_REPORT,		// richard for UI spec.
     DRV_CHARGER_EVENT_CHARGING_CURRENT_LIMIT,
     DRV_CHARGER_EVENT_SHIPPING_MODE_ENABLE,
-    DRV_CHARGER_EVENT_EOC_CHECKING
+    DRV_CHARGER_EVENT_EOC_CHECKING,			// 0x0c
+    DRV_CHARGER_EVENT_SIRK_KEY				// 0x0d
 };
 
 static uint8_t raceEvt[] = {
@@ -1221,7 +1223,8 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
             uint32_t data = 0;
             uint16_t data_len = 0;
 
-            if (raceCmd[CMD_ID] == CASE_LID_OPEN || raceCmd[CMD_ID] == CASE_CHARGER_OFF) {
+            if (raceCmd[CMD_ID] == CASE_LID_OPEN || raceCmd[CMD_ID] == CASE_CHARGER_OFF|| 
+			raceCmd[CMD_ID] == CASE_BATTER_LEVEL|| raceCmd[CMD_ID] == CASE_LID_CLOSE) {
                 data = raceCmd[BAT_LV];
                 data_len = 1;
             } else if (raceCmd[CMD_ID] == CASE_CHARGER_KEY) {
@@ -1231,6 +1234,7 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
 			|| (raceCmd[CMD_ID] == CASE_BT_CONNECTED)
 			|| (raceCmd[CMD_ID] == CASE_CURRENT_LIMIT)
 			|| (raceCmd[CMD_ID] == CASE_EOC_CHECKING)
+			|| (raceCmd[CMD_ID] == CASE_SIRK_KEY)
 			|| (raceCmd[CMD_ID] == CASE_SHIPPING_MODE)) {
                 data = raceCmd[DATA];
                 data_len = 1;
@@ -1261,7 +1265,12 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
 			}
 			else if (raceCmd[CMD_ID] == CASE_BT_CONNECTED)
 			{
-				raceEvt[DATA] = app_bt_connected_number();
+				if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT
+				&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+				{
+					raceEvt[DATA] = app_bt_connected_number();  // harry 0726
+				}
+
 			}
 			else if (raceCmd[CMD_ID] == CASE_LID_CLOSE)
 			{

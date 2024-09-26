@@ -67,6 +67,8 @@ extern "C" {
 * @param[in]  data_len, the length of the extra data. 0 means extra_data is NULL.
 * @return     If return true, the current event cannot be handle by the next activity.
 */
+
+extern uint8_t ir_senser_in_ear_statu; 
 bool app_in_ear_activity_proc(ui_shell_activity_t *self,
                               uint32_t event_group,
                               uint32_t event_id,

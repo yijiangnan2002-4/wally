@@ -344,8 +344,8 @@ void key_avrcp_next_proc(uint8_t vol_m_flag)			// 0: VOLUP_DP, 1: MBUTTON_DP
 		}
 		else
 		{
-			*p_key_action = KEY_SWITCH_WORLD_MODE;
-			//*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
+			//*p_key_action = KEY_SWITCH_WORLD_MODE;
+			*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
       
 		}
 	}
@@ -402,13 +402,41 @@ void key_send_address_proc(void)
     	}		
 }
 
+void key_write_sirk_proc(void)
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t));
+    	if (p_key_action)
+	{
+		*p_key_action = KEY_WRITE_SIRK_KEY;
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 100);
+    	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}		
+}
+
+void key_anc_ha_display_proc(void)
+{
+	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t));
+    	if (p_key_action)
+	{
+		*p_key_action = KEY_ANC_HA_DISPLAY;
+		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 300);
+    	}
+    	else
+    	{
+        	vPortFree(p_key_action);
+    	}		
+}
+
 void key_switch_anc_and_passthrough_proc(void)
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
     	if (p_key_action)
 	{
-		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH1;
-		//*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH;
+		//*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH1;
+		*p_key_action = KEY_SWITCH_ANC_AND_PASSTHROUGH;
     
 		ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 50);
     	}
@@ -1553,6 +1581,18 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 			}
 
 #ifdef ALWAYS_PLAY_PAIRING_VP
+	    case EVENT_ID_EASTECH_PRE_PAIR_VP:	
+		    log_hal_msgid_info("_proc_customer_common VP_INDEX_PAIRING EVENT_ID_EASTECH_PRE_PAIR_VP",0);
+           app_eastech_voice_prompt_play_pairing();
+           ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_CALLBACK_PAIR_VP);
+         	ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
+                           EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
+                           (uint32_t)EVENT_ID_EASTECH_CALLBACK_PAIR_VP,
+                           NULL, 0,
+                           NULL, VP_PLAY_INTERVAL);
+		break;
+
+
 	    case EVENT_ID_EASTECH_CALLBACK_PAIR_VP:	
 		log_hal_msgid_info("_proc_customer_common EASTECH_CALLBACK_PAIR_VP",0);
 		app_eastech_pair_vp_callback();
@@ -1567,6 +1607,8 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 	return ret;
 
 }
+#define SN_LEN  10
+
 static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32_t event_id, void *extra_data, size_t data_len)
 {
     bool ret = false;
@@ -1719,7 +1761,7 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 
 				case EVENT_ID_DEVICE_SN_SYNC:
 					race_debug_print((uint8_t*)p_extra_data, extra_data_len,"sn sync:");
-					app_set_ble_write_SN((uint8_t*)p_extra_data, 22);
+					app_set_ble_write_SN((uint8_t*)p_extra_data, SN_LEN);
 					ret = true;
 					break;
 
@@ -2000,7 +2042,7 @@ void app_eastech_pair_vp_callback(void )
 		{
 			voice_prompt_param_t vp;
 			memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
-			vp.vp_index = VP_INDEX_PAIRING;
+			vp.vp_index = VP_INDEX_PAIRING_LOOP;
 			//vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC | VOICE_PROMPT_CONTROL_MASK_LOOP | VOICE_PROMPT_CONTROL_MASK_PREEMPT;
 			vp.control = VOICE_PROMPT_CONTROL_MASK_SYNC;
 			vp.delay_time = 200;
@@ -2016,7 +2058,7 @@ void app_eastech_pair_vp_callback(void )
 	{
 		/*device connected or connection time out*/
 		APPS_LOG_MSGID_I("app_eastech_pair_vp_callback: STOP PAIRING Voice Prompt", 0);
- 		voice_prompt_stop(VP_INDEX_PAIRING,VOICE_PROMPT_ID_INVALID,false);
+ 		voice_prompt_stop(VP_INDEX_PAIRING_LOOP,VOICE_PROMPT_ID_INVALID,false);
 	}
 }	
 #endif
