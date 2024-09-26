@@ -247,7 +247,9 @@ static bool app_multi_va_proc_bt_cm_group(ui_shell_activity_t *self,
                     && (BT_AWS_MCE_ROLE_AGENT == role || BT_AWS_MCE_ROLE_NONE == role)
 #endif
                    ) {
-                   if(remote_update->reason!=BT_HCI_STATUS_PIN_OR_KEY_MISSING)
+                   	APPS_LOG_MSGID_I(LOG_TAG"SP disconnected, remove adv remote_update->reason=0x%x", 1,remote_update->reason);
+
+                   if(remote_update->reason!=BT_HCI_STATUS_PIN_OR_KEY_MISSING&&remote_update->reason!=BT_HCI_STATUS_PAGE_TIMEOUT)
                      {
 	                    APPS_LOG_MSGID_I(LOG_TAG"SP disconnected, remove adv", 0);
 	                    if (!multi_voice_assistant_manager_enable_adv(false)) {
@@ -479,6 +481,7 @@ bool app_multi_va_idle_activity_proc(ui_shell_activity_t *self,
 
 void start_default_ble_adv(void)    // harry for after on entry BLE boardcast by airoha patch
 {
+       APPS_LOG_MSGID_I(LOG_TAG"start_default_ble_adv", 0);
 	multi_voice_assistant_manager_enable_adv(true);
 	multi_ble_adv_manager_remove_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func);
 	multi_ble_adv_manager_add_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func, 1);
@@ -487,6 +490,7 @@ void start_default_ble_adv(void)    // harry for after on entry BLE boardcast by
 
 void default_ble_adv_update(void)  // harry for after on entry BLE boardcast by airoha patch
 {
+       APPS_LOG_MSGID_I(LOG_TAG"default_ble_adv_update", 0);
 	multi_ble_adv_manager_remove_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func);
 	multi_ble_adv_manager_add_ble_adv(MULTI_ADV_INSTANCE_DEFAULT, get_default_ble_adv_data_func, 1);
 	multi_ble_adv_manager_notify_ble_adv_data_changed(MULTI_ADV_INSTANCE_DEFAULT);
