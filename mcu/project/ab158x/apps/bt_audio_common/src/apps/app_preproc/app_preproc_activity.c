@@ -422,6 +422,14 @@ static bool pre_proc_app_interaction_event_proc(ui_shell_activity_t *self, uint3
             if (extra_data) {
                 bool *in_ear = (bool *)extra_data;
                 key_porc_in_ear_statu = *in_ear;
+                if(key_porc_in_ear_statu)
+                  {
+                  bt_sink_srv_set_mute(BT_SINK_SRV_MUTE_SPEAKER, FALSE);
+                  }
+                else
+                  {
+                  bt_sink_srv_set_mute(BT_SINK_SRV_MUTE_SPEAKER, TRUE);
+                  }
              APPS_LOG_MSGID_I("app_preproc APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT inear= %d", 1,key_porc_in_ear_statu);
                 if(key_porc_in_ear_statu)
                   {

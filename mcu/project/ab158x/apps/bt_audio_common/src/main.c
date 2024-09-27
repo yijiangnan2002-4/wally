@@ -140,6 +140,9 @@
 
 /* Private functions ---------------------------------------------------------*/
 
+extern void key_write_sirk_proc(void);		// alex for LE spec.
+extern void write_sirk_key_proc(void);
+
 /* It will be called in platform_assert function.
  */
 void exception_platform_assert_hook()
@@ -301,12 +304,14 @@ int main(void)
     bt_app_common_init();
     ami_audio_setting_init(); // add forfix anc gain setting L/r EARBUD 
     apps_init();
-	
+	write_sirk_key_proc();
     /* Call this function to indicate the system initialize done. */
     hal_core_status_write(HAL_CORE_MCU, HAL_CORE_ACTIVE);
 	
     /* Start the scheduler. */
     vTaskStartScheduler();
+
+    //key_write_sirk_proc();
     /* If all is well, the scheduler will now be running, and the following line
     will never be reached.  If the following line does execute, then there was
     insufficient FreeRTOS heap memory available for the idle and/or timer tasks
