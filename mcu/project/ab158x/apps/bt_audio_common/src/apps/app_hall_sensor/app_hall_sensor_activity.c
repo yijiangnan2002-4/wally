@@ -153,7 +153,7 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_RESUME_ANC);
 					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_PAUSE_ANC);
 					ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
-										EVENT_ID_HALL_SENSOR_PAUSE_ANC, NULL, 0, NULL, 500);
+										EVENT_ID_HALL_SENSOR_PAUSE_ANC, NULL, 0, NULL, 1200);
 
 //					ui_shell_remove_event(EVENT_GROUP_UI_SHELL_HALL_SENSOR, EVENT_ID_HALL_SENSOR_KEY_LIMIT);
 //					app_key_limit_set(true);

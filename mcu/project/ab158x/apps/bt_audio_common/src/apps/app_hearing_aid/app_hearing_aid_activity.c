@@ -592,7 +592,8 @@ bool app_hearing_aid_activity_process_race_cmd(void *race_data, size_t race_data
 			{
 		            need_disable_irsenser=0;
 			}
-                APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_process_race_cmd] need_disable_irsenser=%d, request->op_parameter[0]=%d", 2,need_disable_irsenser,request->op_parameter[0]);
+                	APPS_LOG_MSGID_I(APP_HA_ACTIVITY_TAG"[app_hearing_aid_activity_process_race_cmd] need_disable_irsenser=%d, request->op_parameter[0]=%d", 2,need_disable_irsenser,request->op_parameter[0]);
+			apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_FROM_TESTCMD_IRSENSER,(void*)&need_disable_irsenser,1);
 
 		}
 

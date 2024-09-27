@@ -48,6 +48,7 @@
 #include "app_bt_state_service.h"
 #include "app_home_screen_idle_activity.h"
 #include "app_music_utils.h"
+#include "app_hearing_aid_activity.h"
 
 #ifdef BATTERY_HEATHY_ENABLE
 //calculate when in case after 5s, so need power on or out of case more than 1min, and keep charge in case more than 5s
@@ -454,7 +455,7 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 			*p_key_action = KEY_HEARING_AID_LEVEL_UP;
 		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_HEARING_AID_LEVEL_UP", 0);
 		}
-			if((*p_key_action == KEY_HEARING_AID_LEVEL_UP)&&l_level_index==4)
+			if((*p_key_action == KEY_HEARING_AID_LEVEL_UP)&&l_level_index==3)
 				{
 				volkey_val=4;
 				}
@@ -535,7 +536,7 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 			*p_key_action = KEY_HEARING_AID_LEVEL_DOWN;
 		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_HEARING_AID_LEVEL_DOWN key=0x%x", 1,*p_key_action);
 		}
-			if((*p_key_action == KEY_HEARING_AID_LEVEL_DOWN)&&l_level_index==6)
+			if((*p_key_action == KEY_HEARING_AID_LEVEL_DOWN)&&l_level_index==5)
 				{
 				volkey_val=3;
 				}
@@ -2275,6 +2276,13 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 
 			    }
 				break;
+				
+			    case EVENT_ID_EASTECH_FROM_TESTCMD_IRSENSER:	{
+					need_disable_irsenser=*(uint8_t*)p_extra_data;
+					APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc EVENT_ID_EASTECH_FROM_TESTCMD_IRSENSER need_disable_irsenser= 0x%x", 1, *(uint8_t*)p_extra_data);
+				}
+					break;
+
 				
 			    case EVENT_ID_EASTECH_VOLUME_VP:	{
 					uint8_t tmp_val;
