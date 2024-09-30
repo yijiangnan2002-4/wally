@@ -654,6 +654,23 @@ voice_prompt_status_t voice_prompt_play_sync_vp_ha(uint8_t ha_mode_value)
 	return VP_STATUS_SUCCESS;
 }
 
+voice_prompt_status_t voice_prompt_play_local_vp_ha(uint8_t ha_mode_value)
+{
+	if(ha_mode_value==0)
+	{
+		return voice_prompt_play_vp_x(VP_INDEX_AWARE);
+	}
+	else if(ha_mode_value==1)
+	{
+		return voice_prompt_play_vp_x(VP_INDEX_SPEECH);	
+	}
+	else if(ha_mode_value==2)
+	{
+		return voice_prompt_play_vp_x(VP_INDEX_COMFORT);
+	}
+	return VP_STATUS_SUCCESS;
+}
+
 voice_prompt_status_t voice_prompt_play_vp_anc_on()
 {
     return voice_prompt_play_vp_x(VP_INDEX_ANC_ON);

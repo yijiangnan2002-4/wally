@@ -765,6 +765,7 @@ static void app_hear_through_activity_handle_ambient_control_switch()
      * @brief Make the anc_changed to be true firstly
      */
     app_hear_through_ctx.is_anc_changed = true;
+    bool is_aws_connected = app_hearing_aid_aws_is_connected();
 
     switch (app_hear_through_ctx.mode_index) {
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_OFF: {
@@ -775,7 +776,7 @@ static void app_hear_through_activity_handle_ambient_control_switch()
         }
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH: {
-            APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable Hear Through", 0);
+            APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable Hear Through is_aws_connected=%d", 1,is_aws_connected);
             app_hear_through_ctx.trigger_from_key = true;
             /**
              * @brief if change to hear through mode, make it to be false.
@@ -808,12 +809,17 @@ static void app_hear_through_activity_handle_ambient_control_switch()
 		uint8_t mode_index = 0;
 		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
         	prompt_no_play_flag=1;  // 设这个标志1，播放HA VP后，不要再重复播放
+        	if(is_aws_connected){
   		voice_prompt_play_sync_vp_ha(mode_index);
+    		}
+		else{
+		voice_prompt_play_local_vp_ha(mode_index);	
+		}
         #endif
         }
         break;
         case APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC: {
-            APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable ANC", 0);
+            APPS_LOG_MSGID_I(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_handle_ambient_control_switch] Enable ANC is_aws_connected=%d", 1,is_aws_connected);
           #ifdef MTK_IN_EAR_FEATURE_ENABLE   // harry for ha/anc bug
             {
                 bool anc_suspended = app_anc_service_is_suspended();
@@ -830,7 +836,12 @@ static void app_hear_through_activity_handle_ambient_control_switch()
             prompt_no_play_flag=0; // 撤销这个标志，操作双击可以播放HA VP
 
     		// richard for customer UI spec.
-    		voice_prompt_play_sync_vp_anc_on();			
+        	if(is_aws_connected){
+    		voice_prompt_play_sync_vp_anc_on();		
+    		}
+		else{
+		voice_prompt_play_vp_anc_on();	
+		}
         }
         break;
         default:
