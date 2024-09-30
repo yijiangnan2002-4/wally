@@ -364,6 +364,8 @@ race_port_user_t *race_search_user_by_name(race_port_info_t *port_info, const ch
 void race_core_init(void);
 void race_task(void *arg);
 
+void audeara_race_cmd_local_handler(race_port_t port, uint8_t *race_pkt, uint8_t frame, uint8_t budstate);
+void audeara_race_handle_input_data(race_general_msg_t *p_msg, uint8_t frame);
 
 #ifdef __cplusplus
 }

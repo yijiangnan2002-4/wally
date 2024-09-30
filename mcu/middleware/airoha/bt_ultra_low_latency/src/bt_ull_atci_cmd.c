@@ -52,6 +52,8 @@
 #include "bt_connection_manager.h"
 #include "bt_timer_external.h"
 
+#include "bt_ull_audeara.h"
+
 
 
 //defined.
@@ -648,5 +650,55 @@ void BT_send_data_proc(void)
 	}
 #endif
 }
+
+void Audeara_BT_send_notify_proc(uint8_t * data, uint16_t length)
+{
+   // if(AudearaGetNotificationState())
+   // {
+         Audeara_BT_send_data_proc(AUA_BUDSFRAME_SEND_RACE_CMD_RESP, data, length);
+   // }  
+}
+
+void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length)
+{
+    bt_bd_addr_t addr_list = {0};
+    uint8_t buffer[512] = {0};// Max msg size
+    uint16_t tot_length = 0;
+    buffer[0] = 0x0A; // Audeara return command type
+    buffer[1] = frame;
+    buffer[2] = (length >> 8) & 0xFF;
+    buffer[3] = (length & 0xFF);
+    memcpy(&buffer[4], data, length); // Copy payload into buffer
+    tot_length = length + 4;
+
+	if (bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_ULL), &addr_list, 1))
+	{
+		bt_ull_user_data_t tx_data;
+		tx_data.user_data_length = tot_length; //total len, not payload length
+		tx_data.user_data = buffer;
+		bt_ull_action(BT_ULL_ACTION_TX_USER_DATA, &tx_data, sizeof(tx_data));
+//		APPS_LOG_MSGID_I("app Send user data by ULL headset", 0);
+	}
+#if defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
+	else
+	{
+        bt_bd_addr_t address_list[BT_ULL_LE_MAX_LINK_NUM]= {0};
+        uint8_t i;
+		bt_ull_user_data_t tx_data;
+		tx_data.user_data_length = tot_length; //total len, not payload length
+		tx_data.user_data = buffer;
+		for(i=0; i<BT_ULL_LE_MAX_LINK_NUM; i++)
+		{
+			if(bt_ull_le_srv_get_connected_addr_by_link_index(i, &address_list[i]) == true)
+			{
+				memcpy(tx_data.remote_address, address_list[i], sizeof(bt_bd_addr_t));
+				bt_ull_action(BT_ULL_ACTION_TX_USER_DATA, &tx_data, sizeof(tx_data));
+			}
+		}
+//		APPS_LOG_MSGID_I("app Send user data by ULL headset LE", 0);
+	}
+#endif
+}
+
 #endif
 

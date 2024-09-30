@@ -35,6 +35,7 @@
 
 #include "race_cmd_feature.h"
 #include "race_noti.h"
+#include "bt_ull_audeara.h"
 
 
 RACE_ERRCODE race_send_delay_noti_msg(void *noti, uint8_t channel_id)
@@ -87,7 +88,7 @@ RACE_ERRCODE race_noti_send(void *noti,
         /* noti will be freed by race_noti_delay_msg_process() if RACE_ERRCODE_SUCCESS is returned. */
         ret = race_send_delay_noti_msg(noti, channel_id);
     }
-
+    Audeara_BT_send_notify_proc((uint8_t *)noti, sizeof(noti));
     //RACE_LOG_MSGID_I("ret:%x", 1, ret);
     return ret;
 }
