@@ -67,7 +67,7 @@
 #include "race_cmd_relay_cmd.h"
 
 #include "app_hear_through_race_cmd_handler.h"
-
+uint8_t reply_buf[2048] = {0}; // Some bookeeping bytes for status
 
 bool aua_notification_state = true; // placeholder this as true for
 
@@ -3663,7 +3663,6 @@ void AudearaSetNotificationState(bool audeara_notification_state)
 void audeara_ab1571d_data_processing(AUDEARA_BTULL_MESSAGE_FRAMES_T frame, uint8_t * data, uint16_t length)
  {
      bt_bd_addr_t *mac = {0}; 
-     uint8_t reply_buf[512] = {0}; // Some bookeeping bytes for status
      switch(frame)
      {
         case AUA_BUDSFRAME_READ_SYSTEM_STATUS:
@@ -3680,13 +3679,11 @@ void audeara_ab1571d_data_processing(AUDEARA_BTULL_MESSAGE_FRAMES_T frame, uint8
             if(data[0] == 0) // No realy, send to master bud    
             {
                 //data[2] = 0x05, 3 = 0x5A, 4 = length 1, 5 = length 2, 6 = ID1, 7 = ID2
-                if(data[6] == 0x87 && data[7] == 0x2C) // OPCODE for Hearing aid commands
-                {
-                    #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
-                        app_hear_through_race_cmd_handler((void*)&data[2], (length-2), data[1]);
-                    #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
-                }
-                else
+               // if(data[6] == 0x87 && data[7] == 0x2C) // OPCODE for Hearing aid commands
+                //{
+                 //       app_hear_through_race_cmd_handler((ptr_race_pkt_t)&data[2], (length-2), data[1]);
+               // }
+                //else
                 {
                     audeara_race_cmd_local_handler(SERIAL_PORT_DEV_UNDEFINED, &data[2], AUA_BUDSFRAME_SEND_RACE_CMD, 0);
                 }
@@ -3704,18 +3701,8 @@ void audeara_ab1571d_data_processing(AUDEARA_BTULL_MESSAGE_FRAMES_T frame, uint8
                 reply_buf[7] = 0x06;
 
                 memcpy(&reply_buf[8], &data[2], (length - 2));
-
-                if(data[6] == 0x87 && data[7] == 0x2C) // OPCODE for Hearing aid commands
-                {
-                    #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
-                        app_hear_through_race_cmd_handler((void*)&data[2], (length-2), data[1]);
-                    #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
-                }
                 
-                else
-                {
-                    audeara_race_cmd_local_handler(data[1], reply_buf, AUA_BUDSFRAME_SEND_RACE_CMD, 1);
-                }
+                audeara_race_cmd_local_handler(data[1], reply_buf, AUA_BUDSFRAME_SEND_RACE_CMD, 1);
             }
                 break;
         case AUA_BUDSFRAME_SEND_RACE_CMD_RESP:
