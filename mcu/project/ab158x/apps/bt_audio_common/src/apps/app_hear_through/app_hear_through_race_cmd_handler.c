@@ -46,6 +46,9 @@
 #include "race_port_bt.h"
 #endif /* MTK_IAP2_VIA_MUX_ENABLE */
 
+#include "bt_ull_audeara.h"
+
+extern void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length);
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 
 #define APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG        "[HearThrough][RACE_CMD_HANDLER]"
@@ -85,10 +88,16 @@ void app_hear_through_send_command(uint8_t race_type, hear_through_response_t *c
     hear_through_response_t *response = (hear_through_response_t *)response_packet;
     memcpy(response, cmd, HEAR_THROUGH_COMMAND_LEN);
 
+
+
     if ((data != NULL) && (data_len != 0)) {
         memcpy(response->payload, data, data_len);
     }
 
+    if(race_type == RACE_TYPE_RESPONSE)
+    {
+        Audeara_BT_send_data_proc(0x04, (void*)response, cmd_len);
+    }
     race_flush_packet(response_packet, app_hear_through_race_cmd_context.channel_id);
 }
 
@@ -249,7 +258,7 @@ void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *
 
         void *response_packet = RACE_ClaimPacket(RACE_TYPE_NOTIFICATION,
                                                     RACE_ID_APP_HEAR_THROUGH_CONFIG,
-                                                    notify_len,
+                                                    notify_len, 
                                                     notify_channel_list[notify_channel_index]);
 
         if (response_packet == NULL) {
@@ -262,7 +271,7 @@ void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *
         hear_through_notification_t *notify = (hear_through_notification_t *)response_packet;
         notify->type = config_type;
         memcpy(notify->payload, data, data_len);
-
+        Audeara_BT_send_notify_proc((void*)notify, (notify_len + data_len));
         race_flush_packet(response_packet, notify_channel_list[notify_channel_index]);
     }
 
