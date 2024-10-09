@@ -230,6 +230,9 @@ static TimerHandle_t g_psap_one_shot_timer = NULL;
 extern bool app_hear_through_activity_is_out_case();
 extern bool app_hearing_aid_activity_is_power_off();
 extern void anc_set_HA_PSAP_handler_callback(ha_psap_handler handler, ha_psap_fade_out fade_out_function);
+#if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+extern void anc_psap_control_mic(U8 mic_enable, audio_anc_control_type_t anc_type, audio_anc_control_filter_id_t anc_id);
+#endif
 uint32_t *hal_audio_query_llf_share_info(U32 index);
 audio_psap_status_t audio_anc_psap_control_trial_run(ha_trial_run_event_t event, U32 data_len, void* data);
 audio_psap_status_t audio_anc_psap_control_disable_extend_internal(uint8_t fwk_action);
@@ -375,8 +378,11 @@ void audio_anc_psap_control_get_input_data_order(U32 *channel_num, U32 data_orde
     } else if (usr_setting->psap_bf_config_t.bf_switch) {
         bf_switch_tmp = (U8)usr_setting->psap_bf_config_t.bf_switch;
     }
-
+#if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+    if (1 | usr_setting->WNR_switch | bf_switch_tmp) {
+#else
     if (usr_setting->WNR_switch | bf_switch_tmp) {
+#endif
         ha_data_order[index++] = LLF_DATA_TYPE_REAR_L;
         ha_data_order[index++] = LLF_DATA_TYPE_TALK;
     } else if (g_ha_ctrl.usr_setting.psap_master_mic_ch == 2) {
@@ -1310,6 +1316,38 @@ audio_psap_status_t audio_anc_psap_control_set_specific_mode_table(U8 mode_index
                         mic_ctrl->ff_enable = 1;
                         mic_ctrl->talk_enable = 0;
                     }
+                #if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+                    psap_mode_nvdm_t* now_mode_config = &usr_setting->psap_mode[mode_index];
+                    psap_mode_nvdm_t mode_config = {  .mfa_switch_l = now_mode_config->mfa_switch_l,
+                                                .mfa_switch_r = now_mode_config->mfa_switch_r,
+                                                .low_cut_switch_l = now_mode_config->low_cut_switch_l,
+                                                .low_cut_switch_r = now_mode_config->low_cut_switch_r,
+                                                .nr_switch = now_mode_config->nr_switch ,
+                                                .nr_level = now_mode_config->nr_level,
+                                                .beamforming_switch = bf_switch_tmp};
+
+                    llf_control_runtime_config_t config = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, HA_RUNTIME_CONFIG_EVENT_MODE_TABLE, (U32)mode_index};
+                    U32 config_len = sizeof(llf_control_runtime_config_t);
+                    U32 mode_table_len = sizeof(psap_mode_table_t);
+                    U32 para_len = config_len + mode_table_len;
+                    void* malloc_ptr = pvPortMalloc(para_len);
+                    llf_control_cap_t psap_cap = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, 0, 0, 0, 0, (U32)malloc_ptr, para_len};
+
+                    memcpy(malloc_ptr, &config, config_len);
+
+                    malloc_ptr += config_len;
+                    memcpy(malloc_ptr, &mode_config, mode_table_len);
+
+                    res = llf_control(LLF_CONTROL_EVENT_RUNTIME_CONFIG, &psap_cap);
+
+                    U32 mic_input_path;
+                    audio_anc_control_filter_id_t      target_filter_id;
+                    audio_anc_control_type_t           target_anc_type;
+                    audio_anc_psap_control_get_mic_input_path(&mic_input_path);
+                    target_anc_type      = AUDIO_ANC_CONTROL_TYPE_PT_HA_PSAP | mic_input_path;
+                    target_filter_id     = AUDIO_ANC_CONTROL_HA_PSAP_FILTER_DEFAULT; //1~4
+                    anc_psap_control_mic(mic_ctrl->ff_enable << FF_ENABLE | mic_ctrl->fb_enable << FB_ENABLE | mic_ctrl->talk_enable << TALK_ENABLE, target_anc_type, target_filter_id);
+                #endif
                     g_ha_ctrl.dl_mute_dur_ha_off = DL_MUTE_TIME_HA_RESET;
 
                     return res;
@@ -1454,6 +1492,24 @@ audio_psap_status_t audio_anc_psap_control_set_wnr_switch(bool enable)
             }
             g_ha_ctrl.dl_mute_dur_ha_off = DL_MUTE_TIME_HA_RESET;
 
+        #if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+            U32 para_len = sizeof(llf_control_runtime_config_t);
+            void *malloc_ptr = pvPortMalloc(para_len);
+            llf_control_cap_t psap_cap = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, 0, 0, 0, 0, (U32)malloc_ptr, para_len};
+            llf_control_runtime_config_t config = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, HA_RUNTIME_CONFIG_EVENT_WNR_SWITCH, (U32)(enable ? 1 : 0)};
+
+            memcpy(malloc_ptr, &config, para_len);
+            res = llf_control(LLF_CONTROL_EVENT_RUNTIME_CONFIG, &psap_cap);
+
+            U32 mic_input_path;
+            audio_anc_control_filter_id_t      target_filter_id;
+            audio_anc_control_type_t           target_anc_type;
+            audio_anc_psap_control_get_mic_input_path(&mic_input_path);
+            target_anc_type      = AUDIO_ANC_CONTROL_TYPE_PT_HA_PSAP | mic_input_path;
+            target_filter_id     = AUDIO_ANC_CONTROL_HA_PSAP_FILTER_DEFAULT; //1~4
+            anc_psap_control_mic(mic_ctrl->ff_enable << FF_ENABLE | mic_ctrl->fb_enable << FB_ENABLE | mic_ctrl->talk_enable << TALK_ENABLE, target_anc_type, target_filter_id);
+        #endif
+
         } else {
 
             U32 para_len = sizeof(llf_control_runtime_config_t);
@@ -1531,6 +1587,24 @@ audio_psap_status_t audio_anc_psap_control_set_beamforming_setting(psap_bf_confi
                     mic_ctrl->talk_enable = 0;
                 }
                 g_ha_ctrl.dl_mute_dur_ha_off = DL_MUTE_TIME_HA_RESET;
+            #if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+                U8* p = (U8*)BF_config;
+                U32 para_len = sizeof(llf_control_runtime_config_t);
+                void* malloc_ptr = pvPortMalloc(para_len);
+                llf_control_cap_t psap_cap = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, 0, 0, 0, 0, (U32)malloc_ptr, para_len};
+                llf_control_runtime_config_t config = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, HA_RUNTIME_CONFIG_EVENT_BF_CONFIG, (U32)(*p)};
+
+                memcpy(malloc_ptr, &config, para_len);
+                res = llf_control(LLF_CONTROL_EVENT_RUNTIME_CONFIG, &psap_cap);
+
+                U32 mic_input_path;
+                audio_anc_control_filter_id_t      target_filter_id;
+                audio_anc_control_type_t           target_anc_type;
+                audio_anc_psap_control_get_mic_input_path(&mic_input_path);
+                target_anc_type      = AUDIO_ANC_CONTROL_TYPE_PT_HA_PSAP | mic_input_path;
+                target_filter_id     = AUDIO_ANC_CONTROL_HA_PSAP_FILTER_DEFAULT; //1~4
+                anc_psap_control_mic(mic_ctrl->ff_enable << FF_ENABLE | mic_ctrl->fb_enable << FB_ENABLE | mic_ctrl->talk_enable << TALK_ENABLE, target_anc_type, target_filter_id);
+            #endif
 
             } else {
 
@@ -2798,16 +2872,18 @@ audio_psap_status_t audio_anc_psap_control_set_mic_channel(U8 channel)
         res = AUDIO_PSAP_STATUS_SUCCESS;
 
         if (usr_setting->WNR_switch | bf_switch_tmp) { // 2 mic
+            mic_ctrl->ff_enable = 1;
+            mic_ctrl->talk_enable = 1;
 
-            if (g_ha_ctrl.framework_enable) {
-                U32 para_len = sizeof(llf_control_runtime_config_t);
-                void *malloc_ptr = pvPortMalloc(para_len);
-                llf_control_cap_t psap_cap = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, 0, 0, 0, 0, (U32)malloc_ptr, para_len};
-                llf_control_runtime_config_t config = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, HA_RUNTIME_CONFIG_EVENT_MIC_CHANNEL, channel};
+            // if (g_ha_ctrl.framework_enable) {
+            //     U32 para_len = sizeof(llf_control_runtime_config_t);
+            //     void *malloc_ptr = pvPortMalloc(para_len);
+            //     llf_control_cap_t psap_cap = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, 0, 0, 0, 0, (U32)malloc_ptr, para_len};
+            //     llf_control_runtime_config_t config = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, HA_RUNTIME_CONFIG_EVENT_MIC_CHANNEL, channel};
 
-                memcpy(malloc_ptr, &config, para_len);
-                res = llf_control(LLF_CONTROL_EVENT_RUNTIME_CONFIG, &psap_cap);
-            }
+            //     memcpy(malloc_ptr, &config, para_len);
+            //     res = llf_control(LLF_CONTROL_EVENT_RUNTIME_CONFIG, &psap_cap);
+            // }
         } else {
 
             if (usr_setting->psap_master_mic_ch == 2) {
@@ -2817,7 +2893,24 @@ audio_psap_status_t audio_anc_psap_control_set_mic_channel(U8 channel)
                 mic_ctrl->ff_enable = 1;
                 mic_ctrl->talk_enable = 0;
             }
+        }
+    #if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+        U32 mic_input_path;
+        audio_anc_control_filter_id_t      target_filter_id;
+        audio_anc_control_type_t           target_anc_type;
+        audio_anc_psap_control_get_mic_input_path(&mic_input_path);
+        target_anc_type      = AUDIO_ANC_CONTROL_TYPE_PT_HA_PSAP | mic_input_path;
+        target_filter_id     = AUDIO_ANC_CONTROL_HA_PSAP_FILTER_DEFAULT; //1~4
+        anc_psap_control_mic(mic_ctrl->ff_enable << FF_ENABLE | mic_ctrl->fb_enable << FB_ENABLE | mic_ctrl->talk_enable << TALK_ENABLE, target_anc_type, target_filter_id);
+    #endif
+        if (g_ha_ctrl.framework_enable) {
+            U32 para_len = sizeof(llf_control_runtime_config_t);
+            void *malloc_ptr = pvPortMalloc(para_len);
+            llf_control_cap_t psap_cap = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, 0, 0, 0, 0, (U32)malloc_ptr, para_len};
+            llf_control_runtime_config_t config = {LLF_TYPE_HEARING_AID, HA_SUB_MODE, HA_RUNTIME_CONFIG_EVENT_MIC_CHANNEL, channel};
 
+            memcpy(malloc_ptr, &config, para_len);
+            res = llf_control(LLF_CONTROL_EVENT_RUNTIME_CONFIG, &psap_cap);
         }
     }
     return res;
