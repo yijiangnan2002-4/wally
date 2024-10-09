@@ -84,7 +84,8 @@ void app_share_enable_share_mode(struct _ui_shell_activity *self, bool is_follow
         ui_shell_start_activity(self, app_share_activity, ACTIVITY_PRIORITY_HIGH, NULL, 0);
 #endif
     } else {
-        voice_prompt_play_sync_vp_failed();
+     APPS_LOG_MSGID_I(TAG"app_share_enable_share_mode VP_INDEX_FAILED 555",0);
+       voice_prompt_play_sync_vp_failed();
     }
     APPS_LOG_MSGID_I(TAG"start enable share mode, is_follower:%d, ret:%d.", 2, is_follower, ret);
 }

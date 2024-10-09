@@ -473,12 +473,14 @@ static void app_home_screen_disable_anc_when_howling(ui_shell_activity_t *self)
         bt_status = apps_aws_sync_event_send(EVENT_GROUP_UI_SHELL_AUDIO_ANC, ANC_CONTROL_EVENT_HOWLING);
         if (BT_STATUS_SUCCESS != bt_status) {
             control_ret = app_anc_service_disable();
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED aaa", 0);
             voice_prompt_play_vp_failed();
         }
     } else
 #endif
     {
         control_ret = app_anc_service_disable();
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED bbb", 0);
         voice_prompt_play_vp_failed();
     }
     APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Partner send ANC_CONTROL_EVENT_HOWLING to agent %d, disable self ret: %d", 2, bt_status, control_ret);
@@ -773,6 +775,7 @@ errrrrrrrrrrrrrrrrrrrrr
             anc_enable = false; /* To enable ANC, set the current status to false. */
             target_filter_id = anc_current_filter_id;
         } else {
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED ccc", 0);
             voice_prompt_play_vp_failed();
             return true;
         }
@@ -984,6 +987,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                 if (BT_AWS_MCE_SRV_LINK_NONE == bt_aws_mce_srv_get_link_type()
                     || BT_STATUS_SUCCESS != apps_aws_sync_event_send(EVENT_GROUP_UI_SHELL_KEY, action)) {
                     APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Partner send 0x%x aws to agent failed", 1, action);
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED ddd", 0);
                     voice_prompt_play_vp_failed();
                 }
                 ret = true;
@@ -1085,6 +1089,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER) {
                 if (local_context->aws_connected) {
                     if (BT_STATUS_SUCCESS != apps_aws_sync_event_send(EVENT_GROUP_UI_SHELL_KEY, KEY_DISCOVERABLE)) {
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED eee", 0);
                         voice_prompt_play_vp_failed();
                     }
                 } else {
@@ -1326,6 +1331,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING, APPS_AIR_PAIRING_DURATION * 10, false);
                 } else {
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED fff", 0);
                     voice_prompt_play_vp_failed();
                 }
             }
@@ -1376,6 +1382,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING, APPS_AIR_PAIRING_DURATION * 10, false);
                 } else {
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED ggg", 0);
                     voice_prompt_play_vp_failed();
                 }
             }
@@ -1394,6 +1401,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                         apps_config_set_foreground_led_pattern(LED_INDEX_TRIGGER_RHO, 30, false);
                         APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Send RHO request to agent", 0);
                     } else {
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED hhh", 0);
                         voice_prompt_play_vp_failed();
                     }
                     local_context->key_trigger_waiting_rho = true;
@@ -1844,6 +1852,7 @@ static bool homescreen_app_aws_event_proc(ui_shell_activity_t *self, uint32_t ev
                     //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                 } else {
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING_FAIL, 30, false);
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED ii", 0);
                     voice_prompt_play_vp_failed();
                 }
             }
@@ -1893,6 +1902,7 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
                     APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 9 ", 0);
                         //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     } else {
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED jj", 0);
                        voice_prompt_play_vp_failed();
                     }
                 }
@@ -2033,6 +2043,7 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
 		&& local_ctx->aws_connected
             ) {
                 if (BT_STATUS_SUCCESS != apps_aws_sync_event_send(EVENT_GROUP_UI_SHELL_KEY, s_factory_reset_key_action)) {
+            APPS_LOG_MSGID_I("  VP_INDEX_FAILED kk", 0);
                     voice_prompt_play_vp_failed();
                     s_factory_reset_doing = false;
                     break;

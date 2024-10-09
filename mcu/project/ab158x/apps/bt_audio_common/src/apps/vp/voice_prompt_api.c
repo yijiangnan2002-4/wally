@@ -745,6 +745,8 @@ voice_prompt_status_t voice_prompt_play_vp_power_on()
     app_hear_through_activity_power_on_vp_start_to_play();
 #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
 
+    VP_LOG_MSGID_I(LOG_TAG"voice_prompt_play_vp_power_on VP_INDEX_FAILED 11", 0);
+
     voice_prompt_param_t vp = {0};
     vp.vp_index = VP_INDEX_FAILED;
     vp.control = VOICE_PROMPT_CONTROL_MASK_PREEMPT;

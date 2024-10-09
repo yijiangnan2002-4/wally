@@ -430,7 +430,7 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
     uint8_t l_level_index = 0;
     uint8_t r_level_index = 0;
 
-     audio_anc_psap_control_get_level_index(&l_level_index, &r_level_index);
+     audio_anc_psap_control_get_volume_index(&l_level_index, &r_level_index);
 	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
 	APPS_LOG_MSGID_I("key_volumeup_proc app_mmi_state=%d,anc_ha_flag=%d,music_streaming_state_common=%d,l_level=%d,r_level=%d", 5,app_mmi_state,anc_ha_flag,music_streaming_state_common,l_level_index,r_level_index);
 	if(volume_up_mode==0)
@@ -452,10 +452,10 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 			app_mmi_state == APP_CONNECTED ||app_mmi_state == APP_STATE_FIND_ME ||
 			app_mmi_state == APP_HFP_CALL_ACTIVE_WITHOUT_SCO ||app_mmi_state == APP_STATE_VA)
 		{
-			*p_key_action = KEY_HEARING_AID_LEVEL_UP;
-		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_HEARING_AID_LEVEL_UP", 0);
+			*p_key_action = KEY_HEARING_AID_VOLUME_UP;
+		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_HEARING_AID_VOLUME_UP", 0);
 		}
-			if((*p_key_action == KEY_HEARING_AID_LEVEL_UP)&&l_level_index==3)
+			if((*p_key_action == KEY_HEARING_AID_VOLUME_UP)&&l_level_index==3)
 				{
 				volkey_val=4;
 				}
@@ -486,7 +486,7 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 	{
 		if(anc_ha_flag)
 		{
-			*p_key_action = KEY_HEARING_AID_VOLUME_UP;	// KEY_HEARING_AID_LEVEL_UP
+			*p_key_action = KEY_HEARING_AID_VOLUME_UP;	
 		}
 	}
 
@@ -509,7 +509,7 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
     uint8_t l_level_index = 0;
     uint8_t r_level_index = 0;
 
-     audio_anc_psap_control_get_level_index(&l_level_index, &r_level_index);
+     audio_anc_psap_control_get_volume_index(&l_level_index, &r_level_index);
 	
 	APPS_LOG_MSGID_I("key_volumedown_proc app_mmi_state=%d,anc_ha_flag=%d,music_streaming_state_common=%d,l_level=%d,r_level=%d", 5,app_mmi_state,anc_ha_flag,music_streaming_state_common,l_level_index,r_level_index);
 
@@ -533,10 +533,10 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 			app_mmi_state == APP_CONNECTED ||app_mmi_state == APP_STATE_FIND_ME ||
 			app_mmi_state == APP_HFP_CALL_ACTIVE_WITHOUT_SCO ||app_mmi_state == APP_STATE_VA)
 		{
-			*p_key_action = KEY_HEARING_AID_LEVEL_DOWN;
-		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_HEARING_AID_LEVEL_DOWN key=0x%x", 1,*p_key_action);
+			*p_key_action = KEY_HEARING_AID_VOLUME_DOWN;
+		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_HEARING_AID_VOLUME_DOWN key=0x%x", 1,*p_key_action);
 		}
-			if((*p_key_action == KEY_HEARING_AID_LEVEL_DOWN)&&l_level_index==5)
+			if((*p_key_action == KEY_HEARING_AID_VOLUME_DOWN)&&l_level_index==5)
 				{
 				volkey_val=3;
 				}
@@ -567,7 +567,7 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 	{
 		if(anc_ha_flag)
 		{
-			*p_key_action = KEY_HEARING_AID_VOLUME_DOWN;	// KEY_HEARING_AID_LEVEL_DOWN
+			*p_key_action = KEY_HEARING_AID_VOLUME_DOWN;	// 
 		}
 	}
 

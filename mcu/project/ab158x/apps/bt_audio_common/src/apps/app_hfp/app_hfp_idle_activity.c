@@ -155,6 +155,7 @@ static bool app_hfp_idle_proc_aws_data(ui_shell_activity_t *self,
 
                 const bt_device_manager_link_record_t *link_info = bt_device_manager_link_record_get_connected_link();
                 if (link_info == NULL || (link_info != NULL && link_info->connected_num == 0)) {
+            APPS_LOG_MSGID_I(APP_HFP_IDLE" app_hfp_idle_proc_aws_data VP_INDEX_FAILED 666", 0);
                     voice_prompt_play_vp_failed();
                     return ret;
                 }
@@ -434,6 +435,7 @@ static bool app_hfp_idle_proc_key_event_group(ui_shell_activity_t *self,
                 if (BT_STATUS_SUCCESS != apps_aws_sync_event_send(EVENT_GROUP_UI_SHELL_KEY,
                                                                   (action == KEY_INTERRUPT_VOICE_ASSISTANT) ? KEY_INTERRUPT_VOICE_ASSISTANT : KEY_WAKE_UP_VOICE_ASSISTANT)) {
                     if (KEY_WAKE_UP_VOICE_ASSISTANT == action) {
+            APPS_LOG_MSGID_I(APP_HFP_IDLE"  VP_INDEX_FAILED 777", 0);
                         voice_prompt_play_vp_failed();
                     }
                 }
@@ -522,6 +524,7 @@ static bool app_hfp_idle_proc_key_event_group(ui_shell_activity_t *self,
                 target_side_tone = APP_SIDE_TONE_VOLUME_MAX_LEVEL;
             }
             if (target_side_tone == current_side_tone_volume) {
+            APPS_LOG_MSGID_I(APP_HFP_IDLE" app_hfp_idle_proc_aws_data VP_INDEX_FAILED 888", 0);
                 voice_prompt_play_vp_failed();
             } else {
                 bt_sink_srv_am_result_t am_result;
@@ -605,6 +608,7 @@ static bool app_hfp_idle_proc_rotary_event_group(ui_shell_activity_t *self,
                 target_side_tone = APP_SIDE_TONE_VOLUME_MAX_LEVEL;
             }
             if (target_side_tone == current_side_tone_volume) {
+            APPS_LOG_MSGID_I(APP_HFP_IDLE" app_hfp_idle_proc_aws_data VP_INDEX_FAILED 999", 0);
                 voice_prompt_play_vp_failed();
             } else {
                 bt_sink_srv_am_result_t am_result;

@@ -3518,6 +3518,7 @@ extern void key_switch_anc_and_passthrough_proc(void);
 extern bool key_multifunction_short_click();
 extern uint8_t Is_earbuds_agent_proc(void);
 extern void app_set_ab1571d_version(uint8_t version_data);
+extern void app_set_ab1571d_main_version(uint8_t version_data);
 extern uint8_t ab1585h_command_no;
 extern uint8_t ab1585h_command_data;
 extern void BT_send_data_proc(void);

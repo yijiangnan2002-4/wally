@@ -713,7 +713,7 @@ void app_hearing_aid_key_handler_adjust_volume(uint8_t l_index, uint8_t r_index,
 {
     app_hearing_aid_utils_adjust_volume(l_index, r_index);
     if (need_vp == true) {
-        app_hearing_aid_activity_play_vp(app_hearing_aid_volume_index_list[up], true);
+        //app_hearing_aid_activity_play_vp(app_hearing_aid_volume_index_list[up], true);  harry mask 241019
     }
 }
   uint8_t  preha_target=0xff;

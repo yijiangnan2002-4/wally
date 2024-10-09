@@ -236,7 +236,8 @@ static void app_music_idle_activity_handle_peq_switch()
     if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER) {
         bt_status_t status = apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_KEY, KEY_AUDIO_PEQ_SWITCH, NULL, 0);
         if (BT_STATUS_SUCCESS != status) {
-            voice_prompt_play_sync_vp_failed();
+       APPS_LOG_MSGID_I(APP_MUSIC_TAG" app_music_idle_activity_handle_peq_switch, VP_INDEX_FAILED 22",0); 
+	voice_prompt_play_sync_vp_failed();
         }
         return;
     }
@@ -250,7 +251,8 @@ static void app_music_idle_activity_handle_peq_switch()
                      3, status, total_peq_num, current_peq_id);
 
     if (status == 0 || (current_peq_id > total_peq_num)) {
-        voice_prompt_play_sync_vp_failed();
+    APPS_LOG_MSGID_I(APP_MUSIC_TAG" app_music_idle_activity_handle_peq_switch, VP_INDEX_FAILED 33",0); 
+       voice_prompt_play_sync_vp_failed();
         return;
     }
 
@@ -270,6 +272,7 @@ static void app_music_idle_activity_handle_peq_switch()
         voice_prompt_play_sync_vp_succeed();
                     APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 22 ", 0);
     } else {
+    APPS_LOG_MSGID_I(APP_MUSIC_TAG" app_music_idle_activity_handle_peq_switch, VP_INDEX_FAILED 44",0); 
         voice_prompt_play_sync_vp_failed();
     }
 #endif /* PEQ_ENABLE || LINE_IN_PEQ_ENABLE */

@@ -217,6 +217,7 @@ errrrrrrrrrrrrrrrr
         if (((0 == temp_touch_key_status) || (0xFF == temp_touch_key_status))
             && is_captouch) {
             if ((AIRO_KEY_SHORT_CLICK == key_event) || (AIRO_KEY_DOUBLE_CLICK == key_event) || (AIRO_KEY_TRIPLE_CLICK == key_event)) {
+            APPS_LOG_MSGID_I(APP_HFP_IDLE"  VP_INDEX_FAILED lll", 0);
                 voice_prompt_play_vp_failed();
             }
             return true;
