@@ -659,7 +659,7 @@ void Audeara_BT_send_notify_proc(uint8_t * data, uint16_t length)
    // }  
 }
 
-uint8_t buffer[2048] = {0};// Max msg size
+uint8_t buffer[1200] = {0};// Max msg size
 void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length)
 {
     bt_bd_addr_t addr_list = {0};
