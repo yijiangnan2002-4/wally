@@ -675,8 +675,8 @@ void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length)
         buffer[3] = (tot_length-4) & 0xFF;
         buffer[4] = 0x05;
         buffer[5] = 0x5B;
-        buffer[6] = (((length >> 8)) & 0xFF) + 2;
-        buffer[7] = (length & 0xFF) + 2;
+        buffer[6] = (((length + 2) >> 8) & 0xFF);
+        buffer[7] = ((length + 2) & 0xFF);
         buffer[8] = 0x87;
         buffer[9] = 0x2C;
         memcpy(&buffer[10], data, length); // Copy payload into buffer
