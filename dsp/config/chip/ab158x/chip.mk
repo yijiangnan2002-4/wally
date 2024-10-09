@@ -2479,6 +2479,14 @@ ifeq ($(AIR_ICE_DEBUG_ENABLE),y)
 CCFLAG  += -DAIR_ICE_DEBUG_ENABLE
 endif
 
+##
+## HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE
+## Brief:       This option is to enable PSAP seamless switch.
+## Dependency:  None
+## Notice:      None
+## Realted doc: None
+##
+CCFLAG  += -DHAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE
 
 
 # Use the library files attached to the Xtensa tool chain to participate in the link.
