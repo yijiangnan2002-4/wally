@@ -117,7 +117,7 @@
 #define FOTA_VERSION_MAX_SIZE (28) /* The maximum size of the FOTA package release version string including the null-terminator. */
 #define FOTA_VERSION_INTEGRITY_CHECK_VALUE_SIZE (4) /* The size of the integrity check value of the version string. */
 ////////////////hugo
-#define FOTA_DEFAULT_VERSION    ("v1.6.02.04") /* HUGO HUGO The default FOTA package release version. */
+#define FOTA_DEFAULT_VERSION    ("v1.6.02.05") /* HUGO HUGO The default FOTA package release version. */
 
 /////////////// VIBE
 //#define FOTA_DEFAULT_VERSION    ("v2.1.01.01") /* VIBE VIBE The default FOTA package release version. */
