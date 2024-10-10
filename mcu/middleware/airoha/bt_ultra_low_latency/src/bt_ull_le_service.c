@@ -3754,11 +3754,11 @@ void audeara_ab1571d_data_processing(AUDEARA_BTULL_MESSAGE_FRAMES_T frame, uint8
             break;
         case AUA_BUDSFRAME_VOL_UP:
             key_volumeup_proc(0);
-            Audeara_BT_send_data_proc(AUA_BUDSFRAME_WRITE_LOCAL_MAC_ADDR, 0, 1);
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_VOL_UP, 0, 1);
             break;
         case AUA_BUDSFRAME_VOL_DOWN:
             key_volumedown_proc(0);
-            Audeara_BT_send_data_proc(AUA_BUDSFRAME_WRITE_LOCAL_MAC_ADDR, 0, 1);
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_VOL_DOWN, 0, 1);
             break;
      }
      
