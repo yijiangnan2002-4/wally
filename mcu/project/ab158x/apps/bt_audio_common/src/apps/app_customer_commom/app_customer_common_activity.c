@@ -430,7 +430,7 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
     uint8_t l_level_index = 0;
     uint8_t r_level_index = 0;
 
-     audio_anc_psap_control_get_level_index(&l_level_index, &r_level_index);
+     audio_anc_psap_control_get_level_index(&l_level_index, &r_level_index); // audio_anc_psap_control_get_volume_index should be used instead // Alexb
 	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
 	APPS_LOG_MSGID_I("key_volumeup_proc app_mmi_state=%d,anc_ha_flag=%d,music_streaming_state_common=%d,l_level=%d,r_level=%d", 5,app_mmi_state,anc_ha_flag,music_streaming_state_common,l_level_index,r_level_index);
 	if(volume_up_mode==0)
