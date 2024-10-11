@@ -69,7 +69,8 @@
 #include "app_hear_through_race_cmd_handler.h"
 uint8_t reply_buf[2048] = {0}; // Some bookeeping bytes for status
 
-bool aua_notification_state = true; /
+bool aua_notification_state = true; // placeholder this as true for
+
 /**************************************************************************************************
 * Define
 **************************************************************************************************/
@@ -3712,30 +3713,35 @@ void audeara_ab1571d_data_processing(AUDEARA_BTULL_MESSAGE_FRAMES_T frame, uint8
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                     APPS_EVENTS_INTERACTION_REQUEST_REBOOT, NULL, 0,
                     NULL, 0);
-            Audeara_BT_send_data_proc(AUA_BUDSFRAME_POWER_ON, 0, 1);
+            reply_buf[0] = 0;
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_POWER_ON, reply_buf, 1);
             break;
         case AUA_BUDSFRAME_POWER_OFF:
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                 APPS_EVENTS_INTERACTION_REQUEST_POWER_OFF, NULL, 0,
                 NULL, 0);
-            Audeara_BT_send_data_proc(AUA_BUDSFRAME_POWER_OFF, 0, 1);
+            reply_buf[0] = 0;
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_POWER_OFF, reply_buf, 1);
             break;
         case AUA_BUDSFRAME_CPU_RESET:
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                 APPS_EVENTS_INTERACTION_REQUEST_REBOOT, NULL, 0,
                 NULL, 0);
-            Audeara_BT_send_data_proc(AUA_BUDSFRAME_CPU_RESET, 0, 1);
+            reply_buf[0] = 0;
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_CPU_RESET, reply_buf, 1);
             break;
         case AUA_BUDSFRAME_FACTORY_RESET:
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                 APPS_EVENTS_INTERACTION_FACTORY_RESET_REQUEST, NULL, 0,
                 NULL, 0);
-            Audeara_BT_send_data_proc(AUA_BUDSFRAME_FACTORY_RESET, 0, 1);
+            reply_buf[0] = 0;
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_FACTORY_RESET, reply_buf, 1);
             break;
         case AUA_BUDSFRAME_WRITE_LOCAL_MAC_ADDR:
 			memcpy(mac, data, 6);
 			bt_device_manager_store_local_address(mac);
-            Audeara_BT_send_data_proc(AUA_BUDSFRAME_WRITE_LOCAL_MAC_ADDR, 0, 1);
+            reply_buf[0] = 0x00;
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_WRITE_LOCAL_MAC_ADDR, reply_buf, 1);
             break;
         case AUA_BUDSFRAME_READ_LOCAL_MAC_ADDR:
             mac = bt_device_manager_get_local_address();
