@@ -148,6 +148,10 @@ static void app_hearing_aid_key_handler_proc_volume_adjust(bool up, bool circula
     }
 
     if ((change_value.max == true) || (change_value.min == true)) {
+		#if 1
+
+		#else
+		
         uint8_t vp_index = 0xFF;
         if (change_value.max == true) {
             if (circular == true) {
@@ -168,7 +172,7 @@ static void app_hearing_aid_key_handler_proc_volume_adjust(bool up, bool circula
             app_hearing_aid_activity_play_vp(vp_index, false);
 #endif /* AIR_TWS_ENABLE */
         }
-
+#endif
         if (circular == false) {
             return;
         }

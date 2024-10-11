@@ -579,7 +579,6 @@ bool app_hearing_aid_activity_process_race_cmd(void *race_data, size_t race_data
 		if(request->op_code == APP_HEAR_THROUGH_CMD_OP_CODE_SET&&request->op_type== 0x0007)
 		{
                 app_hearing_aid_activity_play_mode_index_vp(request->op_parameter[0], true);
-
 		}
 	
 		if(request->op_code == APP_HEAR_THROUGH_CMD_OP_CODE_SET&&request->op_type== 0x001A)

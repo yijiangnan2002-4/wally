@@ -226,7 +226,7 @@ static void voice_prompt_main_proc_item(voice_prompt_list_item_t *item, bool fir
     voice_prompt_main_noti(item->callback, item->vp_index, VP_EVENT_READY);
 
     if (g_voice_prompt_ctx.state == VOICE_PROMPT_STAT_PLAYING || g_voice_prompt_ctx.state == VOICE_PROMPT_STAT_STOPPING) {
-        //VP_LOG_MSGID_E(LOG_TAG" proc item, state wrong %d", 1, g_voice_prompt_ctx.state);
+        VP_LOG_MSGID_E(LOG_TAG" proc item, state wrong %d", 1, g_voice_prompt_ctx.state);
         assert(0);
     }
 
