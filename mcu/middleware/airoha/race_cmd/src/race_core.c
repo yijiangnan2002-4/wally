@@ -410,6 +410,16 @@ void audeara_race_cmd_local_handler(race_port_t port, uint8_t *race_pkt, uint8_t
             //race_send_data_to_port(port, (uint8_t *)&pEvt->race_data, pEvt->length);
         race_mem_free(pEvt);
     }
+    else
+    {
+        if(race_pkt[4] == 0x00 && race_pkt[5] == 0x0A)
+        {
+            uint8_t fail_buffer[2] = {0xA0, 0x01}; // General fail command for nvkey cmd
+            Audeara_BT_send_data_proc(frame, fail_buffer, 2);
+        }
+      
+    }
+    
 }
 // end audeara race patch
 

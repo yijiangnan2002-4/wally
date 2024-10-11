@@ -96,7 +96,7 @@ void app_hear_through_send_command(uint8_t race_type, hear_through_response_t *c
 
     if(race_type == RACE_TYPE_RESPONSE)
     {
-        Audeara_BT_send_data_proc(0x04, (void*)response, cmd_len);
+        Audeara_BT_send_data_proc(0x80, (uint8_t*)response_packet, cmd_len);
     }
     race_flush_packet(response_packet, app_hear_through_race_cmd_context.channel_id);
 }
@@ -271,7 +271,7 @@ void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *
         hear_through_notification_t *notify = (hear_through_notification_t *)response_packet;
         notify->type = config_type;
         memcpy(notify->payload, data, data_len);
-        Audeara_BT_send_notify_proc((void*)notify, (notify_len + data_len));
+        Audeara_BT_send_data_proc(0x81, (uint8_t*)response_packet,  notify_len);
         race_flush_packet(response_packet, notify_channel_list[notify_channel_index]);
     }
 
