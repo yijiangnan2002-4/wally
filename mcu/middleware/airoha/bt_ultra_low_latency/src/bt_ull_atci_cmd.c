@@ -664,50 +664,12 @@ void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length)
 {
     bt_bd_addr_t addr_list = {0};
     uint16_t tot_length = 0;
-
-
-    if(frame == AUA_BUDSFRAME_HEARTHROUGH_RESPONSE_PACKETISER)
-    {
-        tot_length = length + 10;
-        buffer[0] = 0x0A; // Audeara return command type
-        buffer[1] = 0x04;
-        buffer[2] = (((tot_length-4) >> 8) & 0xFF);
-        buffer[3] = (tot_length-4) & 0xFF;
-        buffer[4] = 0x05;
-        buffer[5] = 0x5B;
-        buffer[6] = (((length >> 8)) & 0xFF) + 2;
-        buffer[7] = (length & 0xFF) + 2;
-        buffer[8] = 0x87;
-        buffer[9] = 0x2C;
-        memcpy(&buffer[10], data, length); // Copy payload into buffer
-
-    }
-
-    else if(frame == AUA_BUDSFRAME_HEARTHROUGH_NOTIFICATION_PACKETISER)
-    {
-        tot_length = length + 10;
-        buffer[0] = 0x0A; // Audeara return command type
-        buffer[1] = 0x05;
-        buffer[2] = (((tot_length-4) >> 8) & 0xFF);
-        buffer[3] = (tot_length-4) & 0xFF;
-        buffer[4] = 0x05;
-        buffer[5] = 0x5B;
-        buffer[6] = (((length + 2) >> 8) & 0xFF);
-        buffer[7] = ((length + 2) & 0xFF);
-        buffer[8] = 0x87;
-        buffer[9] = 0x2C;
-        memcpy(&buffer[10], data, length); // Copy payload into buffer
-
-    }
-    else
-    {
-        buffer[0] = 0x0A; // Audeara return command type
-        buffer[1] = frame;
-        buffer[2] = ((length >> 8)) & 0xFF;
-        buffer[3] = (length & 0xFF);
-        memcpy(&buffer[4], data, length); // Copy payload into buffer
-        tot_length = length + 4;
-    }
+    buffer[0] = 0x0A; // Audeara return command type
+    buffer[1] = frame;
+    buffer[2] = (length >> 8) & 0xFF;
+    buffer[3] = (length & 0xFF);
+    memcpy(&buffer[4], data, length); // Copy payload into buffer
+    tot_length = length + 4;
 
 	if (bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_ULL), &addr_list, 1))
 	{
