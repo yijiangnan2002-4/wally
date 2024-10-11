@@ -211,6 +211,9 @@ static void app_hearing_aid_key_handler_proc_mode_adjust(bool up, bool circular)
 
     // if (get_result == false) {
         if ((max == true) || (min == true)) {
+			#if 1
+
+			#else
             uint8_t vp_index = 0xFF;
             if (max == true) {
                 if (circular == true) {
@@ -229,24 +232,12 @@ static void app_hearing_aid_key_handler_proc_mode_adjust(bool up, bool circular)
                         vp_index);
             if (vp_index != 0xFF) {
 #ifdef AIR_TWS_ENABLE
-   #if 0 // harry for anc+ha common key
-                if(anc_eastech_spec==0)
-                {
-                    APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_proc_mode_adjust] anc_eastech_spec==0",0);
-                    app_hearing_aid_activity_play_vp(vp_index, true);
-                }
-                else
-                {
-                    APPS_LOG_MSGID_I("[app_hearing_aid_key_handler_proc_mode_adjust] anc_eastech_spec!=0",0);
-                    app_hearing_aid_activity_play_vp(vp_index, false);
-                }
-   #else
                  app_hearing_aid_activity_play_vp(vp_index, true);
-   #endif
 #else
                 app_hearing_aid_activity_play_vp(vp_index, false);
 #endif /* AIR_TWS_ENABLE */
             }
+			#endif
         }
 
         if (get_result == false) {
