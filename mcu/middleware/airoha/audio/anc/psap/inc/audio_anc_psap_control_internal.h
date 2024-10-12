@@ -71,14 +71,6 @@ typedef enum {
     HA_TRIAL_RUN_EVENT_VENDOR_EQ_TABLE,
 } ha_trial_run_event_t;
 
-#if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
-typedef enum {
-    TALK_ENABLE,
-    FB_ENABLE,
-    FF_ENABLE,
-} audio_anc_mic_enable_t;
-#endif
-
 /* Public macro --------------------------------------------------------------*/
 /* Public variables ----------------------------------------------------------*/
 /* Public functions ----------------------------------------------------------*/

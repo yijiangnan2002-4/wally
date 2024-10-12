@@ -2343,15 +2343,6 @@ ifeq ($(AIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE), y)
 CFLAGS += -DAIR_AUDIO_DOWNLINK_SW_GAIN_ENABLE
 endif
 
-##
-## HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE
-## Brief:       This option is to enable PSAP seamless switch.
-## Dependency:  None
-## Notice:      None
-## Realted doc: None
-##
-CFLAGS += -DHAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE
-
 ###############################################################################
 
 #Incldue Path

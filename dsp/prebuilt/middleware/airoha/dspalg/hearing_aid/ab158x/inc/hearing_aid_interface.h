@@ -105,8 +105,7 @@ typedef struct {
     U8                      isAudioDrcOn_target;
     U8                      mfa_enabled;
     U8                      mfa_shift;
-    U8                      mic_channel_current;
-    U8                      dual_mic_enabled_current;
+    U8                      reserved_2[2];
 } PACKED ha_alg_switch_t;
 
 typedef struct{
@@ -245,12 +244,6 @@ typedef struct {
     U32                     aea_period;
     U32                     aea_envIndex;
     S32                     drc_eq_smooth_times;
-    bool                    mic_state[2];
-    U32                     change_mic_state;
-    S32                     master_rear_mic_mul;
-    S32                     master_talk_mic_mul;
-    S32                     dual_mic_smooth_cnt;
-    S32                     dual_mic_smooth_step;
 
     /* Mic path */
     S32                     drc_eqtable_current_q8p8[50];
@@ -337,7 +330,6 @@ typedef struct {
 /* Public macro --------------------------------------------------------------*/
 /* Public variables ----------------------------------------------------------*/
 /* Public functions ----------------------------------------------------------*/
-void stream_function_hearing_aid_set_mic_state(bool* mic_state);
 void stream_function_hearing_aid_set_runtime_config(U8 event, U32 param);
 void stream_function_hearing_aid_set_ha_switch(U8 ha_switch);
 void stream_function_hearing_aid_set_level_config(U8 level_index);
