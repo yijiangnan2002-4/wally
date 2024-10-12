@@ -326,12 +326,11 @@ static void app_hearing_aid_utils_check_master_mic_channel_changed(bool need_rel
 
     if (app_ha_utils_context.stored_mic_input_path != mic_input_path) {
         app_ha_utils_context.stored_mic_input_path = mic_input_path;
-#if !defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+
         app_hearing_aid_utils_notify(APP_HEARING_AID_UTILS_NOTIFY_TO_CONTROL_FWK,
                                         0,
                                         NULL,
                                         0);
-#endif
     } else {
         if (need_reload_config == true) {
             app_hearing_aid_utils_reload_configuration();
