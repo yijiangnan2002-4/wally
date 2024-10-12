@@ -47,8 +47,6 @@
 #include "race_cmd_co_sys.h"
 #include "race_cmd_relay_cmd.h"
 
-#include "bt_ull_audeara.h"
-
 typedef struct {
     uint8_t channel_id;
     uint8_t relay_type;
@@ -116,19 +114,6 @@ static void race_cmd_relay_req_internal_hdlr(race_pkt_t *pMsg, uint8_t channel)
         race_mem_free(pEvt);
     }
 }
-
- void audeara_cosys_race_handler(race_pkt_t *pMsg, uint8_t channel)
-{
-    uint8_t channel_id = RACE_CHANNEL_ID_SET_RELAY_CMD_FLAG(channel);
-    race_send_pkt_t *pEvt = RACE_CmdHandler(pMsg, channel_id);
-
-    if (pEvt) {
-        race_relay_send_cosys(&pEvt->race_data, pEvt->length, channel, RACE_CMD_RSP_FROM_REMOTE_INTERNAL);
-        race_mem_free(pEvt);
-    }
-}
-//extern void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length);
-
 static void race_cmd_relay_rsp_hdlr(race_pkt_t *pMsg, uint8_t channel)
 {
     race_status_t ret = RACE_STATUS_OK;
@@ -153,8 +138,6 @@ static void race_cmd_relay_rsp_hdlr(race_pkt_t *pMsg, uint8_t channel)
         if (pMsg->hdr.length < 890) {
             ret = race_flush_packet((void *)rsp, channel);
             if (ret != RACE_STATUS_OK) {
-                uint8_t buffer[2] = {0xDE, 0xBD};
-                memcpy(rsp, buffer, 2);
                 RACE_LOG_MSGID_E("[relay_cmd] agent flush relay rsp FAIL \n", 0);
             }
         } else {
@@ -167,7 +150,6 @@ static void race_cmd_relay_rsp_hdlr(race_pkt_t *pMsg, uint8_t channel)
 
             size = pSndPkt->length;
             ptr = (uint8_t *)&pSndPkt->race_data;
-            Audeara_BT_send_data_proc(0x04, ptr, size);
             size -= ret_size;
             ptr += ret_size;
             while (size > 0) {
@@ -175,7 +157,6 @@ static void race_cmd_relay_rsp_hdlr(race_pkt_t *pMsg, uint8_t channel)
                 size -= ret_size;
                 ptr += ret_size;
             }
-            
             race_mem_free(pSndPkt);
         }
 
@@ -196,14 +177,12 @@ static void race_cmd_relay_rsp_internal_hdlr(race_pkt_t *pMsg, uint8_t channel)
                                       channel);
 
     if (rsp == NULL) {
-        uint8_t buffer[2] = {0xDE, 0xAD};
-         memcpy(rsp, buffer, 2);
         RACE_LOG_MSGID_E("[relay_cmd] agent claim relay rsp(internal) FAIL", 0);
         return;
     }
 
     memcpy(rsp, pMsg->payload, pMsg->hdr.length - 2);
-    Audeara_BT_send_data_proc(0x04, pMsg->payload, pMsg->hdr.length - 2);
+
     ret = race_flush_packet(rsp, channel);
     RACE_LOG_MSGID_I("[relay_cmd] agent flush relay rsp internal ret %d", 1, ret);
 }

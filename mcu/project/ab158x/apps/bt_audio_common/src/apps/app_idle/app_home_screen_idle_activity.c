@@ -525,9 +525,9 @@ void anc_ha_mode_disp_proc(void)
                      app_hear_through_ctx.mode_index,
                      vol_max_count
                      );
-        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)//现在在hear
+        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)//脧脰脭脷脭脷hear
         {
-          if(mode_index!=(mode_max_count-1)) // 现在不是最大mode
+          if(mode_index!=(mode_max_count-1)) // 脧脰脭脷虏禄脢脟脳卯麓贸mode
           {
 
 		*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
@@ -1096,7 +1096,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
 
            #ifdef EASTECH_SPEC_VP
-              if(ir_senser_in_ear_statu==1)   // pair 启动时，耳机在入耳模式
+              if(ir_senser_in_ear_statu==1)   // pair 脝么露炉脢卤拢卢露煤禄煤脭脷脠毛露煤脛拢脢陆
  		    #endif
               { 
                 #ifdef ALWAYS_PLAY_PAIRING_VP
@@ -1125,7 +1125,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
            app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
            APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 333 ir_senser_in_ear_statu=%d", 1,ir_senser_in_ear_statu);  // press pair key vp
         #ifdef EASTECH_SPEC_VP
-        if(ir_senser_in_ear_statu==1)   // pair 启动时，耳机在入耳模式
+        if(ir_senser_in_ear_statu==1)   // pair 脝么露炉脢卤拢卢露煤禄煤脭脷脠毛露煤脛拢脢陆
  		  #endif
           {
            #ifdef ALWAYS_PLAY_PAIRING_VP
@@ -1347,7 +1347,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         }
 #endif
         case KEY_AIR_PAIRING: {
-#if 0//def AIR_LE_AUDIO_BIS_ENABLE   // harry 改善不能组队，连接了le广播
+#if 0//def AIR_LE_AUDIO_BIS_ENABLE   // harry 赂脛脡脝虏禄脛脺脳茅露脫拢卢脕卢陆脫脕脣le鹿茫虏楼
             uint8_t zero_addr[6] = {0};
             bt_bd_addr_t *bd_addr = bt_device_manager_aws_local_info_get_peer_address();
             uint8_t *peer_addr = (uint8_t *)(*bd_addr);
@@ -1377,7 +1377,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     app_bt_state_service_set_air_pairing_doing(true);
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                     vp.vp_index = VP_INDEX_PAIRING_LOOP;  // 
-                    APPS_LOG_MSGID_I("VP_INDEX_PAIRING 555", 0);  // 组队动作音
+                    APPS_LOG_MSGID_I("VP_INDEX_PAIRING 555", 0);  // 脳茅露脫露炉脳梅脪么
                     voice_prompt_play(&vp, NULL);
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING, APPS_AIR_PAIRING_DURATION * 10, false);
@@ -1708,7 +1708,7 @@ static bool homescreen_app_bt_connection_manager_event_proc(ui_shell_activity_t 
             app_bt_state_service_set_bt_visible(true, true, VISIBLE_TIMEOUT);
             APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",  VP_INDEX_PAIRING 2223 ir_senser=%d,bt_on && bt_device_manager_remote_get_paired_num() == 0", 1,ir_senser_in_ear_statu);
            #ifdef EASTECH_SPEC_VP
-              if(ir_senser_in_ear_statu==1)   // pair 启动时，耳机在入耳模式
+              if(ir_senser_in_ear_statu==1)   // pair 脝么露炉脢卤拢卢露煤禄煤脭脷脠毛露煤脛拢脢陆
  		    #endif
            #ifdef ALWAYS_PLAY_PAIRING_VP
             { 
@@ -1826,7 +1826,7 @@ static bool homescreen_app_aws_event_proc(ui_shell_activity_t *self, uint32_t ev
                     APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", set flag auto_start_visiable when air pairing successfully", 0);
                     app_bt_state_service_set_bt_visible(true, true, VISIBLE_TIMEOUT);
                    #ifdef ALWAYS_PLAY_PAIRING_VP
-                   APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 121222", 0);  //组队成功音
+                   APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 121222", 0);  //脳茅露脫鲁脡鹿娄脪么
                       ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
          	          ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
                            EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,

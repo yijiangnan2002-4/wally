@@ -390,88 +390,6 @@ static void race_handle_input_data(race_general_msg_t *p_msg)
     race_mem_free(p_msg->msg_data);
 }
 
-// Audeara race passthrough patch
-extern void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length);
-void audeara_race_cmd_local_handler(race_port_t port, uint8_t *race_pkt, uint8_t frame, uint8_t budstate)
-{
-    race_send_pkt_t *pEvt = NULL;
-    race_pkt_t *pCmd = (race_pkt_t *)race_pkt;
-    pEvt = RACE_CmdHandler(pCmd, (uint8_t)port);
-    if (pEvt) {
-        if(budstate == 0) // Only if not relaying
-        {
-            Audeara_BT_send_data_proc(frame, (uint8_t *)&pEvt->race_data, pEvt->length);
-        }
-        if(budstate == 1)
-        {
-            // Placeholder
-            //Audeara_BT_send_data_proc(frame, (uint8_t *)&pEvt->race_data, pEvt->length);
-        }
-            //race_send_data_to_port(port, (uint8_t *)&pEvt->race_data, pEvt->length);
-        race_mem_free(pEvt);
-    }
-}
-// end audeara race patch
-
-void audeara_race_handle_input_data(race_general_msg_t *p_msg, uint8_t frame)
-{
-    race_port_info_t *port_info = NULL;
-    uint8_t *race_pkt = NULL;
-    uint32_t rev_len = 0;
-    mux_buffer_t mux_buf;
-    race_msg_mux_data_ready_t *p_data;
-    race_pkt_relay_check_t relay;
-
-    if (NULL == p_msg || NULL == p_msg->msg_data) {
-        return;
-    }
-    p_data = (race_msg_mux_data_ready_t *)p_msg->msg_data;
-    port_info = race_search_port(p_msg->dev_t);
-    if (NULL == port_info) {
-        race_mem_free(p_msg->msg_data);
-        return;
-    }
-    race_pkt = (uint8_t *)race_mem_alloc(p_data->data_len);
-    if (NULL == race_pkt) {
-        assert(0 && "ERROR: race_handle_input_data, alloc data fail!");
-    }
-    mux_buf.p_buf = race_pkt;
-    mux_buf.buf_size = p_data->data_len;
-    if (race_receive_data(&rev_len, p_data->handle, &mux_buf) != true) {
-        race_mem_free(race_pkt);
-        race_mem_free(p_msg->msg_data);
-        return;
-    }
-    if (p_data->data_len != rev_len) {
-        race_mem_free(race_pkt);
-        race_mem_free(p_msg->msg_data);
-        assert(0 && "ERROR: race_handle_input_data, pkt_len != rev_len");
-        return;
-    }
-
-    relay.port = port_info->port;
-    relay.port_type = port_info->port_type;
-    memcpy(&relay.pkt_hdr, race_pkt, sizeof(RACE_COMMON_HDR_STRU));
-    race_relay_check(&relay);
-
-    if (relay.relay_info.is_relay_pkt) { // need relay
-        RACE_LOG_MSGID_I("[race_core] race_handle_input_data, relay pkt: port(%d) --> port(%d)", 2, relay.relay_info.from_port, relay.relay_info.to_port);
-#if defined RACE_USB_RELAY_ENABLE
-        race_usb_relay_set_flag_by_src_port(relay.relay_info.from_port, relay.relay_info.to_port, race_pkt);
-#endif
-        if (RACE_INVALID_PORT != relay.relay_info.to_port) {
-            race_send_data_to_port(relay.relay_info.to_port, race_pkt, p_data->data_len);
-        }
-#if RACE_DEBUG_INFO_ENABLE
-        port_info->debug.total_relay_pkt++;
-#endif
-    } else {
-        audeara_race_cmd_local_handler(port_info->port, race_pkt, frame, 0 );
-    }
-    race_mem_free(race_pkt);
-    race_mem_free(p_msg->msg_data);
-}
-
 static void race_cmd_local_handler(race_port_t port, uint8_t *race_pkt)
 {
     race_send_pkt_t *pEvt = NULL;
@@ -482,7 +400,6 @@ static void race_cmd_local_handler(race_port_t port, uint8_t *race_pkt)
         race_mem_free(pEvt);
     }
 }
-
 
 static void race_handle_ext_cmd(race_general_msg_t *p_msg)
 {

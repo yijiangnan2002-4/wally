@@ -691,7 +691,7 @@ bool app_hearing_aid_key_handler_processing(apps_config_key_action_t key_event)
                      key_event,
                      app_hearing_aid_key_string[key_event - KEY_HEARING_AID_BEGIN],
                      ready_to_handle,prompt_no_play_flag);
-      prompt_no_play_flag=0; // Ë«»÷ÇĞHA£¬ĞèÒª´ò¿ª²¥·ÅHA VP
+      prompt_no_play_flag=0; // Ã‹Â«Â»Ã·Ã‡ÃHAÂ£Â¬ÃÃ¨Ã’ÂªÂ´Ã²Â¿ÂªÂ²Â¥Â·Ã…HA VP
     if (ready_to_handle == false) {
         return true;
     }

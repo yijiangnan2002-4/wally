@@ -808,7 +808,7 @@ static void app_hear_through_activity_handle_ambient_control_switch()
   		// richard for customer UI spec.
 		uint8_t mode_index = 0;
 		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
-        	prompt_no_play_flag=1;  // 设这个标志1，播放HA VP后，不要再重复播放
+        	prompt_no_play_flag=1;  // 脡猫脮芒赂枚卤锚脰戮1拢卢虏楼路脜HA VP潞贸拢卢虏禄脪陋脭脵脰脴赂麓虏楼路脜
         	if(is_aws_connected){
   		voice_prompt_play_sync_vp_ha(mode_index);
     		}
@@ -833,7 +833,7 @@ static void app_hear_through_activity_handle_ambient_control_switch()
 
             app_hearing_through_activity_leave_hear_through_mode();
             app_anc_service_reset_hear_through_anc(true);
-            prompt_no_play_flag=0; // 撤销这个标志，操作双击可以播放HA VP
+            prompt_no_play_flag=0; // 鲁路脧煤脮芒赂枚卤锚脰戮拢卢虏脵脳梅脣芦禄梅驴脡脪脭虏楼路脜HA VP
 
     		// richard for customer UI spec.
         	if(is_aws_connected){

@@ -79,7 +79,6 @@ void app_share_enable_share_mode(struct _ui_shell_activity *self, bool is_follow
     }
     if (ret == BT_STATUS_SUCCESS) {
         voice_prompt_play_vp_succeed();
-                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 17 ", 0);
 #if 1
         ui_shell_start_activity(self, app_share_activity, ACTIVITY_PRIORITY_HIGH, NULL, 0);
 #endif

@@ -93,9 +93,7 @@ void factory_rst_reserved_nvdm_item_list_check(void)
     } else {
         return;
     }
-   
-    if (factrst_flag == FACTORY_RESET_FLAG)   
-      {
+    if (factrst_flag == FACTORY_RESET_FLAG) {
         /* Flag set to be factory reset, all NVDM items except for those in FACTORY_RST_RESERVED_NVDM_ITEM_LIST will be deleted. */
         LOG_MSGID_I(common, "Detect Factory Reset, re-organize the NVDM region", 1);
 
@@ -123,9 +121,7 @@ void factory_rst_reserved_nvdm_item_list_check(void)
 	// richard for ota reset
 	uint8_t firmware_ota_flag;
 	size = sizeof(firmware_ota_flag);
-  	nvkey_read_data(NVID_CUS_OTA_FLAG, &firmware_ota_flag, &size);
-
-    LOG_MSGID_I(common, "factory_rst_reserved_nvdm_item_list_check firmware_ota_flag=%x", 1,firmware_ota_flag);
+    	nvkey_read_data(NVID_CUS_OTA_FLAG, &firmware_ota_flag, &size);
 	if(firmware_ota_flag==0xaa)
 	{
 		set_ota_flag_proc(0);

@@ -62,7 +62,7 @@ uint8_t HX300X_reg_ctr_read(uint8_t addr, uint8_t *data)
 }
 
 
-/* ÑÓÊ±º¯Êý£¬ ¸ù¾ÝÆ½Ì¨Íê³É½Ó¿Ú*/
+/* ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Æ½Ì¨ï¿½ï¿½É½Ó¿ï¿½*/
 void delay_ms(uint16_t time_ms)
 {
 	hal_gpt_delay_ms(time_ms);
@@ -120,7 +120,7 @@ uint32_t read_ps_data(void)
     return ps_data1;
 }
 
-//  Êý¾ÝÏû³ý¶¶¶¯£¬Ò»´ÎºÄÊ±Ô¼ 4*(55ms + delay_time_ms) ms
+//  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Îºï¿½Ê±Ô¼ 4*(55ms + delay_time_ms) ms
 uint32_t get_ps_data(uint8_t delay_time_ms)
 {
     uint8_t i = 0, j = 0;
@@ -164,35 +164,35 @@ uint8_t HX300x_Calibration(void)
 {
 	uint8_t ret=0;
 	
-	//printf("HX300X   >>µÚÒ»²½£ºIIC & INT ¼ì²â£¡Çë°´¼ü....ü¡ ");
+	//printf("HX300X   >>ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½IIC & INT ï¿½ï¿½â£¡ï¿½ë°´ï¿½ï¿½....ï¿½ï¿½ ");
 	//while(START_IN);
 	ret = Calibration_First_IIC_INT_check();
 	if(ret != 1)
 	{
 		return 0;
 	}
-	//printf("HX300X   >>µÚ¶þ²½£º¶Ô¿Õ²âÊÔ£¡Çë°´¼ü....ü¡ ");
+	//printf("HX300X   >>ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¿Õ²ï¿½ï¿½Ô£ï¿½ï¿½ë°´ï¿½ï¿½....ï¿½ï¿½ ");
 	//while(START_IN);
 	ret = Calibration_Second_OpenAir();
 	if(ret != 1)
 	{
 		return 0;
 	}	
-	//printf("HX300X   >>µÚÈý²½£ºÉÏ»Ò¿¨²âÊÔ£¡Çë°´¼ü....ü¡ ");
+	//printf("HX300X   >>ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï»Ò¿ï¿½ï¿½ï¿½ï¿½Ô£ï¿½ï¿½ë°´ï¿½ï¿½....ï¿½ï¿½ ");
 	//while(START_IN);
 	ret = Calibration_Third_GreyCard();
 	if(ret == 0)
 	{
 		return 0;
 	}	
-	//printf("HX300X   >>µÚËÄ²½£º³·»Ò¿¨²âÊÔ£¡Çë°´¼ü....ü¡ ");
+	//printf("HX300X   >>ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò¿ï¿½ï¿½ï¿½ï¿½Ô£ï¿½ï¿½ë°´ï¿½ï¿½....ï¿½ï¿½ ");
 	//while(START_IN);
 	ret = Calibration_Fourth_RemoveGreyCard();
 	if(ret != 1)
 	{
 		return 0;
 	}
-	//printf("HX300X   >>µÚÎå²½£º±£´æ£¬Çë°´¼ü....ü¡ ");
+	//printf("HX300X   >>ï¿½ï¿½ï¿½å²½ï¿½ï¿½ï¿½ï¿½ï¿½æ£¬ï¿½ë°´ï¿½ï¿½....ï¿½ï¿½ ");
 	//while(START_IN);
 	Calibration_Fifth_SaveDataToFlash();
 
@@ -225,7 +225,7 @@ uint8_t Calibration_First_IIC_INT_check(void)
     else
     {
        printf("HX300X   ...IIC Communication Fail... ");
-       return 3; //0:IIC Í¨Ñ¶Ê§°Ü
+       return 3; //0:IIC Í¨Ñ¶Ê§ï¿½ï¿½
     }	
 	
 	//printf("HX300X  reg[04]=0x%x, reg[05]=0x%x, reg[06]=0x%x ", TYHX_Read_REG(0x04), TYHX_Read_REG(0x05), TYHX_Read_REG(0x06));
@@ -242,7 +242,7 @@ uint8_t Calibration_First_IIC_INT_check(void)
         if(cnt > 20)
         {
   			printf("HX300X  INT_check level1 failed ");			
-            return 2;		// 2: INT Ê§°Ü
+            return 2;		// 2: INT Ê§ï¿½ï¿½
         }
         delay_ms(5);
     }
@@ -258,17 +258,17 @@ uint8_t Calibration_First_IIC_INT_check(void)
   			printf("HX300X  INT_check level2 pass ");
 			printf("HX300X     !!!INT Test OK... ");
 			cali_process |= CALI_STEP1;
-            return 1;   //1: IIC + INT ¶¼Í¨¹ý
+            return 1;   //1: IIC + INT ï¿½ï¿½Í¨ï¿½ï¿½
         }
         cnt++;
         if(cnt > 20)
         {
   			printf("HX300X     !!!INT Test Fail... ");			
-            return 2;		// 2: INT Ê§°Ü
+            return 2;		// 2: INT Ê§ï¿½ï¿½
         }
     }
   	printf("HX300X     !!!INT Test Fail... ");			
-    return 2;		// 2: INT Ê§°Ü
+    return 2;		// 2: INT Ê§ï¿½ï¿½
 }
 
 //-----------------------------------------------------------------
@@ -297,7 +297,7 @@ uint16_t Calibration_Second_OpenAir(void)
 	  TYHX_Write_REG(0x21,0xF3);      // FM, original is 0x53
 	  TYHX_Write_REG(0x00,0x0A);	
 /////////////////////////////////////////////////////////////////////////////////////////////////    	
-     //printf("HX300X   ..¶Ô¿Õ²âÊÔ½á¹¹¹â¿ªÊ¼.. ");
+     //printf("HX300X   ..ï¿½Ô¿Õ²ï¿½ï¿½Ô½á¹¹ï¿½â¿ªÊ¼.. ");
 
 //cal K 
     delay_ms(35);    
@@ -348,7 +348,7 @@ uint16_t Calibration_Second_OpenAir(void)
 }		
 //===================================================	
 void Calibration_Third_GreyCard(void *pEvt)
-{// »Ò¿¨²âÊÔ 
+{// ï¿½Ò¿ï¿½ï¿½ï¿½ï¿½ï¿½ 
 	uint8_t ii = 0;
 	uint16_t target_ps = (L_PS+H_PS)/2;
 	int32_t data_ps = 0;
@@ -364,7 +364,7 @@ void Calibration_Third_GreyCard(void *pEvt)
 
 	RSP* pRsp = (RSP*)pEvt;
 
-    //printf("HX300X   ...»Ò¿¨²âÊÔ¿ªÊ¼¡¡ ");
+    //printf("HX300X   ...ï¿½Ò¿ï¿½ï¿½ï¿½ï¿½Ô¿ï¿½Ê¼ï¿½ï¿½ ");
 
 //cal gain     
     data_ps = get_ps_data(35) - read_ps_1f; 
@@ -387,7 +387,7 @@ void Calibration_Third_GreyCard(void *pEvt)
     if(gain_r0x12<3) gain_r0x12 = 3;
     if(gain_r0x12>15) gain_r0x12 = 15;
     
-    gain_r0x12 = gain_r0x12<<4; //gain Ð´µ½¼Ä´æÆ÷¸ß4Î»
+    gain_r0x12 = gain_r0x12<<4; //gain Ð´ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½4Î»
     printf("HX300X  Gain r0x12 shift = 0x%x ",gain_r0x12);
     TYHX_Write_REG(0x12, gain_r0x12);
     
@@ -432,16 +432,16 @@ k2 = %d; 1f1x = %4d;2f1x = %d  ",\
 	
     printf("HX300X   ...R10 = 0x%x,R11 = 0x%x,R12 = 0x%x,R13 = 0x%x,  ", Reg[0],
             Reg[1],Reg[2],Reg[3]);
-    printf("HX300X   ...data_ps Code = %4d, read_ps_k = %4d  ", data_ps,read_ps_k);//ÀíÂÛ½á¹¹¹â
+    printf("HX300X   ...data_ps Code = %4d, read_ps_k = %4d  ", data_ps,read_ps_k);//ï¿½ï¿½ï¿½Û½á¹¹ï¿½ï¿½
     //printf("HX300X   ");
     cali_process |= CALI_STEP3;
 	
-	//data_ps:»Ò¿¨ÔöÁ¿Öµ £¬read_ps_k£ºÀíÂÛ½á¹¹¹â¸ÐÖµ
+	//data_ps:ï¿½Ò¿ï¿½ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½read_ps_kï¿½ï¿½ï¿½ï¿½ï¿½Û½á¹¹ï¿½ï¿½ï¿½Öµ
 	//return data_ps,read_ps_k; //data_ps>800,read_ps_k<2600
 }
 //--------------------------------------------------------------------
 void Calibration_Fourth_RemoveGreyCard(void *pEvt)	 
-{//³·»Ò¿¨ 	
+{//ï¿½ï¿½ï¿½Ò¿ï¿½ 	
 	uint16_t str_diff = 0;
 	uint8_t str_diff_t = 1;   //difference of struct light 
     uint8_t h_thod_t = 1;     //high threshold test
@@ -482,7 +482,7 @@ void Calibration_Fourth_RemoveGreyCard(void *pEvt)
 
     //
     H_THOD =  read_ps2;
-    L_THOD =  H_THOD-300;  //³ö¶úãÐÖµ
+    L_THOD =  H_THOD-300;  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
     
     Reg10 =TYHX_Read_REG(0x10);
     //Reg11 =TYHX_Read_REG(0x11);
@@ -502,7 +502,7 @@ void Calibration_Fourth_RemoveGreyCard(void *pEvt)
 }
 //====================================================================
 uint8_t Calibration_Fifth_SaveDataToFlash(void)	
-{//×¢£º½«ÒÔÏÂ²ÎÊý±£´æµ½Ö÷¿ØµÄflashÀï
+{//×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æµ½ï¿½ï¿½ï¿½Øµï¿½flashï¿½ï¿½
 	//Flash.Reg10 = Reg10;
 	//Flash.Reg12 = Reg12;
 	//Flash.Reg13 = Reg13;
@@ -642,8 +642,8 @@ void hx300x_Set_cur(void)
 		reg_10 = leddr;
 		reg_13 = reg_13_new;
 	}	
-    TYHX_Write_REG(0x10, reg_10);       //Flash ±£´æµÄleddr
-    TYHX_Write_REG(0x13, reg_13);  //Flash ±£´æµÄreg_13_new 	
+    TYHX_Write_REG(0x10, reg_10);       //Flash ï¿½ï¿½ï¿½ï¿½ï¿½leddr
+    TYHX_Write_REG(0x13, reg_13);  //Flash ï¿½ï¿½ï¿½ï¿½ï¿½reg_13_new 	
 }
 
 void hx300x_Set_gain(void)
@@ -656,7 +656,7 @@ void hx300x_Set_gain(void)
 		reg_12 = gain_r0x12;
 	}
 	
-    TYHX_Write_REG(0x12, reg_12);  //Flash ±£´æµÄgain
+    TYHX_Write_REG(0x12, reg_12);  //Flash ï¿½ï¿½ï¿½ï¿½ï¿½gain
 }
 void HX300x_init(void)
 {	
@@ -689,9 +689,9 @@ void HX300x_init(void)
 
 uint16_t hx300x_int_handle(void)
 {
-//·½·¨Ò»£ºÖ±½Ó¶ÁINTµÄ¸ßµÍµçÆ½  £¨ÍÆ¼ö·½·¨£©      
-	// INT Îª¸ßµçÆ½ ===> Èë¶ú £¨In ear£©
-	// INT ÎªµÍµçÆ½ ===> ³ö¶ú £¨Out ear£©   
+//ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ö±ï¿½Ó¶ï¿½INTï¿½Ä¸ßµÍµï¿½Æ½  ï¿½ï¿½ï¿½Æ¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½      
+	// INT Îªï¿½ßµï¿½Æ½ ===> ï¿½ï¿½ï¿½ ï¿½ï¿½In earï¿½ï¿½
+	// INT Îªï¿½Íµï¿½Æ½ ===> ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Out earï¿½ï¿½   
 	hal_gpio_data_t pin_status = 0;
 	hal_gpio_status_t status = hal_gpio_get_input(PIO_HX300X_INT, &pin_status);
 
@@ -707,7 +707,7 @@ uint16_t hx300x_int_handle(void)
 
 
 
-//·½·¨¶þ£º¶Áps data ºÍ¸ßµÍãÐÖµ¶Ô±È	
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ps data ï¿½Í¸ßµï¿½ï¿½ï¿½Öµï¿½Ô±ï¿½	
 /*    
     uint16_t ps_data = 0;
 
@@ -729,13 +729,13 @@ uint16_t hx300x_int_handle(void)
 void hx300x_PowerDown(void)
 {
     // Or disable EN of LDO
-    TYHX_Write_REG(0x00, 0x05);	 		                                //bit1:PEN  ¹Ø±Õ¼¤¹âµçÔ´
+    TYHX_Write_REG(0x00, 0x05);	 		                                //bit1:PEN  ï¿½Ø±Õ¼ï¿½ï¿½ï¿½ï¿½Ô´
 }
 
 void hx300x_PowerOn(void)
 {
     // enable LDO
-    TYHX_Write_REG(0x00, 0x0A);	 		                                //bit1:PEN  ´ò¿ª¼¤¹âµçÔ´
+    TYHX_Write_REG(0x00, 0x0A);	 		                                //bit1:PEN  ï¿½ò¿ª¼ï¿½ï¿½ï¿½ï¿½Ô´
 }
 
 

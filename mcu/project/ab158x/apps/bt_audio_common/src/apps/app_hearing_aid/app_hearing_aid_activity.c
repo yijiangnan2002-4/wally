@@ -259,7 +259,7 @@ void app_hearing_aid_activity_play_vp(uint8_t vp_index, bool need_sync)
                                                     0);
     } else {
 #endif /* AIR_TWS_ENABLE */
-        voice_prompt_play(&vp, NULL);
+        voice_prompt_play(&vp, NULL);
 #ifdef AIR_TWS_ENABLE
     }
     if(vp_index==42||vp_index==47||vp_index==51)  // harry add for case ui display
@@ -293,7 +293,7 @@ extern uint8_t prompt_no_play_flag;	// richard for UI
 void app_hearing_aid_activity_play_mode_index_vp(uint8_t index, bool need_sync)
 {
     APPS_LOG_MSGID_I("app_hearing_aid_activity_play_mode_index_vp  prompt_no_play_flag=%d,index=%d,need_sync=%d",3,prompt_no_play_flag,index,need_sync);
-	if(prompt_no_play_flag==0)   // 在切HA的时候，如果prompt_no_play_flag=1，已经播放过VP了。在这禁止再播放。harry mask for play vp bug 0708
+	if(prompt_no_play_flag==0)   // ??HA???,??prompt_no_play_flag=1,?????VP??????????harry mask for play vp bug 0708
 	{
     		app_hearing_aid_activity_play_vp(app_hearing_aid_mode_vp_index_list[index], need_sync);
 	}
@@ -347,7 +347,7 @@ void app_hearing_aid_activity_play_ha_on_vp(bool enable, bool need_mode_vp, bool
         app_hearing_aid_activity_play_mode_index_vp(mode_index, false);
     }
 #endif /* AIR_TWS_ENABLE */
-	prompt_no_play_flag=0;    // 恢复提示音开
+	prompt_no_play_flag=0;    // ??????
 
 }
 
