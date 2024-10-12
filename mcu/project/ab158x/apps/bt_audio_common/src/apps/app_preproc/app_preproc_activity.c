@@ -96,9 +96,10 @@ static const uint8_t captouch_keys[] = APPS_CAPTOUCH_KEY_IDS;
 #include "apps_config_event_list.h"
 #include "audio_anc_psap_control.h"
 #include "app_hear_through_activity.h"
+#include "bt_sink_srv.h"
 
 
-bool key_porc_in_ear_statu; 
+bool key_porc_in_ear_statu=1; 
 static bool _proc_ui_shell_group(ui_shell_activity_t *self,
                                  uint32_t event_id,
                                  void *extra_data,
@@ -169,12 +170,12 @@ static bool pre_proc_key_event_proc(ui_shell_activity_t *self, uint32_t event_id
         uint16_t *p_key_action = (uint16_t *)extra_data;
         if (INVALID_KEY_EVENT_ID == event_id) {
             /* Key event from CMD, not real key. */
-            APPS_LOG_MSGID_I("Receive CMD key event, action: %04x", 1, *p_key_action);
+            APPS_LOG_MSGID_I("pre_proc_key_event_proc Receive CMD key event, action: %04x", 1, *p_key_action);
             return false;
         }
         /* The key is from power on, ignore it. */
         if (*p_key_action) {
-            APPS_LOG_MSGID_I("The key pressed from power on, do special %04x", 1, event_id);
+            APPS_LOG_MSGID_I("pre_proc_key_event_proc The key pressed from power on, do special %04x", 1, event_id);
             return true;
         }
 
@@ -190,7 +191,7 @@ static bool pre_proc_key_event_proc(ui_shell_activity_t *self, uint32_t event_id
 errrrrrrrrrrrrrrrr
             const app_bt_state_service_status_t *bt_state_srv_status = app_bt_connection_service_get_current_status();
             if (bt_state_srv_status != NULL && bt_state_srv_status->current_power_state == APP_HOME_SCREEN_BT_POWER_CLASSIC_DISABLED) {
-                APPS_LOG_MSGID_I("AIRO_KEY_PRESS, current_power_state %d", 1, bt_state_srv_status->current_power_state);
+                APPS_LOG_MSGID_I("pre_proc_key_event_proc AIRO_KEY_PRESS, current_power_state %d", 1, bt_state_srv_status->current_power_state);
             } else
 #endif
             {
@@ -212,7 +213,7 @@ errrrrrrrrrrrrrrrr
 #if defined(AIR_GSOUND_ENABLE) && defined(MTK_RACE_CMD_ENABLE)
         uint8_t temp_touch_key_status = 0;
         temp_touch_key_status = apps_get_touch_control_status();
-        APPS_LOG_MSGID_I("App_pre_pro get touch_key_status=0x%02X, key_id=%x, key_event=%x", 3, temp_touch_key_status, key_id, key_event);
+        APPS_LOG_MSGID_I("pre_proc_key_event_proc get touch_key_status=0x%02X, key_id=%x, key_event=%x", 3, temp_touch_key_status, key_id, key_event);
         if (((0 == temp_touch_key_status) || (0xFF == temp_touch_key_status))
             && is_captouch) {
             if ((AIRO_KEY_SHORT_CLICK == key_event) || (AIRO_KEY_DOUBLE_CLICK == key_event) || (AIRO_KEY_TRIPLE_CLICK == key_event)) {
@@ -226,15 +227,17 @@ errrrrrrrrrrrrrrrr
             /* For QA testing, use power key table to implement . */
             key_id = DEVICE_KEY_POWER;
         }
-        if(0)//(key_porc_in_ear_statu==0)// harry for key proc
-          {
-          APPS_LOG_MSGID_I("pre_proc_key_event_proc, it is outear action", 0);
-          }
+          APPS_LOG_MSGID_I("pre_proc_key_event_proc =%d", 1,key_porc_in_ear_statu);
+        if(key_porc_in_ear_statu==0)// harry for key proc,出耳模式不要有按键响应20240724
+        {
+          APPS_LOG_MSGID_I("pre_proc_key_event_proc, it is outear action p_key_action=0x%x", 1,p_key_action);
+          return true;   // 
+        }
         else
-          {
+        {
           //APPS_LOG_MSGID_I("pre_proc_key_event_proc, it is inear action", 0);
         *p_key_action = apps_config_key_event_remapper_map_action(key_id, key_event);
-          }
+        }
 
       APPS_LOG_MSGID_I("pre_proc_key_event_proc, action: %04x,key_id=%x,key_event=%x", 3, *p_key_action,key_id,key_event);
      if(*p_key_action==KEY_SWITCH_ANC_AND_PASSTHROUGH)
@@ -420,6 +423,14 @@ static bool pre_proc_app_interaction_event_proc(ui_shell_activity_t *self, uint3
             if (extra_data) {
                 bool *in_ear = (bool *)extra_data;
                 key_porc_in_ear_statu = *in_ear;
+                if(key_porc_in_ear_statu)
+                  {
+                  bt_sink_srv_set_mute(BT_SINK_SRV_MUTE_SPEAKER, FALSE);
+                  }
+                else
+                  {
+                  bt_sink_srv_set_mute(BT_SINK_SRV_MUTE_SPEAKER, TRUE);
+                  }
              APPS_LOG_MSGID_I("app_preproc APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT inear= %d", 1,key_porc_in_ear_statu);
                 if(key_porc_in_ear_statu)
                   {

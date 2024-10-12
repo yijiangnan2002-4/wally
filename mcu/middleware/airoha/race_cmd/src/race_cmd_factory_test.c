@@ -628,7 +628,7 @@ void* RACE_FACTORY_TEST_LEA_DISABLE(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 	CMD* pCmd = (CMD *)pCmdMsg;
 	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_LEA_DISABLE, (uint16_t)sizeof(RSP), channel_id);
     int32_t ret = RACE_ERRCODE_SUCCESS;
-
+	RACE_LOG_MSGID_I("RACE_FACTORY_TEST_LEA_DISABLE pCmd->WR=%d,pCmd->lea_disable=%d \r\n",2, pCmd->WR,pCmd->lea_disable);
     if (pEvt)
     {
     
@@ -903,7 +903,7 @@ void* RACE_FACTORY_TEST_SERIAL_NUMBER(ptr_race_pkt_t pCmdMsg, uint8_t channel_id
 		else if(pCmd->WR == 0x02)
 		{
 			memmove(pEvt->ver_rsp, pCmd->ver, SN_LEN);	
-			app_nvkey_sn_set(pCmd->ver, SN_LEN);		
+			app_nvkey_sn_set(pCmd->ver, SN_LEN);
 		}
 		else
 		{

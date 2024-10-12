@@ -306,6 +306,7 @@ static bool app_fota_idle_proc_fota_group(struct _ui_shell_activity *self,
                 //apps_config_set_vp(VP_INDEX_SUCCEED, TRUE, 200, VOICE_PROMPT_PRIO_MEDIUM, FALSE, NULL);
 #else
                 voice_prompt_play_sync_vp_succeed();
+                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 18 ", 0);
 #endif
 
                 apps_config_set_foreground_led_pattern(LED_INDEX_FOTA_START, 30, FALSE);

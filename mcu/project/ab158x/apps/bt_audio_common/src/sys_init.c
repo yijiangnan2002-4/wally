@@ -414,7 +414,7 @@ void system_init(void)
 
 #ifdef MTK_NVDM_ENABLE
     /* Check if there's a factory reset and do nvdm clear. */
-    factory_rst_reserved_nvdm_item_list_check();
+    factory_rst_reserved_nvdm_item_list_check();   
 #endif
 
     /* log init */
