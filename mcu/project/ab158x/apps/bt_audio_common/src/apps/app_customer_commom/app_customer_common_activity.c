@@ -1879,6 +1879,7 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 {
     bool ret = false;
     bt_aws_mce_report_info_t *aws_data_ind = (bt_aws_mce_report_info_t *)extra_data;
+     bool *isInEar = NULL;
 
     if (aws_data_ind->module_id == BT_AWS_MCE_REPORT_MODULE_APP_ACTION)
     {
@@ -2278,7 +2279,16 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 				break;
 				
 			    case EVENT_ID_EASTECH_FROM_TESTCMD_IRSENSER:	{
+					
 					need_disable_irsenser=*(uint8_t*)p_extra_data;
+					if(need_disable_irsenser==1)
+					{
+				           isInEar = (bool *)pvPortMalloc(sizeof(bool));
+				          *isInEar =need_disable_irsenser;
+					   ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, isInEar, sizeof(bool),
+									 NULL, 10);
+					}
 					APPS_LOG_MSGID_I("_customer_common_app_aws_data_proc EVENT_ID_EASTECH_FROM_TESTCMD_IRSENSER need_disable_irsenser= 0x%x", 1, *(uint8_t*)p_extra_data);
 				}
 					break;

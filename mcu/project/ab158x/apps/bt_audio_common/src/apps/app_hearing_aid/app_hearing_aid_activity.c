@@ -555,6 +555,7 @@ bool app_hearing_aid_activity_process_race_cmd(void *race_data, size_t race_data
 
     uint8_t execute_where = APP_HEARING_AID_EXECUTE_NONE;
     bool need_sync_execute = false;
+     bool *isInEar = NULL;
 
     app_hear_through_request_t *request = (app_hear_through_request_t *)race_data;
 
@@ -586,6 +587,11 @@ bool app_hearing_aid_activity_process_race_cmd(void *race_data, size_t race_data
 			if(request->op_parameter[0]==0)
 			{
 		            need_disable_irsenser=1;
+		           isInEar = (bool *)pvPortMalloc(sizeof(bool));
+		          *isInEar =need_disable_irsenser;
+			   ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, isInEar, sizeof(bool),
+									 NULL, 10);
 			}
 			else
 			{
