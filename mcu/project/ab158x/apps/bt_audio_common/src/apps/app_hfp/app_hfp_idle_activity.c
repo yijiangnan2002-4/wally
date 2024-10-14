@@ -1044,11 +1044,13 @@ static atci_cmd_hdlr_item_t app_hfp_atci_cmd_debug[] = {
         .hash_value1 = 0,
         .hash_value2 = 0,
     },
+    #if 0
     .command_head = "AT+TESTREDIAL",       /**< HFP redial debug. */
     .command_hdlr = app_hfp_atci_test_redial,
     .hash_value1 = 0,
     .hash_value2 = 0,
 },
+#endif
 };
 
 void app_hfp_atci_debug_init(void)

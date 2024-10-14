@@ -751,7 +751,7 @@ voice_prompt_status_t voice_prompt_play_vp_power_on()
     vp.vp_index = VP_INDEX_FAILED;
     vp.control = VOICE_PROMPT_CONTROL_MASK_PREEMPT;
     voice_prompt_play(&vp, NULL);
-	prompt_no_play_flag=1;    // 鲁枚潞脨脛脟脪禄脧脗脳脫脪虏虏禄脪陋脫脨HA碌脛脤谩脢戮脪么
+	prompt_no_play_flag=1;    // 出盒那一下子也不要有HA的提示音
  return 0;
 }
 

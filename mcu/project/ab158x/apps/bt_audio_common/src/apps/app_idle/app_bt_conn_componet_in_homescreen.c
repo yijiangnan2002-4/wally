@@ -252,7 +252,7 @@ bool bt_conn_component_bt_sink_event_proc(ui_shell_activity_t *self,
             if (update_ind->pre_state == BT_BLE_LINK_DISCONNECTED
                 && update_ind->state == BT_BLE_LINK_CONNECTED) {
                 local_ctx->bt_power_off = false;
-		#if 1  // HARRY 0924 REOPEN, 隆垄隆垄// BLE碌脛脕卢陆脫虏禄脪陋脤谩脢戮脪么拢卢脪貌脦陋脫脨碌脛脢脰禄煤脕卢脌露脩脌碌脛脢卤潞貌拢卢禄谩脛卢脠脧脕卢陆脫BLE,碌录脰脗脤谩脢戮脪么禄矛脗脪
+		#if 1  // HARRY 0924 REOPEN, 、、// BLE的连接不要提示音，因为有的手机连蓝牙的时候，会默认连接BLE,导致提示音混乱
                 voice_prompt_param_t vp = {0};
                 vp.vp_index = VP_INDEX_CONNECTED;//VP_INDEX_EN_Pairing_success;
                 voice_prompt_play(&vp, NULL);
@@ -264,7 +264,7 @@ bool bt_conn_component_bt_sink_event_proc(ui_shell_activity_t *self,
             } else if (update_ind->pre_state == BT_BLE_LINK_CONNECTED
                        && update_ind->state == BT_BLE_LINK_DISCONNECTED) {
                 if (local_ctx->state == APP_HOME_SCREEN_STATE_IDLE && (!local_ctx->bt_power_off)) {
-				#if 1  // BLE碌脛脕卢陆脫虏禄脪陋脤谩脢戮脪么拢卢脪貌脦陋脫脨碌脛脢脰禄煤脕卢脌露脩脌碌脛脢卤潞貌拢卢禄谩脛卢脠脧脕卢陆脫BLE,碌录脰脗脤谩脢戮脪么禄矛脗脪
+				#if 1  // BLE的连接不要提示音，因为有的手机连蓝牙的时候，会默认连接BLE,导致提示音混乱
                     voice_prompt_param_t vp = {0};
                     vp.vp_index = VP_INDEX_DEVICE_DISCONNECTED;
                     voice_prompt_play(&vp, NULL);

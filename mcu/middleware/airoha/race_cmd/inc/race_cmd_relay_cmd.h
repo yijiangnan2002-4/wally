@@ -255,6 +255,7 @@ void *RACE_CmdHandler_RELAY_RACE_CMD(ptr_race_pkt_t pCmdMsg, uint16_t length, ui
 
 void race_relay_cmd_init(void);
 void race_cmd_relay_rsp_process (race_pkt_t *pMsg, void *rsp, uint8_t channel);
+void audeara_race_cmd_relay_handler(uint8_t* pMsg, uint8_t channel);
 
 #endif /* _RACE_CMD_RELAY_CMD_H_ */
 

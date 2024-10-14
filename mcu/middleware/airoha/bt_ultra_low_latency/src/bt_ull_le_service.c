@@ -51,6 +51,23 @@
 #include "bt_connection_manager.h"
 #include "audio_src_srv.h"
 
+// Audeara ULL patch
+#include "bt_ull_audeara.h"
+#include "race_core.h"
+#include "race_cmd.h"
+#include "race_xport.h"
+#include "mux.h"
+#include "nvdm.h"
+#include "nvkey.h"
+#include "bt_device_manager.h"
+#include "apps_events_interaction_event.h"
+#include "apps_events_event_group.h"
+#include "ui_shell_manager.h"
+#include "race.h"
+#include "race_cmd_relay_cmd.h"
+
+
+bool aua_notification_state = true; // placeholder this as true for
 
 /**************************************************************************************************
 * Define
@@ -3606,6 +3623,152 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			break;
 	}
 }
+
+// Audeara LE messaging patch
+extern void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length);
+
+static nvdm_status_t AudearaWriteNVKey(uint8_t *data_buf, uint16_t data_len)
+{
+	nvdm_status_t nvstatus;
+	uint16_t keyid = data_buf[0] | ((uint16_t)data_buf[1])<<8;
+	//LOG_MSGID_I(AUCOMM_DEBUG, "Key write [%04x] length = %d data [%02x][%02x]", 4, keyid, data_len-2, data_buf[2],data_buf[3]);
+	nvstatus = nvkey_write_data(keyid, &data_buf[2], data_len-2);
+	return nvstatus;
+}
+
+static nvdm_status_t AudearaReadNVKey(uint8_t *data_buf, uint8_t *out_buf, uint16_t * data_len)
+{
+	uint32_t sz;
+	nvdm_status_t nvstatus;
+	uint16_t keyid = data_buf[0] | ((uint16_t)data_buf[1])<<8;
+	sz = *data_len;
+	nvstatus = nvkey_read_data(keyid, out_buf, &sz);
+
+	//LOG_MSGID_I(AUCOMM_DEBUG, "Key read [%04x] length = %d data [%02x][%02x]", 4, keyid, sz, out_buf[0],out_buf[1]);
+	*data_len = (uint16_t) sz;
+	return nvstatus;
+}
+
+bool AudearaGetNotificationState(void)
+{
+    return aua_notification_state;
+}
+
+void AudearaSetNotificationState(bool audeara_notification_state)
+{
+    aua_notification_state = audeara_notification_state;
+}
+
+void audeara_ab1571d_data_processing(AUDEARA_BTULL_MESSAGE_FRAMES_T frame, uint8_t * data, uint16_t length)
+ {
+     bt_bd_addr_t *mac = {0}; 
+     uint8_t reply_buf[512] = {0}; // Some bookeeping bytes for status
+     switch(frame)
+     {
+        case AUA_BUDSFRAME_READ_SYSTEM_STATUS:
+            break;
+        case AUA_BUDSFRAME_WRITE_NVKEY:
+            reply_buf[0] =  AudearaWriteNVKey(data, length);
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_WRITE_NVKEY, reply_buf, 1);
+            break;
+        case AUA_BUDSFRAME_READ_NVKEY:
+            AudearaReadNVKey(data, data, &length); // Just return the nvkey data in the input data
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_READ_NVKEY, data, length);
+            break;
+        case AUA_BUDSFRAME_SEND_RACE_CMD:
+            if(data[0] == 0) // No realy, send to master bud    
+            {
+                audeara_race_cmd_local_handler(SERIAL_PORT_DEV_UNDEFINED, &data[2], AUA_BUDSFRAME_SEND_RACE_CMD, 0);
+            }
+            else
+            {
+                reply_buf[0] = 0x05;
+                reply_buf[1] = 0x5A;
+                reply_buf[2] = (((length - 2) + 4) & 0xFF);
+                reply_buf[3] = ((((length - 2) + 4) >> 8) & 0xFF);
+                reply_buf[4] = 0x01;
+                reply_buf[5] = 0x0D;
+                reply_buf[6] = 0x05;
+                reply_buf[7] = 0x06;
+
+                memcpy(&reply_buf[8], &data[2], (length - 2));
+                /*
+                reply_buf[8] = 0x05;
+                reply_buf[9] = 0x5A;
+                reply_buf[10] = 0x05;
+                reply_buf[11] = 0x00;
+                reply_buf[12] = 0x06;
+                reply_buf[13] = 0x0E;
+                reply_buf[14] = 0x00;
+                reply_buf[15] = 0x0B;
+                reply_buf[16] = 0x00;
+                */
+               // memcpy(&reply_buf[8], &data[2], length-2);
+                //audeara_race_cmd_relay_handler(reply_buf, data[1]);
+                //audeara_race_cmd_local_handler(SERIAL_PORT_DEV_UNDEFINED, &data[2], AUA_BUDSFRAME_SEND_RACE_CMD, 0);
+                //race_cmd_relay_rsp_process(reply_buf, reply_buf, data[1]);
+               audeara_race_cmd_local_handler(data[1], reply_buf, AUA_BUDSFRAME_SEND_RACE_CMD, 1);
+               //race_cmd_relay_aws_mce_msg_process(&gen_msg);
+            }
+                break;
+        case AUA_BUDSFRAME_SEND_RACE_CMD_RESP:
+            // do nothing, this is a one way response command
+            break;
+        case AUA_BUDSFRAME_POWER_ON:
+            ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                    APPS_EVENTS_INTERACTION_REQUEST_REBOOT, NULL, 0,
+                    NULL, 0);
+            reply_buf[0] = 0;
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_POWER_ON, reply_buf, 1);
+            break;
+        case AUA_BUDSFRAME_POWER_OFF:
+            ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                APPS_EVENTS_INTERACTION_REQUEST_POWER_OFF, NULL, 0,
+                NULL, 0);
+            reply_buf[0] = 0;
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_POWER_OFF, reply_buf, 1);
+            break;
+        case AUA_BUDSFRAME_CPU_RESET:
+            ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                APPS_EVENTS_INTERACTION_REQUEST_REBOOT, NULL, 0,
+                NULL, 0);
+            reply_buf[0] = 0;
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_CPU_RESET, reply_buf, 1);
+            break;
+        case AUA_BUDSFRAME_FACTORY_RESET:
+            ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
+                APPS_EVENTS_INTERACTION_FACTORY_RESET_REQUEST, NULL, 0,
+                NULL, 0);
+            reply_buf[0] = 0;
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_FACTORY_RESET, reply_buf, 1);
+            break;
+        case AUA_BUDSFRAME_WRITE_LOCAL_MAC_ADDR:
+			memcpy(mac, data, 6);
+			bt_device_manager_store_local_address(mac);
+            reply_buf[0] = 0x00;
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_WRITE_LOCAL_MAC_ADDR, reply_buf, 1);
+            break;
+        case AUA_BUDSFRAME_READ_LOCAL_MAC_ADDR:
+            mac = bt_device_manager_get_local_address();
+            memcpy(reply_buf, mac, 6);
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_READ_LOCAL_MAC_ADDR, reply_buf, 6);
+            break;
+        case AUA_BUDSFRAME_PROGRAM_FW_UPDATE:
+            // This is to trigger a FOTA update, not transfer the update across, that is in a different function
+
+            break;
+        case AUA_BUDSRAME_RACE_NOTI_ON_OFF:
+            AudearaSetNotificationState((bool)data[0]);
+            Audeara_BT_send_data_proc(AUA_BUDSRAME_RACE_NOTI_ON_OFF, data, 1); // Ping back notification state
+            break;
+        case AUA_BUDSFRAME_TEST_DATA:
+            Audeara_BT_send_data_proc(AUA_BUDSFRAME_TEST_DATA, data, length);
+            break;
+     }
+     
+ }
+
+ // End audeara LE messaging patch
 #endif
 static void bt_ull_le_srv_rx_data_handle(uint16_t handle, uint8_t *data ,uint16_t length)
 {
@@ -4386,7 +4549,15 @@ static void bt_ull_le_srv_rx_data_handle(uint16_t handle, uint8_t *data ,uint16_
 			{
 				ab1571d_data_processing(data[4], data[5]);
 			}
-#endif				
+#endif		
+#if 1  // Alex b for audeara ab1571d command processing		
+            if (data[3] == 0x0B)
+            {
+                // Data[4] is the frame
+                uint16_t aua_packet_length = (((data[5] & 0xFF) << 8) + (data[6] & 0xFF));
+                audeara_ab1571d_data_processing(data[4], &data[7], aua_packet_length);
+            }
+#endif
                 bt_ull_le_srv_event_callback(BT_ULL_EVENT_USER_DATA_IND, &user_data_cb, sizeof(user_data_cb));
                 break;
             }

@@ -217,6 +217,7 @@ void race_cmd_relay_aws_mce_msg_process(race_general_msg_t *msg);
 void *RACE_CmdHandler_RELAY_RACE_CMD(ptr_race_pkt_t pCmdMsg, uint16_t length, uint8_t channel_id);
 void race_relay_cmd_init(void);
 bool race_relay_send_cosys_to_remote_internal(race_pkt_t *race_pkt, uint16_t length, uint8_t channel_id);
+void audeara_cosys_race_handler(race_pkt_t *pMsg, uint8_t channel);
 
 #endif /* _RACE_CMD_RELAY_CMD_COSYS_H_ */
 

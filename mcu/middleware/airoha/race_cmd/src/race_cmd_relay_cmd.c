@@ -51,6 +51,7 @@
 #include "race_cmd_dsprealtime.h"
 
 
+#include "bt_device_manager.h"
 #ifdef MTK_MUX_AWS_MCE_ENABLE
 #include "mux.h"
 #include "mux_aws_mce.h"
@@ -60,6 +61,7 @@
 #include "user_trigger_adaptive_ff.h"
 #endif
 #ifdef RACE_RELAY_CMD_ENABLE
+
 
 #define MIN(X, Y) (((X)<(Y))?(X):(Y))
 
@@ -104,6 +106,8 @@ static void race_cmd_ctrl_deinit(race_cmd_ctrl_t *relay_cmd_ctrl)
     relay_cmd_ctrl->total_pkt = 0;
     relay_cmd_ctrl->pre_pkt = 0;
 }
+
+extern void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length);
 
 #ifdef MTK_MUX_AWS_MCE_ENABLE
 typedef struct {
@@ -240,6 +244,7 @@ static void race_cmd_relay_aws_mce_notify(uint8_t *packet, uint16_t len, uint8_t
     msg_queue_item.msg_id = MSG_ID_RACE_LOCAL_RELAY_RACE_CMD;
     msg_queue_item.msg_data[0] = (uint8_t)channel;
     memcpy(msg_queue_item.msg_data + 1, packet, len);
+    // Audeara relay alex -> This is what is called to send the packet to the relay device
     RACE_LOG_MSGID_I("[relay_cmd][relay_dbg] notify: 0x%08X 0x%08X\n",
         2, *(uint32_t *)&msg_queue_item.msg_data[0], *(uint32_t *)&msg_queue_item.msg_data[4]);
     race_send_msg(&msg_queue_item);
@@ -345,17 +350,42 @@ static void bt_aws_mce_report_relay_cmd_callback(bt_aws_mce_report_info_t *info)
                 break;
             }
 
+           
             if (((relay_ctrl->pre_pkt + 1) == relay_ctrl->total_pkt) && (relay_ctrl->buffer != NULL)) { /*means last pkt*/
                 if (relay_ctrl != &peq_relay_cmd_ctrl) {
                     race_cmd_relay_aws_mce_notify(relay_ctrl->buffer, relay_ctrl->offset, channel_id);
                 } else if (race_cmd_relay_aws_mce_check(relay_ctrl, pkt) == 1) {
                     race_cmd_relay_aws_mce_notify(relay_ctrl->buffer, relay_ctrl->offset, channel_id);
                 }
+                if(relay_ctrl->buffer[1] == 0x5B) // Make sure its a response
+                {
+                     Audeara_BT_send_data_proc(0x04, relay_ctrl->buffer, relay_ctrl->offset);
+                }
                 race_mem_free(relay_ctrl->buffer);
                 race_cmd_ctrl_deinit(relay_ctrl);
             }
             break;
         }
+    }
+}
+
+void audeara_race_cmd_relay_handler(uint8_t* pMsg, uint8_t channel)
+{
+    bt_status_t ret = BT_SINK_SRV_STATUS_FAIL;
+    race_pkt_t *pCmd = (race_pkt_t *)pMsg;
+    uint8_t channel_id = RACE_CHANNEL_ID_SET_RELAY_CMD_FLAG(channel);
+    race_send_pkt_t *pEvt = RACE_CmdHandler(pCmd, channel_id);
+    if (pEvt) {
+        ret = bt_send_aws_mce_race_cmd_data(&pEvt->race_data, pEvt->length, channel, RACE_CMD_RSP_FROM_PARTNER, peq_relay_dbg.send_idx);
+        //Audeara_BT_send_data_proc(0x04, &pEvt->race_data, pEvt->length);
+        if (ret != BT_STATUS_SUCCESS) {
+            uint8_t buffer[2] = {0xAA, 0xFF};
+            Audeara_BT_send_data_proc(0x04, buffer, 2);
+            //RACE_LOG_MSGID_I("[relay_cmd] partner send relay req FAIL \n", 0);
+        } else {
+            peq_relay_dbg.send_idx++;
+        }
+        race_mem_free(pEvt);
     }
 }
 
@@ -381,6 +411,8 @@ void race_cmd_relay_rsp_process(race_pkt_t *pMsg, void *rsp, uint8_t channel)
     if (pMsg->hdr.length < 890) {
         ret = race_flush_packet((void *)rsp, channel);
         if (ret != RACE_STATUS_OK) {
+             uint8_t buffer[2] = {0xCC, 0xFF};
+            Audeara_BT_send_data_proc(0x04, buffer, 2);
             //RACE_LOG_MSGID_E("[relay_cmd] agent flush relay rsp FAIL \n", 0);
         }
     } else {
@@ -393,6 +425,7 @@ void race_cmd_relay_rsp_process(race_pkt_t *pMsg, void *rsp, uint8_t channel)
 
         size = pSndPkt->length;
         ptr = (uint8_t *)&pSndPkt->race_data;
+        Audeara_BT_send_data_proc(0x04, ptr, size);
         size -= ret_size;
         ptr += ret_size;
         while (size > 0) {
