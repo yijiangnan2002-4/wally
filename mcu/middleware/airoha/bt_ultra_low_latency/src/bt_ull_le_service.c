@@ -5478,6 +5478,7 @@ bt_status_t bt_ull_le_srv_init(bt_ull_role_t role, bt_ull_callback callback)
 bt_status_t bt_ull_le_srv_action(bt_ull_action_t action, const void *param, uint32_t param_len)
 {
     bt_status_t status = BT_STATUS_SUCCESS;
+    uint32_t data_tx_free_memory = 0;
     bt_ull_le_srv_context_t* ull_context = bt_ull_le_srv_get_context();
 
     ull_report("[ULL][LE] bt_ull_le_srv_action action: 0x%x, role: 0x%x", 2, action, ull_context->role);
@@ -5563,12 +5564,19 @@ bt_status_t bt_ull_le_srv_action(bt_ull_action_t action, const void *param, uint
                     uint16_t total_len = tx->user_data_length + sizeof(tx->user_data_length) + sizeof(bt_ull_req_event_t);
                     uint8_t *tx_buf = (uint8_t*)bt_ull_le_srv_memory_alloc(total_len);
                     if (NULL != tx_buf) {
+			data_tx_free_memory=bt_memory_get_total_free_size(BT_MEMORY_TX_BUFFER);
+            		ull_report("[ULL][LE] BT_ULL_ACTION_TX_USER_DATA data_tx_free_memory: 0x%x", 2, data_tx_free_memory);
+			if(data_tx_free_memory>0xc0)  // harry for out memory 2024 1014
+			{
                         tx_buf[0] = req_action;
                         ull_assert(tx->user_data_length && tx->user_data);
                         bt_ull_le_srv_memcpy(&tx_buf[1], &(tx->user_data_length), sizeof(tx->user_data_length));
                         bt_ull_le_srv_memcpy(&tx_buf[3], tx->user_data, tx->user_data_length);
-
                         status = bt_ull_le_srv_send_data(g_ull_le_link_info[i].conn_handle, tx_buf, total_len);
+			}
+			else	{
+            		ull_report_error("[ULL][LE] BT_ULL_ACTION_TX_USER_DATA data_tx_free_memory: 0x%x out memoryyyyyyyyyyyyyy", 2, data_tx_free_memory);
+				}
                         bt_ull_le_srv_memory_free(tx_buf);
                     }
                 }
@@ -5760,6 +5768,8 @@ bt_status_t bt_ull_le_srv_send_data(uint16_t handle, uint8_t *packet, uint16_t p
 {
     bt_status_t result = BT_STATUS_FAIL;
     uint16_t send_length = 0;
+    uint32_t data_tx_free_memory = 0;
+    uint32_t data_rx_free_memory = 0;
     bool need_resend = false;
     bt_ull_le_srv_link_info_t *link_info = bt_ull_le_srv_get_link_info(handle);
 
@@ -5767,6 +5777,9 @@ bt_status_t bt_ull_le_srv_send_data(uint16_t handle, uint8_t *packet, uint16_t p
         ull_report_error("[ULL][LE] bt_ull_le_srv_send_data, invalid params", 0);
         return BT_STATUS_FAIL;
     }
+	data_tx_free_memory=bt_memory_get_total_free_size(BT_MEMORY_TX_BUFFER);
+	data_rx_free_memory=bt_memory_get_total_free_size(BT_MEMORY_RX_BUFFER);
+    ull_report("[ULL][LE] bt_ull_le_srv_send_data, status: data_tx_free_memory:0x%x, data_rx_free_memory: 0x%x, packet_len: 0x%x,", 3, data_tx_free_memory, data_rx_free_memory, packet_size);
     if (link_info->max_packet_size < packet_size) {
         need_resend = true;
         send_length = link_info->max_packet_size;
