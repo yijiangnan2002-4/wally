@@ -66,6 +66,8 @@
 #include "race.h"
 #include "race_cmd_relay_cmd.h"
 
+#include "app_hear_through_race_cmd_handler.h"
+
 
 bool aua_notification_state = true; // placeholder this as true for
 
@@ -3678,8 +3680,19 @@ void audeara_ab1571d_data_processing(AUDEARA_BTULL_MESSAGE_FRAMES_T frame, uint8
         case AUA_BUDSFRAME_SEND_RACE_CMD:
             if(data[0] == 0) // No realy, send to master bud    
             {
-                audeara_race_cmd_local_handler(SERIAL_PORT_DEV_UNDEFINED, &data[2], AUA_BUDSFRAME_SEND_RACE_CMD, 0);
+                //data[2] = 0x05, 3 = 0x5A, 4 = length 1, 5 = length 2, 6 = ID1, 7 = ID2
+                if(data[6] == 0x87 && data[7] == 0x2C) // OPCODE for Hearing aid commands
+                {
+                    #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+                        app_hear_through_race_cmd_handler((void*)&data[2], (length-2), data[1]);
+                    #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
+                }
+                else
+                {
+                    audeara_race_cmd_local_handler(SERIAL_PORT_DEV_UNDEFINED, &data[2], AUA_BUDSFRAME_SEND_RACE_CMD, 0);
+                }
             }
+
             else
             {
                 reply_buf[0] = 0x05;
@@ -3692,23 +3705,18 @@ void audeara_ab1571d_data_processing(AUDEARA_BTULL_MESSAGE_FRAMES_T frame, uint8
                 reply_buf[7] = 0x06;
 
                 memcpy(&reply_buf[8], &data[2], (length - 2));
-                /*
-                reply_buf[8] = 0x05;
-                reply_buf[9] = 0x5A;
-                reply_buf[10] = 0x05;
-                reply_buf[11] = 0x00;
-                reply_buf[12] = 0x06;
-                reply_buf[13] = 0x0E;
-                reply_buf[14] = 0x00;
-                reply_buf[15] = 0x0B;
-                reply_buf[16] = 0x00;
-                */
-               // memcpy(&reply_buf[8], &data[2], length-2);
-                //audeara_race_cmd_relay_handler(reply_buf, data[1]);
-                //audeara_race_cmd_local_handler(SERIAL_PORT_DEV_UNDEFINED, &data[2], AUA_BUDSFRAME_SEND_RACE_CMD, 0);
-                //race_cmd_relay_rsp_process(reply_buf, reply_buf, data[1]);
-               audeara_race_cmd_local_handler(data[1], reply_buf, AUA_BUDSFRAME_SEND_RACE_CMD, 1);
-               //race_cmd_relay_aws_mce_msg_process(&gen_msg);
+
+                if(data[6] == 0x87 && data[7] == 0x2C) // OPCODE for Hearing aid commands
+                {
+                    #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+                        app_hear_through_race_cmd_handler((void*)&data[2], (length-2), data[1]);
+                    #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
+                }
+                
+                else
+                {
+                    audeara_race_cmd_local_handler(data[1], reply_buf, AUA_BUDSFRAME_SEND_RACE_CMD, 1);
+                }
             }
                 break;
         case AUA_BUDSFRAME_SEND_RACE_CMD_RESP:
