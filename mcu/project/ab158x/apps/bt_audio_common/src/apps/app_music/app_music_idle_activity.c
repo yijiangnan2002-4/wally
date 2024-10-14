@@ -270,7 +270,6 @@ static void app_music_idle_activity_handle_peq_switch()
 
     if (status == RACE_ERRCODE_SUCCESS) {
         voice_prompt_play_sync_vp_succeed();
-                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 22 ", 0);
     } else {
     APPS_LOG_MSGID_I(APP_MUSIC_TAG" app_music_idle_activity_handle_peq_switch, VP_INDEX_FAILED 44",0); 
         voice_prompt_play_sync_vp_failed();

@@ -103,7 +103,6 @@ static bool _proc_ui_shell_group(struct _ui_shell_activity *self, uint32_t event
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_UPDATE_LED_BG_PATTERN, NULL, 0, NULL, 0);
             voice_prompt_play_vp_succeed();
-                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 15 ", 0);
             if (ctx->ble_adv_paused) {
                 multi_ble_adv_manager_resume_ble_adv();
                 ctx->ble_adv_paused = false;
@@ -214,7 +213,6 @@ static bool _proc_apps_internal_events(ui_shell_activity_t *self,
             app_share_mode_sta_t new_sta = ctx->current_sta;
             if (new_sta == BT_MCSYNC_SHARE_STATE_SHARING && old_sta != new_sta) {
                 voice_prompt_play_vp_succeed();
-                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 16 ", 0);
             }
             /* If the state become to normal, finish self to exit share mode completely. */
             if (new_sta == BT_MCSYNC_SHARE_STATE_NORMAL) {

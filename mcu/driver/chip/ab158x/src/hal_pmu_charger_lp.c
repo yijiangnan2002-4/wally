@@ -639,7 +639,7 @@ void pmu_ntc_get_temp_adc(uint32_t *temp_adc)
     }
     val = pmu_round(val, ntc_cfg1.avg_cnt);
     hal_adc_get_calibraton_data(val, &ret);
-    log_hal_msgid_info("[PMU_JEITA]ntc_get_temp_adc, val[%d], temp_adc[%d]", 2, val, ret);
+    //log_hal_msgid_info("[PMU_JEITA]ntc_get_temp_adc, val[%d], temp_adc[%d]", 2, val, ret);
 
     *temp_adc = ret;
 }
@@ -647,16 +647,15 @@ void pmu_ntc_get_temp_adc(uint32_t *temp_adc)
 void pmu_ntc_adc_to_ratio(uint32_t temp_adc, uint32_t *ratio)
 {
     *ratio = (temp_adc * 1000) / 4095;
-    log_hal_msgid_info("[PMU_JEITA]ntc_adc_to_ratio, temp_adc[%d], ratio[%d]", 2, temp_adc, *ratio);
+    //log_hal_msgid_info("[PMU_JEITA]ntc_adc_to_ratio, temp_adc[%d], ratio[%d]", 2, temp_adc, *ratio);
 }
 
 void pmu_ntc_ratio_to_temp(int ratio, int *temp)
 {
     int idx = 0;
-    int max1, min1;
+    int max, min;
     int cnt = ntc_temp.cnt;
-    
-    max1=min1=0;  
+
     if (ratio >= ntc_ratio.data[0]) {
         idx = 0;
     }
@@ -669,10 +668,10 @@ void pmu_ntc_ratio_to_temp(int ratio, int *temp)
                 idx = cnt - 1;
                 break;
             }
-            max1 = ntc_ratio.data[i];
-            min1 = ntc_ratio.data[i+1];
-            if ((ratio > min1) && (ratio <= max1)) {
-                if ((ratio - min1) >= (max1 - ratio)) {
+            max = ntc_ratio.data[i];
+            min = ntc_ratio.data[i+1];
+            if ((ratio > min) && (ratio <= max)) {
+                if ((ratio - min) >= (max - ratio)) {
                     idx = i;
                 }
                 else {
@@ -684,8 +683,8 @@ void pmu_ntc_ratio_to_temp(int ratio, int *temp)
     }
     *temp = ntc_temp.data[idx];
 
-    log_hal_msgid_info("[PMU_JEITA]ntc_ratio_to_temp, ratio[%d], idx[%d], temp[%d]", 3,ratio, idx, ntc_temp.data[idx]);
-    log_hal_msgid_info("[PMU_JEITA]ntc_ratio_to_temp,max=%d, min=%d", 2, max1, min1);
+    /*log_hal_msgid_info("[PMU_JEITA]ntc_ratio_to_temp, ratio[%d], max[%d], min[%d], idx[%d], temp[%d]", 5,
+        ratio, max, min, idx, ntc_temp.data[idx]);*/
 }
 
 int pmu_ntc_get_temp(void)

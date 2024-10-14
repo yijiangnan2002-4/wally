@@ -391,7 +391,6 @@ static void app_le_audio_aird_client_handle_notification(bt_gatt_handle_value_no
 #endif
                         {
                             voice_prompt_play_sync_vp_succeed();
-                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 20 ", 0);
                         }
                     }
                 } else if (APP_LE_AUDIO_AIRD_STREAMING_INTERFACE_MICROPHONE == ind->streaming_interface) {

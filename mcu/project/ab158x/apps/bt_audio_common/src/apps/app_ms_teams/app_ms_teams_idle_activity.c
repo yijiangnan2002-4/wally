@@ -314,7 +314,6 @@ static bool app_ms_teams_ev_notify_handler(ms_teams_notif_sub_event_t ev, uint8_
             voice_prompt_play_vp_succeed();
 #else
             voice_prompt_play_sync_vp_succeed();
-                    APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 21 ", 0);
 #endif
             s_ctx.last_notify_ev = ev;
             /* Clear the notify state */

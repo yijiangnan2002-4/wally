@@ -320,7 +320,6 @@ static bool app_hfp_proc_bt_sink_event(ui_shell_activity_t *self,
             	}
             /* Check the call status, if there are no HFP related states, finish current activity. */
             if (param->current <= BT_SINK_SRV_STATE_STREAMING) {
-              
                 /* Call is end */
 #if defined(AIR_MULTI_POINT_ENABLE) && defined(MTK_AWS_MCE_ENABLE) && !defined(AIR_BT_SINK_SRV_STATE_MANAGER_ENABLE)
                 if (BT_AWS_MCE_ROLE_PARTNER == bt_device_manager_aws_local_info_get_role()
