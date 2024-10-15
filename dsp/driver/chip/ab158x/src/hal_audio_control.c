@@ -134,6 +134,9 @@ static hal_audio_device_parameter_dac_t afe_dac_cur_param;
 #if (HAL_AUDIO_VAD_DRIVER)
 hal_audio_vad_control_t      vad_control;
 #endif
+#if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+hal_audio_psap_control_t      psap_control;
+#endif
 
 static int16_t afe_control_special_isr_counter;
 //static int16_t afe_control_adda_counter;
@@ -252,6 +255,22 @@ void hal_audio_sidetone_timer_callback(HAL_AUDIO_TIMER_HANDLE xTimer);
 void hal_audio_amp_delay_off_timer_callback(HAL_AUDIO_TIMER_HANDLE xTimer);
 void hal_audio_vad_delay_timer_callback(HAL_AUDIO_TIMER_HANDLE xTimer);
 void hal_audio_vow_timer_callback(HAL_AUDIO_TIMER_HANDLE xTimer);
+#if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+void hal_audio_psap_open_mic_timer_callback(HAL_AUDIO_TIMER_HANDLE xTimer);
+extern void stream_function_hearing_aid_set_mic_state(bool* mic_state);
+typedef enum {
+    PSAP_MIC_STATE_FF,
+    PSAP_MIC_STATE_TALK,
+    PSAP_MIC_STATE_NUM,
+} psap_mic_state_t;
+extern bool mic_state[PSAP_MIC_STATE_NUM];
+typedef enum {
+    PSAP_MIC_OPEN_ING,
+    PSAP_MIC_OPEN_DONE,
+    PSAP_MIC_OPEN_INIT,
+} psap_mic_open_state_t;
+extern psap_mic_open_state_t open_done;
+#endif
 
 hal_audio_performance_mode_t hal_get_adc_performance_mode(afe_analog_select_t analog_select);
 void hal_save_adc_performance_mode(afe_analog_select_t analog_select, uint8_t adc_mode);
@@ -299,6 +318,9 @@ void hal_audio_control_initialize(void)
     vad_control.timer_handle  = HAL_AUDIO_TIMER_CREATE("VAD_timer", HAL_AUDIO_VAD_DELAYON_TIMER_MS, false, hal_audio_vad_delay_timer_callback);
 #endif
     vow_control.timer_handle = HAL_AUDIO_TIMER_CREATE("VOW_timer", HAL_AUDIO_VOW_STABLE_TIMER_MS, true, hal_audio_vow_timer_callback);
+#if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+    psap_control.timer_handle = HAL_AUDIO_TIMER_CREATE("PSAP_timer", HAL_AUDIO_PSAP_STABLE_TIMER_MS, false, hal_audio_psap_open_mic_timer_callback);
+#endif
 #ifdef MTK_ANC_ENABLE
     hal_audio_anc_init();
 #endif
@@ -4511,7 +4533,25 @@ void hal_audio_vow_timer_callback(HAL_AUDIO_TIMER_HANDLE xTimer)
     }
 #endif
 }
+/*******************************************************************************************
+*                                         PSAP                                        *
+********************************************************************************************/
+#if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+void hal_audio_wait_open_psap_mic_stable(){
+    HAL_AUDIO_TIMER_START(psap_control.timer_handle, HAL_AUDIO_PSAP_STABLE_TIMER_MS);
+}
 
+void hal_audio_psap_open_mic_timer_callback(HAL_AUDIO_TIMER_HANDLE xTimer)
+{
+    UNUSED(xTimer);
+    HAL_AUDIO_LOG_INFO("[Ivy] PSAP open mic is stable", 0);
+    HAL_AUDIO_TIMER_STOP(psap_control.timer_handle);
+    mic_state[PSAP_MIC_STATE_FF] = true;
+    mic_state[PSAP_MIC_STATE_TALK] = true;
+    stream_function_hearing_aid_set_mic_state(mic_state);
+    open_done = true;
+}
+#endif
 /*******************************************************************************************
 *                                         volume                                         *
 ********************************************************************************************/
