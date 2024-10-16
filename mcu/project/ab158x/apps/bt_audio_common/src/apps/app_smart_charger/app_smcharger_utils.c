@@ -298,7 +298,7 @@ static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, u
 		case DRV_CHARGER_EVENT_REVERSION_REPORT: {
 			log_hal_msgid_info(" driver_callback[casing version] = 0x%x", 1, data);
 			case_handle_command=1;
-			app_set_charger_case_version((uint8_t)data);
+			//app_set_charger_case_version((uint8_t)data);
 			break;	
 		}
 		case DRV_CHARGER_EVENT_CHARGING_CURRENT_LIMIT: {

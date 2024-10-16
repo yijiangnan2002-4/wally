@@ -85,5 +85,6 @@ void app_home_screen_check_power_off_and_reboot(void);
 
 extern void app_anckey_timer_handle_process(void);	
 
+extern void bt_name_bynfc_disp_proc(uint8_t i);
 
 #endif /* __APP_HOME_SCREEN_IDLE_ACTIVITY_H__ */

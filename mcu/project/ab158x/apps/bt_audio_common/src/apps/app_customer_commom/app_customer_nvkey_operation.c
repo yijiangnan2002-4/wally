@@ -644,6 +644,7 @@ void app_nvkey_btname_write(uint8_t name)
 	APPS_LOG_MSGID_I("app_nvkey_btname_write name=%d\n",1,name);
 	g_customer_nvkey_setting.nv_btname = name;
 	app_nvkey_setting_set(NULL);
+	bt_name_bynfc_disp_proc(name);
 }
 
 void app_nvkey_factory_reset_flag_write(uint8_t flag)

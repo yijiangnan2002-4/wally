@@ -69,7 +69,7 @@
 #include "app_hear_through_race_cmd_handler.h"
 uint8_t reply_buf[2048] = {0}; // Some bookeeping bytes for status
 
-bool aua_notification_state = true; /
+bool aua_notification_state = true; //
 /**************************************************************************************************
 * Define
 **************************************************************************************************/
@@ -3516,8 +3516,7 @@ extern void key_fact_pairing_proc(void);
 extern void key_switch_anc_and_passthrough_proc(void);
 extern bool key_multifunction_short_click();
 extern uint8_t Is_earbuds_agent_proc(void);
-extern void app_set_ab1571d_version(uint8_t version_data);
-extern void app_set_ab1571d_main_version(uint8_t version_data);
+extern void app_set_ab1571d_version(uint8_t version_data,uint8_t version_data1,uint8_t version_data2);
 extern uint8_t ab1585h_command_no;
 extern uint8_t ab1585h_command_data;
 extern void BT_send_data_proc(void);
@@ -3595,14 +3594,10 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			}
 			break;
 		case 3:		// ab1571d version
-			app_set_ab1571d_version(temp_command_data);
-			ab1585h_command_no=2;	// 2: version feedback
-			ab1585h_command_data=0;
-			BT_send_data_proc();
 
-			ab1585h_command_no=4;	// 4: bt address
-			ab1585h_command_data=0;
-			BT_send_data_proc();
+			//ab1585h_command_no=4;	// 4: bt address
+			//ab1585h_command_data=0;
+			//BT_send_data_proc();
 			break;
 		case 4:		// pairing
 			key_fact_pairing_proc();
@@ -3623,6 +3618,15 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 		default:
 			break;
 	}
+}
+void ab1571d_data_processing1(uint8_t temp_command_no,uint8_t temp_command_data1,uint8_t temp_command_data2,uint8_t temp_command_data3)
+{
+	ull_report("ab1571d_data_processing1 [ULL][LE] key from charging box: key=%d, event1=%d , event2=%d , event3=%d ", 4, temp_command_no, temp_command_data1, temp_command_data2, temp_command_data3);
+	app_set_ab1571d_version(temp_command_no,temp_command_data1, temp_command_data2);
+	ab1585h_command_no=2;	// 2: version feedback
+	ab1585h_command_data=(temp_command_no+temp_command_data1+ temp_command_data2);
+	BT_send_data_proc();
+
 }
 
 // Audeara LE messaging patch
@@ -4526,18 +4530,31 @@ static void bt_ull_le_srv_rx_data_handle(uint16_t handle, uint8_t *data ,uint16_
                 break;
             }
             case BT_ULL_EVENT_USER_DATA: {
-                ull_report("[ULL][LE] rx recieved BT_ULL_EVENT_USER_DATA", 0);
+                //ull_report("[ULL][LE] rx recieved BT_ULL_EVENT_USER_DATA", 0);
                 uint8_t *p_rx = &data[1];
                 bt_ull_user_data_t user_data_cb;
                 bt_ull_le_srv_memcpy(user_data_cb.remote_address, link_info->addr, sizeof(bt_bd_addr_t));
                 bt_ull_le_srv_memcpy(&(user_data_cb.user_data_length), p_rx, sizeof(user_data_cb.user_data_length));
                 p_rx += sizeof(user_data_cb.user_data_length);
                 user_data_cb.user_data = p_rx;
-#if 1	// richard for ab1571d command processing
-			if(data[3]==3)
-			{
-				ab1571d_data_processing(data[4], data[5]);
-			}
+                ull_report("[ULL][LE] rx recieved BT_ULL_EVENT_USER_DATA,user_data_cb.user_data_length=%d", 1,user_data_cb.user_data_length);
+		
+#if 1	// richard for ab1571d command processing   harry 20241015
+		if(data[3]==3)
+		{
+                	ull_report("[ULL][LE] rx recieved BT_ULL_EVENT_USER_DATA,data[3]=0x%x,data[4]=0x%x,data[5]=0x%x,data[6]=0x%x,data[7]=0x%x", 5,data[3], data[4],data[5], data[6],data[7]);
+			race_debug_print(data, user_data_cb.user_data_length,"BT_ULL_EVENT_USER_DATA1 data is");
+			ab1571d_data_processing(data[4], data[5]);
+		}
+		else if(data[3]==4)
+		{
+                	ull_report("[ULL][LE] rx recieved BT_ULL_EVENT_USER_DATA,data[3]=0x%x,data[4]=0x%x,data[5]=0x%x,data[6]=0x%x,data[7]=0x%x", 5,data[3], data[4],data[5], data[6],data[7]);
+			ab1571d_data_processing1(data[4], data[5], data[6],data[7]);
+		}
+		else if(data[3]==5)
+		{
+               // ull_report("[ULL][LE] rx recieved BT_ULL_EVENT_USER_DATA,data[3]=0x%x,", 1,data[3]);
+		}
 #endif		
 #if 1  // Alex b for audeara ab1571d command processing		
             if (data[3] == 0x0B)

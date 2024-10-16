@@ -507,6 +507,13 @@ void anc_ha_mode_disp_proc(void)
 	
 	BT_send_data_proc();
 }
+void bt_name_bynfc_disp_proc(uint8_t i)
+{
+	ab1585h_command_no=6;	//bt_name set			// 60;Audeara Buds ,  66;Clinico Sound Buds,
+ 	ab1585h_command_data=i;
+	APPS_LOG_MSGID_I("bt_name_bynfc_disp_proc ab1585h_command_no=%d ab1585h_command_data=%d", 2, ab1585h_command_data, ab1585h_command_data);
+	BT_send_data_proc();
+}
 #endif
  void app_home_screen_process_anc_and_hamode_cycle(void)
 {

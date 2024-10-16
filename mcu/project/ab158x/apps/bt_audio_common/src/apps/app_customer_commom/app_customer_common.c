@@ -39,7 +39,7 @@
 #include "bt_connection_manager_utils.h"
 #include "battery_management.h"
 
-static char case_verison[8] = "v6.00.00";
+static char case_verison[8] = "v0.00.00";
 //static char ab1571d_verison[4] = "v0.0";
 static uint8_t isShippingMode = 0;
 volatile static uint8_t g_limit_status = 0;
@@ -153,14 +153,6 @@ void app_customer_common_tws_clean(void)
 }
 
 
-void app_set_charger_case_version(uint8_t version_data)
-{
-//	case_verison[1] = ((version_data>>4) & 0xF) + 0x30;
-//	case_verison[3] = (version_data & 0xF) + 0x30;
-	case_verison[3] = (version_data/10)+0x30;
-	case_verison[4] = (version_data%10)+0x30;
-}
-
 void app_get_charger_case_version(uint8_t* p_version)
 {
 //	race_debug_print((uint8_t*)case_verison, 4,"customer case version:");
@@ -169,21 +161,15 @@ void app_get_charger_case_version(uint8_t* p_version)
 	memcpy((void*)p_version, (void*)case_verison, 8);	
 }
 
-void app_set_ab1571d_version(uint8_t version_data)
+void app_set_ab1571d_version(uint8_t version_data,uint8_t version_data1,uint8_t version_data2)
 {
-	if((version_data>>4)>=0x01)
-	{	
 	case_verison[1] = ((version_data>>4) & 0xF) + 0x30;
-	}	
-	//case_verison[3] = (version_data & 0xF) + 0x30;
-	case_verison[6] = (version_data&0xf)/10+0x30;
-	case_verison[7] = (version_data&0xf)%10+0x30;
+	case_verison[3] = (version_data1&0xf)/10+0x30;
+	case_verison[4] = (version_data1&0xf)%10+0x30;
+	case_verison[6] = (version_data2&0xf)/10+0x30;
+	case_verison[7] = (version_data2&0xf)%10+0x30;
 }
 
-void app_set_ab1571d_main_version(uint8_t version_data)
-{
-	case_verison[1] = (version_data&0xf)%10+0x30;
-}
 
 #if 0
 void app_get_ab1571d_version(uint8_t* p_version)
