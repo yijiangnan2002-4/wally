@@ -49,6 +49,8 @@
 #include "app_home_screen_idle_activity.h"
 #include "app_music_utils.h"
 #include "app_hearing_aid_activity.h"
+#include "bt_sink_srv.h"
+#include "bt_sink_srv_ami.h"
 
 #ifdef BATTERY_HEATHY_ENABLE
 //calculate when in case after 5s, so need power on or out of case more than 1min, and keep charge in case more than 5s
@@ -426,9 +428,20 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
-	uint8_t volkey_val;
-    uint8_t l_level_index = 0;
-    uint8_t r_level_index = 0;
+	uint8_t volkey_val;   // 1:音量-VP,	2:音量+VP,	3,4:HA默认音量VP.	5,MAX VOL VP.	6,mix vol vp
+    	uint8_t l_level_index = 0;
+	uint8_t r_level_index = 0;
+	uint16_t	bt_sink_state;
+    	uint8_t volume = 0;
+
+     bt_sink_state = bt_sink_srv_get_state();
+    if (bt_sink_state >= BT_SINK_SRV_STATE_INCOMING) {
+        volume = bt_sink_srv_get_volume(NULL, BT_SINK_SRV_VOLUME_HFP);
+    } else {
+        volume = bt_sink_srv_get_volume(NULL, BT_SINK_SRV_VOLUME_A2DP);
+    }
+
+    APPS_LOG_MSGID_I("key_volumeup_proc: volume=%d, bt_sink_state=0x%x, a2dp_maxvol=0x%x, hfp_maxvol=0x%x", 4 , volume, bt_sink_state,bt_sink_srv_ami_get_a2dp_max_volume_level(),AUD_VOL_OUT_LEVEL15);
 
      audio_anc_psap_control_get_volume_index(&l_level_index, &r_level_index);
 	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
@@ -455,32 +468,52 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 			*p_key_action = KEY_HEARING_AID_VOLUME_UP;
 		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_HEARING_AID_VOLUME_UP", 0);
 		}
-			if((*p_key_action == KEY_HEARING_AID_VOLUME_UP)&&l_level_index==3)
-				{
-				volkey_val=4;
-				}
-			else
-				{
-				volkey_val=2;
-				}
-			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
-			&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+
+		
+		if((*p_key_action == KEY_HEARING_AID_VOLUME_UP)&&l_level_index==3)
+		{
+			volkey_val=4;  // 默认音量
+		}
+		else if((*p_key_action == KEY_HEARING_AID_VOLUME_UP)&&(l_level_index>=7))
+		{
+			volkey_val=5;
+		}
+		else if((*p_key_action == KEY_VOICE_UP)&&(bt_sink_state >= BT_SINK_SRV_STATE_INCOMING)&&(volume >= AUD_VOL_OUT_LEVEL15))
+		{
+			volkey_val=5;
+		}
+		else if((*p_key_action == KEY_VOICE_UP)&&(bt_sink_state < BT_SINK_SRV_STATE_INCOMING)&&(volume >=bt_sink_srv_ami_get_a2dp_max_volume_level()))
+		{
+			volkey_val=5;
+		}
+		else
+		{
+			volkey_val=2;
+		}
+			APPS_LOG_MSGID_I("key_volumeup_proc volkey_val=%d", 1,volkey_val);
+		if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
+		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
+		{
+			APPS_LOG_MSGID_I("key_volumeup_proc role=partner sent data to agent", 0);
+			apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_VOLUME_VP,(void*)&volkey_val,1);
+		}
+		else
+		{
+			if(volkey_val==4)
 			{
-				APPS_LOG_MSGID_I("key_volumeup_proc role=partner sent data to agent", 0);
-				apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_VOLUME_VP,(void*)&volkey_val,1);
+			APPS_LOG_MSGID_I("key_volumeup_proc  voice_prompt_play_sync_vp_mute22 ", 0);
+        			voice_prompt_play_sync_vp_mute();  // mute code actually is default vol vp
+			}
+			else if(volkey_val==5)
+			{
+			APPS_LOG_MSGID_I("key_volumeup_proc  voice_prompt_play_sync_vp_maxvol ", 0);
+        			voice_prompt_play_sync_vp_maxvol();  
 			}
 			else
 			{
-				if(volkey_val==4)
-				{
-				APPS_LOG_MSGID_I("key_volumeup_proc  voice_prompt_play_sync_vp_mute22 ", 0);
-	        			voice_prompt_play_sync_vp_mute();  // mute code actually is default vol vp
-				}
-				else
-				{
-	        		voice_prompt_play_sync_vp_volume_up();  
-				}
+        		voice_prompt_play_sync_vp_volume_up();  
 			}
+		}
 	}
 	else
 	{
@@ -506,8 +539,19 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 	*p_key_action = KEY_ACTION_INVALID;
 	uint8_t volkey_val;
 	apps_config_state_t app_mmi_state = apps_config_key_get_mmi_state();
-    uint8_t l_level_index = 0;
-    uint8_t r_level_index = 0;
+    	uint8_t l_level_index = 0;
+    	uint8_t r_level_index = 0;
+	uint16_t	bt_sink_state;
+    	uint8_t volume = 0;
+
+     bt_sink_state = bt_sink_srv_get_state();
+    if (bt_sink_state >= BT_SINK_SRV_STATE_INCOMING) {
+        volume = bt_sink_srv_get_volume(NULL, BT_SINK_SRV_VOLUME_HFP);
+    } else {
+        volume = bt_sink_srv_get_volume(NULL, BT_SINK_SRV_VOLUME_A2DP);
+    }
+
+    APPS_LOG_MSGID_I("key_volumedown_proc: volume=%d, bt_sink_state=0x%x", 2 , volume, bt_sink_state);
 
      audio_anc_psap_control_get_volume_index(&l_level_index, &r_level_index);
 	
@@ -534,16 +578,29 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 			app_mmi_state == APP_HFP_CALL_ACTIVE_WITHOUT_SCO ||app_mmi_state == APP_STATE_VA)
 		{
 			*p_key_action = KEY_HEARING_AID_VOLUME_DOWN;
-		APPS_LOG_MSGID_I("key_volumeup_proc sent KEY_HEARING_AID_VOLUME_DOWN key=0x%x", 1,*p_key_action);
+		APPS_LOG_MSGID_I("key_volumedown_proc sent KEY_HEARING_AID_VOLUME_DOWN key=0x%x", 1,*p_key_action);
 		}
-			if((*p_key_action == KEY_HEARING_AID_VOLUME_DOWN)&&l_level_index==5)
-				{
-				volkey_val=3;
-				}
-			else
-				{
-				volkey_val=1;
-				}
+		if((*p_key_action == KEY_HEARING_AID_VOLUME_DOWN)&&l_level_index==5)
+		{
+			volkey_val=3;
+		}
+		else if((*p_key_action == KEY_HEARING_AID_VOLUME_DOWN)&&(l_level_index==0))
+		{
+			volkey_val=6;
+		}
+		else if((*p_key_action == KEY_VOICE_DN)&&(bt_sink_state >= BT_SINK_SRV_STATE_INCOMING)&&(volume == 0/*AUD_VOL_OUT_LEVEL15*/))
+		{
+			volkey_val=6;
+		}
+		else if((*p_key_action == KEY_VOICE_DN)&&(bt_sink_state < BT_SINK_SRV_STATE_INCOMING)&&(0==volume))
+		{
+			volkey_val=6;
+		}
+		else
+		{
+			volkey_val=1;
+		}
+			APPS_LOG_MSGID_I("key_volumedown_proc volkey_val=%d", 1,volkey_val);
 		if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER
 		&& bt_sink_srv_cm_get_aws_connected_device() != NULL)
 		{
@@ -556,6 +613,10 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 			{
 			APPS_LOG_MSGID_I("key_volumedown_proc  voice_prompt_play_sync_vp_mute11 ", 0);
         			voice_prompt_play_sync_vp_mute();  // mute code actually is default vol vp
+			}
+			if(volkey_val==6)
+			{
+        			voice_prompt_play_sync_vp_minvol();  
 			}
 			else
 			{
@@ -2313,6 +2374,14 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 					else if(tmp_val==4)
 					{
 		        			voice_prompt_play_sync_vp_mute();  // mute code actually is default vol vp
+					}
+					else if(tmp_val==5)
+					{
+		        			voice_prompt_play_sync_vp_maxvol();  
+					}
+					else if(tmp_val==6)
+					{
+		        			voice_prompt_play_sync_vp_minvol();  
 					}
 				}
 					break;

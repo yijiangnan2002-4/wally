@@ -2988,6 +2988,8 @@ audio_psap_status_t audio_anc_psap_control_save_setting(void)
     if (factrst_flag == FACTORY_RESET_FLAG)   
     {
 	g_ha_ctrl.usr_setting.mode_index=0;
+	g_ha_ctrl.usr_setting.psap_vol_index_l= 4;
+	g_ha_ctrl.usr_setting.psap_vol_index_r= 4;
     }
 
     nvdm_status = flash_memory_write_nvdm_data(NVID_DSP_ALG_HA_CUS_SETTING, (uint8_t*)&g_ha_ctrl.usr_setting, HA_NV_SIZE_USR);
