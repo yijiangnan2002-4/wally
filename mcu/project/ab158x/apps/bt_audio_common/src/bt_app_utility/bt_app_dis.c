@@ -99,9 +99,12 @@ bt_status_t ble_dis_get_characteristic_value_callback(ble_dis_charc_type_t charc
         }
         case BLE_DIS_CHARC_HARDWARE_REVISION: {
             if (value) {
+                #define HW_VER_LEN 6
                 ble_dis_string_t *buffer = (ble_dis_string_t *)value;
-                buffer->length = (uint16_t)strlen(HARDWARE_REVISION);
-                buffer->utf8_string = (uint8_t *)HARDWARE_REVISION;
+                uint8_t local_hw_version[HW_VER_LEN]={0};
+                app_nvkey_hw_version_read(local_hw_version,HW_VER_LEN);
+                buffer->length = (uint16_t)strlen(local_hw_version);
+                buffer->utf8_string = (uint8_t *)local_hw_version;
             }
             break;
         }
