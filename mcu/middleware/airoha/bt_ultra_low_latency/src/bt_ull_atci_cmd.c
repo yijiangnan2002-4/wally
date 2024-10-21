@@ -587,16 +587,40 @@ uint8_t ab1585h_command_data=0;
 void BT_send_data_proc(void)
 {
 	bt_bd_addr_t addr_list = {0};
+	bt_bd_addr_t *local_addr= NULL;
 	if (bt_cm_get_connected_devices(BT_CM_PROFILE_SERVICE_MASK(BT_CM_PROFILE_SERVICE_CUSTOMIZED_ULL), &addr_list, 1))
 	{
 		bt_ull_user_data_t tx_data;
 		uint8_t buf[10] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a}; //test data
 		memcpy(&(tx_data.remote_address), addr_list, sizeof(bt_bd_addr_t));
+		
+		        	ull_report("[ULL][LE][ATCI] BT_send_data_proc a  addr:%02x:%02x:%02x:%02x:%02x:%02x", 6,
+		            	tx_data.remote_address[5],tx_data.remote_address[4],tx_data.remote_address[3],tx_data.remote_address[2],tx_data.remote_address[1],tx_data.remote_address[0]);
+		
 		buf[0]=send_command_type;
 		buf[1]=ab1585h_command_no;
 		if(ab1585h_command_no==4)
 		{
-			bt_bd_addr_t *local_addr = bt_device_manager_get_local_address();
+		
+ 		if( bt_sink_srv_cm_get_aws_connected_device() != NULL)
+ 		{
+			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER)  // if reciver is partner and aws connect
+			{
+        		ull_report("[ULL][LE][ATCI] BT_send_data_proc a role=partner, sent peer addr to dongle.", 0);	
+			 local_addr = bt_device_manager_aws_local_info_get_peer_address();
+			}
+			else if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) // if reciver is partner and aws connect
+			{
+        		ull_report("[ULL][LE][ATCI] BT_send_data_proc a role=agnet, sent local addr to dongle.", 0);	
+			 local_addr = bt_device_manager_get_local_address();
+			}
+		}
+		else  // if reciver is  signle erabud
+		{
+        		ull_report("[ULL][LE][ATCI] BT_send_data_proc a aws not connect, sent local addr to dongle.", 0);	
+			 local_addr = bt_device_manager_get_local_address_internal();
+		}
+
 			buf[2]=(*local_addr)[5];
 			buf[3]=(*local_addr)[4];
 			buf[4]=(*local_addr)[3];
@@ -624,7 +648,25 @@ void BT_send_data_proc(void)
 		buf[1]=ab1585h_command_no;
 		if(ab1585h_command_no==4)
 		{
-			bt_bd_addr_t *local_addr = bt_device_manager_get_local_address();
+
+ 		if( bt_sink_srv_cm_get_aws_connected_device() != NULL)
+ 		{
+			if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER)  // if reciver is partner and aws connect
+			{
+        		ull_report("[ULL][LE][ATCI] BT_send_data_proc b role=partner, sent peer addr to dongle.", 0);	
+			 local_addr = bt_device_manager_aws_local_info_get_peer_address();
+			}
+			else if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) // if reciver is partner and aws connect
+			{
+        		ull_report("[ULL][LE][ATCI] BT_send_data_proc b role=agnet, sent local addr to dongle.", 0);	
+			 local_addr = bt_device_manager_get_local_address();
+			}
+		}
+		else  // if reciver is  signle erabud
+		{
+        		ull_report("[ULL][LE][ATCI] BT_send_data_proc b aws not connect, sent local addr to dongle.", 0);	
+			 local_addr = bt_device_manager_get_local_address_internal();
+		}			
 			buf[2]=(*local_addr)[5];
 			buf[3]=(*local_addr)[4];
 			buf[4]=(*local_addr)[3];
@@ -638,12 +680,15 @@ void BT_send_data_proc(void)
 		}
 		tx_data.user_data_length = 10; // test len
 		tx_data.user_data = buf;
+        	ull_report("[ULL][LE][ATCI] BT_send_data_proc b BT_ULL_LE_MAX_LINK_NUM=%d.", 1,BT_ULL_LE_MAX_LINK_NUM);	
 		for(i=0; i<BT_ULL_LE_MAX_LINK_NUM; i++)
 		{
 			if(bt_ull_le_srv_get_connected_addr_by_link_index(i, &address_list[i]) == true)
 			{
 				memcpy(tx_data.remote_address, address_list[i], sizeof(bt_bd_addr_t));
 				bt_ull_action(BT_ULL_ACTION_TX_USER_DATA, &tx_data, sizeof(tx_data));
+		        	ull_report("[ULL][LE][ATCI] BT_send_data_proc b  i = %d, addr:%02x:%02x:%02x:%02x:%02x:%02x", 7, i,
+		            	tx_data.remote_address[5],tx_data.remote_address[4],tx_data.remote_address[3],tx_data.remote_address[2],tx_data.remote_address[1],tx_data.remote_address[0]);
 			}
 		}
 //		APPS_LOG_MSGID_I("app Send user data by ULL headset LE", 0);

@@ -511,8 +511,17 @@ static atci_status_t bt_app_comm_at_cmd_check_eastech(atci_parse_cmd_param_t *pa
 	  else if(var_list[0][0]=='3')
 	  {
     		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=3 test key_ocean_vpdown_proc ",0);
-		key_ocean_vpdown_proc();
-
+		//key_ocean_vpdown_proc();
+		
+		if( bt_sink_srv_cm_get_aws_connected_device() != NULL)
+		{
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech  bt_sink_srv_cm_get_aws_connected_device() != NULL ",0);
+	  	}
+		else
+		{
+    		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech  bt_sink_srv_cm_get_aws_connected_device() == NULL ",0);
+		}
+		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech aws_role=0X%x ",1,bt_device_manager_aws_local_info_get_role());
 	  }	  
 
 	  else if(var_list[0][0]=='4')

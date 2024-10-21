@@ -163,7 +163,7 @@ void app_get_charger_case_version(uint8_t* p_version)
 
 void app_set_ab1571d_version(uint8_t version_data,uint8_t version_data1,uint8_t version_data2)
 {
-	case_verison[1] = ((version_data>>4) & 0xF) + 0x30;
+	case_verison[1] = (version_data&0xf)%10+0x30;
 	case_verison[3] = (version_data1&0xf)/10+0x30;
 	case_verison[4] = (version_data1&0xf)%10+0x30;
 	case_verison[6] = (version_data2&0xf)/10+0x30;
