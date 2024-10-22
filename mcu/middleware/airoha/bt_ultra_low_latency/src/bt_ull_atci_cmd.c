@@ -680,7 +680,7 @@ void BT_send_data_proc(void)
 		}
 		tx_data.user_data_length = 10; // test len
 		tx_data.user_data = buf;
-        	ull_report("[ULL][LE][ATCI] BT_send_data_proc b BT_ULL_LE_MAX_LINK_NUM=%d.", 1,BT_ULL_LE_MAX_LINK_NUM);	
+        	ull_report("[ULL][LE][ATCI] BT_send_data_proc b BT_ULL_LE_MAX_LINK_NUM=%d,ab1585h_command_no=%d,send_command_type%d", 3,BT_ULL_LE_MAX_LINK_NUM,ab1585h_command_no,send_command_type);	
 		for(i=0; i<BT_ULL_LE_MAX_LINK_NUM; i++)
 		{
 			if(bt_ull_le_srv_get_connected_addr_by_link_index(i, &address_list[i]) == true)
