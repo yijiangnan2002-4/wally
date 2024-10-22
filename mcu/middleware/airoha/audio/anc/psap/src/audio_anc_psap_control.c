@@ -466,9 +466,10 @@ llf_status_t audio_anc_psap_control_stream_handler(bool enable)
 
     LOGMSGIDI("stream enable:%d, sub_mode:%d", 2, enable, HA_SUB_MODE);
 
-    g_ha_ctrl.framework_enable = enable;
+    // g_ha_ctrl.framework_enable = enable;
 
-    if (enable) {
+    if (!g_ha_ctrl.framework_enable && enable) {
+        g_ha_ctrl.framework_enable = enable;
 #ifdef AIR_BT_AUDIO_SYNC_ENABLE
         if (g_ha_ctrl.dl_mute_dur_ha_off != DL_MUTE_TIME_HA_RESET) {
             audio_anc_psap_control_mute_dl(true, true, 100000);
@@ -576,7 +577,8 @@ llf_status_t audio_anc_psap_control_stream_handler(bool enable)
         HA_PSAP_enable = 1;
         llf_callback_service(LLF_TYPE_HEARING_AID, LLF_CONTROL_EVENT_ON, LLF_STATUS_SUCCESS);
 
-    } else {
+    } else if(g_ha_ctrl.framework_enable && !enable) {
+        g_ha_ctrl.framework_enable = enable;
         LOGMSGIDI("close", 0);
         g_ha_ctrl.ha_enable = false;
         g_ha_ctrl.ctrl_para.ha_switch = false;
@@ -890,6 +892,8 @@ audio_psap_status_t audio_anc_psap_control_init(void)
     g_ha_ctrl.role = (ami_get_audio_channel() == AUDIO_CHANNEL_R) ? AUDIO_PSAP_DEVICE_ROLE_RIGHT: AUDIO_PSAP_DEVICE_ROLE_LEFT;
 
     g_ha_ctrl.share_addr = hal_audio_query_share_info(AUDIO_MESSAGE_TYPE_LLF);
+
+    g_ha_ctrl.framework_enable = false;
 
     //get HA parameters
     nvdm_status =  flash_memory_query_nvdm_data_length(NVID_DSP_ALG_HA_CUS_SETTING, &nvkey_length);
@@ -2917,7 +2921,7 @@ audio_psap_status_t audio_anc_psap_control_set_mic_channel(U8 channel)
         target_anc_type      = AUDIO_ANC_CONTROL_TYPE_PT_HA_PSAP | mic_input_path;
         target_filter_id     = AUDIO_ANC_CONTROL_HA_PSAP_FILTER_DEFAULT; //1~4
         anc_psap_control_mic(mic_ctrl->ff_enable << FF_ENABLE | mic_ctrl->fb_enable << FB_ENABLE | mic_ctrl->talk_enable << TALK_ENABLE, target_anc_type, target_filter_id);
-    #endif
+    
         if (g_ha_ctrl.framework_enable) {
             U32 para_len = sizeof(llf_control_runtime_config_t);
             void *malloc_ptr = pvPortMalloc(para_len);
@@ -2927,6 +2931,7 @@ audio_psap_status_t audio_anc_psap_control_set_mic_channel(U8 channel)
             memcpy(malloc_ptr, &config, para_len);
             res = llf_control(LLF_CONTROL_EVENT_RUNTIME_CONFIG, &psap_cap);
         }
+    #endif
     }
     return res;
 }
