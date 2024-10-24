@@ -3596,9 +3596,9 @@ void ab1571d_data_processing(uint8_t temp_command_no,uint8_t temp_command_data)
 			break;
 		case 3:		// ab1571d version
 
-			//ab1585h_command_no=4;	// 4: bt address
-			//ab1585h_command_data=0;
-			//BT_send_data_proc();
+			ab1585h_command_no=4;	// 4: bt address
+			ab1585h_command_data=0;
+			BT_send_data_proc();
 			break;
 		case 4:		// pairing
 			key_fact_pairing_proc();
@@ -5590,8 +5590,8 @@ bt_status_t bt_ull_le_srv_action(bt_ull_action_t action, const void *param, uint
                     uint8_t *tx_buf = (uint8_t*)bt_ull_le_srv_memory_alloc(total_len);
                     if (NULL != tx_buf) {
 			data_tx_free_memory=bt_memory_get_total_free_size(BT_MEMORY_TX_BUFFER);
-            		ull_report("[ULL][LE] BT_ULL_ACTION_TX_USER_DATA data_tx_free_memory: 0x%x", 2, data_tx_free_memory);
-			if(data_tx_free_memory>0xc0)  // harry for out memory 2024 1014
+            		ull_report("[ULL][LE] BT_ULL_ACTION_TX_USER_DATA data_tx_free_memory: 0x%x", 1, data_tx_free_memory);
+			if(data_tx_free_memory>0x0680)  // harry for out memory 2024 1014
 			{
                         tx_buf[0] = req_action;
                         ull_assert(tx->user_data_length && tx->user_data);
