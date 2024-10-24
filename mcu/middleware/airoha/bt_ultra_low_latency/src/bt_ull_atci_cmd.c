@@ -653,9 +653,11 @@ void BT_send_data_proc(void)
 
 void Audeara_BT_send_notify_proc(uint8_t * data, uint16_t length)
 {
+
+    //This is causing a problem for MT at the moment, get rid of it for now
    // if(AudearaGetNotificationState())
    // {
-         Audeara_BT_send_data_proc(AUA_BUDSFRAME_SEND_RACE_CMD_RESP, data, length);
+     //    Audeara_BT_send_data_proc(AUA_BUDSFRAME_SEND_RACE_CMD_RESP, data, length);
    // }  
 }
 
@@ -685,6 +687,9 @@ void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length)
 
     else if(frame == AUA_BUDSFRAME_HEARTHROUGH_NOTIFICATION_PACKETISER)
     {
+        // This is causing a problem for MT at the moment, just get rid of this for now
+        return;
+        /*
         tot_length = length + 10;
         buffer[0] = 0x0A; // Audeara return command type
         buffer[1] = 0x05;
@@ -697,6 +702,7 @@ void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length)
         buffer[8] = 0x87;
         buffer[9] = 0x2C;
         memcpy(&buffer[10], data, length); // Copy payload into buffer
+        */
 
     }
     else
