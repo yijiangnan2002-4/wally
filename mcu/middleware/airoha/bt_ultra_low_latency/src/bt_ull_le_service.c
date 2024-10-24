@@ -3624,9 +3624,12 @@ void ab1571d_data_processing1(uint8_t temp_command_no,uint8_t temp_command_data1
 {
 	ull_report("ab1571d_data_processing1 [ULL][LE] key from charging box: key=%d, event1=%d , event2=%d , event3=%d ", 4, temp_command_no, temp_command_data1, temp_command_data2, temp_command_data3);
 	app_set_ab1571d_version(temp_command_no,temp_command_data1, temp_command_data2);
-	ab1585h_command_no=2;	// 2: version feedback
-	ab1585h_command_data=(temp_command_no+temp_command_data1+ temp_command_data2);
-	BT_send_data_proc();
+	if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT)
+	{
+		ab1585h_command_no=2;	// 2: version feedback
+		ab1585h_command_data=(temp_command_no+temp_command_data1+ temp_command_data2);
+		BT_send_data_proc();
+	}
 
 }
 

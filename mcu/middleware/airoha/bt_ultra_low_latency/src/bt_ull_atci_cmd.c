@@ -760,7 +760,7 @@ void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length)
 		tx_data.user_data_length = tot_length; //total len, not payload length
 		tx_data.user_data = buffer;
 		bt_ull_action(BT_ULL_ACTION_TX_USER_DATA, &tx_data, sizeof(tx_data));
-		APPS_LOG_MSGID_I("app Send user data by ULL headset 1111", 0);
+		ull_report("app Send user data by ULL headset 1111", 0);
 	}
 #if defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
 	else
@@ -778,7 +778,7 @@ void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length)
 				bt_ull_action(BT_ULL_ACTION_TX_USER_DATA, &tx_data, sizeof(tx_data));
 			}
 		}
-		APPS_LOG_MSGID_I("app Send user data by ULL headset LE 222", 0);
+		ull_report("app Send user data by ULL headset LE 222", 0);
 	}
 #endif
 }
