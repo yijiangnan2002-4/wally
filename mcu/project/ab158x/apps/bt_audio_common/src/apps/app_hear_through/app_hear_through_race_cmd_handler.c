@@ -271,7 +271,8 @@ void app_hear_through_race_cmd_send_notification(uint16_t config_type, uint8_t *
         hear_through_notification_t *notify = (hear_through_notification_t *)response_packet;
         notify->type = config_type;
         memcpy(notify->payload, data, data_len);
-        Audeara_BT_send_data_proc(0x81, (uint8_t*)response_packet,  notify_len);
+        // This is causing a problem for MT at the moment, get rid of it for now
+        //Audeara_BT_send_data_proc(0x81, (uint8_t*)response_packet,  notify_len);
         race_flush_packet(response_packet, notify_channel_list[notify_channel_index]);
     }
 
