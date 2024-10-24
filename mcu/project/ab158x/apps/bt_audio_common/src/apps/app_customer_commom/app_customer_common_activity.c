@@ -614,7 +614,7 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
 			APPS_LOG_MSGID_I("key_volumedown_proc  voice_prompt_play_sync_vp_mute11 ", 0);
         			voice_prompt_play_sync_vp_mute();  // mute code actually is default vol vp
 			}
-			if(volkey_val==6)
+			else if(volkey_val==6)
 			{
         			voice_prompt_play_sync_vp_minvol();  
 			}
