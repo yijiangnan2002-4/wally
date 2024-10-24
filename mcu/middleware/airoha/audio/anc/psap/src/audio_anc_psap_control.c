@@ -538,8 +538,7 @@ llf_status_t audio_anc_psap_control_stream_handler(bool enable)
         if (!audio_anc_control_get_calibrate_gain_from_flash(&audio_anc_calibrate_gain)) {
             p_stream_in_param->anc_ff_cal_gain = audio_anc_calibrate_gain.gain_index_ff_l;
         }
-        //p_stream_in_param->music_need_compensation = true;
-	 p_stream_in_param->music_need_compensation = false;
+        p_stream_in_param->music_need_compensation = true;
 
         //audio_anc_psap_control_get_input_data_order(mic_ctrl->ff_enable, mic_ctrl->fb_enable, mic_ctrl->talk_enable, p_stream_in_param->in_data_order);
         audio_anc_psap_control_get_input_data_order(&channl_number, p_stream_in_param->in_data_order);
