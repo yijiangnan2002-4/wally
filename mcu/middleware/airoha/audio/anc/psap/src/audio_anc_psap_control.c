@@ -440,6 +440,15 @@ void audio_anc_psap_control_update_mic_input_path(void)
         mic_ctrl->ff_enable = 1;
         mic_ctrl->talk_enable = 0;
     }
+#if defined(HAL_AUDIO_PSAP_SEAMLESS_SWITCH_ENABLE)
+    U32 mic_input_path;
+    audio_anc_control_filter_id_t      target_filter_id;
+    audio_anc_control_type_t           target_anc_type;
+    audio_anc_psap_control_get_mic_input_path(&mic_input_path);
+    target_anc_type      = AUDIO_ANC_CONTROL_TYPE_PT_HA_PSAP | mic_input_path;
+    target_filter_id     = AUDIO_ANC_CONTROL_HA_PSAP_FILTER_DEFAULT; //1~4
+    anc_psap_control_mic(mic_ctrl->ff_enable << FF_ENABLE | mic_ctrl->fb_enable << FB_ENABLE | mic_ctrl->talk_enable << TALK_ENABLE, target_anc_type, target_filter_id);
+#endif
     LOGMSGIDI("update mic input path: ff(%d) fb(%d) talk(%d)", 3, mic_ctrl->ff_enable, mic_ctrl->fb_enable, mic_ctrl->talk_enable);
 }
 
