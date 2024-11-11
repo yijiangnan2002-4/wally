@@ -615,7 +615,7 @@ void app_home_screen_process_anc_and_reverse_hamode_cycle(void)
             if(mode_index ==(mode_max_count-1)) // Speech ->Aware (Works)
             {
 
-                *p_key_action = KEY_HEARING_AID_MODE_DOWN;
+                *p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
 
                 if (p_key_action)
                 {

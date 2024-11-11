@@ -804,13 +804,16 @@ static void app_hear_through_activity_handle_ambient_control_switch(bool reverse
         {
             app_hearing_aid_utils_adjust_mode(1); // harry add 2024082
              setAudearaReverseOrderFlag(false);
+             prompt_no_play_flag =1;
+             preha_target=1;
         }
         else
         {
             app_hearing_aid_utils_adjust_mode(0); // harry add 2024082
+            prompt_no_play_flag = 1;
+            preha_target=0;
         }
         
-	   	preha_target=0;
 	}
     
 
@@ -822,7 +825,7 @@ static void app_hear_through_activity_handle_ambient_control_switch(bool reverse
   		// richard for customer UI spec.
 		uint8_t mode_index = 0;
 		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
-        	prompt_no_play_flag=1;  // �������־1������HA VP�󣬲�Ҫ���ظ�����
+        	//prompt_no_play_flag=1;  // �������־1������HA VP�󣬲�Ҫ���ظ�����
 
         	if(is_aws_connected){
                     voice_prompt_play_sync_vp_ha(mode_index);
