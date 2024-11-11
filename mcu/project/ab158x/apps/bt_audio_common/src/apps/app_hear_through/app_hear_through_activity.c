@@ -759,7 +759,7 @@ static void app_hear_through_activity_handle_ambient_control_switch()
     }
 }
 #else	// richard for UI
-static void app_hear_through_activity_handle_ambient_control_switch()
+static void app_hear_through_activity_handle_ambient_control_switch(bool reverseOrder)
 {
     /**
      * @brief Make the anc_changed to be true firstly
@@ -798,22 +798,27 @@ static void app_hear_through_activity_handle_ambient_control_switch()
 #if 1  // for anc_and_ha
 	if(from_case_haanckey)
 	{
-	   	app_hearing_aid_utils_adjust_mode(0); // harry add 20240826;
+	   	app_hearing_aid_utils_adjust_mode(0); // harry add 2024082
 	   	preha_target=0;
 	}
+    
+
 	from_case_haanckey=0;
+    
 #endif
             app_hear_through_switch_on_off(true, true);
         #if 1  
   		// richard for customer UI spec.
 		uint8_t mode_index = 0;
 		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
-        	prompt_no_play_flag=1;  // ÉèÕâ¸ö±êÖ¾1£¬²¥·ÅHA VPºó£¬²»ÒªÔÙÖØ¸´²¥·Å
+        	prompt_no_play_flag=1;  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½HA VPï¿½ó£¬²ï¿½Òªï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½ï¿½ï¿½
         	if(is_aws_connected){
-  		voice_prompt_play_sync_vp_ha(mode_index);
+
+  		//voice_prompt_play_sync_vp_ha(mode_index);
     		}
 		else{
-		voice_prompt_play_local_vp_ha(mode_index);	
+    
+		//voice_prompt_play_local_vp_ha(mode_index);	
 		}
         #endif
         }
@@ -833,7 +838,7 @@ static void app_hear_through_activity_handle_ambient_control_switch()
 
             app_hearing_through_activity_leave_hear_through_mode();
             app_anc_service_reset_hear_through_anc(true);
-            prompt_no_play_flag=0; // ³·ÏúÕâ¸ö±êÖ¾£¬²Ù×÷Ë«»÷¿ÉÒÔ²¥·ÅHA VP
+            prompt_no_play_flag=0; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë«ï¿½ï¿½ï¿½ï¿½ï¿½Ô²ï¿½ï¿½ï¿½HA VP
 
     		// richard for customer UI spec.
         	if(is_aws_connected){
@@ -849,6 +854,9 @@ static void app_hear_through_activity_handle_ambient_control_switch()
     }
 }
 #endif
+
+
+
 
 static void app_hear_through_activity_handle_anc_state_changed()
 {
@@ -1711,7 +1719,7 @@ static bool app_hear_through_activity_handle_aws_ambient_control(void *extra_dat
                         1,
                         app_hear_through_ctx.mode_index);
 
-    app_hear_through_activity_handle_ambient_control_switch();
+    app_hear_through_activity_handle_ambient_control_switch(false);
 
     return true;
 }
@@ -2398,7 +2406,30 @@ static void app_hear_through_activity_handle_mode_index_changed()
                                                 APP_HEAR_THROUGH_SYNC_EVENT_DEFAULT_TIMEOUT);
     } else {
 #endif /* AIR_TWS_ENABLE */
-        app_hear_through_activity_handle_ambient_control_switch();
+        app_hear_through_activity_handle_ambient_control_switch(false);
+#ifdef AIR_TWS_ENABLE
+    }
+#endif /* AIR_TWS_ENABLE */
+}
+
+static void audeara_app_hear_through_activity_handle_mode_index_changed()
+{
+
+#ifdef AIR_TWS_ENABLE
+    if (app_hear_through_is_aws_connected() == true) {
+        app_hear_through_sync_ambient_control_switch_t mode_switch;
+        mode_switch.mode_index = app_hear_through_ctx.mode_index;
+
+        apps_aws_sync_send_future_sync_event(false,
+                                                EVENT_GROUP_UI_SHELL_HEAR_THROUGH,
+                                                APP_HEAR_THROUGH_AWS_EVENT_ID_AMBIENT_CONTROL,
+                                                true,
+                                                (uint8_t *)&mode_switch,
+                                                sizeof(app_hear_through_sync_ambient_control_switch_t),
+                                                APP_HEAR_THROUGH_SYNC_EVENT_DEFAULT_TIMEOUT);
+    } else {
+#endif /* AIR_TWS_ENABLE */
+        app_hear_through_activity_handle_ambient_control_switch(true);
 #ifdef AIR_TWS_ENABLE
     }
 #endif /* AIR_TWS_ENABLE */
@@ -2457,6 +2488,47 @@ void app_hear_through_activity_switch_ambient_control()
 
     app_hear_through_activity_handle_mode_index_changed();
 }
+
+// Alex Audeara reverse HA mode patch
+
+void audeara_reverse_switch_ha_anc(void)
+{
+#if defined(MTK_FOTA_ENABLE) && defined (MTK_FOTA_VIA_RACE_CMD)
+        if (app_hear_through_ctx.is_ota_ongoing == true) {
+            APPS_LOG_MSGID_W(APP_HEAR_THROUGH_ACT_TAG"[audeara_reverse_switch_ha_anc] OTA is ongoing, do not support to switch ambient control", 0);
+            return;
+        }
+#endif /* MTK_FOTA_ENABLE && MTK_FOTA_VIA_RACE_CMD */
+
+     uint8_t old_mode_index = app_hear_through_ctx.mode_index;
+    app_hear_through_ctx.mode_index ++;
+    #if 1 // harry for anc key for hugo
+    if (app_hear_through_ctx.mode_index == 3)
+    {
+        app_hear_through_ctx.mode_index = APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH;
+    }
+    #else
+    if (app_hear_through_ctx.mode_index == 3)
+    {
+        app_hear_through_ctx.mode_index = 0;
+    }
+    #endif
+
+#if 1	// richard for UI requirement
+	if (app_hear_through_ctx.mode_index == APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC||app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_OFF)
+		anc_ha_flag=0;
+	else anc_ha_flag=1;
+#endif
+
+
+
+   audeara_app_hear_through_activity_handle_mode_index_changed();
+}
+
+
+
+
+
 
 #if 0	// richard for UI requirement
 void app_hear_through_activity_switch_ambient_control1(uint8_t switch_ha_or_mode)		// 0: switch ha/anc; 1: switch ha mode

@@ -532,9 +532,9 @@ void bt_name_bynfc_disp_proc(uint8_t i)
                      app_hear_through_ctx.mode_index,
                      vol_max_count
                      );
-        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)//ÏÖÔÚÔÚhear
+        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½hear
         {
-          if(mode_index!=(mode_max_count-1)) // ÏÖÔÚ²»ÊÇ×î´ómode
+          if(mode_index!=(mode_max_count-1)) // ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½mode
           {
 
 		*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
@@ -579,6 +579,90 @@ void bt_name_bynfc_disp_proc(uint8_t i)
         }
 
 }
+
+void app_home_screen_process_anc_and_reverse_hamode_cycle(void)
+{
+    // Basically a copy of the above, but in reverse order
+      uint8_t level_max_count = 0;
+      uint8_t mode_max_count = 0;
+      uint8_t vol_max_count = 0;
+      uint8_t mode_index = 0;
+      uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); 
+
+     audio_anc_psap_control_get_mode_index(&mode_index);
+      audio_anc_psap_control_get_level_mode_max_count(&level_max_count, &mode_max_count, &vol_max_count);
+      APPS_LOG_MSGID_I("app_home_screen_process_anc_and_hamode_cycle  current mode index:%d, mode max:%d,app_hear_through_ctx.mode_index=%d,vol_max_count=%d",
+                     4,
+                     mode_index,
+                     mode_max_count,
+                     app_hear_through_ctx.mode_index,
+                     vol_max_count
+                     );
+
+       if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½hear
+        {
+            if(mode_index ==(mode_max_count-1)) // Speech ->Aware (Works)
+            {
+
+                *p_key_action = KEY_HEARING_AID_MODE_DOWN;
+
+                if (p_key_action)
+                {
+                        ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 0);
+                }
+                else
+                {
+                        vPortFree(p_key_action);
+                }		
+                        APPS_LOG_MSGID_I("app_home_screen_process_anc_and_reverse_hamode_cycle KEY_HEARING_AID_MODE_DOWN", 0);
+            }
+            else
+            {
+                *p_key_action=KEY_SWITCH_ANC_AND_PASSTHROUGH; // Aware->Focus (works)
+                if (p_key_action)
+                {
+                        ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 0);
+                }
+                else
+                {
+                        vPortFree(p_key_action);
+                }		
+                APPS_LOG_MSGID_I("app_home_screen_process_anc_and_reverse_hamode_cycle KEY_SWITCH_ANC_AND_PASSTHROUGH ha is maxmode,sent to anc mode  ", 0);
+            }
+        }
+
+        else if (app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC) // Focus -> Speech
+        {
+            *p_key_action=KEY_ANC_AND_HA; // Does not work yet
+            if (p_key_action)
+            {
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 0);
+            }
+            else
+            {
+                    vPortFree(p_key_action);
+            }		
+
+            //*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
+/*
+            if (p_key_action)
+            {
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 150);
+            }
+            else
+            {
+                    vPortFree(p_key_action);
+            }		
+                    APPS_LOG_MSGID_I("app_home_screen_process_anc_and_reverse_hamode_cycle KEY_HEARING_AID_MODE_DOWN", 0);
+                    
+            APPS_LOG_MSGID_I("app_home_screen_process_anc_and_reverse_hamode_cycle KEY_SWITCH_ANC_AND_PASSTHROUGH  switch ha mode1", 0);
+            */
+        }
+}
+
+
+
+
 static bool app_home_screen_process_anc_and_pass_through(ui_shell_activity_t *self, apps_config_key_action_t key_action)
 {
     bool ret = false;
@@ -708,7 +792,53 @@ errrrrrrrrrrrrrrrrrrrrr
         }
         ret = true;
 #endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
-    } else if (KEY_BETWEEN_ANC_PASSTHROUGH == key_action) {
+    } 
+    
+       else if (KEY_SWITCH_AUDEARA_ANC_PT == key_action) {
+#ifdef AIR_HEARTHROUGH_MAIN_ENABLE
+//errrrrrrrrrrrrrrrrrrrrr
+        // OFF -> SW PT -> ANC
+        APPS_LOG_MSGID_I("app_home_screen_process_anc_and_pass_through : KEY_SWITCH_ANC_AND_PASSTHROUGH wait_key_process_time=%d", 1, wait_key_process_time);
+        if(wait_key_process_time==0)
+        {
+        	app_anckey_timer_handle_process();
+        	audeara_reverse_switch_ha_anc();
+		key_anc_ha_display_proc();		// richard for UI spec.
+        }
+        APPS_LOG_MSGID_I("app_home_screen_process_anc_and_pass_through 1 : KEY_SWITCH_ANC_AND_PASSTHROUGH wait_key_process_time=%d", 1, wait_key_process_time);
+		wait_key_process_time=1;
+        return true;
+#else
+        /* Switch loop is OFF->PassThrough->ANC->OFF. */
+        if (!anc_enable) {
+            /* When last is OFF, next state is PassThrough. */
+            if (support_hybrid_enable) {
+#ifndef AIR_HW_VIVID_PT_ENABLE
+                target_anc_type = AUDIO_ANC_CONTROL_PASS_THRU_TYPE_DEFAULT;
+                target_filter_id = AUDIO_ANC_CONTROL_PASS_THRU_FILTER_DEFAULT;
+#else
+                target_anc_type = AUDIO_ANC_CONTROL_HW_VIVID_PASS_THRU_TYPE_DEFAULT;
+                target_filter_id = AUDIO_ANC_CONTROL_HW_VIVID_PASS_THRU_FILTER_DEFAULT;
+#endif
+            } else {
+                target_anc_type = AUDIO_ANC_CONTROL_TYPE_PASSTHRU_FF;
+                target_filter_id = AUDIO_ANC_CONTROL_FILTER_ID_PASS_THRU_1;
+            }
+        } else {
+            /* If current filter is ANC_FILTER, must set to OFF, target is ANC_FILTER
+            and if current filter is PassThrough filter, target is ANC filter. */
+            if (support_hybrid_enable) {
+                target_anc_type = AUDIO_ANC_CONTROL_ANC_TYPE_DEFAULT;
+            } else {
+                target_anc_type = AUDIO_ANC_CONTROL_TYPE_FF;
+            }
+            target_filter_id = AUDIO_ANC_CONTROL_ANC_FILTER_DEFAULT;
+        }
+        ret = true;
+#endif /* AIR_HEARTHROUGH_MAIN_ENABLE */
+    } 
+    
+    else if (KEY_BETWEEN_ANC_PASSTHROUGH == key_action) {
         if (anc_enable && (AUDIO_ANC_CONTROL_PASS_THRU_FILTER_DEFAULT == anc_current_filter_id || AUDIO_ANC_CONTROL_FILTER_ID_PASS_THRU_1 == anc_current_filter_id)) {
             /* Set as ANC. */
             if (support_hybrid_enable) {
@@ -1103,7 +1233,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
 
            #ifdef EASTECH_SPEC_VP
-              if(ir_senser_in_ear_statu==1)   // pair Æô¶¯Ê±£¬¶ú»úÔÚÈë¶úÄ£Ê½
+              if(ir_senser_in_ear_statu==1)   // pair ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½
  		    #endif
               { 
                 #ifdef ALWAYS_PLAY_PAIRING_VP
@@ -1132,7 +1262,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
            app_bt_state_service_set_bt_visible(true, false, VISIBLE_TIMEOUT);
            APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 333 ir_senser_in_ear_statu=%d", 1,ir_senser_in_ear_statu);  // press pair key vp
         #ifdef EASTECH_SPEC_VP
-        if(ir_senser_in_ear_statu==1)   // pair Æô¶¯Ê±£¬¶ú»úÔÚÈë¶úÄ£Ê½
+        if(ir_senser_in_ear_statu==1)   // pair ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½
  		  #endif
           {
            #ifdef ALWAYS_PLAY_PAIRING_VP
@@ -1236,9 +1366,27 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             ret = true;
             break;
 			
+        // Alex B reverse toggle patch
+    case KEY_REVERSE_ANC_AND_HA:
+        APPS_LOG_MSGID_I("_proc_key_event_group KEY_REVERSE_ANC_AND_HA", 0);
+        if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER && bt_sink_srv_cm_get_aws_connected_device() != NULL)
+	{
+		APPS_LOG_MSGID_I("_proc_key_event_group KEY_REVERSE_ANC_AND_HA role=partner sent EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI to agent,from_case_haanckey=1 ",0);
+		apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI,&from_case_haanckey,1);
+	}
+	else
+	{
+		APPS_LOG_MSGID_I("_proc_key_event_group KEY_REVERSE_ANC_AND_HA role=agent", 0);
+		//ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI);
+		//apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI,&from_case_haanckey,1);
+	}
+        app_home_screen_process_anc_and_reverse_hamode_cycle();
+            ret = true;
+        break;
         case KEY_PASS_THROUGH:
         case KEY_ANC:
         case KEY_SWITCH_ANC_AND_PASSTHROUGH:
+        case KEY_SWITCH_AUDEARA_ANC_PT:
         case KEY_SWITCH_WORLD_MODE:
         case KEY_BETWEEN_ANC_PASSTHROUGH:
         case KEY_ANC_GAIN:
@@ -1248,6 +1396,8 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             /* Handle ANC key event. */
             ret = app_home_screen_process_anc_and_pass_through(self, action);
             break;
+
+        
 #endif
 			
 		case KEY_TEST_FACTORY_RESET:	// richard for customer UI spec
@@ -1354,7 +1504,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         }
 #endif
         case KEY_AIR_PAIRING: {
-#if 0//def AIR_LE_AUDIO_BIS_ENABLE   // harry ¸ÄÉÆ²»ÄÜ×é¶Ó£¬Á¬½ÓÁËle¹ã²¥
+#if 0//def AIR_LE_AUDIO_BIS_ENABLE   // harry ï¿½ï¿½ï¿½Æ²ï¿½ï¿½ï¿½ï¿½ï¿½Ó£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½leï¿½ã²¥
             uint8_t zero_addr[6] = {0};
             bt_bd_addr_t *bd_addr = bt_device_manager_aws_local_info_get_peer_address();
             uint8_t *peer_addr = (uint8_t *)(*bd_addr);
@@ -1384,7 +1534,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     app_bt_state_service_set_air_pairing_doing(true);
                     memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                     vp.vp_index = VP_INDEX_PAIRING_LOOP;  // 
-                    APPS_LOG_MSGID_I("VP_INDEX_PAIRING 555", 0);  // ×é¶Ó¶¯×÷Òô
+                    APPS_LOG_MSGID_I("VP_INDEX_PAIRING 555", 0);  // ï¿½ï¿½Ó¶ï¿½ï¿½ï¿½ï¿½ï¿½
                     voice_prompt_play(&vp, NULL);
                     //apps_config_set_vp(VP_INDEX_PAIRING, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
                     apps_config_set_foreground_led_pattern(LED_INDEX_AIR_PAIRING, APPS_AIR_PAIRING_DURATION * 10, false);
@@ -1715,7 +1865,7 @@ static bool homescreen_app_bt_connection_manager_event_proc(ui_shell_activity_t 
             app_bt_state_service_set_bt_visible(true, true, VISIBLE_TIMEOUT);
             APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",  VP_INDEX_PAIRING 2223 ir_senser=%d,bt_on && bt_device_manager_remote_get_paired_num() == 0", 1,ir_senser_in_ear_statu);
            #ifdef EASTECH_SPEC_VP
-              if(ir_senser_in_ear_statu==1)   // pair Æô¶¯Ê±£¬¶ú»úÔÚÈë¶úÄ£Ê½
+              if(ir_senser_in_ear_statu==1)   // pair ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½
  		    #endif
            #ifdef ALWAYS_PLAY_PAIRING_VP
             { 
@@ -1833,7 +1983,7 @@ static bool homescreen_app_aws_event_proc(ui_shell_activity_t *self, uint32_t ev
                     APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", set flag auto_start_visiable when air pairing successfully", 0);
                     app_bt_state_service_set_bt_visible(true, true, VISIBLE_TIMEOUT);
                    #ifdef ALWAYS_PLAY_PAIRING_VP
-                   APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 121222", 0);  //×é¶Ó³É¹¦Òô
+                   APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY",VP_INDEX_PAIRING 121222", 0);  //ï¿½ï¿½Ó³É¹ï¿½ï¿½ï¿½
                       ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_PRE_PAIR_VP);
          	          ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE,
                            EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,
