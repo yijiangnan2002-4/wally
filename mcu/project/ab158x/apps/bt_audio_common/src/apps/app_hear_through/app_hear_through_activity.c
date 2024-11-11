@@ -92,6 +92,8 @@
 #include "app_home_screen_idle_activity.h"
 #include "app_hearing_aid_key_handler.h"
 
+#include "app_home_screen_idle_activity.h"
+
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 
 #define APP_HEAR_THROUGH_ACT_TAG        "[HearThrough][Activity]"
@@ -798,7 +800,16 @@ static void app_hear_through_activity_handle_ambient_control_switch(bool reverse
 #if 1  // for anc_and_ha
 	if(from_case_haanckey)
 	{
-	   	app_hearing_aid_utils_adjust_mode(0); // harry add 2024082
+        if(isAudearaReverseOrderFlagSet())
+        {
+            app_hearing_aid_utils_adjust_mode(1); // harry add 2024082
+             setAudearaReverseOrderFlag(false);
+        }
+        else
+        {
+            app_hearing_aid_utils_adjust_mode(0); // harry add 2024082
+        }
+        
 	   	preha_target=0;
 	}
     
@@ -812,13 +823,12 @@ static void app_hear_through_activity_handle_ambient_control_switch(bool reverse
 		uint8_t mode_index = 0;
 		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
         	prompt_no_play_flag=1;  // �������־1������HA VP�󣬲�Ҫ���ظ�����
-        	if(is_aws_connected){
 
-  		//voice_prompt_play_sync_vp_ha(mode_index);
+        	if(is_aws_connected){
+                    voice_prompt_play_sync_vp_ha(mode_index);
     		}
 		else{
-    
-		//voice_prompt_play_local_vp_ha(mode_index);	
+                    voice_prompt_play_sync_vp_ha(mode_index);
 		}
         #endif
         }

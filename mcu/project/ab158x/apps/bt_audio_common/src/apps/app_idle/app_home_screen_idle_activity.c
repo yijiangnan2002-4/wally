@@ -190,6 +190,7 @@ static bool s_fake_off = false;
 #endif
 uint8_t from_case_haanckey=0;
 uint8_t wait_key_process_time=0;
+bool aua_revorder_flag = false;
 
 #define RETRY_ENTER_RTC_MODE_TIMES      (10)
 static void app_anckey_timer_callback(TimerHandle_t xTimer)
@@ -580,6 +581,16 @@ void bt_name_bynfc_disp_proc(uint8_t i)
 
 }
 
+bool isAudearaReverseOrderFlagSet(void)
+{
+    return aua_revorder_flag;
+}
+
+void setAudearaReverseOrderFlag(bool flagx)
+{
+    aua_revorder_flag = flagx;
+}
+
 void app_home_screen_process_anc_and_reverse_hamode_cycle(void)
 {
     // Basically a copy of the above, but in reverse order
@@ -631,35 +642,35 @@ void app_home_screen_process_anc_and_reverse_hamode_cycle(void)
             }
         }
 
-        else if (app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_ANC) // Focus -> Speech
+        else // Focus -> Speech
         {
-            *p_key_action=KEY_ANC_AND_HA; // Does not work yet
+            setAudearaReverseOrderFlag(true);
+            *p_key_action= KEY_ANC_AND_HA; // Does not work yet
             if (p_key_action)
             {
-                    ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 0);
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 0);
             }
             else
             {
                     vPortFree(p_key_action);
             }		
 
-            //*p_key_action = KEY_HEARING_AID_MODE_UP_CIRCULAR;
+            p_key_action = KEY_ANC_AND_HA;
 /*
             if (p_key_action)
             {
-                    ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 150);
+                    ui_shell_send_event(false, EVENT_PRIORITY_HIGH, EVENT_GROUP_UI_SHELL_KEY, INVALID_KEY_EVENT_ID, p_key_action, sizeof(uint16_t), NULL, 250);
             }
             else
             {
                     vPortFree(p_key_action);
             }		
-                    APPS_LOG_MSGID_I("app_home_screen_process_anc_and_reverse_hamode_cycle KEY_HEARING_AID_MODE_DOWN", 0);
-                    
+                
+                 */   
             APPS_LOG_MSGID_I("app_home_screen_process_anc_and_reverse_hamode_cycle KEY_SWITCH_ANC_AND_PASSTHROUGH  switch ha mode1", 0);
-            */
+            
         }
 }
-
 
 
 
@@ -1107,6 +1118,7 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
         || (action == KEY_PASS_THROUGH)
         || (action == KEY_ANC)
         || (action == KEY_SWITCH_ANC_AND_PASSTHROUGH)
+        || (action == KEY_SWITCH_AUDEARA_ANC_PT)
         || (action == KEY_SWITCH_WORLD_MODE)
         || (action == KEY_BETWEEN_ANC_PASSTHROUGH)
 #endif
