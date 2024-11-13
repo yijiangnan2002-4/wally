@@ -796,9 +796,9 @@ static void app_hear_through_activity_handle_ambient_control_switch()
             }
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
 #if 1  // for anc_and_ha
+	   	app_hearing_aid_utils_adjust_mode(0); // harry add 20240826;
 	if(from_case_haanckey)
 	{
-	   	app_hearing_aid_utils_adjust_mode(0); // harry add 20240826;
 	   	preha_target=0;
 	}
 	from_case_haanckey=0;
