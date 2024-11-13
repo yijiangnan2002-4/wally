@@ -164,6 +164,9 @@ extern void dchs_device_ready_to_off_callback(void);
 #include "app_customer_common_activity.h"
 #include "app_in_ear_idle_activity.h"
 
+#include "apps_common_nvkey_struct.h"
+#include "app_hearing_aid_utils.h"
+
 #define UI_SHELL_IDLE_BT_CONN_ACTIVITY  "[TK_Home]app_home_screen_idle_activity"
 
 #define POWER_OFF_TIMER_NAME       "POWER_OFF"              /* Use a timeout before power off, to show LED and play VP. */
@@ -589,6 +592,34 @@ bool isAudearaReverseOrderFlagSet(void)
 void setAudearaReverseOrderFlag(bool flagx)
 {
     aua_revorder_flag = flagx;
+}
+
+static void  AudearaFactoryResetNVKEYPatch(void)
+{
+    // Alex B audeara patch
+    // We will reset (4) NVKEYS here
+    // -HLC Table NV Key is 0xE804
+    // -Media EQ Coefficient is 0xE410
+    // -Media EQ UI is 0xEE05
+    // -Audiogram is 0xEF60
+    nvkey_status_t nvkey_ret = NVKEY_STATUS_ERROR;
+
+// Set keys to default
+    nvkey_write_data(NVID_DSP_ALG_PEQ_COF_1, audeara_default_eqdata, AUDEARA_EQ_DATA_LENGTH);  // e410
+    nvkey_write_data(0xEE05, audeara_default_equi, AUDEARA_EQ_UI_LENGTH);
+    nvkey_write_data(0xEF60, audeara_default_audiogram, AUDEARA_AUDIOGRAM_LENGTH);
+    nvkey_write_data(NVID_DSP_ALG_HA_LEVEL_2, audeara_default_hlc, AUDEARA_HLC_TABLE_LENGTH);// e804
+
+    // Knock ha level to default
+    uint8_t ha_paremeters[2] = {0x00, 0x00};
+    app_hearing_aid_utils_set_level_index(ha_paremeters);
+    app_hearing_aid_utils_set_level_sync_switch(true);
+    //Knock HA volume to default
+    ha_paremeters[0] = 0x04;
+    ha_paremeters[1] = 0x04;
+    app_hearing_aid_utils_set_volume_index(ha_paremeters);
+    app_hearing_aid_utils_set_volume_sync_switch(true);
+
 }
 
 void app_home_screen_process_anc_and_reverse_hamode_cycle(void)
@@ -1429,6 +1460,9 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 4 ", 0);
             //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
 #endif
+
+// AlexB Audeara Factory reset patch needs to be done here
+           // AudearaFactoryResetNVKEYPatch();
             s_factory_reset_key_action = KEY_FACTORY_RESET;
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_FACTORY_RESET_REQUEST, NULL, 0,
@@ -1453,6 +1487,8 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
                     APPS_LOG_MSGID_I(", harrtdbg VP_INDEX_SUCCEED 6 ", 0);
             //apps_config_set_vp(VP_INDEX_SUCCEED, false, 0, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
 #endif
+// AlexB Audeara Factory reset patch needs to be done here
+           // AudearaFactoryResetNVKEYPatch();
             s_factory_reset_key_action = KEY_FACTORY_RESET_AND_POWEROFF;
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_FACTORY_RESET_REQUEST, NULL, 0,
@@ -2169,6 +2205,7 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
             break;
         }
         case APPS_EVENTS_INTERACTION_FACTORY_RESET_REQUEST: {
+            AudearaFactoryResetNVKEYPatch();
             uint32_t action_after_factory_reset;
             APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Receive factory reset request, is_doing:%d", 1, s_factory_reset_doing);
 #ifdef AIR_APP_MULTI_VA
