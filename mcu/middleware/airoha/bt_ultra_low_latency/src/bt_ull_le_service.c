@@ -67,7 +67,7 @@
 #include "race_cmd_relay_cmd.h"
 
 #include "app_hear_through_race_cmd_handler.h"
-uint8_t reply_buf[1200] = {0}; // RX audeara message buffer
+uint8_t reply_buf[820] = {0}; // RX audeara message buffer, max size limited by ULL size 
 
 bool aua_notification_state = true; // placeholder this as true for
 

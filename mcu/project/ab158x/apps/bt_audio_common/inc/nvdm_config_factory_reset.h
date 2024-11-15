@@ -62,6 +62,7 @@ extern "C" {
 \
 };
 
+//Alex Name patch dont clear line 168   /* NVID_APP_DEVICE_NAME_USER,*/ we do this seperately
 #define FACTORY_RST_CLEAR_NVKEY_ITEM_LIST \
 {\
     NVID_BT_HOST_REMOTE_INFO_01,\
@@ -165,7 +166,6 @@ extern "C" {
     NVID_DSP_ALG_PEQ_COF_31,\
     NVID_DSP_ALG_PEQ_COF_32,\
     NVID_PERI_LOG_MODULE_SETTING,\
-    NVID_APP_DEVICE_NAME_USER,\
     NVID_APP_ENABLE_MP_TEST_MODE,\
     NVID_APP_CUSTOMER_KEY_CFG,\
     NVID_APP_SYSTEM_MODE_SETTING,\

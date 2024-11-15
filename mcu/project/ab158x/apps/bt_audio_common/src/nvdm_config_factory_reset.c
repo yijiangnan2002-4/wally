@@ -150,7 +150,12 @@ void factory_rst_reserved_nvdm_item_list_check(void)
             }
             LOG_MSGID_I(common, "delete item: group_name = AB15, data_item_name = %s", 1, item_name);
         }
+
+       // AudearaFactoryResetDefaultDeviceNamePatch(); // Restore device names to default
 	}
+
+
+
 #if 0
         /* Scan all the NVDM items from the beginning of NVDM region. */
         status = nvdm_query_begin();
@@ -228,6 +233,8 @@ void factory_rst_reserved_nvdm_item_list_check(void)
             LOG_MSGID_E(common, "nvdm_query_end fail %d", 1, status);
             return;
         }
+
+        
     } else if (factrst_flag == FACTORY_RESET_LINK_KEY) {
         /* Flag set to be link key reset, only delete link key related 2 items. */
         nvkey_status = nvkey_delete_data_item(NVID_BT_HOST_REMOTE_INFO_01);

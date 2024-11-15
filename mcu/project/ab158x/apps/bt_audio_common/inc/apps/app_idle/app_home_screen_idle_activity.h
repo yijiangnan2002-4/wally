@@ -87,4 +87,7 @@ extern void app_anckey_timer_handle_process(void);
 
 extern void bt_name_bynfc_disp_proc(uint8_t i);
 
+bool isAudearaReverseOrderFlagSet(void);
+void setAudearaReverseOrderFlag(bool flagx);
+
 #endif /* __APP_HOME_SCREEN_IDLE_ACTIVITY_H__ */

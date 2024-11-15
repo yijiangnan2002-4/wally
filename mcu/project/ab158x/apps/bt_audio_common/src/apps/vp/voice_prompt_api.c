@@ -761,7 +761,7 @@ voice_prompt_status_t voice_prompt_play_vp_power_on()
     vp.vp_index = VP_INDEX_FAILED;
     vp.control = VOICE_PROMPT_CONTROL_MASK_PREEMPT;
     voice_prompt_play(&vp, NULL);
-	prompt_no_play_flag=1;    // 出盒那一下子也不要有HA的提示音
+	prompt_no_play_flag=1;    // 锟斤拷锟斤拷锟斤拷一锟斤拷锟斤拷也锟斤拷要锟斤拷HA锟斤拷锟斤拷示锟斤拷
  return 0;
 }
 

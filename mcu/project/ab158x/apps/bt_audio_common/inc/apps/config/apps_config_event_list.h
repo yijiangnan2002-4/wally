@@ -266,6 +266,8 @@ typedef enum {
     KEY_VP_UP					= 0xF016,
     KEY_VP_DM					= 0xf017,
     KEY_ANC_AND_HA					= 0xf018,
+    KEY_REVERSE_ANC_AND_HA          = 0xf019,
+    KEY_SWITCH_AUDEARA_ANC_PT       = 0xf020,
     
     
 } apps_config_key_action_t;
