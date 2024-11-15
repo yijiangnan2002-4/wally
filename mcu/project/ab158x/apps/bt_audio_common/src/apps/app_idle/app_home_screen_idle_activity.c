@@ -598,7 +598,7 @@ void AudearaFactoryResetDefaultDeviceNamePatch(void)
 {
     if(app_nvkey_btname_read()==0x66) // Clinico
     {
-        nvkey_write_data(NVID_APP_DEVICE_NAME_USER,default_name_clinico ,25);
+        nvkey_write_data(NVID_APP_DEVICE_NAME_USER,default_name_clinico ,18);
         return;
     }
 
