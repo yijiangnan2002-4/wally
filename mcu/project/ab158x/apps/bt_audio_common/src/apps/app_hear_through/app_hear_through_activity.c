@@ -823,8 +823,7 @@ static void app_hear_through_activity_handle_ambient_control_switch(bool reverse
         {
             preha_target=0;
         }
-        
-	}
+     }
 
     if(isAudearaRevSet)
     {
@@ -841,7 +840,7 @@ static void app_hear_through_activity_handle_ambient_control_switch(bool reverse
   		// richard for customer UI spec.
 		uint8_t mode_index = 0;
 		audio_psap_status_t mode_index_status = audio_anc_psap_control_get_mode_index(&mode_index);
-        	//prompt_no_play_flag=1;  // �������־1������HA VP�󣬲�Ҫ���ظ�����
+        	//prompt_no_play_flag=1;  // ????????1??????HA VP??????????????
 
         	if(is_aws_connected){
                     voice_prompt_play_sync_vp_ha(mode_index);
@@ -867,7 +866,7 @@ static void app_hear_through_activity_handle_ambient_control_switch(bool reverse
 
             app_hearing_through_activity_leave_hear_through_mode();
             app_anc_service_reset_hear_through_anc(true);
-            prompt_no_play_flag=0; // ���������־������˫�����Բ���HA VP
+            prompt_no_play_flag=0; // ??????????????????????????HA VP
 
     		// richard for customer UI spec.
         	if(is_aws_connected){
