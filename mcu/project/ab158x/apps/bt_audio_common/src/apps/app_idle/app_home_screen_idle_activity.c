@@ -602,16 +602,17 @@ void AudearaFactoryResetDefaultDeviceNamePatch(void)
         return;
     }
 
-    else if(app_nvkey_btname_read()==0x60) // Audeara
+    else //if(app_nvkey_btname_read()==0x60) // Audeara
     {
         nvkey_write_data(NVID_APP_DEVICE_NAME_USER, default_name_audeara ,12);
         return;
     }  
-
+/*
     else
     {
         nvkey_delete_data_item(NVID_APP_DEVICE_NAME_USER); // Null key, unit has no factory info
     }
+    */
 }
 
 static void AudearaFactoryResetNVKEYPatch(void)
