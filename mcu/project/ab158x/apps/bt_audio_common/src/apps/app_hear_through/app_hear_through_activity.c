@@ -798,23 +798,39 @@ static void app_hear_through_activity_handle_ambient_control_switch(bool reverse
             }
 #endif /* AIR_HEARING_AID_ENABLE || AIR_HEARTHROUGH_PSAP_ENABLE */
 #if 1  // for anc_and_ha
+
+    bool isAudearaRevSet = isAudearaReverseOrderFlagSet();
+
+    if(isAudearaRevSet)
+    {
+        app_hearing_aid_utils_adjust_mode(1); // harry add 2024082
+        prompt_no_play_flag =1;    
+    }
+
+    else
+    {
+        app_hearing_aid_utils_adjust_mode(0); // harry add 2024082
+        prompt_no_play_flag = 1;
+    }
+
 	if(from_case_haanckey)
 	{
-        if(isAudearaReverseOrderFlagSet())
+        if(isAudearaRevSet)
         {
-            app_hearing_aid_utils_adjust_mode(1); // harry add 2024082
-             setAudearaReverseOrderFlag(false);
-             prompt_no_play_flag =1;
              preha_target=1;
         }
         else
         {
-            app_hearing_aid_utils_adjust_mode(0); // harry add 2024082
-            prompt_no_play_flag = 1;
             preha_target=0;
         }
         
 	}
+
+    if(isAudearaRevSet)
+    {
+         setAudearaReverseOrderFlag(false);
+         isAudearaRevSet = false;
+    }
     
 
 	from_case_haanckey=0;

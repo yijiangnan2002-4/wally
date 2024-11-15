@@ -594,7 +594,27 @@ void setAudearaReverseOrderFlag(bool flagx)
     aua_revorder_flag = flagx;
 }
 
-static void  AudearaFactoryResetNVKEYPatch(void)
+void AudearaFactoryResetDefaultDeviceNamePatch(void)
+{
+    if(app_nvkey_btname_read()==0x66) // Clinico
+    {
+        nvkey_write_data(NVID_APP_DEVICE_NAME_USER,default_name_clinico ,25);
+        return;
+    }
+
+    else if(app_nvkey_btname_read()==0x60) // Audeara
+    {
+        nvkey_write_data(NVID_APP_DEVICE_NAME_USER, default_name_audeara ,12);
+        return;
+    }  
+
+    else
+    {
+        nvkey_delete_data_item(NVID_APP_DEVICE_NAME_USER); // Null key, unit has no factory info
+    }
+}
+
+static void AudearaFactoryResetNVKEYPatch(void)
 {
     // Alex B audeara patch
     // We will reset (4) NVKEYS here
@@ -606,9 +626,11 @@ static void  AudearaFactoryResetNVKEYPatch(void)
 
 // Set keys to default
     nvkey_write_data(NVID_DSP_ALG_PEQ_COF_1, audeara_default_eqdata, AUDEARA_EQ_DATA_LENGTH);  // e410
-    nvkey_write_data(0xEE05, audeara_default_equi, AUDEARA_EQ_UI_LENGTH);
+    //nvkey_write_data(0xEE05, NULL, 0);
+    nvkey_delete_data_item(0xEE05);
     nvkey_write_data(0xEF60, audeara_default_audiogram, AUDEARA_AUDIOGRAM_LENGTH);
     nvkey_write_data(NVID_DSP_ALG_HA_LEVEL_2, audeara_default_hlc, AUDEARA_HLC_TABLE_LENGTH);// e804
+
 
     // Knock ha level to default
     uint8_t ha_paremeters[2] = {0x00, 0x00};
@@ -2206,6 +2228,7 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
         }
         case APPS_EVENTS_INTERACTION_FACTORY_RESET_REQUEST: {
             AudearaFactoryResetNVKEYPatch();
+            AudearaFactoryResetDefaultDeviceNamePatch(); // Restore device names to default
             uint32_t action_after_factory_reset;
             APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Receive factory reset request, is_doing:%d", 1, s_factory_reset_doing);
 #ifdef AIR_APP_MULTI_VA
@@ -2257,6 +2280,7 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
             }
 
             app_home_screen_fact_rst_nvdm_flag(FACTORY_RESET_FLAG);
+           // AudearaFactoryResetDefaultDeviceNamePatch();
             if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT) {
                 memset((void *)&vp, 0, sizeof(voice_prompt_param_t));
                 vp.vp_index = VP_INDEX_POWER_OFF;
@@ -2265,12 +2289,17 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
                 voice_prompt_play(&vp, NULL);
                 //apps_config_set_vp(VP_INDEX_POWER_OFF, true, 1000, VOICE_PROMPT_PRIO_EXTREME, false, NULL);
             }
+
+            
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 action_after_factory_reset, NULL, 0,
                                 NULL, 4500);
+              
+                    
 #else
             app_home_screen_fact_rst_nvdm_flag(FACTORY_RESET_FLAG);
             voice_prompt_play_vp_power_off(0);
+            //AudearaFactoryResetDefaultDeviceNamePatch();
             ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 action_after_factory_reset, NULL, 0,
                                 NULL, 1500);
