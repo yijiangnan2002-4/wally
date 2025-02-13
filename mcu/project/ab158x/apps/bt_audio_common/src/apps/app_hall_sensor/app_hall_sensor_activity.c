@@ -205,7 +205,6 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 					if(app_get_smcharger_context() != NULL)
 					{
 						if(STATE_SMCHARGER_LID_OPEN == app_get_smcharger_context()->peer_smcharger_state)
-
 						{	
 							ret = true;
 							break;
@@ -296,9 +295,9 @@ static bool _proc_hall_sensor(ui_shell_activity_t *self, uint32_t event_id, void
 
 				if(!case_handle_command)  // in case but not in charge mode
 				{
-				case_nobattery=1;
-        	ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_REQUEST_ON_OFF_BT);
-            	ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST,
+				  case_nobattery=1;
+                       	  ui_shell_remove_event(EVENT_GROUP_UI_SHELL_APP_INTERACTION, APPS_EVENTS_INTERACTION_REQUEST_ON_OFF_BT);
+                           	  ui_shell_send_event(false, EVENT_PRIORITY_HIGHEST,
                                 EVENT_GROUP_UI_SHELL_APP_INTERACTION,
                                 APPS_EVENTS_INTERACTION_REQUEST_ON_OFF_BT,
                                 (void *)false, 0,

@@ -92,6 +92,7 @@
 //#include "app_psensor_px31bf_activity.h"
 //#include "app_hall_sensor_activity.h"
 #include "apps_config_key_remapper.h"
+#include "apps_customer_config.h"
 
 /* SmartCharger APP must use Battery Manager module. */
 #if !defined(MTK_BATTERY_MANAGEMENT_ENABLE)
@@ -298,7 +299,12 @@ static void app_smcharger_driver_callback(uint8_t drv_event, uint8_t from_isr, u
 		case DRV_CHARGER_EVENT_REVERSION_REPORT: {
 			log_hal_msgid_info(" driver_callback[casing version] = 0x%x", 1, data);
 			case_handle_command=1;
-			//app_set_charger_case_version((uint8_t)data);
+			#ifdef VIBE_MODEL
+			app_set_ab1571d_version(1,(data>>5)&0x07, data&0x1f);
+			#else
+			errrrrrrrrrrrrrrrrr
+			#endif
+//			app_set_charger_case_version((uint8_t)data);
 			break;	
 		}
 		case DRV_CHARGER_EVENT_CHARGING_CURRENT_LIMIT: {

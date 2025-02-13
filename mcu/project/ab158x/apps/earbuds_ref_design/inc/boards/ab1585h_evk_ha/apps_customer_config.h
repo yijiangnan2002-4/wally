@@ -129,4 +129,7 @@
 #define ALWAYS_PLAY_PAIRING_VP
 #define EASTECH_SPEC_VP
 #define PRE_VP_PAIR_TIMEOUT   500
+#define VIBE_MODEL  
+
+
 #endif /* __APPS_CUSTOMER_CONFIG_H__ */
