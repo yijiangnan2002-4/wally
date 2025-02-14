@@ -536,7 +536,7 @@ void bt_name_bynfc_disp_proc(uint8_t i)
                      app_hear_through_ctx.mode_index,
                      vol_max_count
                      );
-        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)//������hear
+        if(app_hear_through_ctx.mode_index==APP_HEAR_THROUGH_MODE_SWITCH_INDEX_HEAR_THROUGH)
         {
           if(mode_index!=(mode_max_count-1)) // ���ڲ������mode
           {
@@ -1189,8 +1189,8 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
             if (bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_PARTNER) {
                 if (BT_AWS_MCE_SRV_LINK_NONE == bt_aws_mce_srv_get_link_type()
                     || BT_STATUS_SUCCESS != apps_aws_sync_event_send(EVENT_GROUP_UI_SHELL_KEY, action)) {
-                    APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Partner send 0x%x aws to agent failed", 1, action);
-            APPS_LOG_MSGID_I("  VP_INDEX_FAILED ddd", 0);
+		     APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Partner send 0x%x aws to agent failed", 1, action);
+	            APPS_LOG_MSGID_I("  VP_INDEX_FAILED ddd", 0);
                     voice_prompt_play_vp_failed();
                 }
                 ret = true;

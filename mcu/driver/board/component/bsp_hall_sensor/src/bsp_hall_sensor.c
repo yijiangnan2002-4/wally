@@ -36,7 +36,7 @@ bool bsp_Hall_status_checking(void)
 
 static void bsp_HALL_callback(void *data)
 {
-    uint16_t *pHallStatus = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
+    	uint16_t *pHallStatus = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); /* free by ui shell */
 
 	hal_gpio_data_t pin_status = 0;
 
@@ -47,13 +47,13 @@ static void bsp_HALL_callback(void *data)
 	if ( status == HAL_GPIO_STATUS_OK)
 	{
 		if(pin_status & 0x0001)
-      {  
+      		{  
 			*pHallStatus = 0; // out case
-      }
+      		}
 		else
-      {  
+      		{  
 			*pHallStatus = 1; // in case
-      }
+      		}
 
 	    /* Send new value indication to psensor activity */
 	    ui_shell_send_event(true, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_HALL_SENSOR,
