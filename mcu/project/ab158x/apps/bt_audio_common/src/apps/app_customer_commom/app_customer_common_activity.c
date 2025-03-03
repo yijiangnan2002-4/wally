@@ -76,6 +76,7 @@ bool customer_key_configure_double_click(void);
 bool customer_key_configure_triple_click(void);
 void app_eastech_pair_vp_callback(void );
 void customer_key_triger_ocean_vp(void);
+void bt_sink_music_change_respone_vp(uint8_t oldvol,uint8_t newvol);
     uint8_t ocean_cnt=0;
    uint8_t	ocean_vp_vol=10;  // DEF= VP DEF
 #ifdef BATTERY_HEATHY_ENABLE
@@ -428,11 +429,11 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 {
 	uint16_t *p_key_action = (uint16_t *)pvPortMalloc(sizeof(uint16_t)); // free by ui shell
 	*p_key_action = KEY_ACTION_INVALID;
-	uint8_t volkey_val;   // 1:ÒôÁ¿-VP,	2:ÒôÁ¿+VP,	3,4:HAÄ¬ÈÏÒôÁ¿VP.	5,MAX VOL VP.	6,mix vol vp
-    	uint8_t l_level_index = 0;
+	uint8_t volkey_val;   // 1:éŸ³é‡-VP,	2:éŸ³é‡+VP,	3,4:HAé»˜è®¤éŸ³é‡VP.	5,MAX VOL VP.	6,mix vol vp
+    uint8_t l_level_index = 0;
 	uint8_t r_level_index = 0;
 	uint16_t	bt_sink_state;
-    	uint8_t volume = 0;
+    uint8_t volume = 0;
 
      bt_sink_state = bt_sink_srv_get_state();
     if (bt_sink_state >= BT_SINK_SRV_STATE_INCOMING) {
@@ -472,7 +473,7 @@ void key_volumeup_proc(uint8_t volume_up_mode)		// 0: sp; 1: LP2
 		
 		if((*p_key_action == KEY_HEARING_AID_VOLUME_UP)&&l_level_index==3)
 		{
-			volkey_val=4;  // Ä¬ÈÏÒôÁ¿
+			volkey_val=4;  // é»˜è®¤éŸ³é‡
 		}
 		else if((*p_key_action == KEY_HEARING_AID_VOLUME_UP)&&(l_level_index>=7))
 		{
@@ -640,6 +641,42 @@ void key_volumedown_proc(uint8_t volume_down_mode)		// 0: SP; 1: LP2
     	{
         	vPortFree(p_key_action);
     	}		
+}
+void bt_sink_music_change_respone_vp(uint8_t oldvol,uint8_t newvol)
+{
+	APPS_LOG_MSGID_I("bt_sink_music_change_respone_vp oldvol=0x%x,newvol=0x%x,max=0x%x", 3, oldvol,newvol,AUD_VOL_OUT_MAX);	
+	if (oldvol==newvol&&newvol!=AUD_VOL_OUT_LEVEL15&&newvol!=0)
+	{
+		APPS_LOG_MSGID_I("bt_sink_music_change_respone_vp no need play vp",0);
+	return;
+	}
+	else 
+	{
+		if(newvol>=AUD_VOL_OUT_MAX){
+			APPS_LOG_MSGID_I("bt_sink_music_change_respone_vp play maxvol",0);
+			voice_prompt_play_sync_vp_maxvol();  
+		}
+		else if(newvol==0){
+			voice_prompt_play_sync_vp_minvol();  
+			APPS_LOG_MSGID_I("bt_sink_music_change_respone_vp play minvol",0);
+
+		}
+		else if(newvol>oldvol){
+			voice_prompt_play_sync_vp_volume_up();
+			APPS_LOG_MSGID_I("bt_sink_music_change_respone_vp play up vp",0);
+
+		}
+		else if(newvol<oldvol){
+			voice_prompt_play_sync_vp_volume_down();
+			APPS_LOG_MSGID_I("bt_sink_music_change_respone_vp play down vp",0);
+
+		}
+		else{
+			APPS_LOG_MSGID_E("bt_sink_music_change_respone_vp errorr",0);
+
+		}
+	}
+
 }
 
 void key_avrcp_next_proc(uint8_t vol_m_flag)			// 0: VOLUP_DP, 1: MBUTTON_DP

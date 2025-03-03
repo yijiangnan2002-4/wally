@@ -263,7 +263,7 @@ AIR_EINT_KEY_ENABLE = y
 AIR_SECURITY_SECURE_BOOT_ENABLE = n
 
 # This option is to enable/disable Microsoft Swift Pair.
-AIR_SWIFT_PAIR_ENABLE = y
+AIR_SWIFT_PAIR_ENABLE = n
 
 # This option is to enable/disable Spotify Tap feature
 AIR_SPOTIFY_TAP_ENABLE = n

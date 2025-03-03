@@ -456,6 +456,7 @@ bool app_bt_state_service_set_bt_visible(bool enable_visible, bool wait_aws_conn
             /* Refresh BT visibility duration if enable_visible is TRUE. */
             app_bt_state_service_refresh_visible_timeout(timeout);
 #ifdef AIR_SWIFT_PAIR_ENABLE
+errrrrrrrrrrrrrrrrrrrr
             app_swift_pair_restart_adv();
 #endif
         }

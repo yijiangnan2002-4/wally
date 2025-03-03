@@ -98,7 +98,7 @@ bool apps_customer_common_activity_proc(
       void *extra_data,
       size_t data_len);
 
-
+extern void bt_sink_music_change_respone_vp(uint8_t oldvol,uint8_t newvol);
 
 #endif //__APP_CUSTOMER_COMMON_ACTIVITY_H__
 

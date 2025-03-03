@@ -47,6 +47,7 @@
 #include "bt_role_handover.h"
 #endif
 #include "apps_customer_config.h"
+#include "app_customer_common_activity.h"
 
 #define AUD_VOL_IN_LEVEL_VALUE_MAX (127)
 /* Function declare */
@@ -59,20 +60,27 @@ static bt_status_t bt_sink_srv_avrcp_get_folder_item(bt_sink_srv_music_device_t 
 #endif
 
 static uint8_t bt_sink_srv_avrcp_get_volume_value(uint8_t local_volume);
-
-uint8_t bt_sink_srv_avrcp_get_volume_level(uint8_t avrcp_volume)
+uint8_t ori_local_vol=0; // 0-16
+uint8_t ori_avrcp_vol=0; // 0-127
+extern void bt_sink_music_change_respone_vp(uint8_t oldvol,uint8_t newvol);
+uint8_t bt_sink_srv_avrcp_get_volume_level(uint8_t avrcp_volume)  // 127 to 16 按手机音量才有
 {
     float avrcp_level_f = avrcp_volume;
     float local_level_f = (avrcp_level_f * BT_SINK_SRV_A2DP_MAX_VOL_LEV) / AUD_VOL_IN_LEVEL_VALUE_MAX + 0.5f;
     bt_sink_srv_report_id("[sink][music][avrcp] get_volume_level-avrcp_vol: %d, local_lev: %d", 2, avrcp_volume, (uint8_t)local_level_f);
+    bt_sink_music_change_respone_vp(ori_local_vol,local_level_f);
+    ori_local_vol=local_level_f;
+    ori_avrcp_vol=avrcp_volume;
     return (uint8_t)local_level_f;
 }
 
-static uint8_t bt_sink_srv_avrcp_get_volume_value(uint8_t local_volume)
+static uint8_t bt_sink_srv_avrcp_get_volume_value(uint8_t local_volume)  //16 to 127  按耳机音量才有
 {
     float local_level_f = local_volume;
     float avrcp_level_f = (local_level_f * AUD_VOL_IN_LEVEL_VALUE_MAX) / BT_SINK_SRV_A2DP_MAX_VOL_LEV + 0.5f;
     bt_sink_srv_report_id("[sink][music][avrcp] get_volume_value-local_vol: %d, avrcp_vol, %d", 2, local_volume, (uint8_t)avrcp_level_f);
+    ori_local_vol= local_volume;   
+    ori_avrcp_vol= avrcp_level_f;  
     return (uint8_t)avrcp_level_f;
 }
 
@@ -85,7 +93,7 @@ bt_status_t bt_sink_srv_avrcp_volume_notification(uint32_t handle, uint8_t
 
     if (dev && dev->volume_change_status) {
         bt_avrcp_send_register_notification_response_t rsp;
-        volume = bt_sink_srv_avrcp_get_volume_value(vol_level);
+        volume = bt_sink_srv_avrcp_get_volume_value(vol_level);  // 按耳机音量才有,连接没有
         rsp.event_id = BT_AVRCP_EVENT_VOLUME_CHANGED;
         rsp.parameter_length = 2;
         rsp.response_type = BT_AVRCP_RESPONSE_CHANGED;
@@ -104,7 +112,8 @@ bt_status_t bt_sink_srv_avrcp_volume_notification(uint32_t handle, uint8_t
         bt_sink_srv_report_id("[sink][music][avrcp] It`s category 2 product", 0);
 #endif
     }
-
+    ori_local_vol= vol_level;   
+    ori_avrcp_vol= volume;  
     bt_sink_srv_report_id("[sink][music][avrcp] vol_noti[e]-vol_level:%d, type:%d, volume_value: %d, ret: %d", 4, vol_level, type, volume, ret);
 
     return ret;
@@ -338,10 +347,11 @@ static int32_t bt_sink_srv_avrcp_handle_register_notification_ind(bt_avrcp_regis
             rsp.event_id = BT_AVRCP_EVENT_VOLUME_CHANGED;
             rsp.parameter_length = 2;
             rsp.response_type = BT_AVRCP_RESPONSE_INTERIM;
-            rsp.volume = bt_sink_srv_avrcp_get_volume_value(vol_lev);
+            rsp.volume = bt_sink_srv_avrcp_get_volume_value(vol_lev);  // 按耳机音量才有，连接也有
 
             ret = bt_avrcp_send_register_notification_response(register_ind->handle, &rsp);
             bt_sink_srv_report_id("[sink][music][avrcp] register_notificatin_ind[s]-volume_value: %d, ret:0x%x", 2, rsp.volume, ret);
+
         }
     }
 
