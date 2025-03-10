@@ -37,9 +37,9 @@
 #include "app_customer_nvkey_operation.h"
 
 #define SN_LEN 10
-#define MANUFACTURER_NAME               "Vibe A-01"
-#define MODEL_NUMBER                    "Vibe A-01"
-#define MODEL_NUMBER2                    "Vibe A-01"
+#define MANUFACTURER_NAME               "Vibe A1"
+#define MODEL_NUMBER                    "Vibe A1"
+#define MODEL_NUMBER2                    "Vibe A1"
 #define FIRMWARE_REVISION               FOTA_DEFAULT_VERSION
 #define SOFTWARE_REVISION               "Version1.0"
 #define HARDWARE_REVISION               "1.0"

@@ -61,7 +61,8 @@
 #define TIME_TO_START_VISIBLE_AFTER_POWER_ON    (TIME_TO_RECONNECT_DEVICE)
 /* The delay time to start BT visible after BT power on. */
 #define TIME_TO_STOP_RECONNECTION   (2 * 60 * 1000)         /* The delay time to stop reconnection. */
-#define VISIBLE_TIMEOUT             (2 * 60 * 1000)         /* The timeout of BT visibility. */
+//#define VISIBLE_TIMEOUT             (2 * 60 * 1000)         /* The timeout of BT visibility. */
+#define VISIBLE_TIMEOUT             (4 * 60 * 1000)         /* The timeout of BT visibility. */
 //errrrrrrrrrrrrrrrrrrrrrr
 
 #ifdef APPS_SLEEP_AFTER_NO_CONNECTION

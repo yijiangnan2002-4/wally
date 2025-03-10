@@ -331,8 +331,8 @@ static bt_gap_config_t g_bt_sink_srv_gap_config = {
  #define AUDEARA 0x60
 #define CLINICO 0x66
 
-#define AUDEARA_BUD "Vibe A-01"		
-#define CLINICO_SOUND "Vibe A-01"	
+#define AUDEARA_BUD "Vibe A1"		
+#define CLINICO_SOUND "Vibe A1"	
 const bt_gap_config_t *bt_customer_config_get_gap_config(void)
 {
     uint8_t name[BT_GAP_MAX_DEVICE_NAME_LENGTH] = {0};
@@ -374,7 +374,7 @@ const bt_gap_config_t *bt_customer_config_get_gap_config(void)
 #if 1	// richard for customer UI spec.
 	//snprintf((char *)name, sizeof(name), "PSAP Earbuds");
 	{
-	snprintf((char *)name, sizeof(name), "Vibe A-01");
+	snprintf((char *)name, sizeof(name), "Vibe A1");
 	}
 #else
         snprintf((char *)name, sizeof(name), "H_%.2X%.2X%.2X%.2X%.2X%.2X",

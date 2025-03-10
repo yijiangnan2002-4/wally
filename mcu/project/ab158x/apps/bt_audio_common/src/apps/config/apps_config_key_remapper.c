@@ -356,6 +356,7 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
     audio_channel_t channel = 0;
 #if (defined MTK_AWS_MCE_ENABLE) && !(defined AIR_SPEAKER_ENABLE)
     channel = ami_get_audio_channel();
+     APPS_LOG_MSGID_I(LOG_TAG"Current used CHANEL=%d,",1,channel);
 #endif
 
     serialized_event_id = apps_config_key_remap_key_ev_to_serialized_event(key_event);
@@ -382,6 +383,19 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
                     && key_id == s_configurable_table[i].key_id
                     && ((1 << temp_mmi_state) & s_configurable_table[i].supported_states)) {
                     action_id = s_configurable_table[i].app_key_event;
+                    if(action_id==KEY_VOICE_UP)
+                    {
+                        if (AUDIO_CHANNEL_L == channel) 
+                        {
+                            action_id=KEY_VOICE_DN;
+                            APPS_LOG_MSGID_I(LOG_TAG"Current used CHANEL==LEFT,",0);
+                        }
+                        else if((AUDIO_CHANNEL_R == channel)) 
+                        {
+                            APPS_LOG_MSGID_I(LOG_TAG"Current used CHANEL==RIGHT,",0);
+                        }
+                    }
+                    
                     APPS_LOG_MSGID_I(LOG_TAG"Current used key_id from configuration_table = 0x%x, key_event = 0x%x, state = %d, action_id = 0x%x, channel = %d", 5, key_id, key_event, temp_mmi_state, action_id, channel);
                     return action_id;
                 }
@@ -415,6 +429,7 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
             }
         }
     }
+    
     APPS_LOG_MSGID_I(LOG_TAG"Current used key_id = 0x%x, key_event = 0x%x, state = %d, action_id = 0x%x, channel = %d", 5, key_id, key_event, temp_mmi_state, action_id, channel);
 #endif
 
@@ -429,7 +444,18 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
 		BT_send_data_proc();
 	}
 #endif
-
+    if(action_id==KEY_VOICE_UP)
+    {
+        if (AUDIO_CHANNEL_L == channel) 
+        {
+            action_id=KEY_VOICE_DN;
+            APPS_LOG_MSGID_I(LOG_TAG"Current used 11 CHANEL==LEFT,",0);
+        }
+        else if((AUDIO_CHANNEL_R == channel)) 
+        {
+            APPS_LOG_MSGID_I(LOG_TAG"Current used 11 CHANEL==RIGHT,",0);
+        }
+    }
     return action_id;
 }
 

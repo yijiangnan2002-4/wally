@@ -37,6 +37,11 @@
 
 const apps_config_configurable_event_status_table_t s_key_config_event_sta_maps[] = {
     {
+        KEY_ACCEPT_CALL,
+        (1 << APP_HFP_INCOMING)
+    },
+
+    {
         KEY_AVRCP_PLAY,
         (1 << APP_CONNECTED)
     },
@@ -239,11 +244,21 @@ const apps_config_key_event_map_t temp_key_release_configs[] = {
 
 const apps_config_key_event_map_t temp_key_short_click_configs[] = {
 #if 1	// richard for UI
+{
+        DEVICE_KEY_POWER,
+        KEY_VOICE_UP,
+        (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE)
+        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING)
+        | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
+        | (1 << APP_LE_AUDIO_BIS_PLAYING)
+    },
+    #if 0
     {
         DEVICE_KEY_POWER,
         KEY_ACCEPT_CALL,
         (1 << APP_HFP_INCOMING)
     },
+    #endif
     #if 0   // harry 20240819 no need mic function by cusrrom
     {
         DEVICE_KEY_POWER,
@@ -312,6 +327,7 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
         (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO) | (1 << APP_HFP_MULTIPARTY_CALL)
         | (1 << APP_HFP_OUTGOING) | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_HFP_TWC_OUTGOING)
     },
+    #if 0 // vibe no need 20250305
     {
         DEVICE_KEY_POWER,
         KEY_AVRCP_FORWARD,  
@@ -322,6 +338,7 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
         | (1 << APP_STATE_FIND_ME) | (1 << APP_STATE_VA) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_LE_AUDIO_BIS_PLAYING)
 	#endif
     },
+    #endif
     
 #if 0	//DUT Test
     {
@@ -402,7 +419,7 @@ const apps_config_key_event_map_t temp_key_double_click_configs[] = {
 
 const apps_config_key_event_map_t temp_key_triple_click_configs[] = {
     {
-#if 1
+#if 0 // vibe no need 20250305
         DEVICE_KEY_POWER,
         KEY_AVRCP_BACKWARD,
         #if 0
@@ -516,7 +533,7 @@ const apps_config_key_event_map_t temp_key_long_press1_configs[] = {
 const apps_config_key_event_map_t temp_key_long_press2_configs[] = {
 #if 1	// richard for UI spec.
 #ifdef AIR_MULTI_POINT_ENABLE
-    #if 1
+    #if 0
     {
         DEVICE_KEY_POWER,
         KEY_ANC_AND_HA,
@@ -854,6 +871,13 @@ const apps_config_key_event_map_t temp_left_key_dlong_configs[] = {
 // For right side or default configurable mapping table
 const static apps_config_configurable_table_t default_configurable_table[] = {
 #if 1		// richard for UI spec
+{
+    APPS_CONFIG_KEY_SHORT_CLICK,
+    DEVICE_KEY_POWER,
+    KEY_ACCEPT_CALL,
+    0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
+},
+#if 0
     {
         APPS_CONFIG_KEY_SHORT_CLICK,
         DEVICE_KEY_POWER,
@@ -866,6 +890,7 @@ const static apps_config_configurable_table_t default_configurable_table[] = {
         KEY_AVRCP_PAUSE,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
+    #endif
 #else    
     {
         APPS_CONFIG_KEY_DOUBLE_CLICK,
@@ -907,7 +932,14 @@ const static apps_config_configurable_table_t default_configurable_table[] = {
 };
 
 const static apps_config_configurable_table_t left_configurable_table[] = {
-#if 1		// richard for UI spec
+    #if 1		// richard for UI spec
+    {
+        APPS_CONFIG_KEY_SHORT_CLICK,
+        DEVICE_KEY_POWER,
+        KEY_ACCEPT_CALL,
+        0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
+    },
+    #if 0
     {
         APPS_CONFIG_KEY_SHORT_CLICK,
         DEVICE_KEY_POWER,
@@ -920,6 +952,7 @@ const static apps_config_configurable_table_t left_configurable_table[] = {
         KEY_AVRCP_PAUSE,
         0 /* Set to 0, it will be set in apps_config_key_remaper_init_configurable_table by the s_key_config_event_sta_maps */
     },
+    #endif
 #else
     {
         APPS_CONFIG_KEY_SHORT_CLICK,
