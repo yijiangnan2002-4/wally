@@ -146,13 +146,9 @@ static void app_hearing_aid_key_handler_proc_volume_adjust(bool up, bool circula
     if (result == false) {
         return;
     }
-
+    uint8_t vp_index = 0xFF;
     if ((change_value.max == true) || (change_value.min == true)) {
-		#if 1
-
-		#else
 		
-        uint8_t vp_index = 0xFF;
         if (change_value.max == true) {
             if (circular == true) {
                 if (app_hear_through_storage_get_ha_vol_up_circular_max_vp_switch() == true) {
@@ -162,22 +158,56 @@ static void app_hearing_aid_key_handler_proc_volume_adjust(bool up, bool circula
                 vp_index = VP_INDEX_HEARING_AID_MAX_VOLUME;
             }
         } else {
-            vp_index = VP_INDEX_HEARING_AID_MIN_VOLUME;
+            vp_index = VP_INDEX_HEARING_AID_MIN_VOLUME; 
         }
 
         if (vp_index != 0xFF) {
-#ifdef AIR_TWS_ENABLE
+            #ifdef AIR_TWS_ENABLE
             app_hearing_aid_activity_play_vp(vp_index, change_value.sync);
-#else
+            #else
             app_hearing_aid_activity_play_vp(vp_index, false);
-#endif /* AIR_TWS_ENABLE */
+            #endif /* AIR_TWS_ENABLE */
         }
-#endif
+        
         if (circular == false) {
             return;
         }
     }
+    else{
+        if(change_value.l_index==4||change_value.r_index==4){
 
+            vp_index = VP_INDEX_MUTE;   // DEFAULT VP
+        }
+        else if(change_value.l_index==0||change_value.r_index==0){
+            vp_index = VP_INDEX_HEARING_AID_MIN_VOLUME; 
+        }
+        else if(change_value.l_index==7||change_value.r_index==7){
+            vp_index = VP_INDEX_HEARING_AID_MAX_VOLUME;
+        }
+        else{
+            if(up==1){
+            vp_index = VP_INDEX_VOLUME_UP;   
+            }
+            else{
+                vp_index = VP_INDEX_VOLUME_DOWN;   
+            }
+        }
+        if (vp_index != 0xFF) {
+        #ifdef AIR_TWS_ENABLE
+        app_hearing_aid_activity_play_vp(vp_index, change_value.sync);
+        #else
+        app_hearing_aid_activity_play_vp(vp_index, false);
+        #endif /* AIR_TWS_ENABLE */    
+        }
+    }
+    APPS_LOG_MSGID_I(APP_HA_KEY_HANDLER_TAG"[app_hearing_aid_key_handler_proc_volume_adjust] After change, up : %d, sync : %d, max : %d, min : %d, l_index : %d, r_index : %d",
+        6,
+        up,
+        change_value.sync,
+        change_value.max,
+        change_value.min,
+        change_value.l_index,
+        change_value.r_index);
 #ifdef AIR_TWS_ENABLE
     if (app_hearing_aid_aws_is_connected() == true) {
         app_hearing_aid_aws_lr_index_with_direction_change_t change = {0};
@@ -686,7 +716,7 @@ bool app_hearing_aid_key_handler_processing(apps_config_key_action_t key_event)
                      key_event,
                      app_hearing_aid_key_string[key_event - KEY_HEARING_AID_BEGIN],
                      ready_to_handle,prompt_no_play_flag);
-      prompt_no_play_flag=0; // 双击切HA，需要打开播放HA VP
+      prompt_no_play_flag=0; // 鍙屽嚮鍒嘓A锛岄渶瑕佹墦寮�鎾斁HA VP
     if (ready_to_handle == false) {
         return true;
     }

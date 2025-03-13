@@ -244,7 +244,16 @@ const apps_config_key_event_map_t temp_key_release_configs[] = {
 
 const apps_config_key_event_map_t temp_key_short_click_configs[] = {
 #if 1	// richard for UI
-{
+    {
+        DEVICE_KEY_POWER,
+        KEY_HEARING_AID_VOLUME_UP,
+        (1 << APP_DISCONNECTED) | (1 << APP_CONNECTABLE) | (1 << APP_CONNECTED) | (1 << APP_A2DP_PLAYING)
+        | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE) | (1 << APP_HFP_CALL_ACTIVE_WITHOUT_SCO)
+        | (1 << APP_HFP_TWC_INCOMING) | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_STATE_HELD_ACTIVE)
+        | (1 << APP_STATE_FIND_ME) | (1 << APP_STATE_VA) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_LE_AUDIO_BIS_PLAYING)
+    },
+    #if 0
+    {
         DEVICE_KEY_POWER,
         KEY_VOICE_UP,
         (1 << APP_CONNECTED) | (1 << APP_HFP_INCOMING) | (1 << APP_HFP_OUTGOING) | (1 << APP_HFP_CALL_ACTIVE)
@@ -252,6 +261,7 @@ const apps_config_key_event_map_t temp_key_short_click_configs[] = {
         | (1 << APP_STATE_HELD_ACTIVE) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
         | (1 << APP_LE_AUDIO_BIS_PLAYING)
     },
+    #endif
     #if 0
     {
         DEVICE_KEY_POWER,

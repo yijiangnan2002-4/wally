@@ -383,11 +383,11 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
                     && key_id == s_configurable_table[i].key_id
                     && ((1 << temp_mmi_state) & s_configurable_table[i].supported_states)) {
                     action_id = s_configurable_table[i].app_key_event;
-                    if(action_id==KEY_VOICE_UP)
+                    if(action_id==KEY_HEARING_AID_VOLUME_UP)
                     {
                         if (AUDIO_CHANNEL_L == channel) 
                         {
-                            action_id=KEY_VOICE_DN;
+                            action_id=KEY_HEARING_AID_VOLUME_DOWN;
                             APPS_LOG_MSGID_I(LOG_TAG"Current used CHANEL==LEFT,",0);
                         }
                         else if((AUDIO_CHANNEL_R == channel)) 
@@ -444,11 +444,12 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
 		BT_send_data_proc();
 	}
 #endif
-    if(action_id==KEY_VOICE_UP)
+
+    if(action_id==KEY_HEARING_AID_VOLUME_UP)
     {
         if (AUDIO_CHANNEL_L == channel) 
         {
-            action_id=KEY_VOICE_DN;
+            action_id=KEY_HEARING_AID_VOLUME_DOWN;
             APPS_LOG_MSGID_I(LOG_TAG"Current used 11 CHANEL==LEFT,",0);
         }
         else if((AUDIO_CHANNEL_R == channel)) 
