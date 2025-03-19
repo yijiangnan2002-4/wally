@@ -1754,6 +1754,15 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 				ret = true;
 				break;
     		}
+			case EVENT_ID_EASTECH_DELAY_PLAY_ANC_VP:
+    		{
+				APPS_LOG_MSGID_I("app_customer_common_activity EVENT_ID_EASTECH_DELAY_PLAY_ANC_VP", 0);
+				voice_prompt_play_sync_vp_anc_on();	//// harry for app ha vp 20240904	
+				ret = true;
+				break;
+    		}
+
+			
     	case EVENT_ID_CUSTOMER_COMMON_PROCESS_INPUT:
     		{
 

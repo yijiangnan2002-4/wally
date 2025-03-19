@@ -103,6 +103,10 @@ extern audio_anc_monitor_adaptive_anc_status_t g_adaptive_anc_status;
 #include "mux_ll_uart_latch.h"
 #endif
 
+#include "ui_shell_manager.h"
+#include "ui_shell_activity.h"
+#include "apps_events_event_group.h"
+#include "app_customer_common_activity.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Constant Definitions ////////////////////////////////////////////////////////
@@ -3122,7 +3126,9 @@ void *RACE_DSPREALTIME_ANC_PASSTHRU_HDR(ptr_race_pkt_t pCmdMsg, uint8_t channel_
     if (pCmdMsg->hdr.length >= 4) { //hdr.length = hdr.id(2bytes) + pAnc_cmd->status(1byte) + pAnc_cmd->anc_id(1byte) + pAnc_cmd->param(0/1/2/4 bytes)
         switch (pAnc_cmd->param.header.ancId) {
             case RACE_ANC_ON: {
-		    voice_prompt_play_sync_vp_anc_on();	//// harry for app ha vp 20240904		
+                ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_DELAY_PLAY_ANC_VP, NULL,
+                    0, NULL, 300);		     
+		   // voice_prompt_play_sync_vp_anc_on();	//// harry for app ha vp 20240904		
 #ifdef AIR_ANC_V3
 //errrrrrrrrrrrrrrrrrrr
                 if (pAnc_cmd->param.onV3Cmd.syncMode == 2) {

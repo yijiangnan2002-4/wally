@@ -61,6 +61,16 @@
 
 #include <string.h>
 
+
+#include "app_hearing_aid_activity.h"
+#include "app_hear_through_race_cmd_handler.h"
+#include "app_hearing_aid_utils.h"
+#include "app_hearing_aid_config.h"
+#include "app_hearing_aid_storage.h"
+#ifdef MTK_ANC_ENABLE
+#include "app_anc_service.h"
+#endif
+
 #define LOG_TAG "[Key_remap] "      /* Log tag */
 
 static apps_config_state_t s_mmi_state = APP_BT_OFF;    /* Recored current mmsi state. */
@@ -456,6 +466,15 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
         {
             APPS_LOG_MSGID_I(LOG_TAG"Current used 11 CHANEL==RIGHT,",0);
         }
+    }
+
+    if(action_id==KEY_HEARING_AID_MODE_UP_CIRCULAR){
+        bool enable = app_hearing_aid_utils_is_ha_user_switch_on();
+        APPS_LOG_MSGID_I(LOG_TAG"Current used action_id=AID_MODE_UP_CIRCULAR ha_switch=%d,anc_enabled=%d,anc_service_is=%d,is_suspended=%d",4,enable,app_anc_service_is_enable(),app_anc_service_is_anc_enabled(),app_anc_service_is_suspended());
+        if(enable== false){
+            action_id=KEY_SWITCH_ANC_AND_PASSTHROUGH;
+        }
+
     }
     return action_id;
 }
