@@ -93,6 +93,7 @@
 #include "app_hearing_aid_key_handler.h"
 
 #include "app_home_screen_idle_activity.h"
+#include "apps_customer_config.h"
 
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 
@@ -2482,6 +2483,7 @@ void app_hear_through_activity_switch_to_hear_through(void)
 uint8_t anc_ha_flag=0;	// richard for UI requirement
 void app_hear_through_activity_switch_ambient_control()
 {
+    // harry mark
 #if defined(MTK_FOTA_ENABLE) && defined (MTK_FOTA_VIA_RACE_CMD)
         if (app_hear_through_ctx.is_ota_ongoing == true) {
             APPS_LOG_MSGID_W(APP_HEAR_THROUGH_ACT_TAG"[app_hear_through_activity_switch_ambient_control] OTA is ongoing, do not support to switch ambient control", 0);
@@ -2515,6 +2517,11 @@ void app_hear_through_activity_switch_ambient_control()
                         app_hear_through_ctx.mode_index);
 
     app_hear_through_activity_handle_mode_index_changed();
+    #ifdef VIBE_MODEL
+    preha_target=0;  // HA MODE = AWARE  HARRY20250331 FOR VIBE
+    #else
+    errrrrrrrrrr
+    #endif
 }
 
 // Alex Audeara reverse HA mode patch
