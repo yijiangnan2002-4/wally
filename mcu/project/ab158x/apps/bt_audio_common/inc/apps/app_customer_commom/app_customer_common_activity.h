@@ -76,14 +76,15 @@ enum
     EVENT_ID_EASTECH_OCEAN_ADJUST_DOWN_VP, 
     EVENT_ID_EASTECH_OCEAN_IS_PLAY_NOW, 
     EVENT_ID_EASTECH_FROM_CASE_PRESS_MULTI, 
-    EVENT_ID_EASTECH_FROM_TESTCMD_IRSENSER, 
+    EVENT_ID_EASTECH_FROM_TESTCMD_IRSENSER,   //55
     EVENT_ID_EASTECH_DELAY_PLAY_ANC_VP,
+    EVENT_ID_EASTECH_LOOP_LOW_BATTERY_VP,
     
 };
 
   extern  uint8_t ocean_cnt;
   extern  uint8_t	ocean_vp_vol;  // DEF= VP DEF
-
+    
 typedef struct {
 
 	uint32_t reserved;

@@ -61,6 +61,8 @@
 * @param[in]  data_len, the length of the extra data. 0 means extra_data is NULL.
 * @return     If return true, the current event cannot be handle by the next activity.
 */
+extern  uint8_t play_lowbatt_flag;	
+
 bool app_smcharger_idle_activity_proc(struct _ui_shell_activity *self,
                                       uint32_t event_group,
                                       uint32_t event_id,

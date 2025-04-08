@@ -51,7 +51,7 @@
 #include "app_hearing_aid_activity.h"
 #include "bt_sink_srv.h"
 #include "bt_sink_srv_ami.h"
-
+#include "app_smcharger_idle_activity.h"
 #ifdef BATTERY_HEATHY_ENABLE
 //calculate when in case after 5s, so need power on or out of case more than 1min, and keep charge in case more than 5s
 #define BATTERY_HEATHY_PERIOD (30*1000)
@@ -1737,7 +1737,6 @@ static bool _bt_sink_event_group_proc(struct _ui_shell_activity *self, uint32_t 
 
 
 
-
 static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, void *extra_data,size_t data_len)
 {
     bool ret = false;
@@ -1761,8 +1760,24 @@ static bool _proc_customer_common(ui_shell_activity_t *self, uint32_t event_id, 
 				ret = true;
 				break;
     		}
+			#ifdef EASTECH_SPEC_LOW_BATTERY_VP
+			case EVENT_ID_EASTECH_LOOP_LOW_BATTERY_VP:
+    		{
+				APPS_LOG_MSGID_I("app_customer_common_activity EVENT_ID_EASTECH_LOOP_LOW_BATTERY_VP play_lowbatt_flag=%d", 1,play_lowbatt_flag);
+				voice_prompt_param_t vp = {0};
+				vp.vp_index = VP_INDEX_LOW_BATTERY;
+				voice_prompt_play(&vp, NULL);
+				play_lowbatt_flag=1;
+				ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_LOOP_LOW_BATTERY_VP, NULL,
+					0, NULL, 10*60*1000);
+				
+				ret = true;
+				break;
+    		}			
+			#endif
 
-			
+
+
     	case EVENT_ID_CUSTOMER_COMMON_PROCESS_INPUT:
     		{
 

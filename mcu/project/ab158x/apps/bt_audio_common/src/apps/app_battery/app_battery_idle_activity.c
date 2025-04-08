@@ -90,6 +90,7 @@
 #include "app_bt_state_service.h"
 #include "app_tile.h"
 #endif
+#include "app_customer_common_activity.h"
 
 #define LOG_TAG     "[app_battery]"
 
@@ -410,7 +411,7 @@ static bool _proc_battery_event_group(ui_shell_activity_t *self,
     switch (event_id) {
         /* Handle battery_percent changed, event from apps_events_battery_event.c. */
         case APPS_EVENTS_BATTERY_PERCENT_CHANGE:
-            s_battery_context.battery_percent = (int32_t)extra_data;
+            s_battery_context.battery_percent = (int32_t)extra_data;            
             break;
         /* Handle charger_state changed, event from apps_events_battery_event.c. */
         case APPS_EVENTS_BATTERY_CHARGER_STATE_CHANGE:
@@ -506,10 +507,14 @@ static bool _proc_battery_event_group(ui_shell_activity_t *self,
 #endif
        ) {
 #ifndef AIR_DONGLE_ENABLE
+#ifdef EASTECH_SPEC_LOW_BATTERY_VP
+//do nothing 
+#else
         voice_prompt_param_t vp = {0};
         vp.vp_index = VP_INDEX_LOW_BATTERY;
         voice_prompt_play(&vp, NULL);
         //apps_config_set_vp(VP_INDEX_LOW_BATTERY, false, 0, VOICE_PROMPT_PRIO_MEDIUM, false, NULL);
+#endif
 #endif
     } else if ((bat_state == APP_BATTERY_STATE_SHUTDOWN)
                && old_state != APP_BATTERY_STATE_SHUTDOWN) {

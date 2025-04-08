@@ -72,6 +72,7 @@
 #ifdef AIR_XIAOAI_ENABLE
 #include "xiaoai.h"
 #endif
+#include "app_customer_common_activity.h"
 
 #include "app_hfp_utils.h"
 
@@ -322,7 +323,9 @@ static bool smcharger_idle_proc_ui_shell_group(ui_shell_activity_t *self, uint32
     }
     return ret;
 }
-
+#ifdef EASTECH_SPEC_LOW_BATTERY_VP	
+uint8_t play_lowbatt_flag=0;	
+#endif	
 /**
  * @brief      Check battery state and Handle RHO.
  * @param[in]  smcharger_ctx, global app_smcharger_context.
@@ -338,20 +341,41 @@ static void smcharger_idle_check_battery_state(app_smcharger_context_t *smcharge
     if (new_state == old_state) {
         /* Do nothing when app_battery_state not changed. */
         if (new_state == SMCHARGER_BATTERY_STATE_LOW_CAP && battery_percent_changed) {
-            //APPS_LOG_MSGID_I(LOG_TAG" Continue Low_Battery VP", 0);
+            APPS_LOG_MSGID_I(LOG_TAG" Continue Low_Battery VP", 0);
+            #ifdef EASTECH_SPEC_LOW_BATTERY_VP
+
+            APPS_LOG_MSGID_I(LOG_TAG" play_lowbatt_flag=%d", 1,play_lowbatt_flag);
+            if(play_lowbatt_flag==0)
+            {
+            ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_LOOP_LOW_BATTERY_VP, NULL,
+                0, NULL, 0);	
+            }
+            #else
             voice_prompt_param_t vp = {0};
             vp.vp_index = VP_INDEX_LOW_BATTERY;
             voice_prompt_play(&vp, NULL);
+            #endif
         }
     } else if (new_state == SMCHARGER_BATTERY_STATE_SHUTDOWN
                && old_state != SMCHARGER_BATTERY_STATE_SHUTDOWN) {
         //APPS_LOG_MSGID_I(LOG_TAG" Start Power Off", 0);
     } else if (new_state == SMCHARGER_BATTERY_STATE_LOW_CAP
                && old_state >= SMCHARGER_BATTERY_STATE_IDLE) {
-        //APPS_LOG_MSGID_I(LOG_TAG" Start Low_Battery VP", 0);
+        APPS_LOG_MSGID_I(LOG_TAG" Start Low_Battery VP", 0);
+        #ifdef EASTECH_SPEC_LOW_BATTERY_VP
+
+        APPS_LOG_MSGID_I(LOG_TAG" play_lowbatt_flag 1=%d", 1,play_lowbatt_flag);
+        if(play_lowbatt_flag==0)
+        {
+        ui_shell_send_event(false, EVENT_PRIORITY_MIDDLE, EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_LOOP_LOW_BATTERY_VP, NULL,
+            0, NULL, 0);	
+        }
+        #else
+
         voice_prompt_param_t vp = {0};
         vp.vp_index = VP_INDEX_LOW_BATTERY;
         voice_prompt_play(&vp, NULL);
+        #endif
     }
     smcharger_ctx->battery_state = new_state;
 
@@ -385,6 +409,18 @@ static bool smcharger_idle_battery_event_group(struct _ui_shell_activity *self, 
             uint8_t old_battery = smcharger_ctx->battery_percent;
             smcharger_ctx->battery_percent = (int32_t)extra_data;
             APPS_LOG_MSGID_I(LOG_TAG" [DRV]Current battery_percent=%d->%d", 2, old_battery, (int32_t)extra_data);
+            #ifdef EASTECH_SPEC_LOW_BATTERY_VP
+            APPS_LOG_MSGID_I(LOG_TAG" APPS_EVENTS_BATTERY_PERCENT_CHANGE play_lowbatt_flag=%d", 1,play_lowbatt_flag);
+            if(smcharger_ctx->battery_percent>10)
+            {
+                if(play_lowbatt_flag==1)
+                {
+                    ui_shell_remove_event(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON,EVENT_ID_EASTECH_LOOP_LOW_BATTERY_VP);
+                }
+                play_lowbatt_flag=0;    
+
+            }
+            #endif
             app_smcharger_update_bat();
             need_check_rho = TRUE;
             battery_percent_changed = TRUE;
