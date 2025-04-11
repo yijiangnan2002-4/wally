@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "app_hearing_aid_key_handler.h": "c",
+        "app_smcharger_utils.h": "c",
+        "bt_sink_srv_a2dp.h": "c"
+    }
+}
