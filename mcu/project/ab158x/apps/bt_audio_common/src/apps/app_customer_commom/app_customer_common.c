@@ -38,6 +38,7 @@
 #include "apps_events_interaction_event.h"
 #include "bt_connection_manager_utils.h"
 #include "battery_management.h"
+#include "apps_customer_config.h"
 
 static char case_verison[8] = "v0.00.00";
 //static char ab1571d_verison[4] = "v0.0";
@@ -259,6 +260,11 @@ uint8_t app_get_shipping_mode_state(void)
 void app_enter_shipping_mode_flag_set(uint8_t shipping_mode)
 {
 	isShippingMode = shipping_mode;
+	#ifdef FACTORY_TEST_FOR_POWEROFF
+	app_nvkey_action_factory_autopoweroff_write(0); // exit factory mode when enter shipping mode
+	#else
+	errrrrrrrrrrrrrrrrrrrr
+	#endif
 	APPS_LOG_MSGID_I("app_customer_common.c:: Set isShippingMode = %d",1 , shipping_mode);
 }
 

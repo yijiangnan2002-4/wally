@@ -25,7 +25,7 @@
 #include "app_power_save_utils.h"
 #include "anc_control_api.h"
 #include "apps_events_interaction_event.h"
-
+#include "apps_customer_config.h"
 
 static app_customer_nvkey_t g_customer_nvkey_setting;
 static bool ota_upgrade_nvkey_flag = 0;
@@ -605,8 +605,8 @@ void app_nvkey_action_button_configuration_write(uint8_t* abc){
 	app_nvkey_setting_set(NULL);
 }
 void app_nvkey_action_touch_lock_write(uint8_t state) {
-	g_customer_nvkey_setting.touch_lock = state;
-	app_nvkey_setting_set(NULL);
+	//g_customer_nvkey_setting.touch_lock = state;
+	//app_nvkey_setting_set(NULL);
 }
 app_customer_nvkey_t app_nvkey_customer_all(void){
 	return g_customer_nvkey_setting;
@@ -646,6 +646,22 @@ void app_nvkey_btname_write(uint8_t name)
 	app_nvkey_setting_set(NULL);
 	bt_name_bynfc_disp_proc(name);
 }
+#ifdef FACTORY_TEST_FOR_POWEROFF
+void app_nvkey_action_factory_autopoweroff_write(uint8_t name)
+{
+	APPS_LOG_MSGID_I("app_nvkey_action_factory_autopoweroff_write vol=%d\n",1,name);
+	g_customer_nvkey_setting.factory_autopoweroff = name;
+	app_nvkey_setting_set(NULL);
+}
+
+uint8_t app_nvkey_action_factory_autopoweroff_read(void)
+{
+	APPS_LOG_MSGID_I("app_nvkey_action_factory_autopoweroff_read factory_autopoweroff=%d\n",1,g_customer_nvkey_setting.factory_autopoweroff);
+	return g_customer_nvkey_setting.factory_autopoweroff;
+}
+#else
+errrrrrrrrrrrrrrrrr
+#endif 
 
 void app_nvkey_factory_reset_flag_write(uint8_t flag)
 {

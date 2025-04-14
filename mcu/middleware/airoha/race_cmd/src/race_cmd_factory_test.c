@@ -40,6 +40,7 @@ wayne.xiong add for factory air test cmd
 #include "app_preproc_activity.h"
 #include "app_hall_sensor_activity.h"
 #include "race_util.h"
+#include "apps_customer_config.h"
 
 
 extern bt_bd_addr_t *bt_sink_srv_cm_get_aws_connected_device(void);
@@ -1414,6 +1415,38 @@ void* RACE_FACTORY_TEST_NTC_STATE_READ(ptr_race_pkt_t pCmdMsg, uint8_t channel_i
 }
 
 
+#ifdef FACTORY_TEST_FOR_POWEROFF
+void* RACE_FACTORY_TEST_FACTORY_POWEROFF(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{
+    typedef struct
+	{
+	    	RACE_COMMON_HDR_STRU cmdhdr;
+		uint8_t param;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t data[1];
+	}PACKED RSP;
+
+	CMD *pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_FACTORY_POWEROFF, (uint16_t)sizeof(RSP), channel_id);
+    	int32_t ret = RACE_ERRCODE_SUCCESS;
+
+	RACE_LOG_MSGID_I("AUTO POWER OFF cmd data = %x \r\n",1, pCmd->param);
+
+	if (pEvt)
+	{
+		pEvt->data[0] = pCmd->param;
+		app_nvkey_action_factory_autopoweroff_write(pCmd->param);
+	    	pEvt->status = ret;
+	}
+	return pEvt;
+}
+#else
+errrrrrrrrrrrrrrrrrrrrrrr
+#endif
 void* RACE_FACTORY_TEST_FACTORY_REWRITE_BTNAME(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
     typedef struct
@@ -2230,6 +2263,14 @@ void* RACE_CmdHandler_FACTORY_TEST(ptr_race_pkt_t pRaceHeaderCmd, uint16_t lengt
                 ptr = RACE_FACTORY_TEST_FACTORY_REWRITE_BTNAME(pRaceHeaderCmd, channel_id);
             }
             break;	
+
+			#ifdef FACTORY_TEST_FOR_POWEROFF			
+            case FACTORY_TEST_BLE_CMD_FACTORY_POWEROFF :
+            {
+                ptr = RACE_FACTORY_TEST_FACTORY_POWEROFF(pRaceHeaderCmd, channel_id);
+            }
+            break;	
+			#endif
 
             case FACTORY_TEST_BLE_CMD_ENTER_SHIPPING_MODE :
             {

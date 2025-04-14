@@ -30,7 +30,8 @@ typedef struct {
 	uint16_t ui_sounds; // byte 9-10
 	uint8_t shipping_mode_state;				//byte 11
 	uint8_t action_button_configuration[12];//12-23
-	uint8_t touch_lock;//24
+	//uint8_t touch_lock;//24
+	uint8_t factory_autopoweroff;//24
 	uint8_t anc_level;//25
 	uint8_t tra_level;//26
 	uint8_t mini_ui;//27
@@ -147,6 +148,7 @@ uint8_t app_nvkey_get_hx300x_log_status(void);
 void app_nvkey_set_hx300x_log_status(uint8_t log_state);
 extern void app_nvkey_btname_write(uint8_t name);
 extern uint8_t app_nvkey_btname_read(void);
-
+void app_nvkey_action_factory_autopoweroff_write(uint8_t name);
+uint8_t app_nvkey_action_factory_autopoweroff_read(void);
 #endif //__APP_CUSTOMER_NVKEY_OPERATION_H__
 

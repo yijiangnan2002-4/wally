@@ -93,6 +93,7 @@
 //#include "app_hall_sensor_activity.h"
 #include "apps_config_key_remapper.h"
 #include "apps_customer_config.h"
+#include "app_customer_nvkey_operation.h"
 
 /* SmartCharger APP must use Battery Manager module. */
 #if !defined(MTK_BATTERY_MANAGEMENT_ENABLE)
@@ -909,6 +910,15 @@ void app_smcharger_handle_key_event(uint32_t key_value)
             } else if (key_value == APP_SMCHARGER_KEY_ULL_AIR_PAIRING) {
 			app_smcharger_send_key_action(KEY_ULL_AIR_PAIRING);
             }
+            #ifdef FACTORY_TEST_FOR_POWEROFF
+            if (key_value == APP_SMCHARGER_KEY_ENTER_FACTORY_AUTO_POWEROFF_MODE) {
+                app_nvkey_action_factory_autopoweroff_write(1); // enter factory mode when e
+            } else if (key_value == APP_SMCHARGER_KEY_EXIT_FACTORY_AUTO_POWEROFF_MODE) {
+                app_nvkey_action_factory_autopoweroff_write(0); // exit factory mode 
+            }
+            #else
+            errrrrrrrrrrrrrrrrrrrrrr
+            #endif 
 #endif		
         } else {
             APPS_LOG_MSGID_E(LOG_TAG" handle_key_event - No both LID_OPEN/AWS", 0);

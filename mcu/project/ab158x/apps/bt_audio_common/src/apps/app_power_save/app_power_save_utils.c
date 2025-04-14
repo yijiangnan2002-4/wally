@@ -53,6 +53,7 @@
 #include "apps_events_event_group.h"
 #include "apps_events_interaction_event.h"
 #include "FreeRTOS.h"
+#include "app_customer_nvkey_operation.h"
 
 #ifdef AIR_LE_AUDIO_ENABLE
 #include "app_le_audio.h"
@@ -182,6 +183,16 @@ app_power_saving_target_mode_t app_power_save_utils_get_target_mode(ui_shell_act
 
     s_have_got_mode_flag = true;
     *type = APP_POWER_SAVING_TYPE_NO_CONNECTION;
+
+    #ifdef FACTORY_TEST_FOR_POWEROFF
+    if(app_nvkey_action_factory_autopoweroff_read())
+    {
+        APPS_LOG_MSGID_I(LOG_TAG" app_power_saving_target_mode_t ,in test mode,triger power off time 5min", 0);
+        return APP_POWER_SAVING_TARGET_MODE_SYSTEM_OFF;
+    }
+    #else
+    errrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+    #endif
 
     if (BT_DEVICE_MANAGER_TEST_MODE_NONE != bt_device_manager_get_test_mode()
         && !(BT_DEVICE_MANAGER_TEST_MODE_DUT_MIX == bt_device_manager_get_test_mode()
@@ -511,6 +522,17 @@ uint32_t app_power_save_utils_get_timeout(app_power_saving_type_t type)
     } else {
         timeout = app_power_saving_get_cfg()->silence_detect_timeout;
     }
+
+    #ifdef FACTORY_TEST_FOR_POWEROFF
+    if(app_nvkey_action_factory_autopoweroff_read())
+    {
+        APPS_LOG_MSGID_I(LOG_TAG", in factory power off mode so time is 5 min,type=%d",1,type);
+        timeout = 300;
+    }
+    
+    #else
+        errrrrrrrrrrrrrrrrrrrrrr
+    #endif
 
     if (timeout < MS_TO_SECOND(APPS_MIN_TIMEOUT_OF_SLEEP_AFTER_NO_CONNECTION)) {
         timeout = MS_TO_SECOND(APPS_MIN_TIMEOUT_OF_SLEEP_AFTER_NO_CONNECTION);
