@@ -4,4 +4,17 @@
         "app_smcharger_utils.h": "c",
         "bt_sink_srv_a2dp.h": "c"
     }
+    "files.exclude": {
+  "**/headset_ref_design": true,   // 隐藏所有子目录下的 headset_ref_design
+  "**/speaker_ref_design": true,   // 隐藏所有子目录下的 speaker_ref_design
+  "**/dongle_ref_design": true,   // 隐藏所有子目录下的 dongle_ref_design
+  "**/ab1585h_evk_ha_full": true,   // 隐藏所有子目录下的 ab1585h_evk_ha_full
+  "**/ab1585h_evk_vibe*": true,   // 隐藏所有子目录下的 speaker_ref_design
+  "**/ab1588*": true,   // 隐藏所有子目录下的 speaker_ref_design
+  "**/ab1585_*": true,   // 隐藏所有子目录下的 ab1585_**
+  "**/ab1585h_evk_vibe": true,   // 隐藏所有子目录下的 speaker_ref_design
+  "**/out": true,          //  隐藏所有子目录下的 out
+  "temp/": true,             // 隐藏项目根目录的 temp 文件夹
+  "build": true              // 隐藏 build 文件夹（仅匹配根目录）
+}
 }
