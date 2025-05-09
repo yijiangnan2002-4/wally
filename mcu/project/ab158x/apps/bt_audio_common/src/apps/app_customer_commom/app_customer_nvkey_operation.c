@@ -10,6 +10,7 @@
 **/
 
 #include "app_customer_nvkey_operation.h"
+#include "app_customer_common_activity.h"
 
 
 #include "nvkey_id_list.h"
@@ -531,7 +532,28 @@ void app_nvkey_hx300x_read_cali_setting(void *pEvt)
 	pRsp->data_read_ps3 = g_customer_nvkey_setting.hx300x_read_ps;	
 
 }
+#ifdef  FACTORY_TEST_FOR_POWEROFF
 
+void app_nvkey_power_off_check(void *pEvt)
+{
+
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t data_local;
+		uint8_t data_peer;
+	}PACKED RSP;
+	RSP* pRsp = (RSP*)pEvt;
+
+	pRsp->data_local = g_customer_nvkey_setting.factory_autopoweroff;
+	pRsp->data_peer = g_customer_nvkey_setting.factory_autopoweroff_peer_flag;
+	APPS_LOG_MSGID_I("app_nvkey_power_off_check pRsp->data_local=%d,pRsp->data_peer=%d\n",2,pRsp->data_local,pRsp->data_peer);
+
+}
+
+#else
+errrrrrrrrrrrrrrr
+#endif
 uint8_t app_nvkey_hx300x_Gain_read(void)
 {
 	return g_customer_nvkey_setting.hx300x_reg12;
@@ -652,13 +674,49 @@ void app_nvkey_action_factory_autopoweroff_write(uint8_t name)
 	APPS_LOG_MSGID_I("app_nvkey_action_factory_autopoweroff_write vol=%d\n",1,name);
 	g_customer_nvkey_setting.factory_autopoweroff = name;
 	app_nvkey_setting_set(NULL);
+
+	if(bt_device_manager_aws_local_info_get_role() == BT_AWS_MCE_ROLE_AGENT)
+	{
+		//name_cmp_result = 0x0;
+		apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_FACTORY_POWEROFF_MODE,(void*)&name ,1);
+	}
+	/*
+	else
+	{
+		uint8_t local_name[1] = {0};
+		local_name[0]=app_nvkey_btname_read();
+		race_debug_print((uint8_t*)local_name, 1,"OFF FLAG local1:");
+		apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_DEVICE_NAME_COMPARE, (void*)local_name, 1);
+	}
+	*/
 }
 
 uint8_t app_nvkey_action_factory_autopoweroff_read(void)
 {
-	APPS_LOG_MSGID_I("app_nvkey_action_factory_autopoweroff_read factory_autopoweroff=%d\n",1,g_customer_nvkey_setting.factory_autopoweroff);
+	APPS_LOG_MSGID_I("app_nvkey_action_factory_autopoweroff_read factory_autopoweroff=%d,role=%x\n",2,g_customer_nvkey_setting.factory_autopoweroff,bt_device_manager_aws_local_info_get_role());
 	return g_customer_nvkey_setting.factory_autopoweroff;
 }
+
+uint8_t app_nvkey_action_factory_autopoweroff_read_start(void)
+{
+	apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_FACTORY_POWEROFF_MODE_READ_START,NULL ,0);
+	 APPS_LOG_MSGID_I("app_nvkey_action_factory_autopoweroff_read_start  role=%d\n",1,bt_device_manager_aws_local_info_get_role());
+	 return 0;	//g_customer_nvkey_setting.factory_autopoweroff;
+}
+uint8_t app_nvkey_action_factory_autopoweroff_read_start_1(void)
+{
+	apps_aws_sync_event_send_extra(EVENT_GROUP_UI_SHELL_CUSTOMER_COMMON, EVENT_ID_EASTECH_FACTORY_POWEROFF_MODE_READ_END,&(g_customer_nvkey_setting.factory_autopoweroff),1);
+	 APPS_LOG_MSGID_I("app_nvkey_action_factory_autopoweroff_read_start_1  factory_autopoweroff=%d,ROLE=%x\n",2,g_customer_nvkey_setting.factory_autopoweroff,bt_device_manager_aws_local_info_get_role());
+	 return 0;	// g_customer_nvkey_setting.factory_autopoweroff;
+}
+uint8_t app_nvkey_action_factory_autopoweroff_rece_peervol(uint8_t name)
+{
+	g_customer_nvkey_setting.factory_autopoweroff_peer_flag=name;
+	app_nvkey_setting_set(NULL);
+	APPS_LOG_MSGID_I("app_nvkey_action_factory_autopoweroff_rece_peervol  factory_autopoweroff_peer_flag=%d,factory_autopoweroff=%d,ROLE=%x\n",3,g_customer_nvkey_setting.factory_autopoweroff_peer_flag,g_customer_nvkey_setting.factory_autopoweroff,bt_device_manager_aws_local_info_get_role());
+	return g_customer_nvkey_setting.factory_autopoweroff_peer_flag;
+}
+
 #else
 errrrrrrrrrrrrrrrrr
 #endif 

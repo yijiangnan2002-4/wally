@@ -2153,7 +2153,26 @@ static bool _customer_common_app_aws_data_proc(ui_shell_activity_t *self, uint32
 					app_set_ble_write_SN((uint8_t*)p_extra_data, SN_LEN);
 					ret = true;
 					break;
-
+					#ifdef FACTORY_TEST_FOR_POWEROFF
+					case EVENT_ID_EASTECH_FACTORY_POWEROFF_MODE:
+					APPS_LOG_MSGID_I("app customer setting sync:[EVENT_ID_EASTECH_FACTORY_POWEROFF_MODE] vol=%d", 1,*(uint8_t*)p_extra_data);
+					app_nvkey_action_factory_autopoweroff_write(*(uint8_t*)p_extra_data);
+					ret = true;
+					break;
+					case EVENT_ID_EASTECH_FACTORY_POWEROFF_MODE_READ_START:
+					app_nvkey_action_factory_autopoweroff_read_start_1();
+					APPS_LOG_MSGID_I("app customer setting sync:[EVENT_ID_EASTECH_FACTORY_POWEROFF_MODE_READ_START]", 0);
+					ret = true;
+					break;
+					case EVENT_ID_EASTECH_FACTORY_POWEROFF_MODE_READ_END:
+					APPS_LOG_MSGID_I("app customer setting sync:[EVENT_ID_EASTECH_FACTORY_POWEROFF_MODE_READ_END] vol=%d", 1,*(uint8_t*)p_extra_data);
+					app_nvkey_action_factory_autopoweroff_rece_peervol(*(uint8_t*)p_extra_data);
+					ret = true;
+					break;
+					
+					#else
+					errrrrrrrrrrrrrrrrrrrrrrr
+					#endif
 				case EVENT_ID_DEVICE_SN_COMPARE:
 					race_debug_print((uint8_t*)p_extra_data, extra_data_len,"sn cmp:");
 					app_write_sn_compare((uint8_t*)p_extra_data, extra_data_len);

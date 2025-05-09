@@ -120,8 +120,8 @@ void app_in_ear_update_status(apps_in_ear_local_context_t *ctx)
     if (ctx->curState != currentStaTemp) {
         ctx->preState = ctx->curState;
         ctx->curState = currentStaTemp;
-        APPS_LOG_MSGID_I(APP_INEAR_UTILS" status changed, currentSta=%d, previousSta=%d", 2,
-                         ctx->curState, ctx->preState);
+        APPS_LOG_MSGID_I(APP_INEAR_UTILS" status changed, currentSta=%d, previousSta=%d,isInRho=%d", 3,
+                         ctx->curState, ctx->preState,ctx->isInRho);
         if (ota_ongoing) {
             /* Notify the agent to handle this event. */
             ctx->eventDone = false;

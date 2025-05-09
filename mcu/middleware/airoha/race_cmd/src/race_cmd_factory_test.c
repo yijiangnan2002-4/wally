@@ -1439,14 +1439,65 @@ void* RACE_FACTORY_TEST_FACTORY_POWEROFF(ptr_race_pkt_t pCmdMsg, uint8_t channel
 	if (pEvt)
 	{
 		pEvt->data[0] = pCmd->param;
-		app_nvkey_action_factory_autopoweroff_write(pCmd->param);
-	    	pEvt->status = ret;
+		if(pCmd->param==1||pCmd->param==0){
+			app_nvkey_action_factory_autopoweroff_write(pCmd->param);
+			pEvt->status = ret;
+		}
+			else if(pCmd->param==2){
+			if(bt_sink_srv_cm_get_aws_connected_device() != 0){
+			app_nvkey_action_factory_autopoweroff_read_start();
+			pEvt->status = ret;
+			}
+			else{
+			pEvt->status = RACE_ERRCODE_FAIL;
+			}
+		}
+		
 	}
+	return pEvt;
+}
+
+void* RACE_FACTORY_TEST_FACTORY_POWEROFF_CHECK(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
+{
+    typedef struct
+	{
+	    	RACE_COMMON_HDR_STRU cmdhdr;
+		//uint8_t param;
+	}PACKED CMD;
+
+	typedef struct
+	{
+		uint8_t status;
+		uint8_t data_local;
+		uint8_t data_peer;
+	}PACKED RSP;
+
+	CMD *pCmd = (CMD *)pCmdMsg;
+	RSP* pEvt = RACE_ClaimPacket((uint8_t)RACE_TYPE_RESPONSE, (uint16_t)FACTORY_TEST_BLE_CMD_FACTORY_POWEROFF_CHECK, (uint16_t)sizeof(RSP), channel_id);
+    	int32_t ret = RACE_ERRCODE_SUCCESS;
+
+	RACE_LOG_MSGID_I("RACE_FACTORY_TEST_FACTORY_POWEROFF_CHECK aws=%x\r\n",1,bt_sink_srv_cm_get_aws_connected_device());
+
+	if (pEvt)
+	{
+		if(bt_sink_srv_cm_get_aws_connected_device() != 0)
+		{
+			app_nvkey_power_off_check((void*)pEvt);
+		}
+		else{
+			ret = RACE_ERRCODE_FAIL;
+			pEvt->data_local = 0xff;
+			pEvt->data_peer = 0xff;
+		}
+	}
+	pEvt->status = ret;
+
 	return pEvt;
 }
 #else
 errrrrrrrrrrrrrrrrrrrrrrr
 #endif
+
 void* RACE_FACTORY_TEST_FACTORY_REWRITE_BTNAME(ptr_race_pkt_t pCmdMsg, uint8_t channel_id)
 {
     typedef struct
@@ -2270,6 +2321,13 @@ void* RACE_CmdHandler_FACTORY_TEST(ptr_race_pkt_t pRaceHeaderCmd, uint16_t lengt
                 ptr = RACE_FACTORY_TEST_FACTORY_POWEROFF(pRaceHeaderCmd, channel_id);
             }
             break;	
+			
+			case FACTORY_TEST_BLE_CMD_FACTORY_POWEROFF_CHECK :
+            {
+                ptr = RACE_FACTORY_TEST_FACTORY_POWEROFF_CHECK(pRaceHeaderCmd, channel_id);
+            }
+            break;	
+
 			#endif
 
             case FACTORY_TEST_BLE_CMD_ENTER_SHIPPING_MODE :

@@ -64,7 +64,8 @@ typedef struct {
 	uint16_t hx300x_THOD_L;
 	uint16_t hx300x_read_ps;
 	uint8_t hx300x_log_debug;
-	uint8_t reserved[16];
+	uint8_t factory_autopoweroff_peer_flag;//	
+	uint8_t reserved[15];
 }PACKED app_customer_nvkey_t;
 
 //LSB first
@@ -144,11 +145,18 @@ uint8_t app_nvkey_hx300x_Gain_read(void);
 void app_nvkey_hx300x_Thres_read(uint16_t* h_thrd, uint16_t* l_thrd);
 void app_nvkey_hx300x_cur_read(uint16_t* reg_10, uint8_t* reg_13);
 void app_nvkey_hx300x_read_cali_setting(void *pEvt);
+void app_nvkey_power_off_check(void *pEvt);
+
 uint8_t app_nvkey_get_hx300x_log_status(void);
 void app_nvkey_set_hx300x_log_status(uint8_t log_state);
 extern void app_nvkey_btname_write(uint8_t name);
 extern uint8_t app_nvkey_btname_read(void);
+
 void app_nvkey_action_factory_autopoweroff_write(uint8_t name);
+uint8_t app_nvkey_action_factory_autopoweroff_rece_peervol(uint8_t name);
 uint8_t app_nvkey_action_factory_autopoweroff_read(void);
+uint8_t app_nvkey_action_factory_autopoweroff_read_start(void);
+uint8_t app_nvkey_action_factory_autopoweroff_read_start_1(void);
+
 #endif //__APP_CUSTOMER_NVKEY_OPERATION_H__
 
