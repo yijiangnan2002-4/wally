@@ -330,7 +330,7 @@ static void apps_init_applications(void)
 #ifdef APPS_SLEEP_AFTER_NO_CONNECTION
     ui_shell_start_activity(NULL, app_power_save_idle_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
 #endif
-#ifdef MTK_IN_EAR_FEATURE_ENABLE
+#if 0//def MTK_IN_EAR_FEATURE_ENABLE
     ui_shell_start_activity(NULL, app_in_ear_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
 #endif
 	// richard for customer UI spec.
@@ -434,6 +434,9 @@ static void apps_init_applications(void)
 #endif
 #ifdef AIR_SPEAKER_ENABLE
     ui_shell_start_activity(NULL, app_speaker_idle_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
+#endif
+#ifdef MTK_IN_EAR_FEATURE_ENABLE
+    ui_shell_start_activity(NULL, app_in_ear_activity_proc, ACTIVITY_PRIORITY_IDLE_BACKGROUND, NULL, 0);
 #endif
 }
 

@@ -90,7 +90,7 @@ static void bt_device_manager_aws_mce_packet_callback(bt_aws_mce_report_info_t *
 static void bt_device_manager_remote_aws_sync_db(bt_device_manager_db_type_t type, bool flush_at_once, uint16_t data_length, uint8_t *data);
 #endif
 
-/*
+
 void bt_device_manager_test_dump_device_info()
 {
     bt_device_manager_db_remote_info_t *temp_remote = &g_bt_dm_remote_list_cnt[0];
@@ -113,7 +113,7 @@ void bt_device_manager_test_dump_device_info()
                     g_dm_remote_non_flush_list_cnt.item[find_index].address[4], g_dm_remote_non_flush_list_cnt.item[find_index].address[5]);
         }
     }
-}*/
+}
 
 void bt_device_manager_remote_info_init(void)
 {
@@ -277,7 +277,9 @@ uint32_t        bt_device_manager_remote_get_paired_num(void)
             ret++;
         }
     }
-    bt_dmgr_report_id("[BT_DM][REMOTE][I] Get paiared num = 0x%x", 1, ret);
+    bt_dmgr_report_id("[BT_DM][REMOTE][I] Get paiared num = 0x%x,max=%d", 2, ret,BT_DEVICE_MANAGER_MAX_PAIR_NUM);
+    bt_device_manager_test_dump_device_info(); //harry for test 0515
+
     return ret;
 }
 

@@ -70,12 +70,13 @@ static const factory_rst_reserved_nvdm_item_t g_factory_rst_clear_nvdm_items[] =
 static const uint16_t g_factory_rst_clear_nvkey_items[] = FACTORY_RST_CLEAR_NVKEY_ITEM_LIST;  /* NVKEY item reserve list in factory reset. */
 // richard for reset after firmware ota
 static const uint16_t g_factory_rst_clear_nvkey_items1[] = FACTORY_RST_CLEAR_NVKEY_ITEM_LIST1;  /* NVKEY item reserve list in factory reset. */
+uint8_t factory_flag_for_irsenser;
 
 void factory_rst_reserved_nvdm_item_list_check(void)
 {
     uint32_t i, size;
     uint8_t factrst_flag;;
-    nvdm_status_t status = NVDM_STATUS_OK;
+    nvdm_status_t status = NVDM_STATUS_OK;  
     nvkey_status_t nvkey_status;
     char group_name[64];
     char data_item_name[64];
@@ -83,6 +84,7 @@ void factory_rst_reserved_nvdm_item_list_check(void)
 
     size = sizeof(factrst_flag);
     /* Read factory reset flag in NVDM. This flag is not in reserve list and will be deleted after re-organize. */
+    factory_flag_for_irsenser=1;
     nvkey_status = nvkey_read_data(NVID_SYS_FACTORY_RESET_FLAG, &factrst_flag, &size);
     if (nvkey_status == NVKEY_STATUS_OK) {
         nvkey_status = nvkey_delete_data_item(NVID_SYS_FACTORY_RESET_FLAG);

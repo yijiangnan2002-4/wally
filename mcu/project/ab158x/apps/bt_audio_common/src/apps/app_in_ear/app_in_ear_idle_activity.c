@@ -475,13 +475,13 @@ static bool app_in_ear_proc_apps_internal_events(ui_shell_activity_t *self,
 #endif
             {
                 APPS_LOG_MSGID_I(APP_INEAR_TAG" [IN_EAR_UPDATE] partner report status to agent: in-ear=%d", 1, ctx->isInEar);
-                app_in_ear_send_aws_data(ctx, APP_IN_EAR_EVENT_UPDATE_STA);  //´Ó¶ú°Ñ³öÈë¶ú×´Ì¬·¢¸øÖ÷¶ú
+                app_in_ear_send_aws_data(ctx, APP_IN_EAR_EVENT_UPDATE_STA);  //ä»è€³æŠŠå‡ºå…¥è€³çŠ¶æ€å‘ç»™ä¸»è€³
             }
         } else
 #endif
         {
                 APPS_LOG_MSGID_I(APP_INEAR_TAG" [IN_EAR_UPDATE] it is agent earbud  in-ear=%d", 1, ctx->isInEar);
-            app_in_ear_update_status(ctx);  // Ö÷¶úÖ±½ÓÖ´ĞĞ
+            app_in_ear_update_status(ctx);  // ä¸»è€³ç›´æ¥æ‰§è¡Œ
         }
     }
     return ret;

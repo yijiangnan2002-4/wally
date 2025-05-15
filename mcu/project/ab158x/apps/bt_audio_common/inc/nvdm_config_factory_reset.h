@@ -50,6 +50,7 @@ extern "C" {
 
 #define FACTORY_RESET_FLAG      (0x55)    /* Flag write in NVDM to indicate that factory reset is requested, all NVDM items except for those in FACTORY_RST_RESERVED_NVDM_ITEM_LIST will be deleted. */
 #define FACTORY_RESET_LINK_KEY  (0x56)    /* Flag write in NVDM to indicate that link key reset is requested, only link related NVkey items will be deleted. */
+extern uint8_t factory_flag_for_irsenser;
 
 /*
  * This macro defines table of NVDM items that will be reserved after factory reset. Items not in the table will be deleted.

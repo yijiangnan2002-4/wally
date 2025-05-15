@@ -9,6 +9,7 @@
 #include "app_customer_nvkey_operation.h"
 #include "apps_events_interaction_event.h"
 #include "app_hearing_aid_activity.h"
+#include "nvdm_config_factory_reset.h"
 
 #define EINT_PSENSOR HAL_EINT_NUMBER_5
 
@@ -164,35 +165,35 @@ uint8_t HX300x_Calibration(void)
 {
 	uint8_t ret=0;
 	
-	//printf("HX300X   >>第一步：IIC & INT 检测！请按键.... ");
+	//printf("HX300X   >>第一步：IIC & INT 检测！请按键....?? ");
 	//while(START_IN);
 	ret = Calibration_First_IIC_INT_check();
 	if(ret != 1)
 	{
 		return 0;
 	}
-	//printf("HX300X   >>第二步：对空测试！请按键.... ");
+	//printf("HX300X   >>第二步：对空测试！请按键....?? ");
 	//while(START_IN);
 	ret = Calibration_Second_OpenAir();
 	if(ret != 1)
 	{
 		return 0;
 	}	
-	//printf("HX300X   >>第三步：上灰卡测试！请按键.... ");
+	//printf("HX300X   >>第三步：上灰卡测试！请按键....?? ");
 	//while(START_IN);
 	ret = Calibration_Third_GreyCard();
 	if(ret == 0)
 	{
 		return 0;
 	}	
-	//printf("HX300X   >>第四步：撤灰卡测试！请按键.... ");
+	//printf("HX300X   >>第四步：撤灰卡测试！请按键....?? ");
 	//while(START_IN);
 	ret = Calibration_Fourth_RemoveGreyCard();
 	if(ret != 1)
 	{
 		return 0;
 	}
-	//printf("HX300X   >>第五步：保存，请按键.... ");
+	//printf("HX300X   >>第五步：保存，请按键....?? ");
 	//while(START_IN);
 	Calibration_Fifth_SaveDataToFlash();
 
@@ -348,7 +349,7 @@ uint16_t Calibration_Second_OpenAir(void)
 }		
 //===================================================	
 void Calibration_Third_GreyCard(void *pEvt)
-{// 灰卡测试 
+{// 灰卡测试
 	uint8_t ii = 0;
 	uint16_t target_ps = (L_PS+H_PS)/2;
 	int32_t data_ps = 0;
@@ -432,7 +433,7 @@ k2 = %d; 1f1x = %4d;2f1x = %d  ",\
 	
     printf("HX300X   ...R10 = 0x%x,R11 = 0x%x,R12 = 0x%x,R13 = 0x%x,  ", Reg[0],
             Reg[1],Reg[2],Reg[3]);
-    printf("HX300X   ...data_ps Code = %4d, read_ps_k = %4d  ", data_ps,read_ps_k);//理论结构光
+     printf("HX300X   ...data_ps Code = %4d, read_ps_k = %4d  ", data_ps,read_ps_k);//理论结构光
     //printf("HX300X   ");
     cali_process |= CALI_STEP3;
 	
@@ -644,7 +645,7 @@ void hx300x_Set_cur(void)
 	}	
     TYHX_Write_REG(0x10, reg_10);       //Flash 保存的leddr
     TYHX_Write_REG(0x13, reg_13);  //Flash 保存的reg_13_new 	
-}
+	}
 
 void hx300x_Set_gain(void)
 {	
@@ -810,7 +811,7 @@ static void bsp_hx300x_callback(void *data)
 	*p_wear_status=1;
 		ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
 									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
-									 NULL, 500);
+									 NULL, 600);
 	}
 	else
 	{
@@ -818,13 +819,14 @@ static void bsp_hx300x_callback(void *data)
 	  	{ 
 		ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
 									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
-									 NULL, 500);
+									 NULL, factory_flag_for_irsenser ? 2000:600);
+									 factory_flag_for_irsenser=0;
 	   }
 	  else
 	    { // out ear
 		ui_shell_send_event(true, EVENT_PRIORITY_HIGNEST, EVENT_GROUP_UI_SHELL_APP_INTERACTION,
 									 APPS_EVENTS_INTERACTION_UPDATE_IN_EAR_STA_EFFECT, (void *)p_wear_status, sizeof(bool),
-									 NULL, 100);
+									 NULL, 600);
 
 	    }
 	}
