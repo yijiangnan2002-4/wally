@@ -2055,14 +2055,14 @@ bt_status_t bt_sink_srv_music_pause_remote_music(bt_sink_srv_music_device_t *dev
 {
     bt_status_t ret = BT_STATUS_SUCCESS;
 
-    if (BT_AVRCP_STATUS_PLAY_PLAYING == dev->avrcp_status) {
+    //if (BT_AVRCP_STATUS_PLAY_PLAYING == dev->avrcp_status) {
         if (bt_iot_device_white_list_check_iot_case((bt_bd_addr_t *)&dev->dev_addr, BT_IOT_MUSIC_SEND_AVRCP_FORCE_PAUSE)
             && dev->a2dp_status == BT_SINK_SRV_A2DP_STATUS_STREAMING) {
             ret = bt_sink_srv_avrcp_force_pause_music(dev);
         } else {
             ret = bt_sink_srv_avrcp_stop_music(dev);
         }
-    }
+    //}
     bt_sink_srv_report_id("[sink][music] pause_remote_music:0x%x, avrcp_status:0x%x, ret:0x%x", 3, dev, dev->avrcp_status, ret);
     return ret;
 }

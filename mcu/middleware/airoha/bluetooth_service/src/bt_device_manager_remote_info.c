@@ -568,7 +568,15 @@ static bt_status_t bt_device_manager_remote_non_flush_info_update(bt_bd_addr_t a
         memcpy(&(iot_info.version_info), &g_dm_remote_non_flush_list_cnt.item[find_index].version_info, sizeof(iot_info.version_info));
         memcpy(&(iot_info.pnp_info), &g_dm_remote_non_flush_list_cnt.item[find_index].pnp_info, sizeof(iot_info.pnp_info));
         iot_info.cod = g_dm_remote_non_flush_list_cnt.item[find_index].cod;
-        bt_device_manager_remote_update_iot_id(addr, bt_iot_device_white_list_get_iot_id(&iot_info));
+        
+        #if 0  // airoha for hugo203 le audio 一只耳機沒聲
+        uint32_t iot_case = bt_iot_device_white_list_get_iot_id(&iot_info);
+        if (0 != iot_case) {
+            bt_device_manager_remote_update_iot_id(addr, iot_case);
+        }
+        #else
+            bt_device_manager_remote_update_iot_id(addr, bt_iot_device_white_list_get_iot_id(&iot_info));
+        #endif
     }
     bt_device_manager_db_mutex_give();
     return BT_STATUS_SUCCESS;
