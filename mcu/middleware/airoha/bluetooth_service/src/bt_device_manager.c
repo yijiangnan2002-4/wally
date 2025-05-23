@@ -150,6 +150,8 @@ bool bt_device_manager_is_paired(bt_bd_addr_ptr_t address)
 
 bt_status_t bt_device_manager_delete_paired_device(bt_bd_addr_ptr_t address)
 {
+       bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info from bt_device_manager_delete_paired_device",0);
+
     return bt_device_manager_remote_delete_info((bt_bd_addr_t *)address, BT_DEVICE_MANAGER_REMOTE_INFO_MASK_PAIRED);
 }
 
@@ -172,6 +174,7 @@ void bt_device_manager_get_link_key_handler(bt_gap_link_key_notification_ind_t *
 
 bt_status_t bt_device_manager_unpair_all(void)
 {
+       bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info from bt_device_manager_unpair_all",0);
     return bt_device_manager_remote_delete_info(NULL, 0);
 }
 
@@ -203,6 +206,8 @@ bt_status_t bt_device_manager_gap_event_handler(bt_msg_type_t msg, bt_status_t s
                 memcpy(&(paired_info.paired_key), key_info, sizeof(bt_gap_link_key_notification_ind_t));
                 bt_device_manager_remote_update_paired_info(key_info->address, &paired_info);
             } else {
+                   bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info from bt_device_manager_gap_event_handler BT_GAP_LINK_KEY_NOTIFICATION_IND",0);
+    
                 bt_device_manager_remote_delete_info(&(key_info->address), BT_DEVICE_MANAGER_REMOTE_INFO_MASK_PAIRED);
             }
 #ifdef __BT_DEVICE_MANAGER_DEBUG_INFO__
@@ -223,6 +228,7 @@ bt_status_t bt_device_manager_gap_event_handler(bt_msg_type_t msg, bt_status_t s
                 }
             }
             if (BT_GAP_LINK_STATUS_DISCONNECTED == param->link_status && false == bt_device_manager_is_paired((void *)(param->address))) {
+                bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info from bt_device_manager_gap_event_handler BT_GAP_LINK_STATUS_UPDATED_IND",0);
                 bt_device_manager_remote_delete_info((void *)(param->address), 0);
             }
             break;

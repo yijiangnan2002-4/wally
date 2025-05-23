@@ -148,24 +148,36 @@ bt_status_t bt_device_manager_remote_delete_info(bt_bd_addr_t *addr, bt_device_m
 {
     bt_device_manager_db_remote_info_t *temp_remote = &g_bt_dm_remote_list_cnt[0];
     uint8_t clear_flag[BT_DEVICE_MANAGER_MAX_PAIR_NUM + 1] = {0};
-    bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info addr:0x%x, info mask %d", 2, (NULL == addr ? (uint32_t)addr : *(uint32_t *)addr), info_mask);
+    if(NULL == addr)
+    {
+       bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info NULL == addr",0);
+    }
+    bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info addr:0x%x, info 1 %d", 2, (NULL == addr ? (uint32_t)addr : *(uint32_t *)addr), info_mask);
     bt_device_manager_db_mutex_take();
     for (uint32_t index = 0; index < BT_DEVICE_MANAGER_MAX_PAIR_NUM; temp_remote++, index++) {
+        bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info g_bt_dm_remote_sequence[%d]=%d",2,index,g_bt_dm_remote_sequence[index]);
+
         if (!g_bt_dm_remote_sequence[index]) {
+            bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info continue continue...",0);
             continue;
         }
         if (NULL == addr || !memcmp(&(temp_remote->address), addr, sizeof(bt_bd_addr_t))) {
             if (info_mask == 0) {
                 temp_remote->info_valid_flag = 0;
+            bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info temp_remote->info_valid_flag = 0",0);
+
             } else {
                 temp_remote->info_valid_flag &= (~info_mask);
                 clear_flag[index + 1] = 1;
+                bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info ->info_valid_flag=0x%x,index=%d,clear_flag[index + 1] =%d",3,temp_remote->info_valid_flag,index,clear_flag[index + 1] );
             }
         } else {
+            bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info continue111 continue111...",0);
             continue;
         }
         if (0 == temp_remote->info_valid_flag) {
             for (uint8_t i = 0; i < BT_DEVICE_MANAGER_MAX_PAIR_NUM; i++) {
+                bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info g_bt_dm_remote_sequence[%d]=%d,g_bt_dm_remote_sequence[%d]=%d",4,i,g_bt_dm_remote_sequence[i],index,g_bt_dm_remote_sequence[index]);
                 if (g_bt_dm_remote_sequence[i] > g_bt_dm_remote_sequence[index]) {
                     g_bt_dm_remote_sequence[i]--;
                 }
@@ -187,9 +199,16 @@ bt_status_t bt_device_manager_remote_delete_info(bt_bd_addr_t *addr, bt_device_m
         bt_device_manager_remote_aws_sync_db(BT_DEVICE_MANAGER_DB_TYPE_REMOTE_SEQUENCE_INFO, true,
                                              sizeof(g_bt_dm_remote_sequence), (void *)g_bt_dm_remote_sequence);
 #endif
+            bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info (1 == clear_flag[0]),dbupdate and dbflush",0);
+
     }
     for (uint32_t index = 1; index < sizeof(clear_flag); index++) {
+        bt_dmgr_report_id("[BT_DM][REMOTE][I] delete device clear_flag[%d]:%d, clear_flag:%d, size_clear_flag:0x%x", 4,
+                                  index,clear_flag[index] ,clear_flag,sizeof(clear_flag));
+
         if (1 == clear_flag[index]) {
+            bt_dmgr_report_id("[BT_DM][REMOTE][I] Delete info (1 == clear_flag[%d]),dbupdate and dbflush",1,index);
+
             bt_device_manager_db_update(BT_DEVICE_MANAGER_DB_TYPE_REMOTE_DEVICE0_INFO + index - 1);
             bt_device_manager_db_flush(BT_DEVICE_MANAGER_DB_TYPE_REMOTE_DEVICE0_INFO + index - 1, BT_DEVICE_MANAGER_DB_FLUSH_NON_BLOCK);
 #ifdef MTK_AWS_MCE_ENABLE

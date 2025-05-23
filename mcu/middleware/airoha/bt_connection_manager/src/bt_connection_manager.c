@@ -431,7 +431,8 @@ static void         bt_cm_remote_acl_disconnected_confirm(bt_bd_addr_t address, 
     }
 
 #ifdef SUPPORT_ROLE_HANDOVER_SERVICE
-    if (BT_ROLE_HANDOVER_STATE_ONGOING != bt_role_handover_get_state())
+    if (BT_ROLE_HANDOVER_STATE_ONGOING != bt_role_handover_get_state()
+)
 #endif        
     {
         bt_cm_write_scan_mode_internal(BT_CM_COMMON_TYPE_UNKNOW, BT_CM_COMMON_TYPE_UNKNOW);
@@ -497,6 +498,8 @@ static void         bt_cm_remote_acl_disconnected_confirm(bt_bd_addr_t address, 
         }
     } else {
         if (BT_HCI_STATUS_PIN_OR_KEY_MISSING == status) {
+            bt_cmgr_report_id("[BT_DM][REMOTE][I] Delete info from bt_cm_remote_acl_disconnected_confirm ",0);
+
             bt_device_manager_remote_delete_info((void *)address, 0);
         }
         bt_cm_connection_state_update(NULL);
