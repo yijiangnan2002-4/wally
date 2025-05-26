@@ -498,9 +498,9 @@ static void         bt_cm_remote_acl_disconnected_confirm(bt_bd_addr_t address, 
         }
     } else {
         if (BT_HCI_STATUS_PIN_OR_KEY_MISSING == status) {
-            bt_cmgr_report_id("[BT_DM][REMOTE][I] Delete info from bt_cm_remote_acl_disconnected_confirm ",0);
+            //bt_cmgr_report_id("[BT_DM][REMOTE][I] Delete info from bt_cm_remote_acl_disconnected_confirm ",0);
 
-            bt_device_manager_remote_delete_info((void *)address, 0);
+            //bt_device_manager_remote_delete_info((void *)address, 0);  harry 0522
         }
         bt_cm_connection_state_update(NULL);
     }

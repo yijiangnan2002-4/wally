@@ -1259,6 +1259,8 @@ static void smchg_1wire_rx_handle(uint32_t user_data_len, void *user_data)
 			if (raceCmd[CMD_ID] == CASE_REVERSION)
 			{
 				raceEvt[DATA] = app_smcharger_get_state1();
+            SMCHG_LOG_MSGID_D("1wire, rx_handle, bt status raceEvt[DATA]=0x%x", 1,raceEvt[DATA]);
+    
 			}
 			else if (raceCmd[CMD_ID] == CASE_BT_CONNECTED)
 			{
