@@ -501,6 +501,8 @@ static void         bt_cm_remote_acl_disconnected_confirm(bt_bd_addr_t address, 
             //bt_cmgr_report_id("[BT_DM][REMOTE][I] Delete info from bt_cm_remote_acl_disconnected_confirm ",0);
 
             //bt_device_manager_remote_delete_info((void *)address, 0);  harry 0522
+            bt_cmgr_report_id("[BT_DM][REMOTE][I] harry remove Delete bt list info status=0x%x",1,status);
+
         }
         bt_cm_connection_state_update(NULL);
     }

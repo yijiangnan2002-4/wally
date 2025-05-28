@@ -99,7 +99,7 @@ void ble_csis_write_nvkey_sirk(bt_key_t *sirk)
         nvkey_status = nvkey_write_data(NVID_BT_LEA_CSIS_DATA, (uint8_t*)&data_nvkey, size);
     }
 
-    LE_AUDIO_MSGLOG_I("[CSIS] write NVKEY SIRK, status:%x, 0x%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x", 17, nvkey_status,
+    LE_AUDIO_MSGLOG_I("[CSIS] write NVKEY SIRK, harry0527 status:%x, 0x%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x", 17, nvkey_status,
         data_nvkey.sirk[0], data_nvkey.sirk[1], data_nvkey.sirk[2], data_nvkey.sirk[3],
         data_nvkey.sirk[4], data_nvkey.sirk[5], data_nvkey.sirk[6], data_nvkey.sirk[7],
         data_nvkey.sirk[8], data_nvkey.sirk[9], data_nvkey.sirk[10], data_nvkey.sirk[11],

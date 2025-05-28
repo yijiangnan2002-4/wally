@@ -191,7 +191,9 @@ void write_sirk_key_proc(void)
 	for(i=0;i<16;i++)
 		sirk_temp[i]=0x55;
 	sirk_temp[0]=sirk_key_data;
-	app_le_ull_write_nvkey_sirk(&sirk_temp);
+         
+    APPS_LOG_MSGID_I(LOG_TAG" write_sirk_key_proc, REMOVE sirk write 00555555... harry0527",0);  
+	//app_le_ull_write_nvkey_sirk(&sirk_temp);
 }
 
 extern uint8_t case_handle_command;

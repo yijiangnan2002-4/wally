@@ -229,6 +229,11 @@ void app_le_ull_write_nvkey_sirk(bt_key_t *sirk)
     if (NVKEY_STATUS_OK == nvkey_read_data(NVID_BT_LEA_CSIS_DATA, data, &size)) {
         memcpy(data, (uint8_t *)sirk, sizeof(bt_key_t));
         nvkey_write_data(NVID_BT_LEA_CSIS_DATA, data, size);
+        APPS_LOG_MSGID_I(LOG_TAG", app_le_ull_write_nvkey_sirk harry0527,  0x%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x", 16,
+        data[0], data[1], data[2], data[3],
+        data[4], data[5], data[6], data[7],
+        data[8], data[9], data[10], data[11],
+        data[12], data[13], data[14], data[15]);
     }
 }
 

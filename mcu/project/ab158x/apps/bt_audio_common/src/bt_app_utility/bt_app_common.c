@@ -2701,6 +2701,7 @@ static void bt_app_common_aws_data_received_ind_handler(bt_aws_mce_report_info_t
                 break;
 #ifdef AIR_LE_AUDIO_ENABLE
             case BT_APP_COMMON_EVENT_SYNC_SIRK: {
+                LOG_MSGID_I(BT_APP, "bt_app_common_aws_data_received_ind_handler harry0527 BT_APP_COMMON_EVENT_SYNC_SIRK 0x%x", 1, event_type);
                 bt_key_t sirk = {0};
                 memcpy(sirk, aws_data + 1, sizeof(bt_key_t));
                 ble_csis_set_sirk(sirk);
@@ -2808,11 +2809,16 @@ bool bt_app_common_cm_event_proc(uint32_t event_id, void *extra_data, size_t dat
 #endif
 #ifdef AIR_LE_AUDIO_ENABLE
                 {
-                    bt_key_t sirk = {0}, zero = {0};
+                    bt_key_t sirk = {0}, zero = {0},fixbugsirk={0x00,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55};
                     ble_csis_get_sirk(&sirk);
                     /* if SIRK is all zero, generate it */
-                    if (0 == memcmp(zero, sirk, sizeof(bt_key_t))) {
+                    if(0 == memcmp(fixbugsirk, sirk, sizeof(bt_key_t)))
+                    {
+                        LOG_MSGID_I(BT_APP, "App_pre_pro sirk=0x555555555,rewrite random harry0527 ", 0);
+                    }
+                    if ((0 == memcmp(zero, sirk, sizeof(bt_key_t)))||(0 == memcmp(fixbugsirk, sirk, sizeof(bt_key_t)))) {
                         bt_app_common_generate_random_key((uint8_t *)sirk, sizeof(bt_key_t));
+                        LOG_MSGID_I(BT_APP, "App_pre_pro bt_app_common_generate_random_key harry0527 ", 0);
                         ble_csis_set_sirk(sirk);
                         ble_csis_write_nvkey_sirk(&sirk);
                     }
