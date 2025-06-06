@@ -46,9 +46,11 @@
 #include "race_port_bt.h"
 #endif /* MTK_IAP2_VIA_MUX_ENABLE */
 
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 #include "bt_ull_audeara.h"
 
 extern void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length);
+#endif
 #ifdef AIR_HEARTHROUGH_MAIN_ENABLE
 
 #define APP_HEAR_THROUGH_RACE_CMD_HANDLER_TAG        "[HearThrough][RACE_CMD_HANDLER]"
@@ -93,11 +95,12 @@ void app_hear_through_send_command(uint8_t race_type, hear_through_response_t *c
     if ((data != NULL) && (data_len != 0)) {
         memcpy(response->payload, data, data_len);
     }
-
+    #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
     if(race_type == RACE_TYPE_RESPONSE)
     {
         Audeara_BT_send_data_proc(0x80, (uint8_t*)response_packet, cmd_len);
     }
+    #endif
     race_flush_packet(response_packet, app_hear_through_race_cmd_context.channel_id);
 }
 

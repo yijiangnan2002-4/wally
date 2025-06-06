@@ -481,7 +481,8 @@ bt_fast_pair_status_t bt_fast_pair_app_event_callback(bt_fast_pair_app_event_t e
  * @param[in]  user_data, The same user_data input in race_event_register().
  * @return RACE_ERRCODE_SUCCESS succeed; otherwise, fail.
  */
-#if 1	// richard for customer UI spec.(send data)
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+	// richard for customer UI spec.(send data)
 extern uint8_t ab1585h_command_no;
 extern uint8_t ab1585h_command_data;
 extern void BT_send_data_proc(void);
@@ -490,7 +491,8 @@ static RACE_ERRCODE bt_race_fota_app_event_callback(race_event_type_enum event_t
 {
     APPS_LOG_MSGID_I("[UI_SHELL], FOTA_APP_event_callback :%x", 1, param);
 
-#if 1	// richard for customer UI spec.(send data)
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+	// richard for customer UI spec.(send data)
 	if(event_type==RACE_EVENT_TYPE_FOTA_START)
 	{
 		ab1585h_command_no=1;

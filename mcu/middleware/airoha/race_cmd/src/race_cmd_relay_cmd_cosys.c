@@ -47,8 +47,9 @@
 #include "race_cmd_co_sys.h"
 #include "race_cmd_relay_cmd.h"
 
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 #include "bt_ull_audeara.h"
-
+#endif
 typedef struct {
     uint8_t channel_id;
     uint8_t relay_type;
@@ -167,7 +168,9 @@ static void race_cmd_relay_rsp_hdlr(race_pkt_t *pMsg, uint8_t channel)
 
             size = pSndPkt->length;
             ptr = (uint8_t *)&pSndPkt->race_data;
+            #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
             Audeara_BT_send_data_proc(0x04, ptr, size);
+            #endif
             size -= ret_size;
             ptr += ret_size;
             while (size > 0) {
@@ -203,7 +206,9 @@ static void race_cmd_relay_rsp_internal_hdlr(race_pkt_t *pMsg, uint8_t channel)
     }
 
     memcpy(rsp, pMsg->payload, pMsg->hdr.length - 2);
+            #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
     Audeara_BT_send_data_proc(0x04, pMsg->payload, pMsg->hdr.length - 2);
+    #endif
     ret = race_flush_packet(rsp, channel);
     RACE_LOG_MSGID_I("[relay_cmd] agent flush relay rsp internal ret %d", 1, ret);
 }

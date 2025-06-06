@@ -127,6 +127,9 @@
 #include "app_psensor_px31bf_activity.h"
 #include "app_smcharger_utils.h"
 
+#include "bt_device_manager.h"
+#include "bt_device_manager_internal.h"
+
 #ifdef MTK_AWS_MCE_ENABLE
 extern uint8_t at_config_adv_flag;
 extern bt_status_t bt_app_common_advtising_stop(void);
@@ -527,7 +530,8 @@ static atci_status_t bt_app_comm_at_cmd_check_eastech(atci_parse_cmd_param_t *pa
 	  else if(var_list[0][0]=='4')
 	  {
     		log_hal_msgid_info("bt_app_comm_at_cmd_check_eastech val=4 test key_oceanvp_up_proc(); ",0);
-		key_oceanvp_up_proc();
+		       // bt_cm_write_scan_mode(BT_CM_COMMON_TYPE_DISABLE, BT_CM_COMMON_TYPE_DISABLE);
+
 
 	  }	  
 	  else if(var_list[0][0]=='0')

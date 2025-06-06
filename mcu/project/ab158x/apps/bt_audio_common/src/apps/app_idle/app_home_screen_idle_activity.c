@@ -494,12 +494,16 @@ static void app_home_screen_disable_anc_when_howling(ui_shell_activity_t *self)
 #if 1	// richard for UI spec.
 extern uint8_t get_current_ha_mode(void);
 extern uint8_t anc_ha_flag;
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 extern uint8_t ab1585h_command_no;
 extern uint8_t ab1585h_command_data;
 extern void BT_send_data_proc(void);
+#endif
 extern void key_anc_ha_display_proc(void);
 void anc_ha_mode_disp_proc(void)
 {
+    #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+
 	ab1585h_command_no=5;	// 5: anc ha mode
 	if(anc_ha_flag)
 	{
@@ -510,13 +514,17 @@ void anc_ha_mode_disp_proc(void)
 	APPS_LOG_MSGID_I("richard for anc ha mode =%d anc_ha_flag=%d", 2, ab1585h_command_data, anc_ha_flag);
 	
 	BT_send_data_proc();
+    #endif
 }
 void bt_name_bynfc_disp_proc(uint8_t i)
 {
+    #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+
 	ab1585h_command_no=6;	//bt_name set			// 60;Audeara Buds ,  66;Clinico Sound Buds,
  	ab1585h_command_data=i;
 	APPS_LOG_MSGID_I("bt_name_bynfc_disp_proc ab1585h_command_no=%d ab1585h_command_data=%d", 2, ab1585h_command_data, ab1585h_command_data);
 	BT_send_data_proc();
+    #endif
 }
 #endif
  void app_home_screen_process_anc_and_hamode_cycle(void)
@@ -1360,9 +1368,11 @@ static bool _proc_key_event_group(ui_shell_activity_t *self,
 #endif
             break;
 		case KEY_SEND_ADDRESS:			// richard for send address to ab1571d
+        #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 			ab1585h_command_no=4;	// 4: bt address
 			ab1585h_command_data=0;
 			BT_send_data_proc();
+            #endif
 			ret=true;
 			break;
 		case KEY_WRITE_SIRK_KEY:
@@ -2228,8 +2238,6 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
             break;
         }
         case APPS_EVENTS_INTERACTION_FACTORY_RESET_REQUEST: {
-            AudearaFactoryResetNVKEYPatch();
-            AudearaFactoryResetDefaultDeviceNamePatch(); // Restore device names to default
             uint32_t action_after_factory_reset;
             APPS_LOG_MSGID_I(UI_SHELL_IDLE_BT_CONN_ACTIVITY", Receive factory reset request, is_doing:%d", 1, s_factory_reset_doing);
 #ifdef AIR_APP_MULTI_VA
@@ -2246,6 +2254,8 @@ static bool _app_interaction_event_proc(ui_shell_activity_t *self, uint32_t even
                 break;
             }
             s_factory_reset_doing = true;
+            AudearaFactoryResetNVKEYPatch();
+            AudearaFactoryResetDefaultDeviceNamePatch(); // Restore device names to default
 
             if (s_factory_reset_key_action == KEY_FACTORY_RESET) {
                 action_after_factory_reset = APPS_EVENTS_INTERACTION_REQUEST_REBOOT;

@@ -106,9 +106,10 @@ static void race_cmd_ctrl_deinit(race_cmd_ctrl_t *relay_cmd_ctrl)
     relay_cmd_ctrl->total_pkt = 0;
     relay_cmd_ctrl->pre_pkt = 0;
 }
+            #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 
 extern void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length);
-
+#endif
 #ifdef MTK_MUX_AWS_MCE_ENABLE
 typedef struct {
     bt_aws_mce_report_packet_header_t header; /**<  The header of the AWS MCE packet. */
@@ -359,7 +360,9 @@ static void bt_aws_mce_report_relay_cmd_callback(bt_aws_mce_report_info_t *info)
                 }
                 if(relay_ctrl->buffer[1] == 0x5B) // Make sure its a response
                 {
-                     Audeara_BT_send_data_proc(0x04, relay_ctrl->buffer, relay_ctrl->offset);
+                    #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+                    Audeara_BT_send_data_proc(0x04, relay_ctrl->buffer, relay_ctrl->offset);
+                    #endif
                 }
                 race_mem_free(relay_ctrl->buffer);
                 race_cmd_ctrl_deinit(relay_ctrl);
@@ -380,7 +383,9 @@ void audeara_race_cmd_relay_handler(uint8_t* pMsg, uint8_t channel)
         //Audeara_BT_send_data_proc(0x04, &pEvt->race_data, pEvt->length);
         if (ret != BT_STATUS_SUCCESS) {
             uint8_t buffer[2] = {0xAA, 0xFF};
-            Audeara_BT_send_data_proc(0x04, buffer, 2);
+                #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+        Audeara_BT_send_data_proc(0x04, buffer, 2);
+        #endif
             //RACE_LOG_MSGID_I("[relay_cmd] partner send relay req FAIL \n", 0);
         } else {
             peq_relay_dbg.send_idx++;
@@ -412,7 +417,9 @@ void race_cmd_relay_rsp_process(race_pkt_t *pMsg, void *rsp, uint8_t channel)
         ret = race_flush_packet((void *)rsp, channel);
         if (ret != RACE_STATUS_OK) {
              uint8_t buffer[2] = {0xCC, 0xFF};
-            Audeara_BT_send_data_proc(0x04, buffer, 2);
+                 #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+       Audeara_BT_send_data_proc(0x04, buffer, 2);
+       #endif
             //RACE_LOG_MSGID_E("[relay_cmd] agent flush relay rsp FAIL \n", 0);
         }
     } else {
@@ -425,7 +432,9 @@ void race_cmd_relay_rsp_process(race_pkt_t *pMsg, void *rsp, uint8_t channel)
 
         size = pSndPkt->length;
         ptr = (uint8_t *)&pSndPkt->race_data;
-        Audeara_BT_send_data_proc(0x04, ptr, size);
+             #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
+       Audeara_BT_send_data_proc(0x04, ptr, size);
+       #endif
         size -= ret_size;
         ptr += ret_size;
         while (size > 0) {

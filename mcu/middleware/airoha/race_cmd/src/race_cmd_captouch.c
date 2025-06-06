@@ -55,7 +55,9 @@
 #include "race_cmd_captouch.h"
 #include "timers.h"
 
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 #include "bt_ull_audeara.h"
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////

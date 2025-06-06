@@ -389,6 +389,7 @@ static void race_handle_input_data(race_general_msg_t *p_msg)
     race_mem_free(race_pkt);
     race_mem_free(p_msg->msg_data);
 }
+            #ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 
 // Audeara race passthrough patch
 extern void Audeara_BT_send_data_proc(uint8_t frame, uint8_t * data, uint16_t length);
@@ -422,6 +423,7 @@ void audeara_race_cmd_local_handler(race_port_t port, uint8_t *race_pkt, uint8_t
     
 }
 // end audeara race patch
+#endif
 
 void audeara_race_handle_input_data(race_general_msg_t *p_msg, uint8_t frame)
 {

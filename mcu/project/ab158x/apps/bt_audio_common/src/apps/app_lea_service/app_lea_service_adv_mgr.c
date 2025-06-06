@@ -346,7 +346,9 @@ static uint32_t app_lea_adv_mgr_get_adv_data_internal(bool want_lea_targeted_fla
     if ((NULL != adv_data->adv_data) && (NULL != adv_data->adv_data->data)) {
         uint8_t len = 0;
         bool need_flag = TRUE;
-        bool discoverable = (app_lea_adv_mode == APP_LEA_ADV_MODE_GENERAL);// app_bt_service_is_visible();
+        // bool discoverable = (app_lea_adv_mode == APP_LEA_ADV_MODE_GENERAL);// app_bt_service_is_visible();
+                bool discoverable = app_bt_service_is_visible();  // jira207
+
 #if defined(AIR_LE_AUDIO_ENABLE) || defined(AIR_BLE_ULTRA_LOW_LATENCY_ENABLE)
         uint8_t rsi[APP_LE_AUDIO_RSI_LENGTH] = {0};
 #endif

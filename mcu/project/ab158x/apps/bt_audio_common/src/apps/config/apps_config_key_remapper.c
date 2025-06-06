@@ -348,9 +348,11 @@ static apps_config_serialized_event_t apps_config_key_remap_key_ev_to_serialized
 #endif
 
 #if 1	// richard for UI spec.
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 extern uint8_t ab1585h_command_no;
 extern uint8_t ab1585h_command_data;
 extern void BT_send_data_proc(void);
+#endif
 extern uint8_t app_bt_connected_number(void);
 #endif
 apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state(uint8_t key_id,
@@ -504,7 +506,7 @@ void apps_config_key_set_mmi_state(apps_config_state_t state)
 #if 1	// richard for customer UI spec.(BT send data)
 	uint8_t bt_connected_number=app_bt_connected_number();
 	APPS_LOG_MSGID_I(LOG_TAG" apps_config_key_set_mmi_state = %d connected num = %d", 2, s_mmi_state, bt_connected_number);
-
+#ifdef AIR_BLE_ULTRA_LOW_LATENCY_ENABLE
 	ab1585h_command_no=0;		// 0: BT status
 	ab1585h_command_data=s_mmi_state;
 	BT_send_data_proc();
@@ -514,6 +516,7 @@ void apps_config_key_set_mmi_state(apps_config_state_t state)
 		ab1585h_command_data=bt_connected_number;
 		BT_send_data_proc();
 	}
+#endif
 #endif	
 }
 

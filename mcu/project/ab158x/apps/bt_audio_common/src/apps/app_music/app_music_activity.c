@@ -303,8 +303,9 @@ static bool app_music_proc_apps_internal_events(ui_shell_activity_t *self,
                 if (app_music_get_ull_is_streaming()) {
                   APPS_LOG_MSGID_I(APP_MUSIC_ACTI"app_music_get_ull_is_streaming=1 harry", 0);
                     break;
-                } else{
+                } else
 #endif
+                {
                     APPS_LOG_MSGID_I(APP_MUSIC_ACTI"app_music_get_ull_is_streaming=0 harry", 0);
                     ret = app_music_check_and_end_music(self, extra_data);
                   }
