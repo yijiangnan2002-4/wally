@@ -255,7 +255,7 @@ static void set_configurable_table_state_for_ptt(uint32_t i)
                                                | (1 << APP_HFP_TWC_OUTGOING) | (1 << APP_HFP_MULTIPARTY_CALL) | (1 << APP_A2DP_PLAYING) | (1 << APP_STATE_HELD_ACTIVE)
                                                | (1 << APP_STATE_FIND_ME) | (1 << APP_ULTRA_LOW_LATENCY_PLAYING) | (1 << APP_WIRED_MUSIC_PLAY)
                                                | (1 << APP_LE_AUDIO_BIS_PLAYING) | (1 << APP_STATE_VA);
-    APPS_LOG_MSGID_I(LOG_TAG"apps_config_key_remaper_init set status=0x%x for key event=0x%x", 2,
+    APPS_LOG_MSGID_I(LOG_TAG"set_configurable_table_state_for_ptt set status=0x%x for key event=0x%x", 2,
                      s_configurable_table[i].supported_states, s_configurable_table[i].app_key_event);
 }
 
@@ -368,7 +368,15 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
     audio_channel_t channel = 0;
 #if (defined MTK_AWS_MCE_ENABLE) && !(defined AIR_SPEAKER_ENABLE)
     channel = ami_get_audio_channel();
-     APPS_LOG_MSGID_I(LOG_TAG"Current used CHANEL=%d,",1,channel);
+    if (AUDIO_CHANNEL_L == channel)
+    {
+        APPS_LOG_MSGID_I(LOG_TAG "Current EARBUD  CHANEL==LEFT,", 0);
+    }
+    else if ((AUDIO_CHANNEL_R == channel))
+    {
+        APPS_LOG_MSGID_I(LOG_TAG "Current EARBUD  CHANEL==RIGHT,", 0);
+    }
+
 #endif
 
     serialized_event_id = apps_config_key_remap_key_ev_to_serialized_event(key_event);
@@ -394,20 +402,7 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
                 if (serialized_event_id == s_configurable_table[i].key_event
                     && key_id == s_configurable_table[i].key_id
                     && ((1 << temp_mmi_state) & s_configurable_table[i].supported_states)) {
-                    action_id = s_configurable_table[i].app_key_event;
-                    if(action_id==KEY_HEARING_AID_VOLUME_UP)
-                    {
-                        if (AUDIO_CHANNEL_L == channel) 
-                        {
-                            action_id=KEY_HEARING_AID_VOLUME_DOWN;
-                            APPS_LOG_MSGID_I(LOG_TAG"Current used CHANEL==LEFT,",0);
-                        }
-                        else if((AUDIO_CHANNEL_R == channel)) 
-                        {
-                            APPS_LOG_MSGID_I(LOG_TAG"Current used CHANEL==RIGHT,",0);
-                        }
-                    }
-                    
+                    action_id = s_configurable_table[i].app_key_event;                    
                     APPS_LOG_MSGID_I(LOG_TAG"Current used key_id from configuration_table = 0x%x, key_event = 0x%x, state = %d, action_id = 0x%x, channel = %d", 5, key_id, key_event, temp_mmi_state, action_id, channel);
                     return action_id;
                 }
@@ -424,14 +419,14 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
             /* Use the default(right side) mapping tables */
             mapped_list = &s_map_list[serialized_event_id];
         }
-        /* For debug log
+       // /* For debug log
         APPS_LOG_MSGID_I(LOG_TAG"Current used key map [%d]", 1, serialized_event_id);
         for (j = 0; j < s_map_list[serialized_event_id].map_size; j++) {
             APPS_LOG_MSGID_I(LOG_TAG"%d, key_id = %x,  app_key_event = %x, states = %x", 4, j, s_map_list[serialized_event_id].key_map[j].key_id,
             s_map_list[serialized_event_id].key_map[j].app_key_event,
             s_map_list[serialized_event_id].key_map[j].supported_states);
         }
-        */
+        //*/
 
         for (i = 0; i < mapped_list->map_size && mapped_list->key_map; i++) {
             if (key_id == mapped_list->key_map[i].key_id
@@ -445,38 +440,13 @@ apps_config_key_action_t apps_config_key_event_remapper_map_action_in_temp_state
     APPS_LOG_MSGID_I(LOG_TAG"Current used key_id = 0x%x, key_event = 0x%x, state = %d, action_id = 0x%x, channel = %d", 5, key_id, key_event, temp_mmi_state, action_id, channel);
 #endif
 
-#if 0	// richard for test
-	if(key_id==DEVICE_KEY_POWER)
-	{
-		if(key_event==AIRO_KEY_DOUBLE_CLICK)
-		{
-		}
-		ab1585h_command_no=2;
-		ab1585h_command_data=key_event;
-		BT_send_data_proc();
-	}
-#endif
-
-    if(action_id==KEY_HEARING_AID_VOLUME_UP)
-    {
-        if (AUDIO_CHANNEL_L == channel) 
-        {
-            action_id=KEY_HEARING_AID_VOLUME_DOWN;
-            APPS_LOG_MSGID_I(LOG_TAG"Current used 11 CHANEL==LEFT,",0);
-        }
-        else if((AUDIO_CHANNEL_R == channel)) 
-        {
-            APPS_LOG_MSGID_I(LOG_TAG"Current used 11 CHANEL==RIGHT,",0);
-        }
-    }
-
     if(action_id==KEY_HEARING_AID_MODE_UP_CIRCULAR){
         bool enable = app_hearing_aid_utils_is_ha_user_switch_on();
         APPS_LOG_MSGID_I(LOG_TAG"Current used action_id=AID_MODE_UP_CIRCULAR ha_switch=%d,anc_enabled=%d,anc_service_is=%d,is_suspended=%d",4,enable,app_anc_service_is_enable(),app_anc_service_is_anc_enabled(),app_anc_service_is_suspended());
         if(enable== false){
-            action_id=KEY_SWITCH_ANC_AND_PASSTHROUGH;
+        action_id=KEY_SWITCH_ANC_AND_PASSTHROUGH;
+        APPS_LOG_MSGID_I(LOG_TAG"Current used AID_MODE_UP_CIRCULAR switch to KEY_SWITCH_ANC_AND_PASSTHROUGH",0);
         }
-
     }
     return action_id;
 }
@@ -655,7 +625,7 @@ void apps_config_key_remaper_init_configurable_table(void)
     uint32_t i;
     nvkey_status_t ret = nvkey_data_item_length(NVID_APP_CUSTOMER_KEY_CFG, &size);
 
-    APPS_LOG_MSGID_I(LOG_TAG"apps_config_key_remaper_init_configurable_table", 0);
+    APPS_LOG_MSGID_I(LOG_TAG"apps_config_key_remaper_init_configurable_table ret=%d,size=%d", 2,ret,size);
     if (NVKEY_STATUS_ITEM_NOT_FOUND == ret || size < sizeof(apps_config_configurable_table_t)) {
         /* When read nvkey failed, intialize configurable table from hardcode. */
         _init_default_configurable_table();
@@ -860,6 +830,7 @@ void apps_config_key_remapper_set_configurable_key_table(const apps_config_confi
 }
 
 #ifdef MULTI_VA_SUPPORT_COMPETITION
+errrrrrrrrrrrrrrrrrrrrrrrrrrrr
 void apps_config_key_remapper_set_va_type(multi_va_type_t old_va_type,  multi_va_type_t new_va_type)
 {
     const apps_config_configurable_table_t *target_table = NULL;
